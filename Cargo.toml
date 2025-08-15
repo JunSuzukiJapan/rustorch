@@ -1,0 +1,49 @@
+[package]
+name = "rustorch"
+version = "0.1.0"
+edition = "2021"
+description = "A PyTorch-compatible deep learning library in Rust"
+repository = "https://github.com/yourusername/rustorch"
+license = "MIT OR Apache-2.0"
+keywords = ["pytorch", "machine-learning", "tensor", "autograd"]
+categories = ["science", "machine-learning"]
+
+[lib]
+name = "rustorch"
+path = "src/lib.rs"
+
+[dependencies]
+# Core dependencies
+ndarray = { version = "0.15", features = ["rayon", "serde"] }
+ndarray-rand = "0.14"
+rand = "0.8"
+rand_distr = "0.4"
+num-traits = "0.2"
+num-complex = "0.4"
+num-derive = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Parallel processing
+rayon = "1.5"
+parking_lot = "0.12"  # For thread-safe locks
+
+# Math and utilities
+itertools = "0.10"  # For advanced iteration utilities
+
+# For GPU support (optional)
+#[target.'cfg(any(target_os = "cuda"))'.dependencies]
+#cudarc = { version = "0.1", features = ["driver"] }
+
+[dev-dependencies]
+# Testing
+approx = "0.5"
+rstest = "0.13"
+
+[features]
+default = ["cpu"]
+cpu = []
+# Enable CUDA support
+#cuda = ["cudarc"]

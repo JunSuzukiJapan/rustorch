@@ -1,0 +1,100 @@
+//! Neural network module definitions.
+//! ニューラルネットワークモジュールの定義
+
+pub mod linear;
+
+use crate::autograd::Variable;
+use num_traits::Float;
+use std::any::Any;
+use std::fmt::Debug;
+use std::marker::{Send, Sync};
+use std::sync::Arc;
+
+/// A trait for neural network modules.
+/// ニューラルネットワークモジュールのトレイト
+pub trait Module<T>: Send + Sync + Debug 
+where
+    T: Float + 'static + Send + Sync,
+{
+    /// Performs the forward pass of the module.
+    /// モジュールの順伝搬を実行します。
+    fn forward(&self, input: &Variable<T>) -> Variable<T>;
+    
+    /// Returns a reference to the module's parameters.
+    /// モジュールのパラメータへの参照を返します。
+    fn parameters(&self) -> Vec<Variable<T>>;
+    
+    /// Returns a reference to the module as `&dyn Any` for downcasting.
+    /// ダウンキャストのための`&dyn Any`としてのモジュールへの参照を返します。
+    fn as_any(&self) -> &dyn Any;
+}
+
+/// A sequential container for modules.
+/// モジュールを順番に適用するコンテナ
+#[derive(Debug, Default)]
+pub struct Sequential<T> {
+    modules: Vec<Box<dyn Module<T>>>,
+}
+
+impl<T: 'static + Send + Sync> Sequential<T> {
+    /// Creates a new empty sequential container.
+    /// 空のシーケンシャルコンテナを作成します。
+    pub fn new() -> Self {
+        Sequential { modules: Vec::new() }
+    }
+    
+    /// Adds a module to the container.
+    /// モジュールをコンテナに追加します。
+    pub fn add_module<M: Module<T> + 'static>(&mut self, module: M) -> &mut Self {
+        self.modules.push(Box::new(module));
+        self
+    }
+    
+    /// Returns a reference to the module at the given index.
+    /// 指定されたインデックスのモジュールへの参照を返します。
+    pub fn get_module(&self, index: usize) -> Option<&dyn Module<T>> {
+        self.modules.get(index).map(|m| &**m)
+    }
+    
+    /// Returns the number of modules in the container.
+    /// コンテナ内のモジュールの数を返します。
+    pub fn len(&self) -> usize {
+        self.modules.len()
+    }
+    
+    /// Returns `true` if the container is empty.
+    /// コンテナが空の場合は`true`を返します。
+    pub fn is_empty(&self) -> bool {
+        self.modules.is_empty()
+    }
+}
+
+impl<T> Module<T> for Sequential<T> 
+where
+    T: Float + 'static + Send + Sync + Debug,
+{
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        let mut x = input.clone();
+        for module in &self.modules {
+            x = module.forward(&x);
+        }
+        x
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        let mut params = Vec::new();
+        for module in &self.modules {
+            params.extend(module.parameters());
+        }
+        params
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+// Re-export the Linear module
+/// Linear (fully connected) layer
+/// 線形（全結合）レイヤー
+pub use linear::Linear;

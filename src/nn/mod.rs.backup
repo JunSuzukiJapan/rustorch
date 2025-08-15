@@ -1,0 +1,807 @@
+//! Neural network modules and utilities
+
+use std::any::Any;
+use std::fmt;
+use std::marker::PhantomData;
+use std::sync::{Arc, RwLock};
+use std::ops::{AddAssign, DivAssign, MulAssign, RemAssign, SubAssign};
+use std::ops::Deref;
+use ndarray::ArrayD;
+use serde::{
+    de::DeserializeOwned,
+    ser::SerializeStruct,
+    Deserialize, Serialize,
+};
+
+// ndarray imports are used in method implementations
+use num_traits::{Float, FromPrimitive, NumAssignOps};
+use rand::Rng;
+use rand_distr::Normal;
+
+use crate::autograd::Variable;
+use crate::tensor::Tensor;
+
+/// Base trait for all neural network modules.
+/// ニューラルネットワークモジュールの基本トレイト
+///
+/// # Examples / 使用例
+/// ```rust
+/// use rustorch::nn::Module;
+/// use rustorch::tensor::Tensor;
+/// use rustorch::variable::Variable;
+///
+/// struct MyModel {
+///     weight: Variable<f32>,
+/// }
+///
+/// impl Module<f32> for MyModel {
+///     fn forward(&self, input: &Variable<f32>) -> Variable<f32> {
+///         // Forward pass implementation
+///         input * &self.weight
+///     }
+///     
+///     // Other required methods...
+///     fn as_any(&self) -> &dyn std::any::Any { self }
+///     
+///     fn parameters(&self) -> Vec<&Variable<f32>> {
+///         vec![&self.weight]
+///     }
+///     
+///     fn parameters_mut(&mut self) -> Vec<&mut Variable<f32>> {
+///         vec![&mut self.weight]
+///     }
+/// }
+/// ```
+pub trait Module<T>: fmt::Debug + Send + Sync 
+where
+    T: Float 
+        + FromPrimitive 
+        + std::fmt::Debug 
+        + 'static 
+        + Send 
+        + Sync 
+        + ndarray::ScalarOperand
+        + NumAssignOps
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
+        + RemAssign,
+{
+    /// Performs the forward pass of the module.
+    /// モジュールのフォワードパスを実行します。
+    /// 
+    /// # Arguments / 引数
+    /// * `input` - Input variable / 入力変数
+    /// 
+    /// # Returns / 戻り値
+    /// Output variable after applying the module's transformation
+    /// モジュールの変換を適用した後の出力変数
+    /// 
+    /// # Example / 使用例
+    /// ```rust
+    /// # use rustorch::nn::Module;
+    /// # use rustorch::variable::Variable;
+    /// # use rustorch::tensor::Tensor;
+    /// # let input = Variable::new(Tensor::ones(&[2, 3]), true);
+    /// # struct MyModel;
+    /// # impl Module<f32> for MyModel {
+    /// #   fn forward(&self, x: &Variable<f32>) -> Variable<f32> { x.clone() }
+    /// #   fn as_any(&self) -> &dyn std::any::Any { self }
+    /// # }
+    /// let mut model = MyModel;
+    /// let output = model.forward(&input);
+    /// ```
+    fn forward(&mut self, input: &Variable<T>) -> Variable<T>;
+    
+    /// Returns a vector of references to all trainable parameters in the module.
+    /// モジュール内のすべての学習可能なパラメータへの参照のベクターを返します。
+    /// 
+    /// # Returns / 戻り値
+    /// Vector of references to trainable parameters
+    /// 学習可能なパラメータへの参照のベクター
+    /// 
+    /// # Note / 注意
+    /// This should include all parameters that should be updated during training.
+    /// トレーニング中に更新されるべきすべてのパラメータを含める必要があります。
+    fn parameters(&self) -> Vec<&Variable<T>> {
+        vec![]
+    }
+    
+    /// Returns a vector of mutable references to all trainable parameters in the module.
+    /// モジュール内のすべての学習可能なパラメータへの可変参照のベクターを返します。
+    /// 
+    /// # Returns / 戻り値
+    /// Vector of mutable references to trainable parameters
+    /// 学習可能なパラメータへの可変参照のベクター
+    fn parameters_mut(&mut self) -> Vec<&mut Variable<T>> {
+        vec![]
+    }
+    
+    /// Sets whether the module is in training mode.
+    /// モジュールをトレーニングモードに設定します。
+    /// 
+    /// # Arguments / 引数
+    /// * `mode` - Whether to set training mode (true) or evaluation mode (false)
+    ///            true: トレーニングモード, false: 評価モード
+    /// 
+    /// # Note / 注意
+    /// Some modules may behave differently during training and evaluation
+    /// (e.g., Dropout, BatchNorm).
+    /// 一部のモジュール（DropoutやBatchNormなど）はトレーニング時と評価時で動作が異なります。
+    fn train(&mut self, _mode: bool) {}
+    
+    /// Returns whether the module is in training mode.
+    /// モジュールがトレーニングモードかどうかを返します。
+    /// 
+    /// # Returns / 戻り値
+    /// `true` if in training mode, `false` otherwise
+    /// トレーニングモードの場合は`true`、そうでない場合は`false`
+    fn is_training(&self) -> bool {
+        false
+    }
+    
+    /// Returns a reference to the Any trait for downcasting.
+    /// ダウンキャストのためのAnyトレイトへの参照を返します。
+    /// 
+    /// # Returns / 戻り値
+    /// Reference to Any trait
+    /// Anyトレイトへの参照
+    /// 
+    /// # Example / 使用例
+    /// ```rust
+    /// # use std::any::Any;
+    /// # use rustorch::nn::Module;
+    /// # let model = rustorch::nn::Linear::new(10, 5);
+    /// if let Some(linear) = model.as_any().downcast_ref::<rustorch::nn::Linear<f32>>() {
+    ///     // Downcast successful
+    ///     println!("This is a Linear layer");
+    /// }
+    /// ```
+    fn as_any(&self) -> &dyn Any;
+}
+
+
+/// A linear (fully connected) layer.
+/// 
+/// This layer applies a linear transformation to the incoming data: `y = xA^T + b`
+#[derive(Debug)]
+pub struct Linear<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync 
+        + ndarray::ScalarOperand + NumAssignOps
+        + AddAssign + SubAssign + MulAssign + DivAssign + RemAssign,
+{
+    /// The weight parameter of the linear layer
+    pub weight: Variable<T>,
+    /// The optional bias parameter of the linear layer
+    pub bias: Option<Variable<T>>,
+    /// Input size (number of features)
+    input_size: usize,
+    /// Output size (number of output features)
+    output_size: usize,
+    /// Whether the model is in training mode
+    training: bool,
+    /// Input variable reference (stored for backward pass)
+    input: Option<Arc<RwLock<Variable<T>>>>,
+}
+
+impl<T> Linear<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync 
+        + ndarray::ScalarOperand + NumAssignOps + std::fmt::Display
+        + AddAssign + SubAssign + MulAssign + DivAssign + RemAssign,
+{
+    /// Creates a new `Linear` layer with random initialization.
+    /// 新しい`Linear`レイヤーをランダムな初期値で作成します。
+    ///
+    /// # Arguments / 引数
+    /// * `in_features` - Size of each input sample / 各入力サンプルのサイズ
+    /// * `out_features` - Size of each output sample / 各出力サンプルのサイズ
+    ///
+    /// # Returns / 戻り値
+    /// A new instance of `Linear` with He initialization
+    /// Heの初期化が適用された新しい`Linear`インスタンス
+    ///
+    /// # Note / 注意
+    /// - Weights are initialized using He initialization (normal distribution with std = 1/sqrt(in_features))
+    /// - Bias is initialized to zeros
+    /// - 重みはHeの初期化（標準偏差 = 1/√(入力特徴量数) の正規分布）で初期化されます
+    /// - バイアスは0で初期化されます
+    ///
+    /// # Panics / パニック
+    /// Panics if `in_features` or `out_features` is zero.
+    /// `in_features`または`out_features`が0の場合にパニックします。
+    pub fn new(in_features: usize, out_features: usize) -> Self {
+        assert!(in_features > 0, "in_features must be greater than 0");
+        assert!(out_features > 0, "out_features must be greater than 0");
+
+        // He initialization for weights
+        let std = (T::from_f64(2.0).unwrap() / T::from_usize(in_features).unwrap()).sqrt();
+        let normal = Normal::new(0.0, std.to_f64().unwrap()).unwrap();
+        let mut rng = rand::thread_rng();
+
+        // Initialize weights with shape (out_features, in_features)
+        let weight_data: Vec<T> = (0..out_features * in_features)
+            .map(|_| T::from_f64(rng.sample(normal)).unwrap())
+            .collect();
+        let weight = Variable::new(
+            Tensor::from_vec(weight_data, vec![out_features, in_features]),
+            true, // requires_grad
+        );
+
+        // Initialize bias with zeros (out_features,)
+        let bias_data = vec![T::zero(); out_features];
+        let bias = Variable::new(
+            Tensor::from_vec(bias_data, vec![out_features]),
+            true, // requires_grad
+        );
+
+        Linear {
+            weight,
+            bias: Some(bias),
+            input_size: in_features,
+            output_size: out_features,
+            input: None,
+            training: true,
+        }
+    }
+    
+    /// Creates a new `Linear` layer without bias.
+    /// バイアス項なしの新しい`Linear`レイヤーを作成します。
+    ///
+    /// # Arguments / 引数
+    /// * `in_features` - Size of each input sample / 各入力サンプルのサイズ
+    /// * `out_features` - Size of each output sample / 各出力サンプルのサイズ
+    ///
+    /// # Returns / 戻り値
+    /// A new instance of `Linear` without bias
+    /// バイアス項なしの新しい`Linear`インスタンス
+    /// 
+    /// # Example / 使用例
+    /// ```rust
+    /// use rustorch::nn::Linear;
+    /// 
+    /// // Create a linear layer without bias
+    /// // バイアス項なしの線形レイヤーを作成
+    /// let linear = Linear::<f32>::new_no_bias(10, 5);
+    /// assert!(linear.bias.is_none());
+    /// ```
+    pub fn new_no_bias(in_features: usize, out_features: usize) -> Self {
+        assert!(in_features > 0, "in_features must be greater than 0");
+        assert!(out_features > 0, "out_features must be greater than 0");
+        
+        // He initialization / Heの初期化
+        let k = T::from_f64(1.0 / (in_features as f64).sqrt())
+            .expect("Failed to convert f64 to T");
+            
+        // Use IxDyn for dynamic dimensions
+        let weight_shape = ndarray::IxDyn(&[out_features, in_features]);
+            
+        let weight = Variable::new(
+            Tensor::randn(weight_shape) * k,
+            true,  // requires_grad
+        );
+        
+        Linear {
+            weight,
+            bias: None,
+            input_size: in_features,
+            output_size: out_features,
+            input: None,
+            training: true,
+        }
+    }
+    
+    /// Sets the input variable that was used to compute this variable.
+    pub fn set_input(&mut self, input: Variable<T>) {
+        self.input = Some(Arc::new(RwLock::new(input)));
+    }
+    
+    /// Sets the weight variable that was used to compute this variable.
+    pub fn set_weight(&mut self, weight: Variable<T>) {
+        self.weight = weight;
+    }
+    
+    /// Sets the bias variable that was used to compute this variable.
+    pub fn set_bias(&mut self, bias: Variable<T>) {
+        self.bias = Some(bias);
+    }
+}
+
+impl<T> Module<T> for Linear<T>
+where
+    T: Float
+        + FromPrimitive
+        + std::fmt::Debug
+        + 'static
+        + Send
+        + Sync
+        + ndarray::ScalarOperand
+        + NumAssignOps
+        + AddAssign
+        + SubAssign
+        + MulAssign
+        + DivAssign
+        + RemAssign
+{
+    /// Performs a forward pass of the linear layer.
+    /// 
+    /// This method computes the linear transformation: `output = input * weight^T + bias`
+    /// このメソッドは以下の線形変換を計算します: `出力 = 入力 * 重み^T + バイアス`
+    /// 
+    /// # Arguments / 引数
+    /// * `input` - Input tensor of shape `(batch_size, in_features)`
+    ///             形状が`(バッチサイズ, 入力特徴量数)`の入力テンソル
+    /// 
+    /// # Returns / 戻り値
+    /// Output tensor of shape `(batch_size, out_features)`
+    /// 形状が`(バッチサイズ, 出力特徴量数)`の出力テンソル
+    /// 
+    /// # Example / 使用例
+    /// ```rust
+    /// use rustorch::nn::Linear;
+    /// use rustorch::variable::Variable;
+    /// use rustorch::tensor::Tensor;
+    /// 
+    /// // Create a linear layer that maps from 3D to 2D
+    /// // 3次元から2次元にマッピングする線形レイヤーを作成
+    /// let linear = Linear::<f32>::new(3, 2);
+    /// 
+    /// // Create input tensor (batch_size=4, in_features=3)
+    /// // 入力テンソルを作成 (バッチサイズ=4, 入力特徴量=3)
+    /// let input = Variable::new(Tensor::ones(&[4, 3]), false);
+    /// 
+    /// // Forward pass
+    /// let output = linear.forward(&input);
+    /// assert_eq!(output.data().shape(), &[4, 2]);
+    /// ```
+    /// 
+    /// # Note / 注意
+    /// - The input tensor must have at least 2 dimensions.
+    /// - If the input has more than 2 dimensions, the computation is batched.
+    /// - 入力テンソルは2次元以上である必要があります。
+    /// - 入力が2次元以上の場合、バッチ処理として計算されます。
+    fn forward(&mut self, input: &Variable<T>) -> Variable<T> {
+        // Print input shape for debugging
+        println!("\n=== Forward Pass ===");
+        println!("Input shape: {:?}", input.data().shape());
+        
+        // Get input and weight data
+        let input_data = input.data();
+        let weight_data = self.weight.data();
+        
+        // Compute output: output = input * weight^T + bias
+        let weight_t = weight_data.transpose();
+        let mut output_data = input_data.matmul(&weight_t);
+        
+        // Add bias if present
+        if let Some(bias) = &self.bias {
+            output_data = output_data + bias.data();
+        }
+        
+        // Create output variable
+        let mut output = Variable::new(output_data, true);
+        
+        // Clone variables for use in the closure
+        let input_clone = input.clone();
+        let weight_clone = self.weight.clone();
+        let bias_clone = self.bias.clone();
+        
+        // Set up backward function
+        output.grad_fn = Some(Box::new(move |grad: &Tensor<T>| {
+            println!("\n=== Backward Pass ===");
+            println!("Gradient shape: {:?}", grad.shape());
+        if output_requires_grad {
+            // Clone the necessary values for the closure
+            let input_clone = input.clone();
+            let weight_clone = self.weight.clone();
+            let bias_clone = self.bias.clone();
+            
+            // Store references to the input, weight, and bias in the output variable
+            // This is important for the backward pass to access these values
+            output.set_input(input_clone.clone());
+            output.set_weight(weight_clone.clone());
+            if let Some(ref bias) = &bias_clone {
+                output.set_bias(bias.clone());
+            }
+            
+            // Store Arc references for backward pass
+            let input_arc = Arc::new(RwLock::new(input_clone.clone()));
+            let weight_arc = Arc::new(RwLock::new(weight_clone.clone()));
+            let bias_arc = bias_clone.as_ref().map(|b| Arc::new(RwLock::new(b.clone())));
+            
+            // Create weak references
+            let input_weak = Arc::downgrade(&input_arc);
+            let weight_weak = Arc::downgrade(&weight_arc);
+            let bias_weak = bias_arc.as_ref().map(|b| Arc::downgrade(b));
+            
+            // Clone the Arcs for use in the closure
+            let input_arc_for_closure = input_arc.clone();
+            let weight_arc_for_closure = weight_arc.clone();
+            let bias_arc_for_closure = bias_arc.clone();
+            
+            // Set up the backward function for the matrix multiplication
+            output.grad_fn = Some(Box::new(move |grad: &Tensor<T>| {
+                println!("\n=== Backward Pass ===");
+                println!("Gradient shape: {:?}", grad.shape());
+                println!("Input requires grad: {}", input_requires_grad);
+                
+                // 勾配を計算
+                let mut grad_input = None;
+                let mut grad_weight = None;
+                let mut grad_bias = None;
+                
+                // 入力の勾配を計算: dL/dX = dL/dY * W^T
+                if input_requires_grad {
+                    // 重みの転置を計算
+                    let weight_t = weight_clone.tensor.t();
+                    
+                    // 入力勾配を計算
+                    let input_grad = grad.matmul(&weight_t);
+                    grad_input = Some(input_grad.clone());
+                    
+                    // 入力変数に勾配を設定
+                    match input_clone.write() {
+                        Ok(mut input_guard) => {
+                            println!("Setting gradient for input: shape={:?}", input_grad.shape());
+                            if let Err(e) = input_guard.add_grad(input_grad) {
+                                println!("Error adding gradient to input: {}", e);
+                            } else if let Some(ref grad) = input_guard.grad {
+                                println!("Successfully set input gradient: shape={:?}", grad.shape());
+                            } else {
+                                println!("Input gradient is None after setting");
+                            }
+                        },
+                        Err(e) => println!("Failed to acquire write lock on input: {}", e),
+                    }
+                }
+                
+                // 重みの勾配を計算: dL/dW = X^T * dL/dY
+                if weight_requires_grad {
+                    // 入力の転置を計算
+                    let input_t = input_data.t();
+                    
+                    // 重み勾配を計算
+                    let weight_grad = input_t.matmul(grad);
+                    grad_weight = Some(weight_grad);
+                    
+                    println!("Weight gradient shape: {:?}", weight_grad.as_ref().map(|g| g.shape()));
+                    
+                    // 重み変数に勾配を設定
+                    match weight_clone.write() {
+                        Ok(mut weight_guard) => {
+                            if let Err(e) = weight_guard.add_grad(weight_grad.unwrap().clone()) {
+                        if bias.requires_grad() {
+                            grad_bias = Some(grad.sum(&[0], false));
+                        }
+                    }
+                    
+                    // 入力の勾配を計算: dL/dX = dL/dY * W^T
+                    grad_input = Some(grad.matmul(&weight_t));
+                } else {
+                    None
+                };
+                
+                (grad_input, grad_weight, grad_bias)
+            }));
+            
+            // Store references to input, weight, and bias for gradient computation
+            output.set_input(input.clone());
+            output.set_weight(self.weight.clone());
+            if let Some(bias) = &self.bias {
+                output.set_bias(Some(bias.clone()));
+            } else {
+                output.set_bias(None);
+            }
+        }
+        
+        output
+    }
+    
+    fn parameters(&self) -> Vec<&Variable<T>> {
+        let mut params = vec![&self.weight];
+        if let Some(bias) = &self.bias {
+            params.push(bias);
+        }
+        params
+    }
+    
+    fn parameters_mut(&mut self) -> Vec<&mut Variable<T>> {
+        let mut params = vec![&mut self.weight];
+        if let Some(bias) = &mut self.bias {
+            params.push(bias);
+        }
+        params
+    }
+    
+    fn train(&mut self, mode: bool) {
+        self.training = mode;
+    }
+    
+    fn is_training(&self) -> bool {
+        self.training
+    }
+    
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Applies the rectified linear unit function element-wise: `relu(x) = max(0, x)`
+/// 要素ごとに正規化線形関数を適用: `relu(x) = max(0, x)`
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ReLU<T> {
+    /// Whether the module is in training mode or not
+    #[serde(skip_serializing, skip_deserializing)]
+    training: bool,
+    
+    /// Phantom data for the generic parameter T
+    #[serde(skip_serializing, skip_deserializing)]
+    _phantom: PhantomData<T>,
+}
+
+impl<T> ReLU<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    /// Creates a new `ReLU` activation function.
+    /// 新しい`ReLU`活性化関数を作成します。
+    /// 
+    /// # Returns / 戻り値
+    /// A new instance of `ReLU`
+    /// 新しい`ReLU`インスタンス
+    pub fn new() -> Self {
+        ReLU {
+            training: true,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<T> Default for ReLU<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> Module<T> for ReLU<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    fn forward(&mut self, input: &Variable<T>) -> Variable<T> {
+        let input_data = input.data();
+        let output_data = input_data.mapv(|x| if x > T::zero() { x } else { T::zero() });
+        
+        Variable::new(
+            output_data,
+            input.requires_grad(),
+        )
+    }
+
+    fn parameters(&self) -> Vec<&Variable<T>> {
+        // ReLU has no parameters
+        vec![]
+    }
+
+    fn parameters_mut(&mut self) -> Vec<&mut Variable<T>> {
+        // ReLU has no parameters
+        vec![]
+    }
+
+    fn train(&mut self, mode: bool) {
+        self.training = mode;
+    }
+
+    fn is_training(&self) -> bool {
+        self.training
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// A sequential container for chaining modules.
+/// モジュールを連鎖させるためのシーケンシャルコンテナ。
+#[derive(Debug)]
+pub struct Sequential<T> {
+    modules: Vec<Box<dyn Module<T> + 'static>>,
+    training: bool,
+    _phantom: PhantomData<T>,
+}
+
+impl<T> Sequential<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    /// Creates a new sequential container.
+    /// 新しいシーケンシャルコンテナを作成します。
+    pub fn new() -> Self {
+        Sequential {
+            modules: Vec::new(),
+            training: true,
+            _phantom: PhantomData,
+        }
+    }
+    
+    /// Adds a module to the container.
+    /// コンテナにモジュールを追加します。
+    /// 
+    /// # Arguments / 引数
+    /// * `module` - The module to add / 追加するモジュール
+    /// 
+    /// # Returns / 戻り値
+    /// `Self` to allow method chaining / メソッドチェーンを可能にするための`Self`
+    pub fn add_module(mut self, module: impl Module<T> + 'static) -> Self {
+        self.modules.push(Box::new(module));
+        self
+    }
+    
+    /// Returns a reference to the module at the given index.
+    /// 指定されたインデックスのモジュールへの参照を返します。
+    pub fn get_module(&self, index: usize) -> Option<&dyn Module<T>> {
+        self.modules.get(index).map(|m| m.deref())
+    }
+    
+    /// Returns a mutable reference to the module at the given index.
+    /// 指定されたインデックスのモジュールへの可変参照を返します。
+    pub fn get_module_mut(&mut self, index: usize) -> Option<&mut (dyn Module<T> + 'static)> {
+        self.modules.get_mut(index).map(|m| &mut **m)
+    }
+    
+    /// Returns the number of modules in the container.
+    /// コンテナ内のモジュールの数を返します。
+    pub fn len(&self) -> usize {
+        self.modules.len()
+    }
+    
+    /// Returns whether the container is empty.
+    /// コンテナが空かどうかを返します。
+    pub fn is_empty(&self) -> bool {
+        self.modules.is_empty()
+    }
+}
+
+impl<T> Default for Sequential<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T> Module<T> for Sequential<T>
+where
+    T: Float + FromPrimitive + std::fmt::Debug + 'static + Send + Sync + NumAssignOps + ndarray::ScalarOperand + DeserializeOwned + Serialize,
+{
+    fn forward(&mut self, input: &Variable<T>) -> Variable<T> {
+        let mut x = input.clone();
+        for module in &mut self.modules {
+            let new_x = module.forward(&x);
+            x = new_x;
+        }
+        x
+    }
+
+    fn parameters(&self) -> Vec<&Variable<T>> {
+        let mut params = Vec::new();
+        for module in &self.modules {
+            params.extend(module.parameters());
+        }
+        params
+    }
+
+    fn parameters_mut(&mut self) -> Vec<&mut Variable<T>> {
+        let mut params = Vec::new();
+        for module in &mut self.modules {
+            params.extend(module.parameters_mut());
+        }
+        params
+    }
+
+    fn train(&mut self, mode: bool) {
+        self.training = mode;
+        for module in &mut self.modules {
+            module.train(mode);
+        }
+    }
+
+    fn is_training(&self) -> bool {
+        self.training
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::de::DeserializeOwned;
+    use approx::assert_abs_diff_eq;
+    
+    #[test]
+    fn test_linear_layer() {
+        // Test with bias
+        let mut linear = Linear::<f32>::new(3, 2);
+        let input = Variable::new(Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![1, 3]), true);
+        let mut output = linear.forward(&input);
+        
+        // Check output shape
+        assert_eq!(output.data().shape(), &[1, 2]);
+        
+        // Create a dummy gradient for backpropagation with the same shape as output
+        let grad_output = Tensor::ones(ndarray::IxDyn(&[1, 2]));
+        
+        // Backward pass - pass the gradient tensor wrapped in Some() and set retain_graph to true
+        output.backward(Some(grad_output.clone()), true);
+        
+        // Check that gradients were computed
+        assert!(input.grad().is_some(), "Input gradient should be computed");
+        assert!(linear.weight.grad().is_some(), "Weight gradient should be computed");
+        assert!(linear.bias.as_ref().unwrap().grad().is_some(), "Bias gradient should be computed");
+        
+        // Verify gradient shapes
+        assert_eq!(input.grad().unwrap().shape(), &[1, 3], "Input gradient has incorrect shape");
+        assert_eq!(linear.weight.grad().unwrap().shape(), &[2, 3], "Weight gradient has incorrect shape");
+        assert_eq!(linear.bias.as_ref().unwrap().grad().unwrap().shape(), &[2], "Bias gradient has incorrect shape");
+        
+        // Test without bias - create a new input to avoid interfering with previous test
+        let input2 = Variable::new(Tensor::from_vec(vec![1.0, 1.0, 1.0], vec![1, 3]), true);
+        let mut linear_no_bias = Linear::<f32>::new_no_bias(3, 2);
+        let mut output_no_bias = linear_no_bias.forward(&input2);
+        assert_eq!(output_no_bias.data().shape(), &[1, 2]);
+        assert!(linear_no_bias.bias.is_none());
+        
+        // Test backward pass without bias
+        output_no_bias.backward(Some(grad_output), true);
+        assert!(input2.grad().is_some(), "Input gradient should be computed (no bias)");
+        assert!(linear_no_bias.weight.grad().is_some(), "Weight gradient should be computed (no bias)");
+        
+        // Test training mode
+        assert!(linear.is_training());
+        linear.train(false);
+        assert!(!linear.is_training());
+    }
+    
+    #[test]
+    fn test_relu() {
+        let mut relu = ReLU::<f32>::new();
+        let input = Variable::new(Tensor::from_vec(vec![-1.0, 0.0, 1.0], vec![3]), true);
+        let output = relu.forward(&input);
+        
+        let expected = vec![0.0, 0.0, 1.0];
+        let output_data = output.data().data();
+        for (i, &val) in expected.iter().enumerate() {
+            assert_abs_diff_eq!(output_data[[i]], val, epsilon = 1e-6);
+        }
+    }
+    
+    #[test]
+    fn test_sequential() {
+        let mut model = Sequential::<f32>::new()
+            .add_module(Linear::new(10, 20))
+            .add_module(ReLU::new())
+            .add_module(Linear::new(20, 1));
+            
+        let input = Variable::new(Tensor::from_vec(vec![1.0; 10], vec![1, 10]), true);
+        let output = model.forward(&input);
+        
+        assert_eq!(output.data().shape(), &[1, 1]);
+        
+        // Test parameters
+        let params = model.parameters();
+        assert_eq!(params.len(), 4); // 2 weight matrices + 2 bias vectors
+        
+        // Test training mode
+        assert!(model.is_training());
+        model.train(false);
+        assert!(!model.is_training());
+    }
+}
