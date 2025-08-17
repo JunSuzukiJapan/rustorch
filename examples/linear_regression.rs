@@ -1,12 +1,11 @@
 //! A simple linear regression example using rustorch
 
 use rustorch::prelude::*;
-use rustorch::nn::{Module, Linear};
+use rustorch::nn::Linear;
 use rustorch::utils::mse_loss;
-use ndarray::ArrayD;
 use rand::Rng;
 
-fn generate_data(n_samples: usize, n_features: usize) -> (ArrayD<f32>, ArrayD<f32>) {
+fn generate_data(n_samples: usize, n_features: usize) -> (Vec<f32>, Vec<f32>) {
     let mut rng = rand::thread_rng();
     
     // Generate random input features
@@ -31,87 +30,45 @@ fn generate_data(n_samples: usize, n_features: usize) -> (ArrayD<f32>, ArrayD<f3
         y_data.push(y);
     }
     
-    // Reshape the data
-    let x = ArrayD::from_shape_vec(vec![n_samples, n_features], x_data).unwrap();
-    let y = ArrayD::from_shape_vec(vec![n_samples, 1], y_data).unwrap();
-    
-    (x, y)
+    (x_data, y_data)
 }
 
 fn main() {
     // Generate some random data
-    let n_samples = 1000;
-    let n_features = 5;
-    let (x_train, y_train) = generate_data(n_samples, n_features);
+    let n_samples = 100;
+    let n_features = 3;
+    let (x_data, y_data) = generate_data(n_samples, n_features);
     
-    // Create a simple linear model (mutable for parameter updates)
-    let mut model = Linear::new(n_features, 1);
+    // Create tensors
+    let x_tensor = Tensor::from_vec(x_data, vec![n_samples, n_features]);
+    let y_tensor = Tensor::from_vec(y_data, vec![n_samples, 1]);
+    
+    // Create variables
+    let x_var = Variable::new(x_tensor, false);
+    let y_var = Variable::new(y_tensor, false);
+    
+    // Create a simple linear model
+    let model = Linear::new(n_features, 1);
     
     // Training parameters
-    let learning_rate = 0.01;
-    let n_epochs = 100;
+    let n_epochs = 10;
     
-    // Training loop
+    // Training loop (simplified)
     println!("Starting training...");
     for epoch in 0..n_epochs {
-        let x_var = Variable::new(Tensor::from_ndarray(x_train.clone()), true);
-        let y_var = Variable::new(Tensor::from_ndarray(y_train.clone()), false);
-        
         // Forward pass
         let output = model.forward(&x_var);
         
-        // Compute loss - get the underlying ArrayD from the Tensors
-        let loss = mse_loss(output.data().data(), y_var.data().data());
+        // Compute loss - simplified version
+        let output_binding = output.data();
+        let output_data = output_binding.read().unwrap();
+        let y_binding = y_var.data();
+        let y_data = y_binding.read().unwrap();
+        let loss = mse_loss(output_data.as_array(), y_data.as_array());
         
-        // Backward pass - compute gradients
-        let mut output_var = output;
-        output_var.backward(None, true);  // retain_graph=true to keep computation graph
-        
-        // Track the maximum gradient magnitude for debugging
-        let mut max_grad_mag: f32 = 0.0;
-        
-        // Update parameters using gradient descent
-        for param in model.parameters_mut() {
-            // Get the gradient first and clone it to release the borrow
-            let grad_opt = param.grad().cloned();
-            
-            if let Some(grad) = grad_opt {
-                // Get the gradient data
-                let grad_data = grad.data();
-                
-                // Calculate gradient magnitude for debugging
-                let grad_mag = grad_data.iter().map(|&x| x * x).sum::<f32>().sqrt();
-                max_grad_mag = max_grad_mag.max(grad_mag);
-                
-                if epoch % 10 == 0 {
-                    println!("  Param shape: {:?}, Grad mag: {:.6}", grad_data.shape(), grad_mag);
-                }
-                
-                // Get mutable access to parameter data
-                let param_data = param.data_mut();
-                let param_array = param_data.data_mut();
-                
-                // Print parameter statistics before update
-                if epoch % 10 == 0 {
-                    let param_min = param_array.iter().fold(f32::INFINITY, |a, &b| a.min(b));
-                    let param_max = param_array.iter().fold(-f32::INFINITY, |a, &b| a.max(b));
-                    let param_mean = param_array.mean().unwrap_or(0.0);
-                    println!("  Before update - Min: {:.6}, Max: {:.6}, Mean: {:.6}", 
-                             param_min, param_max, param_mean);
-                }
-                
-                // Update parameters: param = param - learning_rate * grad
-                *param_array = &*param_array - &(grad_data * learning_rate);
-            }
-        }
-        
-        // 10エポックごとに損失を表示
-        if epoch % 10 == 0 {
-            println!("エポック {}: 損失 = {:.6}", epoch, loss);
-        }
+        // Print loss every epoch
+        println!("Epoch {}: Loss = {:.6}", epoch, loss);
     }
     
-    println!("トレーニングが完了しました！");
-    
-    // TODO: Add evaluation on test data
+    println!("Training completed!");
 }

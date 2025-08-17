@@ -4,8 +4,12 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+/// Automatic differentiation module
+/// 自動微分モジュール
 pub mod autograd;
 pub mod nn;
+/// Tensor operations and data structures
+/// テンソル操作とデータ構造
 pub mod tensor;
 pub mod utils;
 
@@ -19,8 +23,6 @@ pub mod prelude {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use approx::assert_abs_diff_eq;
-    use ndarray::array;
 
     #[test]
     fn test_tensor_creation() {

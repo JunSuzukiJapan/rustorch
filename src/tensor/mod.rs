@@ -1,9 +1,8 @@
-use ndarray::{Array, ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, ArrayViewMutD, Dimension, Dim};
-use num_traits::{Float, FromPrimitive, Zero, One};
+use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD};
+use num_traits::Float;
 use serde::{Deserialize, Serialize};
 use std::ops;
 use std::fmt;
-use std::iter::Sum;
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
@@ -19,21 +18,32 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor { data }
     }
 
+    /// Creates a tensor from a vector and shape.
+    /// ベクトルと形状からテンソルを作成します。
+    pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Self {
+        let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
+        Tensor::new(array)
+    }
+
+    /// Returns the size (shape) of the tensor.
+    /// テンソルのサイズ（形状）を返します。
+    pub fn size(&self) -> Vec<usize> {
+        self.data.shape().to_vec()
+    }
+
     /// Creates a tensor filled with zeros.
     /// ゼロで埋められたテンソルを作成します。
-    pub fn zeros<D: IntoDimension>(dims: D) -> Self {
-        let dims = dims.into_dimension();
+    pub fn zeros(shape: &[usize]) -> Self {
         Tensor {
-            data: ArrayD::zeros(dims),
+            data: ArrayD::zeros(IxDyn(shape)),
         }
     }
 
     /// Creates a tensor filled with ones.
     /// 1で埋められたテンソルを作成します。
-    pub fn ones<D: IntoDimension>(dims: D) -> Self {
-        let dims = dims.into_dimension();
+    pub fn ones(shape: &[usize]) -> Self {
         Tensor {
-            data: ArrayD::ones(dims),
+            data: ArrayD::ones(IxDyn(shape)),
         }
     }
 
@@ -85,7 +95,7 @@ impl<T: Float + 'static> Tensor<T> {
     /// テンソルの次元を反転させて転置します。
     pub fn transpose(&self) -> Self {
         let ndim = self.data.ndim();
-        let mut axes: Vec<usize> = (0..ndim).rev().collect();
+        let axes: Vec<usize> = (0..ndim).rev().collect();
         if ndim < 2 {
             return self.clone();
         }

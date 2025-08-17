@@ -8,7 +8,6 @@ use num_traits::Float;
 use std::any::Any;
 use std::fmt::Debug;
 use std::marker::{Send, Sync};
-use std::sync::Arc;
 
 /// ニューラルネットワークモジュールのトレイト
 /// A trait for neural network modules.
