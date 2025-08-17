@@ -1,5 +1,5 @@
 use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD};
-use num_traits::Float;
+use num_traits::{Float, Zero};
 use serde::{Deserialize, Serialize};
 use std::ops;
 use std::fmt;
@@ -142,6 +142,13 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor {
             data: sum.into_shape(dim).unwrap(),
         }
+    }
+
+    /// Computes the sum of all elements in the tensor.
+    /// テンソルの全要素の和を計算します。
+    pub fn sum(&self) -> Tensor<T> {
+        let sum_value = self.data.iter().fold(T::zero(), |acc, &x| acc + x);
+        Tensor::from_vec(vec![sum_value], vec![])
     }
 }
 

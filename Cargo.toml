@@ -32,6 +32,7 @@ parking_lot = "0.12"  # For thread-safe locks
 
 # Math and utilities
 itertools = "0.10"  # For advanced iteration utilities
+approx = "0.5"  # For floating point comparisons
 
 # For GPU support (optional)
 #[target.'cfg(any(target_os = "cuda"))'.dependencies]
@@ -39,7 +40,6 @@ itertools = "0.10"  # For advanced iteration utilities
 
 [dev-dependencies]
 # Testing
-approx = "0.5"
 rstest = "0.13"
 
 [features]

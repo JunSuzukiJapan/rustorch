@@ -14,8 +14,7 @@ use num_traits::Float;
 /// 線形（全結合）レイヤー
 ///
 /// This layer applies a linear transformation to the incoming data: `y = xW^T + b`
-#[derive(Debug)]
-pub struct Linear<T: Float> {
+pub struct Linear<T: Float + Send + Sync> {
     /// The weight matrix of shape (output_features, input_features)
     /// 重み行列 (出力特徴量, 入力特徴量)
     weight: Variable<T>,
@@ -31,6 +30,16 @@ pub struct Linear<T: Float> {
     /// Output size (number of output features)
     /// 出力サイズ（出力特徴量の数）
     output_size: usize,
+}
+
+impl<T: Float + Send + Sync> std::fmt::Debug for Linear<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Linear")
+            .field("input_size", &self.input_size)
+            .field("output_size", &self.output_size)
+            .field("has_bias", &self.bias.is_some())
+            .finish()
+    }
 }
 
 impl<T> Linear<T> 
