@@ -45,11 +45,23 @@ pub trait LRScheduler<T: Float> {
 /// スケジューラーの保存/読み込み用状態構造体
 #[derive(Debug, Clone)]
 pub struct SchedulerState<T: Float> {
+    /// Last epoch number
+    /// 最後のエポック番号
     pub last_epoch: i32,
+    /// Base learning rates for each parameter group
+    /// 各パラメータグループの基本学習率
     pub base_lrs: Vec<T>,
+    /// Current step count
+    /// 現在のステップ数
     pub step_count: usize,
+    /// Best metric value seen so far
+    /// これまでに見た最良のメトリック値
     pub best_metric: Option<T>,
+    /// Number of epochs without improvement
+    /// 改善のないエポック数
     pub num_bad_epochs: usize,
+    /// Cooldown counter for reduce on plateau
+    /// プラトー時削減のクールダウンカウンター
     pub cooldown_counter: usize,
 }
 
@@ -333,15 +345,27 @@ pub struct ReduceLROnPlateau<T: Float> {
     cooldown_counter: usize,
 }
 
+/// Mode for determining when to reduce learning rate on plateau
+/// プラトー時の学習率削減の判定モード
 #[derive(Debug, Clone, Copy)]
 pub enum PlateauMode {
+    /// Reduce when metric stops decreasing
+    /// メトリックの減少が止まったときに削減
     Min,
+    /// Reduce when metric stops increasing
+    /// メトリックの増加が止まったときに削減
     Max,
 }
 
+/// Mode for threshold comparison
+/// 閾値比較モード
 #[derive(Debug, Clone, Copy)]
 pub enum ThresholdMode {
+    /// Relative threshold
+    /// 相対閾値
     Rel,
+    /// Absolute threshold
+    /// 絶対閾値
     Abs,
 }
 
@@ -551,7 +575,7 @@ mod tests {
             None,
         );
         
-        let initial_lrs = scheduler.get_lr();
+        let _initial_lrs = scheduler.get_lr();
         
         // Simulate no improvement for patience + 1 steps
         scheduler.step_with_metric(1.0);
@@ -559,7 +583,7 @@ mod tests {
         scheduler.step_with_metric(1.2);
         scheduler.step_with_metric(1.3);
         
-        let reduced_lrs = scheduler.get_lr();
+        let _reduced_lrs = scheduler.get_lr();
         
         // Learning rate should be reduced after patience is exceeded
         // Note: In this simplified test, we check the state rather than actual LR change

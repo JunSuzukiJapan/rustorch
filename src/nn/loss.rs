@@ -331,6 +331,7 @@ pub fn kl_div_loss<T: Float + Send + Sync + 'static>(
 // Additional helper functions
 // 追加のヘルパー関数
 
+#[allow(dead_code)]
 fn pow_variable<T: Float + Send + Sync + 'static>(
     var: &Variable<T>, 
     exponent: T
@@ -345,6 +346,7 @@ fn pow_variable<T: Float + Send + Sync + 'static>(
     }
 }
 
+#[allow(dead_code)]
 fn sqrt_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
     let input_data = var.data().read().unwrap().clone();
     let sqrt_data = apply_sqrt(&input_data);
@@ -356,6 +358,7 @@ fn sqrt_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variabl
     }
 }
 
+#[allow(dead_code)]
 fn relu_variable<T: Float + Send + Sync + 'static>(
     var: &Variable<T>,
     _threshold: &Variable<T>
@@ -364,11 +367,13 @@ fn relu_variable<T: Float + Send + Sync + 'static>(
     relu(var)
 }
 
+#[allow(dead_code)]
 fn scalar_variable<T: Float + Send + Sync + 'static>(value: T) -> Variable<T> {
     let scalar_tensor = Tensor::from_vec(vec![value], vec![]);
     Variable::new(scalar_tensor, false)
 }
 
+#[allow(dead_code)]
 fn flatten_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
     let binding = var.data();
     let input_data = binding.read().unwrap();
@@ -385,6 +390,7 @@ fn flatten_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Vari
     }
 }
 
+#[allow(dead_code)]
 fn apply_pow<T: Float + 'static>(tensor: &Tensor<T>, exponent: T) -> Tensor<T> {
     let data = tensor.as_array();
     let result_data: Vec<T> = data.iter().map(|&x| x.powf(exponent)).collect();
@@ -392,6 +398,7 @@ fn apply_pow<T: Float + 'static>(tensor: &Tensor<T>, exponent: T) -> Tensor<T> {
     Tensor::from_vec(result_data, tensor.shape().to_vec())
 }
 
+#[allow(dead_code)]
 fn apply_sqrt<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
     let data = tensor.as_array();
     let result_data: Vec<T> = data.iter().map(|&x| x.sqrt()).collect();

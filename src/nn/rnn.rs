@@ -7,7 +7,6 @@ use crate::nn::Module;
 use num_traits::Float;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-use rand::Rng;
 use rand_distr::{Normal, Distribution};
 
 /// Basic RNN cell implementation
@@ -381,6 +380,7 @@ pub struct RNN<T: Float + Send + Sync> {
     
     /// Dropout probability between layers
     /// 層間のドロップアウト確率
+    #[allow(dead_code)]
     dropout: T,
     
     /// Training mode flag
@@ -695,6 +695,7 @@ where
     
     /// Stack hidden states from multiple layers
     /// 複数層の隠れ状態をスタック
+    #[allow(dead_code)]
     fn stack_hidden_states(&self, hiddens: &[Variable<T>]) -> Variable<T> {
         if hiddens.is_empty() {
             panic!("Cannot stack empty hidden states");

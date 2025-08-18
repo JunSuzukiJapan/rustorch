@@ -7,7 +7,6 @@ use crate::nn::Module;
 use num_traits::Float;
 use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
-use rand::Rng;
 use rand_distr::{Normal, Distribution};
 
 /// LSTM cell implementation
@@ -508,6 +507,7 @@ pub struct LSTM<T: Float + Send + Sync> {
     
     /// Dropout probability between layers
     /// 層間のドロップアウト確率
+    #[allow(dead_code)]
     dropout: T,
     
     /// Training mode flag
@@ -752,6 +752,7 @@ where
     
     /// Extract hidden state for a specific layer
     /// 特定の層の隠れ状態を抽出
+    #[allow(dead_code)]
     fn extract_layer_hidden(&self, hidden: &Variable<T>, layer_idx: usize) -> Variable<T> {
         let hidden_binding = hidden.data();
         let hidden_data = hidden_binding.read().unwrap();
@@ -915,6 +916,7 @@ where
     
     /// Stack hidden states from multiple layers
     /// 複数層の隠れ状態をスタック
+    #[allow(dead_code)]
     fn stack_hidden_states(&self, hiddens: &[Variable<T>]) -> Variable<T> {
         if hiddens.is_empty() {
             panic!("Cannot stack empty hidden states");

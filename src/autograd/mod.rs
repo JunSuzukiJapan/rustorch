@@ -15,6 +15,8 @@ mod tests;
 /// Gradient function trait for backward computation
 /// 逆伝播計算のための勾配関数トレイト
 pub trait GradFn<T: Float + Send + Sync + 'static>: Send + Sync {
+    /// Apply the gradient function to compute input gradients
+    /// 勾配関数を適用して入力勾配を計算
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>>;
 }
 

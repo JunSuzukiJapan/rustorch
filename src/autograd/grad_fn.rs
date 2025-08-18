@@ -9,7 +9,11 @@ use std::sync::{Weak, RwLock};
 /// Addition backward function
 /// 加算の逆伝播関数
 pub struct AddBackward<T: Float + Send + Sync + 'static> {
+    /// First input tensor reference
+    /// 最初の入力テンソル参照
     pub input0: Weak<RwLock<Option<Tensor<T>>>>,
+    /// Second input tensor reference
+    /// 2番目の入力テンソル参照
     pub input1: Weak<RwLock<Option<Tensor<T>>>>,
 }
 
@@ -23,7 +27,11 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for AddBackward<T> {
 /// Subtraction backward function
 /// 減算の逆伝播関数
 pub struct SubBackward<T: Float + Send + Sync + 'static> {
+    /// First input tensor reference
+    /// 最初の入力テンソル参照
     pub input0: Weak<RwLock<Option<Tensor<T>>>>,
+    /// Second input tensor reference
+    /// 2番目の入力テンソル参照
     pub input1: Weak<RwLock<Option<Tensor<T>>>>,
 }
 
@@ -37,7 +45,11 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for SubBackward<T> {
 /// Multiplication backward function
 /// 乗算の逆伝播関数
 pub struct MulBackward<T: Float + Send + Sync + 'static> {
+    /// First input tensor data for gradient computation
+    /// 勾配計算用の最初の入力テンソルデータ
     pub input0_data: Tensor<T>,
+    /// Second input tensor data for gradient computation
+    /// 勾配計算用の2番目の入力テンソルデータ
     pub input1_data: Tensor<T>,
 }
 
@@ -53,7 +65,11 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for MulBackward<T> {
 /// Matrix multiplication backward function
 /// 行列乗算の逆伝播関数
 pub struct MatMulBackward<T: Float + Send + Sync + 'static> {
+    /// First input tensor data for gradient computation
+    /// 勾配計算用の最初の入力テンソルデータ
     pub input0_data: Tensor<T>,
+    /// Second input tensor data for gradient computation
+    /// 勾配計算用の2番目の入力テンソルデータ
     pub input1_data: Tensor<T>,
 }
 
@@ -69,7 +85,11 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for MatMulBackward<T> {
 /// Sum backward function
 /// 総和の逆伝播関数
 pub struct SumBackward<T: Float + Send + Sync + 'static> {
+    /// Original input tensor shape for gradient broadcasting
+    /// 勾配ブロードキャスト用の元の入力テンソル形状
     pub input_shape: Vec<usize>,
+    /// Phantom data for type parameter
+    /// 型パラメータ用のファントムデータ
     pub _phantom: std::marker::PhantomData<T>,
 }
 
