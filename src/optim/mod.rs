@@ -3,6 +3,7 @@
 
 pub mod sgd;
 pub mod adam;
+pub mod scheduler;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -23,6 +24,10 @@ pub trait Optimizer<T: Float + Send + Sync + 'static> {
     fn add_param_group(&mut self, params: Vec<Variable<T>>);
 }
 
-// Re-export optimizers
+// Re-export optimizers and schedulers
 pub use sgd::SGD;
 pub use adam::Adam;
+pub use scheduler::{
+    LRScheduler, SchedulerState, StepLR, ExponentialLR, CosineAnnealingLR, 
+    ReduceLROnPlateau, PlateauMode, ThresholdMode
+};
