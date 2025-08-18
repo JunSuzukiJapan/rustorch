@@ -150,7 +150,23 @@ where
         let requires_grad = input.requires_grad() || self.weight.requires_grad() 
             || self.bias.as_ref().map_or(false, |b| b.requires_grad());
         
-        Variable::new(output_data, requires_grad)
+        if requires_grad {
+            // Create gradient function for backpropagation
+            use crate::autograd::linear_grad_fn::LinearBackward;
+            use std::sync::{Arc, RwLock};
+            
+            let grad_fn = Arc::new(LinearBackward {
+                input: Arc::new(RwLock::new(input_data.clone())),
+                weight: Arc::new(RwLock::new(weight_data.clone())),
+                input_var: input.clone(),
+                weight_var: self.weight.clone(),
+                bias_var: self.bias.clone(),
+            });
+            
+            Variable::new_with_grad_fn(output_data, true, Some(grad_fn))
+        } else {
+            Variable::new(output_data, false)
+        }
     }
     
     /// Returns the input size of the layer.

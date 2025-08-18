@@ -8,6 +8,7 @@ use std::ops;
 pub mod function;
 pub mod graph;
 pub mod grad_fn;
+pub mod linear_grad_fn;
 
 #[cfg(test)]
 mod tests;
@@ -93,6 +94,12 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         self.grad.clone()
     }
 
+    /// Returns the gradient function if any.
+    /// 勾配関数があれば返します。
+    pub fn grad_fn(&self) -> &Option<Arc<dyn GradFn<T>>> {
+        &self.grad_fn
+    }
+
     /// Zeros out the gradient.
     /// 勾配をゼロクリアします。
     pub fn zero_grad(&self) {
@@ -117,8 +124,8 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         // Initialize gradient if not provided
         let initial_grad = grad_output.unwrap_or_else(|| {
             let data = self.data.read().unwrap();
-            if data.len() == 1 {
-                // Scalar case - gradient is 1
+            if data.len() == 1 && data.shape().is_empty() {
+                // Scalar case - gradient is 1 with scalar shape
                 Tensor::ones(&[])
             } else {
                 // Vector/matrix case - gradient is ones with same shape
@@ -139,11 +146,9 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
             }
         }
 
-        // If this variable has a gradient function, call it to compute input gradients
+        // Call the gradient function if it exists (for non-leaf nodes)
         if let Some(grad_fn) = &self.grad_fn {
             let _grad_inputs = grad_fn.apply(&[initial_grad]);
-            // Note: In a full implementation, we would propagate these gradients to input variables
-            // For now, this is a simplified version
         }
     }
 
@@ -158,6 +163,8 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
             let grad_fn = Arc::new(MatMulBackward {
                 input0_data: lhs_data,
                 input1_data: rhs_data,
+                input0_var: Some(self.clone()),
+                input1_var: Some(other.clone()),
             });
             Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
         } else {
@@ -175,6 +182,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         if self.requires_grad {
             let grad_fn = Arc::new(SumBackward {
                 input_shape,
+                input_var: self.clone(),
                 _phantom: PhantomData,
             });
             Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
@@ -210,7 +218,11 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         mean_data.as_array_mut().mapv_inplace(|x| x / numel);
         
         if self.requires_grad {
-            Variable::new(mean_data, true)
+            let grad_fn = std::sync::Arc::new(crate::autograd::grad_fn::MeanBackward {
+                input_var: Some(self.clone()),
+                numel,
+            });
+            Variable::new_with_grad_fn(mean_data, true, Some(grad_fn))
         } else {
             Variable::new(mean_data, false)
         }
@@ -227,8 +239,13 @@ impl<T: Float + Send + Sync + 'static> ops::Add for &Variable<T> {
         let result_data = &lhs_data + &rhs_data;
 
         if self.requires_grad || rhs.requires_grad {
-            // For now, simplified without proper gradient tracking
-            Variable::new(result_data, true)
+            let grad_fn = Arc::new(AddBackward {
+                input0_data: lhs_data,
+                input1_data: rhs_data,
+                input0_var: self.clone(),
+                input1_var: rhs.clone(),
+            });
+            Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
         } else {
             Variable::new(result_data, false)
         }
@@ -247,6 +264,8 @@ impl<T: Float + Send + Sync + 'static> ops::Mul for &Variable<T> {
             let grad_fn = Arc::new(MulBackward {
                 input0_data: lhs_data,
                 input1_data: rhs_data,
+                input0_var: self.clone(),
+                input1_var: rhs.clone(),
             });
             Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
         } else {
@@ -264,8 +283,13 @@ impl<T: Float + Send + Sync + 'static> ops::Sub for &Variable<T> {
         let result_data = &lhs_data - &rhs_data;
 
         if self.requires_grad || rhs.requires_grad {
-            // For now, simplified without proper gradient tracking
-            Variable::new(result_data, true)
+            let grad_fn = Arc::new(SubBackward {
+                input0_data: lhs_data,
+                input1_data: rhs_data,
+                input0_var: self.clone(),
+                input1_var: rhs.clone(),
+            });
+            Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
         } else {
             Variable::new(result_data, false)
         }

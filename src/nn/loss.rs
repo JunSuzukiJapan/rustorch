@@ -408,23 +408,11 @@ fn apply_sqrt<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
 
 // Add missing operations to Variable
 impl<T: Float + Send + Sync + 'static> Variable<T> {
-    /// Compute the mean of all elements
-    /// 全要素の平均を計算
+    /// Compute the mean of all elements with proper gradient tracking
+    /// 適切な勾配追跡機能付きで全要素の平均を計算
     pub fn mean(&self) -> Variable<T> {
-        let binding = self.data();
-        let input_data = binding.read().unwrap();
-        let sum_val = input_data.sum();
-        let count = T::from(input_data.len()).unwrap();
-        
-        // Create a scalar tensor with the mean value
-        let mean_val = *sum_val.as_array().iter().next().unwrap() / count;
-        let mean_tensor = Tensor::from_vec(vec![mean_val], vec![]);
-        
-        if self.requires_grad() {
-            Variable::new(mean_tensor, true)
-        } else {
-            Variable::new(mean_tensor, false)
-        }
+        // Use the existing mean_autograd implementation which has better gradient support
+        self.mean_autograd()
     }
     
     /// Sum along a specific dimension (simplified implementation)

@@ -347,9 +347,9 @@ where
             let mut gate_data = Vec::with_capacity(batch_size * gate_size);
             
             for i in 0..batch_size {
-                let start_idx = i * total_features + gate_idx * gate_size;
                 for j in 0..gate_size {
-                    gate_data.push(combined_array[start_idx + j]);
+                    let col_idx = gate_idx * gate_size + j;
+                    gate_data.push(combined_array[[i, col_idx]]);
                 }
             }
             
@@ -612,6 +612,7 @@ where
         
         let mut layer_outputs = Vec::new();
         let mut final_hiddens = Vec::new();
+        let mut current_input = input.clone();
         
         // Process each layer
         for layer_idx in 0..self.num_layers {
@@ -623,7 +624,7 @@ where
             
             // Forward direction
             for t in 0..seq_len {
-                let step_input = self.extract_timestep(input, t);
+                let step_input = self.extract_timestep(&current_input, t);
                 step_hidden = cell.forward(&step_input, &step_hidden);
                 layer_output.push(step_hidden.clone());
             }
@@ -637,7 +638,7 @@ where
                 let mut backward_hidden = self.extract_layer_hidden(&current_hidden, layer_idx);
                 
                 for t in (0..seq_len).rev() {
-                    let step_input = self.extract_timestep(input, t);
+                    let step_input = self.extract_timestep(&current_input, t);
                     backward_hidden = backward_cell.forward(&step_input, &backward_hidden);
                     backward_output.push(backward_hidden.clone());
                 }
@@ -651,8 +652,13 @@ where
                 }
             }
             
-            layer_outputs = layer_output;
+            layer_outputs = layer_output.clone();
             current_hidden = self.stack_hidden_states(&final_hiddens);
+            
+            // Update input for next layer (output of current layer becomes input of next layer)
+            if layer_idx < self.num_layers - 1 {
+                current_input = self.stack_sequence_outputs(&layer_output);
+            }
         }
         
         let output = self.stack_sequence_outputs(&layer_outputs);
@@ -679,16 +685,26 @@ where
         let hidden_binding = hidden.data();
         let hidden_data = hidden_binding.read().unwrap();
         let hidden_shape = hidden_data.shape();
+        
+        // Ensure we have enough dimensions and the layer index is valid
+        if hidden_shape.len() < 3 || layer_idx >= hidden_shape[0] {
+            // Return zero hidden state if index is out of bounds
+            let batch_size = if hidden_shape.len() >= 2 { hidden_shape[1] } else { 1 };
+            let hidden_size = if hidden_shape.len() >= 3 { hidden_shape[2] } else { self.layers[0].hidden_size() };
+            let data = vec![<T as From<f32>>::from(0.0f32); batch_size * hidden_size];
+            return Variable::new(Tensor::from_vec(data, vec![batch_size, hidden_size]), false);
+        }
+        
         let batch_size = hidden_shape[1];
         let hidden_size = hidden_shape[2];
         
-        let start_idx = layer_idx * batch_size * hidden_size;
-        let end_idx = start_idx + batch_size * hidden_size;
-        
         let hidden_array = hidden_data.as_array();
         let mut layer_data = Vec::with_capacity(batch_size * hidden_size);
-        for i in start_idx..end_idx {
-            layer_data.push(hidden_array[i]);
+        
+        for batch_idx in 0..batch_size {
+            for hidden_idx in 0..hidden_size {
+                layer_data.push(hidden_array[[layer_idx, batch_idx, hidden_idx]]);
+            }
         }
         
         Variable::new(
@@ -706,13 +722,13 @@ where
         let batch_size = input_shape[1];
         let input_size = input_shape[2];
         
-        let start_idx = timestep * batch_size * input_size;
-        let end_idx = start_idx + batch_size * input_size;
-        
         let input_array = input_data.as_array();
         let mut step_data = Vec::with_capacity(batch_size * input_size);
-        for i in start_idx..end_idx {
-            step_data.push(input_array[i]);
+        
+        for batch_idx in 0..batch_size {
+            for input_idx in 0..input_size {
+                step_data.push(input_array[[timestep, batch_idx, input_idx]]);
+            }
         }
         
         Variable::new(

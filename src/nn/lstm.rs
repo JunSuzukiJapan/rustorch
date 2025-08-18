@@ -816,18 +816,17 @@ where
         let batch_size = hidden_shape[1];
         let hidden_size = hidden_shape[2];
         
-        let start_idx = layer_idx * batch_size * hidden_size;
-        let end_idx = start_idx + batch_size * hidden_size;
-        
         let hidden_array = hidden_data.as_array();
         let cell_array = cell_data.as_array();
         
         let mut layer_hidden_data = Vec::with_capacity(batch_size * hidden_size);
         let mut layer_cell_data = Vec::with_capacity(batch_size * hidden_size);
         
-        for i in start_idx..end_idx {
-            layer_hidden_data.push(hidden_array[i]);
-            layer_cell_data.push(cell_array[i]);
+        for batch_idx in 0..batch_size {
+            for hidden_idx in 0..hidden_size {
+                layer_hidden_data.push(hidden_array[[layer_idx, batch_idx, hidden_idx]]);
+                layer_cell_data.push(cell_array[[layer_idx, batch_idx, hidden_idx]]);
+            }
         }
         
         let layer_hidden = Variable::new(
