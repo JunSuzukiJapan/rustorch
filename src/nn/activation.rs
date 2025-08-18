@@ -162,6 +162,206 @@ fn apply_softmax<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
     Tensor::from_vec(result_data, tensor.shape().to_vec())
 }
 
+/// GELU (Gaussian Error Linear Unit) activation function
+/// GELU（ガウス誤差線形ユニット）活性化関数
+/// 
+/// Applies the element-wise function: GELU(x) = x * Φ(x) where Φ(x) is the CDF of standard normal
+/// 要素ごとに関数を適用: GELU(x) = x * Φ(x) ここでΦ(x)は標準正規分布の累積分布関数
+pub fn gelu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // Apply GELU approximation: 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
+    let output_data = apply_gelu(&input_data);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+/// Swish (SiLU) activation function
+/// Swish（SiLU）活性化関数
+/// 
+/// Applies the element-wise function: Swish(x) = x * sigmoid(x)
+/// 要素ごとに関数を適用: Swish(x) = x * sigmoid(x)
+pub fn swish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // Apply Swish: x * sigmoid(x)
+    let output_data = apply_swish(&input_data);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+/// ELU (Exponential Linear Unit) activation function
+/// ELU（指数線形ユニット）活性化関数
+/// 
+/// Applies the element-wise function: ELU(x) = x if x > 0 else alpha * (exp(x) - 1)
+/// 要素ごとに関数を適用: ELU(x) = x if x > 0 else alpha * (exp(x) - 1)
+pub fn elu<T: Float + Send + Sync + 'static>(x: &Variable<T>, alpha: T) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // Apply ELU
+    let output_data = apply_elu(&input_data, alpha);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+/// SELU (Scaled Exponential Linear Unit) activation function
+/// SELU（スケール指数線形ユニット）活性化関数
+/// 
+/// Applies the element-wise function with fixed parameters for self-normalizing properties
+/// 自己正規化特性のため固定パラメータで要素ごとに関数を適用
+pub fn selu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // SELU with fixed parameters: alpha = 1.6732632423543772848170429916717, scale = 1.0507009873554804934193349852946
+    let alpha = T::from(1.6732632423543772848170429916717f32).unwrap();
+    let scale = T::from(1.0507009873554804934193349852946f32).unwrap();
+    let output_data = apply_selu(&input_data, alpha, scale);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+/// Mish activation function
+/// Mish活性化関数
+/// 
+/// Applies the element-wise function: Mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
+/// 要素ごとに関数を適用: Mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
+pub fn mish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // Apply Mish: x * tanh(softplus(x))
+    let output_data = apply_mish(&input_data);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+/// Hardswish activation function (used in MobileNetV3)
+/// Hardswish活性化関数（MobileNetV3で使用）
+/// 
+/// Applies the element-wise function: Hardswish(x) = x * ReLU6(x + 3) / 6
+/// 要素ごとに関数を適用: Hardswish(x) = x * ReLU6(x + 3) / 6
+pub fn hardswish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+    let input_data = x.data().read().unwrap().clone();
+    
+    // Apply Hardswish
+    let output_data = apply_hardswish(&input_data);
+    
+    if x.requires_grad() {
+        Variable::new(output_data, true)
+    } else {
+        Variable::new(output_data, false)
+    }
+}
+
+fn apply_gelu<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        // GELU approximation: 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
+        let sqrt_2_over_pi = T::from(0.7978845608028654f32).unwrap(); // sqrt(2/π)
+        let coeff = T::from(0.044715f32).unwrap();
+        let half = T::from(0.5f32).unwrap();
+        let one = T::one();
+        
+        let x_cubed = x * x * x;
+        let inner = sqrt_2_over_pi * (x + coeff * x_cubed);
+        let tanh_val = {
+            let exp_2x = (inner + inner).exp();
+            (exp_2x - one) / (exp_2x + one)
+        };
+        
+        half * x * (one + tanh_val)
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_swish<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        // Swish: x * sigmoid(x)
+        let sigmoid_x = T::one() / (T::one() + (-x).exp());
+        x * sigmoid_x
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_elu<T: Float + 'static>(tensor: &Tensor<T>, alpha: T) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        if x > T::zero() {
+            x
+        } else {
+            alpha * (x.exp() - T::one())
+        }
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_selu<T: Float + 'static>(tensor: &Tensor<T>, alpha: T, scale: T) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        if x > T::zero() {
+            scale * x
+        } else {
+            scale * alpha * (x.exp() - T::one())
+        }
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_mish<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        // Mish: x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
+        let softplus = (T::one() + x.exp()).ln();
+        let tanh_softplus = {
+            let exp_2x = (softplus + softplus).exp();
+            (exp_2x - T::one()) / (exp_2x + T::one())
+        };
+        x * tanh_softplus
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_hardswish<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| {
+        // Hardswish: x * ReLU6(x + 3) / 6
+        let three = T::from(3.0f32).unwrap();
+        let six = T::from(6.0f32).unwrap();
+        
+        // ReLU6(x + 3) = min(max(x + 3, 0), 6)
+        let relu6_val = (x + three).max(T::zero()).min(six);
+        
+        x * relu6_val / six
+    }).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -270,5 +470,107 @@ mod tests {
         for (actual, expected) in result_data.as_array().iter().zip(expected.iter()) {
             assert_abs_diff_eq!(*actual, *expected, epsilon = 1e-6);
         }
+    }
+
+    #[test]
+    fn test_gelu() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![0.0, 1.0, -1.0], vec![3]),
+            false
+        );
+        
+        let output = gelu(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // GELU(0) ≈ 0, GELU(1) ≈ 0.8413, GELU(-1) ≈ -0.1587
+        assert_abs_diff_eq!(result_data.as_array()[0], 0.0, epsilon = 1e-3);
+        assert!(result_data.as_array()[1] > 0.8);
+        assert!(result_data.as_array()[2] < 0.0);
+    }
+
+    #[test]
+    fn test_swish() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![0.0, 1.0, -1.0], vec![3]),
+            false
+        );
+        
+        let output = swish(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // Swish(0) = 0, Swish(1) ≈ 0.7311, Swish(-1) ≈ -0.2689
+        assert_abs_diff_eq!(result_data.as_array()[0], 0.0, epsilon = 1e-6);
+        assert!(result_data.as_array()[1] > 0.7);
+        assert!(result_data.as_array()[2] < 0.0);
+    }
+
+    #[test]
+    fn test_elu() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![-1.0, 0.0, 1.0], vec![3]),
+            false
+        );
+        
+        let output = elu(&input, 1.0);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // ELU(-1, α=1) ≈ -0.632, ELU(0) = 0, ELU(1) = 1
+        assert!(result_data.as_array()[0] < 0.0 && result_data.as_array()[0] > -1.0);
+        assert_abs_diff_eq!(result_data.as_array()[1], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_data.as_array()[2], 1.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_selu() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![0.0, 1.0], vec![2]),
+            false
+        );
+        
+        let output = selu(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // SELU should preserve zero and scale positive values
+        assert_abs_diff_eq!(result_data.as_array()[0], 0.0, epsilon = 1e-6);
+        assert!(result_data.as_array()[1] > 1.0); // Should be scaled
+    }
+
+    #[test]
+    fn test_mish() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![0.0, 1.0, -1.0], vec![3]),
+            false
+        );
+        
+        let output = mish(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // Mish(0) ≈ 0, Mish(1) ≈ 0.865, Mish(-1) ≈ -0.303
+        assert_abs_diff_eq!(result_data.as_array()[0], 0.0, epsilon = 1e-3);
+        assert!(result_data.as_array()[1] > 0.8);
+        assert!(result_data.as_array()[2] < 0.0);
+    }
+
+    #[test]
+    fn test_hardswish() {
+        let input = Variable::new(
+            Tensor::from_vec(vec![-3.0, 0.0, 3.0, 6.0], vec![4]),
+            false
+        );
+        
+        let output = hardswish(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+        
+        // Hardswish(-3) = 0, Hardswish(0) = 0, Hardswish(3) = 3, Hardswish(6) = 6
+        assert_abs_diff_eq!(result_data.as_array()[0], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_data.as_array()[1], 0.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_data.as_array()[2], 3.0, epsilon = 1e-6);
+        assert_abs_diff_eq!(result_data.as_array()[3], 6.0, epsilon = 1e-6);
     }
 }

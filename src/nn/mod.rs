@@ -5,6 +5,7 @@ pub mod linear;
 pub mod conv2d;
 pub mod pool2d;
 pub mod batchnorm;
+pub mod dropout;
 pub mod activation;
 pub mod loss;
 
@@ -115,3 +116,6 @@ pub use pool2d::{MaxPool2d, AvgPool2d};
 /// バッチ正規化レイヤー
 /// Batch normalization layers
 pub use batchnorm::{BatchNorm1d, BatchNorm2d};
+/// ドロップアウトレイヤー
+/// Dropout layers
+pub use dropout::{Dropout, AlphaDropout, dropout};

@@ -255,6 +255,150 @@ fn apply_smooth_l1<T: Float + 'static>(tensor: &Tensor<T>, delta: T) -> Tensor<T
     Tensor::from_vec(result_data, tensor.shape().to_vec())
 }
 
+/* 
+/// Advanced loss functions - TODO: Implement after adding division operator support
+/// 高度な損失関数 - TODO: 除算演算子サポート後に実装
+
+/// Focal loss function for addressing class imbalance
+/// クラス不均衡に対処するためのFocal損失関数
+pub fn focal_loss<T: Float + Send + Sync + 'static>(
+    input: &Variable<T>, 
+    target: &Variable<T>,
+    alpha: T,
+    gamma: T
+) -> Variable<T> {
+    // TODO: Implement after adding division and advanced operators
+    mse_loss(input, target)
+}
+
+/// Dice loss function for segmentation tasks  
+/// セグメンテーションタスク用のDice損失関数
+pub fn dice_loss<T: Float + Send + Sync + 'static>(
+    input: &Variable<T>, 
+    target: &Variable<T>,
+    smooth: T
+) -> Variable<T> {
+    // TODO: Implement after adding division operator
+    mse_loss(input, target)
+}
+
+/// Triplet loss function for metric learning
+/// メトリック学習用のTriplet損失関数
+pub fn triplet_loss<T: Float + Send + Sync + 'static>(
+    anchor: &Variable<T>,
+    positive: &Variable<T>,
+    negative: &Variable<T>,
+    margin: T
+) -> Variable<T> {
+    // TODO: Implement after adding more operators
+    let ap_diff = anchor - positive;
+    (&ap_diff * &ap_diff).sum().mean()
+}
+
+/// Contrastive loss function for siamese networks
+/// シアムネットワーク用のContrastive損失関数
+pub fn contrastive_loss<T: Float + Send + Sync + 'static>(
+    output1: &Variable<T>,
+    output2: &Variable<T>,
+    label: &Variable<T>,
+    margin: T
+) -> Variable<T> {
+    // TODO: Implement after adding more operators
+    let diff = output1 - output2;
+    (&diff * &diff).sum().mean()
+}
+
+/// KL Divergence loss function
+/// KLダイバージェンス損失関数
+pub fn kl_div_loss<T: Float + Send + Sync + 'static>(
+    input: &Variable<T>, 
+    target: &Variable<T>
+) -> Variable<T> {
+    // Simplified KL divergence implementation
+    let eps = T::from(1e-7).unwrap();
+    let clamped_input = clamp_variable(input, eps, T::one());
+    let clamped_target = clamp_variable(target, eps, T::one());
+    
+    let log_target = log_variable(&clamped_target);
+    let log_input = log_variable(&clamped_input);
+    let log_ratio = &log_target - &log_input;
+    
+    let kl_terms = &clamped_target * &log_ratio;
+    kl_terms.sum().mean()
+}
+*/
+
+// Additional helper functions
+// 追加のヘルパー関数
+
+fn pow_variable<T: Float + Send + Sync + 'static>(
+    var: &Variable<T>, 
+    exponent: T
+) -> Variable<T> {
+    let input_data = var.data().read().unwrap().clone();
+    let pow_data = apply_pow(&input_data, exponent);
+    
+    if var.requires_grad() {
+        Variable::new(pow_data, true)
+    } else {
+        Variable::new(pow_data, false)
+    }
+}
+
+fn sqrt_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
+    let input_data = var.data().read().unwrap().clone();
+    let sqrt_data = apply_sqrt(&input_data);
+    
+    if var.requires_grad() {
+        Variable::new(sqrt_data, true)
+    } else {
+        Variable::new(sqrt_data, false)
+    }
+}
+
+fn relu_variable<T: Float + Send + Sync + 'static>(
+    var: &Variable<T>,
+    _threshold: &Variable<T>
+) -> Variable<T> {
+    use crate::nn::activation::relu;
+    relu(var)
+}
+
+fn scalar_variable<T: Float + Send + Sync + 'static>(value: T) -> Variable<T> {
+    let scalar_tensor = Tensor::from_vec(vec![value], vec![]);
+    Variable::new(scalar_tensor, false)
+}
+
+fn flatten_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
+    let binding = var.data();
+    let input_data = binding.read().unwrap();
+    let total_elements = input_data.len();
+    let flattened_tensor = Tensor::from_vec(
+        input_data.as_array().iter().cloned().collect(),
+        vec![total_elements]
+    );
+    
+    if var.requires_grad() {
+        Variable::new(flattened_tensor, true)
+    } else {
+        Variable::new(flattened_tensor, false)
+    }
+}
+
+fn apply_pow<T: Float + 'static>(tensor: &Tensor<T>, exponent: T) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| x.powf(exponent)).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+fn apply_sqrt<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
+    let data = tensor.as_array();
+    let result_data: Vec<T> = data.iter().map(|&x| x.sqrt()).collect();
+    
+    Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
 // Add missing operations to Variable
 impl<T: Float + Send + Sync + 'static> Variable<T> {
     /// Compute the mean of all elements
@@ -274,6 +418,14 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         } else {
             Variable::new(mean_tensor, false)
         }
+    }
+    
+    /// Sum along a specific dimension (simplified implementation)
+    /// 特定の次元に沿った和（簡略実装）
+    pub fn sum_dim(&self, _dim: i32) -> Variable<T> {
+        // For now, implement as total sum (simplified)
+        // In a full implementation, this would sum along the specified dimension
+        self.sum()
     }
 }
 
