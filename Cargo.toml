@@ -6,7 +6,7 @@ description = "A PyTorch-compatible deep learning library in Rust"
 repository = "https://github.com/JunSuzukiJapan/rustorch"
 license = "MIT OR Apache-2.0"
 keywords = ["pytorch", "machine-learning", "tensor", "autograd"]
-categories = ["science", "machine-learning"]
+categories = ["science"]
 
 [lib]
 name = "rustorch"
