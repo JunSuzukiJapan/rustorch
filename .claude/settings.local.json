@@ -8,7 +8,9 @@
       "Bash(cargo test:*)",
       "Bash(RUST_BACKTRACE=1 cargo test nn::rnn::tests::test_rnn_cell_forward -- --nocapture)",
       "Bash(RUST_BACKTRACE=1 cargo test nn::rnn::tests::test_rnn_multi_layer -- --nocapture)",
-      "Bash(RUST_BACKTRACE=1 cargo test nn::lstm::tests::test_lstm_cell_forward -- --nocapture)"
+      "Bash(RUST_BACKTRACE=1 cargo test nn::lstm::tests::test_lstm_cell_forward -- --nocapture)",
+      "Bash(cargo publish:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
