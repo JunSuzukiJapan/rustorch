@@ -2,6 +2,8 @@
 //! Neural network module definitions.
 
 pub mod linear;
+pub mod conv2d;
+pub mod pool2d;
 pub mod activation;
 pub mod loss;
 
@@ -98,8 +100,14 @@ where
     }
 }
 
-// Linearモジュールを再エクスポート
-// Re-export the Linear module
+// Re-export neural network modules
+// ニューラルネットワークモジュールを再エクスポート
 /// 線形（全結合）レイヤー
 /// Linear (fully connected) layer
 pub use linear::Linear;
+/// 2次元畳み込みレイヤー
+/// 2D convolution layer
+pub use conv2d::Conv2d;
+/// 2次元プーリングレイヤー
+/// 2D pooling layers
+pub use pool2d::{MaxPool2d, AvgPool2d};
