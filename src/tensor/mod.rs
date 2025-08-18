@@ -1,5 +1,5 @@
 use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD};
-use num_traits::{Float, Zero, One};
+use num_traits::Float;
 use serde::{Deserialize, Serialize};
 use std::ops;
 use std::fmt;
@@ -149,6 +149,87 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn sum(&self) -> Tensor<T> {
         let sum_value = self.data.iter().fold(T::zero(), |acc, &x| acc + x);
         Tensor::from_vec(vec![sum_value], vec![])
+    }
+    
+    /// Creates a batch tensor by stacking tensors along the first dimension.
+    /// テンソルを第一次元に沿って積み重ねてバッチテンソルを作成します。
+    pub fn stack(tensors: &[&Tensor<T>]) -> Result<Tensor<T>, String> {
+        if tensors.is_empty() {
+            return Err("Cannot stack empty list of tensors".to_string());
+        }
+        
+        // Check that all tensors have the same shape
+        let first_shape = tensors[0].shape();
+        for (i, tensor) in tensors.iter().enumerate().skip(1) {
+            if tensor.shape() != first_shape {
+                return Err(format!(
+                    "All tensors must have the same shape. Tensor 0 has shape {:?}, tensor {} has shape {:?}",
+                    first_shape, i, tensor.shape()
+                ));
+            }
+        }
+        
+        // Create new shape with batch dimension
+        let mut new_shape = vec![tensors.len()];
+        new_shape.extend_from_slice(first_shape);
+        
+        // Collect all data
+        let mut all_data = Vec::new();
+        for tensor in tensors {
+            all_data.extend(tensor.data.iter().cloned());
+        }
+        
+        Ok(Tensor::from_vec(all_data, new_shape))
+    }
+    
+    /// Gets a slice of the tensor along the first dimension (batch dimension).
+    /// 第一次元（バッチ次元）に沿ってテンソルのスライスを取得します。
+    pub fn batch_get(&self, index: usize) -> Result<Tensor<T>, String> {
+        if self.data.ndim() == 0 {
+            return Err("Cannot index into scalar tensor".to_string());
+        }
+        
+        let batch_size = self.data.shape()[0];
+        if index >= batch_size {
+            return Err(format!(
+                "Index {} out of bounds for batch size {}",
+                index, batch_size
+            ));
+        }
+        
+        let sliced = self.data.index_axis(ndarray::Axis(0), index);
+        Ok(Tensor::new(sliced.to_owned()))
+    }
+    
+    /// Returns the batch size (size of the first dimension).
+    /// バッチサイズ（第一次元のサイズ）を返します。
+    pub fn batch_size(&self) -> usize {
+        if self.data.ndim() == 0 {
+            1 // Scalar tensor has batch size 1
+        } else {
+            self.data.shape()[0]
+        }
+    }
+    
+    /// Computes mean along the specified axis.
+    /// 指定された軸に沿った平均を計算します。
+    pub fn mean_axis(&self, axis: usize) -> Tensor<T> {
+        let sum = self.data.sum_axis(ndarray::Axis(axis));
+        let axis_size = T::from(self.data.shape()[axis]).unwrap();
+        let mean_data = sum.mapv(|x| x / axis_size);
+        Tensor::new(mean_data.into_dyn())
+    }
+    
+    /// Broadcasts this tensor to the given shape.
+    /// このテンソルを指定された形状にブロードキャストします。
+    pub fn broadcast_to(&self, shape: &[usize]) -> Result<Tensor<T>, String> {
+        match self.data.broadcast(shape) {
+            Some(broadcasted) => Ok(Tensor::new(broadcasted.to_owned())),
+            None => Err(format!(
+                "Cannot broadcast tensor with shape {:?} to shape {:?}",
+                self.shape(), shape
+            )),
+        }
     }
 }
 

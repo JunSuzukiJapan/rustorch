@@ -3,6 +3,7 @@
 
 pub mod linear;
 pub mod activation;
+pub mod loss;
 
 use crate::autograd::Variable;
 use num_traits::Float;

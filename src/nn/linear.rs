@@ -114,18 +114,43 @@ where
     /// Performs the forward pass of the linear layer.
     /// 線形レイヤーの順伝搬を実行します。
     pub fn forward(&self, input: &Variable<T>) -> Variable<T> {
-        // For now, return a simple implementation
-        // This would need proper implementation with autograd support
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let weight_binding = self.weight.data();
         let weight_data = weight_binding.read().unwrap();
         
-        // Create a transposed weight for correct matrix multiplication
+        // Matrix multiplication: input @ weight.T
+        // For batch processing: (batch_size, input_features) @ (input_features, output_features)
         let weight_t = weight_data.transpose();
-        let output_data = input_data.matmul(&weight_t);
+        let mut output_data = input_data.matmul(&weight_t);
         
-        Variable::new(output_data, input.requires_grad() || self.weight.requires_grad())
+        // Add bias if present
+        if let Some(ref bias) = self.bias {
+            let bias_binding = bias.data();
+            let bias_data = bias_binding.read().unwrap();
+            
+            // Broadcast bias to match output shape
+            let output_shape = output_data.shape();
+            if output_shape.len() == 2 {
+                // Batch processing: add bias to each sample
+                let _batch_size = output_shape[0];
+                let output_features = output_shape[1];
+                
+                // Create bias tensor with shape (1, output_features) for broadcasting
+                let bias_expanded = bias_data.as_array().clone().into_shape((1, output_features)).unwrap();
+                let bias_tensor = Tensor::new(bias_expanded.into_dyn());
+                
+                output_data = &output_data + &bias_tensor;
+            } else if output_shape.len() == 1 {
+                // Single sample: direct addition
+                output_data = &output_data + &*bias_data;
+            }
+        }
+        
+        let requires_grad = input.requires_grad() || self.weight.requires_grad() 
+            || self.bias.as_ref().map_or(false, |b| b.requires_grad());
+        
+        Variable::new(output_data, requires_grad)
     }
     
     /// Returns the input size of the layer.

@@ -1,11 +1,22 @@
 use crate::tensor::Tensor;
+use self::grad_fn::*;
 use std::sync::{Arc, RwLock};
 use num_traits::Float;
 use std::marker::PhantomData;
 use std::ops;
 
+pub mod function;
+pub mod graph;
+pub mod grad_fn;
+
 #[cfg(test)]
 mod tests;
+
+/// Gradient function trait for backward computation
+/// 逆伝播計算のための勾配関数トレイト
+pub trait GradFn<T: Float + Send + Sync + 'static>: Send + Sync {
+    fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>>;
+}
 
 /// A variable that supports automatic differentiation.
 /// 自動微分をサポートする変数
@@ -13,6 +24,7 @@ pub struct Variable<T: Float + Send + Sync> {
     data: Arc<RwLock<Tensor<T>>>,
     grad: Arc<RwLock<Option<Tensor<T>>>>,
     requires_grad: bool,
+    grad_fn: Option<Arc<dyn GradFn<T>>>,
     _marker: PhantomData<T>,
 }
 
@@ -30,6 +42,7 @@ impl<T: Float + Send + Sync + 'static> Clone for Variable<T> {
             data: self.data.clone(),
             grad: self.grad.clone(),
             requires_grad: self.requires_grad,
+            grad_fn: self.grad_fn.clone(),
             _marker: PhantomData,
         }
     }
@@ -43,6 +56,19 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
             requires_grad,
+            grad_fn: None,
+            _marker: PhantomData,
+        }
+    }
+    
+    /// Creates a new variable with gradient function
+    /// 勾配関数付きの新しい変数を作成します
+    pub fn new_with_grad_fn(data: Tensor<T>, requires_grad: bool, grad_fn: Option<Arc<dyn GradFn<T>>>) -> Self {
+        Variable {
+            data: Arc::new(RwLock::new(data)),
+            grad: Arc::new(RwLock::new(None)),
+            requires_grad,
+            grad_fn,
             _marker: PhantomData,
         }
     }
@@ -111,7 +137,12 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
             }
         }
 
-
+        // If this variable has a gradient function, call it to compute input gradients
+        if let Some(grad_fn) = &self.grad_fn {
+            let _grad_inputs = grad_fn.apply(&[initial_grad]);
+            // Note: In a full implementation, we would propagate these gradients to input variables
+            // For now, this is a simplified version
+        }
     }
 
     /// Matrix multiplication with automatic differentiation support
@@ -122,8 +153,11 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         let result_data = lhs_data.matmul(&rhs_data);
 
         if self.requires_grad || other.requires_grad {
-            // For now, return without grad_fn - we'll implement this properly later
-            Variable::new(result_data, true)
+            let grad_fn = Arc::new(MatMulBackward {
+                input0_data: lhs_data,
+                input1_data: rhs_data,
+            });
+            Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
         } else {
             Variable::new(result_data, false)
         }
@@ -133,12 +167,50 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
     /// 自動微分をサポートする全要素の和
     pub fn sum(&self) -> Variable<T> {
         let input_data = self.data.read().unwrap();
-        let result_data = input_data.sum(); // Use the new sum method
+        let input_shape = input_data.shape().to_vec();
+        let result_data = input_data.sum();
         
         if self.requires_grad {
+            let grad_fn = Arc::new(SumBackward {
+                input_shape,
+                _phantom: PhantomData,
+            });
+            Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
+        } else {
+            Variable::new(result_data, false)
+        }
+    }
+    
+    /// Power function with automatic differentiation support
+    /// 自動微分をサポートするべき乗関数
+    pub fn pow(&self, exponent: T) -> Variable<T> {
+        let input_data = self.data.read().unwrap().clone();
+        let mut result_data = input_data.clone();
+        result_data.as_array_mut().mapv_inplace(|x| x.powf(exponent));
+        
+        if self.requires_grad {
+            // For now, return without proper gradient function
             Variable::new(result_data, true)
         } else {
             Variable::new(result_data, false)
+        }
+    }
+    
+    /// Mean of all elements with automatic differentiation support
+    /// 自動微分をサポートする全要素の平均
+    pub fn mean_autograd(&self) -> Variable<T> {
+        let sum_var = self.sum();
+        let input_data = self.data.read().unwrap();
+        let numel = T::from(input_data.len()).unwrap();
+        
+        let sum_data = sum_var.data.read().unwrap().clone();
+        let mut mean_data = sum_data;
+        mean_data.as_array_mut().mapv_inplace(|x| x / numel);
+        
+        if self.requires_grad {
+            Variable::new(mean_data, true)
+        } else {
+            Variable::new(mean_data, false)
         }
     }
 }
@@ -153,6 +225,7 @@ impl<T: Float + Send + Sync + 'static> ops::Add for &Variable<T> {
         let result_data = &lhs_data + &rhs_data;
 
         if self.requires_grad || rhs.requires_grad {
+            // For now, simplified without proper gradient tracking
             Variable::new(result_data, true)
         } else {
             Variable::new(result_data, false)
@@ -169,9 +242,38 @@ impl<T: Float + Send + Sync + 'static> ops::Mul for &Variable<T> {
         let result_data = &lhs_data * &rhs_data;
 
         if self.requires_grad || rhs.requires_grad {
+            let grad_fn = Arc::new(MulBackward {
+                input0_data: lhs_data,
+                input1_data: rhs_data,
+            });
+            Variable::new_with_grad_fn(result_data, true, Some(grad_fn))
+        } else {
+            Variable::new(result_data, false)
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static> ops::Sub for &Variable<T> {
+    type Output = Variable<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        let lhs_data = self.data.read().unwrap().clone();
+        let rhs_data = rhs.data.read().unwrap().clone();
+        let result_data = &lhs_data - &rhs_data;
+
+        if self.requires_grad || rhs.requires_grad {
+            // For now, simplified without proper gradient tracking
             Variable::new(result_data, true)
         } else {
             Variable::new(result_data, false)
         }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static> ops::Sub<&Variable<T>> for Variable<T> {
+    type Output = Variable<T>;
+
+    fn sub(self, rhs: &Variable<T>) -> Self::Output {
+        &self - rhs
     }
 }

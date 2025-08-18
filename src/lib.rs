@@ -7,7 +7,13 @@
 /// Automatic differentiation module
 /// 自動微分モジュール
 pub mod autograd;
+/// Data loading and processing utilities
+/// データ読み込みと処理のユーティリティ
+pub mod data;
 pub mod nn;
+/// Optimization algorithms
+/// 最適化アルゴリズム
+pub mod optim;
 /// Tensor operations and data structures
 /// テンソル操作とデータ構造
 pub mod tensor;
@@ -19,6 +25,9 @@ pub mod prelude {
     pub use crate::nn::Module;
     pub use crate::autograd::Variable;
     pub use crate::nn::activation::{relu, sigmoid, tanh, leaky_relu, softmax};
+    pub use crate::nn::loss::{mse_loss, binary_cross_entropy, cross_entropy, nll_loss, huber_loss};
+    pub use crate::optim::{Optimizer, SGD, Adam};
+    pub use crate::data::{Dataset, TensorDataset, DataLoader};
 }
 
 #[cfg(test)]
