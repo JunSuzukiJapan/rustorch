@@ -18,6 +18,7 @@ pub mod prelude {
     pub use crate::tensor::Tensor;
     pub use crate::nn::Module;
     pub use crate::autograd::Variable;
+    pub use crate::nn::activation::{relu, sigmoid, tanh, leaky_relu, softmax};
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD};
-use num_traits::{Float, Zero};
+use num_traits::{Float, Zero, One};
 use serde::{Deserialize, Serialize};
 use std::ops;
 use std::fmt;

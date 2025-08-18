@@ -2,6 +2,7 @@
 //! Neural network module definitions.
 
 pub mod linear;
+pub mod activation;
 
 use crate::autograd::Variable;
 use num_traits::Float;
