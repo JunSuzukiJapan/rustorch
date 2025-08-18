@@ -8,6 +8,9 @@ pub mod batchnorm;
 pub mod dropout;
 pub mod activation;
 pub mod loss;
+pub mod rnn;
+pub mod lstm;
+pub mod gru;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -119,3 +122,12 @@ pub use batchnorm::{BatchNorm1d, BatchNorm2d};
 /// ドロップアウトレイヤー
 /// Dropout layers
 pub use dropout::{Dropout, AlphaDropout, dropout};
+/// リカレントレイヤー
+/// Recurrent layers
+pub use rnn::{RNNCell, RNN};
+/// LSTMレイヤー
+/// LSTM layers
+pub use lstm::{LSTMCell, LSTM};
+/// GRUレイヤー
+/// GRU layers
+pub use gru::{GRUCell, GRU};
