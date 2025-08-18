@@ -22,7 +22,7 @@ pub mod utils;
 /// Re-exports of commonly used items
 pub mod prelude {
     pub use crate::tensor::Tensor;
-    pub use crate::nn::{Module, Linear, Conv2d, MaxPool2d, AvgPool2d};
+    pub use crate::nn::{Module, Linear, Conv2d, MaxPool2d, AvgPool2d, BatchNorm1d, BatchNorm2d};
     pub use crate::autograd::Variable;
     pub use crate::nn::activation::{relu, sigmoid, tanh, leaky_relu, softmax};
     pub use crate::nn::loss::{mse_loss, binary_cross_entropy, cross_entropy, nll_loss, huber_loss};
