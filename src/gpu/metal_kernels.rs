@@ -86,6 +86,7 @@ impl<T> MetalBuffer<T> {
                 size,
                 device_id,
                 byte_length,
+                _phantom: PhantomData,
             })
         }
         #[cfg(not(feature = "metal"))]
@@ -271,20 +272,6 @@ impl MetalKernelExecutor {
     }
     
     /// Execute matrix multiplication using Metal Performance Shaders
-    /// Metal Performance Shadersを使用した行列乗算を実行
-    pub fn execute_matmul_mps<T>(
-        &self,
-        input1: &MetalBuffer<T>,
-        input2: &MetalBuffer<T>,
-        output: &mut MetalBuffer<T>,
-        m: usize,
-        n: usize,
-        k: usize,
-        params: &MetalKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-    {
         #[cfg(feature = "metal")]
         {
             // TODO: Use Metal Performance Shaders for optimized GEMM

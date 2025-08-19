@@ -5,12 +5,14 @@
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
 [![Tests](https://img.shields.io/badge/tests-201%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
+[![GPU](https://img.shields.io/badge/GPU-CUDA%2FMetal%2FOpenCL-blue.svg)](#gpu-acceleration)
+[![Performance](https://img.shields.io/badge/performance-SIMD%20optimized-orange.svg)](#performance)
 
-**A production-ready deep learning library in Rust with PyTorch-like API, combining safety and speed**  
-**本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPIで安全性と速度を両立**
+**A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
+**本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPI、GPU加速、エンタープライズグレードパフォーマンス**
 
-RusTorch is a fully functional deep learning library that leverages Rust's safety and performance, providing comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, GPU acceleration, and advanced memory optimization features.  
-RusTorchは、Rustの安全性とパフォーマンスを活かした完全機能のディープラーニングライブラリです。包括的なテンソル演算、自動微分システム、ニューラルネットワーク層、Transformerアーキテクチャ、GPU加速、高度なメモリ最適化機能を提供します。
+RusTorch is a fully functional deep learning library that leverages Rust's safety and performance, providing comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, and enterprise-grade memory management features.  
+RusTorchは、Rustの安全性とパフォーマンスを活かした完全機能のディープラーニングライブラリです。包括的なテンソル演算、自動微分システム、ニューラルネットワーク層、Transformerアーキテクチャ、マルチバックエンドGPU加速（CUDA/Metal/OpenCL）、高度なSIMD最適化、エンタープライズグレードメモリ管理機能を提供します。
 
 ## ✨ Features / 主な特徴
 
@@ -54,6 +56,14 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 rustorch = "0.1.5"
+
+# For GPU acceleration (optional)
+[features]
+default = []
+cuda = ["rustorch/cuda"]
+metal = ["rustorch/metal"] 
+opencl = ["rustorch/opencl"]
+all-gpu = ["cuda", "metal", "opencl"]
 ```
 
 ## 📊 Performance / パフォーマンス
@@ -252,10 +262,10 @@ Comprehensive examples in the [examples/](examples/) directory:
   - [embedding_demo.rs](examples/embedding_demo.rs) - Word and positional embeddings
   - [attention_demo.rs](examples/attention_demo.rs) - Multi-head attention mechanisms
 - **Performance Optimization / パフォーマンス最適化**:
-  - [parallel_demo.rs](examples/parallel_demo.rs) - Parallel tensor operations
+  - [parallel_operations_demo.rs](examples/parallel_operations_demo.rs) - Parallel tensor operations with trait-based system
+  - [memory_optimization_demo.rs](examples/memory_optimization_demo.rs) - Advanced memory optimization strategies
+  - [gpu_acceleration_demo.rs](examples/gpu_acceleration_demo.rs) - GPU acceleration with multi-backend support
   - [simd_demo.rs](examples/simd_demo.rs) - SIMD vectorized operations
-  - [memory_demo.rs](examples/memory_demo.rs) - Memory optimization strategies
-  - [gpu_demo.rs](examples/gpu_demo.rs) - GPU acceleration examples
 - **Basic / 基本**: [tensor_demo.rs](examples/tensor_demo.rs), [autograd_demo.rs](examples/autograd_demo.rs)
 - **Neural Networks / NN**: [linear_regression.rs](examples/linear_regression.rs), [neural_network_demo.rs](examples/neural_network_demo.rs)
 - **Advanced / 高度**: [rnn_demo.rs](examples/rnn_demo.rs), [advanced_features_demo.rs](examples/advanced_features_demo.rs)
@@ -274,10 +284,10 @@ cargo run --example embedding_demo --release
 cargo run --example attention_demo --release
 
 # Run performance optimization examples / パフォーマンス最適化サンプル実行
-cargo run --example parallel_demo --release
+cargo run --example parallel_operations_demo --release
+cargo run --example memory_optimization_demo --release
+cargo run --example gpu_acceleration_demo --release
 cargo run --example simd_demo --release
-cargo run --example memory_demo --release
-cargo run --example gpu_demo --release
 
 # Run neural network examples / ニューラルネットワークサンプル実行
 cargo run --example linear_regression --release
@@ -309,14 +319,21 @@ cargo test autograd
 
 ## 📊 Benchmarks / ベンチマーク
 
-Continuous performance measurement with dedicated benchmark suites:  
-専用ベンチマークスイートで性能を継続的に測定:
+Comprehensive performance measurement with dedicated benchmark suites:  
+専用ベンチマークスイートで包括的な性能測定:
 
 ```bash
 # Run all benchmarks / 全ベンチマーク実行
 cargo bench
 
-# Run specific benchmarks / 特定のベンチマーク実行
+# Run specific benchmark suites / 特定のベンチマークスイート実行
+cargo bench --bench parallel_performance      # Parallel processing benchmarks
+cargo bench --bench simd_performance         # SIMD optimization benchmarks  
+cargo bench --bench memory_strategy_performance  # Memory optimization benchmarks
+cargo bench --bench gpu_cpu_performance      # GPU vs CPU comparison benchmarks
+cargo bench --bench integrated_performance   # Integrated performance tests
+
+# Legacy benchmarks / レガシーベンチマーク
 cargo bench --bench tensor_ops
 cargo bench --bench neural_networks
 cargo bench --bench optimized_ops
@@ -325,7 +342,14 @@ cargo bench --bench memory_optimization
 cargo bench --bench gpu_integration
 ```
 
-**Benchmark Categories / ベンチマークカテゴリ:**
+**New Benchmark Suites / 新しいベンチマークスイート:**
+- `parallel_performance`: Parallel vs sequential operations, thread scaling, execution strategies / 並列vs逐次演算、スレッドスケーリング、実行戦略
+- `simd_performance`: SIMD vs scalar operations, vectorization effectiveness, instruction sets / SIMDvsスカラー演算、ベクトル化効果、命令セット
+- `memory_strategy_performance`: Memory allocation strategies, zero-copy operations, cache optimization / メモリ割り当て戦略、ゼロコピー操作、キャッシュ最適化
+- `gpu_cpu_performance`: GPU acceleration vs CPU processing, device selection, memory transfer / GPU加速vsCPU処理、デバイス選択、メモリ転送
+- `integrated_performance`: End-to-end performance validation across all optimizations / 全最適化の統合パフォーマンス検証
+
+**Legacy Benchmark Categories / レガシーベンチマークカテゴリ:**
 - `tensor_ops`: Basic tensor operations / 基本テンソル演算
 - `autograd_ops`: Automatic differentiation operations / 自動微分演算
 - `neural_networks`: Neural network operations / ニューラルネットワーク

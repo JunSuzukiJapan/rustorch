@@ -164,6 +164,43 @@ impl fmt::Display for DeviceType {
     }
 }
 
+impl DeviceType {
+    /// Check if the device is available
+    /// デバイスが利用可能かチェック
+    pub fn is_available(&self) -> bool {
+        match self {
+            DeviceType::Cpu => true,
+            DeviceType::Cuda(_) => {
+                #[cfg(feature = "cuda")]
+                {
+                    // In a real implementation, this would check CUDA availability
+                    false // Placeholder - always return false for now
+                }
+                #[cfg(not(feature = "cuda"))]
+                false
+            },
+            DeviceType::Metal(_) => {
+                #[cfg(feature = "metal")]
+                {
+                    // In a real implementation, this would check Metal availability
+                    false // Placeholder - always return false for now
+                }
+                #[cfg(not(feature = "metal"))]
+                false
+            },
+            DeviceType::OpenCl(_) => {
+                #[cfg(feature = "opencl")]
+                {
+                    // In a real implementation, this would check OpenCL availability
+                    false // Placeholder - always return false for now
+                }
+                #[cfg(not(feature = "opencl"))]
+                false
+            },
+        }
+    }
+}
+
 /// GPU memory layout
 /// GPUメモリレイアウト
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

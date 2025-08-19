@@ -318,20 +318,6 @@ impl OpenClKernelExecutor {
     }
     
     /// Execute matrix multiplication kernel
-    /// 行列乗算カーネルを実行
-    pub fn execute_matmul<T>(
-        &self,
-        input1: &OpenClBuffer<T>,
-        input2: &OpenClBuffer<T>,
-        output: &mut OpenClBuffer<T>,
-        m: usize,
-        n: usize,
-        k: usize,
-        params: &OpenClKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-    {
         #[cfg(feature = "opencl")]
         {
             let kernel = self.kernels.get(&OpenClKernelType::MatMul)
