@@ -3,30 +3,34 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-76%20passing-green.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-passing-green.svg)](#testing)
 
 **A high-performance deep learning library in Rust with PyTorch-like API, combining safety and speed**  
 **高性能なRust製ディープラーニングライブラリ - PyTorchライクなAPIで安全性と速度を両立**
 
-RusTorch is a deep learning library that leverages Rust's safety and performance, providing automatic differentiation, rich neural network layers, and optimized tensor operations.  
-RusTorchは、Rustの安全性とパフォーマンスを活かしたディープラーニングライブラリです。自動微分システム、豊富なニューラルネットワーク層、最適化されたテンソル演算を提供します。
+RusTorch is a deep learning library that leverages Rust's safety and performance, providing comprehensive tensor operations, automatic differentiation, neural network layers, and advanced statistical functions.  
+RusTorchは、Rustの安全性とパフォーマンスを活かしたディープラーニングライブラリです。包括的なテンソル演算、自動微分システム、ニューラルネットワーク層、高度な統計機能を提供します。
 
 ## ✨ Features / 主な特徴
 
-- 🔥 **High-Performance Tensor Operations**: 3-9% performance improvements with optimized ndarray backend  
-  **高性能テンソル演算**: 最適化されたndarray基盤で3-9%の性能向上を実現
-- 🧠 **Complete Automatic Differentiation**: Tape-based computational graph for automatic gradient computation  
-  **完全な自動微分**: テープベースの計算グラフによる自動勾配計算
-- 🏗️ **Rich Neural Network Layers**: Linear, Conv2d, RNN/LSTM/GRU, BatchNorm, and more  
-  **豊富なNN層**: Linear、Conv2d、RNN/LSTM/GRU、BatchNorm等を完備
-- ⚡ **In-place Operations**: Memory-efficient `add_inplace()`, `mul_inplace()`, etc.  
-  **In-place演算**: メモリ効率的な`add_inplace()`, `mul_inplace()`等
-- 🎯 **PyTorch-like API**: Familiar interface for PyTorch users  
-  **PyTorchライクAPI**: 親しみやすいインターフェース
+- 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, and statistics  
+  **包括的テンソル演算**: 数学演算、ブロードキャスティング、インデックス操作、統計機能
+- 📊 **Advanced Statistics**: Mean, variance, std, median, quantile, covariance, correlation  
+  **高度な統計**: 平均、分散、標準偏差、中央値、分位数、共分散、相関
+- 🎯 **Broadcasting Support**: Automatic shape compatibility and dimension expansion  
+  **ブロードキャスティング**: 自動形状互換性と次元拡張
+- 🔍 **Flexible Indexing**: Select operations, slicing, and advanced tensor manipulation  
+  **柔軟なインデックス**: 選択操作、スライシング、高度なテンソル操作
+- 🧮 **Mathematical Functions**: Trigonometric, exponential, power, and activation functions  
+  **数学関数**: 三角関数、指数関数、べき乗、活性化関数
+- 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation  
+  **自動微分**: テープベースの計算グラフによる勾配計算
+- 🏗️ **Neural Network Layers**: Linear, Conv2d, RNN/LSTM/GRU, BatchNorm, and more  
+  **ニューラルネットワーク層**: Linear、Conv2d、RNN/LSTM/GRU、BatchNorm等
 - 🛡️ **Rust Safety**: Memory safety and thread safety guarantees  
   **Rust安全性**: メモリ安全性とスレッドセーフティを保証
-- 📊 **Comprehensive Testing**: 76 tests ensuring stability  
-  **包括的テスト**: 76個のテストで安定性を確保
+- ⚡ **High Performance**: Optimized operations with parallel processing support  
+  **高性能**: 並列処理対応の最適化された演算
 
 ## Installation
 
@@ -34,7 +38,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.1.0"
+rustorch = "0.1.4"
 ```
 
 ## 📊 Performance / パフォーマンス
@@ -55,23 +59,51 @@ Latest benchmark results (post-optimization):
 ### Basic Tensor Operations / 基本的なテンソル演算
 
 ```rust
-use rustorch::prelude::*;
+use rustorch::tensor::Tensor;
 
 fn main() {
     // Create tensors / テンソル作成
-    let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-    let b = Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
+    let a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2]);
+    let b = Tensor::from_vec(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2]);
     
     // Basic operations / 基本演算
     let c = &a + &b;  // Addition / 加算
     let d = a.matmul(&b);  // Matrix multiplication / 行列乗算
     
-    // In-place operations (memory efficient) / In-place演算（メモリ効率的）
-    let mut e = a.clone();
-    e.add_inplace(&b);
-    e.mul_scalar_inplace(2.0);
+    // Mathematical functions / 数学関数
+    let e = a.sin();  // Sine function / サイン関数
+    let f = a.exp();  // Exponential function / 指数関数
     
-    println!("Result: {:?}", e.size());
+    println!("Shape: {:?}", c.shape());
+    println!("Result: {:?}", c.as_slice());
+}
+```
+
+### Advanced Tensor Operations / 高度なテンソル演算
+
+```rust
+use rustorch::tensor::Tensor;
+
+fn main() {
+    // Create a 3x4 matrix / 3x4行列を作成
+    let data = Tensor::from_vec(
+        vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0],
+        vec![3, 4]
+    );
+    
+    // Statistical operations / 統計演算
+    let mean = data.mean(None);  // Overall mean / 全体平均
+    let std_dev = data.std(Some(0), true);  // Standard deviation along axis 0 / 軸0の標準偏差
+    let median = data.median(Some(1));  // Median along axis 1 / 軸1の中央値
+    
+    // Broadcasting operations / ブロードキャスティング演算
+    let broadcasted = data.broadcast_to(&[6, 4]).unwrap();
+    
+    // Indexing operations / インデックス演算
+    let selected = data.select(0, &[0, 2]).unwrap();  // Select rows 0 and 2 / 行0と2を選択
+    
+    println!("Mean: {:?}", mean.as_slice());
+    println!("Selected shape: {:?}", selected.shape());
 }
 ```
 
@@ -134,10 +166,12 @@ src/
 ## 📚 Rich Features / 豊富な機能
 
 ### Tensor Operations / テンソル演算
-- Basic operations / 基本演算: `+`, `-`, `*`, `/`, `matmul()`
-- In-place operations / In-place演算: `add_inplace()`, `mul_inplace()`, `sub_inplace()`
-- Reductions / リダクション: `sum()`, `mean()`, `sum_axis()`
-- Shape manipulation / 形状操作: `transpose()`, `reshape()`, `permute()`
+- **Basic operations / 基本演算**: `+`, `-`, `*`, `/`, `matmul()`
+- **Mathematical functions / 数学関数**: `sin()`, `cos()`, `exp()`, `log()`, `sqrt()`, `pow()`, `sigmoid()`, `tanh()`
+- **Statistical operations / 統計演算**: `mean()`, `var()`, `std()`, `median()`, `quantile()`, `cumsum()`, `cov()`, `corrcoef()`
+- **Broadcasting / ブロードキャスティング**: `broadcast_to()`, `broadcast_with()`, `unsqueeze()`, `squeeze()`, `repeat()`
+- **Indexing / インデックス**: `select()`, advanced slicing and tensor manipulation
+- **Shape manipulation / 形状操作**: `transpose()`, `reshape()`, `permute()`
 
 ### Neural Network Layers / ニューラルネットワーク層
 - **Linear**: Fully connected layers / 全結合層
@@ -158,12 +192,31 @@ src/
 
 ## 📖 Examples / サンプル
 
-20 practical examples in the [examples/](examples/) directory:  
-[examples/](examples/) ディレクトリに20個の実用的なサンプルを用意:
+Comprehensive examples in the [examples/](examples/) directory:  
+[examples/](examples/) ディレクトリに包括的なサンプルを用意:
 
+- **Tensor Operations / テンソル演算**: 
+  - [math_ops_demo.rs](examples/math_ops_demo.rs) - Mathematical functions demonstration
+  - [broadcasting_demo.rs](examples/broadcasting_demo.rs) - Broadcasting operations
+  - [indexing_demo.rs](examples/indexing_demo.rs) - Indexing and selection operations
+  - [statistics_demo.rs](examples/statistics_demo.rs) - Statistical functions
 - **Basic / 基本**: [tensor_demo.rs](examples/tensor_demo.rs), [autograd_demo.rs](examples/autograd_demo.rs)
 - **Neural Networks / NN**: [linear_regression.rs](examples/linear_regression.rs), [neural_network_demo.rs](examples/neural_network_demo.rs)
 - **Advanced / 高度**: [rnn_demo.rs](examples/rnn_demo.rs), [advanced_features_demo.rs](examples/advanced_features_demo.rs)
+
+### Running Examples / サンプル実行
+
+```bash
+# Run tensor operations examples / テンソル演算サンプル実行
+cargo run --example math_ops_demo --release
+cargo run --example broadcasting_demo --release
+cargo run --example indexing_demo --release
+cargo run --example statistics_demo --release
+
+# Run basic examples / 基本サンプル実行
+cargo run --example tensor_demo --release
+cargo run --example autograd_demo --release
+```
 
 ## 🧪 Testing / テスト
 
