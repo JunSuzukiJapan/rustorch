@@ -2,7 +2,7 @@
 name = "rustorch"
 version = "0.1.2"
 edition = "2021"
-authors = ["Jun Suzuki <jun@example.com>"]
+authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "A PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, and GPU support"
 documentation = "https://docs.rs/rustorch"
 homepage = "https://github.com/JunSuzukiJapan/rustorch"
@@ -50,8 +50,10 @@ criterion = "0.5"
 [features]
 default = ["cpu"]
 cpu = []
-# Enable CUDA support
-#cuda = ["cudarc"]
+# Enable GPU support
+cuda = []
+metal = []
+opencl = []
 
 [[bench]]
 name = "tensor_ops"
