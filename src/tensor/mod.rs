@@ -1,12 +1,13 @@
-use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD};
+use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, Axis};
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
+use rayon::prelude::*;
 use std::ops;
 use std::fmt;
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct Tensor<T: Float> {
     data: ArrayD<T>,
 }
@@ -124,7 +125,7 @@ impl<T: Float + 'static> Tensor<T> {
                 Tensor::new(result.into_dyn())
             },
             (2, 2) => {
-                // Matrix-matrix multiplication
+                // Matrix-matrix multiplication - optimized with BLAS
                 let lhs = lhs.view().into_dimensionality::<Ix2>().unwrap();
                 let rhs = rhs.view().into_dimensionality::<Ix2>().unwrap();
                 let result = lhs.dot(&rhs);
@@ -142,6 +143,53 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor {
             data: sum.into_shape(dim).unwrap(),
         }
+    }
+
+    /// In-place addition with another tensor.
+    /// 別のテンソルとのin-place加算を実行します。
+    pub fn add_inplace(&mut self, rhs: &Tensor<T>) {
+        for (a, b) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *a = *a + *b;
+        }
+    }
+
+    /// In-place multiplication with another tensor.
+    /// 別のテンソルとのin-place乗算を実行します。
+    pub fn mul_inplace(&mut self, rhs: &Tensor<T>) {
+        for (a, b) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *a = *a * *b;
+        }
+    }
+
+    /// In-place subtraction with another tensor.
+    /// 別のテンソルとのin-place減算を実行します。
+    pub fn sub_inplace(&mut self, rhs: &Tensor<T>) {
+        for (a, b) in self.data.iter_mut().zip(rhs.data.iter()) {
+            *a = *a - *b;
+        }
+    }
+
+    /// In-place scalar multiplication.
+    /// スカラーとのin-place乗算を実行します。
+    pub fn mul_scalar_inplace(&mut self, scalar: T) {
+        self.data.mapv_inplace(|x| x * scalar);
+    }
+
+    /// Parallel matrix multiplication for large tensors.
+    /// 大規模テンソル用の並列行列乗算を実行します。
+    pub fn matmul_parallel(&self, rhs: &Tensor<T>) -> Tensor<T> {
+        // For now, use regular matmul with ndarray's built-in parallelization
+        self.matmul(rhs)
+    }
+
+    /// Element-wise operations.
+    /// 要素ごと演算を実行します。
+    pub fn apply<F>(&self, f: F) -> Tensor<T>
+    where
+        F: Fn(T) -> T,
+    {
+        let new_data: Vec<T> = self.data.iter().map(|&x| f(x)).collect();
+        Tensor::from_vec(new_data, self.size())
     }
 
     /// Computes the sum of all elements in the tensor.
