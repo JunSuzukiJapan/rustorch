@@ -177,6 +177,65 @@ impl<T: Float + 'static> Tensor<T> {
                 let result = lhs.dot(&rhs);
                 Tensor::new(result.into_dyn())
             },
+            (3, 2) => {
+                // Batch matrix-vector multiplication: (B, M, N) x (N, K) -> (B, M, K)
+                let lhs_shape = lhs.shape();
+                let rhs_shape = rhs.shape();
+                let batch_size = lhs_shape[0];
+                let m = lhs_shape[1];
+                let n = lhs_shape[2];
+                let k = rhs_shape[1];
+                
+                if n != rhs_shape[0] {
+                    panic!("Incompatible dimensions for matmul: {} != {}", n, rhs_shape[0]);
+                }
+                
+                let mut result_data = Vec::with_capacity(batch_size * m * k);
+                let rhs_2d = rhs.view().into_dimensionality::<Ix2>().unwrap();
+                
+                for b in 0..batch_size {
+                    for i in 0..m {
+                        for j in 0..k {
+                            let mut sum = T::zero();
+                            for l in 0..n {
+                                sum = sum + lhs[[b, i, l]] * rhs_2d[[l, j]];
+                            }
+                            result_data.push(sum);
+                        }
+                    }
+                }
+                
+                Tensor::from_vec(result_data, vec![batch_size, m, k])
+            },
+            (3, 3) => {
+                // Batch matrix-matrix multiplication: (B, M, N) x (B, N, K) -> (B, M, K)
+                let lhs_shape = lhs.shape();
+                let rhs_shape = rhs.shape();
+                let batch_size = lhs_shape[0];
+                let m = lhs_shape[1];
+                let n = lhs_shape[2];
+                let k = rhs_shape[2];
+                
+                if batch_size != rhs_shape[0] || n != rhs_shape[1] {
+                    panic!("Incompatible dimensions for batch matmul: {:?} and {:?}", lhs_shape, rhs_shape);
+                }
+                
+                let mut result_data = Vec::with_capacity(batch_size * m * k);
+                
+                for b in 0..batch_size {
+                    for i in 0..m {
+                        for j in 0..k {
+                            let mut sum = T::zero();
+                            for l in 0..n {
+                                sum = sum + lhs[[b, i, l]] * rhs[[b, l, j]];
+                            }
+                            result_data.push(sum);
+                        }
+                    }
+                }
+                
+                Tensor::from_vec(result_data, vec![batch_size, m, k])
+            },
             _ => panic!("Unsupported dimensions for matmul: {:?} and {:?}", lhs.shape(), rhs.shape()),
         }
     }

@@ -5,7 +5,9 @@ use crate::autograd::Variable;
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use std::fmt::Debug;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive, ToPrimitive, Zero, One};
+use ndarray::ScalarOperand;
+use std::iter::Sum;
 use std::sync::{Arc, RwLock};
 use rand::Rng;
 
@@ -33,7 +35,7 @@ pub struct Dropout<T: Float + Send + Sync> {
 
 impl<T> Dropout<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     /// Creates a new Dropout layer
     /// 新しいDropoutレイヤーを作成します
@@ -45,12 +47,10 @@ where
     /// # 引数
     /// * `p` - 要素がゼロになる確率（0.0から1.0）
     /// * `inplace` - trueの場合、この演算をインプレースで行います
-    pub fn new(p: T, inplace: Option<bool>) -> Self {
+    pub fn new(p: T, inplace: bool) -> Self {
         if p < T::zero() || p > T::one() {
             panic!("Dropout probability must be between 0.0 and 1.0, got: {:?}", p);
         }
-        
-        let inplace = inplace.unwrap_or(false);
         
         Dropout {
             p,
@@ -121,7 +121,8 @@ where
         let mask_data: Vec<T> = (0..total_elements)
             .map(|_| {
                 let random_val: f32 = rng.gen();
-                if <T as From<f32>>::from(random_val) < self.p {
+                let _alpha_prime = -T::from(1.7580993408473766).unwrap() * (T::from(1.0).unwrap() * T::from(1.0).unwrap()) + T::from(1.0).unwrap();
+                if T::from(random_val).unwrap() < self.p {
                     T::zero() // Drop this element
                 } else {
                     T::one() // Keep this element
@@ -165,7 +166,7 @@ where
 
 impl<T> Module<T> for Dropout<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -185,13 +186,13 @@ where
 /// 
 /// Applies dropout to input during training mode
 /// 訓練モード中に入力にドロップアウトを適用します
-pub fn dropout<T: Float + Send + Sync + 'static + From<f32> + Copy + Debug + Default>(
+pub fn dropout<T: Float + Send + Sync + 'static + FromPrimitive + ToPrimitive + Zero + One + Copy + Debug + Default + ScalarOperand + Sum + std::fmt::Display>(
     input: &Variable<T>,
     p: T,
     training: bool
 ) -> Variable<T> {
     if training && p > T::zero() {
-        let dropout_layer = Dropout::new(p, None);
+        let dropout_layer = Dropout::new(p, false);
         if training {
             dropout_layer.train();
         } else {
@@ -221,11 +222,11 @@ pub struct AlphaDropout<T: Float + Send + Sync> {
 
 impl<T> AlphaDropout<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     /// Creates a new AlphaDropout layer
     /// 新しいAlphaDropoutレイヤーを作成します
-    pub fn new(p: T) -> Self {
+    pub fn new(p: T, inplace: bool) -> Self {
         if p < T::zero() || p > T::one() {
             panic!("AlphaDropout probability must be between 0.0 and 1.0, got: {:?}", p);
         }
@@ -275,7 +276,7 @@ where
         let input_data = input_binding.read().unwrap();
         
         // AlphaDropout parameters for SELU
-        let alpha = <T as From<f32>>::from(-1.7580993408473766f32); // Negative saturation value for SELU
+        let alpha = T::from(-1.7580993408473766f32).unwrap(); // Negative saturation value for SELU
         let keep_prob = T::one() - self.p;
         
         // Calculate scaling parameters to maintain mean=0, var=1
@@ -304,7 +305,7 @@ where
         let mask_data: Vec<T> = (0..total_elements)
             .map(|_| {
                 let random_val: f32 = rng.gen();
-                if <T as From<f32>>::from(random_val) < keep_prob {
+                if T::from(random_val).unwrap() < keep_prob {
                     T::one() // Keep
                 } else {
                     T::zero() // Drop
@@ -354,7 +355,7 @@ where
 
 impl<T> Module<T> for AlphaDropout<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -377,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_dropout_creation() {
-        let dropout = Dropout::<f32>::new(0.5, None);
+        let dropout = Dropout::<f32>::new(0.5, false);
         assert_abs_diff_eq!(dropout.p(), 0.5, epsilon = 1e-6);
         assert!(dropout.is_training());
         assert!(!dropout.inplace());
@@ -385,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_dropout_eval_mode() {
-        let dropout = Dropout::<f32>::new(0.5, None);
+        let dropout = Dropout::<f32>::new(0.5, false);
         
         // Switch to evaluation mode
         dropout.eval();
@@ -411,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_dropout_training_mode() {
-        let dropout = Dropout::<f32>::new(0.5, None);
+        let dropout = Dropout::<f32>::new(0.5, false);
         dropout.train();
         
         let input = Variable::new(
@@ -431,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_dropout_with_gradients() {
-        let dropout = Dropout::<f32>::new(0.3, None);
+        let dropout = Dropout::<f32>::new(0.3, false);
         
         let input = Variable::new(
             Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]),
@@ -467,14 +468,14 @@ mod tests {
 
     #[test]
     fn test_alpha_dropout_creation() {
-        let alpha_dropout = AlphaDropout::<f32>::new(0.1);
+        let alpha_dropout = AlphaDropout::<f32>::new(0.1, false);
         assert_abs_diff_eq!(alpha_dropout.p(), 0.1, epsilon = 1e-6);
         assert!(alpha_dropout.is_training());
     }
 
     #[test]
     fn test_alpha_dropout_forward() {
-        let alpha_dropout = AlphaDropout::<f32>::new(0.1);
+        let alpha_dropout = AlphaDropout::<f32>::new(0.1, false);
         
         let input = Variable::new(
             Tensor::from_vec(vec![0.0, 1.0, -1.0, 2.0], vec![4]),
@@ -492,12 +493,12 @@ mod tests {
     #[test]
     #[should_panic(expected = "Dropout probability must be between 0.0 and 1.0")]
     fn test_dropout_invalid_probability() {
-        let _dropout = Dropout::<f32>::new(1.5, None);
+        let _dropout = Dropout::<f32>::new(1.5, false);
     }
 
     #[test]
     fn test_dropout_zero_probability() {
-        let dropout = Dropout::<f32>::new(0.0, None);
+        let dropout = Dropout::<f32>::new(0.0, false);
         dropout.train();
         
         let input = Variable::new(

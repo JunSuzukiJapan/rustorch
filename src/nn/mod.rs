@@ -11,6 +11,10 @@ pub mod loss;
 pub mod rnn;
 pub mod lstm;
 pub mod gru;
+pub mod embedding;
+pub mod normalization;
+pub mod attention;
+pub mod transformer;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -131,3 +135,15 @@ pub use lstm::{LSTMCell, LSTM};
 /// GRUレイヤー
 /// GRU layers
 pub use gru::{GRUCell, GRU};
+/// Embedding layers
+/// 埋め込みレイヤー
+pub use embedding::{Embedding, PositionalEmbedding, SinusoidalPositionalEncoding};
+/// Normalization layers
+/// 正規化レイヤー
+pub use normalization::{LayerNorm, GroupNorm, RMSNorm};
+/// Attention layers
+/// アテンション層
+pub use attention::{MultiHeadAttention, SelfAttention, CrossAttention};
+/// Transformer layers
+/// Transformer層
+pub use transformer::{TransformerEncoderLayer, TransformerEncoder, TransformerDecoderLayer, Transformer};

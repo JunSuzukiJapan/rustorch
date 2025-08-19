@@ -102,7 +102,7 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
 
         // Create indices for batching
         let total_samples = dataset.len();
-        let num_batches = (total_samples + batch_size - 1) / batch_size;
+        let _num_batches = (total_samples + batch_size - 1) / batch_size;
         
         let indices = Arc::new(Mutex::new({
             let mut idx: Vec<usize> = (0..total_samples).collect();
@@ -114,7 +114,7 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
         }));
 
         // Spawn worker threads
-        for worker_id in 0..num_workers {
+        for _worker_id in 0..num_workers {
             let dataset = dataset.clone();
             let indices = indices.clone();
             let sender = sender.clone();
@@ -125,7 +125,7 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
                 loop {
                     // Get next batch indices
                     let batch_indices = {
-                        let mut indices_guard = indices.lock().unwrap();
+                        let indices_guard = indices.lock().unwrap();
                         let start_idx = batch_count * batch_size;
                         let end_idx = std::cmp::min(start_idx + batch_size, indices_guard.len());
                         

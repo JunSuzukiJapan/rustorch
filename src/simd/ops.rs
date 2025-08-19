@@ -1,4 +1,5 @@
 use super::vectorized;
+use super::traits::{SimdElementwise, SimdReduction, AutoSimd};
 
 /// High-level SIMD operations interface
 /// 高レベルSIMD演算インターフェース
@@ -6,53 +7,20 @@ use super::vectorized;
 /// Optimized element-wise addition with automatic SIMD selection
 /// 自動SIMD選択による最適化された要素ごと加算
 pub fn add_optimized(a: &[f32], b: &[f32], result: &mut [f32]) {
-    if a.len() < 32 {
-        // For small arrays, regular operation might be faster
-        for i in 0..a.len() {
-            result[i] = a[i] + b[i];
-        }
-    } else if vectorized::is_avx2_available() {
-        unsafe { vectorized::add_f32_avx2(a, b, result); }
-    } else if vectorized::is_sse41_available() {
-        unsafe { vectorized::add_f32_sse41(a, b, result); }
-    } else {
-        // Fallback to regular operation
-        for i in 0..a.len() {
-            result[i] = a[i] + b[i];
-        }
-    }
+    AutoSimd::simd_add(a, b, result);
 }
 
 /// Optimized element-wise multiplication
 /// 最適化された要素ごと乗算
 pub fn mul_optimized(a: &[f32], b: &[f32], result: &mut [f32]) {
-    if a.len() < 32 {
-        for i in 0..a.len() {
-            result[i] = a[i] * b[i];
-        }
-    } else if vectorized::is_avx2_available() {
-        unsafe { vectorized::mul_f32_avx2(a, b, result); }
-    } else {
-        for i in 0..a.len() {
-            result[i] = a[i] * b[i];
-        }
-    }
+    AutoSimd::simd_mul(a, b, result);
 }
 
-/// Optimized scalar multiplication
-/// 最適化されたスカラー乗算
+/// Optimized scalar multiplication using SIMD
+/// SIMD を使用した最適化されたスカラー乗算
 pub fn mul_scalar_optimized(a: &[f32], scalar: f32, result: &mut [f32]) {
-    if a.len() < 32 {
-        for i in 0..a.len() {
-            result[i] = a[i] * scalar;
-        }
-    } else if vectorized::is_avx2_available() {
-        unsafe { vectorized::mul_scalar_f32_avx2(a, scalar, result); }
-    } else {
-        for i in 0..a.len() {
-            result[i] = a[i] * scalar;
-        }
-    }
+    let auto_simd = AutoSimd::new();
+    auto_simd.scalar_mul(a, scalar, result);
 }
 
 /// CPU feature detection and optimization info
@@ -76,16 +44,11 @@ pub fn get_optimization_info() -> String {
     info
 }
 
-/// Optimized dot product
-/// 最適化されたドット積
+/// Optimized dot product using SIMD
+/// SIMD を使用した最適化された内積
 pub fn dot_product_optimized(a: &[f32], b: &[f32]) -> f32 {
-    if a.len() < 32 {
-        a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
-    } else if vectorized::is_avx2_available() {
-        unsafe { vectorized::dot_product_f32_avx2(a, b) }
-    } else {
-        a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
-    }
+    let auto_simd = AutoSimd::new();
+    auto_simd.simd_dot(a, b)
 }
 
 /// Optimized matrix multiplication
@@ -95,25 +58,27 @@ pub fn matmul_optimized(
     b: &[f32], b_rows: usize, b_cols: usize,
     result: &mut [f32]
 ) {
-    vectorized::matmul_f32_simd(a, a_rows, a_cols, b, b_rows, b_cols, result);
+    use super::traits::SimdMatrix;
+    AutoSimd::simd_matmul(a, a_rows, a_cols, b, b_rows, b_cols, result);
 }
 
 /// Optimized sum reduction
 /// 最適化された合計リダクション
 pub fn sum_optimized(data: &[f32]) -> f32 {
-    vectorized::sum_f32_simd(data)
+    AutoSimd::simd_sum(data)
 }
 
 /// Optimized mean calculation
 /// 最適化された平均計算
 pub fn mean_optimized(data: &[f32]) -> f32 {
-    vectorized::mean_f32_simd(data)
+    AutoSimd::simd_mean(data)
 }
 
 /// Optimized variance calculation
 /// 最適化された分散計算
 pub fn variance_optimized(data: &[f32]) -> f32 {
-    vectorized::variance_f32_simd(data)
+    let mean = AutoSimd::simd_mean(data);
+    AutoSimd::simd_variance(data, mean)
 }
 
 #[cfg(test)]

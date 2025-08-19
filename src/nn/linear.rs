@@ -8,7 +8,9 @@ use ndarray::Array;
 use rand::distributions::Distribution;
 use rand_distr::Normal;
 use std::fmt::Debug;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive, ToPrimitive, Zero, One};
+use ndarray::ScalarOperand;
+use std::iter::Sum;
 
 /// A linear (fully connected) layer.
 /// 線形（全結合）レイヤー
@@ -44,12 +46,7 @@ impl<T: Float + Send + Sync> std::fmt::Debug for Linear<T> {
 
 impl<T> Linear<T> 
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync,
-    T: ndarray::ScalarOperand,
-    T: std::ops::Add<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
-    T: std::ops::Sub<Output = T> + std::ops::Neg<Output = T>,
-    T: std::iter::Sum,
-    T: std::fmt::Display,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     /// Creates a new linear layer with the given input and output sizes.
     /// 入力サイズと出力サイズを指定して新しい線形レイヤーを作成します。
@@ -60,7 +57,7 @@ where
         
         // Initialize weights
         let weight_data: Vec<T> = (0..input_size * output_size)
-            .map(|_| <T as From<f32>>::from(normal.sample(&mut rand::thread_rng()) as f32))
+            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
             .collect();
         
         let weight = Variable::new(
@@ -70,7 +67,7 @@ where
         
         // Initialize bias
         let bias_data: Vec<T> = (0..output_size)
-            .map(|_| <T as From<f32>>::from(normal.sample(&mut rand::thread_rng()) as f32))
+            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
             .collect();
         
         let bias = Variable::new(
@@ -95,7 +92,7 @@ where
         
         // Initialize weights
         let weight_data: Vec<T> = (0..input_size * output_size)
-            .map(|_| <T as From<f32>>::from(normal.sample(&mut rand::thread_rng()) as f32))
+            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
             .collect();
         
         let weight = Variable::new(
@@ -184,12 +181,7 @@ where
 
 impl<T> Module<T> for Linear<T> 
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync,
-    T: ndarray::ScalarOperand,
-    T: std::ops::Add<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
-    T: std::ops::Sub<Output = T> + std::ops::Neg<Output = T>,
-    T: std::iter::Sum,
-    T: std::fmt::Display,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

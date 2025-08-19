@@ -3,6 +3,7 @@
 
 pub mod ops;
 pub mod vectorized;
+pub mod traits;
 
 #[cfg(test)]
 mod tests {
