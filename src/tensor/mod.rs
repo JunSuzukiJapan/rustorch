@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 use rayon::prelude::*;
 use std::ops;
 use std::fmt;
+use crate::memory::{get_f32_pool, get_f64_pool};
+
+mod pool_integration;
+mod simd_integration;
+mod parallel_ops;
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
@@ -32,20 +37,33 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.shape().to_vec()
     }
 
-    /// Creates a tensor filled with zeros.
-    /// ゼロで埋められたテンソルを作成します。
+    /// Creates a tensor filled with zeros using memory pool.
+    /// メモリプールを使用してゼロで埋められたテンソルを作成します。
     pub fn zeros(shape: &[usize]) -> Self {
+        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+            if let Ok(mut pool) = get_f32_pool().lock() {
+                let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
+                return Tensor { data };
+            }
+        } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+            if let Ok(mut pool) = get_f64_pool().lock() {
+                let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
+                return Tensor { data };
+            }
+        }
+        
+        // Fallback to regular allocation
         Tensor {
             data: ArrayD::zeros(IxDyn(shape)),
         }
     }
 
-    /// Creates a tensor filled with ones.
-    /// 1で埋められたテンソルを作成します。
+    /// Creates a tensor filled with ones using memory pool.
+    /// メモリプールを使用して1で埋められたテンソルを作成します。
     pub fn ones(shape: &[usize]) -> Self {
-        Tensor {
-            data: ArrayD::ones(IxDyn(shape)),
-        }
+        let mut tensor = Self::zeros(shape); // Use pool allocation
+        tensor.data.fill(T::one());
+        tensor
     }
 
     /// Returns a reference to the underlying array.
@@ -64,6 +82,18 @@ impl<T: Float + 'static> Tensor<T> {
     /// 内部の配列への可変参照を返します。
     pub fn as_array_mut(&mut self) -> &mut ArrayD<T> {
         &mut self.data
+    }
+
+    /// Returns the data as a slice if possible
+    /// 可能であればデータをスライスとして返します
+    pub fn as_slice(&self) -> Option<&[T]> {
+        self.data.as_slice()
+    }
+    
+    /// Returns the data as a mutable slice if possible
+    /// 可能であればデータを可変スライスとして返します
+    pub fn as_slice_mut(&mut self) -> Option<&mut [T]> {
+        self.data.as_slice_mut()
     }
 
     /// Returns the shape of the tensor.
@@ -305,53 +335,58 @@ impl<T: Float + 'static> From<ndarray::Array2<T>> for Tensor<T> {
     }
 }
 
-impl<T: Float> ops::Add for &Tensor<T> {
+impl<T: Float + 'static> ops::Add for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Tensor {
-            data: &self.data + &rhs.data,
-        }
+        // Use memory pool for result allocation
+        let mut result = Tensor::zeros(self.data.shape());
+        result.data = &self.data + &rhs.data;
+        result
     }
 }
 
-impl<T: Float> ops::Sub for &Tensor<T> {
+impl<T: Float + 'static> ops::Sub for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Tensor {
-            data: &self.data - &rhs.data,
-        }
+        // Use memory pool for result allocation
+        let mut result = Tensor::zeros(self.data.shape());
+        result.data = &self.data - &rhs.data;
+        result
     }
 }
 
-impl<T: Float> ops::Mul for &Tensor<T> {
+impl<T: Float + 'static> ops::Mul for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        Tensor {
-            data: &self.data * &rhs.data,
-        }
+        // Use memory pool for result allocation
+        let mut result = Tensor::zeros(self.data.shape());
+        result.data = &self.data * &rhs.data;
+        result
     }
 }
 
-impl<T: Float> ops::Div for &Tensor<T> {
+impl<T: Float + 'static> ops::Div for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        Tensor {
-            data: &self.data / &rhs.data,
-        }
+        // Use memory pool for result allocation
+        let mut result = Tensor::zeros(self.data.shape());
+        result.data = &self.data / &rhs.data;
+        result
     }
 }
 
-impl<T: Float> ops::Neg for &Tensor<T> {
+impl<T: Float + 'static> ops::Neg for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn neg(self) -> Self::Output {
-        let mut result = self.data.clone();
-        result.mapv_inplace(|x| -x);
-        Tensor { data: result }
+        // Use memory pool for result allocation
+        let mut result = Tensor::zeros(self.data.shape());
+        result.data.assign(&self.data.mapv(|x| -x));
+        result
     }
 }
 

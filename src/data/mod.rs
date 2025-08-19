@@ -2,6 +2,7 @@
 //! データ読み込みと処理のユーティリティ
 
 pub mod dataloader;
+pub mod parallel_dataloader;
 
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -59,3 +60,4 @@ impl<T: Float> Dataset<T> for TensorDataset<T> {
 
 // Re-export
 pub use dataloader::DataLoader;
+pub use parallel_dataloader::{ParallelDataLoader, ParallelBatchIterator, ParallelBatchProcessor};

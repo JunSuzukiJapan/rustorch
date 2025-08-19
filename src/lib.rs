@@ -18,6 +18,9 @@ pub mod optim;
 /// テンソル操作とデータ構造
 pub mod tensor;
 pub mod utils;
+pub mod memory;
+pub mod simd;
+pub mod gpu;
 
 /// Re-exports of commonly used items
 pub mod prelude {
