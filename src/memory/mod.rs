@@ -139,9 +139,17 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
 /// メモリプール使用統計
 #[derive(Debug)]
 pub struct PoolStats {
+    /// Total number of memory pools
+    /// メモリプールの総数
     pub total_pools: usize,
+    /// Total number of cached arrays across all pools
+    /// 全プールでキャッシュされた配列の総数
     pub total_cached_arrays: usize,
+    /// Size of each memory pool
+    /// 各メモリプールのサイズ
     pub pool_sizes: Vec<usize>,
+    /// Maximum size of any single pool
+    /// 単一プールの最大サイズ
     pub max_pool_size: usize,
 }
 

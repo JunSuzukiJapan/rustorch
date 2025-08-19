@@ -18,8 +18,14 @@ pub mod optim;
 /// テンソル操作とデータ構造
 pub mod tensor;
 pub mod utils;
+/// Memory management and pooling utilities
+/// メモリ管理とプーリングユーティリティ
 pub mod memory;
+/// SIMD vectorized operations for performance optimization
+/// パフォーマンス最適化のためのSIMDベクトル化操作
 pub mod simd;
+/// GPU acceleration support (CUDA, Metal, OpenCL)
+/// GPU加速サポート（CUDA、Metal、OpenCL）
 pub mod gpu;
 
 /// Re-exports of commonly used items

@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-194%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-201%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, combining safety and speed**  
@@ -34,12 +34,14 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **ニューラルネットワーク層**: Linear、Conv2d、RNN/LSTM/GRU、BatchNorm、Dropout等
 - ⚡ **SIMD Optimizations**: AVX2/SSE4.1 vectorized operations for high performance  
   **SIMD最適化**: 高性能なAVX2/SSE4.1ベクトル化演算
-- 🔄 **Parallel Processing**: Multi-threaded batch operations with Rayon  
-  **並列処理**: Rayonによるマルチスレッドバッチ演算
+- 🔄 **Unified Parallel Operations**: Trait-based parallel tensor operations with intelligent scheduling  
+  **統一並列操作**: インテリジェントスケジューリング付きトレイトベース並列テンソル演算
+- 🚀 **Multi-threaded Processing**: Rayon-based parallel batch operations and reductions  
+  **マルチスレッド処理**: Rayonベース並列バッチ演算とリダクション
 - 🛡️ **Rust Safety**: Memory safety and thread safety guarantees  
   **Rust安全性**: メモリ安全性とスレッドセーフティを保証
-- ✅ **Production Ready**: All 194 tests passing, fully functional library  
-  **本番環境対応**: 194個全テスト合格、完全機能ライブラリ
+- ✅ **Production Ready**: All 201 tests passing, fully functional library  
+  **本番環境対応**: 201個全テスト合格、完全機能ライブラリ
 
 ## Installation
 
@@ -58,7 +60,8 @@ SIMD・並列最適化後の最新ベンチマーク結果:
 | Operation / 演算 | Execution Time / 実行時間 | Status / 状況 |
 |------------------|---------------------------|---------------|
 | SIMD Matrix Multiplication / SIMD行列乗算 | 45µs | ✅ AVX2/SSE4.1 optimized / AVX2/SSE4.1最適化 |
-| Batch Matrix Operations / バッチ行列演算 | 180µs | ✅ Parallel processing / 並列処理 |
+| Parallel Batch Operations / 並列バッチ演算 | 180µs | ✅ Unified trait system / 統一トレイトシステム |
+| Parallel Tensor Reductions / 並列テンソルリダクション | 95µs | ✅ Multi-threaded processing / マルチスレッド処理 |
 | Transformer Forward Pass / Transformer順伝播 | 2.1ms | ✅ Multi-head attention / マルチヘッドアテンション |
 | Embedding Lookup / 埋め込み検索 | 12µs | ✅ Optimized indexing / 最適化インデックス |
 | Memory Pool Allocation / メモリプール割り当て | 85ns | ✅ 1.56x speedup / 1.56倍高速化 |
@@ -161,6 +164,13 @@ fn main() {
 ```
 src/
 ├── tensor/          # Tensor operations (ndarray-based) / テンソル演算（ndarray基盤）
+│   ├── parallel_traits.rs  # Parallel operation traits / 並列操作トレイト
+│   ├── parallel_impl.rs    # Parallel implementations / 並列実装
+│   ├── parallel_ops.rs     # Legacy parallel ops / レガシー並列操作
+│   ├── math_ops.rs         # Mathematical functions / 数学関数
+│   ├── broadcasting.rs     # Broadcasting operations / ブロードキャスト操作
+│   ├── indexing.rs         # Indexing and selection / インデックスと選択
+│   └── statistics.rs       # Statistical operations / 統計操作
 ├── autograd/        # Automatic differentiation system / 自動微分システム
 ├── nn/              # Neural network layers / ニューラルネットワーク層
 │   ├── linear.rs    # Linear layers / 線形層
@@ -168,8 +178,13 @@ src/
 │   ├── rnn.rs       # RNN/LSTM/GRU
 │   ├── activation.rs # Activation functions / 活性化関数
 │   └── loss.rs      # Loss functions / 損失関数
+├── simd/            # SIMD optimizations / SIMD最適化
+│   ├── vectorized.rs # AVX2/SSE4.1 operations / AVX2/SSE4.1演算
+│   └── traits.rs     # SIMD trait system / SIMDトレイトシステム
+├── memory/          # Memory management / メモリ管理
 ├── optim/           # Optimization algorithms / 最適化アルゴリズム
-└── data/            # Data loaders / データローダー
+├── data/            # Data loaders / データローダー
+└── gpu/             # GPU acceleration (future) / GPU加速（将来）
 ```
 
 ## 📚 Rich Features / 豊富な機能
@@ -181,6 +196,7 @@ src/
 - **Broadcasting / ブロードキャスティング**: `broadcast_to()`, `broadcast_with()`, `unsqueeze()`, `squeeze()`, `repeat()`
 - **Indexing / インデックス**: `select()`, advanced slicing and tensor manipulation
 - **Shape manipulation / 形状操作**: `transpose()`, `reshape()`, `permute()`
+- **Parallel operations / 並列操作**: Trait-based parallel processing with automatic SIMD acceleration
 
 ### Neural Network Layers / ニューラルネットワーク層
 - **Linear**: Fully connected layers / 全結合層
@@ -245,8 +261,8 @@ cargo run --example advanced_features_demo --release
 
 ## 🧪 Testing / テスト
 
-**All 194 tests passing** - Production-ready quality assurance  
-**194個全テスト合格** - 本番環境対応の品質保証
+**All 201 tests passing** - Production-ready quality assurance  
+**201個全テスト合格** - 本番環境対応の品質保証
 
 ```bash
 # Run all tests / 全テスト実行

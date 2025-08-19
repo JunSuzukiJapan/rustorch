@@ -2,7 +2,11 @@
 /// RusTorchのGPU加速サポート
 
 pub mod device;
+/// GPU memory management and allocation
+/// GPUメモリ管理とアロケーション
 pub mod memory;
+/// GPU kernel execution and management
+/// GPUカーネル実行と管理
 pub mod kernels;
 
 use num_traits::Float;

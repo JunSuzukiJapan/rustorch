@@ -2,13 +2,16 @@ use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, Axis};
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
 // use rayon::prelude::*;
-use std::ops;
-use std::fmt;
+use std::{fmt, ops};
 use crate::memory::{get_f32_pool, get_f64_pool};
 
 mod pool_integration;
 mod simd_integration;
-mod parallel_ops;
+/// Parallel tensor operations for batch processing and SIMD acceleration
+/// バッチ処理とSIMD加速のための並列テンソル操作
+pub mod parallel_ops;
+pub mod parallel_traits;
+pub mod parallel_impl;
 // Enable modules step by step
 mod math_ops;
 mod broadcasting;
@@ -402,7 +405,7 @@ impl<T: Float + 'static> From<ndarray::Array2<T>> for Tensor<T> {
 impl<T: Float + 'static> ops::Add for &Tensor<T> {
     type Output = Tensor<T>;
 
-    fn add(self, rhs: Self) -> Self::Output {
+    fn add(self, rhs: Self) -> Tensor<T> {
         // Use memory pool for result allocation
         let mut result = Tensor::zeros(self.data.shape());
         result.data = &self.data + &rhs.data;
@@ -413,7 +416,7 @@ impl<T: Float + 'static> ops::Add for &Tensor<T> {
 impl<T: Float + 'static> ops::Sub for &Tensor<T> {
     type Output = Tensor<T>;
 
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(self, rhs: Self) -> Tensor<T> {
         // Use memory pool for result allocation
         let mut result = Tensor::zeros(self.data.shape());
         result.data = &self.data - &rhs.data;
@@ -424,7 +427,7 @@ impl<T: Float + 'static> ops::Sub for &Tensor<T> {
 impl<T: Float + 'static> ops::Mul for &Tensor<T> {
     type Output = Tensor<T>;
 
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, rhs: Self) -> Tensor<T> {
         // Use memory pool for result allocation
         let mut result = Tensor::zeros(self.data.shape());
         result.data = &self.data * &rhs.data;
@@ -435,7 +438,7 @@ impl<T: Float + 'static> ops::Mul for &Tensor<T> {
 impl<T: Float + 'static> ops::Div for &Tensor<T> {
     type Output = Tensor<T>;
 
-    fn div(self, rhs: Self) -> Self::Output {
+    fn div(self, rhs: Self) -> Tensor<T> {
         // Use memory pool for result allocation
         let mut result = Tensor::zeros(self.data.shape());
         result.data = &self.data / &rhs.data;
@@ -446,7 +449,7 @@ impl<T: Float + 'static> ops::Div for &Tensor<T> {
 impl<T: Float + 'static> ops::Neg for &Tensor<T> {
     type Output = Tensor<T>;
 
-    fn neg(self) -> Self::Output {
+    fn neg(self) -> Tensor<T> {
         // Use memory pool for result allocation
         let mut result = Tensor::zeros(self.data.shape());
         result.data.assign(&self.data.mapv(|x| -x));

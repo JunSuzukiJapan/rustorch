@@ -64,14 +64,20 @@ pub trait SimdMatrix<T: Float> {
 pub struct AutoSimd;
 
 impl AutoSimd {
+    /// Create a new AutoSimd instance with CPU feature detection
+    /// CPU機能検出を使用して新しいAutoSimdインスタンスを作成
     pub fn new() -> Self {
         AutoSimd
     }
     
+    /// Perform scalar multiplication using optimal SIMD implementation
+    /// 最適なSIMD実装を使用してスカラー乗算を実行
     pub fn scalar_mul(&self, a: &[f32], scalar: f32, result: &mut [f32]) {
         <Self as SimdElementwise<f32>>::scalar_mul(a, scalar, result);
     }
     
+    /// Compute dot product using optimal SIMD implementation
+    /// 最適なSIMD実装を使用してドット積を計算
     pub fn simd_dot(&self, a: &[f32], b: &[f32]) -> f32 {
         <Self as SimdElementwise<f32>>::dot(a, b)
     }

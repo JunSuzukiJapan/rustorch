@@ -360,8 +360,14 @@ impl MatMulKernel {
 /// Convolution kernel
 /// 畳み込みカーネル
 pub struct ConvKernel {
+    /// Size of the convolution kernel
+    /// 畳み込みカーネルのサイズ
     pub kernel_size: usize,
+    /// Stride of the convolution operation
+    /// 畳み込み操作のストライド
     pub stride: usize,
+    /// Padding applied to the input
+    /// 入力に適用されるパディング
     pub padding: usize,
 }
 

@@ -2,7 +2,11 @@
 /// テンソル計算のためのSIMD最適化演算
 
 pub mod ops;
+/// Vectorized SIMD operations (AVX2, SSE4.1)
+/// ベクトル化SIMD操作（AVX2、SSE4.1）
 pub mod vectorized;
+/// SIMD operation traits and auto-selection
+/// SIMD操作トレイトと自動選択
 pub mod traits;
 
 #[cfg(test)]

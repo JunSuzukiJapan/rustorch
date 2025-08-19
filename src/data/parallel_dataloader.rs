@@ -95,7 +95,7 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
         batch_size: usize,
         num_workers: usize,
         shuffle: bool,
-        prefetch_factor: usize,
+        _prefetch_factor: usize,
     ) -> Self {
         let (sender, receiver) = mpsc::channel();
         let mut handles = Vec::new();

@@ -247,13 +247,41 @@ fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Resul
 #[derive(Debug, Clone)]
 pub enum BroadcastError {
     /// Shapes are incompatible for broadcasting
-    IncompatibleShapes { from: Vec<usize>, to: Vec<usize> },
+    IncompatibleShapes { 
+        /// Source shape
+        /// ソース形状
+        from: Vec<usize>, 
+        /// Target shape
+        /// ターゲット形状
+        to: Vec<usize> 
+    },
     /// Invalid dimension index
-    InvalidDimension { dim: usize, max_dim: usize },
+    InvalidDimension { 
+        /// Invalid dimension index
+        /// 無効な次元インデックス
+        dim: usize, 
+        /// Maximum allowed dimension
+        /// 許可される最大次元
+        max_dim: usize 
+    },
     /// Dimension is not singleton (size 1)
-    NotSingletonDimension { dim: usize, size: usize },
+    NotSingletonDimension { 
+        /// Dimension index
+        /// 次元インデックス
+        dim: usize, 
+        /// Actual size
+        /// 実際のサイズ
+        size: usize 
+    },
     /// Mismatched number of dimensions
-    MismatchedDimensions { expected: usize, got: usize },
+    MismatchedDimensions { 
+        /// Expected dimension count
+        /// 期待される次元数
+        expected: usize, 
+        /// Actual dimension count
+        /// 実際の次元数
+        got: usize 
+    },
     /// Reshape operation failed
     ReshapeError,
 }

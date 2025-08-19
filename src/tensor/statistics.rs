@@ -388,9 +388,20 @@ impl<T: Float + 'static + Send + Sync + FromPrimitive + Zero> Tensor<T> {
 #[derive(Debug, Clone)]
 pub enum StatError {
     /// Invalid axis for operation
-    InvalidAxis { axis: usize, ndim: usize },
+    InvalidAxis { 
+        /// Invalid axis index
+        /// 無効な軸インデックス
+        axis: usize, 
+        /// Number of dimensions
+        /// 次元数
+        ndim: usize 
+    },
     /// Invalid quantile value
-    InvalidQuantile { q: f64 },
+    InvalidQuantile { 
+        /// Invalid quantile value (must be between 0 and 1)
+        /// 無効な分位数値（0から1の間である必要があります）
+        q: f64 
+    },
     /// Insufficient data
     InsufficientData,
 }

@@ -436,13 +436,44 @@ impl<T: Float + 'static> Tensor<T> {
 #[derive(Debug, Clone)]
 pub enum IndexError {
     /// Index out of bounds
-    IndexOutOfBounds { index: isize, size: usize, dim: usize },
+    IndexOutOfBounds { 
+        /// Index value that was out of bounds
+        /// 範囲外のインデックス値
+        index: isize, 
+        /// Size of the dimension
+        /// 次元のサイズ
+        size: usize, 
+        /// Dimension index
+        /// 次元インデックス
+        dim: usize 
+    },
     /// Invalid axis
-    InvalidAxis { axis: usize, ndim: usize },
+    InvalidAxis { 
+        /// Invalid axis index
+        /// 無効な軸インデックス
+        axis: usize, 
+        /// Number of dimensions
+        /// 次元数
+        ndim: usize 
+    },
     /// Dimension mismatch
-    DimensionMismatch { expected: usize, got: usize },
+    DimensionMismatch { 
+        /// Expected number of dimensions
+        /// 期待される次元数
+        expected: usize, 
+        /// Actual number of dimensions
+        /// 実際の次元数
+        got: usize 
+    },
     /// Shape mismatch
-    ShapeMismatch { expected: Vec<usize>, got: Vec<usize> },
+    ShapeMismatch { 
+        /// Expected shape
+        /// 期待される形状
+        expected: Vec<usize>, 
+        /// Actual shape
+        /// 実際の形状
+        got: Vec<usize> 
+    },
     /// Multiple ellipsis in indices
     MultipleEllipsis,
     /// Unprocessed ellipsis
