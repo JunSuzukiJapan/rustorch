@@ -13,6 +13,9 @@ pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
 pub mod parallel_ops;
+pub mod memory_optimized;
+pub mod zero_copy;
+pub mod simd_aligned;
 // Enable modules step by step
 mod math_ops;
 mod broadcasting;
