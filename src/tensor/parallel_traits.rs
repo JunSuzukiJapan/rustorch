@@ -2,6 +2,7 @@
 //! Parallel tensor operation traits
 
 use super::Tensor;
+use super::parallel_errors::{ParallelError, ParallelResult};
 use num_traits::Float;
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -25,7 +26,7 @@ pub trait ParallelOp<T: Float + Send + Sync + Clone + 'static> {
 pub trait BatchParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T> {
     /// 並列バッチ要素ごと演算
     /// Parallel batch element-wise operations
-    fn batch_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> Result<Tensor<T>, String>
+    fn batch_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
         F: Fn(T, T) -> T + Send + Sync;
     
@@ -45,11 +46,11 @@ pub trait BatchParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<
 pub trait MatrixParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T> {
     /// 並列バッチ行列乗算
     /// Parallel batch matrix multiplication
-    fn batch_matmul(&self, other: &Tensor<T>) -> Result<Tensor<T>, String>;
+    fn batch_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>>;
     
     /// 並列畳み込み演算
     /// Parallel convolution operation
-    fn batch_conv2d(&self, kernel: &Tensor<T>, stride: usize, padding: usize) -> Result<Tensor<T>, String>;
+    fn batch_conv2d(&self, kernel: &Tensor<T>, stride: usize, padding: usize) -> ParallelResult<Tensor<T>>;
 }
 
 /// リダクション操作の並列化トレイト
@@ -57,20 +58,20 @@ pub trait MatrixParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp
 pub trait ReductionParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T> {
     /// 並列リダクション演算
     /// Parallel reduction operation
-    fn parallel_reduce<F, R>(&self, dim: usize, init: R, op: F) -> Result<Tensor<T>, String>
+    fn parallel_reduce<F, R>(&self, dim: usize, init: R, op: F) -> ParallelResult<Tensor<T>>
     where
         F: Fn(R, T) -> R + Send + Sync + Clone,
         R: Send + Sync + Clone + Into<T>;
     
     /// 並列合計
     /// Parallel sum
-    fn parallel_sum(&self, dim: usize) -> Result<Tensor<T>, String> {
+    fn parallel_sum(&self, dim: usize) -> ParallelResult<Tensor<T>> {
         self.parallel_reduce(dim, T::zero(), |acc, x| acc + x)
     }
     
     /// 並列平均
     /// Parallel mean
-    fn parallel_mean(&self, dim: usize) -> Result<Tensor<T>, String>;
+    fn parallel_mean(&self, dim: usize) -> ParallelResult<Tensor<T>>;
 }
 
 /// SIMD統合並列操作のトレイト（f32特化）
@@ -78,11 +79,11 @@ pub trait ReductionParallelOp<T: Float + Send + Sync + Clone + 'static>: Paralle
 pub trait SimdParallelOp: ParallelOp<f32> {
     /// SIMD最適化並列加算
     /// SIMD-optimized parallel addition
-    fn simd_parallel_add(&self, other: &Tensor<f32>) -> Result<Tensor<f32>, String>;
+    fn simd_parallel_add(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>>;
     
     /// SIMD最適化並列行列乗算
     /// SIMD-optimized parallel matrix multiplication
-    fn simd_parallel_matmul(&self, other: &Tensor<f32>) -> Result<Tensor<f32>, String>;
+    fn simd_parallel_matmul(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>>;
     
     /// SIMD最適化並列スカラー乗算
     /// SIMD-optimized parallel scalar multiplication

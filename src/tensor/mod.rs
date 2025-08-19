@@ -9,9 +9,10 @@ mod pool_integration;
 mod simd_integration;
 /// Parallel tensor operations for batch processing and SIMD acceleration
 /// バッチ処理とSIMD加速のための並列テンソル操作
-pub mod parallel_ops;
+pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
+pub mod parallel_ops;
 // Enable modules step by step
 mod math_ops;
 mod broadcasting;
@@ -22,6 +23,7 @@ mod statistics;
 pub use broadcasting::BroadcastError;
 pub use indexing::{TensorIndex, IndexError};
 pub use statistics::StatError;
+pub use parallel_errors::{ParallelError, ParallelResult};
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
@@ -309,18 +311,19 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Creates a batch tensor by stacking tensors along the first dimension.
     /// テンソルを第一次元に沿って積み重ねてバッチテンソルを作成します。
-    pub fn stack(tensors: &[&Tensor<T>]) -> Result<Tensor<T>, String> {
+    pub fn stack(tensors: &[&Tensor<T>]) -> ParallelResult<Tensor<T>> {
         if tensors.is_empty() {
-            return Err("Cannot stack empty list of tensors".to_string());
+            return Err(ParallelError::empty_tensor_list("stack"));
         }
         
         // Check that all tensors have the same shape
         let first_shape = tensors[0].shape();
         for (i, tensor) in tensors.iter().enumerate().skip(1) {
             if tensor.shape() != first_shape {
-                return Err(format!(
-                    "All tensors must have the same shape. Tensor 0 has shape {:?}, tensor {} has shape {:?}",
-                    first_shape, i, tensor.shape()
+                return Err(ParallelError::shape_mismatch(
+                    first_shape,
+                    tensor.shape(),
+                    &format!("stack operation (tensor {})", i)
                 ));
             }
         }
@@ -340,16 +343,17 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Gets a slice of the tensor along the first dimension (batch dimension).
     /// 第一次元（バッチ次元）に沿ってテンソルのスライスを取得します。
-    pub fn batch_get(&self, index: usize) -> Result<Tensor<T>, String> {
+    pub fn batch_get(&self, index: usize) -> ParallelResult<Tensor<T>> {
         if self.data.ndim() == 0 {
-            return Err("Cannot index into scalar tensor".to_string());
+            return Err(ParallelError::ScalarIndexing);
         }
         
         let batch_size = self.data.shape()[0];
         if index >= batch_size {
-            return Err(format!(
-                "Index {} out of bounds for batch size {}",
-                index, batch_size
+            return Err(ParallelError::dimension_error(
+                index,
+                batch_size - 1,
+                "batch indexing"
             ));
         }
         

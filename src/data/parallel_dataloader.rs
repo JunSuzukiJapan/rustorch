@@ -3,6 +3,7 @@
 
 use super::{Dataset, DataLoader};
 use crate::tensor::Tensor;
+use crate::tensor::parallel_traits::MatrixParallelOp;
 use num_traits::Float;
 use rayon::prelude::*;
 use std::sync::{Arc, Mutex};
@@ -289,7 +290,7 @@ impl ParallelBatchProcessor<f32> {
     ) -> Vec<Tensor<f32>> {
         batches.par_iter()
             .map(|(features, _)| {
-                if let Ok(result) = features.batch_conv2d_parallel(kernel, stride, padding) {
+                if let Ok(result) = features.batch_conv2d(kernel, stride, padding) {
                     result
                 } else {
                     features.clone()
