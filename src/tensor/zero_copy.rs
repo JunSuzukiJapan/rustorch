@@ -481,7 +481,7 @@ mod tests {
         let view = tensor.view();
         
         assert_eq!(view.shape(), &[3, 4]);
-        assert_eq!(view.get(&[0, 0]), Some(1.0));
+        assert_eq!(view.get([0, 0]), Some(&1.0));
     }
 
     #[test]
@@ -572,10 +572,10 @@ mod tests {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let view = tensor.view();
         
-        let sum = view.reduce(0.0, |acc, x| acc + x);
+        let sum = view.iter().fold(0.0, |acc, &x| acc + x);
         assert_eq!(sum, 10.0);
         
-        let max = view.reduce(f32::NEG_INFINITY, |acc, x| acc.max(x));
+        let max = view.iter().fold(f32::NEG_INFINITY, |acc, &x| acc.max(x));
         assert_eq!(max, 4.0);
     }
 

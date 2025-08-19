@@ -55,7 +55,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.1.5"
+rustorch = "0.1.7"
 
 # For GPU acceleration (optional)
 [features]

@@ -257,7 +257,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         F: Fn(&Tensor<T>, &Tensor<T>) -> ParallelResult<Tensor<T>> + Send + Sync,
     {
         // Pre-allocate result vector
-        let mut results = Vec::with_capacity(tensors.len());
+        let mut result: Vec<Tensor<T>> = Vec::with_capacity(tensors.len());
         
         // Process in parallel with memory pool
         let parallel_results: Result<Vec<_>, _> = tensors.par_iter()

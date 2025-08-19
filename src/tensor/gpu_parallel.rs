@@ -137,10 +137,10 @@
 //! - `cuda`: Enable NVIDIA CUDA support
 //! - `metal`: Enable Apple Metal support  
 //! - `opencl`: Enable OpenCL support
+//! - `opengl`: Enable OpenGL support
 
-use crate::tensor::{Tensor, parallel_traits::*};
-use crate::gpu::{DeviceType, GpuError};
-use crate::Float;
+use crate::tensor::{Tensor, parallel_traits::*, parallel_errors::{ParallelError, ParallelResult}, Float};
+use crate::gpu::{DeviceType, GpuError, get_device_manager};
 use std::sync::Arc;
 
 /// GPU execution strategy for operations
@@ -436,9 +436,8 @@ where
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    Err(ParallelError::UnsupportedOperation {
-                        operation: "CUDA transfer".to_string(),
-                        reason: "CUDA support not compiled".to_string(),
+                    Err(ParallelError::DeviceError {
+                        message: "CUDA support not compiled".to_string(),
                     })
                 }
             }
@@ -451,9 +450,8 @@ where
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    Err(ParallelError::UnsupportedOperation {
-                        operation: "Metal transfer".to_string(),
-                        reason: "Metal support not compiled".to_string(),
+                    Err(ParallelError::DeviceError {
+                        message: "Metal support not compiled".to_string(),
                     })
                 }
             }
@@ -466,9 +464,8 @@ where
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    Err(ParallelError::UnsupportedOperation {
-                        operation: "OpenCL transfer".to_string(),
-                        reason: "OpenCL support not compiled".to_string(),
+                    Err(ParallelError::DeviceError {
+                        message: "OpenCL support not compiled".to_string(),
                     })
                 }
             }
@@ -510,10 +507,10 @@ where
             GpuParallelStrategy::GpuPreferred => {
                 // GPU バッチ正規化（現在はCPU実装にフォールバック）
                 // TODO: GPU最適化バッチ正規化カーネル
-                self.batch_normalize(epsilon)
+                Ok(self.batch_normalize(epsilon))
             }
             _ => {
-                self.batch_normalize(epsilon)
+                Ok(self.batch_normalize(epsilon))
             }
         }
     }
@@ -658,68 +655,24 @@ mod tests {
     }
 }
 
-// Implementation of GPU parallel operations for Tensor
-impl<T: Float + Send + Sync + Clone + 'static> GpuParallelOp<T> for Tensor<T> {
-    fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
-    where
-        F: Fn(T, T) -> T + Send + Sync,
-    {
-        // For now, fallback to CPU parallel operations
-        // In a real implementation, this would check GPU availability and use GPU kernels
-        self.batch_elementwise_op(other, op)
-    }
-    
-    fn gpu_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // For now, fallback to CPU parallel operations
-        // In a real implementation, this would use GPU BLAS libraries
-        self.batch_matmul(other)
-    }
-    
-    fn gpu_reduce<F, R>(&self, dim: usize, init: R, op: F) -> ParallelResult<Tensor<T>>
-    where
-        F: Fn(R, T) -> R + Send + Sync + Clone,
-        R: Send + Sync + Clone + Into<T>,
-    {
-        // For now, fallback to CPU parallel operations
-        // In a real implementation, this would use GPU reduction kernels
-        self.parallel_reduce(dim, init, op)
-    }
-    
-    fn to_device(&self, device: DeviceType) -> ParallelResult<Tensor<T>> {
-        // For now, just return a clone since we don't have real GPU implementation
-        // In a real implementation, this would transfer data to GPU memory
-        match device {
-            DeviceType::Cpu => Ok(self.clone()),
-            _ => {
-                if device.is_available() {
-                    // Simulate GPU transfer by returning a clone
-                    Ok(self.clone())
-                } else {
-                    Err(ParallelError::DeviceError(format!("Device {:?} not available", device)))
-                }
-            }
-        }
-    }
-    
-    fn to_cpu(&self) -> ParallelResult<Tensor<T>> {
-        // For now, just return a clone
-        // In a real implementation, this would transfer data from GPU to CPU memory
-        Ok(self.clone())
-    }
-}
 
 // Additional GPU operations
 impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
     /// GPU sum operation
-    pub fn gpu_sum(&self, _dim: usize) -> ParallelResult<T> {
+    pub fn gpu_sum(&self, _dim: usize) -> ParallelResult<Tensor<T>> {
         // Fallback to CPU implementation
-        Ok(self.sum())
+        let sum_tensor = self.sum();
+        Ok(sum_tensor)
     }
     
     /// GPU mean operation
-    pub fn gpu_mean(&self, _dim: usize) -> ParallelResult<T> {
+    pub fn gpu_mean(&self, _dim: usize) -> ParallelResult<Tensor<T>> 
+    where
+        T: num_traits::FromPrimitive,
+    {
         // Fallback to CPU implementation
-        Ok(self.mean())
+        let mean_tensor = self.mean(None);
+        Ok(mean_tensor)
     }
     
     /// GPU batch matrix multiplication

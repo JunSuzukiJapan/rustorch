@@ -74,6 +74,12 @@ pub enum ParallelError {
     SimdError {
         message: String,
     },
+    
+    /// デバイスエラー
+    /// Device error
+    DeviceError {
+        message: String,
+    },
 }
 
 impl fmt::Display for ParallelError {
@@ -132,6 +138,9 @@ impl fmt::Display for ParallelError {
             }
             ParallelError::SimdError { message } => {
                 write!(f, "SIMD operation error: {}", message)
+            }
+            ParallelError::DeviceError { message } => {
+                write!(f, "Device error: {}", message)
             }
         }
     }

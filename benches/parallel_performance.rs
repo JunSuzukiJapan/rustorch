@@ -4,7 +4,6 @@
 //! parallel tensor operations compared to sequential processing.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use rustorch::prelude::*;
 use rustorch::tensor::{Tensor, parallel_traits::*};
 use std::time::Duration;
 
@@ -151,7 +150,7 @@ fn bench_parallel_reduction(c: &mut Criterion) {
             &(&tensor, size),
             |b, (t, _)| {
                 b.iter(|| {
-                    let result = black_box(t.mean());
+                    let result = black_box(t.mean(None));
                     black_box(result)
                 });
             },
@@ -200,8 +199,8 @@ fn bench_batch_operations(c: &mut Criterion) {
                 b.iter(|| {
                     let mut results = Vec::new();
                     for i in 0..*batch_sz {
-                        let slice1 = t1.select(0, i);
-                        let slice2 = t2.select(0, i);
+                        let slice1 = t1.select(0, &[i]).unwrap();
+                        let slice2 = t2.select(0, &[i]).unwrap();
                         let result = slice1.matmul(&slice2);
                         results.push(result);
                     }
@@ -285,7 +284,7 @@ fn bench_execution_strategies(c: &mut Criterion) {
     let strategies = vec![
         ("auto", ParallelStrategy::Auto),
         ("force_parallel", ParallelStrategy::ForceParallel),
-        ("sequential", ParallelStrategy::Sequential),
+        ("cpu_parallel", ParallelStrategy::CpuParallel),
     ];
     
     for (name, strategy) in strategies {

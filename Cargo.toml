@@ -1,9 +1,9 @@
 [package]
 name = "rustorch"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
-description = "A PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, and GPU support"
+description = "A PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, and comprehensive performance benchmarks"
 documentation = "https://docs.rs/rustorch"
 homepage = "https://github.com/JunSuzukiJapan/rustorch"
 repository = "https://github.com/JunSuzukiJapan/rustorch"
@@ -77,4 +77,25 @@ harness = false
 
 [[bench]]
 name = "memory_pool"
+harness = false
+
+# New comprehensive benchmark suites
+[[bench]]
+name = "parallel_performance"
+harness = false
+
+[[bench]]
+name = "simd_performance"
+harness = false
+
+[[bench]]
+name = "memory_strategy_performance"
+harness = false
+
+[[bench]]
+name = "gpu_cpu_performance"
+harness = false
+
+[[bench]]
+name = "integrated_performance"
 harness = false
