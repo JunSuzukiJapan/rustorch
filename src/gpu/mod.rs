@@ -1,5 +1,113 @@
-/// GPU acceleration support for RusTorch
-/// RusTorchのGPU加速サポート
+//! # GPU Acceleration Module
+//! RusTorchのGPU加速モジュール
+//! 
+//! This module provides comprehensive GPU acceleration support for RusTorch,
+//! including device management, memory allocation, and kernel execution
+//! across multiple GPU backends (CUDA, Metal, OpenCL).
+//! 
+//! ## Supported GPU Backends
+//! 
+//! - **CUDA**: NVIDIA GPU acceleration with cuBLAS/cuDNN integration
+//! - **Metal**: Apple Silicon GPU acceleration with Metal Performance Shaders
+//! - **OpenCL**: Cross-platform GPU acceleration for AMD/Intel/NVIDIA
+//! 
+//! ## Core Components
+//! 
+//! - [`DeviceType`]: GPU device type enumeration (CUDA, Metal, OpenCL)
+//! - [`GpuContext`]: GPU context management and device state
+//! - [`DeviceManager`]: Global device management and selection
+//! - [`GpuMemoryPool`]: Efficient GPU memory allocation and pooling
+//! - [`cuda_kernels`]: CUDA-specific kernel implementations
+//! - [`metal_kernels`]: Metal-specific kernel implementations  
+//! - [`opencl_kernels`]: OpenCL-specific kernel implementations
+//! 
+//! ## Key Features
+//! 
+//! - **Automatic Device Detection**: Discovers available GPU devices at runtime
+//! - **Intelligent Device Selection**: Chooses optimal device based on workload
+//! - **Memory Management**: Efficient GPU memory allocation with pooling
+//! - **Error Handling**: Robust error handling with automatic fallback
+//! - **Cross-Platform**: Unified API across different GPU vendors
+//! 
+//! ## Usage Examples
+//! 
+//! ### Device Management
+//! 
+//! ```rust
+//! use rustorch::gpu::{DeviceType, get_device_manager, current_device};
+//! 
+//! // Get available devices
+//! let manager = get_device_manager();
+//! let devices = manager.available_devices();
+//! println!("Available devices: {:?}", devices);
+//! 
+//! // Set current device
+//! if let Some(device) = devices.first() {
+//!     manager.set_current_device(device.clone())?;
+//!     println!("Current device: {:?}", current_device()?);
+//! }
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### GPU Context Creation
+//! 
+//! ```rust
+//! use rustorch::gpu::{GpuContext, DeviceType};
+//! 
+//! // Create GPU context for CUDA device
+//! let context = GpuContext::new(DeviceType::Cuda(0))?;
+//! println!("Created context for device: {:?}", context.device_type());
+//! 
+//! // Check device capabilities
+//! let memory_info = context.memory_info()?;
+//! println!("Available memory: {} MB", memory_info.available / 1024 / 1024);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### Memory Pool Operations
+//! 
+//! ```rust
+//! use rustorch::gpu::{GpuMemoryPool, DeviceType};
+//! 
+//! let pool = GpuMemoryPool::new(DeviceType::Cuda(0), 1024 * 1024 * 100)?; // 100MB pool
+//! 
+//! // Allocate GPU memory
+//! let buffer = pool.allocate(1024 * 1024)?; // 1MB allocation
+//! println!("Allocated buffer size: {}", buffer.size());
+//! 
+//! // Memory is automatically returned to pool when buffer is dropped
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ## Feature Flags
+//! 
+//! GPU backends are controlled by Cargo feature flags:
+//! 
+//! ```toml
+//! [dependencies]
+//! rustorch = { version = "0.1", features = ["cuda", "metal", "opencl"] }
+//! ```
+//! 
+//! - `cuda`: Enable NVIDIA CUDA support
+//! - `metal`: Enable Apple Metal support
+//! - `opencl`: Enable OpenCL support
+//! 
+//! ## Error Handling
+//! 
+//! The GPU module provides comprehensive error handling through [`GpuError`]:
+//! 
+//! - **DeviceNotFound**: Requested GPU device is not available
+//! - **OutOfMemory**: Insufficient GPU memory for operation
+//! - **KernelLaunchFailed**: GPU kernel execution failed
+//! - **DriverError**: GPU driver or runtime error
+//! - **UnsupportedOperation**: Operation not supported on current device
+//! 
+//! ## Performance Considerations
+//! 
+//! - **Memory Coalescing**: Optimize memory access patterns for GPU efficiency
+//! - **Kernel Occupancy**: Balance thread blocks for optimal GPU utilization
+//! - **Memory Bandwidth**: Minimize GPU-CPU data transfers
+//! - **Asynchronous Execution**: Use streams for overlapping computation and transfer
 
 pub mod device;
 /// GPU memory management and allocation
@@ -8,6 +116,15 @@ pub mod memory;
 /// GPU kernel execution and management
 /// GPUカーネル実行と管理
 pub mod kernels;
+/// CUDA kernel implementations
+/// CUDAカーネル実装
+pub mod cuda_kernels;
+/// Metal kernel implementations
+/// Metalカーネル実装
+pub mod metal_kernels;
+/// OpenCL kernel implementations
+/// OpenCLカーネル実装
+pub mod opencl_kernels;
 
 use num_traits::Float;
 use std::fmt;

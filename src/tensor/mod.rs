@@ -1,3 +1,107 @@
+//! # Tensor Operations and Data Structures
+//! テンソル操作とデータ構造
+//! 
+//! This module provides the core tensor functionality for RusTorch, including
+//! basic tensor operations, advanced parallel processing, GPU acceleration,
+//! and memory optimization features.
+//! 
+//! ## Core Components
+//! 
+//! - [`Tensor`]: The main tensor data structure with n-dimensional array support
+//! - [`parallel_traits`]: Unified parallel tensor operations system
+//! - [`gpu_parallel`]: GPU-accelerated tensor operations with device management
+//! - [`memory_optimized`]: Advanced memory management strategies
+//! - [`zero_copy`]: Zero-copy tensor views and shared ownership
+//! - [`simd_aligned`]: SIMD-aligned tensor operations for vectorization
+//! 
+//! ## Key Features
+//! 
+//! ### High-Performance Computing
+//! - **Parallel Processing**: Automatic parallelization for large tensor operations
+//! - **SIMD Acceleration**: AVX2/SSE4.1 vectorized operations for f32 tensors
+//! - **GPU Integration**: CUDA/Metal/OpenCL support with intelligent fallback
+//! - **Memory Optimization**: Pool allocation, zero-copy views, and cache-friendly operations
+//! 
+//! ### Mathematical Operations
+//! - **Element-wise Operations**: Addition, multiplication, trigonometric functions
+//! - **Linear Algebra**: Matrix multiplication, decompositions, eigenvalues
+//! - **Broadcasting**: NumPy-style broadcasting for operations on different shapes
+//! - **Reduction Operations**: Sum, mean, variance, and statistical functions
+//! 
+//! ### Memory Management
+//! - **Zero-Copy Views**: Efficient tensor slicing without data duplication
+//! - **Memory Pooling**: Reduced allocation overhead for frequent operations
+//! - **SIMD Alignment**: 32-byte aligned allocation for optimal vectorization
+//! - **Shared Ownership**: Thread-safe reference counting for tensor sharing
+//! 
+//! ## Usage Examples
+//! 
+//! ### Basic Tensor Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::Tensor;
+//! 
+//! // Create tensors
+//! let a = Tensor::<f32>::ones(&[3, 3]);
+//! let b = Tensor::<f32>::zeros(&[3, 3]);
+//! 
+//! // Basic arithmetic
+//! let c = &a + &b;
+//! let d = a.matmul(&b);
+//! 
+//! // Mathematical functions
+//! let e = a.sin();
+//! let f = a.exp();
+//! ```
+//! 
+//! ### Parallel Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, parallel_traits::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Automatic parallel execution
+//! let result = tensor1.batch_elementwise_op(&tensor2, |a, b| a + b)?;
+//! let matmul_result = tensor1.batch_matmul(&tensor2)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### GPU Acceleration
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, gpu_parallel::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // GPU-accelerated operations with fallback
+//! let result = tensor1.gpu_elementwise_op(&tensor2, |a, b| a + b)?;
+//! let gpu_matmul = tensor1.gpu_matmul(&tensor2)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### Memory Optimization
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, memory_optimized::*, zero_copy::*};
+//! 
+//! let tensor = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Zero-copy view
+//! let view = tensor.zero_copy_view();
+//! 
+//! // Memory-optimized operations
+//! let config = MemoryOptimizedConfig {
+//!     strategy: AllocationStrategy::Pool,
+//!     enable_inplace: true,
+//!     ..Default::default()
+//! };
+//! let optimized = tensor.with_memory_strategy(&config);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+
 use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, Axis};
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
@@ -7,12 +111,14 @@ use crate::memory::{get_f32_pool, get_f64_pool};
 
 mod pool_integration;
 mod simd_integration;
+
 /// Parallel tensor operations for batch processing and SIMD acceleration
 /// バッチ処理とSIMD加速のための並列テンソル操作
 pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
 pub mod parallel_ops;
+pub mod gpu_parallel;
 pub mod memory_optimized;
 pub mod zero_copy;
 pub mod simd_aligned;

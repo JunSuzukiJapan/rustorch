@@ -1,5 +1,116 @@
-//! # RusTorch
-//! A PyTorch-compatible deep learning library in Rust.
+//! # RusTorch 🚀
+//! 
+//! **A production-ready deep learning library in Rust with PyTorch-like API, combining safety and speed**
+//! 
+//! RusTorch is a fully functional deep learning library that leverages Rust's safety and performance,
+//! providing comprehensive tensor operations, automatic differentiation, neural network layers,
+//! transformer architectures, GPU acceleration, and advanced memory optimization features.
+//! 
+//! ## ✨ Key Features
+//! 
+//! - **🔥 Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, and statistics
+//! - **🤖 Transformer Architecture**: Complete transformer implementation with multi-head attention
+//! - **⚡ SIMD Optimizations**: AVX2/SSE4.1 vectorized operations for high performance
+//! - **🔄 Unified Parallel Operations**: Trait-based parallel tensor operations with intelligent scheduling
+//! - **🎮 GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
+//! - **💾 Advanced Memory Management**: Zero-copy operations, SIMD-aligned allocation, and memory pools
+//! - **🧠 Automatic Differentiation**: Tape-based computational graph for gradient computation
+//! - **🏗️ Neural Network Layers**: Linear, Conv2d, RNN/LSTM/GRU, BatchNorm, Dropout, and more
+//! 
+//! ## 🚀 Quick Start
+//! 
+//! ```rust
+//! use rustorch::prelude::*;
+//! 
+//! // Create tensors
+//! let a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2]);
+//! let b = Tensor::from_vec(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2]);
+//! 
+//! // Basic operations
+//! let c = &a + &b;  // Addition
+//! let d = a.matmul(&b);  // Matrix multiplication
+//! 
+//! // Mathematical functions
+//! let e = a.sin();  // Sine function
+//! let f = a.exp();  // Exponential function
+//! 
+//! println!("Shape: {:?}", c.shape());
+//! println!("Result: {:?}", c.as_slice());
+//! ```
+//! 
+//! ## 🏗️ Architecture Overview
+//! 
+//! The library is organized into several key modules:
+//! 
+//! - [`tensor`]: Core tensor operations with parallel and GPU acceleration
+//! - [`nn`]: Neural network layers and building blocks
+//! - [`autograd`]: Automatic differentiation system
+//! - [`optim`]: Optimization algorithms (SGD, Adam, etc.)
+//! - [`gpu`]: GPU acceleration support (CUDA, Metal, OpenCL)
+//! - [`simd`]: SIMD vectorized operations
+//! - [`memory`]: Advanced memory management and pooling
+//! - [`data`]: Data loading and processing utilities
+//! 
+//! ## 🔄 Parallel Operations
+//! 
+//! RusTorch provides a unified trait-based system for parallel tensor operations:
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, parallel_traits::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Automatic parallel execution for large tensors
+//! let result = tensor1.batch_elementwise_op(&tensor2, |a, b| a + b).unwrap();
+//! 
+//! // Parallel matrix multiplication
+//! let matmul_result = tensor1.batch_matmul(&tensor2).unwrap();
+//! 
+//! // Parallel reduction operations
+//! let sum = tensor1.parallel_sum(0).unwrap();
+//! ```
+//! 
+//! ## 🎮 GPU Integration
+//! 
+//! Seamless GPU acceleration with automatic device selection:
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, gpu_parallel::*};
+//! use rustorch::gpu::DeviceType;
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // GPU-accelerated operations with automatic fallback
+//! let result = tensor1.gpu_elementwise_op(&tensor2, |a, b| a + b).unwrap();
+//! 
+//! // Transfer tensors between devices
+//! let gpu_tensor = tensor1.to_device(DeviceType::Cuda(0)).unwrap();
+//! let cpu_tensor = gpu_tensor.to_cpu().unwrap();
+//! ```
+//! 
+//! ## 💾 Memory Optimization
+//! 
+//! Advanced memory management for optimal performance:
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, memory_optimized::*, zero_copy::*};
+//! 
+//! // Memory-optimized tensor operations
+//! let config = MemoryOptimizedConfig {
+//!     strategy: AllocationStrategy::Pool,
+//!     enable_inplace: true,
+//!     ..Default::default()
+//! };
+//! 
+//! let tensor = Tensor::<f32>::ones(&[1000, 1000]);
+//! let optimized = tensor.with_memory_strategy(&config);
+//! 
+//! // Zero-copy operations
+//! let view = tensor.zero_copy_view();
+//! let result = view.elementwise_with(&view, |a, b| a * 2.0).unwrap();
+//! ```
 
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]

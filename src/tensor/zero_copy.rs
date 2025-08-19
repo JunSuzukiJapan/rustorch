@@ -1,5 +1,146 @@
-//! Zero-copy tensor operations for maximum memory efficiency
-//! 最大メモリ効率のためのゼロコピーテンソル演算
+//! # Zero-Copy Tensor Operations
+//! ゼロコピーテンソル操作
+//! 
+//! This module provides zero-copy tensor operations that eliminate unnecessary
+//! data copying through tensor views, shared ownership, and in-place operations,
+//! significantly improving memory efficiency and performance.
+//! 
+//! ## Overview
+//! 
+//! Zero-copy operations are essential for high-performance tensor computing:
+//! 
+//! - [`TensorView`]: Immutable zero-copy view of tensor data
+//! - [`TensorViewMut`]: Mutable zero-copy view for in-place operations
+//! - [`SharedTensor`]: Reference-counted shared tensor ownership
+//! - [`ZeroCopyOps`]: Trait for zero-copy tensor operations
+//! 
+//! ## Key Benefits
+//! 
+//! - **Memory Efficiency**: Eliminates data copying for view operations
+//! - **Performance**: Reduces memory allocation and deallocation overhead
+//! - **Cache Locality**: Better cache utilization through data reuse
+//! - **Memory Safety**: Rust's ownership system ensures safe shared access
+//! 
+//! ## Usage Examples
+//! 
+//! ### Basic Zero-Copy Views
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, zero_copy::*};
+//! 
+//! let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+//! 
+//! // Create immutable zero-copy view
+//! let view = tensor.zero_copy_view();
+//! println!("View shape: {:?}", view.shape());
+//! 
+//! // Create mutable zero-copy view
+//! let mut tensor_mut = Tensor::<f32>::zeros(&[2, 2]);
+//! let mut view_mut = tensor_mut.zero_copy_view_mut();
+//! 
+//! // Modify data through mutable view
+//! view_mut.fill(5.0);
+//! ```
+//! 
+//! ### Shared Tensor Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, zero_copy::*};
+//! 
+//! let tensor = Tensor::<f32>::ones(&[100, 100]);
+//! 
+//! // Create shared tensor for multiple references
+//! let shared = SharedTensor::from_tensor(tensor);
+//! 
+//! // Multiple views can coexist safely
+//! let view1 = shared.view();
+//! let view2 = shared.view();
+//! let view3 = shared.view();
+//! 
+//! // All views reference the same underlying data
+//! assert_eq!(view1.shape(), view2.shape());
+//! assert_eq!(view2.shape(), view3.shape());
+//! ```
+//! 
+//! ### Zero-Copy Element-wise Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, zero_copy::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Zero-copy views for operations
+//! let view1 = tensor1.zero_copy_view();
+//! let view2 = tensor2.zero_copy_view();
+//! 
+//! // Element-wise operations without copying input data
+//! let result = view1.elementwise_with(&view2, |a, b| a + b)?;
+//! 
+//! // Broadcasting operations
+//! let broadcasted = view1.broadcast_with(&view2, |a, b| a * b)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### In-Place Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, zero_copy::*};
+//! 
+//! let mut tensor = Tensor::<f32>::zeros(&[1000, 1000]);
+//! let other = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // In-place operations modify tensor without allocation
+//! tensor.inplace_add(&other)?;
+//! tensor.inplace_mul_scalar(2.0)?;
+//! tensor.inplace_apply(|x| x.sin())?;
+//! 
+//! // Verify in-place modification
+//! assert!(tensor.iter().all(|&x| x > 0.0));
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### Memory-Efficient Tensor Slicing
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, zero_copy::*};
+//! 
+//! let large_tensor = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Create zero-copy slice views
+//! let top_half = large_tensor.slice_view(&[0..500, 0..1000])?;
+//! let bottom_half = large_tensor.slice_view(&[500..1000, 0..1000])?;
+//! 
+//! // Process slices independently without copying data
+//! let top_sum = top_half.sum();
+//! let bottom_sum = bottom_half.sum();
+//! 
+//! println!("Top half sum: {}, Bottom half sum: {}", top_sum, bottom_sum);
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ## Performance Characteristics
+//! 
+//! - **Zero Memory Overhead**: Views add no memory allocation overhead
+//! - **Cache Efficiency**: Better cache utilization through data locality
+//! - **Reduced GC Pressure**: Fewer allocations reduce garbage collection overhead
+//! - **Vectorization Friendly**: Contiguous memory layout enables SIMD optimization
+//! 
+//! ## Memory Safety Guarantees
+//! 
+//! - **Borrow Checker**: Rust's borrow checker prevents data races
+//! - **Lifetime Management**: Views cannot outlive their source tensors
+//! - **Thread Safety**: SharedTensor provides thread-safe shared ownership
+//! - **Mutation Safety**: Mutable views ensure exclusive access to data
+//! 
+//! ## Integration with Other Modules
+//! 
+//! Zero-copy operations integrate seamlessly with:
+//! 
+//! - **Parallel Operations**: Zero-copy views work with parallel traits
+//! - **SIMD Operations**: Aligned views enable vectorized operations
+//! - **GPU Operations**: Views can be transferred to GPU without copying
+//! - **Memory Pools**: Views work with pooled memory allocation
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};

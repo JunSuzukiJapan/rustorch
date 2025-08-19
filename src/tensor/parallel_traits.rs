@@ -1,5 +1,100 @@
+//! # Parallel Tensor Operations Traits
 //! 並列テンソル操作のトレイト定義
-//! Parallel tensor operation traits
+//! 
+//! This module provides a unified trait-based system for parallel tensor operations,
+//! enabling high-performance computation across multiple threads with automatic
+//! SIMD acceleration and intelligent scheduling.
+//! 
+//! ## Overview
+//! 
+//! The parallel traits system is designed around five core traits:
+//! 
+//! - [`ParallelOp`]: Base trait for all parallel operations
+//! - [`BatchParallelOp`]: Batch processing operations
+//! - [`MatrixParallelOp`]: Matrix-specific parallel operations
+//! - [`ReductionParallelOp`]: Parallel reduction operations
+//! - [`SimdParallelOp`]: SIMD-optimized parallel operations (f32 specialized)
+//! 
+//! ## Key Features
+//! 
+//! - **Automatic Parallelization**: Operations automatically parallelize for large tensors
+//! - **SIMD Integration**: Specialized f32 operations with AVX2/SSE4.1 acceleration
+//! - **Configurable Strategies**: Choose between automatic, forced parallel, or sequential execution
+//! - **Memory Safety**: Arc-based shared ownership ensures thread safety
+//! - **Error Handling**: Structured error types with detailed context information
+//! 
+//! ## Usage Examples
+//! 
+//! ### Basic Parallel Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, parallel_traits::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! 
+//! // Automatic parallel execution for large tensors
+//! let result = tensor1.batch_elementwise_op(&tensor2, |a, b| a + b)?;
+//! 
+//! // Parallel matrix multiplication
+//! let matmul_result = tensor1.batch_matmul(&tensor2)?;
+//! 
+//! // Parallel reduction operations
+//! let sum = tensor1.parallel_sum(0)?;
+//! let mean = tensor1.parallel_mean(0)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### SIMD-Optimized Operations
+//! 
+//! ```rust
+//! use rustorch::tensor::{Tensor, parallel_traits::*};
+//! 
+//! let tensor1 = Tensor::<f32>::ones(&[10000]);
+//! let tensor2 = Tensor::<f32>::ones(&[10000]);
+//! 
+//! // SIMD-accelerated parallel addition
+//! let result = tensor1.simd_parallel_add(&tensor2)?;
+//! 
+//! // SIMD-accelerated parallel matrix multiplication
+//! let matrix1 = Tensor::<f32>::ones(&[100, 100]);
+//! let matrix2 = Tensor::<f32>::ones(&[100, 100]);
+//! let matmul_result = matrix1.simd_parallel_matmul(&matrix2)?;
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+//! 
+//! ### Configurable Parallel Execution
+//! 
+//! ```rust
+//! use rustorch::tensor::parallel_traits::*;
+//! 
+//! // Configure parallel execution strategy
+//! let config = ParallelConfig {
+//!     strategy: ParallelStrategy::ForceParallel,
+//!     chunk_size: 2048,
+//!     num_threads: Some(4),
+//! };
+//! 
+//! let context = ParallelContext::new(config);
+//! 
+//! // Use context to determine execution strategy
+//! let should_parallelize = context.should_parallelize(1000);
+//! println!("Should parallelize: {}", should_parallelize);
+//! ```
+//! 
+//! ## Performance Characteristics
+//! 
+//! - **Threshold-based**: Operations automatically parallelize when tensor size exceeds 1000 elements
+//! - **SIMD Acceleration**: f32 operations benefit from AVX2/SSE4.1 vectorization
+//! - **Memory Efficient**: Zero-copy operations where possible, minimal memory allocation
+//! - **Thread Safety**: All operations are thread-safe with proper synchronization
+//! 
+//! ## Error Handling
+//! 
+//! All parallel operations return [`ParallelResult<T>`](crate::tensor::parallel_errors::ParallelResult)
+//! with detailed error information for debugging and error recovery.
+//! 
+//! See [`parallel_errors`](crate::tensor::parallel_errors) for complete error type documentation.
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
