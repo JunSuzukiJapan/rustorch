@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.1.5"
+version = "0.1.6"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "A PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, and GPU support"
