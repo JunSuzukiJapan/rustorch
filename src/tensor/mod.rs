@@ -1,7 +1,7 @@
 use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, Axis};
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use std::ops;
 use std::fmt;
 use crate::memory::{get_f32_pool, get_f64_pool};
@@ -9,6 +9,16 @@ use crate::memory::{get_f32_pool, get_f64_pool};
 mod pool_integration;
 mod simd_integration;
 mod parallel_ops;
+// Enable modules step by step
+mod math_ops;
+mod broadcasting;
+mod indexing;
+mod statistics;
+
+// Re-export important types and functions
+pub use broadcasting::BroadcastError;
+pub use indexing::{TensorIndex, IndexError};
+pub use statistics::StatError;
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
@@ -35,6 +45,24 @@ impl<T: Float + 'static> Tensor<T> {
     /// テンソルのサイズ（形状）を返します。
     pub fn size(&self) -> Vec<usize> {
         self.data.shape().to_vec()
+    }
+
+    /// Returns the shape of the tensor.
+    /// テンソルの形状を返します。
+    pub fn shape(&self) -> &[usize] {
+        self.data.shape()
+    }
+
+    /// Returns a reference to the underlying data as a slice.
+    /// 基底データへのスライス参照を返します。
+    pub fn as_slice(&self) -> Option<&[T]> {
+        self.data.as_slice()
+    }
+
+    /// Get a single element at the given index.
+    /// 指定されたインデックスの単一要素を取得します。
+    pub fn get(&self, index: &[usize]) -> T {
+        self.data[ndarray::IxDyn(index)]
     }
 
     /// Creates a tensor filled with zeros using memory pool.
@@ -84,22 +112,10 @@ impl<T: Float + 'static> Tensor<T> {
         &mut self.data
     }
 
-    /// Returns the data as a slice if possible
-    /// 可能であればデータをスライスとして返します
-    pub fn as_slice(&self) -> Option<&[T]> {
-        self.data.as_slice()
-    }
-    
     /// Returns the data as a mutable slice if possible
     /// 可能であればデータを可変スライスとして返します
     pub fn as_slice_mut(&mut self) -> Option<&mut [T]> {
         self.data.as_slice_mut()
-    }
-
-    /// Returns the shape of the tensor.
-    /// テンソルの形状を返します。
-    pub fn shape(&self) -> &[usize] {
-        self.data.shape()
     }
 
     /// Returns the number of elements in the tensor.
@@ -298,17 +314,6 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor::new(mean_data.into_dyn())
     }
     
-    /// Broadcasts this tensor to the given shape.
-    /// このテンソルを指定された形状にブロードキャストします。
-    pub fn broadcast_to(&self, shape: &[usize]) -> Result<Tensor<T>, String> {
-        match self.data.broadcast(shape) {
-            Some(broadcasted) => Ok(Tensor::new(broadcasted.to_owned())),
-            None => Err(format!(
-                "Cannot broadcast tensor with shape {:?} to shape {:?}",
-                self.shape(), shape
-            )),
-        }
-    }
 }
 
 impl<T: Float + fmt::Display> fmt::Display for Tensor<T> {
