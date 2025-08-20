@@ -7,11 +7,17 @@ use super::{DeviceType, GpuError, kernels::{AddKernel, MatMulKernel, KernelExecu
 /// GPU操作の検証結果
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
+    /// The GPU device type used for validation
     pub device: DeviceType,
+    /// Name of the operation being validated
     pub operation: String,
+    /// Whether the validation passed
     pub passed: bool,
+    /// Error message if validation failed
     pub error_message: Option<String>,
+    /// Execution time in milliseconds
     pub execution_time_ms: f64,
+    /// Maximum error between expected and actual results
     pub max_error: f32,
 }
 
