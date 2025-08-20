@@ -2,13 +2,11 @@
 //! Model training and inference interface
 
 use crate::autograd::Variable;
-use crate::nn::Module;
-use crate::nn::loss::{CrossEntropyLoss, MSELoss, Loss};
-use crate::optim::{Optimizer, SGD, Adam};
-use crate::models::{Model, ModelMode};
+use crate::nn::loss::Loss;
+use crate::optim::Optimizer;
+use crate::models::Model;
 use crate::data::{Dataset, DataLoader};
 use num_traits::Float;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::time::{Duration, Instant};
 
@@ -122,8 +120,8 @@ where
     L: Loss<T>,
 {
     model: M,
-    optimizer: O,
-    loss_fn: L,
+    _optimizer: O,
+    _loss_fn: L,
     config: TrainingConfig,
     _phantom: std::marker::PhantomData<T>,
 }
@@ -138,10 +136,10 @@ where
     /// 新しい訓練器を作成
     /// Create a new trainer
     pub fn new(model: M, optimizer: O, loss_fn: L, config: TrainingConfig) -> Self {
-        Trainer {
+        Self {
             model,
-            optimizer,
-            loss_fn,
+            _optimizer: optimizer,
+            _loss_fn: loss_fn,
             config,
             _phantom: std::marker::PhantomData,
         }
@@ -151,8 +149,8 @@ where
     /// Train the model
     pub fn train<D>(
         &mut self,
-        train_dataset: D,
-        val_dataset: Option<D>,
+        _train_dataset: D,
+        _val_dataset: Option<D>,
     ) -> TrainingResult 
     where
         D: Dataset<T> + Clone,
@@ -231,6 +229,7 @@ where
     
     /// 1エポックの訓練（簡略化実装）
     /// Train for one epoch (simplified implementation)
+    #[allow(dead_code)]
     fn train_epoch<D>(&mut self, _train_loader: &DataLoader<T, D>) -> (f64, f64) 
     where
         D: Dataset<T>,
@@ -243,6 +242,7 @@ where
     
     /// 1エポックの検証（簡略化実装）
     /// Validate for one epoch (simplified implementation)
+    #[allow(dead_code)]
     fn validate_epoch<D>(&self, _val_loader: &DataLoader<T, D>) -> (f64, f64) 
     where
         D: Dataset<T>,
@@ -255,6 +255,7 @@ where
     
     /// 損失値を抽出
     /// Extract loss value
+    #[allow(dead_code)]
     fn extract_loss_value(&self, _loss: &Variable<T>) -> f64 {
         // 実装は簡略化 - 実際にはテンソルから値を抽出
         0.0
@@ -262,6 +263,7 @@ where
     
     /// 精度を計算
     /// Calculate accuracy
+    #[allow(dead_code)]
     fn calculate_accuracy(&self, _outputs: &Variable<T>, _targets: &Variable<T>) -> (usize, usize) {
         // 実装は簡略化 - 実際には予測と正解を比較
         (80, 100) // (correct, total)
@@ -288,7 +290,7 @@ where
     M: Model<T>,
 {
     model: M,
-    device: String,
+    _device: String,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -303,7 +305,7 @@ where
         Model::eval(&mut model);
         InferenceEngine {
             model,
-            device,
+            _device: device,
             _phantom: std::marker::PhantomData,
         }
     }

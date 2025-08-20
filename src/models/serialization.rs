@@ -237,7 +237,7 @@ impl ModelSaver {
     
     /// パラメータ値を抽出
     /// Extract parameter values
-    fn extract_parameter_values<T>(param: &Variable<T>) -> Vec<f64> 
+    fn extract_parameter_values<T>(_param: &Variable<T>) -> Vec<f64> 
     where
         T: Float + 'static + Send + Sync + Debug,
     {
@@ -265,7 +265,7 @@ impl ModelSaver {
     
     /// MessagePack形式で保存
     /// Save in MessagePack format
-    fn save_messagepack(state_dict: &ModelStateDict, path: &Path) -> Result<(), SaveError> {
+    fn save_messagepack(_state_dict: &ModelStateDict, _path: &Path) -> Result<(), SaveError> {
         // MessagePack実装は省略（rmp-serdeクレートが必要）
         Err(SaveError::FormatError("MessagePack not implemented".to_string()))
     }
@@ -340,7 +340,7 @@ impl ModelLoader {
     
     /// MessagePack形式で読み込み
     /// Load from MessagePack format
-    fn load_messagepack(path: &Path) -> Result<ModelStateDict, LoadError> {
+    fn load_messagepack(_path: &Path) -> Result<ModelStateDict, LoadError> {
         // MessagePack実装は省略
         Err(LoadError::FormatError("MessagePack not implemented".to_string()))
     }
@@ -424,7 +424,7 @@ impl ModelConverter {
         input_path: &Path,
         output_path: &Path,
         input_format: SerializationFormat,
-        output_format: SerializationFormat,
+        _output_format: SerializationFormat,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let state_dict = ModelLoader::load(input_path, input_format)?;
         ModelSaver::save_json(&state_dict, output_path)?;
@@ -441,7 +441,7 @@ impl ModelConverter {
         let mut state_dict = ModelLoader::load(input_path, SerializationFormat::Json)?;
         
         // パラメータを量子化（簡略化実装）
-        for (name, params) in &mut state_dict.parameters {
+        for (_name, params) in &mut state_dict.parameters {
             Self::quantize_parameters(params, compression_ratio);
         }
         

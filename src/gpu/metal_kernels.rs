@@ -2,9 +2,8 @@
 //! GPU加速のためのMetal Performance Shadersカーネル実装
 
 use super::{GpuError};
-use num_traits::Float;
+// Metal GPU kernel implementations
 use std::ffi::c_void;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[cfg(feature = "metal")]
@@ -19,10 +18,20 @@ use objc::runtime::Object;
 /// Metalカーネルタイプ
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MetalKernelType {
+    /// Element-wise operations (add, mul, etc.)
+    /// 要素ごとの演算（加算、乗算など）
     ElementWise,
+    /// Matrix multiplication operations
+    /// 行列乗算演算
     MatMul,
+    /// Reduction operations (sum, mean, etc.)
+    /// リダクション演算（合計、平均など）
     Reduction,
+    /// Convolution operations
+    /// 畳み込み演算
     Convolution,
+    /// Batch normalization operations
+    /// バッチ正規化演算
     BatchNorm,
 }
 
@@ -30,7 +39,11 @@ pub enum MetalKernelType {
 /// Metalカーネルパラメータ
 #[derive(Debug, Clone)]
 pub struct MetalKernelParams {
+    /// Threads per threadgroup for Metal kernel execution
+    /// Metalカーネル実行のスレッドグループあたりのスレッド数
     pub threads_per_threadgroup: (u32, u32, u32),
+    /// Threadgroups per grid for Metal kernel execution
+    /// Metalカーネル実行のグリッドあたりのスレッドグループ数
     pub threadgroups_per_grid: (u32, u32, u32),
 }
 
@@ -46,7 +59,7 @@ impl Default for MetalKernelParams {
 /// Metal buffer wrapper
 /// Metalバッファラッパー
 pub struct MetalBuffer<T> {
-    buffer: *mut c_void,
+    _buffer: *mut c_void,
     size: usize,
     _phantom: PhantomData<T>,
 }
@@ -60,13 +73,15 @@ impl<T> MetalBuffer<T> {
         let buffer = device.new_buffer(buffer_size as u64, MTLResourceOptions::StorageModeShared);
         
         Ok(Self {
-            buffer: buffer.as_ptr() as *mut c_void,
+            _buffer: buffer.as_ptr() as *mut c_void,
             size,
             _phantom: PhantomData,
         })
     }
     
     #[cfg(not(feature = "metal"))]
+    /// Create a new Metal buffer with specified size
+    /// 指定されたサイズで新しいMetalバッファを作成
     pub fn new(_size: usize, _device: &()) -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
     }
@@ -461,10 +476,14 @@ pub struct MetalKernelExecutor;
 
 #[cfg(not(feature = "metal"))]
 impl MetalKernelExecutor {
+    /// Create a new Metal kernel executor (fallback implementation)
+    /// 新しいMetalカーネル実行器を作成（フォールバック実装）
     pub fn new() -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
     }
     
+    /// Perform element-wise addition using Metal
+    /// Metalを使用して要素ごとの加算を実行
     pub fn elementwise_add_f32(
         &self,
         _a: &[f32],
@@ -474,6 +493,8 @@ impl MetalKernelExecutor {
         Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
     }
     
+    /// Perform matrix multiplication using Metal
+    /// Metalを使用して行列乗算を実行
     pub fn matmul_f32(
         &self,
         _a: &[f32],
@@ -486,6 +507,8 @@ impl MetalKernelExecutor {
         Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
     }
     
+    /// Perform reduction sum using Metal
+    /// Metalを使用してリダクション合計を実行
     pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
         Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
     }

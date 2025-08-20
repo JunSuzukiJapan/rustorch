@@ -1,7 +1,7 @@
 //! Parallel DataLoader implementation for high-performance batch processing
 //! 高性能バッチ処理のための並列DataLoader実装
 
-use super::{Dataset, DataLoader};
+use crate::data::Dataset;
 use crate::tensor::Tensor;
 use crate::tensor::parallel_traits::MatrixParallelOp;
 use num_traits::Float;

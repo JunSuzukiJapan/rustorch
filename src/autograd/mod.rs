@@ -1,7 +1,7 @@
 use crate::tensor::Tensor;
-use self::grad_fn::*;
-use std::sync::{Arc, RwLock};
+use crate::autograd::grad_fn::{SumBackward, AddBackward, MulBackward, SubBackward, MatMulBackward};
 use num_traits::Float;
+use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 use std::ops;
 

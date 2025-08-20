@@ -68,7 +68,7 @@ where
             .map(|_| T::from_f32(normal.sample(&mut rng) as f32).unwrap())
             .collect();
         
-        let mut weight = Variable::new(
+        let weight = Variable::new(
             Tensor::from_vec(weight_data, vec![vocab_size, embedding_dim]),
             !freeze, // requires_grad is opposite of freeze
         );

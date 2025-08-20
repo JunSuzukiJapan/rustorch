@@ -90,7 +90,7 @@ impl DeviceInfo {
 
     /// Create device info for CUDA device
     /// CUDAデバイス用デバイス情報を作成
-    pub fn cuda(device_id: usize) -> Result<Self, GpuError> {
+    pub fn cuda(_device_id: usize) -> Result<Self, GpuError> {
         #[cfg(feature = "cuda")]
         {
             // CUDA device query would go here
@@ -124,7 +124,7 @@ impl DeviceInfo {
 
     /// Create device info for Metal device
     /// Metalデバイス用デバイス情報を作成
-    pub fn metal(device_id: usize) -> Result<Self, GpuError> {
+    pub fn metal(_device_id: usize) -> Result<Self, GpuError> {
         #[cfg(feature = "metal")]
         {
             let capabilities = DeviceCapabilities {

@@ -105,7 +105,7 @@ impl GpuMemoryPool {
         let mut best_block_idx = None;
         let mut best_block_size = usize::MAX;
 
-        for (idx, &(offset, block_size)) in self.free_blocks.iter().enumerate() {
+        for (idx, &(_offset, block_size)) in self.free_blocks.iter().enumerate() {
             if block_size >= aligned_size && block_size < best_block_size {
                 best_block_idx = Some(idx);
                 best_block_size = block_size;

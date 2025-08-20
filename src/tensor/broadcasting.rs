@@ -141,8 +141,8 @@ impl<T: Float + 'static> Tensor<T> {
         let mut result_data = ArrayD::zeros(IxDyn(&new_shape));
         
         // Fill the result array by repeating the original data
-        let original_strides = self.data.strides();
-        let result_strides = result_data.strides();
+        let _original_strides = self.data.strides();
+        let _result_strides = result_data.strides();
         
         // This is a simplified implementation - a full implementation would be more complex
         for (i, &val) in self.data.iter().enumerate() {
@@ -164,7 +164,7 @@ impl<T: Float + 'static> Tensor<T> {
                 }
                 
                 let mut result_indices = vec![0; current_shape.len()];
-                for (dim_idx, (&orig_idx, (&rep_idx, (&orig_size, &rep_count)))) in 
+                for (dim_idx, (&orig_idx, (&rep_idx, (&orig_size, &_rep_count)))) in 
                     original_indices.iter()
                         .zip(rep_indices.iter()
                             .zip(current_shape.iter()
@@ -197,7 +197,7 @@ fn compute_broadcast_shape(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usi
         match (dim1, dim2) {
             (1, d) | (d, 1) => result_shape.push(*d),
             (d1, d2) if d1 == d2 => result_shape.push(*d1),
-            (d1, d2) => return Err(BroadcastError::IncompatibleShapes {
+            (_d1, _d2) => return Err(BroadcastError::IncompatibleShapes {
                 from: shape1.to_vec(),
                 to: shape2.to_vec(),
             }),

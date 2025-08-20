@@ -1,8 +1,9 @@
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
-use num_traits::{Float, Zero};
-use rayon::prelude::*;
+// Parallel operations implementation
+use num_traits::Float;
 use std::sync::Arc;
+use rayon::prelude::*;
 
 /// Parallel batch operations for tensors
 /// テンソルの並列バッチ演算
@@ -317,9 +318,9 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
         let mut result = Self::zeros(&result_shape);
         
         // Parallel reduction along specified dimension
-        let total_elements = shape.iter().product::<usize>();
+        let _total_elements = shape.iter().product::<usize>();
         let dim_size = shape[dim];
-        let stride_before: usize = shape[..dim].iter().product();
+        let _stride_before: usize = shape[..dim].iter().product();
         let stride_after: usize = shape[dim+1..].iter().product();
         
         if let Some(self_slice) = self.data.as_slice() {

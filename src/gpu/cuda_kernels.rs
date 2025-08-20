@@ -1,10 +1,7 @@
 //! CUDA kernel implementations for GPU acceleration
 //! GPU加速のためのCUDAカーネル実装
 
-use super::{GpuError, DeviceType};
-use crate::tensor::parallel_errors::{ParallelError, ParallelResult};
-use num_traits::Float;
-use std::ffi::c_void;
+use super::GpuError;
 
 #[cfg(feature = "cuda")]
 use cudarc::{
@@ -81,7 +78,7 @@ pub struct CudaBuffer<T> {
 impl<T> CudaBuffer<T> {
     /// Create a new CUDA buffer
     /// 新しいCUDAバッファを作成
-    pub fn new(size: usize, device_id: usize) -> Result<Self, GpuError> {
+    pub fn new(_size: usize, _device_id: usize) -> Result<Self, GpuError> {
         #[cfg(feature = "cuda")]
         {
             use cudarc::driver::CudaDevice;
@@ -430,15 +427,19 @@ impl CudaKernelExecutor {
 /// 互換性のための非CUDAフォールバック実行器
 #[cfg(not(feature = "cuda"))]
 pub struct CudaKernelExecutor {
-    device_id: usize,
+    _device_id: usize,
 }
 
 #[cfg(not(feature = "cuda"))]
 impl CudaKernelExecutor {
-    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+    /// Create a new CUDA kernel executor for the specified device
+    /// 指定されたデバイス用の新しいCUDAカーネル実行器を作成
+    pub fn new(_device_id: usize) -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
+    /// Perform matrix multiplication using CUDA
+    /// CUDAを使用して行列乗算を実行
     pub fn matmul_f32(
         &self,
         _a: &[f32],
@@ -451,6 +452,8 @@ impl CudaKernelExecutor {
         Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
+    /// Perform element-wise addition using CUDA
+    /// CUDAを使用して要素ごとの加算を実行
     pub fn elementwise_add_f32(
         &self,
         _a: &[f32],
@@ -460,6 +463,8 @@ impl CudaKernelExecutor {
         Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
+    /// Perform reduction sum using CUDA
+    /// CUDAを使用してリダクション合計を実行
     pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
         Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
     }
@@ -561,15 +566,27 @@ pub mod cuda_utils {
     }
 }
 
-/// Device properties structure
-/// デバイスプロパティ構造体
+/// CUDA device properties
+/// CUDAデバイスプロパティ
 #[derive(Debug, Clone)]
 pub struct DeviceProperties {
+    /// Device name
+    /// デバイス名
     pub name: String,
+    /// Compute capability version (major, minor)
+    /// 計算能力バージョン（メジャー、マイナー）
     pub compute_capability: (u32, u32),
+    /// Maximum threads per block
+    /// ブロックあたりの最大スレッド数
     pub max_threads_per_block: usize,
+    /// Maximum shared memory size
+    /// 最大共有メモリサイズ
     pub max_shared_memory: usize,
+    /// Warp size
+    /// ワープサイズ
     pub warp_size: usize,
+    /// Total memory size
+    /// 総メモリサイズ
     pub memory_size: usize,
 }
 

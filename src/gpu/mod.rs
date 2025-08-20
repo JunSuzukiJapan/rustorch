@@ -109,6 +109,8 @@
 //! - **Memory Bandwidth**: Minimize GPU-CPU data transfers
 //! - **Asynchronous Execution**: Use streams for overlapping computation and transfer
 
+/// Device management module for GPU operations
+/// GPU操作のためのデバイス管理モジュール
 pub mod device;
 /// GPU memory management and allocation
 /// GPUメモリ管理とアロケーション
@@ -129,7 +131,6 @@ pub mod opencl_kernels;
 /// GPUカーネル検証とテスト
 pub mod validation;
 
-use num_traits::Float;
 use std::fmt;
 
 /// GPU device types
@@ -469,7 +470,8 @@ pub fn get_device_manager() -> &'static mut DeviceManager {
         DEVICE_MANAGER_INIT.call_once(|| {
             DEVICE_MANAGER = Some(DeviceManager::new());
         });
-        DEVICE_MANAGER.as_mut().unwrap()
+        #[allow(static_mut_refs)]
+        { DEVICE_MANAGER.as_mut().unwrap() }
     }
 }
 

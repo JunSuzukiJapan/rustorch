@@ -1,10 +1,9 @@
 /// Statistical operations for tensors
 /// テンソルの統計演算
 
-use ndarray::{ArrayD, Axis};
+use ndarray::Axis;
 use num_traits::{Float, FromPrimitive, Zero};
-use std::collections::HashMap;
-use std::ops::{Sub, Add, Mul, Div};
+use std::ops::Sub;
 use crate::tensor::Tensor;
 
 impl<T: Float + 'static + Send + Sync + FromPrimitive + Zero> Tensor<T> {
@@ -158,7 +157,7 @@ impl<T: Float + 'static + Send + Sync + FromPrimitive + Zero> Tensor<T> {
             panic!("Covariance requires 2D tensor");
         }
 
-        let n_features = shape[1];
+        let _n_features = shape[1];
         let n_samples = shape[0];
         
         // Center the data (subtract mean)

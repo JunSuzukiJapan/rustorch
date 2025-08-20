@@ -8,8 +8,6 @@ use std::fmt::Debug;
 use num_traits::{Float, FromPrimitive, ToPrimitive, Zero, One};
 use ndarray::ScalarOperand;
 use std::iter::Sum;
-use rand::distributions::Distribution;
-use rand_distr::Normal;
 
 /// Layer Normalization
 /// レイヤー正規化
@@ -345,7 +343,7 @@ where
             panic!("GroupNorm expects at least 3D input (N, C, ...), got {:?}", input_shape);
         }
         
-        let batch_size = input_shape[0];
+        let _batch_size = input_shape[0];
         let channels = input_shape[1];
         
         if channels != self.num_channels {
@@ -386,9 +384,9 @@ where
                 let mut group_values = Vec::with_capacity(group_size);
                 
                 for c in group_start_channel..group_end_channel {
-                    for s in 0..spatial_size {
+                    for _s in 0..spatial_size {
                         let mut indices = vec![b, c];
-                        let spatial_indices = self.unravel_spatial_index(s, &input_shape[2..]);
+                        let spatial_indices = self.unravel_spatial_index(_s, &input_shape[2..]);
                         indices.extend(spatial_indices);
                         
                         group_values.push(input_array[indices.as_slice()]);
@@ -403,7 +401,7 @@ where
                 // Normalize and apply affine transformation for this group
                 let mut value_idx = 0;
                 for c in group_start_channel..group_end_channel {
-                    for s in 0..spatial_size {
+                    for _s in 0..spatial_size {
                         let normalized = (group_values[value_idx] - mean) / std;
                         
                         let final_val = if self.affine {

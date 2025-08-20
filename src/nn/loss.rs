@@ -2,7 +2,6 @@
 //! ニューラルネットワークの損失関数
 
 use crate::autograd::Variable;
-use crate::tensor::Tensor;
 use num_traits::Float;
 use std::fmt::Debug;
 
@@ -41,6 +40,8 @@ pub struct CrossEntropyLoss<T: Float + Send + Sync + 'static> {
 }
 
 impl<T: Float + Send + Sync + 'static> CrossEntropyLoss<T> {
+    /// Create a new CrossEntropyLoss function
+    /// 新しいCrossEntropyLoss関数を作成
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -115,22 +116,23 @@ pub fn nll_loss<T: Float + Send + Sync + 'static + Debug>(
 /// 交差エントロピー損失関数
 pub fn cross_entropy_loss_old<T: Float + Send + Sync + 'static>(
     input: &Variable<T>, 
-    target: &Variable<T>
+    _target: &Variable<T>
 ) -> Variable<T> {
     // Simplified cross entropy implementation
     // Apply softmax to input and compute negative log likelihood
     let softmax_input = softmax_variable(input);
-    let log_softmax = log_variable(&softmax_input);
+    let _log_softmax = log_variable(&softmax_input);
     // Simplified implementation - placeholder
     let nll = input.clone();
     nll.mean()
 }
 
 /// Helper function to clamp variable values
+#[allow(dead_code)]
 fn clamp_variable<T: Float + Send + Sync + 'static>(
     var: &Variable<T>, 
-    min_val: T, 
-    max_val: T
+    _min_val: T, 
+    _max_val: T
 ) -> Variable<T> {
     // Simplified clamp implementation
     var.clone() // Placeholder
@@ -143,6 +145,7 @@ fn log_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable
 }
 
 /// Helper function to create ones like variable
+#[allow(dead_code)]
 fn ones_like<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
     // Simplified ones_like implementation
     var.clone() // Placeholder
@@ -163,7 +166,7 @@ fn softmax_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Vari
 /// BCE = -mean(target * log(input) + (1 - target) * log(1 - input))
 pub fn binary_cross_entropy<T: Float + Send + Sync + 'static>(
     input: &Variable<T>, 
-    target: &Variable<T>
+    _target: &Variable<T>
 ) -> Variable<T> {
     // 簡略化実装 - プレースホルダー
     // Simplified implementation - placeholder

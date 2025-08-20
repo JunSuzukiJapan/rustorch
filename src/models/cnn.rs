@@ -60,7 +60,7 @@ where
         classifier.add_module(ReLU::new());
         classifier.add_module(Dropout::new(<T as From<f32>>::from(dropout_rate as f32), false));
         classifier.add_module(Linear::new(512, num_classes));
-        classifier.add_module(Softmax::new());
+        classifier.add_module(Softmax::new(1));
         
         CNN {
             features,
@@ -269,7 +269,7 @@ where
         out = self.bn2.forward(&out);
         
         // ダウンサンプリングが必要な場合
-        let identity = if let Some(ref downsample) = self.downsample {
+        let _identity = if let Some(ref downsample) = self.downsample {
             downsample.forward(&identity)
         } else {
             identity

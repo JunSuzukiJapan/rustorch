@@ -102,12 +102,11 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use ndarray::{ArrayD, Ix1, Ix2, IxDyn, ArrayViewD, Axis};
-use num_traits::Float;
-use serde::{Deserialize, Serialize};
+use ndarray::{ArrayD, ArrayViewD, IxDyn, Ix1, Ix2};
 // use rayon::prelude::*;
-use std::{fmt, ops};
+use num_traits::Float;
 use crate::memory::{get_f32_pool, get_f64_pool};
+use std::{fmt, ops};
 
 mod pool_integration;
 mod simd_integration;
@@ -117,6 +116,8 @@ mod simd_integration;
 pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
+/// Parallel tensor operations module
+/// 並列テンソル演算モジュール
 pub mod parallel_ops;
 pub mod gpu_parallel;
 pub mod memory_optimized;

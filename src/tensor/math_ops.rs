@@ -1,10 +1,9 @@
 /// Mathematical operations for tensors
 /// テンソルの数学演算
 
-use ndarray::{ArrayD, Zip};
+use ndarray::Zip;
 use num_traits::Float;
 use crate::tensor::Tensor;
-use crate::simd::vectorized;
 
 impl<T: Float + 'static + Send + Sync> Tensor<T> {
     /// Element-wise sine function

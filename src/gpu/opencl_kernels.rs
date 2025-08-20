@@ -2,9 +2,8 @@
 //! GPU加速のためのOpenCLカーネル実装
 
 use super::{GpuError};
-use num_traits::Float;
+// OpenCL GPU kernel implementations
 use std::ffi::c_void;
-use std::collections::HashMap;
 use std::marker::PhantomData;
 
 #[cfg(feature = "opencl")]
@@ -22,10 +21,20 @@ use opencl3::{
 /// OpenCLカーネルタイプ
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OpenClKernelType {
+    /// Element-wise operations (add, mul, etc.)
+    /// 要素ごとの演算（加算、乗算など）
     ElementWise,
+    /// Matrix multiplication operations
+    /// 行列乗算演算
     MatMul,
+    /// Reduction operations (sum, mean, etc.)
+    /// リダクション演算（合計、平均など）
     Reduction,
+    /// Convolution operations
+    /// 畳み込み演算
     Convolution,
+    /// Batch normalization operations
+    /// バッチ正規化演算
     BatchNorm,
 }
 
@@ -33,8 +42,14 @@ pub enum OpenClKernelType {
 /// OpenCLカーネルパラメータ
 #[derive(Debug, Clone)]
 pub struct OpenClKernelParams {
+    /// Global work size for OpenCL kernel execution
+    /// OpenCLカーネル実行のグローバルワークサイズ
     pub global_work_size: [usize; 3],
+    /// Local work size for OpenCL kernel execution
+    /// OpenCLカーネル実行のローカルワークサイズ
     pub local_work_size: [usize; 3],
+    /// Queue index for OpenCL command queue
+    /// OpenCLコマンドキューのインデックス
     pub queue_index: usize,
 }
 
@@ -51,7 +66,7 @@ impl Default for OpenClKernelParams {
 /// OpenCL buffer wrapper
 /// OpenCLバッファラッパー
 pub struct OpenClBuffer<T> {
-    buffer: *mut c_void,
+    _buffer: *mut c_void,
     size: usize,
     _phantom: PhantomData<T>,
 }
@@ -69,14 +84,16 @@ impl<T> OpenClBuffer<T> {
             std::ptr::null_mut(),
         ).map_err(|e| GpuError::MemoryAllocationError(format!("OpenCL buffer creation failed: {:?}", e)))?;
         
-        Ok(OpenClBuffer {
-            buffer,
+        Ok(Self {
+            _buffer: buffer.as_ptr() as *mut c_void,
             size,
             _phantom: PhantomData,
         })
     }
     
     #[cfg(not(feature = "opencl"))]
+    /// Create a new OpenCL buffer (fallback when OpenCL not available)
+    /// 新しいOpenCLバッファを作成（OpenCL利用不可時のフォールバック）
     pub fn new(_size: usize, _context: &()) -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
@@ -91,6 +108,8 @@ impl<T> OpenClBuffer<T> {
     }
     
     #[cfg(not(feature = "opencl"))]
+    /// Create buffer from host data (fallback when OpenCL not available)
+    /// ホストデータからバッファを作成（OpenCL利用不可時のフォールバック）
     pub fn from_host_data(_data: &[T]) -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
@@ -104,6 +123,8 @@ impl<T> OpenClBuffer<T> {
     }
     
     #[cfg(not(feature = "opencl"))]
+    /// Copy buffer data to host memory (fallback when OpenCL not available)
+    /// バッファデータをホストメモリにコピー（OpenCL利用不可時のフォールバック）
     pub fn copy_to_host(&self, _host_data: &mut [T]) -> Result<(), GpuError> {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
@@ -437,10 +458,14 @@ pub struct OpenClKernelExecutor;
 
 #[cfg(not(feature = "opencl"))]
 impl OpenClKernelExecutor {
+    /// Create a new OpenCL kernel executor (fallback when OpenCL not available)
+    /// 新しいOpenCLカーネル実行器を作成（OpenCL利用不可時のフォールバック）
     pub fn new(_device_id: usize) -> Result<Self, GpuError> {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
     
+    /// Perform elementwise addition on f32 arrays (fallback)
+    /// f32配列の要素ごと加算を実行（フォールバック）
     pub fn elementwise_add_f32(
         &self,
         _a: &[f32],
@@ -450,6 +475,8 @@ impl OpenClKernelExecutor {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
     
+    /// Perform matrix multiplication on f32 arrays (fallback)
+    /// f32配列の行列乗算を実行（フォールバック）
     pub fn matmul_f32(
         &self,
         _a: &[f32],
@@ -462,6 +489,8 @@ impl OpenClKernelExecutor {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }
     
+    /// Perform reduction sum on f32 array (fallback)
+    /// f32配列のリダクション合計を実行（フォールバック）
     pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
         Err(GpuError::UnsupportedDevice("OpenCL not available".to_string()))
     }

@@ -372,6 +372,8 @@ pub struct ReLU<T: Float + Send + Sync + 'static + Debug> {
 }
 
 impl<T: Float + Send + Sync + 'static + Debug> ReLU<T> {
+    /// Create a new ReLU activation function
+    /// 新しいReLU活性化関数を作成
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -409,7 +411,9 @@ pub struct Softmax<T: Float + Send + Sync + 'static + Debug> {
 }
 
 impl<T: Float + Send + Sync + 'static + Debug> Softmax<T> {
-    pub fn new() -> Self {
+    /// Create a new Softmax activation function
+    /// 新しいSoftmax活性化関数を作成
+    pub fn new(_dim: i32) -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
@@ -446,6 +450,8 @@ pub struct GELU<T: Float + Send + Sync + 'static + Debug> {
 }
 
 impl<T: Float + Send + Sync + 'static + Debug> GELU<T> {
+    /// Create a new GELU activation function
+    /// 新しいGELU活性化関数を作成
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
@@ -475,6 +481,13 @@ impl<T: Float + Send + Sync + 'static + Debug> Module<T> for GELU<T> {
     }
 }
 
+/// Swish activation layer (module)
+/// Swish活性化層（モジュール）
+#[derive(Debug, Clone)]
+pub struct Swish<T: Float + Send + Sync + 'static + Debug> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
 /// Tanh activation layer (module)
 /// Tanh活性化層（モジュール）
 #[derive(Debug, Clone)]
@@ -482,7 +495,9 @@ pub struct Tanh<T: Float + Send + Sync + 'static + Debug> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Tanh<T> {
+impl<T: Float + Send + Sync + 'static + Debug> Swish<T> {
+    /// Create a new Swish activation function
+    /// 新しいSwish活性化関数を作成
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,

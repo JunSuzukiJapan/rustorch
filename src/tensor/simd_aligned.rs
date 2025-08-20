@@ -3,11 +3,9 @@
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
-use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::ptr::NonNull;
-use std::sync::Arc;
 
 /// SIMD alignment requirements for different architectures
 /// 異なるアーキテクチャのSIMDアライメント要件

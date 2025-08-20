@@ -2,7 +2,7 @@
 //! RNN/LSTM model implementations
 
 use crate::autograd::Variable;
-use crate::nn::{Module, Sequential, Linear, LSTM, RNN, Dropout, Embedding, ReLU, Softmax};
+use crate::nn::{Module, Linear, LSTM, RNN, Dropout, Embedding};
 use crate::models::{Model, ModelMode, ModelBuilder};
 use num_traits::Float;
 use std::any::Any;

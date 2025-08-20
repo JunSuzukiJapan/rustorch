@@ -139,9 +139,12 @@
 //! - `opencl`: Enable OpenCL support
 //! - `opengl`: Enable OpenGL support
 
-use crate::tensor::{Tensor, parallel_traits::*, parallel_errors::{ParallelError, ParallelResult}, Float};
-use crate::gpu::{DeviceType, GpuError, get_device_manager};
-use std::sync::Arc;
+use super::Tensor;
+use super::parallel_errors::{ParallelError, ParallelResult};
+use super::parallel_traits::{ParallelOp, ParallelConfig, BatchParallelOp, MatrixParallelOp, ReductionParallelOp};
+use crate::gpu::{GpuError, DeviceType, get_device_manager};
+// GPU parallel operations implementation
+use num_traits::Float;
 
 /// GPU execution strategy for operations
 #[derive(Debug, Clone, Copy)]
@@ -149,9 +152,20 @@ pub enum GpuExecutionStrategy {
     /// Use CPU parallel execution
     CpuParallel,
     /// Prefer GPU execution with fallback threshold
-    GpuPreferred { fallback_threshold: usize },
+    GpuPreferred { 
+        /// Threshold for falling back to CPU
+        /// CPUへのフォールバック闾値
+        fallback_threshold: usize 
+    },
     /// Hybrid CPU+GPU execution
-    Hybrid { gpu_threshold: usize, cpu_threads: usize },
+    Hybrid { 
+        /// Threshold for GPU usage
+        /// GPU使用の闾値
+        gpu_threshold: usize, 
+        /// Number of CPU threads
+        /// CPUスレッド数
+        cpu_threads: usize 
+    },
     /// Automatic selection based on workload
     Auto,
 }
@@ -204,8 +218,8 @@ pub trait GpuParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T>
     /// Parallel matrix multiplication on GPU
     fn gpu_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>>;
     
-    /// GPU上での並列リダクション
-    /// Parallel reduction on GPU
+    /// Perform parallel reduction on GPU
+    /// GPU上で並列リダクションを実行
     fn gpu_reduce<F, R>(&self, dim: usize, init: R, op: F) -> ParallelResult<Tensor<T>>
     where
         F: Fn(R, T) -> R + Send + Sync + Clone,
@@ -214,6 +228,9 @@ pub trait GpuParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T>
     /// GPU-CPU間データ転送
     /// Data transfer between GPU and CPU
     fn to_device(&self, device: DeviceType) -> ParallelResult<Tensor<T>>;
+    
+    /// Transfer tensor data from GPU to CPU
+    /// テンソルデータをGPUからCPUに転送
     fn to_cpu(&self) -> ParallelResult<Tensor<T>>;
 }
 

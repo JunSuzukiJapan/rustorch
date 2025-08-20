@@ -152,11 +152,9 @@
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
-use crate::memory::{get_f32_pool, get_f64_pool};
 use ndarray::ArrayD;
 use num_traits::Float;
 use rayon::prelude::*;
-use std::sync::Arc;
 
 /// Memory allocation strategy for tensor operations
 /// テンソル演算のメモリ割り当て戦略
@@ -257,7 +255,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         F: Fn(&Tensor<T>, &Tensor<T>) -> ParallelResult<Tensor<T>> + Send + Sync,
     {
         // Pre-allocate result vector
-        let mut result: Vec<Tensor<T>> = Vec::with_capacity(tensors.len());
+        let _result: Vec<Tensor<T>> = Vec::with_capacity(tensors.len());
         
         // Process in parallel with memory pool
         let parallel_results: Result<Vec<_>, _> = tensors.par_iter()

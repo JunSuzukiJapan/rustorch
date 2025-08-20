@@ -91,16 +91,15 @@
 //! 
 //! ## Error Handling
 //! 
-//! All parallel operations return [`ParallelResult<T>`](crate::tensor::parallel_errors::ParallelResult)
+//! All parallel operations return [`ParallelResult<T>`](Result)
 //! with detailed error information for debugging and error recovery.
 //! 
 //! See [`parallel_errors`](crate::tensor::parallel_errors) for complete error type documentation.
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use super::parallel_errors::ParallelResult;
 use num_traits::Float;
 use rayon::prelude::*;
-use std::sync::Arc;
 
 /// 並列操作の基本トレイト
 /// Base trait for parallel operations
@@ -279,7 +278,7 @@ pub mod parallel_utils {
     pub fn parallel_chunks<T, F, R>(
         data: &[T],
         chunk_size: usize,
-        mut process_chunk: F,
+        process_chunk: F,
     ) -> Vec<R>
     where
         T: Send + Sync,

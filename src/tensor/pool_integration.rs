@@ -1,7 +1,6 @@
 use super::Tensor;
-use crate::memory::{get_f32_pool, get_f64_pool};
-use ndarray::ArrayD;
 use num_traits::Float;
+use crate::memory::{get_f32_pool, get_f64_pool};
 
 /// Enhanced tensor operations with memory pool integration
 /// メモリプール統合による拡張テンソル演算

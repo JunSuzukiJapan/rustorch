@@ -144,7 +144,7 @@
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
-use ndarray::{ArrayD, ArrayViewD, ArrayViewMutD, IxDyn};
+use ndarray::{ArrayD, ArrayViewD, ArrayViewMutD};
 use num_traits::Float;
 use std::sync::Arc;
 
@@ -334,7 +334,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         let mut result_data = Vec::new();
         
         // Calculate result shape
-        for (i, range) in ranges.iter().enumerate() {
+        for (_i, range) in ranges.iter().enumerate() {
             result_shape.push(range.end - range.start);
         }
         

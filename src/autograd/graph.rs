@@ -4,8 +4,8 @@
 use super::function::Function;
 use crate::tensor::Tensor;
 use num_traits::Float;
-use std::sync::{Arc, Weak};
 use std::collections::HashMap;
+use std::sync::{Arc, Weak};
 
 /// Node in the computation graph
 /// 計算グラフのノード

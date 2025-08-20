@@ -2,9 +2,8 @@
 //! Transformer model implementations
 
 use crate::autograd::Variable;
-use crate::nn::{Module, Sequential, Linear, Dropout, Embedding, LayerNorm};
-use crate::nn::{TransformerEncoder, TransformerEncoderLayer, MultiHeadAttention, PositionalEmbedding};
-use crate::nn::{ReLU, Softmax, GELU};
+use crate::nn::{Module, Linear, Dropout, Embedding, LayerNorm};
+use crate::nn::{TransformerEncoder, TransformerEncoderLayer, PositionalEmbedding};
 use crate::models::{Model, ModelMode, ModelBuilder};
 use num_traits::Float;
 use std::any::Any;
@@ -48,7 +47,7 @@ where
         let embedding = Embedding::new(vocab_size, d_model, None, None, None);
         let positional_encoding = PositionalEmbedding::new(max_seq_length, d_model);
         
-        let encoder_layer = TransformerEncoderLayer::new(
+        let _encoder_layer = TransformerEncoderLayer::new(
             d_model,
             nhead,
             dim_feedforward,
@@ -177,14 +176,32 @@ where
 /// BERT configuration
 #[derive(Debug, Clone)]
 pub struct BERTConfig {
+    /// Vocabulary size for BERT model
+    /// BERTモデルの語彙サイズ
     pub vocab_size: usize,
+    /// Hidden layer size
+    /// 隠れ層のサイズ
     pub hidden_size: usize,
+    /// Number of hidden layers
+    /// 隠れ層の数
     pub num_hidden_layers: usize,
+    /// Number of attention heads
+    /// アテンション頭数
     pub num_attention_heads: usize,
+    /// Intermediate layer size in feed-forward network
+    /// フィードフォワードネットワークの中間層サイズ
     pub intermediate_size: usize,
+    /// Maximum position embeddings
+    /// 最大位置埋め込み数
     pub max_position_embeddings: usize,
+    /// Type vocabulary size for token type embeddings
+    /// トークンタイプ埋め込み用のタイプ語彙サイズ
     pub type_vocab_size: usize,
+    /// Dropout probability
+    /// ドロップアウト確率
     pub dropout_prob: f64,
+    /// Number of classification labels (optional)
+    /// 分類ラベル数（オプション）
     pub num_labels: Option<usize>,
 }
 
@@ -244,10 +261,10 @@ where
         let word_emb = self.word_embeddings.forward(input);
         
         // 位置埋め込み（簡略化実装）
-        let pos_emb = self.position_embeddings.forward(input);
+        let _pos_emb = self.position_embeddings.forward(input);
         
         // トークンタイプ埋め込み（簡略化実装）
-        let token_type_emb = self.token_type_embeddings.forward(input);
+        let _token_type_emb = self.token_type_embeddings.forward(input);
         
         // 埋め込みを合計（実際には要素ごとの加算）
         let embeddings = word_emb; // 簡略化: pos_emb + token_type_emb も加算すべき
@@ -281,7 +298,7 @@ where
     pub fn new(config: BERTConfig) -> Self {
         let embeddings = BERTEmbeddings::new(&config);
         
-        let encoder_layer = TransformerEncoderLayer::new(
+        let _encoder_layer = TransformerEncoderLayer::new(
             config.hidden_size,
             config.num_attention_heads,
             config.intermediate_size,
@@ -437,11 +454,23 @@ where
 /// GPT configuration
 #[derive(Debug, Clone)]
 pub struct GPTConfig {
+    /// Vocabulary size for GPT model
+    /// GPTモデルの語彙サイズ
     pub vocab_size: usize,
+    /// Number of position embeddings
+    /// 位置埋め込み数
     pub n_positions: usize,
+    /// Embedding dimension
+    /// 埋め込み次元
     pub n_embd: usize,
+    /// Number of transformer layers
+    /// Transformerレイヤー数
     pub n_layer: usize,
+    /// Number of attention heads
+    /// アテンション頭数
     pub n_head: usize,
+    /// Dropout probability
+    /// ドロップアウト確率
     pub dropout: f64,
 }
 

@@ -41,7 +41,7 @@ pub trait GpuKernel<T: Float> {
     fn execute(
         &self,
         device: DeviceType,
-        params: &KernelParams,
+        _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
     ) -> Result<(), GpuError>;
@@ -59,7 +59,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
     fn execute(
         &self,
         device: DeviceType,
-        params: &KernelParams,
+        _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
     ) -> Result<(), GpuError> {
@@ -191,7 +191,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
     fn execute(
         &self,
         device: DeviceType,
-        params: &KernelParams,
+        _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
     ) -> Result<(), GpuError> {
@@ -344,7 +344,7 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
     fn execute(
         &self,
         device: DeviceType,
-        params: &KernelParams,
+        _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
     ) -> Result<(), GpuError> {

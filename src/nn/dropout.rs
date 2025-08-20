@@ -226,7 +226,7 @@ where
 {
     /// Creates a new AlphaDropout layer
     /// 新しいAlphaDropoutレイヤーを作成します
-    pub fn new(p: T, inplace: bool) -> Self {
+    pub fn new(p: T, _inplace: bool) -> Self {
         if p < T::zero() || p > T::one() {
             panic!("AlphaDropout probability must be between 0.0 and 1.0, got: {:?}", p);
         }

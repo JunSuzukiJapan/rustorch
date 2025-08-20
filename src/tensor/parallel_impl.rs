@@ -3,10 +3,10 @@
 
 use super::Tensor;
 use super::parallel_errors::{ParallelError, ParallelResult};
-use super::parallel_traits::*;
-use num_traits::{Float, Zero};
-use rayon::prelude::*;
+use super::parallel_traits::{ParallelOp, BatchParallelOp, MatrixParallelOp, ReductionParallelOp, SimdParallelOp, parallel_utils};
+use num_traits::Float;
 use std::sync::Arc;
+use rayon::prelude::*;
 
 /// Tensorの並列操作実装
 /// Parallel operations implementation for Tensor
@@ -344,7 +344,7 @@ impl<T: Float + Send + Sync + Clone + 'static> ReductionParallelOp<T> for Tensor
         
         // 指定された次元での並列リダクション
         let dim_size = shape[dim];
-        let stride_before: usize = shape[..dim].iter().product();
+        let _stride_before: usize = shape[..dim].iter().product();
         let stride_after: usize = shape[dim+1..].iter().product();
         
         if let Some(self_slice) = self.data.as_slice() {

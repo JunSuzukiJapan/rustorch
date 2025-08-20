@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
+use lazy_static::lazy_static;
 
 /// Memory pool for efficient tensor allocation and reuse
 /// テンソルの効率的な割り当てと再利用のためのメモリプール
@@ -164,9 +165,7 @@ impl std::fmt::Display for PoolStats {
     }
 }
 
-/// Global memory pool instance
-/// グローバルメモリプールインスタンス
-lazy_static::lazy_static! {
+lazy_static! {
     static ref GLOBAL_POOL_F32: Arc<Mutex<MemoryPool<f32>>> = 
         Arc::new(Mutex::new(MemoryPool::new(100)));
     static ref GLOBAL_POOL_F64: Arc<Mutex<MemoryPool<f64>>> = 

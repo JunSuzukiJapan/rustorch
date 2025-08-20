@@ -10,52 +10,86 @@ pub enum ParallelError {
     /// 形状不一致エラー
     /// Shape mismatch error
     ShapeMismatch {
+        /// Expected tensor shape
+        /// 期待されるテンソル形状
         expected: Vec<usize>,
+        /// Actual tensor shape
+        /// 実際のテンソル形状
         actual: Vec<usize>,
+        /// Operation that caused the error
+        /// エラーを引き起こした演算
         operation: String,
     },
     
     /// 次元エラー
     /// Dimension error
     DimensionError {
+        /// Invalid dimension index
+        /// 無効な次元インデックス
         dimension: usize,
+        /// Maximum allowed dimension
+        /// 許可される最大次元
         max_dimension: usize,
+        /// Operation that caused the error
+        /// エラーを引き起こした演算
         operation: String,
     },
     
     /// バッチサイズ不一致エラー
     /// Batch size mismatch error
     BatchSizeMismatch {
+        /// Expected batch size
+        /// 期待されるバッチサイズ
         expected: usize,
+        /// Actual batch size
+        /// 実際のバッチサイズ
         actual: usize,
     },
     
     /// 行列乗算の次元不一致エラー
     /// Matrix multiplication dimension mismatch error
     MatmulDimensionMismatch {
+        /// Shape of left matrix
+        /// 左行列の形状
         left_shape: Vec<usize>,
+        /// Shape of right matrix
+        /// 右行列の形状
         right_shape: Vec<usize>,
     },
     
     /// 畳み込み演算のパラメータエラー
     /// Convolution parameter error
     ConvolutionError {
+        /// Number of input channels
+        /// 入力チャンネル数
         input_channels: usize,
+        /// Number of kernel channels
+        /// カーネルチャンネル数
         kernel_channels: usize,
+        /// Error message
+        /// エラーメッセージ
         message: String,
     },
     
     /// テンソルの次元数不足エラー
     /// Insufficient tensor dimensions error
     InsufficientDimensions {
+        /// Required number of dimensions
+        /// 必要な次元数
         required: usize,
+        /// Actual number of dimensions
+        /// 実際の次元数
         actual: usize,
+        /// Operation that caused the error
+        /// エラーを引き起こした演算
         operation: String,
     },
     
     /// 空のテンソルリストエラー
     /// Empty tensor list error
     EmptyTensorList {
+        /// Operation that caused the error
+        /// エラーを引き起こした演算
         operation: String,
     },
     
@@ -66,18 +100,24 @@ pub enum ParallelError {
     /// 並列実行エラー
     /// Parallel execution error
     ParallelExecutionError {
+        /// Error message
+        /// エラーメッセージ
         message: String,
     },
     
     /// SIMD操作エラー
     /// SIMD operation error
     SimdError {
+        /// Error message
+        /// エラーメッセージ
         message: String,
     },
     
     /// デバイスエラー
     /// Device error
     DeviceError {
+        /// Error message
+        /// エラーメッセージ
         message: String,
     },
 }

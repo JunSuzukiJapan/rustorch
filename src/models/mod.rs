@@ -55,6 +55,8 @@ pub trait ModelBuilder<T>
 where
     T: Float + 'static + Send + Sync,
 {
+    /// The model type that this builder creates
+    /// このビルダーが作成するモデルの型
     type Model: Model<T>;
     
     /// モデルを構築
@@ -77,12 +79,16 @@ pub struct InferenceEngine<T: Float + Send + Sync + 'static> {
 }
 
 impl<T: Float + Send + Sync + 'static> InferenceEngine<T> {
+    /// Create a new inference engine
+    /// 新しい推論エンジンを作成
     pub fn new() -> Self {
         Self {
             _phantom: std::marker::PhantomData,
         }
     }
     
+    /// Perform prediction using the given model
+    /// 指定されたモデルを使用して予測を実行
     pub fn predict<M: Model<T>>(&self, model: &M, input: &Variable<T>) -> Variable<T> {
         model.forward(input)
     }
@@ -92,14 +98,26 @@ impl<T: Float + Send + Sync + 'static> InferenceEngine<T> {
 /// モデル性能の評価メトリクス
 #[derive(Debug, Clone)]
 pub struct Metrics {
+    /// Model accuracy score
+    /// モデルの精度スコア
     pub accuracy: f64,
+    /// Model precision score
+    /// モデルの適合率スコア
     pub precision: f64,
+    /// Model recall score
+    /// モデルの再現率スコア
     pub recall: f64,
+    /// Model F1 score
+    /// モデルのF1スコア
     pub f1_score: f64,
+    /// Model loss value
+    /// モデルの損失値
     pub loss: f64,
 }
 
 impl Metrics {
+    /// Create new metrics with default values
+    /// デフォルト値で新しいメトリクスを作成
     pub fn new() -> Self {
         Self {
             accuracy: 0.0,
@@ -110,6 +128,8 @@ impl Metrics {
         }
     }
     
+    /// Create metrics with specified values
+    /// 指定された値でメトリクスを作成
     pub fn with_values(accuracy: f64, precision: f64, recall: f64, f1_score: f64, loss: f64) -> Self {
         Self {
             accuracy,

@@ -1,7 +1,7 @@
 /// Advanced indexing and slicing operations for tensors
 /// テンソルの高度なインデックス・スライシング操作
 
-use ndarray::{ArrayD, IxDyn, Slice, SliceInfo, SliceInfoElem, Axis, Dimension};
+use ndarray::{ArrayD, IxDyn, SliceInfo, SliceInfoElem, Dimension};
 use num_traits::Float;
 use crate::tensor::Tensor;
 
