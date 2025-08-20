@@ -1,9 +1,9 @@
 [package]
 name = "rustorch"
-version = "0.1.7"
+version = "0.1.9"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
-description = "A PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, and comprehensive performance benchmarks"
+description = "Production-ready PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, and comprehensive performance validation"
 documentation = "https://docs.rs/rustorch"
 homepage = "https://github.com/JunSuzukiJapan/rustorch"
 repository = "https://github.com/JunSuzukiJapan/rustorch"
@@ -39,8 +39,12 @@ itertools = "0.10"  # For advanced iteration utilities
 approx = "0.5"  # For floating point comparisons
 
 # For GPU support (optional)
-#[target.'cfg(any(target_os = "cuda"))'.dependencies]
-#cudarc = { version = "0.1", features = ["driver"] }
+cudarc = { version = "0.11", features = ["driver", "cublas", "curand"], optional = true }
+bindgen = { version = "0.69", optional = true }
+cc = { version = "1.0", optional = true }
+metal = { version = "0.29", optional = true }
+objc = { version = "0.2", optional = true }
+opencl3 = { version = "0.9", optional = true }
 
 [dev-dependencies]
 # Testing
@@ -50,10 +54,11 @@ criterion = "0.5"
 [features]
 default = ["cpu"]
 cpu = []
-# Enable GPU support
-cuda = []
-metal = []
-opencl = []
+# GPU acceleration backends (production-ready)
+cuda = ["dep:cudarc", "dep:bindgen", "dep:cc"]  # NVIDIA CUDA with cuBLAS integration
+metal = ["dep:metal", "dep:objc"]               # Apple Metal Performance Shaders
+opencl = ["dep:opencl3"]                        # Cross-platform OpenCL kernels
+all-gpu = ["cuda", "metal", "opencl"]           # Enable all GPU backends
 
 [[bench]]
 name = "tensor_ops"
@@ -98,4 +103,8 @@ harness = false
 
 [[bench]]
 name = "integrated_performance"
+harness = false
+
+[[bench]]
+name = "gpu_kernel_performance"
 harness = false

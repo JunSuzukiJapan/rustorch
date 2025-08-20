@@ -125,6 +125,9 @@ pub mod metal_kernels;
 /// OpenCL kernel implementations
 /// OpenCLカーネル実装
 pub mod opencl_kernels;
+/// GPU kernel validation and testing
+/// GPUカーネル検証とテスト
+pub mod validation;
 
 use num_traits::Float;
 use std::fmt;
@@ -173,8 +176,8 @@ impl DeviceType {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    // In a real implementation, this would check CUDA availability
-                    false // Placeholder - always return false for now
+                    use crate::gpu::cuda_kernels::CudaKernelExecutor;
+                    CudaKernelExecutor::new(0).is_ok()
                 }
                 #[cfg(not(feature = "cuda"))]
                 false
@@ -182,8 +185,8 @@ impl DeviceType {
             DeviceType::Metal(_) => {
                 #[cfg(feature = "metal")]
                 {
-                    // In a real implementation, this would check Metal availability
-                    false // Placeholder - always return false for now
+                    use crate::gpu::metal_kernels::MetalKernelExecutor;
+                    MetalKernelExecutor::new().is_ok()
                 }
                 #[cfg(not(feature = "metal"))]
                 false
@@ -191,8 +194,8 @@ impl DeviceType {
             DeviceType::OpenCl(_) => {
                 #[cfg(feature = "opencl")]
                 {
-                    // In a real implementation, this would check OpenCL availability
-                    false // Placeholder - always return false for now
+                    use crate::gpu::opencl_kernels::OpenClKernelExecutor;
+                    OpenClKernelExecutor::new(0).is_ok()
                 }
                 #[cfg(not(feature = "opencl"))]
                 false
@@ -431,8 +434,8 @@ impl DeviceManager {
     pub fn is_metal_available() -> bool {
         #[cfg(feature = "metal")]
         {
-            // Metal availability check would go here
-            cfg!(target_os = "macos")
+            use crate::gpu::metal_kernels::MetalKernelExecutor;
+            cfg!(target_os = "macos") && MetalKernelExecutor::new().is_ok()
         }
         #[cfg(not(feature = "metal"))]
         {
@@ -442,9 +445,9 @@ impl DeviceManager {
 
     #[cfg(feature = "cuda")]
     fn get_cuda_device_count() -> usize {
-        // CUDA device count detection would go here
-        // For now, return 0 as placeholder
-        0
+        use crate::gpu::cuda_kernels::CudaKernelExecutor;
+        // Try to create CUDA executors for devices 0-7 and count successful ones
+        (0..8).filter(|&i| CudaKernelExecutor::new(i).is_ok()).count()
     }
 }
 

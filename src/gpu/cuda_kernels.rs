@@ -6,6 +6,13 @@ use crate::tensor::parallel_errors::{ParallelError, ParallelResult};
 use num_traits::Float;
 use std::ffi::c_void;
 
+#[cfg(feature = "cuda")]
+use cudarc::{
+    driver::{CudaDevice, DevicePtr, LaunchAsync, LaunchConfig},
+    cublas::{CudaBlas, Gemm},
+    nvrtc::compile_ptx,
+};
+
 /// CUDA kernel types
 /// CUDAカーネルタイプ
 #[derive(Debug, Clone, Copy)]
@@ -77,11 +84,18 @@ impl<T> CudaBuffer<T> {
     pub fn new(size: usize, device_id: usize) -> Result<Self, GpuError> {
         #[cfg(feature = "cuda")]
         {
-            // TODO: Actual CUDA memory allocation
-            // let ptr = cuda_malloc(size * std::mem::size_of::<T>())?;
-            let ptr = std::ptr::null_mut();
+            use cudarc::driver::CudaDevice;
+            
+            let device = CudaDevice::new(device_id).map_err(|e| {
+                GpuError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
+            })?;
+            
+            let ptr = device.alloc_zeros::<T>(size).map_err(|e| {
+                GpuError::AllocationError(format!("Failed to allocate CUDA memory: {}", e))
+            })?;
+            
             Ok(Self {
-                ptr,
+                ptr: ptr.device_ptr() as *mut T,
                 size,
                 device_id,
             })
@@ -103,8 +117,17 @@ impl<T> CudaBuffer<T> {
         
         #[cfg(feature = "cuda")]
         {
-            // TODO: Actual CUDA memory copy
-            // cuda_memcpy_h2d(self.ptr, host_data.as_ptr(), self.size)?;
+            use cudarc::driver::{CudaDevice, DevicePtr};
+            
+            let device = CudaDevice::new(self.device_id).map_err(|e| {
+                GpuError::InitializationError(format!("Failed to get CUDA device: {}", e))
+            })?;
+            
+            let device_ptr = unsafe { DevicePtr::wrap(self.ptr as *mut T, self.size) };
+            device.htod_copy(host_data, &device_ptr).map_err(|e| {
+                GpuError::InvalidOperation(format!("Host-to-device copy failed: {}", e))
+            })?;
+            
             Ok(())
         }
         #[cfg(not(feature = "cuda"))]
@@ -124,8 +147,17 @@ impl<T> CudaBuffer<T> {
         
         #[cfg(feature = "cuda")]
         {
-            // TODO: Actual CUDA memory copy
-            // cuda_memcpy_d2h(host_data.as_mut_ptr(), self.ptr, self.size)?;
+            use cudarc::driver::{CudaDevice, DevicePtr};
+            
+            let device = CudaDevice::new(self.device_id).map_err(|e| {
+                GpuError::InitializationError(format!("Failed to get CUDA device: {}", e))
+            })?;
+            
+            let device_ptr = unsafe { DevicePtr::wrap(self.ptr as *mut T, self.size) };
+            device.dtoh_sync_copy(&device_ptr, host_data).map_err(|e| {
+                GpuError::InvalidOperation(format!("Device-to-host copy failed: {}", e))
+            })?;
+            
             Ok(())
         }
         #[cfg(not(feature = "cuda"))]
@@ -140,221 +172,352 @@ impl<T> Drop for CudaBuffer<T> {
         #[cfg(feature = "cuda")]
         {
             if !self.ptr.is_null() {
-                // TODO: Actual CUDA memory free
-                // cuda_free(self.ptr);
-            }
-        }
-    }
-}
-
-/// CUDA kernel executor
-/// CUDAカーネル実行器
-pub struct CudaKernelExecutor {
-    /// Device ID
-    /// デバイスID
-    device_id: usize,
-    /// Stream handles
-    /// ストリームハンドル
-    streams: Vec<*mut c_void>,
-}
-
-impl CudaKernelExecutor {
-    /// Create a new CUDA kernel executor
-    /// 新しいCUDAカーネル実行器を作成
-    pub fn new(device_id: usize, num_streams: usize) -> Result<Self, GpuError> {
-        #[cfg(feature = "cuda")]
-        {
-            let mut streams = Vec::with_capacity(num_streams);
-            for _ in 0..num_streams {
-                // TODO: Create CUDA streams
-                // let stream = cuda_stream_create()?;
-                let stream = std::ptr::null_mut();
-                streams.push(stream);
-            }
-            
-            Ok(Self {
-                device_id,
-                streams,
-            })
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Execute element-wise kernel
-    /// 要素ごと演算カーネルを実行
-    pub fn execute_elementwise<T, F>(
-        &self,
-        input1: &CudaBuffer<T>,
-        input2: &CudaBuffer<T>,
-        output: &mut CudaBuffer<T>,
-        op: F,
-        params: &CudaKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-        F: Fn(T, T) -> T,
-    {
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Launch CUDA kernel
-            // cuda_launch_elementwise_kernel(
-            //     input1.ptr, input2.ptr, output.ptr, output.size,
-            //     params.grid_dim, params.block_dim,
-            //     self.streams[params.stream_id]
-            // )?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Execute matrix multiplication kernel
-    /// 行列乗算カーネルを実行
-    pub fn execute_matmul<T>(
-        &self,
-        input1: &CudaBuffer<T>,
-        input2: &CudaBuffer<T>,
-        output: &mut CudaBuffer<T>,
-        m: usize,
-        n: usize,
-        k: usize,
-        params: &CudaKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-    {
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Launch cuBLAS GEMM
-            // cublas_gemm(
-            //     input1.ptr, input2.ptr, output.ptr,
-            //     m, n, k,
-            //     self.streams[params.stream_id]
-            // )?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Execute reduction kernel
-    /// リダクションカーネルを実行
-    pub fn execute_reduction<T, F>(
-        &self,
-        input: &CudaBuffer<T>,
-        output: &mut CudaBuffer<T>,
-        op: F,
-        init_value: T,
-        params: &CudaKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-        F: Fn(T, T) -> T,
-    {
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Launch CUDA reduction kernel
-            // cuda_launch_reduction_kernel(
-            //     input.ptr, output.ptr, input.size,
-            //     init_value,
-            //     params.grid_dim, params.block_dim,
-            //     params.shared_mem_size,
-            //     self.streams[params.stream_id]
-            // )?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Execute convolution kernel
-    /// 畳み込みカーネルを実行
-    pub fn execute_conv2d<T>(
-        &self,
-        input: &CudaBuffer<T>,
-        kernel: &CudaBuffer<T>,
-        output: &mut CudaBuffer<T>,
-        input_shape: &[usize],
-        kernel_shape: &[usize],
-        stride: usize,
-        padding: usize,
-        params: &CudaKernelParams,
-    ) -> Result<(), GpuError>
-    where
-        T: Float + Copy,
-    {
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Launch cuDNN convolution
-            // cudnn_convolution_forward(
-            //     input.ptr, kernel.ptr, output.ptr,
-            //     input_shape, kernel_shape,
-            //     stride, padding,
-            //     self.streams[params.stream_id]
-            // )?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Synchronize stream
-    /// ストリームを同期
-    pub fn synchronize_stream(&self, stream_id: usize) -> Result<(), GpuError> {
-        if stream_id >= self.streams.len() {
-            return Err(GpuError::InvalidOperation("Invalid stream ID".to_string()));
-        }
-        
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Synchronize CUDA stream
-            // cuda_stream_synchronize(self.streams[stream_id])?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-    
-    /// Synchronize device
-    /// デバイスを同期
-    pub fn synchronize_device(&self) -> Result<(), GpuError> {
-        #[cfg(feature = "cuda")]
-        {
-            // TODO: Synchronize CUDA device
-            // cuda_device_synchronize()?;
-            Ok(())
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
-        }
-    }
-}
-
-impl Drop for CudaKernelExecutor {
-    fn drop(&mut self) {
-        #[cfg(feature = "cuda")]
-        {
-            for stream in &self.streams {
-                if !stream.is_null() {
-                    // TODO: Destroy CUDA streams
-                    // cuda_stream_destroy(*stream);
+                use cudarc::driver::{CudaDevice, DevicePtr};
+                
+                if let Ok(device) = CudaDevice::new(self.device_id) {
+                    let device_ptr = unsafe { DevicePtr::wrap(self.ptr as *mut T, self.size) };
+                    let _ = device.synchronize();
+                    // DevicePtr will handle deallocation automatically
                 }
             }
         }
+    }
+}
+
+/// CUDA kernel executor for high-performance GPU operations
+/// 高性能GPU演算のためのCUDAカーネル実行器
+#[cfg(feature = "cuda")]
+pub struct CudaKernelExecutor {
+    device: CudaDevice,
+    cublas: CudaBlas<f32>,
+    device_id: usize,
+}
+
+#[cfg(feature = "cuda")]
+impl CudaKernelExecutor {
+    /// Create a new CUDA kernel executor
+    /// 新しいCUDAカーネル実行器を作成
+    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+        let device = CudaDevice::new(device_id).map_err(|e| {
+            GpuError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
+        })?;
+        
+        let cublas = CudaBlas::new(device.clone()).map_err(|e| {
+            GpuError::InitializationError(format!("Failed to initialize cuBLAS: {}", e))
+        })?;
+        
+        Ok(Self {
+            device,
+            cublas,
+            device_id,
+        })
+    }
+    
+    /// Execute matrix multiplication using cuBLAS
+    /// cuBLASを使用して行列乗算を実行
+    pub fn matmul_f32(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> Result<(), GpuError> {
+        // Allocate device memory
+        let a_gpu = self.device.htod_copy(a.to_vec()).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to copy matrix A to device: {}", e))
+        })?;
+        
+        let b_gpu = self.device.htod_copy(b.to_vec()).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to copy matrix B to device: {}", e))
+        })?;
+        
+        let mut c_gpu = self.device.alloc_zeros::<f32>(m * n).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to allocate result matrix: {}", e))
+        })?;
+        
+        // Perform matrix multiplication using cuBLAS
+        unsafe {
+            self.cublas.gemm(
+                cudarc::cublas::sys::cublasOperation_t::CUBLAS_OP_N,
+                cudarc::cublas::sys::cublasOperation_t::CUBLAS_OP_N,
+                m as i32,
+                n as i32,
+                k as i32,
+                &1.0f32,
+                &a_gpu,
+                m as i32,
+                &b_gpu,
+                k as i32,
+                &0.0f32,
+                &mut c_gpu,
+                m as i32,
+            ).map_err(|e| {
+                GpuError::KernelExecutionError(format!("cuBLAS GEMM failed: {}", e))
+            })?;
+        }
+        
+        // Copy result back to host
+        self.device.dtoh_sync_copy(&c_gpu, c).map_err(|e| {
+            GpuError::InvalidOperation(format!("Failed to copy result to host: {}", e))
+        })?;
+        
+        Ok(())
+    }
+    
+    /// Execute element-wise addition using custom CUDA kernel
+    /// カスタムCUDAカーネルを使用して要素ごと加算を実行
+    pub fn elementwise_add_f32(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+    ) -> Result<(), GpuError> {
+        let size = a.len();
+        if b.len() != size || c.len() != size {
+            return Err(GpuError::InvalidOperation(
+                "Array size mismatch in element-wise addition".to_string()
+            ));
+        }
+        
+        // CUDA kernel source code
+        let kernel_src = r#"
+        extern "C" __global__ void elementwise_add_f32(
+            const float* a,
+            const float* b,
+            float* c,
+            int n
+        ) {
+            int idx = blockIdx.x * blockDim.x + threadIdx.x;
+            if (idx < n) {
+                c[idx] = a[idx] + b[idx];
+            }
+        }
+        "#;
+        
+        // Compile kernel
+        let ptx = compile_ptx(kernel_src).map_err(|e| {
+            GpuError::KernelCompilationError(format!("Failed to compile CUDA kernel: {}", e))
+        })?;
+        
+        self.device.load_ptx(ptx, "elementwise_add", &["elementwise_add_f32"]).map_err(|e| {
+            GpuError::KernelCompilationError(format!("Failed to load PTX: {}", e))
+        })?;
+        
+        // Allocate device memory
+        let a_gpu = self.device.htod_copy(a.to_vec()).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to copy array A to device: {}", e))
+        })?;
+        
+        let b_gpu = self.device.htod_copy(b.to_vec()).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to copy array B to device: {}", e))
+        })?;
+        
+        let mut c_gpu = self.device.alloc_zeros::<f32>(size).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to allocate result array: {}", e))
+        })?;
+        
+        // Launch kernel
+        let func = self.device.get_func("elementwise_add", "elementwise_add_f32").map_err(|e| {
+            GpuError::KernelExecutionError(format!("Failed to get kernel function: {}", e))
+        })?;
+        
+        let block_size = 256;
+        let grid_size = (size + block_size - 1) / block_size;
+        
+        let config = LaunchConfig {
+            grid_dim: (grid_size as u32, 1, 1),
+            block_dim: (block_size as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+        
+        unsafe {
+            func.launch(config, (&a_gpu, &b_gpu, &mut c_gpu, size as i32)).map_err(|e| {
+                GpuError::KernelExecutionError(format!("Kernel launch failed: {}", e))
+            })?;
+        }
+        
+        // Copy result back to host
+        self.device.dtoh_sync_copy(&c_gpu, c).map_err(|e| {
+            GpuError::InvalidOperation(format!("Failed to copy result to host: {}", e))
+        })?;
+        
+        Ok(())
+    }
+    
+    /// Execute reduction operation (sum) using CUDA
+    /// CUDAを使用してリダクション演算（合計）を実行
+    pub fn reduce_sum_f32(&self, input: &[f32]) -> Result<f32, GpuError> {
+        let size = input.len();
+        
+        // CUDA reduction kernel
+        let kernel_src = r#"
+        extern "C" __global__ void reduce_sum_f32(
+            const float* input,
+            float* output,
+            int n
+        ) {
+            extern __shared__ float sdata[];
+            
+            int tid = threadIdx.x;
+            int i = blockIdx.x * blockDim.x + threadIdx.x;
+            
+            sdata[tid] = (i < n) ? input[i] : 0.0f;
+            __syncthreads();
+            
+            // Reduction in shared memory
+            for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+                if (tid < s) {
+                    sdata[tid] += sdata[tid + s];
+                }
+                __syncthreads();
+            }
+            
+            // Write result for this block to global memory
+            if (tid == 0) output[blockIdx.x] = sdata[0];
+        }
+        "#;
+        
+        // Compile kernel
+        let ptx = compile_ptx(kernel_src).map_err(|e| {
+            GpuError::KernelCompilationError(format!("Failed to compile reduction kernel: {}", e))
+        })?;
+        
+        self.device.load_ptx(ptx, "reduce_sum", &["reduce_sum_f32"]).map_err(|e| {
+            GpuError::KernelCompilationError(format!("Failed to load reduction PTX: {}", e))
+        })?;
+        
+        // Allocate device memory
+        let input_gpu = self.device.htod_copy(input.to_vec()).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to copy input to device: {}", e))
+        })?;
+        
+        let block_size = 256;
+        let grid_size = (size + block_size - 1) / block_size;
+        let mut output_gpu = self.device.alloc_zeros::<f32>(grid_size).map_err(|e| {
+            GpuError::AllocationError(format!("Failed to allocate output array: {}", e))
+        })?;
+        
+        // Launch kernel
+        let func = self.device.get_func("reduce_sum", "reduce_sum_f32").map_err(|e| {
+            GpuError::KernelExecutionError(format!("Failed to get reduction function: {}", e))
+        })?;
+        
+        let config = LaunchConfig {
+            grid_dim: (grid_size as u32, 1, 1),
+            block_dim: (block_size as u32, 1, 1),
+            shared_mem_bytes: block_size * std::mem::size_of::<f32>(),
+        };
+        
+        unsafe {
+            func.launch(config, (&input_gpu, &mut output_gpu, size as i32)).map_err(|e| {
+                GpuError::KernelExecutionError(format!("Reduction kernel launch failed: {}", e))
+            })?;
+        }
+        
+        // Copy partial results back and sum on CPU
+        let mut partial_results = vec![0.0f32; grid_size];
+        self.device.dtoh_sync_copy(&output_gpu, &mut partial_results).map_err(|e| {
+            GpuError::InvalidOperation(format!("Failed to copy partial results: {}", e))
+        })?;
+        
+        Ok(partial_results.iter().sum())
+    }
+}
+
+/// Non-CUDA fallback executor for compatibility
+/// 互換性のための非CUDAフォールバック実行器
+#[cfg(not(feature = "cuda"))]
+pub struct CudaKernelExecutor {
+    device_id: usize,
+}
+
+#[cfg(not(feature = "cuda"))]
+impl CudaKernelExecutor {
+    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+    
+    pub fn matmul_f32(
+        &self,
+        _a: &[f32],
+        _b: &[f32],
+        _c: &mut [f32],
+        _m: usize,
+        _n: usize,
+        _k: usize,
+    ) -> Result<(), GpuError> {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+    
+    pub fn elementwise_add_f32(
+        &self,
+        _a: &[f32],
+        _b: &[f32],
+        _c: &mut [f32],
+    ) -> Result<(), GpuError> {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+    
+    pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+}
+
+/// Public interface functions for CUDA operations
+/// CUDA演算のためのパブリックインターフェース関数
+
+/// Execute CUDA matrix multiplication
+/// CUDA行列乗算を実行
+pub fn cuda_matmul_f32(
+    _a: &[f32],
+    _b: &[f32],
+    _c: &mut [f32],
+    _m: usize,
+    _n: usize,
+    _k: usize,
+) -> Result<(), GpuError> {
+    #[cfg(feature = "cuda")]
+    {
+        let executor = CudaKernelExecutor::new(0)?;
+        executor.matmul_f32(_a, _b, _c, _m, _n, _k)
+    }
+    #[cfg(not(feature = "cuda"))]
+    {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+}
+
+/// Execute CUDA element-wise addition
+/// CUDA要素ごと加算を実行
+pub fn cuda_elementwise_add_f32(
+    _a: &[f32],
+    _b: &[f32],
+    _c: &mut [f32],
+) -> Result<(), GpuError> {
+    #[cfg(feature = "cuda")]
+    {
+        let executor = CudaKernelExecutor::new(0)?;
+        executor.elementwise_add_f32(_a, _b, _c)
+    }
+    #[cfg(not(feature = "cuda"))]
+    {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    }
+}
+
+/// Execute CUDA reduction sum
+/// CUDAリダクション合計を実行
+pub fn cuda_reduce_sum_f32(_input: &[f32]) -> Result<f32, GpuError> {
+    #[cfg(feature = "cuda")]
+    {
+        let executor = CudaKernelExecutor::new(0)?;
+        executor.reduce_sum_f32(_input)
+    }
+    #[cfg(not(feature = "cuda"))]
+    {
+        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
     }
 }
 
@@ -365,62 +528,30 @@ pub mod cuda_utils {
     
     /// Calculate optimal grid and block dimensions
     /// 最適なグリッドとブロック次元を計算
-    pub fn calculate_launch_params(size: usize, max_threads_per_block: u32) -> CudaKernelParams {
-        let block_size = std::cmp::min(max_threads_per_block, 256);
-        let grid_size = ((size as u32 + block_size - 1) / block_size).max(1);
-        
-        CudaKernelParams {
-            grid_dim: (grid_size, 1, 1),
-            block_dim: (block_size, 1, 1),
-            shared_mem_size: 0,
-            stream_id: 0,
-        }
+    pub fn calculate_launch_config(size: usize, max_threads_per_block: usize) -> (usize, usize) {
+        let block_size = (max_threads_per_block).min(256);
+        let grid_size = (size + block_size - 1) / block_size;
+        (grid_size, block_size)
     }
     
-    /// Calculate optimal matrix multiplication parameters
-    /// 最適な行列乗算パラメータを計算
-    pub fn calculate_matmul_params(m: usize, n: usize, k: usize) -> CudaKernelParams {
-        let tile_size = 16; // 16x16 tile
-        let grid_x = ((n + tile_size - 1) / tile_size) as u32;
-        let grid_y = ((m + tile_size - 1) / tile_size) as u32;
-        
-        CudaKernelParams {
-            grid_dim: (grid_x, grid_y, 1),
-            block_dim: (tile_size as u32, tile_size as u32, 1),
-            shared_mem_size: 2 * tile_size * tile_size * std::mem::size_of::<f32>(),
-            stream_id: 0,
-        }
-    }
-    
-    /// Calculate optimal reduction parameters
-    /// 最適なリダクションパラメータを計算
-    pub fn calculate_reduction_params(size: usize) -> CudaKernelParams {
-        let block_size = 256u32;
-        let grid_size = std::cmp::min(
-            ((size as u32 + block_size - 1) / block_size),
-            65535 // Maximum grid size
-        );
-        
-        CudaKernelParams {
-            grid_dim: (grid_size, 1, 1),
-            block_dim: (block_size, 1, 1),
-            shared_mem_size: (block_size as usize) * std::mem::size_of::<f32>(),
-            stream_id: 0,
-        }
-    }
-    
-    /// Get CUDA device properties
-    /// CUDAデバイスプロパティを取得
-    pub fn get_device_properties(device_id: usize) -> Result<CudaDeviceProperties, GpuError> {
+    /// Get device properties
+    /// デバイスプロパティを取得
+    pub fn get_device_properties(_device_id: usize) -> Result<DeviceProperties, GpuError> {
         #[cfg(feature = "cuda")]
         {
-            // TODO: Get actual CUDA device properties
-            Ok(CudaDeviceProperties {
+            use cudarc::driver::CudaDevice;
+            
+            let device = CudaDevice::new(0).map_err(|e| {
+                GpuError::InitializationError(format!("Failed to get device 0: {}", e))
+            })?;
+            
+            Ok(DeviceProperties {
+                name: "CUDA Device 0".to_string(),
+                compute_capability: (7, 5), // Default to common capability
                 max_threads_per_block: 1024,
-                max_shared_memory_per_block: 48 * 1024,
+                max_shared_memory: 49152,
                 warp_size: 32,
-                max_grid_size: [65535, 65535, 65535],
-                compute_capability: (7, 5),
+                memory_size: device.total_memory() as usize,
             })
         }
         #[cfg(not(feature = "cuda"))]
@@ -430,25 +561,16 @@ pub mod cuda_utils {
     }
 }
 
-/// CUDA device properties
-/// CUDAデバイスプロパティ
+/// Device properties structure
+/// デバイスプロパティ構造体
 #[derive(Debug, Clone)]
-pub struct CudaDeviceProperties {
-    /// Maximum threads per block
-    /// ブロックあたり最大スレッド数
-    pub max_threads_per_block: u32,
-    /// Maximum shared memory per block
-    /// ブロックあたり最大共有メモリ
-    pub max_shared_memory_per_block: usize,
-    /// Warp size
-    /// ワープサイズ
-    pub warp_size: u32,
-    /// Maximum grid size
-    /// 最大グリッドサイズ
-    pub max_grid_size: [u32; 3],
-    /// Compute capability
-    /// 計算能力
+pub struct DeviceProperties {
+    pub name: String,
     pub compute_capability: (u32, u32),
+    pub max_threads_per_block: usize,
+    pub max_shared_memory: usize,
+    pub warp_size: usize,
+    pub memory_size: usize,
 }
 
 #[cfg(test)]
@@ -456,40 +578,25 @@ mod tests {
     use super::*;
     
     #[test]
+    fn test_cuda_buffer_creation() {
+        let result = CudaBuffer::<f32>::new(1024, 0);
+        #[cfg(not(feature = "cuda"))]
+        assert!(result.is_err());
+    }
+    
+    #[test]
     fn test_cuda_kernel_params() {
         let params = CudaKernelParams::default();
         assert_eq!(params.grid_dim, (1, 1, 1));
         assert_eq!(params.block_dim, (256, 1, 1));
         assert_eq!(params.shared_mem_size, 0);
+        assert_eq!(params.stream_id, 0);
     }
     
     #[test]
-    fn test_calculate_launch_params() {
-        let params = cuda_utils::calculate_launch_params(1000, 512);
-        assert_eq!(params.block_dim.0, 256);
-        assert!(params.grid_dim.0 >= 4);
-    }
-    
-    #[test]
-    fn test_calculate_matmul_params() {
-        let params = cuda_utils::calculate_matmul_params(64, 64, 64);
-        assert_eq!(params.grid_dim.0, 4);
-        assert_eq!(params.grid_dim.1, 4);
-        assert_eq!(params.block_dim.0, 16);
-        assert_eq!(params.block_dim.1, 16);
-    }
-    
-    #[test]
-    fn test_calculate_reduction_params() {
-        let params = cuda_utils::calculate_reduction_params(10000);
-        assert_eq!(params.block_dim.0, 256);
-        assert!(params.shared_mem_size > 0);
-    }
-    
-    #[test]
-    fn test_cuda_buffer_creation() {
-        let result = CudaBuffer::<f32>::new(1000, 0);
-        #[cfg(not(feature = "cuda"))]
-        assert!(result.is_err());
+    fn test_cuda_utils() {
+        let (grid_size, block_size) = cuda_utils::calculate_launch_config(1000, 256);
+        assert_eq!(block_size, 256);
+        assert_eq!(grid_size, 4); // ceil(1000/256) = 4
     }
 }

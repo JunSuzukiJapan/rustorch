@@ -85,8 +85,16 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    // CUDA kernel launch would go here
-                    self.execute_cuda_add(params, a, b, c)?;
+                    use crate::gpu::cuda_kernels::cuda_elementwise_add_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        cuda_elementwise_add_f32(a_f32, b_f32, c_f32)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("CUDA add failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("CUDA only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
@@ -96,8 +104,16 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::Metal(_) => {
                 #[cfg(feature = "metal")]
                 {
-                    // Metal compute shader would go here
-                    self.execute_metal_add(params, a, b, c)?;
+                    use crate::gpu::metal_kernels::metal_elementwise_add_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        metal_elementwise_add_f32(a_f32, b_f32, c_f32)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("Metal add failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("Metal only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "metal"))]
                 {
@@ -107,8 +123,16 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::OpenCl(_) => {
                 #[cfg(feature = "opencl")]
                 {
-                    // OpenCL kernel would go here
-                    self.execute_opencl_add(params, a, b, c)?;
+                    use crate::gpu::opencl_kernels::opencl_elementwise_add_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        opencl_elementwise_add_f32(a_f32, b_f32, c_f32)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("OpenCL add failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("OpenCL only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
@@ -157,49 +181,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
     }
 }
 
-impl AddKernel {
-    #[cfg(feature = "cuda")]
-    fn execute_cuda_add<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-    ) -> Result<(), GpuError> {
-        // CUDA kernel implementation would go here
-        // This would involve:
-        // 1. Setting up CUDA context
-        // 2. Loading/compiling kernel
-        // 3. Setting kernel parameters
-        // 4. Launching kernel
-        // 5. Synchronizing
-        Ok(())
-    }
-
-    #[cfg(feature = "metal")]
-    fn execute_metal_add<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-    ) -> Result<(), GpuError> {
-        // Metal compute shader implementation would go here
-        Ok(())
-    }
-
-    #[cfg(feature = "opencl")]
-    fn execute_opencl_add<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-    ) -> Result<(), GpuError> {
-        // OpenCL kernel implementation would go here
-        Ok(())
-    }
-}
+// AddKernel implementation methods removed - now using direct GPU kernel calls
 
 /// Matrix multiplication kernel
 /// 行列乗算カーネル
@@ -243,7 +225,16 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    self.execute_cuda_matmul(params, a, b, c, n)?;
+                    use crate::gpu::cuda_kernels::cuda_matmul_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("CUDA matmul failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("CUDA only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
@@ -253,7 +244,16 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             DeviceType::Metal(_) => {
                 #[cfg(feature = "metal")]
                 {
-                    self.execute_metal_matmul(params, a, b, c, n)?;
+                    use crate::gpu::metal_kernels::metal_matmul_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        metal_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("Metal matmul failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("Metal only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "metal"))]
                 {
@@ -263,7 +263,16 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             DeviceType::OpenCl(_) => {
                 #[cfg(feature = "opencl")]
                 {
-                    self.execute_opencl_matmul(params, a, b, c, n)?;
+                    use crate::gpu::opencl_kernels::opencl_matmul_f32;
+                    if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
+                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
+                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
+                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        opencl_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
+                            .map_err(|e| GpuError::KernelExecutionError(format!("OpenCL matmul failed: {:?}", e)))?;
+                    } else {
+                        return Err(GpuError::UnsupportedDevice("OpenCL only supports f32 currently".to_string()));
+                    }
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
@@ -315,47 +324,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
     }
 }
 
-impl MatMulKernel {
-    #[cfg(feature = "cuda")]
-    fn execute_cuda_matmul<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-        _n: usize,
-    ) -> Result<(), GpuError> {
-        // CUDA matrix multiplication kernel would go here
-        // This would use shared memory tiling for efficiency
-        Ok(())
-    }
-
-    #[cfg(feature = "metal")]
-    fn execute_metal_matmul<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-        _n: usize,
-    ) -> Result<(), GpuError> {
-        // Metal matrix multiplication shader would go here
-        Ok(())
-    }
-
-    #[cfg(feature = "opencl")]
-    fn execute_opencl_matmul<T: Float>(
-        &self,
-        _params: &KernelParams,
-        _a: &[T],
-        _b: &[T],
-        _c: &mut [T],
-        _n: usize,
-    ) -> Result<(), GpuError> {
-        // OpenCL matrix multiplication kernel would go here
-        Ok(())
-    }
-}
+// MatMulKernel implementation methods removed - now using direct GPU kernel calls
 
 /// Convolution kernel
 /// 畳み込みカーネル
