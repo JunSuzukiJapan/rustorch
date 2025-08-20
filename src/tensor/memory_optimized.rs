@@ -483,7 +483,7 @@ mod tests {
         let tensor2 = Tensor::<f32>::ones(&[2, 2]);
         let tensors = vec![&tensor1, &tensor2];
         
-        let results = base.batch_op_pooled(&tensors, |a, b| {
+        let results = base.batch_op_pooled(&tensors, |a, _b| {
             Ok(Tensor::with_strategy(a.data.shape(), AllocationStrategy::Pool))
         });
         

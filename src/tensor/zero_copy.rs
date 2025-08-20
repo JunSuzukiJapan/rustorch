@@ -535,7 +535,7 @@ mod tests {
     fn test_mutable_view_operations() {
         let mut tensor = Tensor::<f32>::zeros(&[2, 3]);
         {
-            let mut view = tensor.view_mut();
+            let view = tensor.view_mut();
             view.fill(5.0);
         }
         

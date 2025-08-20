@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_memory_pool_creation() {
-        let mut pool: MemoryPool<f32> = MemoryPool::new(10);
+        let pool: MemoryPool<f32> = MemoryPool::new(10);
         let stats = pool.stats();
         assert_eq!(stats.total_pools, 0);
         assert_eq!(stats.total_cached_arrays, 0);
