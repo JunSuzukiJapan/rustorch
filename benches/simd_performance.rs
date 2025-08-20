@@ -7,8 +7,6 @@ use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criteri
 use rustorch::tensor::Tensor;
 use rustorch::tensor::simd_aligned::SimdTensor;
 use rustorch::tensor::parallel_traits::SimdParallelOp;
-// Removed unused imports
-use std::ops::Add;
 use std::time::Duration;
 
 /// Benchmark SIMD vs scalar element-wise operations
@@ -83,21 +81,22 @@ fn bench_simd_elementwise(c: &mut Criterion) {
 }
 
 /// Benchmark SIMD matrix multiplication performance
-fn bench_simd_matmul(c: &mut Criterion) {
+fn bench_simd_matrix_multiplication(c: &mut Criterion) {
     let mut group = c.benchmark_group("simd_matmul");
-    group.measurement_time(Duration::from_secs(15));
     
-    // Matrix sizes optimized for SIMD operations
-    let sizes = vec![
-        (64, "64x64"),
-        (128, "128x128"),
-        (256, "256x256"),
-        (512, "512x512"),
-    ];
+    let sizes = [64, 128, 256];
     
-    for (size, description) in sizes {
-        let matrix1 = Tensor::<f32>::ones(&[size, size]);
-        let matrix2 = Tensor::<f32>::ones(&[size, size]);
+    for size in sizes.iter() {
+        let description = format!("{}x{}", size, size);
+        let matrix1 = Tensor::<f32>::ones(&[*size, *size]);
+        let matrix2 = Tensor::<f32>::ones(&[*size, *size]);
+        
+        // Create SIMD-aligned tensors for SIMD benchmark
+        let mut simd_matrix1 = SimdTensor::<f32>::zeros(&[*size, *size]).unwrap();
+        let mut simd_matrix2 = SimdTensor::<f32>::zeros(&[*size, *size]).unwrap();
+        simd_matrix1.fill_simd(1.0);
+        simd_matrix2.fill_simd(1.0);
+        
         let operations = (size * size * size) as u64;
         
         group.throughput(Throughput::Elements(operations));
@@ -117,10 +116,10 @@ fn bench_simd_matmul(c: &mut Criterion) {
         // SIMD matrix multiplication
         group.bench_with_input(
             BenchmarkId::new("simd_matmul", description),
-            &(size, &matrix1, &matrix2),
-            |b, (_, m1, m2)| {
+            &(size, &simd_matrix1, &simd_matrix2),
+            |b, (_, m1, m2): &(_, &SimdTensor<f32>, &SimdTensor<f32>)| {
                 b.iter(|| {
-                    let result = black_box(m1.simd_parallel_matmul(m2).unwrap());
+                    let result = black_box(m1.matmul_simd(m2).unwrap());
                     black_box(result)
                 });
             },
@@ -426,7 +425,7 @@ fn bench_simd_batch_processing(c: &mut Criterion) {
 criterion_group!(
     simd_benches,
     bench_simd_elementwise,
-    bench_simd_matmul,
+    bench_simd_matrix_multiplication,
     bench_simd_math_functions,
     bench_simd_reductions,
     bench_simd_alignment,
