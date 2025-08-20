@@ -138,6 +138,7 @@ pub mod simd;
 /// GPU acceleration support (CUDA, Metal, OpenCL)
 /// GPU加速サポート（CUDA、Metal、OpenCL）
 pub mod gpu;
+pub mod models;
 
 /// Re-exports of commonly used items
 pub mod prelude {
@@ -148,6 +149,11 @@ pub mod prelude {
     pub use crate::nn::loss::{mse_loss, binary_cross_entropy, cross_entropy, nll_loss, huber_loss};
     pub use crate::optim::{Optimizer, SGD, Adam, LRScheduler, StepLR, ExponentialLR, CosineAnnealingLR, ReduceLROnPlateau};
     pub use crate::data::{Dataset, TensorDataset, DataLoader};
+    pub use crate::models::{Model, ModelMode, ModelBuilder, CNN, CNNBuilder, ResNet, ResNetBuilder};
+    pub use crate::models::{RNNModel, RNNModelBuilder, LSTMModel, LSTMModelBuilder};
+    pub use crate::models::{TransformerModel, TransformerModelBuilder, BERT, BERTBuilder};
+    pub use crate::models::{Trainer, TrainingConfig, TrainingResult, InferenceEngine, Metrics};
+    pub use crate::models::{ModelSaver, ModelLoader, SerializationFormat};
 }
 
 #[cfg(test)]

@@ -1,0 +1,122 @@
+//! 機械学習モデルアーキテクチャ
+//! Machine learning model architectures
+
+pub mod cnn;
+pub mod rnn;
+pub mod transformer_models;
+pub mod training;
+pub mod serialization;
+
+use crate::autograd::Variable;
+use crate::nn::Module;
+use num_traits::Float;
+use std::collections::HashMap;
+
+/// モデルの訓練・評価モード
+/// Training and evaluation modes for models
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ModelMode {
+    /// 訓練モード
+    Train,
+    /// 評価モード
+    Eval,
+}
+
+/// 基本モデルトレイト
+/// Base model trait
+pub trait Model<T>: Module<T> 
+where
+    T: Float + 'static + Send + Sync,
+{
+    /// モデルを訓練モードに設定
+    /// Set model to training mode
+    fn train(&mut self);
+    
+    /// モデルを評価モードに設定
+    /// Set model to evaluation mode
+    fn eval(&mut self);
+    
+    /// 現在のモードを取得
+    /// Get current mode
+    fn mode(&self) -> ModelMode;
+    
+    /// モデルの設定を取得
+    /// Get model configuration
+    fn config(&self) -> HashMap<String, String>;
+    
+    /// モデルの概要を表示
+    /// Display model summary
+    fn summary(&self) -> String;
+}
+
+/// モデル構築のためのビルダーパターン
+/// Builder pattern for model construction
+pub trait ModelBuilder<T> 
+where
+    T: Float + 'static + Send + Sync,
+{
+    type Model: Model<T>;
+    
+    /// モデルを構築
+    /// Build the model
+    fn build(self) -> Self::Model;
+}
+
+// Re-export model architectures
+pub use cnn::{CNN, CNNBuilder, ResNet, ResNetBuilder};
+pub use rnn::{RNNModel, RNNModelBuilder, LSTMModel, LSTMModelBuilder};
+pub use transformer_models::{TransformerModel, TransformerModelBuilder, BERT, BERTBuilder};
+pub use training::{Trainer, TrainingConfig, TrainingResult};
+pub use serialization::{ModelSaver, ModelLoader, SerializationFormat};
+
+/// Inference engine for model evaluation
+/// モデル評価用の推論エンジン
+#[derive(Debug)]
+pub struct InferenceEngine<T: Float + Send + Sync + 'static> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static> InferenceEngine<T> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+    
+    pub fn predict<M: Model<T>>(&self, model: &M, input: &Variable<T>) -> Variable<T> {
+        model.forward(input)
+    }
+}
+
+/// Evaluation metrics for model performance
+/// モデル性能の評価メトリクス
+#[derive(Debug, Clone)]
+pub struct Metrics {
+    pub accuracy: f64,
+    pub precision: f64,
+    pub recall: f64,
+    pub f1_score: f64,
+    pub loss: f64,
+}
+
+impl Metrics {
+    pub fn new() -> Self {
+        Self {
+            accuracy: 0.0,
+            precision: 0.0,
+            recall: 0.0,
+            f1_score: 0.0,
+            loss: 0.0,
+        }
+    }
+    
+    pub fn with_values(accuracy: f64, precision: f64, recall: f64, f1_score: f64, loss: f64) -> Self {
+        Self {
+            accuracy,
+            precision,
+            recall,
+            f1_score,
+            loss,
+        }
+    }
+}

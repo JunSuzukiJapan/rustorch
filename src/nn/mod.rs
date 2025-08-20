@@ -39,6 +39,18 @@ where
     /// ダウンキャストのための`&dyn Any`としてのモジュールへの参照を返します。
     /// Returns a reference to the module as `&dyn Any` for downcasting.
     fn as_any(&self) -> &dyn Any;
+    
+    /// モジュールを訓練モードに設定します。
+    /// Sets the module to training mode.
+    fn train(&mut self) {
+        // Default implementation - do nothing
+    }
+    
+    /// モジュールを評価モードに設定します。
+    /// Sets the module to evaluation mode.
+    fn eval(&mut self) {
+        // Default implementation - do nothing
+    }
 }
 
 /// モジュールを順番に適用するコンテナ
@@ -147,3 +159,6 @@ pub use attention::{MultiHeadAttention, SelfAttention, CrossAttention};
 /// Transformer layers
 /// Transformer層
 pub use transformer::{TransformerEncoderLayer, TransformerEncoder, TransformerDecoderLayer, Transformer};
+/// Activation function modules
+/// 活性化関数モジュール
+pub use activation::{ReLU, Softmax, GELU, Tanh};

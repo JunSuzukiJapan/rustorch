@@ -3,7 +3,9 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
+use crate::nn::Module;
 use num_traits::Float;
+use std::fmt::Debug;
 
 
 /// ReLU (Rectified Linear Unit) activation function
@@ -360,6 +362,154 @@ fn apply_hardswish<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
     }).collect();
     
     Tensor::from_vec(result_data, tensor.shape().to_vec())
+}
+
+/// ReLU activation layer (module)
+/// ReLU活性化層（モジュール）
+#[derive(Debug, Clone)]
+pub struct ReLU<T: Float + Send + Sync + 'static + Debug> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> ReLU<T> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Module<T> for ReLU<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        relu(input)
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn train(&mut self) {
+        // No parameters to train
+    }
+    
+    fn eval(&mut self) {
+        // No parameters to eval
+    }
+}
+
+/// Softmax activation layer (module)
+/// Softmax活性化層（モジュール）
+#[derive(Debug, Clone)]
+pub struct Softmax<T: Float + Send + Sync + 'static + Debug> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Softmax<T> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Module<T> for Softmax<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        softmax(input)
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn train(&mut self) {
+        // No parameters to train
+    }
+    
+    fn eval(&mut self) {
+        // No parameters to eval
+    }
+}
+
+/// GELU activation layer (module)
+/// GELU活性化層（モジュール）
+#[derive(Debug, Clone)]
+pub struct GELU<T: Float + Send + Sync + 'static + Debug> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> GELU<T> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Module<T> for GELU<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        gelu(input)
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn train(&mut self) {
+        // No parameters to train
+    }
+    
+    fn eval(&mut self) {
+        // No parameters to eval
+    }
+}
+
+/// Tanh activation layer (module)
+/// Tanh活性化層（モジュール）
+#[derive(Debug, Clone)]
+pub struct Tanh<T: Float + Send + Sync + 'static + Debug> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Tanh<T> {
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug> Module<T> for Tanh<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        tanh(input)
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn train(&mut self) {
+        // No parameters to train
+    }
+    
+    fn eval(&mut self) {
+        // No parameters to eval
+    }
 }
 
 #[cfg(test)]
