@@ -137,27 +137,25 @@ unsafe fn matmul_f32_avx2(
 
     for i in 0..a_rows {
         for j in (0..b_cols).step_by(8) {
-            let mut sum = _mm256_setzero_ps();
-            
-            for k in 0..a_cols {
-                let a_val = _mm256_broadcast_ss(&a[i * a_cols + k]);
+            if j + 8 <= b_cols {
+                let mut sum = _mm256_setzero_ps();
                 
-                if j + 8 <= b_cols {
+                for k in 0..a_cols {
+                    let a_val = _mm256_broadcast_ss(&a[i * a_cols + k]);
                     let b_vec = _mm256_loadu_ps(&b[k * b_cols + j]);
                     sum = _mm256_fmadd_ps(a_val, b_vec, sum);
-                } else {
-                    // Handle remaining elements
-                    for jj in j..b_cols {
-                        c[i * b_cols + jj] += a[i * a_cols + k] * b[k * b_cols + jj];
-                    }
-                    break;
                 }
-            }
-            
-            if j + 8 <= b_cols {
-                let current = _mm256_loadu_ps(&c[i * b_cols + j]);
-                let result = _mm256_add_ps(current, sum);
-                _mm256_storeu_ps(&mut c[i * b_cols + j], result);
+                
+                _mm256_storeu_ps(&mut c[i * b_cols + j], sum);
+            } else {
+                // Handle remaining elements with scalar fallback
+                for jj in j..b_cols {
+                    let mut sum = 0.0;
+                    for k in 0..a_cols {
+                        sum += a[i * a_cols + k] * b[k * b_cols + jj];
+                    }
+                    c[i * b_cols + jj] = sum;
+                }
             }
         }
     }
@@ -178,27 +176,25 @@ unsafe fn matmul_f32_sse41(
 
     for i in 0..a_rows {
         for j in (0..b_cols).step_by(4) {
-            let mut sum = _mm_setzero_ps();
-            
-            for k in 0..a_cols {
-                let a_val = _mm_load1_ps(&a[i * a_cols + k]);
+            if j + 4 <= b_cols {
+                let mut sum = _mm_setzero_ps();
                 
-                if j + 4 <= b_cols {
+                for k in 0..a_cols {
+                    let a_val = _mm_load1_ps(&a[i * a_cols + k]);
                     let b_vec = _mm_loadu_ps(&b[k * b_cols + j]);
                     sum = _mm_add_ps(sum, _mm_mul_ps(a_val, b_vec));
-                } else {
-                    // Handle remaining elements
-                    for jj in j..b_cols {
-                        c[i * b_cols + jj] += a[i * a_cols + k] * b[k * b_cols + jj];
-                    }
-                    break;
                 }
-            }
-            
-            if j + 4 <= b_cols {
-                let current = _mm_loadu_ps(&c[i * b_cols + j]);
-                let result = _mm_add_ps(current, sum);
-                _mm_storeu_ps(&mut c[i * b_cols + j], result);
+                
+                _mm_storeu_ps(&mut c[i * b_cols + j], sum);
+            } else {
+                // Handle remaining elements with scalar fallback
+                for jj in j..b_cols {
+                    let mut sum = 0.0;
+                    for k in 0..a_cols {
+                        sum += a[i * a_cols + k] * b[k * b_cols + jj];
+                    }
+                    c[i * b_cols + jj] = sum;
+                }
             }
         }
     }

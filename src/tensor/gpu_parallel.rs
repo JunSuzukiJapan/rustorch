@@ -647,11 +647,18 @@ mod tests {
         let tensor1 = Tensor::<f32>::ones(&[2, 3]);
         let tensor2 = Tensor::<f32>::ones(&[3, 2]);
         
-        let result = tensor1.gpu_matmul(&tensor2);
+        let result = tensor1.matmul(&tensor2);
+        assert_eq!(result.shape(), &[2, 2]);
+        
+        // Test GPU batch matmul with 3D tensors (batch dimension required)
+        let batch_tensor1 = Tensor::<f32>::ones(&[1, 2, 3]);
+        let batch_tensor2 = Tensor::<f32>::ones(&[1, 3, 2]);
+        
+        let result = batch_tensor1.gpu_batch_matmul(&batch_tensor2);
         assert!(result.is_ok());
         
         let result = result.unwrap();
-        assert_eq!(result.shape(), &[2, 2]);
+        assert_eq!(result.shape(), &[1, 2, 2]);
     }
 }
 

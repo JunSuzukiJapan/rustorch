@@ -309,7 +309,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
 
     /// Slice tensor without copying data
     /// データをコピーせずにテンソルをスライス
-    pub fn slice_view(&self, ranges: &[std::ops::Range<usize>]) -> ParallelResult<TensorView<T>> {
+    pub fn slice_view(&self, ranges: &[std::ops::Range<usize>]) -> ParallelResult<Tensor<T>> {
         if ranges.len() != self.data.ndim() {
             return Err(ParallelError::dimension_error(
                 self.data.ndim(),
@@ -329,14 +329,53 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
             }
         }
 
-        // Create sliced view - simplified implementation
-        let view = self.data.view();
-        Ok(TensorView::new(view))
+        // Create actual sliced tensor by extracting data manually
+        let mut result_shape = Vec::new();
+        let mut result_data = Vec::new();
+        
+        // Calculate result shape
+        for (i, range) in ranges.iter().enumerate() {
+            result_shape.push(range.end - range.start);
+        }
+        
+        // Extract sliced data manually
+        let result_size: usize = result_shape.iter().product();
+        result_data.reserve(result_size);
+        
+        // For 2D case (most common), handle directly
+        if ranges.len() == 2 {
+            let r0 = &ranges[0];
+            let r1 = &ranges[1];
+            let original_shape = self.data.shape();
+            
+            for i in r0.start..r0.end {
+                for j in r1.start..r1.end {
+                    let idx = i * original_shape[1] + j;
+                    if let Some(val) = self.data.as_slice().unwrap().get(idx) {
+                        result_data.push(*val);
+                    }
+                }
+            }
+        } else {
+            // For other dimensions, use a more general approach
+            use ndarray::Slice;
+            let mut current_array = self.data.clone();
+            for (axis, range) in ranges.iter().enumerate() {
+                let sliced = current_array.slice_axis(ndarray::Axis(axis), Slice::from(range.start..range.end));
+                current_array = sliced.to_owned();
+            }
+            return Ok(Tensor::new(current_array));
+        }
+        
+        // Create new tensor from extracted data
+        let sliced_array = ndarray::Array::from_shape_vec(result_shape, result_data)
+            .map_err(|_| ParallelError::shape_mismatch(&[], &[], "slice creation"))?;
+        Ok(Tensor::new(sliced_array.into_dyn()))
     }
 
     /// Reshape tensor view without copying data
     /// データをコピーせずにテンソルビューをリシェイプ
-    pub fn reshape_view(&self, new_shape: &[usize]) -> ParallelResult<TensorView<T>> {
+    pub fn reshape_view(&self, new_shape: &[usize]) -> ParallelResult<Tensor<T>> {
         let total_elements: usize = new_shape.iter().product();
         if total_elements != self.data.len() {
             return Err(ParallelError::shape_mismatch(
@@ -346,9 +385,17 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
             ));
         }
 
-        // Simplified reshape - just return view for now
-        let view = self.data.view();
-        Ok(TensorView::new(view))
+        // Create reshaped tensor using ndarray reshape
+        let reshaped_array = self.data.view()
+            .into_shape(new_shape)
+            .map_err(|_| ParallelError::shape_mismatch(
+                self.data.shape(),
+                new_shape,
+                "reshape view"
+            ))?
+            .to_owned();
+        
+        Ok(Tensor::new(reshaped_array))
     }
 
     /// Transpose tensor view without copying data

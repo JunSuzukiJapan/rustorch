@@ -428,7 +428,28 @@ mod tests {
         
         let result = result.unwrap();
         assert_eq!(result.shape(), &[2, 2]);
+        
+        // Debug: print actual values
+        println!("Result values: {:?}", result.as_slice());
+        println!("Expected: 6.0 (1*2 + 1*2 + 1*2)");
+        
+        // Matrix A (2x3) filled with 1.0:
+        // [1, 1, 1]
+        // [1, 1, 1]
+        //
+        // Matrix B (3x2) filled with 2.0:
+        // [2, 2]
+        // [2, 2] 
+        // [2, 2]
+        //
+        // Result should be (2x2):
+        // [6, 6]  // 1*2 + 1*2 + 1*2 = 6
+        // [6, 6]  // 1*2 + 1*2 + 1*2 = 6
+        
         assert_eq!(result.as_slice()[0], 6.0); // 1*2 + 1*2 + 1*2 = 6
+        assert_eq!(result.as_slice()[1], 6.0);
+        assert_eq!(result.as_slice()[2], 6.0);
+        assert_eq!(result.as_slice()[3], 6.0);
     }
 
     #[test]
