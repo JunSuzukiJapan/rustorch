@@ -164,7 +164,17 @@ impl SimdTensor<f32> {
         let result_slice = result.as_mut_slice();
 
         // Use existing SIMD operations
-        crate::simd::ops::add_optimized(self_slice, other_slice, result_slice);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            crate::simd::ops::add_optimized(self_slice, other_slice, result_slice);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Fallback for WASM
+            for ((a_elem, b_elem), r_elem) in self_slice.iter().zip(other_slice.iter()).zip(result_slice.iter_mut()) {
+                *r_elem = *a_elem + *b_elem;
+            }
+        }
 
         Ok(result)
     }
@@ -187,7 +197,17 @@ impl SimdTensor<f32> {
         let other_slice = other.as_slice();
         let result_slice = result.as_mut_slice();
 
-        crate::simd::ops::mul_optimized(self_slice, other_slice, result_slice);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            crate::simd::ops::mul_optimized(self_slice, other_slice, result_slice);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Fallback for WASM
+            for ((a_elem, b_elem), r_elem) in self_slice.iter().zip(other_slice.iter()).zip(result_slice.iter_mut()) {
+                *r_elem = *a_elem * *b_elem;
+            }
+        }
 
         Ok(result)
     }
@@ -201,7 +221,17 @@ impl SimdTensor<f32> {
         let self_slice = self.as_slice();
         let result_slice = result.as_mut_slice();
 
-        crate::simd::ops::mul_scalar_optimized(self_slice, scalar, result_slice);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            crate::simd::ops::mul_scalar_optimized(self_slice, scalar, result_slice);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Fallback for WASM
+            for (a_elem, r_elem) in self_slice.iter().zip(result_slice.iter_mut()) {
+                *r_elem = *a_elem * scalar;
+            }
+        }
 
         result
     }
@@ -225,12 +255,38 @@ impl SimdTensor<f32> {
         let mut result = SimdTensor::zeros(&result_shape)
             .map_err(|_| ParallelError::parallel_execution_error("SIMD allocation failed"))?;
 
+        // Get slices and dimensions
+        let self_rows = self.shape[0];
+        let self_cols = self.shape[1];
+        let other_rows = other.shape[0];
+        let other_cols = other.shape[1];
+        
+        let self_slice = self.as_slice();
+        let other_slice = other.as_slice();
+        let result_slice = result.as_mut_slice();
+
         // Use SIMD matrix multiplication
-        crate::simd::vectorized::matmul_f32_simd(
-            self.as_slice(), self.shape[0], self.shape[1],
-            other.as_slice(), other.shape[0], other.shape[1],
-            result.as_mut_slice()
-        );
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            crate::simd::vectorized::matmul_f32_simd(
+                self_slice, self_rows, self_cols,
+                other_slice, other_rows, other_cols,
+                result_slice
+            );
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            // Fallback for WASM: simple matrix multiplication
+            for i in 0..self_rows {
+                for j in 0..other_cols {
+                    let mut sum = 0.0f32;
+                    for k in 0..self_cols {
+                        sum += self_slice[i * self_cols + k] * other_slice[k * other_cols + j];
+                    }
+                    result_slice[i * other_cols + j] = sum;
+                }
+            }
+        }
 
         Ok(result)
     }

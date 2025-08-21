@@ -391,7 +391,17 @@ impl Tensor<f32> {
             result.data.as_slice_mut()
         ) {
             // Use SIMD operations from existing module
-            crate::simd::ops::add_optimized(self_slice, other_slice, result_slice);
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                crate::simd::ops::add_optimized(self_slice, other_slice, result_slice);
+            }
+            #[cfg(target_arch = "wasm32")]
+            {
+                // Fallback for WASM: simple element-wise addition
+                for ((a_elem, b_elem), r_elem) in self_slice.iter().zip(other_slice.iter()).zip(result_slice.iter_mut()) {
+                    *r_elem = *a_elem + *b_elem;
+                }
+            }
         }
 
         Ok(result)
