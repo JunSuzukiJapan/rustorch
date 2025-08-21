@@ -8,13 +8,14 @@ pub mod batchnorm;
 pub mod dropout;
 pub mod activation;
 pub mod loss;
+pub mod attention;
+pub mod unified_layers;
+pub mod embedding;
+pub mod transformer;
+pub mod normalization;
 pub mod rnn;
 pub mod lstm;
 pub mod gru;
-pub mod embedding;
-pub mod normalization;
-pub mod attention;
-pub mod transformer;
 
 use crate::autograd::Variable;
 use num_traits::Float;

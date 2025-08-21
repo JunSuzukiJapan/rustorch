@@ -120,7 +120,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     use crate::gpu::opencl_kernels::opencl_elementwise_add_f32;
@@ -167,7 +167,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                     stream_id: 0,
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 let work_group_size = 256;
                 let global_size = (problem_size + work_group_size - 1) / work_group_size * work_group_size;
                 KernelParams {
@@ -260,7 +260,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     use crate::gpu::opencl_kernels::opencl_matmul_f32;
@@ -310,7 +310,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                     stream_id: 0,
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 let work_group_size = 16;
                 let global_size = (n + work_group_size - 1) / work_group_size * work_group_size;
                 KernelParams {
@@ -377,7 +377,7 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     self.execute_opencl_conv(params, inputs[0], inputs[1], &mut outputs[0])?;

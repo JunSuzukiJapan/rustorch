@@ -121,12 +121,10 @@ pub mod kernels;
 /// CUDA kernel implementations
 /// CUDAカーネル実装
 pub mod cuda_kernels;
-/// Metal kernel implementations
-/// Metalカーネル実装
 pub mod metal_kernels;
-/// OpenCL kernel implementations
-/// OpenCLカーネル実装
 pub mod opencl_kernels;
+pub mod custom_kernels;
+pub mod unified_kernels;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;
@@ -146,9 +144,9 @@ pub enum DeviceType {
     /// Metal GPU device (for Apple Silicon)
     /// Metal GPUデバイス（Apple Silicon用）
     Metal(usize),
-    /// OpenCL device
-    /// OpenCLデバイス
-    OpenCl(usize),
+    /// OpenCL GPU device
+    /// OpenCL GPUデバイス
+    OpenCL(usize),
 }
 
 impl Default for DeviceType {
@@ -163,7 +161,7 @@ impl fmt::Display for DeviceType {
             DeviceType::Cpu => write!(f, "cpu"),
             DeviceType::Cuda(id) => write!(f, "cuda:{}", id),
             DeviceType::Metal(id) => write!(f, "metal:{}", id),
-            DeviceType::OpenCl(id) => write!(f, "opencl:{}", id),
+            DeviceType::OpenCL(id) => write!(f, "opencl:{}", id),
         }
     }
 }
@@ -192,7 +190,7 @@ impl DeviceType {
                 #[cfg(not(feature = "metal"))]
                 false
             },
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     use crate::gpu::opencl_kernels::OpenClKernelExecutor;
@@ -265,7 +263,7 @@ impl GpuContext {
                     Err(GpuError::UnsupportedDevice("Metal support not compiled".to_string()))
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL initialization would go here
@@ -312,18 +310,48 @@ impl GpuContext {
 /// GPUエラータイプ
 #[derive(Debug, Clone)]
 pub enum GpuError {
-    /// Device not available
-    /// デバイスが利用不可
+    /// GPU device not found
+    /// GPUデバイスが見つからない
+    DeviceNotFound(usize),
+    /// GPU device not available
+    /// GPUデバイスが利用できない
     DeviceNotAvailable(String),
-    /// Unsupported device
-    /// サポートされていないデバイス
+    /// Unsupported GPU device
+    /// サポートされていないGPUデバイス
     UnsupportedDevice(String),
-    /// Memory allocation error
-    /// メモリ割り当てエラー
+    /// GPU memory allocation failed
+    /// GPUメモリ割り当て失敗
+    MemoryAllocationFailed(usize),
+    /// GPU memory allocation error
+    /// GPUメモリ割り当てエラー
     MemoryAllocationError(String),
-    /// Kernel execution error
-    /// カーネル実行エラー
+    /// GPU kernel compilation failed
+    /// GPUカーネルコンパイル失敗
+    KernelCompilationFailed(String),
+    /// GPU kernel execution failed
+    /// GPUカーネル実行失敗
+    KernelExecutionFailed(String),
+    /// GPU kernel execution error
+    /// GPUカーネル実行エラー
     KernelExecutionError(String),
+    /// Invalid GPU device
+    /// 無効なGPUデバイス
+    InvalidDevice(String),
+    /// GPU out of memory
+    /// GPUメモリ不足
+    OutOfMemory,
+    /// GPU context creation failed
+    /// GPUコンテキスト作成失敗
+    ContextCreationFailed(String),
+    /// GPU driver error
+    /// GPUドライバーエラー
+    DriverError(String),
+    /// Unsupported GPU operation
+    /// サポートされていないGPU操作
+    UnsupportedOperation(String),
+    /// GPU kernel error
+    /// GPUカーネルエラー
+    KernelError(String),
     /// Data transfer error
     /// データ転送エラー
     DataTransferError(String),
@@ -335,10 +363,20 @@ pub enum GpuError {
 impl fmt::Display for GpuError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            GpuError::DeviceNotFound(id) => write!(f, "GPU device {} not found", id),
             GpuError::DeviceNotAvailable(msg) => write!(f, "Device not available: {}", msg),
             GpuError::UnsupportedDevice(msg) => write!(f, "Unsupported device: {}", msg),
+            GpuError::MemoryAllocationFailed(size) => write!(f, "GPU memory allocation failed: {} bytes", size),
             GpuError::MemoryAllocationError(msg) => write!(f, "Memory allocation error: {}", msg),
+            GpuError::KernelCompilationFailed(msg) => write!(f, "GPU kernel compilation failed: {}", msg),
+            GpuError::KernelExecutionFailed(msg) => write!(f, "GPU kernel execution failed: {}", msg),
             GpuError::KernelExecutionError(msg) => write!(f, "Kernel execution error: {}", msg),
+            GpuError::InvalidDevice(device) => write!(f, "Invalid GPU device: {}", device),
+            GpuError::OutOfMemory => write!(f, "GPU out of memory"),
+            GpuError::ContextCreationFailed(msg) => write!(f, "GPU context creation failed: {}", msg),
+            GpuError::DriverError(msg) => write!(f, "GPU driver error: {}", msg),
+            GpuError::UnsupportedOperation(msg) => write!(f, "Unsupported GPU operation: {}", msg),
+            GpuError::KernelError(msg) => write!(f, "GPU kernel error: {}", msg),
             GpuError::DataTransferError(msg) => write!(f, "Data transfer error: {}", msg),
             GpuError::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
         }
@@ -346,6 +384,10 @@ impl fmt::Display for GpuError {
 }
 
 impl std::error::Error for GpuError {}
+
+/// Result type for GPU operations
+/// GPU演算の結果型
+pub type GpuResult<T> = Result<T, GpuError>;
 
 /// GPU device manager
 /// GPUデバイスマネージャー
@@ -502,7 +544,7 @@ mod tests {
         assert_eq!(DeviceType::Cpu.to_string(), "cpu");
         assert_eq!(DeviceType::Cuda(0).to_string(), "cuda:0");
         assert_eq!(DeviceType::Metal(1).to_string(), "metal:1");
-        assert_eq!(DeviceType::OpenCl(2).to_string(), "opencl:2");
+        assert_eq!(DeviceType::OpenCL(2).to_string(), "opencl:2");
     }
 
     #[test]

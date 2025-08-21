@@ -182,8 +182,8 @@ pub fn select_optimal_device(shape: &[usize]) -> DeviceType {
         if DeviceType::Metal(0).is_available() {
             return DeviceType::Metal(0);
         }
-        if DeviceType::OpenCl(0).is_available() {
-            return DeviceType::OpenCl(0);
+        if DeviceType::OpenCL(0).is_available() {
+            return DeviceType::OpenCL(0);
         }
     }
     
@@ -198,8 +198,8 @@ pub fn current_device() -> DeviceType {
         DeviceType::Cuda(0)
     } else if DeviceType::Metal(0).is_available() {
         DeviceType::Metal(0)
-    } else if DeviceType::OpenCl(0).is_available() {
-        DeviceType::OpenCl(0)
+    } else if DeviceType::OpenCL(0).is_available() {
+        DeviceType::OpenCL(0)
     } else {
         DeviceType::Cpu
     }
@@ -472,7 +472,7 @@ where
                     })
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL転送実装
@@ -615,7 +615,7 @@ pub mod gpu_parallel_utils {
                 // Metal用バッチサイズ
                 std::cmp::min(2048, total_size)
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 // OpenCL用バッチサイズ
                 std::cmp::min(1024, total_size)
             }

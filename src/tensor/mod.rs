@@ -109,20 +109,21 @@ use crate::memory::{get_f32_pool, get_f64_pool};
 use std::{fmt, ops};
 
 mod pool_integration;
-mod simd_integration;
-
-/// Parallel tensor operations for batch processing and SIMD acceleration
-/// バッチ処理とSIMD加速のための並列テンソル操作
 pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
 /// Parallel tensor operations module
 /// 並列テンソル演算モジュール
 pub mod parallel_ops;
-pub mod gpu_parallel;
-pub mod memory_optimized;
-pub mod zero_copy;
+
+/// Parallel tensor operations for batch processing and SIMD acceleration
+/// バッチ処理とSIMD加速のための並列テンソル操作
+pub mod simd_integration;
 pub mod simd_aligned;
+pub mod simd_avx512;
+pub mod advanced_memory;
+pub mod gpu_parallel;
+pub mod unified_impl;
 // Enable modules step by step
 mod math_ops;
 mod broadcasting;
@@ -195,10 +196,9 @@ impl<T: Float + 'static> Tensor<T> {
             }
         }
         
-        // Fallback to regular allocation
-        Tensor {
-            data: ArrayD::zeros(IxDyn(shape)),
-        }
+        let total_size = shape.iter().product();
+        let data = vec![T::zero(); total_size];
+        Tensor::from_vec(data, shape.to_vec())
     }
 
     /// Creates a tensor filled with ones using memory pool.
@@ -219,6 +219,13 @@ impl<T: Float + 'static> Tensor<T> {
     /// 内部の配列のビューを返します。
     pub fn view(&self) -> ArrayViewD<T> {
         self.data.view()
+    }
+
+    /// Creates a tensor from a scalar value.
+    /// スカラー値からテンソルを作成します。
+    pub fn from_scalar(value: T) -> Self {
+        let data = ArrayD::from_elem(ndarray::IxDyn(&[]), value);
+        Tensor::new(data)
     }
 
     /// Returns a mutable reference to the underlying array.

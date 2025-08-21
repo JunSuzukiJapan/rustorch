@@ -31,9 +31,11 @@ where
     device_ids: Vec<DeviceType>,
     /// Output device for gathering results
     /// 結果を集約する出力デバイス
+    #[allow(dead_code)]
     output_device: DeviceType,
     /// Whether to broadcast buffers
     /// バッファをブロードキャストするかどうか
+    #[allow(dead_code)]
     broadcast_buffers: bool,
     /// Gradient synchronization strategy
     /// 勾配同期戦略
@@ -53,7 +55,11 @@ pub enum GradientSyncStrategy {
     Asynchronous,
     /// Local SGD with periodic synchronization
     /// 定期同期を伴うローカルSGD
-    LocalSGD { sync_frequency: usize },
+    LocalSGD { 
+        /// Frequency of synchronization in steps
+        /// 同期の頻度（ステップ数）
+        sync_frequency: usize 
+    },
 }
 
 impl<T, M> DataParallel<T, M>

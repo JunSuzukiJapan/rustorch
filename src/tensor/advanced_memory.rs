@@ -12,8 +12,14 @@ use std::time::{Duration, Instant};
 
 /// Advanced memory alignment for different architectures
 /// 異なるアーキテクチャ用の高度なメモリアライメント
+/// Cache line size for optimal memory alignment
+/// 最適なメモリアライメント用のキャッシュラインサイズ
 pub const CACHE_LINE_SIZE: usize = 64;
+/// Standard page size
+/// 標準ページサイズ
 pub const PAGE_SIZE: usize = 4096;
+/// Huge page size for large memory allocations
+/// 大容量メモリ割り当て用のヒュージページサイズ
 pub const HUGE_PAGE_SIZE: usize = 2 * 1024 * 1024; // 2MB
 
 /// Memory allocation strategy
@@ -44,12 +50,26 @@ pub enum AllocationStrategy {
 /// メモリプール設定
 #[derive(Debug, Clone)]
 pub struct PoolConfig {
+    /// Initial size of memory pool in bytes
+    /// メモリプールの初期サイズ（バイト）
     pub initial_size: usize,
+    /// Maximum size of memory pool in bytes
+    /// メモリプールの最大サイズ（バイト）
     pub max_size: usize,
+    /// Growth factor when expanding pool
+    /// プール拡張時の成長率
     pub growth_factor: f32,
+    /// Threshold for shrinking pool
+    /// プール縮小しきい値
     pub shrink_threshold: f32,
+    /// Memory alignment requirement
+    /// メモリアライメント要件
     pub alignment: usize,
+    /// Enable memory prefaulting
+    /// メモリプリフォルトを有効にする
     pub enable_prefaulting: bool,
+    /// Enable huge page support
+    /// ヒュージページサポートを有効にする
     pub enable_huge_pages: bool,
 }
 
@@ -74,6 +94,7 @@ struct MemoryBlock {
     ptr: NonNull<u8>,
     size: usize,
     alignment: usize,
+    #[allow(dead_code)]
     allocated_at: Instant,
     last_accessed: Instant,
     access_count: u64,
@@ -83,7 +104,9 @@ struct MemoryBlock {
 impl MemoryBlock {
     fn new(size: usize, alignment: usize, is_huge_page: bool) -> ParallelResult<Self> {
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::MemoryError(format!("Invalid layout: {}", e)))?;
+            .map_err(|e| ParallelError::ParallelExecutionError {
+                message: format!("Invalid layout: {}", e),
+            })?;
 
         let ptr = unsafe {
             let raw_ptr = if is_huge_page {
@@ -93,7 +116,9 @@ impl MemoryBlock {
             };
 
             if raw_ptr.is_null() {
-                return Err(ParallelError::MemoryError("Allocation failed".to_string()));
+                return Err(ParallelError::ParallelExecutionError {
+                    message: "Allocation failed".to_string(),
+                });
             }
 
             NonNull::new_unchecked(raw_ptr)
@@ -122,7 +147,9 @@ impl MemoryBlock {
             .read(true)
             .write(true)
             .open("/dev/zero")
-            .map_err(|e| ParallelError::MemoryError(format!("Failed to open /dev/zero: {}", e)))?;
+            .map_err(|e| ParallelError::ParallelExecutionError {
+                message: format!("Failed to open /dev/zero: {}", e),
+            })?;
 
         unsafe {
             let ptr = libc::mmap(
@@ -138,7 +165,9 @@ impl MemoryBlock {
                 // Fallback to regular allocation
                 // 通常の割り当てにフォールバック
                 let layout = Layout::from_size_align(size, alignment)
-                    .map_err(|e| ParallelError::MemoryError(format!("Invalid layout: {}", e)))?;
+                    .map_err(|e| ParallelError::ParallelExecutionError {
+                message: format!("Invalid layout: {}", e),
+            })?;
                 Ok(alloc_zeroed(layout))
             } else {
                 Ok(ptr as *mut u8)
@@ -151,7 +180,9 @@ impl MemoryBlock {
         // Fallback to regular allocation on non-Linux systems
         // Linux以外のシステムでは通常の割り当てにフォールバック
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::MemoryError(format!("Invalid layout: {}", e)))?;
+            .map_err(|e| ParallelError::ParallelExecutionError {
+                message: format!("Invalid layout: {}", e),
+            })?;
         Ok(unsafe { alloc_zeroed(layout) })
     }
 
@@ -160,6 +191,7 @@ impl MemoryBlock {
         self.access_count += 1;
     }
 
+    #[allow(dead_code)]
     fn age(&self) -> Duration {
         self.allocated_at.elapsed()
     }
@@ -203,15 +235,31 @@ pub struct AdvancedMemoryPool {
 
 /// Memory allocation statistics
 /// メモリ割り当て統計
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct AllocationStats {
+    /// Total number of allocations performed
+    /// 実行された総割り当て数
     pub total_allocations: u64,
+    /// Total number of deallocations performed
+    /// 実行された総解放数
     pub total_deallocations: u64,
+    /// Peak memory usage in bytes
+    /// ピークメモリ使用量（バイト）
     pub peak_memory_usage: usize,
+    /// Current memory usage in bytes
+    /// 現在のメモリ使用量（バイト）
     pub current_memory_usage: usize,
+    /// Number of cache hits
+    /// キャッシュヒット数
     pub cache_hits: u64,
+    /// Number of cache misses
+    /// キャッシュミス数
     pub cache_misses: u64,
+    /// Number of huge page allocations
+    /// ヒュージページ割り当て数
     pub huge_page_allocations: u64,
+    /// Memory fragmentation ratio (0.0 to 1.0)
+    /// メモリフラグメンテーション率（0.0から1.0）
     pub fragmentation_ratio: f32,
 }
 
@@ -281,7 +329,9 @@ impl AdvancedMemoryPool {
         let block = {
             let mut allocated = self.allocated_blocks.write().unwrap();
             allocated.remove(&raw_ptr).ok_or_else(|| {
-                ParallelError::MemoryError("Pointer not found in allocated blocks".to_string())
+                ParallelError::ParallelExecutionError {
+                    message: "Pointer not found in allocated blocks".to_string(),
+                }
             })?
         };
 
@@ -304,14 +354,14 @@ impl AdvancedMemoryPool {
     /// メモリ使用統計を取得
     pub fn get_stats(&self) -> AllocationStats {
         let stats = self.allocation_stats.lock().unwrap();
-        stats.clone()
+        (*stats).clone()
     }
 
     /// Perform garbage collection
     /// ガベージコレクションを実行
     pub fn garbage_collect(&self) -> ParallelResult<usize> {
         let mut freed_memory = 0;
-        let now = Instant::now();
+        let _now = Instant::now();
         let max_idle_time = Duration::from_secs(300); // 5 minutes
 
         let mut free_blocks = self.free_blocks.write().unwrap();
@@ -337,7 +387,7 @@ impl AdvancedMemoryPool {
     /// Optimize memory layout for NUMA
     /// NUMA用のメモリレイアウト最適化
     pub fn optimize_for_numa(&self) -> ParallelResult<()> {
-        if let Some(node) = self.numa_node {
+        if let Some(_node) = self.numa_node {
             // Bind memory allocations to specific NUMA node
             // メモリ割り当てを特定のNUMAノードにバインド
             #[cfg(target_os = "linux")]
@@ -518,13 +568,16 @@ impl OptimizedTensorOps {
             return Err(ParallelError::ShapeMismatch {
                 expected: a.shape().to_vec(),
                 actual: b.shape().to_vec(),
+                operation: "inplace_add".to_string(),
             });
         }
 
         // Vectorized in-place addition
         // ベクトル化インプレース加算
-        for i in 0..a.data().len() {
-            a.data_mut()[i] = a.data()[i] + b.data()[i];
+        let a_slice = a.as_slice_mut().unwrap();
+        let b_slice = b.as_slice().unwrap();
+        for i in 0..a_slice.len() {
+            a_slice[i] = a_slice[i] + b_slice[i];
         }
 
         Ok(())
@@ -543,27 +596,33 @@ impl OptimizedTensorOps {
     }
 }
 
-// Extension trait for Tensor to support custom memory management
-// カスタムメモリ管理をサポートするTensor用の拡張トレイト
+/// Extension trait for Tensor to support custom memory management
+/// カスタムメモリ管理をサポートするTensor用の拡張トレイト
 pub trait TensorMemoryExt<T: Float> {
+    /// Create tensor from raw memory parts
+    /// 生メモリパーツからテンソルを作成
     fn from_raw_parts(data: &mut [T], shape: &[usize]) -> Tensor<T>;
+    /// Get memory usage in bytes
+    /// メモリ使用量をバイトで取得
     fn memory_usage(&self) -> usize;
+    /// Check if memory is aligned to specified boundary
+    /// 指定された境界にメモリがアライメントされているかチェック
     fn is_memory_aligned(&self, alignment: usize) -> bool;
 }
 
 impl<T: Float + 'static> TensorMemoryExt<T> for Tensor<T> {
-    fn from_raw_parts(data: &mut [T], shape: &[usize]) -> Tensor<T> {
+    fn from_raw_parts(_data: &mut [T], shape: &[usize]) -> Tensor<T> {
         // Simplified implementation - in practice would need proper tensor construction
         // 簡略化実装 - 実際には適切なテンソル構築が必要
         Tensor::zeros(shape)
     }
 
     fn memory_usage(&self) -> usize {
-        self.data().len() * std::mem::size_of::<T>()
+        self.as_slice().unwrap().len() * std::mem::size_of::<T>()
     }
 
     fn is_memory_aligned(&self, alignment: usize) -> bool {
-        (self.data().as_ptr() as usize) % alignment == 0
+        (self.as_slice().unwrap().as_ptr() as usize) % alignment == 0
     }
 }
 

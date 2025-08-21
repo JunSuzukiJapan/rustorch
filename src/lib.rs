@@ -115,33 +115,42 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+/// Common utilities and shared functionality
+/// 共通ユーティリティと共有機能
+pub mod common;
+/// Tensor operations and data structures
+/// テンソル操作とデータ構造
+pub mod tensor;
 /// Automatic differentiation module
 /// 自動微分モジュール
 pub mod autograd;
-/// Data loading and processing utilities
-/// データ読み込みと処理のユーティリティ
-pub mod data;
+/// Neural network layers and building blocks
+/// ニューラルネットワークレイヤーと構成要素
 pub mod nn;
 /// Optimization algorithms
 /// 最適化アルゴリズム
 pub mod optim;
-/// Tensor operations and data structures
-/// テンソル操作とデータ構造
-pub mod tensor;
-pub mod utils;
+/// Data loading and processing utilities
+/// データ読み込みと処理のユーティリティ
+pub mod data;
+/// GPU acceleration support (CUDA, Metal, OpenCL)
+/// GPU加速サポート（CUDA、Metal、OpenCL）
+pub mod gpu;
+/// Distributed training support for multi-GPU and multi-machine training
+/// マルチGPUおよびマルチマシン学習用分散学習サポート
+pub mod distributed;
 /// Memory management and pooling utilities
 /// メモリ管理とプーリングユーティリティ
 pub mod memory;
 /// SIMD vectorized operations for performance optimization
 /// パフォーマンス最適化のためのSIMDベクトル化操作
 pub mod simd;
-/// GPU acceleration support (CUDA, Metal, OpenCL)
-/// GPU加速サポート（CUDA、Metal、OpenCL）
-pub mod gpu;
+/// Utility functions
+/// ユーティリティ関数
+pub mod utils;
+/// Pre-built models and architectures
+/// 事前構築モデルとアーキテクチャ
 pub mod models;
-/// Distributed training support for multi-GPU and multi-machine training
-/// マルチGPUおよびマルチマシン学習用分散学習サポート
-pub mod distributed;
 
 /// Re-exports of commonly used items
 pub mod prelude {

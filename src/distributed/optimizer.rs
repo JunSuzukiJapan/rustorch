@@ -49,10 +49,18 @@ pub enum GradientSyncStrategy {
     Asynchronous,
     /// Local SGD with periodic synchronization
     /// 定期同期を伴うローカルSGD
-    LocalSGD { sync_frequency: usize },
+    LocalSGD { 
+        /// Frequency of synchronization in steps
+        /// 同期の頻度（ステップ数）
+        sync_frequency: usize 
+    },
     /// Gradient compression for bandwidth efficiency
     /// 帯域幅効率のための勾配圧縮
-    Compressed { compression_ratio: f32 },
+    Compressed { 
+        /// Compression ratio (0.0 to 1.0)
+        /// 圧縮率（0.0から1.0）
+        compression_ratio: f32 
+    },
     /// Hierarchical all-reduce for large clusters
     /// 大規模クラスター用階層all-reduce
     Hierarchical,
@@ -421,8 +429,38 @@ pub struct DistributedOptimizerBuilder<T: Float + Send + Sync + 'static> {
 /// Optimizer types for builder pattern
 /// ビルダーパターン用オプティマイザータイプ
 pub enum OptimizerType<T: Float> {
-    SGD { learning_rate: T, momentum: T, weight_decay: T },
-    Adam { learning_rate: T, beta1: T, beta2: T, epsilon: T, weight_decay: T },
+    /// Stochastic Gradient Descent optimizer
+    /// 確率的勾配降下法オプティマイザー
+    SGD { 
+        /// Learning rate for optimization
+        /// 最適化の学習率
+        learning_rate: T, 
+        /// Momentum factor
+        /// モメンタム係数
+        momentum: T, 
+        /// Weight decay for L2 regularization
+        /// L2正則化の重み減衰
+        weight_decay: T 
+    },
+    /// Adam optimizer
+    /// Adamオプティマイザー
+    Adam { 
+        /// Learning rate for optimization
+        /// 最適化の学習率
+        learning_rate: T, 
+        /// Beta1 parameter
+        /// Beta1パラメータ
+        beta1: T, 
+        /// Beta2 parameter  
+        /// Beta2パラメータ
+        beta2: T, 
+        /// Epsilon for numerical stability
+        /// 数値安定性のためのイプシロン
+        epsilon: T, 
+        /// Weight decay for L2 regularization
+        /// L2正則化の重み減衰
+        weight_decay: T 
+    },
 }
 
 impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {

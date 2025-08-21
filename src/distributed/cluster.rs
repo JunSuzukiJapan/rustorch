@@ -98,13 +98,21 @@ pub enum ClusterTopology {
     Flat,
     /// Tree topology - hierarchical communication
     /// ツリートポロジー - 階層通信
-    Tree { depth: usize },
+    Tree { 
+        /// Maximum depth of the tree
+        /// ツリーの最大深度
+        depth: usize 
+    },
     /// Ring topology - ring-based communication
     /// リングトポロジー - リングベース通信
     Ring,
     /// Custom topology with explicit connections
     /// 明示的接続を持つカスタムトポロジー
-    Custom { connections: HashMap<usize, Vec<usize>> },
+    Custom { 
+        /// Map from node ID to list of connected node IDs
+        /// ノードIDから接続されたノードIDのリストへのマップ
+        connections: HashMap<usize, Vec<usize>> 
+    },
 }
 
 /// Fault tolerance configuration

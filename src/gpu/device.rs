@@ -200,7 +200,7 @@ impl DeviceInfo {
                 };
                 (threads_per_group, 1, 1)
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 // OpenCL work group size
                 (64, 1, 1)
             }
@@ -317,7 +317,7 @@ impl DeviceRegistry {
                 DeviceType::Cpu => 1.0,
                 DeviceType::Cuda(_) => 10.0,
                 DeviceType::Metal(_) => 8.0,
-                DeviceType::OpenCl(_) => 6.0,
+                DeviceType::OpenCL(_) => 6.0,
             };
 
             // Adjust score based on data size

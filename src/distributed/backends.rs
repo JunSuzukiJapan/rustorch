@@ -69,6 +69,7 @@ impl<T: Float + Send + Sync + 'static> BackendOptimizations<T> for NCCLBackend {
 /// CPUおよびGPU通信用Glooバックエンド
 pub struct GlooBackend {
     process_group: ProcessGroup,
+    #[allow(dead_code)]
     context: Option<Arc<Mutex<GlooContext>>>,
 }
 
@@ -87,9 +88,14 @@ pub enum GlooTransport {
     SharedMemory,
 }
 
+/// Gloo communication context
+/// Gloo通信コンテキスト
 pub struct GlooContext {
+    #[allow(dead_code)]
     rank: usize,
+    #[allow(dead_code)]
     size: usize,
+    #[allow(dead_code)]
     transport: GlooTransport,
 }
 
@@ -154,13 +160,16 @@ impl<T: Float + Send + Sync + 'static> BackendOptimizations<T> for GlooBackend {
 /// シンプルな分散学習用TCPバックエンド
 pub struct TCPBackend {
     process_group: ProcessGroup,
+    #[allow(dead_code)]
     connections: HashMap<usize, TCPConnection>,
 }
 
 /// TCP connection to remote process
 /// リモートプロセスへのTCP接続
 pub struct TCPConnection {
+    #[allow(dead_code)]
     stream: std::net::TcpStream,
+    #[allow(dead_code)]
     remote_rank: usize,
 }
 

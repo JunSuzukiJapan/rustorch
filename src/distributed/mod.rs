@@ -155,13 +155,34 @@ pub enum DistributedError {
     GpuError(GpuError),
     /// Tensor shape mismatch in distributed operation
     /// 分散操作でのテンソル形状不一致
-    TensorShapeMismatch { expected: Vec<usize>, actual: Vec<usize> },
+    TensorShapeMismatch { 
+        /// Expected tensor shape
+        /// 期待されるテンソル形状
+        expected: Vec<usize>, 
+        /// Actual tensor shape
+        /// 実際のテンソル形状
+        actual: Vec<usize> 
+    },
     /// Invalid rank specified
     /// 無効なランク指定
-    InvalidRank { rank: usize, world_size: usize },
+    InvalidRank { 
+        /// Invalid rank value
+        /// 無効なランク値
+        rank: usize, 
+        /// World size for comparison
+        /// 比較用のワールドサイズ
+        world_size: usize 
+    },
     /// Timeout in distributed operation
     /// 分散操作でのタイムアウト
-    OperationTimeout { operation: String, timeout_ms: u64 },
+    OperationTimeout { 
+        /// Operation that timed out
+        /// タイムアウトした操作
+        operation: String, 
+        /// Timeout duration in milliseconds
+        /// タイムアウト時間（ミリ秒）
+        timeout_ms: u64 
+    },
     /// Network connection error
     /// ネットワーク接続エラー
     NetworkError(String),
@@ -318,6 +339,7 @@ pub fn get_distributed_state() -> &'static Arc<Mutex<DistributedState>> {
         DISTRIBUTED_INIT.call_once(|| {
             DISTRIBUTED_STATE = Some(Arc::new(Mutex::new(DistributedState::new())));
         });
+        #[allow(static_mut_refs)]
         DISTRIBUTED_STATE.as_ref().unwrap()
     }
 }

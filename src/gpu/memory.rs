@@ -68,7 +68,7 @@ impl GpuMemoryPool {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL buffer allocation would go here
@@ -228,7 +228,7 @@ impl Drop for GpuMemoryPool {
                     // Metal buffer deallocation would go here
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL buffer deallocation would go here
@@ -351,7 +351,7 @@ impl DataTransfer {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL buffer copy would go here
@@ -406,7 +406,7 @@ impl DataTransfer {
                     return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
                 }
             }
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL buffer copy would go here

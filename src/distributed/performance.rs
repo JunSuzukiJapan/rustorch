@@ -22,13 +22,25 @@ pub enum CompressionAlgorithm {
     None,
     /// Top-K sparsification
     /// Top-K スパース化
-    TopK { k: usize },
+    TopK { 
+        /// Number of top elements to keep
+        /// 保持する上位要素数
+        k: usize 
+    },
     /// Random sparsification
     /// ランダムスパース化
-    Random { ratio: f32 },
+    Random { 
+        /// Compression ratio (0.0 to 1.0)
+        /// 圧縮率（0.0から1.0）
+        ratio: f32 
+    },
     /// Quantization
     /// 量子化
-    Quantization { bits: u8 },
+    Quantization { 
+        /// Number of bits for quantization
+        /// 量子化のビット数
+        bits: u8 
+    },
 }
 
 /// Gradient compressor for reducing communication overhead
@@ -136,8 +148,14 @@ impl<T: Float + 'static> GradientCompressor<T> {
 /// 圧縮勾配表現
 #[derive(Debug, Clone)]
 pub struct CompressedGradient<T: Float> {
+    /// Compressed gradient data
+    /// 圧縮された勾配データ
     pub data: Tensor<T>,
+    /// Compression algorithm used
+    /// 使用された圧縮アルゴリズム
     pub algorithm: CompressionAlgorithm,
+    /// Original tensor shape before compression
+    /// 圧縮前の元のテンソル形状
     pub original_shape: Vec<usize>,
 }
 
@@ -229,8 +247,14 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
 /// メモリプール統計
 #[derive(Debug, Clone)]
 pub struct MemoryPoolStats {
+    /// Total number of tensors in the pool
+    /// プール内のテンソル総数
     pub total_tensors: usize,
+    /// Number of unique tensor shapes
+    /// 固有のテンソル形状数
     pub unique_shapes: usize,
+    /// Maximum pool size allowed
+    /// 許可される最大プールサイズ
     pub max_pool_size: usize,
 }
 
@@ -239,6 +263,7 @@ pub struct MemoryPoolStats {
 pub struct CommunicationScheduler<T: Float> {
     pending_operations: Arc<Mutex<Vec<PendingOperation<T>>>>,
     batch_size: usize,
+    #[allow(dead_code)]
     timeout_ms: u64,
 }
 
@@ -300,8 +325,14 @@ impl<T: Float + 'static> CommunicationScheduler<T> {
 /// 保留中の通信操作
 #[derive(Debug)]
 pub struct PendingOperation<T: Float> {
+    /// Type of the communication operation
+    /// 通信操作のタイプ
     pub operation_type: OperationType,
+    /// Tensor data for the operation
+    /// 操作用のテンソルデータ
     pub tensor: Tensor<T>,
+    /// Operation metadata
+    /// 操作メタデータ
     pub metadata: OperationMetadata,
 }
 
@@ -309,11 +340,23 @@ pub struct PendingOperation<T: Float> {
 /// 通信操作の種類
 #[derive(Debug, Clone)]
 pub enum OperationType {
+    /// All-reduce operation (combine values from all processes)
+    /// All-reduce操作（全プロセスからの値を結合）
     AllReduce,
+    /// All-gather operation (gather data from all processes to all)
+    /// All-gather操作（全プロセスから全プロセスにデータを収集）
     AllGather,
+    /// Broadcast operation (send data from one process to all)
+    /// ブロードキャスト操作（1つのプロセスから全プロセスにデータ送信）
     Broadcast,
+    /// Reduce operation (combine values to one process)
+    /// リデュース操作（値を1つのプロセスに結合）
     Reduce,
+    /// Scatter operation (distribute data from one process to all)
+    /// スキャッター操作（1つのプロセスから全プロセスにデータ分散）
     Scatter,
+    /// Gather operation (collect data from all processes to one)
+    /// ギャザー操作（全プロセスから1つのプロセスにデータ収集）
     Gather,
 }
 
@@ -321,8 +364,14 @@ pub enum OperationType {
 /// 操作メタデータ
 #[derive(Debug, Clone)]
 pub struct OperationMetadata {
+    /// Priority of the operation (0-255, higher values = higher priority)
+    /// 操作の優先度（0-255、高い値ほど高い優先度）
     pub priority: u8,
+    /// Timestamp when the operation was created
+    /// 操作が作成された時のタイムスタンプ
     pub timestamp: u64,
+    /// Root rank for operations that require a root process
+    /// ルートプロセスが必要な操作のためのルートランク
     pub root_rank: Option<usize>,
 }
 

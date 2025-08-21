@@ -25,7 +25,7 @@ impl<T: Float + Send + Sync + Clone + 'static> BatchParallelOp<T> for Tensor<T> 
             ));
         }
         
-        let mut result = Self::with_strategy(self.data.shape(), crate::tensor::memory_optimized::AllocationStrategy::Pool);
+        let mut result = Self::zeros(self.data.shape());
         
         if let (Some(self_slice), Some(other_slice), Some(result_slice)) = (
             self.data.as_slice(),
@@ -56,7 +56,7 @@ impl<T: Float + Send + Sync + Clone + 'static> BatchParallelOp<T> for Tensor<T> 
     where
         F: Fn(T, T) -> T + Send + Sync,
     {
-        let mut result = Self::with_strategy(self.data.shape(), crate::tensor::memory_optimized::AllocationStrategy::Pool);
+        let mut result = Self::zeros(self.data.shape());
         
         if let (Some(self_slice), Some(result_slice)) = (
             self.data.as_slice(),
@@ -407,7 +407,7 @@ impl SimdParallelOp for Tensor<f32> {
             ));
         }
         
-        let mut result = Self::with_strategy(self.data.shape(), crate::tensor::memory_optimized::AllocationStrategy::Pool);
+        let mut result = Self::zeros(self.data.shape());
         
         if let (Some(self_slice), Some(other_slice), Some(result_slice)) = (
             self.data.as_slice(),
@@ -488,7 +488,7 @@ impl SimdParallelOp for Tensor<f32> {
     }
     
     fn simd_parallel_scalar_mul(&self, scalar: f32) -> Tensor<f32> {
-        let mut result = Self::with_strategy(self.data.shape(), crate::tensor::memory_optimized::AllocationStrategy::Pool);
+        let mut result = Self::zeros(self.data.shape());
         
         if let (Some(self_slice), Some(result_slice)) = (
             self.data.as_slice(),

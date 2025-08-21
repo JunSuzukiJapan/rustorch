@@ -8,7 +8,6 @@
 //! このモジュールは、大規模モデルを複数のデバイスに分割し、
 //! 単一デバイスに収まらないモデルの学習を可能にするモデル並列学習機能を提供します。
 
-use std::sync::Arc;
 use std::collections::HashMap;
 use crate::autograd::Variable;
 use crate::tensor::Tensor;

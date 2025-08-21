@@ -41,10 +41,20 @@ pub enum CustomKernelType {
 /// カスタムカーネル設定
 #[derive(Debug, Clone)]
 pub struct KernelConfig {
+    /// Type of custom kernel to execute
+    /// 実行するカスタムカーネルのタイプ
     pub kernel_type: CustomKernelType,
+    /// Block size for kernel execution (x, y, z)
+    /// カーネル実行のブロックサイズ（x, y, z）
     pub block_size: (u32, u32, u32),
+    /// Grid size for kernel execution (x, y, z)
+    /// カーネル実行のグリッドサイズ（x, y, z）
     pub grid_size: (u32, u32, u32),
+    /// Shared memory size in bytes
+    /// 共有メモリサイズ（バイト）
     pub shared_memory_size: usize,
+    /// Kernel parameters
+    /// カーネルパラメータ
     pub parameters: HashMap<String, KernelParameter>,
 }
 
@@ -52,11 +62,23 @@ pub struct KernelConfig {
 /// カーネルパラメータタイプ
 #[derive(Debug, Clone)]
 pub enum KernelParameter {
+    /// Integer parameter
+    /// 整数パラメータ
     Int(i32),
+    /// Float parameter
+    /// 浮動小数点パラメータ
     Float(f32),
+    /// Boolean parameter
+    /// 真偽値パラメータ
     Bool(bool),
+    /// String parameter
+    /// 文字列パラメータ
     String(String),
+    /// Integer array parameter
+    /// 整数配列パラメータ
     IntArray(Vec<i32>),
+    /// Float array parameter
+    /// 浮動小数点配列パラメータ
     FloatArray(Vec<f32>),
 }
 
@@ -71,10 +93,20 @@ pub struct CustomKernelManager {
 /// コンパイル済みカーネル表現
 #[derive(Debug)]
 pub struct CompiledKernel {
+    /// Type of the compiled kernel
+    /// コンパイル済みカーネルのタイプ
     pub kernel_type: CustomKernelType,
+    /// Source code of the kernel
+    /// カーネルのソースコード
     pub source_code: String,
+    /// Compiled binary data
+    /// コンパイル済みバイナリデータ
     pub binary_data: Vec<u8>,
+    /// Kernel entry point function name
+    /// カーネルエントリポイント関数名
     pub entry_point: String,
+    /// Time when the kernel was compiled
+    /// カーネルがコンパイルされた時刻
     pub compilation_time: std::time::Instant,
 }
 
@@ -128,9 +160,9 @@ impl CustomKernelManager {
         })?;
 
         match self.device_type {
-            DeviceType::Cuda => self.execute_cuda_kernel(kernel, inputs, outputs, config),
-            DeviceType::Metal => self.execute_metal_kernel(kernel, inputs, outputs, config),
-            DeviceType::OpenCL => self.execute_opencl_kernel(kernel, inputs, outputs, config),
+            DeviceType::Cuda(_) => self.execute_cuda_kernel(kernel, inputs, outputs, config),
+            DeviceType::Metal(_) => self.execute_metal_kernel(kernel, inputs, outputs, config),
+            DeviceType::OpenCL(_) => self.execute_opencl_kernel(kernel, inputs, outputs, config),
             DeviceType::Cpu => Err(GpuError::UnsupportedOperation(
                 "Custom kernels not supported on CPU".to_string()
             )),
@@ -159,16 +191,18 @@ impl CustomKernelManager {
             .and_then(|p| if let KernelParameter::IntArray(arr) = p { Some(arr) } else { None })
             .ok_or_else(|| GpuError::KernelError("Missing kernel_size parameter".to_string()))?;
 
+        let default_stride = vec![1, 1];
         let stride = config.parameters.get("stride")
             .and_then(|p| if let KernelParameter::IntArray(arr) = p { Some(arr) } else { None })
-            .unwrap_or(&vec![1, 1]);
+            .unwrap_or(&default_stride);
 
+        let default_padding = vec![0, 0];
         let padding = config.parameters.get("padding")
             .and_then(|p| if let KernelParameter::IntArray(arr) = p { Some(arr) } else { None })
-            .unwrap_or(&vec![0, 0]);
+            .unwrap_or(&default_padding);
 
         match self.device_type {
-            DeviceType::Cuda => Ok(format!(r#"
+            DeviceType::Cuda(_) => Ok(format!(r#"
 extern "C" __global__ void optimized_convolution(
     const float* input,
     const float* kernel,
@@ -251,7 +285,7 @@ extern "C" __global__ void optimized_convolution(
                 stride[0], padding[0], stride[1], padding[1]
             )),
             
-            DeviceType::Metal => Ok(format!(r#"
+            DeviceType::Metal(_) => Ok(format!(r#"
 #include <metal_stdlib>
 using namespace metal;
 
@@ -331,12 +365,12 @@ kernel void optimized_convolution(
             .and_then(|p| if let KernelParameter::Int(val) = p { Some(*val) } else { None })
             .unwrap_or(64);
 
-        let num_heads = config.parameters.get("num_heads")
+        let _num_heads = config.parameters.get("num_heads")
             .and_then(|p| if let KernelParameter::Int(val) = p { Some(*val) } else { None })
             .unwrap_or(8);
 
         match self.device_type {
-            DeviceType::Cuda => Ok(format!(r#"
+            DeviceType::Cuda(_) => Ok(format!(r#"
 extern "C" __global__ void fused_attention(
     const float* query,
     const float* key,
@@ -552,10 +586,20 @@ extern "C" __global__ void fused_attention(
 /// カーネルパフォーマンス統計
 #[derive(Debug)]
 pub struct KernelStats {
+    /// Type of the kernel
+    /// カーネルのタイプ
     pub kernel_type: CustomKernelType,
+    /// Time taken to compile the kernel
+    /// カーネルのコンパイル時間
     pub compilation_time: std::time::Duration,
+    /// Size of the compiled binary in bytes
+    /// コンパイル済みバイナリのサイズ（バイト）
     pub binary_size: usize,
+    /// Number of times the kernel has been executed
+    /// カーネルが実行された回数
     pub execution_count: u64,
+    /// Total time spent executing the kernel
+    /// カーネルの実行に費やされた総時間
     pub total_execution_time: std::time::Duration,
 }
 

@@ -3,6 +3,7 @@
 
 pub mod dataloader;
 pub mod parallel_dataloader;
+pub mod unified_data;
 
 use crate::tensor::Tensor;
 use num_traits::Float;

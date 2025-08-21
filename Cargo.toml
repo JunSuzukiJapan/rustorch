@@ -60,6 +60,9 @@ cuda = ["dep:cudarc", "dep:bindgen", "dep:cc"]  # NVIDIA CUDA with cuBLAS integr
 metal = ["dep:metal", "dep:objc"]               # Apple Metal Performance Shaders
 opencl = ["dep:opencl3"]                        # Cross-platform OpenCL kernels
 all-gpu = ["cuda", "metal", "opencl"]           # Enable all GPU backends
+# Distributed learning features
+nccl = []                                       # NVIDIA NCCL for multi-GPU communication
+mpi = []                                        # MPI for distributed training
 
 [[bench]]
 name = "tensor_ops"
