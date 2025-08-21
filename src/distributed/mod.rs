@@ -153,6 +153,21 @@ pub enum DistributedError {
     /// GPU error in distributed context
     /// 分散コンテキストでのGPUエラー
     GpuError(GpuError),
+    /// Tensor shape mismatch in distributed operation
+    /// 分散操作でのテンソル形状不一致
+    TensorShapeMismatch { expected: Vec<usize>, actual: Vec<usize> },
+    /// Invalid rank specified
+    /// 無効なランク指定
+    InvalidRank { rank: usize, world_size: usize },
+    /// Timeout in distributed operation
+    /// 分散操作でのタイムアウト
+    OperationTimeout { operation: String, timeout_ms: u64 },
+    /// Network connection error
+    /// ネットワーク接続エラー
+    NetworkError(String),
+    /// Serialization/deserialization error
+    /// シリアライゼーション/デシリアライゼーションエラー
+    SerializationError(String),
 }
 
 impl std::fmt::Display for DistributedError {
@@ -164,6 +179,17 @@ impl std::fmt::Display for DistributedError {
             DistributedError::ClusterError(msg) => write!(f, "Cluster error: {}", msg),
             DistributedError::ProcessGroupError(msg) => write!(f, "Process group error: {}", msg),
             DistributedError::GpuError(err) => write!(f, "GPU error in distributed context: {}", err),
+            DistributedError::TensorShapeMismatch { expected, actual } => {
+                write!(f, "Tensor shape mismatch: expected {:?}, got {:?}", expected, actual)
+            },
+            DistributedError::InvalidRank { rank, world_size } => {
+                write!(f, "Invalid rank {} for world size {}", rank, world_size)
+            },
+            DistributedError::OperationTimeout { operation, timeout_ms } => {
+                write!(f, "Operation '{}' timed out after {}ms", operation, timeout_ms)
+            },
+            DistributedError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            DistributedError::SerializationError(msg) => write!(f, "Serialization error: {}", msg),
         }
     }
 }
@@ -353,11 +379,13 @@ pub fn finalize() -> DistributedResult<()> {
 
 /// Data parallel training module
 /// データ並列学習モジュール
+pub mod backends;
 pub mod data_parallel;
 pub mod model_parallel;
-pub mod backends;
 pub mod optimizer;
 pub mod cluster;
+pub mod common;
+pub mod performance;
 
 #[cfg(test)]
 mod tests {
