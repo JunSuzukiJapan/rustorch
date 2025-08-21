@@ -139,6 +139,9 @@ pub mod simd;
 /// GPU加速サポート（CUDA、Metal、OpenCL）
 pub mod gpu;
 pub mod models;
+/// Distributed training support for multi-GPU and multi-machine training
+/// マルチGPUおよびマルチマシン学習用分散学習サポート
+pub mod distributed;
 
 /// Re-exports of commonly used items
 pub mod prelude {
