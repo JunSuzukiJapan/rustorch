@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use rustorch::tensor::Tensor;
-use rustorch::simd::vectorized;
+use rustorch::tensor::simd_avx512::*;
 use rustorch::data::{TensorDataset, DataLoader, ParallelDataLoader};
 use std::time::Instant;
 
@@ -34,7 +34,13 @@ fn bench_simd_operations(c: &mut Criterion) {
             &size,
             |bench, _| {
                 bench.iter(|| {
-                    vectorized::add_f32_avx2(black_box(&a), black_box(&b), black_box(&mut result));
+                    if is_avx512_available() {
+                        add_f32_avx512(black_box(&a), black_box(&b), black_box(&mut result));
+                    } else {
+                        for i in 0..a.len() {
+                            result[i] = a[i] + b[i];
+                        }
+                    }
                 })
             },
         );
@@ -58,7 +64,13 @@ fn bench_simd_operations(c: &mut Criterion) {
             &size,
             |bench, _| {
                 bench.iter(|| {
-                    vectorized::mul_f32_avx2(black_box(&a), black_box(&b), black_box(&mut result));
+                    if is_avx512_available() {
+                        mul_f32_avx512(black_box(&a), black_box(&b), black_box(&mut result));
+                    } else {
+                        for i in 0..a.len() {
+                            result[i] = a[i] * b[i];
+                        }
+                    }
                 })
             },
         );
@@ -165,7 +177,7 @@ fn bench_batch_processing(c: &mut Criterion) {
                     use rayon::prelude::*;
                     let _results: Vec<f32> = black_box(&batch_tensors).par_iter()
                         .map(|tensor| {
-                            vectorized::sum_f32_avx2(black_box(tensor))
+                            tensor.sum()
                         })
                         .collect();
                 })
@@ -207,7 +219,7 @@ fn bench_data_loading(c: &mut Criterion) {
             &dataset_size,
             |bench, _| {
                 bench.iter(|| {
-                    let dataloader = DataLoader::new(dataset, batch_size, true);
+                    let dataloader = DataLoader::new(dataset.clone(), batch_size, true);
                     let mut batch_count = 0;
                     for _batch in dataloader {
                         batch_count += 1;
@@ -224,7 +236,7 @@ fn bench_data_loading(c: &mut Criterion) {
             |bench, _| {
                 bench.iter(|| {
                     let dataloader = ParallelDataLoader::new(
-                        dataset,
+                        dataset.clone(),
                         batch_size,
                         4, // num_workers
                         true, // shuffle
@@ -269,7 +281,7 @@ fn bench_memory_allocation(c: &mut Criterion) {
             |bench, _| {
                 bench.iter(|| {
                     let shape = vec![size];
-                    let _tensor = Tensor::<f32>::with_pool(black_box(&shape));
+                    let _tensor = Tensor::<f32>::zeros(black_box(&shape));
                 })
             },
         );
@@ -298,7 +310,13 @@ fn comprehensive_performance_test() {
     
     // SIMD addition
     let start = Instant::now();
-    vectorized::add_f32_avx2(&a, &b, &mut result);
+    if is_avx512_available() {
+        add_f32_avx512(&a, &b, &mut result);
+    } else {
+        for i in 0..a.len() {
+            result[i] = a[i] + b[i];
+        }
+    }
     let simd_time = start.elapsed();
     
     let speedup = regular_time.as_nanos() as f64 / simd_time.as_nanos() as f64;
