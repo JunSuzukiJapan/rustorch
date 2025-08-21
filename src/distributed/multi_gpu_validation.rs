@@ -193,8 +193,8 @@ where
             devices.push(GpuDeviceInfo {
                 device_id: 0,
                 name: "CPU".to_string(),
-                total_memory: 8 * 1024 * 1024 * 1024, // 8GB assumed
-                available_memory: 4 * 1024 * 1024 * 1024, // 4GB assumed
+                total_memory: 8 * 1_073_741_824, // 8GB (8 * 1024^3)
+                available_memory: 4 * 1_073_741_824, // 4GB (4 * 1024^3)
                 compute_capability: None,
                 device_type: DeviceType::Cpu,
                 is_available: true,

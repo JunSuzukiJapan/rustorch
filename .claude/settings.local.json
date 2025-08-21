@@ -17,7 +17,12 @@
       "Bash(timeout 30s cargo test:*)",
       "Bash(rustdoc:*)",
       "Bash(find:*)",
-      "Bash(RUST_BACKTRACE=1 cargo test --doc)"
+      "Bash(RUST_BACKTRACE=1 cargo test --doc)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(./build_wasm.sh:*)",
+      "Bash(wasm-pack build:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

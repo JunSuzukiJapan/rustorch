@@ -126,15 +126,19 @@ pub mod optim;
 pub mod data;
 /// GPU acceleration support (CUDA, Metal, OpenCL)
 /// GPU加速サポート（CUDA、Metal、OpenCL）
+#[cfg(not(target_arch = "wasm32"))]
 pub mod gpu;
 /// Distributed training support for multi-GPU and multi-machine training
 /// マルチGPUおよびマルチマシン学習用分散学習サポート
+#[cfg(not(target_arch = "wasm32"))]
 pub mod distributed;
 /// Memory management and pooling utilities
 /// メモリ管理とプーリングユーティリティ
+#[cfg(not(target_arch = "wasm32"))]
 pub mod memory;
 /// SIMD vectorized operations for performance optimization
 /// パフォーマンス最適化のためのSIMDベクトル化操作
+#[cfg(not(target_arch = "wasm32"))]
 pub mod simd;
 /// Utility functions
 /// ユーティリティ関数
@@ -142,6 +146,17 @@ pub mod utils;
 /// Pre-built models and architectures
 /// 事前構築モデルとアーキテクチャ
 pub mod models;
+
+
+/// WebAssembly support and bindings
+/// WebAssemblyサポートとバインディング
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+/// Simple WebAssembly support for basic operations
+/// 基本操作のためのシンプルなWebAssemblyサポート
+#[cfg(feature = "wasm")]
+pub mod wasm_simple;
 
 /// Re-exports of commonly used items
 pub mod prelude {

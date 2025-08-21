@@ -1,0 +1,32 @@
+{
+  "name": "rustorch-wasm-examples",
+  "version": "1.0.0",
+  "description": "WebAssembly examples for RusTorch deep learning library",
+  "type": "module",
+  "scripts": {
+    "build-wasm": "wasm-pack build --target web --out-dir pkg",
+    "build-wasm-node": "wasm-pack build --target nodejs --out-dir pkg-node",
+    "serve": "python -m http.server 8000 || python3 -m http.server 8000",
+    "demo": "node wasm_neural_network.js",
+    "test": "node test.js"
+  },
+  "keywords": [
+    "rust",
+    "webassembly",
+    "machine-learning",
+    "neural-networks",
+    "tensor",
+    "deep-learning"
+  ],
+  "author": "RusTorch",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "wasm-pack": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

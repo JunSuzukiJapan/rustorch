@@ -69,9 +69,11 @@
 use ndarray::{ArrayD, ArrayViewD, IxDyn, Ix1, Ix2};
 // use rayon::prelude::*;
 use num_traits::Float;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::memory::{get_f32_pool, get_f64_pool};
 use std::{fmt, ops};
 
+#[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
 pub mod parallel_errors;
 pub mod parallel_traits;
@@ -82,10 +84,15 @@ pub mod parallel_ops;
 
 /// Parallel tensor operations for batch processing and SIMD acceleration
 /// バッチ処理とSIMD加速のための並列テンソル操作
+#[cfg(not(target_arch = "wasm32"))]
 pub mod simd_integration;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod simd_aligned;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod simd_avx512;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod advanced_memory;
+#[cfg(not(target_arch = "wasm32"))]
 pub mod gpu_parallel;
 // Enable modules step by step
 mod math_ops;
@@ -147,15 +154,18 @@ impl<T: Float + 'static> Tensor<T> {
     /// Creates a tensor filled with zeros using memory pool.
     /// メモリプールを使用してゼロで埋められたテンソルを作成します。
     pub fn zeros(shape: &[usize]) -> Self {
-        if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
-            if let Ok(mut pool) = get_f32_pool().lock() {
-                let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
-                return Tensor { data };
-            }
-        } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
-            if let Ok(mut pool) = get_f64_pool().lock() {
-                let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
-                return Tensor { data };
+#[cfg(not(target_arch = "wasm32"))]
+        {
+            if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+                if let Ok(mut pool) = get_f32_pool().lock() {
+                    let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
+                    return Tensor { data };
+                }
+            } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+                if let Ok(mut pool) = get_f64_pool().lock() {
+                    let data = unsafe { std::mem::transmute(pool.allocate(shape)) };
+                    return Tensor { data };
+                }
             }
         }
         

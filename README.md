@@ -46,6 +46,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **高度メモリ管理**: ゼロコピー操作、SIMDアライメント割り当て、メモリプール
 - 🛡️ **Rust Safety**: Memory safety and thread safety guarantees  
   **Rust安全性**: メモリ安全性とスレッドセーフティを保証
+- 🌐 **WebAssembly Support**: Browser-compatible WASM bindings for client-side ML  
+  **WebAssemblyサポート**: クライアントサイドML向けブラウザ互換WASMバインディング
 - ✅ **Production Ready**: All 251 tests passing, fully functional library with complete GPU acceleration  
   **本番環境対応**: 251個全テスト合格、完全GPU加速対応の完全機能ライブラリ
 
@@ -210,6 +212,88 @@ fn main() {
 }
 ```
 
+### WebAssembly Support / WebAssemblyサポート
+
+```javascript
+// Browser usage / ブラウザでの使用
+import init, * as rustorch from './pkg/rustorch.js';
+
+async function main() {
+    // Initialize WASM / WASMを初期化
+    await init();
+    
+    // Create tensors / テンソルを作成
+    const interop = new rustorch.JsInterop();
+    const shape = new Array(2, 2);
+    const tensor1 = interop.ones(shape);
+    const tensor2 = interop.random_tensor(shape, 0.0, 1.0);
+    
+    // Tensor operations / テンソル操作
+    const sum = tensor1.add(tensor2);
+    const relu = tensor1.relu();
+    
+    // Neural network / ニューラルネットワーク
+    const model = new rustorch.WasmModel();
+    model.add_linear(4, 8, true);  // 4 inputs, 8 outputs
+    model.add_relu();
+    model.add_linear(8, 1, true);  // Output layer
+    
+    const input = new rustorch.WasmTensor([1.0, 0.5, -0.3, 0.8], [1, 4]);
+    const output = model.forward(input);
+    
+    console.log('Neural network output:', output.data);
+    
+    // Performance monitoring / パフォーマンス監視
+    const runtime = new rustorch.JsRuntime();
+    const memoryManager = new rustorch.JsMemoryManager();
+    
+    console.log('Memory usage:', memoryManager.get_memory_usage_mb(), 'MB');
+    console.log('Operations:', runtime.get_operations_count());
+}
+
+main();
+```
+
+```html
+<!-- HTML Integration / HTML統合 -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RusTorch WASM Demo</title>
+</head>
+<body>
+    <script type="module">
+        import init, * as rustorch from './pkg/rustorch.js';
+        
+        init().then(() => {
+            // Run neural network in browser
+            // ブラウザでニューラルネットワークを実行
+            const model = new rustorch.WasmModel();
+            // ... model setup and inference
+        });
+    </script>
+</body>
+</html>
+```
+
+### Building for WebAssembly / WebAssembly向けビルド
+
+```bash
+# Install wasm-pack / wasm-packをインストール
+curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+# Build for web / Web向けビルド
+wasm-pack build --target web --features wasm
+
+# Build for Node.js / Node.js向けビルド
+wasm-pack build --target nodejs --features wasm
+
+# Run examples / 例を実行
+cd examples
+python -m http.server 8000
+# Open http://localhost:8000/wasm_basic.html
+```
+
 ## 🏗️ Architecture / アーキテクチャ
 
 ```
@@ -245,6 +329,12 @@ src/
 │   ├── metal_kernels.rs  # Metal Performance Shaders / Metal Performance Shaders
 │   ├── opencl_kernels.rs # OpenCL cross-platform kernels / OpenCLクロスプラットフォームカーネル
 │   └── validation.rs     # GPU kernel validation framework / GPUカーネル検証フレームワーク
+├── wasm/            # WebAssembly support / WebAssemblyサポート
+│   ├── tensor.rs    # WASM tensor operations / WASMテンソル演算
+│   ├── bindings.rs  # Neural network bindings / ニューラルネットワークバインディング
+│   ├── interop.rs   # JavaScript interoperability / JavaScript相互運用
+│   ├── memory.rs    # WASM memory management / WASMメモリ管理
+│   └── runtime.rs   # WASM runtime optimization / WASMランタイム最適化
 ├── optim/           # Optimization algorithms / 最適化アルゴリズム
 └── data/            # Data loaders / データローダー
 ```

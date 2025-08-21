@@ -193,7 +193,7 @@ impl<T: Float + 'static + Send + Sync> Tensor<T> {
         F: Fn(T) -> T + Sync + Send,
     {
         let mut result = self.data.clone();
-        result.par_mapv_inplace(func);
+        result.mapv_inplace(func);
         Tensor::new(result)
     }
 
@@ -203,7 +203,7 @@ impl<T: Float + 'static + Send + Sync> Tensor<T> {
         let mut result = self.data.clone();
         Zip::from(&mut result)
             .and(&other.data)
-            .par_for_each(|a, &b| {
+            .for_each(|a, &b| {
                 if b > *a {
                     *a = b;
                 }
@@ -217,7 +217,7 @@ impl<T: Float + 'static + Send + Sync> Tensor<T> {
         let mut result = self.data.clone();
         Zip::from(&mut result)
             .and(&other.data)
-            .par_for_each(|a, &b| {
+            .for_each(|a, &b| {
                 if b < *a {
                     *a = b;
                 }

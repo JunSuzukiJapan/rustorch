@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>RusTorch WASM Basic Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .output {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 3px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>RusTorch WebAssembly Basic Example</h1>
+    
+    <div class="container">
+        <h2>Tensor Operations</h2>
+        <button onclick="testBasicTensorOps()">Test Basic Tensor Operations</button>
+        <button onclick="testMatrixMultiplication()">Test Matrix Multiplication</button>
+        <button onclick="testActivationFunctions()">Test Activation Functions</button>
+        <div id="tensorOutput" class="output"></div>
+    </div>
+
+    <div class="container">
+        <h2>Neural Network</h2>
+        <button onclick="testNeuralNetwork()">Test Neural Network</button>
+        <button onclick="testLoss()">Test Loss Function</button>
+        <div id="networkOutput" class="output"></div>
+    </div>
+
+    <div class="container">
+        <h2>Performance & Memory</h2>
+        <button onclick="testPerformance()">Run Performance Benchmark</button>
+        <button onclick="testMemory()">Check Memory Usage</button>
+        <button onclick="garbageCollect()">Garbage Collect</button>
+        <div id="performanceOutput" class="output"></div>
+    </div>
+
+    <div class="container">
+        <h2>System Information</h2>
+        <button onclick="getSystemInfo()">Get System Information</button>
+        <div id="systemOutput" class="output"></div>
+    </div>
+
+    <script type="module">
+        import init, * as rustorch from './pkg/rustorch.js';
+        
+        let initialized = false;
+        window.rustorchModule = null;
+
+        async function initWasm() {
+            try {
+                await init();
+                window.rustorchModule = rustorch;
+                initialized = true;
+                console.log('RusTorch WASM initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize WASM:', error);
+                alert('Failed to initialize WASM. Please make sure the WASM files are available.');
+            }
+        }
+
+        // Initialize on page load
+        initWasm();
+
+        function requireInit() {
+            if (!initialized || !window.rustorchModule) {
+                alert('WASM not yet initialized. Please wait and try again.');
+                return false;
+            }
+            return true;
+        }
+
+        // Test basic tensor operations
+        window.testBasicTensorOps = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('tensorOutput');
+            try {
+                const interop = new window.rustorchModule.JsInterop();
+                
+                // Create tensors
+                const shape = new Array(2, 2);
+                const tensor1 = interop.ones(shape);
+                const tensor2 = interop.random_tensor(shape, 0.0, 1.0);
+                
+                // Test addition
+                const sum = tensor1.add(tensor2);
+                
+                // Test element-wise multiplication
+                const product = tensor1.multiply(tensor2);
+                
+                // Log tensor information
+                interop.log_tensor(tensor1, "ones");
+                interop.log_tensor(tensor2, "random");
+                interop.log_tensor(sum, "sum");
+                interop.log_tensor(product, "product");
+                
+                output.textContent = `✓ Basic tensor operations completed successfully!
+                
+Tensor1 (ones): ${Array.from(tensor1.data)}
+Tensor2 (random): ${Array.from(tensor2.data).map(x => x.toFixed(3))}
+Sum: ${Array.from(sum.data).map(x => x.toFixed(3))}
+Product: ${Array.from(product.data).map(x => x.toFixed(3))}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Tensor operations error:', error);
+            }
+        };
+
+        // Test matrix multiplication
+        window.testMatrixMultiplication = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('tensorOutput');
+            try {
+                // Create 2x2 matrices
+                const tensor1 = new window.rustorchModule.WasmTensor([1, 2, 3, 4], [2, 2]);
+                const tensor2 = new window.rustorchModule.WasmTensor([5, 6, 7, 8], [2, 2]);
+                
+                // Matrix multiplication
+                const result = tensor1.matmul(tensor2);
+                
+                output.textContent = `✓ Matrix multiplication completed!
+                
+Matrix A (2x2): [1, 2]
+                [3, 4]
+                
+Matrix B (2x2): [5, 6]
+                [7, 8]
+                
+Result A×B:     ${Array.from(result.data)}
+Expected:       [19, 22, 43, 50]`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Matrix multiplication error:', error);
+            }
+        };
+
+        // Test activation functions
+        window.testActivationFunctions = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('tensorOutput');
+            try {
+                const tensor = new window.rustorchModule.WasmTensor([-2, -1, 0, 1, 2], [5]);
+                
+                const relu = tensor.relu();
+                const sigmoid = tensor.sigmoid();
+                
+                output.textContent = `✓ Activation functions tested!
+                
+Input:   ${Array.from(tensor.data)}
+ReLU:    ${Array.from(relu.data)}
+Sigmoid: ${Array.from(sigmoid.data).map(x => x.toFixed(3))}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Activation functions error:', error);
+            }
+        };
+
+        // Test neural network
+        window.testNeuralNetwork = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('networkOutput');
+            try {
+                // Create a simple neural network
+                const model = new window.rustorchModule.WasmModel();
+                model.add_linear(4, 8, true);  // Input layer
+                model.add_relu();              // Activation
+                model.add_linear(8, 1, true);  // Output layer
+                
+                // Create input tensor
+                const input = new window.rustorchModule.WasmTensor([1.0, 0.5, -0.3, 0.8], [1, 4]);
+                
+                // Forward pass
+                const result = model.forward(input);
+                
+                output.textContent = `✓ Neural network forward pass completed!
+                
+Network architecture: 4 → 8 (ReLU) → 1
+Input:  ${Array.from(input.data)}
+Output: ${Array.from(result.data).map(x => x.toFixed(4))}
+Layers: ${model.num_layers()}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Neural network error:', error);
+            }
+        };
+
+        // Test loss function
+        window.testLoss = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('networkOutput');
+            try {
+                const loss = new window.rustorchModule.WasmMSELoss();
+                
+                const predictions = new window.rustorchModule.WasmTensor([1.0, 2.0, 3.0], [3]);
+                const targets = new window.rustorchModule.WasmTensor([1.2, 1.8, 2.9], [3]);
+                
+                const mse = loss.compute(predictions, targets);
+                
+                output.textContent = `✓ MSE Loss calculated!
+                
+Predictions: ${Array.from(predictions.data)}
+Targets:     ${Array.from(targets.data)}
+MSE Loss:    ${mse.toFixed(6)}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Loss function error:', error);
+            }
+        };
+
+        // Test performance benchmark
+        window.testPerformance = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('performanceOutput');
+            try {
+                const interop = new window.rustorchModule.JsInterop();
+                const runtime = new window.rustorchModule.JsRuntime();
+                
+                // Run benchmark
+                const iterations = 100;
+                const results = interop.benchmark_operations(iterations);
+                
+                const memoryUsage = runtime.get_memory_usage();
+                const operationsCount = runtime.get_operations_count();
+                const avgTime = runtime.get_average_operation_time();
+                
+                output.textContent = `✓ Performance benchmark completed!
+                
+Iterations: ${iterations}
+Matrix Multiplication: ${results.matmulTimeMs.toFixed(2)} ms
+Element-wise Addition: ${results.addTimeMs.toFixed(2)} ms
+ReLU Activation:       ${results.reluTimeMs.toFixed(2)} ms
+Operations/second:     ${results.operationsPerSecond.toFixed(0)}
+
+Runtime Statistics:
+Memory Usage:          ${memoryUsage} bytes
+Total Operations:      ${operationsCount}
+Avg Operation Time:    ${avgTime.toFixed(3)} ms`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Performance benchmark error:', error);
+            }
+        };
+
+        // Test memory usage
+        window.testMemory = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('performanceOutput');
+            try {
+                const memory = new window.rustorchModule.JsMemoryManager();
+                
+                const usage = memory.get_memory_usage();
+                const usageMb = memory.get_memory_usage_mb();
+                const utilization = memory.get_memory_utilization();
+                const fragmentation = memory.get_fragmentation_ratio();
+                const isCritical = memory.is_memory_critical();
+                const recommendations = memory.get_memory_recommendations();
+                
+                output.textContent = `✓ Memory status retrieved!
+                
+Memory Usage:      ${usage} bytes (${usageMb.toFixed(2)} MB)
+Utilization:       ${utilization.toFixed(1)}%
+Fragmentation:     ${fragmentation.toFixed(3)}
+Critical Level:    ${isCritical ? '⚠️ YES' : '✅ NO'}
+
+Recommendations: ${recommendations}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Memory test error:', error);
+            }
+        };
+
+        // Trigger garbage collection
+        window.garbageCollect = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('performanceOutput');
+            try {
+                const memory = new window.rustorchModule.JsMemoryManager();
+                const freedBytes = memory.garbage_collect();
+                
+                output.textContent = `✓ Garbage collection completed!
+                
+Freed memory: ${freedBytes} bytes (${(freedBytes / 1024 / 1024).toFixed(2)} MB)`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('Garbage collection error:', error);
+            }
+        };
+
+        // Get system information
+        window.getSystemInfo = function() {
+            if (!requireInit()) return;
+            
+            const output = document.getElementById('systemOutput');
+            try {
+                const interop = new window.rustorchModule.JsInterop();
+                const info = interop.get_system_info();
+                
+                output.textContent = `✓ System information retrieved!
+                
+Runtime:             ${info.runtime}
+Architecture:        ${info.architecture}
+Memory Usage:        ${info.memoryUsage} bytes
+Total Operations:    ${info.totalOperations}
+Total Time:          ${info.totalTime} ms
+User Agent:          ${info.userAgent}
+Hardware Threads:    ${info.hardwareConcurrency}`;
+                
+            } catch (error) {
+                output.textContent = `❌ Error: ${error.message}`;
+                console.error('System info error:', error);
+            }
+        };
+    </script>
+</body>
+</html>

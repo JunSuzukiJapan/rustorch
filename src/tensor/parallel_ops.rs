@@ -402,7 +402,17 @@ impl Tensor<f32> {
                 .zip(result_slice.par_chunks_mut(CHUNK_SIZE))
                 .for_each(|((a_chunk, b_chunk), r_chunk)| {
                     // Use SIMD operations for each chunk
-                    crate::simd::ops::add_optimized(a_chunk, b_chunk, r_chunk);
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        crate::simd::ops::add_optimized(a_chunk, b_chunk, r_chunk);
+                    }
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        // Fallback for WASM
+                        for ((a_elem, b_elem), r_elem) in a_chunk.iter().zip(b_chunk.iter()).zip(r_chunk.iter_mut()) {
+                            *r_elem = *a_elem + *b_elem;
+                        }
+                    }
                 });
         }
         
@@ -444,11 +454,27 @@ impl Tensor<f32> {
                 let mut batch_result = vec![0.0f32; m * n];
                 
                 // Use SIMD-optimized matrix multiplication
-                crate::simd::ops::matmul_optimized(
-                    self_batch, m, k,
-                    other_batch, k, n,
-                    &mut batch_result
-                );
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    crate::simd::ops::matmul_optimized(
+                        self_batch, m, k,
+                        other_batch, k, n,
+                        &mut batch_result
+                    );
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    // Fallback for WASM: simple matrix multiplication
+                    for i in 0..m {
+                        for j in 0..n {
+                            let mut sum = 0.0f32;
+                            for p in 0..k {
+                                sum += self_batch[i * k + p] * other_batch[p * n + j];
+                            }
+                            batch_result[i * n + j] = sum;
+                        }
+                    }
+                }
                 
                 batch_result
             }).collect();

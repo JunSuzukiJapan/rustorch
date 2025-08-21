@@ -1,15 +1,30 @@
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use std::arch::x86_64::*;
 
 /// Check if AVX2 is available on the current CPU
 /// 現在のCPUでAVX2が利用可能かチェック
 pub fn is_avx2_available() -> bool {
-    is_x86_feature_detected!("avx2")
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        is_x86_feature_detected!("avx2")
+    }
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        false
+    }
 }
 
 /// Check if SSE4.1 is available on the current CPU
 /// 現在のCPUでSSE4.1が利用可能かチェック
 pub fn is_sse41_available() -> bool {
-    is_x86_feature_detected!("sse4.1")
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        is_x86_feature_detected!("sse4.1")
+    }
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    {
+        false
+    }
 }
 
 /// SIMD-optimized matrix multiplication for f32
@@ -24,11 +39,18 @@ pub fn matmul_f32_simd(
     assert_eq!(b.len(), b_rows * b_cols);
     assert_eq!(c.len(), a_rows * b_cols);
 
-    if is_avx2_available() {
-        unsafe { matmul_f32_avx2(a, a_rows, a_cols, b, b_rows, b_cols, c) }
-    } else if is_sse41_available() {
-        unsafe { matmul_f32_sse41(a, a_rows, a_cols, b, b_rows, b_cols, c) }
-    } else {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_avx2_available() {
+            unsafe { matmul_f32_avx2(a, a_rows, a_cols, b, b_rows, b_cols, c) }
+        } else if is_sse41_available() {
+            unsafe { matmul_f32_sse41(a, a_rows, a_cols, b, b_rows, b_cols, c) }
+        } else {
+            matmul_f32_scalar(a, a_rows, a_cols, b, b_rows, b_cols, c)
+        }
+    }
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    {
         matmul_f32_scalar(a, a_rows, a_cols, b, b_rows, b_cols, c)
     }
 }

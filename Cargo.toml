@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.3.1"
+version = "0.3.3"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, comprehensive distributed learning support, and performance validation"
@@ -15,91 +15,94 @@ categories = ["science", "algorithms"]
 [lib]
 name = "rustorch"
 path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Core dependencies
-ndarray = { version = "0.15", features = ["rayon"] }
+ndarray = "0.15"
 ndarray-rand = "0.14"
-# blas-src = { version = "0.8", features = ["openblas"] }
-# lapack-src = { version = "0.8", features = ["openblas"] }
+num-traits = "0.2"
 rand = "0.8"
 rand_distr = "0.4"
-num-traits = "0.2"
-num-complex = "0.4"
+rayon = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
-rayon = "1.7"
+approx = "0.5"
 lazy_static = "1.4"
+parking_lot = "0.12"
+chrono = "0.4"
 
-# Parallel processing
-parking_lot = "0.12"  # For thread-safe locks
+# WebAssembly dependencies
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["console"] }
+js-sys = { version = "0.3", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
 
-# Math and utilities
-itertools = "0.10"  # For advanced iteration utilities
-approx = "0.5"  # For floating point comparisons
-
-# For GPU support (optional)
-cudarc = { version = "0.11", features = ["driver", "cublas", "curand"], optional = true }
-bindgen = { version = "0.69", optional = true }
-cc = { version = "1.0", optional = true }
-metal = { version = "0.29", optional = true }
-objc = { version = "0.2", optional = true }
-opencl3 = { version = "0.9", optional = true }
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["js"] }
+instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 [dev-dependencies]
-# Testing
-rstest = "0.13"
 criterion = "0.5"
 
 [features]
-default = ["cpu"]
-cpu = []
-# GPU acceleration backends (production-ready)
-cuda = ["dep:cudarc", "dep:bindgen", "dep:cc"]  # NVIDIA CUDA with cuBLAS integration
-metal = ["dep:metal", "dep:objc"]               # Apple Metal Performance Shaders
-opencl = ["dep:opencl3"]                        # Cross-platform OpenCL kernels
-all-gpu = ["cuda", "metal", "opencl"]           # Enable all GPU backends
-# Distributed learning features
-nccl = []                                       # NVIDIA NCCL for multi-GPU communication
-mpi = []                                        # MPI for distributed training
+default = []
+cuda = []
+opencl = []
+metal = []
+mpi = []
+nccl = []
+wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 
-[[bench]]
-name = "tensor_ops"
-harness = false
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
 
-[[bench]]
-name = "autograd_ops"
-harness = false
+# WebAssembly optimizations
+[profile.wasm]
+inherits = "release"
+opt-level = "z"  # Optimize for size
+lto = true
+panic = "abort"
 
-[[bench]]
-name = "neural_networks"
-harness = false
+[[example]]
+name = "linear_model"
+path = "examples/linear_model.rs"
 
-[[bench]]
-name = "optimized_ops"
-harness = false
+[[example]]
+name = "autograd_demo"
+path = "examples/autograd_demo.rs"
 
-[[bench]]
-name = "parallel_ops"
-harness = false
+[[example]]
+name = "cnn_demo"
+path = "examples/cnn_demo.rs"
 
-[[bench]]
-name = "memory_pool"
-harness = false
+[[example]]
+name = "rnn_demo"
+path = "examples/rnn_demo.rs"
 
-# New comprehensive benchmark suites
+[[example]]
+name = "transformer_demo"
+path = "examples/transformer_demo.rs"
+
+[[example]]
+name = "simd_demo"
+path = "examples/simd_demo.rs"
+
+[[example]]
+name = "gpu_acceleration"
+path = "examples/gpu_acceleration.rs"
+
+[[example]]
+name = "distributed_training"
+path = "examples/distributed_training.rs"
+
+[[example]]
+name = "memory_optimization"
+path = "examples/memory_optimization.rs"
 
 
-
-[[bench]]
-name = "gpu_cpu_performance"
-harness = false
-
-[[bench]]
-name = "integrated_performance"
-harness = false
-
-[[bench]]
-name = "gpu_kernel_performance"
-harness = false
+[package.metadata.docs.rs]
+features = ["cuda", "opencl", "metal", "mpi", "nccl"]
