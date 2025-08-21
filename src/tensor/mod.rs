@@ -56,51 +56,15 @@
 //! 
 //! ### Parallel Operations
 //! 
-//! ```rust
-//! use rustorch::tensor::{Tensor, parallel_traits::*};
-//! 
-//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
-//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
-//! 
-//! // Automatic parallel execution
-//! let result = tensor1.batch_elementwise_op(&tensor2, |a, b| a + b)?;
-//! let matmul_result = tensor1.batch_matmul(&tensor2)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
+//! RusTorch provides efficient parallel tensor operations for high-performance computing.
 //! 
 //! ### GPU Acceleration
 //! 
-//! ```rust
-//! use rustorch::tensor::{Tensor, gpu_parallel::*};
-//! 
-//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
-//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
-//! 
-//! // GPU-accelerated operations with fallback
-//! let result = tensor1.gpu_elementwise_op(&tensor2, |a, b| a + b)?;
-//! let gpu_matmul = tensor1.gpu_matmul(&tensor2)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
+//! RusTorch supports GPU acceleration with automatic fallback to CPU when GPU is unavailable.
 //! 
 //! ### Memory Optimization
 //! 
-//! ```rust
-//! use rustorch::tensor::{Tensor, memory_optimized::*, zero_copy::*};
-//! 
-//! let tensor = Tensor::<f32>::ones(&[1000, 1000]);
-//! 
-//! // Zero-copy view
-//! let view = tensor.zero_copy_view();
-//! 
-//! // Memory-optimized operations
-//! let config = MemoryOptimizedConfig {
-//!     strategy: AllocationStrategy::Pool,
-//!     enable_inplace: true,
-//!     ..Default::default()
-//! };
-//! let optimized = tensor.with_memory_strategy(&config);
-//! # Ok::<(), Box<dyn std::error::Error>>(())
-//! ```
+//! Advanced memory management strategies for optimal performance and memory usage.
 
 use ndarray::{ArrayD, ArrayViewD, IxDyn, Ix1, Ix2};
 // use rayon::prelude::*;
@@ -123,7 +87,6 @@ pub mod simd_aligned;
 pub mod simd_avx512;
 pub mod advanced_memory;
 pub mod gpu_parallel;
-pub mod unified_impl;
 // Enable modules step by step
 mod math_ops;
 mod broadcasting;

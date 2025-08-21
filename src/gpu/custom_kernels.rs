@@ -609,13 +609,13 @@ mod tests {
 
     #[test]
     fn test_kernel_manager_creation() {
-        let manager = CustomKernelManager::new(DeviceType::Cuda);
-        assert_eq!(manager.device_type, DeviceType::Cuda);
+        let manager = CustomKernelManager::new(DeviceType::Cuda(0));
+        assert_eq!(manager.device_type, DeviceType::Cuda(0));
     }
 
     #[test]
     fn test_convolution_kernel_compilation() {
-        let manager = CustomKernelManager::new(DeviceType::Cuda);
+        let manager = CustomKernelManager::new(DeviceType::Cuda(0));
         
         let mut config = KernelConfig {
             kernel_type: CustomKernelType::OptimizedConvolution,
@@ -635,7 +635,7 @@ mod tests {
 
     #[test]
     fn test_attention_kernel_compilation() {
-        let manager = CustomKernelManager::new(DeviceType::Cuda);
+        let manager = CustomKernelManager::new(DeviceType::Cuda(0));
         
         let mut config = KernelConfig {
             kernel_type: CustomKernelType::AttentionKernel,

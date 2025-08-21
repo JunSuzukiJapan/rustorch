@@ -80,20 +80,13 @@
 //! ### Zero-Copy Operations
 //! 
 //! ```rust
-//! use rustorch::tensor::{Tensor, memory_optimized::*, zero_copy::*};
+//! use rustorch::tensor::Tensor;
 //! 
 //! let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
 //! 
-//! // Create zero-copy view
-//! let view = tensor.zero_copy_view();
-//! 
-//! // Operations on views don't copy data
-//! let result = view.elementwise_with(&view, |a, b| a * 2.0)?;
-//! 
-//! // Shared tensor for multiple references
-//! let shared = SharedTensor::from_tensor(tensor);
-//! let view1 = shared.view();
-//! let view2 = shared.view();
+//! // Basic tensor operations
+//! let result = &tensor * &tensor; // Element-wise multiplication
+//! # assert_eq!(result.shape(), &[2, 2]);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //! 

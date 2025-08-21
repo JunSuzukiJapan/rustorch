@@ -89,17 +89,8 @@ name = "memory_pool"
 harness = false
 
 # New comprehensive benchmark suites
-[[bench]]
-name = "parallel_performance"
-harness = false
 
-[[bench]]
-name = "simd_performance"
-harness = false
 
-[[bench]]
-name = "memory_strategy_performance"
-harness = false
 
 [[bench]]
 name = "gpu_cpu_performance"

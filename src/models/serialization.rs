@@ -136,7 +136,7 @@ impl ModelStateDict {
             parameters: HashMap::new(),
             metadata: HashMap::new(),
             config: HashMap::new(),
-            version: env!("CARGO_PKG_VERSION").to_string(),
+            version: std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.2.2".to_string()),
             created_at: chrono::Utc::now().to_rfc3339(),
         }
     }
@@ -349,7 +349,7 @@ impl ModelLoader {
     /// Validate state dictionary
     fn validate_state_dict(state_dict: &ModelStateDict) -> Result<(), LoadError> {
         // バージョン互換性チェック
-        let current_version = env!("CARGO_PKG_VERSION");
+        let current_version = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.2.2".to_string());
         if state_dict.version != current_version {
             println!(
                 "Warning: Model version {} differs from current version {}",

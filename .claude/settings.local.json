@@ -12,7 +12,12 @@
       "Bash(cargo publish:*)",
       "Bash(git commit:*)",
       "Bash(cargo:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(rm:*)",
+      "Bash(timeout 30s cargo test:*)",
+      "Bash(rustdoc:*)",
+      "Bash(find:*)",
+      "Bash(RUST_BACKTRACE=1 cargo test --doc)"
     ],
     "deny": [],
     "ask": []

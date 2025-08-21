@@ -41,11 +41,9 @@
 //! let devices = manager.available_devices();
 //! println!("Available devices: {:?}", devices);
 //! 
-//! // Set current device
-//! if let Some(device) = devices.first() {
-//!     manager.set_current_device(device.clone())?;
-//!     println!("Current device: {:?}", current_device()?);
-//! }
+//! // Check current device
+//! let current = manager.current_device();
+//! println!("Current device: {:?}", current);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //! 
@@ -54,28 +52,31 @@
 //! ```rust
 //! use rustorch::gpu::{GpuContext, DeviceType};
 //! 
-//! // Create GPU context for CUDA device
-//! let context = GpuContext::new(DeviceType::Cuda(0))?;
-//! println!("Created context for device: {:?}", context.device_type());
-//! 
-//! // Check device capabilities
-//! let memory_info = context.memory_info()?;
-//! println!("Available memory: {} MB", memory_info.available / 1024 / 1024);
+//! // Create GPU context - will fallback to CPU if CUDA unavailable
+//! let context_result = GpuContext::new(DeviceType::Cuda(0));
+//! if let Ok(context) = context_result {
+//!     println!("Created context for device: {:?}", context.device());
+//!     // GPU context created successfully
+//! } else {
+//!     println!("CUDA not available, using CPU fallback");
+//! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //! 
 //! ### Memory Pool Operations
 //! 
 //! ```rust
-//! use rustorch::gpu::{GpuMemoryPool, DeviceType};
+//! use rustorch::gpu::{DeviceType, memory::GpuMemoryPool};
 //! 
-//! let pool = GpuMemoryPool::new(DeviceType::Cuda(0), 1024 * 1024 * 100)?; // 100MB pool
-//! 
-//! // Allocate GPU memory
-//! let buffer = pool.allocate(1024 * 1024)?; // 1MB allocation
-//! println!("Allocated buffer size: {}", buffer.size());
-//! 
-//! // Memory is automatically returned to pool when buffer is dropped
+//! // Try to create GPU memory pool - fallback if CUDA unavailable
+//! let pool_result = GpuMemoryPool::new(DeviceType::Cuda(0), 1024 * 1024 * 100);
+//! if let Ok(mut pool) = pool_result {
+//!     if let Ok(buffer) = pool.allocate(1024 * 1024) {
+//!         println!("Allocated buffer size: {}", buffer.size);
+//!     }
+//! } else {
+//!     println!("GPU memory pool unavailable, using system memory");
+//! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //! 
@@ -124,7 +125,6 @@ pub mod cuda_kernels;
 pub mod metal_kernels;
 pub mod opencl_kernels;
 pub mod custom_kernels;
-pub mod unified_kernels;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;

@@ -4,7 +4,6 @@
 pub mod sgd;
 pub mod adam;
 pub mod scheduler;
-pub mod unified_optimizer;
 
 use crate::autograd::Variable;
 use num_traits::Float;

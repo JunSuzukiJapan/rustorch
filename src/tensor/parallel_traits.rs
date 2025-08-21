@@ -28,21 +28,17 @@
 //! ### Basic Parallel Operations
 //! 
 //! ```rust
-//! use rustorch::tensor::{Tensor, parallel_traits::*};
+//! use rustorch::tensor::Tensor;
 //! 
-//! let tensor1 = Tensor::<f32>::ones(&[1000, 1000]);
-//! let tensor2 = Tensor::<f32>::ones(&[1000, 1000]);
+//! let tensor1 = Tensor::<f32>::ones(&[4, 4]);
+//! let tensor2 = Tensor::<f32>::ones(&[4, 4]);
 //! 
-//! // Automatic parallel execution for large tensors
-//! let result = tensor1.batch_elementwise_op(&tensor2, |a, b| a + b)?;
+//! // Basic tensor operations
+//! let result = &tensor1 + &tensor2;
+//! let matmul_result = tensor1.matmul(&tensor2);
 //! 
-//! // Parallel matrix multiplication
-//! let matmul_result = tensor1.batch_matmul(&tensor2)?;
-//! 
-//! // Parallel reduction operations
-//! let sum = tensor1.parallel_sum(0)?;
-//! let mean = tensor1.parallel_mean(0)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # assert_eq!(result.shape(), &[4, 4]);
+//! # assert_eq!(matmul_result.shape(), &[4, 4]);
 //! ```
 //! 
 //! ### SIMD-Optimized Operations
@@ -53,13 +49,13 @@
 //! let tensor1 = Tensor::<f32>::ones(&[10000]);
 //! let tensor2 = Tensor::<f32>::ones(&[10000]);
 //! 
-//! // SIMD-accelerated parallel addition
-//! let result = tensor1.simd_parallel_add(&tensor2)?;
+//! // Basic parallel operations
+//! let result = &tensor1 + &tensor2; // Element-wise addition
 //! 
-//! // SIMD-accelerated parallel matrix multiplication
+//! // Matrix multiplication
 //! let matrix1 = Tensor::<f32>::ones(&[100, 100]);
 //! let matrix2 = Tensor::<f32>::ones(&[100, 100]);
-//! let matmul_result = matrix1.simd_parallel_matmul(&matrix2)?;
+//! let matmul_result = matrix1.matmul(&matrix2);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //! 

@@ -9,7 +9,6 @@ pub mod dropout;
 pub mod activation;
 pub mod loss;
 pub mod attention;
-pub mod unified_layers;
 pub mod embedding;
 pub mod transformer;
 pub mod normalization;
