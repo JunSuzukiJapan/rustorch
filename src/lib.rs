@@ -183,8 +183,7 @@ pub mod wasm;
 
 /// Simple WebAssembly support for basic operations
 /// 基本操作のためのシンプルなWebAssemblyサポート
-#[cfg(feature = "wasm")]
-pub mod wasm_simple;
+// Removed redundant wasm_simple module - functionality integrated into wasm module
 
 /// Re-exports of commonly used items
 pub mod prelude {
