@@ -16,6 +16,7 @@
 //! - **💾 Advanced Memory Management**: Zero-copy operations, SIMD-aligned allocation, and memory pools
 //! - **🧠 Automatic Differentiation**: Tape-based computational graph for gradient computation
 //! - **🏗️ Neural Network Layers**: Linear, Conv2d, RNN/LSTM/GRU, BatchNorm, Dropout, and more
+//! - **🌐 WebAssembly Support**: Browser-compatible WASM bindings with optimized performance
 //! 
 //! ## 🚀 Quick Start
 //! 
@@ -48,6 +49,7 @@
 //! - [`optim`]: Optimization algorithms (SGD, Adam, etc.)
 //! - [`gpu`]: GPU acceleration support (CUDA, Metal, OpenCL)
 //! - [`simd`]: SIMD vectorized operations
+//! - [`wasm`]: WebAssembly bindings for browser deployment
 //! - [`memory`]: Advanced memory management and pooling
 //! - [`data`]: Data loading and processing utilities
 //! 
@@ -101,6 +103,32 @@
 //! // Basic tensor operations
 //! let result = &tensor * &tensor; // Element-wise multiplication
 //! # assert_eq!(result.shape(), &[4, 4]);
+//! ```
+//! 
+//! ## 🌐 WebAssembly Integration
+//! 
+//! Run neural networks directly in browsers with optimized WASM bindings:
+//! 
+//! ```javascript
+//! // Browser usage (JavaScript)
+//! import init, * as rustorch from './pkg/rustorch.js';
+//! 
+//! await init();
+//! 
+//! // Create and manipulate tensors
+//! const tensor1 = rustorch.WasmTensor.ones([2, 3]);
+//! const tensor2 = rustorch.WasmTensor.random([2, 3]);
+//! const sum = tensor1.add(tensor2);
+//! 
+//! // Neural network inference
+//! const model = new rustorch.WasmModel();
+//! model.add_linear(10, 5, true);
+//! model.add_relu();
+//! 
+//! const input = rustorch.WasmTensor.random([1, 10]);
+//! const output = model.forward(input);
+//! 
+//! console.log('Output:', output.data());
 //! ```
 
 #![warn(missing_docs)]

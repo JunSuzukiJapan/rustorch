@@ -214,6 +214,9 @@ fn main() {
 
 ### WebAssembly Support / WebAssemblyサポート
 
+RusTorch provides comprehensive WebAssembly support for running neural networks in browsers with optimized performance and memory management.  
+RusTorchは、最適化されたパフォーマンスとメモリ管理でブラウザ内でニューラルネットワークを実行するための包括的なWebAssemblyサポートを提供します。
+
 ```javascript
 // Browser usage / ブラウザでの使用
 import init, * as rustorch from './pkg/rustorch.js';
@@ -222,36 +225,114 @@ async function main() {
     // Initialize WASM / WASMを初期化
     await init();
     
-    // Create tensors / テンソルを作成
-    const interop = new rustorch.JsInterop();
-    const shape = new Array(2, 2);
-    const tensor1 = interop.ones(shape);
-    const tensor2 = interop.random_tensor(shape, 0.0, 1.0);
+    // Basic tensor operations / 基本的なテンソル操作
+    const tensor1 = rustorch.WasmTensor.zeros([2, 3]);
+    const tensor2 = rustorch.WasmTensor.ones([2, 3]);
+    const tensor3 = rustorch.WasmTensor.random([2, 3]);
     
-    // Tensor operations / テンソル操作
+    // Mathematical operations / 数学演算
     const sum = tensor1.add(tensor2);
-    const relu = tensor1.relu();
+    const product = tensor1.multiply(tensor2);
+    const relu_result = tensor1.relu();
+    const sigmoid_result = tensor2.sigmoid();
+    const tanh_result = tensor3.tanh();
     
-    // Neural network / ニューラルネットワーク
+    // Advanced operations / 高度な操作
+    const reshaped = tensor1.reshape([3, 2]);
+    const transposed = reshaped.transpose();
+    const scalar_added = tensor2.add_scalar(0.5);
+    const power = tensor3.pow(2.0);
+    
+    // Statistics / 統計
+    console.log('Mean:', tensor3.mean());
+    console.log('Max:', tensor3.max());
+    console.log('Min:', tensor3.min());
+    console.log('Sum:', tensor3.sum());
+    
+    // Neural network layers / ニューラルネットワーク層
+    const relu_layer = new rustorch.WasmReLU();
+    const relu_output = relu_layer.forward(tensor1);
+    
+    // Neural network model / ニューラルネットワークモデル
     const model = new rustorch.WasmModel();
-    model.add_linear(4, 8, true);  // 4 inputs, 8 outputs
-    model.add_relu();
-    model.add_linear(8, 1, true);  // Output layer
+    model.add_linear(4, 8, true);  // Linear layer: 4 inputs → 8 outputs
+    model.add_relu();              // ReLU activation
+    model.add_linear(8, 2, true);  // Output layer: 8 → 2
     
-    const input = new rustorch.WasmTensor([1.0, 0.5, -0.3, 0.8], [1, 4]);
-    const output = model.forward(input);
+    console.log('Model layers:', model.num_layers());
     
-    console.log('Neural network output:', output.data);
+    // JavaScript interoperability / JavaScript相互運用
+    const interop = new rustorch.JsInterop();
     
-    // Performance monitoring / パフォーマンス監視
-    const runtime = new rustorch.JsRuntime();
-    const memoryManager = new rustorch.JsMemoryManager();
+    // Create tensors from JavaScript data / JavaScriptデータからテンソル作成
+    const js_array = [[1.0, 2.0], [3.0, 4.0]];
+    const tensor_from_array = rustorch.tensor_from_nested_array(js_array);
     
-    console.log('Memory usage:', memoryManager.get_memory_usage_mb(), 'MB');
-    console.log('Operations:', runtime.get_operations_count());
+    // Convert tensor to JavaScript array / テンソルをJavaScript配列に変換
+    const back_to_array = rustorch.tensor_to_nested_array(tensor_from_array);
+    
+    // Float32Array conversion / Float32Array変換
+    const float32_data = new Float32Array([1, 2, 3, 4, 5, 6]);
+    const shape = [2, 3];
+    const tensor_from_float32 = rustorch.tensor_from_float32_array(float32_data, shape);
+    const back_to_float32 = rustorch.tensor_to_float32_array(tensor_from_float32);
+    
+    // Performance benchmarking / パフォーマンス・ベンチマーク
+    const benchmark = rustorch.benchmark_matmul(256, 10);
+    console.log('Matrix multiplication benchmark:');
+    console.log(`- Operation: ${benchmark.operation}`);
+    console.log(`- Duration: ${benchmark.duration_ms}ms`);
+    console.log(`- Throughput: ${benchmark.throughput} FLOPS`);
 }
 
 main();
+```
+
+#### Advanced WASM Features / 高度なWASM機能
+
+```javascript
+// Browser storage integration / ブラウザストレージ統合
+const storage = new rustorch.BrowserStorage();
+
+// Save tensor to localStorage / テンソルをlocalStorageに保存
+const my_tensor = rustorch.WasmTensor.random([5, 5]);
+await storage.save_tensor('my_model_weights', my_tensor);
+
+// Load tensor from localStorage / localStorageからテンソルを読み込み
+const loaded_tensor = await storage.load_tensor('my_model_weights');
+
+// Canvas visualization / Canvas可視化
+const canvas_renderer = new rustorch.CanvasRenderer('my-canvas');
+const heatmap_data = rustorch.WasmTensor.random([20, 20]);
+canvas_renderer.render_heatmap(heatmap_data);
+
+// Performance monitoring / パフォーマンス監視
+rustorch.PerformanceMonitor.time_function('inference');
+const result = model.forward(input_tensor);
+rustorch.PerformanceMonitor.time_end('inference');
+
+// Memory optimization / メモリ最適化
+const memory_pool = new rustorch.WasmMemoryPool();
+const optimized_ops = new rustorch.OptimizedOps();
+
+// Fast matrix multiplication with blocking / ブロッキング付き高速行列乗算
+const a = rustorch.WasmTensor.random([512, 512]);
+const b = rustorch.WasmTensor.random([512, 512]);
+const fast_result = optimized_ops.fast_matmul(a, b);
+
+// Vectorized operations / ベクトル化操作
+const vec_result = optimized_ops.vectorized_add(tensor1, tensor2);
+
+// Batch processing / バッチ処理
+const batch_processor = new rustorch.BatchProcessor();
+batch_processor.add_tensor(tensor1);
+batch_processor.add_tensor(tensor2);
+const batch_results = batch_processor.batch_relu();
+
+// Web worker integration / Web Worker統合
+const worker_manager = new rustorch.WorkerManager();
+await worker_manager.create_worker('ml_worker.js');
+worker_manager.send_tensor(my_tensor);
 ```
 
 ```html
@@ -260,17 +341,47 @@ main();
 <html>
 <head>
     <title>RusTorch WASM Demo</title>
+    <style>
+        #tensor-canvas { border: 1px solid #ccc; }
+        #performance-stats { font-family: monospace; }
+    </style>
 </head>
 <body>
+    <h1>RusTorch WebAssembly Demo</h1>
+    <canvas id="tensor-canvas" width="400" height="400"></canvas>
+    <div id="performance-stats"></div>
+    <button onclick="runInference()">Run Neural Network</button>
+    
     <script type="module">
         import init, * as rustorch from './pkg/rustorch.js';
         
-        init().then(() => {
-            // Run neural network in browser
-            // ブラウザでニューラルネットワークを実行
-            const model = new rustorch.WasmModel();
-            // ... model setup and inference
-        });
+        await init();
+        
+        // Global model for demo / デモ用グローバルモデル
+        const model = new rustorch.WasmModel();
+        model.add_linear(10, 20, true);
+        model.add_relu();
+        model.add_linear(20, 5, true);
+        
+        // Canvas renderer / Canvas描画器
+        const renderer = new rustorch.CanvasRenderer('tensor-canvas');
+        
+        window.runInference = function() {
+            const input = rustorch.WasmTensor.random([1, 10]);
+            
+            rustorch.PerformanceMonitor.time_function('inference');
+            const output = model.forward(input);
+            rustorch.PerformanceMonitor.time_end('inference');
+            
+            // Visualize random data / ランダムデータを可視化
+            const viz_data = rustorch.WasmTensor.random([20, 20]);
+            renderer.render_heatmap(viz_data);
+            
+            // Update performance stats / パフォーマンス統計更新
+            const memory_info = rustorch.PerformanceMonitor.get_memory_info();
+            document.getElementById('performance-stats').innerHTML = 
+                `Memory: ${JSON.stringify(memory_info)}<br>Output: ${output.data().slice(0, 5)}`;
+        };
     </script>
 </body>
 </html>
@@ -330,11 +441,11 @@ src/
 │   ├── opencl_kernels.rs # OpenCL cross-platform kernels / OpenCLクロスプラットフォームカーネル
 │   └── validation.rs     # GPU kernel validation framework / GPUカーネル検証フレームワーク
 ├── wasm/            # WebAssembly support / WebAssemblyサポート
-│   ├── tensor.rs    # WASM tensor operations / WASMテンソル演算
-│   ├── bindings.rs  # Neural network bindings / ニューラルネットワークバインディング
-│   ├── interop.rs   # JavaScript interoperability / JavaScript相互運用
-│   ├── memory.rs    # WASM memory management / WASMメモリ管理
-│   └── runtime.rs   # WASM runtime optimization / WASMランタイム最適化
+│   ├── tensor.rs    # WASM tensor operations with enhanced math functions / 拡張数学関数付きWASMテンソル演算
+│   ├── bindings.rs  # Neural network layer bindings (Linear, ReLU, Model) / ニューラルネットワーク層バインディング（Linear、ReLU、Model）
+│   ├── interop.rs   # JavaScript interoperability and benchmarking / JavaScript相互運用とベンチマーク
+│   ├── browser.rs   # Browser-specific features (storage, canvas, workers) / ブラウザ専用機能（ストレージ、Canvas、Worker）
+│   └── optimized.rs # Performance-optimized WASM operations / パフォーマンス最適化WASM操作
 ├── optim/           # Optimization algorithms / 最適化アルゴリズム
 └── data/            # Data loaders / データローダー
 ```

@@ -59,11 +59,13 @@ pub struct WasmReLU;
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl WasmReLU {
+    /// Create new ReLU activation layer
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         WasmReLU
     }
     
+    /// Apply ReLU activation function
     #[wasm_bindgen]
     pub fn forward(&self, input: &WasmTensor) -> WasmTensor {
         input.relu()
@@ -80,6 +82,7 @@ pub struct WasmModel {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl WasmModel {
+    /// Create new neural network model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         WasmModel {

@@ -22,7 +22,8 @@
       "Bash(chmod:*)",
       "Bash(./build_wasm.sh:*)",
       "Bash(wasm-pack build:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(rustup target:*)"
     ],
     "deny": [],
     "ask": []
