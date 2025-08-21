@@ -21,6 +21,12 @@ use crate::tensor::Tensor;
 use crate::gpu::{DeviceType, GpuError};
 use num_traits::Float;
 
+// Re-export multi-GPU validation components
+pub use multi_gpu_validation::{
+    MultiGpuValidator, GpuDeviceInfo, ValidationMetrics, 
+    BenchmarkResults, MemoryUsage
+};
+
 /// Distributed backend types
 /// 分散バックエンドタイプ
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -408,6 +414,7 @@ pub mod optimizer;
 pub mod cluster;
 pub mod common;
 pub mod performance;
+pub mod multi_gpu_validation;
 
 #[cfg(test)]
 mod tests {

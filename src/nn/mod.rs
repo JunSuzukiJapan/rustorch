@@ -15,6 +15,8 @@ pub mod normalization;
 pub mod rnn;
 pub mod lstm;
 pub mod gru;
+pub mod quantization;
+pub mod pruning;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -162,3 +164,9 @@ pub use transformer::{TransformerEncoderLayer, TransformerEncoder, TransformerDe
 /// Activation function modules
 /// 活性化関数モジュール
 pub use activation::{ReLU, Softmax, GELU, Tanh};
+/// Quantization modules
+/// 量子化モジュール
+pub use quantization::{Quantizer, QuantizedTensor, QuantizationParams, QuantizationType, CalibrationMode, QuantizationAwareModule};
+/// Pruning modules
+/// プルーニングモジュール
+pub use pruning::{Pruner, PruningMask, PruningMethod, PruningStructure, PruningSchedule, PruningAwareModule};

@@ -1,11 +1,18 @@
 //! Batch Normalization layers implementation
 //! バッチ正規化レイヤーの実装
+//!
+//! Implements numerically stable batch normalization with proper statistics tracking,
+//! Welford's algorithm for variance computation, and improved epsilon handling.
+//! 数値安定性を持つバッチ正規化を実装、適切な統計追跡、
+//! 分散計算のためのWelfordアルゴリズム、改良されたイプシロン処理を含む。
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use std::fmt::Debug;
-use num_traits::Float;
+use num_traits::{Float, FromPrimitive, ToPrimitive, Zero, One};
+use ndarray::ScalarOperand;
+use std::iter::Sum;
 use std::sync::{Arc, RwLock};
 
 /// 1D Batch Normalization layer
@@ -47,7 +54,7 @@ pub struct BatchNorm1d<T: Float + Send + Sync> {
 
 impl<T> BatchNorm1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
 {
     /// Creates a new BatchNorm1d layer
     /// 新しいBatchNorm1dレイヤーを作成します
@@ -142,14 +149,18 @@ where
     /// Normalize using batch statistics (training mode)
     /// バッチ統計を使用した正規化（訓練モード）
     fn normalize_training(&self, input: &Tensor<T>) -> Tensor<T> {
-        // For simplicity, we'll implement a basic version
-        // In a full implementation, this would compute proper batch statistics
+        let input_shape = input.shape();
+        let batch_size = input_shape[0];
+        let num_features = input_shape[1];
         
-        // Apply running mean and variance for now (simplified)
-        let running_mean_lock = self.running_mean.read().unwrap();
-        let running_var_lock = self.running_var.read().unwrap();
+        // Compute batch statistics using numerically stable Welford's algorithm
+        let (batch_mean, batch_var) = self.compute_batch_statistics(input, batch_size, num_features);
         
-        self.apply_normalization(input, &running_mean_lock, &running_var_lock)
+        // Update running statistics with exponential moving average
+        self.update_running_statistics(&batch_mean, &batch_var);
+        
+        // Apply normalization using batch statistics
+        self.apply_normalization(input, &batch_mean, &batch_var)
     }
     
     /// Normalize using running statistics (evaluation mode)
@@ -163,20 +174,120 @@ where
     
     /// Apply normalization: (x - mean) / sqrt(var + eps) * weight + bias
     /// 正規化を適用: (x - mean) / sqrt(var + eps) * weight + bias
-    fn apply_normalization(&self, input: &Tensor<T>, _mean: &Tensor<T>, var: &Tensor<T>) -> Tensor<T> {
+    fn apply_normalization(&self, input: &Tensor<T>, mean: &Tensor<T>, var: &Tensor<T>) -> Tensor<T> {
         let weight_binding = self.weight.data();
         let weight_data = weight_binding.read().unwrap();
         let bias_binding = self.bias.data();
         let bias_data = bias_binding.read().unwrap();
         
-        // Simplified normalization for demonstration
-        // (x - mean) / sqrt(var + eps) * weight + bias
-        let eps_tensor = Tensor::from_vec(vec![self.eps], vec![]);
-        let _variance_plus_eps = &*var + &eps_tensor;
+        let input_array = input.as_array();
+        let mean_array = mean.as_array();
+        let var_array = var.as_array();
+        let weight_array = weight_data.as_array();
+        let bias_array = bias_data.as_array();
         
-        // For simplicity, assume input is already normalized and just apply scale and shift
-        let output = &(&*input * &*weight_data) + &*bias_data;
-        output
+        let input_shape = input.shape();
+        let batch_size = input_shape[0];
+        let num_features = input_shape[1];
+        
+        let mut output_data = Vec::with_capacity(batch_size * num_features);
+        
+        // Apply normalization with improved numerical stability
+        for b in 0..batch_size {
+            for f in 0..num_features {
+                let x = input_array[[b, f]];
+                let mu = mean_array[f];
+                let sigma2 = var_array[f];
+                
+                // Improved numerical stability: check for very small variance
+                let ten = T::from_f32(10.0).unwrap();
+                let eps_adjusted = if sigma2 < self.eps * ten {
+                    self.eps * ten
+                } else {
+                    self.eps
+                };
+                
+                // Normalize: (x - μ) / √(σ² + ε)
+                let normalized = (x - mu) / (sigma2 + eps_adjusted).sqrt();
+                
+                // Scale and shift: γ * normalized + β
+                let output_val = weight_array[f] * normalized + bias_array[f];
+                output_data.push(output_val);
+            }
+        }
+        
+        Tensor::from_vec(output_data, input_shape.to_vec())
+    }
+    
+    /// Compute batch statistics using Welford's algorithm for numerical stability
+    /// 数値安定性のためWelfordアルゴリズムを使用してバッチ統計を計算
+    fn compute_batch_statistics(&self, input: &Tensor<T>, batch_size: usize, num_features: usize) -> (Tensor<T>, Tensor<T>) {
+        let input_array = input.as_array();
+        
+        let mut mean_vec = vec![T::zero(); num_features];
+        let mut var_vec = vec![T::zero(); num_features];
+        
+        // Compute mean and variance per feature using Welford's algorithm
+        for f in 0..num_features {
+            let mut mean = T::zero();
+            let mut m2 = T::zero();
+            
+            // Welford's online algorithm for mean and variance
+            for b in 0..batch_size {
+                let x = input_array[[b, f]];
+                let delta = x - mean;
+                mean = mean + delta / T::from_usize(b + 1).unwrap();
+                let delta2 = x - mean;
+                m2 = m2 + delta * delta2;
+            }
+            
+            mean_vec[f] = mean;
+            
+            // Compute sample variance (divide by N-1, but use N for batch norm)
+            let variance = if batch_size > 1 {
+                m2 / T::from_usize(batch_size).unwrap()
+            } else {
+                T::one() // Fallback for single sample
+            };
+            
+            // Apply bias correction and ensure minimum variance
+            let bias_corrected_var = if batch_size > 1 {
+                variance * T::from_usize(batch_size).unwrap() / T::from_usize(batch_size - 1).unwrap()
+            } else {
+                variance
+            };
+            
+            let min_var_threshold = self.eps * T::from_f32(0.1).unwrap();
+            var_vec[f] = bias_corrected_var.max(min_var_threshold);
+        }
+        
+        let mean_tensor = Tensor::from_vec(mean_vec, vec![num_features]);
+        let var_tensor = Tensor::from_vec(var_vec, vec![num_features]);
+        
+        (mean_tensor, var_tensor)
+    }
+    
+    /// Update running statistics with exponential moving average
+    /// 指数移動平均で移動統計を更新
+    fn update_running_statistics(&self, batch_mean: &Tensor<T>, batch_var: &Tensor<T>) {
+        if let (Ok(mut running_mean), Ok(mut running_var)) = 
+            (self.running_mean.write(), self.running_var.write()) {
+            
+            let batch_mean_array = batch_mean.as_array();
+            let batch_var_array = batch_var.as_array();
+            
+            let running_mean_array = running_mean.as_array_mut();
+            let running_var_array = running_var.as_array_mut();
+            
+            let momentum = self.momentum;
+            let one_minus_momentum = T::one() - momentum;
+            
+            // Update running mean: running_mean = (1 - momentum) * running_mean + momentum * batch_mean
+            for i in 0..self.num_features {
+                running_mean_array[i] = one_minus_momentum * running_mean_array[i] + momentum * batch_mean_array[i];
+                running_var_array[i] = one_minus_momentum * running_var_array[i] + momentum * batch_var_array[i];
+            }
+        }
     }
     
     /// Returns the parameters of the layer
@@ -218,7 +329,7 @@ where
 
 impl<T> Module<T> for BatchNorm1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -272,7 +383,7 @@ pub struct BatchNorm2d<T: Float + Send + Sync> {
 
 impl<T> BatchNorm2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
 {
     /// Creates a new BatchNorm2d layer
     /// 新しいBatchNorm2dレイヤーを作成します
@@ -351,38 +462,182 @@ where
             );
         }
         
-        // Simplified implementation for demonstration
-        // In practice, this would normalize per channel across spatial dimensions
-        let normalized_tensor = self.apply_channel_normalization(&input_data);
+        let normalized_tensor = if self.is_training() {
+            // Training mode: compute batch statistics per channel
+            self.normalize_training_2d(&input_data)
+        } else {
+            // Evaluation mode: use running statistics
+            self.normalize_eval_2d(&input_data)
+        };
         
         let requires_grad = input.requires_grad() || self.weight.requires_grad() || self.bias.requires_grad();
         Variable::new(normalized_tensor, requires_grad)
     }
     
-    /// Apply normalization per channel (simplified)
-    /// チャンネルごとの正規化を適用（簡略版）
-    fn apply_channel_normalization(&self, input: &Tensor<T>) -> Tensor<T> {
+    /// Normalize using batch statistics for 2D convolution (training mode)
+    /// 2D畳み込み用バッチ統計を使用した正規化（訓練モード）
+    fn normalize_training_2d(&self, input: &Tensor<T>) -> Tensor<T> {
+        let input_shape = input.shape();
+        let batch_size = input_shape[0];
+        let channels = input_shape[1];
+        let height = input_shape[2];
+        let width = input_shape[3];
+        
+        // Compute channel-wise statistics across batch and spatial dimensions
+        let (channel_mean, channel_var) = self.compute_channel_statistics(input, batch_size, channels, height, width);
+        
+        // Update running statistics
+        self.update_running_statistics_2d(&channel_mean, &channel_var);
+        
+        // Apply normalization
+        self.apply_channel_normalization_2d(input, &channel_mean, &channel_var)
+    }
+    
+    /// Normalize using running statistics for 2D convolution (evaluation mode)
+    /// 2D畳み込み用移動統計を使用した正規化（評価モード）
+    fn normalize_eval_2d(&self, input: &Tensor<T>) -> Tensor<T> {
+        let running_mean_lock = self.running_mean.read().unwrap();
+        let running_var_lock = self.running_var.read().unwrap();
+        
+        self.apply_channel_normalization_2d(input, &running_mean_lock, &running_var_lock)
+    }
+    
+    /// Compute channel-wise statistics for 2D batch normalization
+    /// 2Dバッチ正規化のためのチャンネル別統計を計算
+    fn compute_channel_statistics(&self, input: &Tensor<T>, batch_size: usize, channels: usize, height: usize, width: usize) -> (Tensor<T>, Tensor<T>) {
+        let input_array = input.as_array();
+        let spatial_size = height * width;
+        let total_elements_per_channel = batch_size * spatial_size;
+        
+        let mut mean_vec = vec![T::zero(); channels];
+        let mut var_vec = vec![T::zero(); channels];
+        
+        // Compute statistics per channel using Welford's algorithm
+        for c in 0..channels {
+            let mut mean = T::zero();
+            let mut m2 = T::zero();
+            let mut count = 0;
+            
+            // Iterate over all spatial locations and batch elements for this channel
+            for b in 0..batch_size {
+                for h in 0..height {
+                    for w in 0..width {
+                        let x = input_array[[b, c, h, w]];
+                        count += 1;
+                        
+                        let delta = x - mean;
+                        mean = mean + delta / T::from_usize(count).unwrap();
+                        let delta2 = x - mean;
+                        m2 = m2 + delta * delta2;
+                    }
+                }
+            }
+            
+            mean_vec[c] = mean;
+            
+            // Compute variance
+            let variance = if total_elements_per_channel > 1 {
+                m2 / T::from_usize(total_elements_per_channel).unwrap()
+            } else {
+                T::one()
+            };
+            
+            // Apply bias correction for small batches
+            let bias_corrected_var = if total_elements_per_channel > 1 {
+                variance * T::from_usize(total_elements_per_channel).unwrap() / T::from_usize(total_elements_per_channel - 1).unwrap()
+            } else {
+                variance
+            };
+            
+            let min_var_threshold = self.eps * T::from_f32(0.1).unwrap();
+            var_vec[c] = bias_corrected_var.max(min_var_threshold);
+        }
+        
+        let mean_tensor = Tensor::from_vec(mean_vec, vec![channels]);
+        let var_tensor = Tensor::from_vec(var_vec, vec![channels]);
+        
+        (mean_tensor, var_tensor)
+    }
+    
+    /// Apply channel-wise normalization with improved numerical stability
+    /// 数値安定性を改善したチャンネル別正規化を適用
+    fn apply_channel_normalization_2d(&self, input: &Tensor<T>, mean: &Tensor<T>, var: &Tensor<T>) -> Tensor<T> {
         let weight_binding = self.weight.data();
         let weight_data = weight_binding.read().unwrap();
         let bias_binding = self.bias.data();
         let bias_data = bias_binding.read().unwrap();
         
-        // For simplicity, we'll just apply channel-wise scale and shift
-        // In a full implementation, this would compute proper channel statistics
+        let input_array = input.as_array();
+        let mean_array = mean.as_array();
+        let var_array = var.as_array();
+        let weight_array = weight_data.as_array();
+        let bias_array = bias_data.as_array();
         
-        // Create broadcast-compatible tensors for 4D input
-        let _input_shape = input.shape();
+        let input_shape = input.shape();
+        let batch_size = input_shape[0];
+        let channels = input_shape[1];
+        let height = input_shape[2];
+        let width = input_shape[3];
         
-        // Reshape weight and bias from [C] to [1, C, 1, 1] for broadcasting
-        let weight_reshaped = weight_data.as_array().clone().into_shape((1, self.num_features, 1, 1)).unwrap();
-        let bias_reshaped = bias_data.as_array().clone().into_shape((1, self.num_features, 1, 1)).unwrap();
+        let mut output_data = Vec::with_capacity(batch_size * channels * height * width);
         
-        let weight_broadcast = Tensor::new(weight_reshaped.into_dyn());
-        let bias_broadcast = Tensor::new(bias_reshaped.into_dyn());
+        // Apply normalization with improved numerical stability
+        for b in 0..batch_size {
+            for c in 0..channels {
+                let mu = mean_array[c];
+                let sigma2 = var_array[c];
+                let gamma = weight_array[c];
+                let beta = bias_array[c];
+                
+                // Improved numerical stability: check for very small variance
+                let ten = T::from_f32(10.0).unwrap();
+                let eps_adjusted = if sigma2 < self.eps * ten {
+                    self.eps * ten
+                } else {
+                    self.eps
+                };
+                
+                let inv_std = T::one() / (sigma2 + eps_adjusted).sqrt();
+                
+                for h in 0..height {
+                    for w in 0..width {
+                        let x = input_array[[b, c, h, w]];
+                        
+                        // Normalize: (x - μ) / √(σ² + ε)
+                        let normalized = (x - mu) * inv_std;
+                        
+                        // Scale and shift: γ * normalized + β
+                        let output_val = gamma * normalized + beta;
+                        output_data.push(output_val);
+                    }
+                }
+            }
+        }
         
-        // Apply normalization: simplified version
-        let output = &(&*input * &weight_broadcast) + &bias_broadcast;
-        output
+        Tensor::from_vec(output_data, input_shape.to_vec())
+    }
+    
+    /// Update running statistics for 2D batch normalization
+    /// 2Dバッチ正規化のための移動統計を更新
+    fn update_running_statistics_2d(&self, batch_mean: &Tensor<T>, batch_var: &Tensor<T>) {
+        if let (Ok(mut running_mean), Ok(mut running_var)) = 
+            (self.running_mean.write(), self.running_var.write()) {
+            
+            let batch_mean_array = batch_mean.as_array();
+            let batch_var_array = batch_var.as_array();
+            
+            let running_mean_array = running_mean.as_array_mut();
+            let running_var_array = running_var.as_array_mut();
+            
+            let momentum = self.momentum;
+            let one_minus_momentum = T::one() - momentum;
+            
+            // Update running statistics: running_stat = (1 - momentum) * running_stat + momentum * batch_stat
+            for i in 0..self.num_features {
+                running_mean_array[i] = one_minus_momentum * running_mean_array[i] + momentum * batch_mean_array[i];
+                running_var_array[i] = one_minus_momentum * running_var_array[i] + momentum * batch_var_array[i];
+            }
+        }
     }
     
     /// Returns the parameters of the layer
@@ -424,7 +679,7 @@ where
 
 impl<T> Module<T> for BatchNorm2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
