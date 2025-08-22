@@ -172,6 +172,17 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         }
     }
 
+    /// Transpose the last two dimensions
+    /// 最後の2次元を転置
+    pub fn transpose_last_two(&self) -> Variable<T> {
+        let input_data = self.data.read().unwrap();
+        let result_data = input_data.transpose_last_two();
+        
+        // For now, no gradient support for transpose
+        // 現在のところ、転置の勾配サポートはなし
+        Variable::new(result_data, false)
+    }
+
     /// Sum all elements with automatic differentiation support
     /// 自動微分をサポートする全要素の和
     pub fn sum(&self) -> Variable<T> {

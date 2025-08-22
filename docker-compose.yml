@@ -1,0 +1,89 @@
+# Docker Compose for RusTorch Development and Production
+
+version: '3.8'
+
+services:
+  # Main RusTorch service
+  rustorch:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rustorch-main
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models  
+      - ./output:/app/output
+      - ./examples:/app/examples
+    environment:
+      - RUST_LOG=info
+      - RUSTORCH_ENV=production
+    networks:
+      - rustorch-network
+    restart: unless-stopped
+
+  # Development environment
+  rustorch-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: rustorch-dev
+    volumes:
+      - .:/workspace
+      - cargo-registry:/usr/local/cargo/registry
+    environment:
+      - RUST_LOG=debug
+      - RUSTORCH_ENV=development
+    networks:
+      - rustorch-network
+    ports:
+      - "8080:8080"  # For web demos
+    working_dir: /workspace
+    command: bash
+    profiles:
+      - dev
+
+  # GPU-enabled service (for CUDA support)
+  rustorch-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    container_name: rustorch-gpu
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./output:/app/output
+    environment:
+      - RUST_LOG=info
+      - CUDA_VISIBLE_DEVICES=0
+    runtime: nvidia
+    networks:
+      - rustorch-network
+    profiles:
+      - gpu
+
+  # Jupyter notebook service for Python integration
+  rustorch-notebook:
+    build:
+      context: ./python
+      dockerfile: Dockerfile.jupyter
+    container_name: rustorch-notebook
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./python:/workspace
+      - ./data:/workspace/data
+      - ./models:/workspace/models
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    networks:
+      - rustorch-network
+    profiles:
+      - python
+
+volumes:
+  cargo-registry:
+    driver: local
+
+networks:
+  rustorch-network:
+    driver: bridge

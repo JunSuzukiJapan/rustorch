@@ -36,7 +36,9 @@
       "Bash(mv:*)",
       "Bash(git reset:*)",
       "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_advanced.py)",
-      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_minimal.py)"
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_minimal.py)",
+      "Bash(timeout 60s cargo bench --no-default-features --bench simple_performance_test)",
+      "Bash(timeout 30s cargo bench --bench tensor_ops)"
     ],
     "deny": [],
     "ask": [],

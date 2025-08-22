@@ -3,10 +3,12 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-251%20passing-brightgreen.svg)](#testing)
-[![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-411%20passing-brightgreen.svg)](#testing)
+[![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing) 
 [![GPU](https://img.shields.io/badge/GPU-CUDA%2FMetal%2FOpenCL-blue.svg)](#gpu-acceleration)
 [![Performance](https://img.shields.io/badge/performance-SIMD%20optimized-orange.svg)](#performance)
+[![Docker](https://img.shields.io/badge/Docker-production%20ready-blue.svg)](#docker-deployment)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-green.svg)](#cicd-pipeline)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
 **本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPI、GPU加速、エンタープライズグレードパフォーマンス**
@@ -601,6 +603,75 @@ cargo bench --bench gpu_integration
 
 For detailed API documentation, please refer to [docs.rs/rustorch](https://docs.rs/rustorch).  
 詳細なAPIドキュメントは [docs.rs/rustorch](https://docs.rs/rustorch) をご覧ください。
+
+## 🚀 Production Deployment / 本番環境デプロイ
+
+### Docker Deployment
+
+RusTorch provides production-ready Docker images with multi-stage builds for optimal performance:
+
+```bash
+# Production deployment
+docker build -t rustorch:latest .
+docker run -it rustorch:latest
+
+# GPU-enabled deployment (requires NVIDIA Docker)
+docker build -f Dockerfile.gpu -t rustorch:gpu .
+docker run --gpus all -it rustorch:gpu
+
+# Development environment
+docker compose up rustorch-dev
+
+# Complete multi-service stack
+docker compose --profile gpu up  # With GPU support
+docker compose --profile python up  # With Jupyter notebooks
+```
+
+### CI/CD Pipeline
+
+Automated testing and deployment through GitHub Actions:
+
+- **Multi-platform Testing**: Ubuntu, macOS, Windows across Rust stable/beta/nightly
+- **Code Quality**: Rustfmt, Clippy, security audits, dependency reviews
+- **Performance Regression**: Automated benchmark comparisons
+- **Security Scanning**: Trivy vulnerability scanning, CodeQL analysis
+- **Documentation**: Auto-generated and deployed to GitHub Pages
+- **Release Automation**: Automated crates.io publishing on releases
+
+### Production Features
+
+- **Memory Safety**: Zero unsafe code in core functionality
+- **Thread Safety**: Full concurrent operation support
+- **Error Handling**: Comprehensive error types and recovery
+- **Monitoring**: Built-in performance metrics and logging
+- **Scalability**: Horizontal scaling with distributed computing support
+- **Security**: Regular dependency audits and vulnerability scanning
+
+## 🏗️ Architecture Overview / アーキテクチャ概要
+
+```
+🏢 Production Stack
+├── 🚀 Application Layer
+│   ├── High-level APIs (Sequential, Trainer)
+│   ├── Model definitions (CNN, RNN, Transformer)
+│   └── Training loops and inference
+├── 🧠 Neural Network Layer  
+│   ├── Core layers (Linear, Conv2d, Attention)
+│   ├── Activation functions (ReLU, Softmax, GELU)
+│   └── Normalization (BatchNorm, LayerNorm)
+├── 🔧 Computation Engine
+│   ├── Tensor operations (Math, Broadcasting)
+│   ├── Automatic differentiation (Backprop)
+│   └── Memory management (Pools, Zero-copy)
+├── ⚡ Optimization Layer
+│   ├── SIMD vectorization (AVX2, SSE4.1)
+│   ├── Parallel processing (Rayon threading)
+│   └── GPU acceleration (CUDA, Metal, OpenCL)
+└── 🏗️ Infrastructure Layer
+    ├── Cross-platform support (Linux, macOS, Windows)
+    ├── WebAssembly bindings (Browser deployment)
+    └── Docker containerization (Production-ready)
+```
 
 ## License
 

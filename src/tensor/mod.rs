@@ -481,7 +481,99 @@ impl<T: Float + 'static> Tensor<T> {
                 
                 Tensor::from_vec(result_data, vec![batch_size, m, k])
             },
+            (4, 4) => {
+                // 4D tensor multiplication for Multi-Head Attention
+                // (B, H, S, D) x (B, H, D, S') -> (B, H, S, S')
+                let lhs_shape = lhs.shape();
+                let rhs_shape = rhs.shape();
+                let batch_size = lhs_shape[0];
+                let num_heads = lhs_shape[1];
+                let seq_len = lhs_shape[2];
+                let d_k = lhs_shape[3];
+                let seq_len_rhs = rhs_shape[3];
+                
+                if batch_size != rhs_shape[0] || num_heads != rhs_shape[1] || d_k != rhs_shape[2] {
+                    panic!("Incompatible dimensions for 4D matmul: {:?} and {:?}", lhs_shape, rhs_shape);
+                }
+                
+                let mut result_data = Vec::with_capacity(batch_size * num_heads * seq_len * seq_len_rhs);
+                
+                for b in 0..batch_size {
+                    for h in 0..num_heads {
+                        for i in 0..seq_len {
+                            for j in 0..seq_len_rhs {
+                                let mut sum = T::zero();
+                                for k in 0..d_k {
+                                    sum = sum + lhs[[b, h, i, k]] * rhs[[b, h, k, j]];
+                                }
+                                result_data.push(sum);
+                            }
+                        }
+                    }
+                }
+                
+                Tensor::from_vec(result_data, vec![batch_size, num_heads, seq_len, seq_len_rhs])
+            },
             _ => panic!("Unsupported dimensions for matmul: {:?} and {:?}", lhs.shape(), rhs.shape()),
+        }
+    }
+
+    /// Transposes the last two dimensions of a tensor
+    /// テンソルの最後の2次元を転置します
+    pub fn transpose_last_two(&self) -> Tensor<T> {
+        let shape = self.shape();
+        let ndim = shape.len();
+        
+        if ndim < 2 {
+            panic!("Cannot transpose last two dimensions: tensor has fewer than 2 dimensions");
+        }
+        
+        match ndim {
+            2 => {
+                // Simple matrix transpose
+                let transposed = self.data.t().to_owned();
+                Tensor { data: transposed }
+            },
+            3 => {
+                // Batch matrix transpose: (B, M, N) -> (B, N, M)
+                let batch_size = shape[0];
+                let m = shape[1];
+                let n = shape[2];
+                
+                let mut result_data = Vec::with_capacity(batch_size * n * m);
+                
+                for b in 0..batch_size {
+                    for j in 0..n {
+                        for i in 0..m {
+                            result_data.push(self.data[[b, i, j]]);
+                        }
+                    }
+                }
+                
+                Tensor::from_vec(result_data, vec![batch_size, n, m])
+            },
+            4 => {
+                // 4D tensor transpose: (B, H, M, N) -> (B, H, N, M)
+                let batch_size = shape[0];
+                let num_heads = shape[1];
+                let m = shape[2];
+                let n = shape[3];
+                
+                let mut result_data = Vec::with_capacity(batch_size * num_heads * n * m);
+                
+                for b in 0..batch_size {
+                    for h in 0..num_heads {
+                        for j in 0..n {
+                            for i in 0..m {
+                                result_data.push(self.data[[b, h, i, j]]);
+                            }
+                        }
+                    }
+                }
+                
+                Tensor::from_vec(result_data, vec![batch_size, num_heads, n, m])
+            },
+            _ => panic!("Transpose not implemented for tensors with {} dimensions", ndim)
         }
     }
 
@@ -886,5 +978,96 @@ impl<T: Float> ops::DivAssign<&Tensor<T>> for Tensor<T> {
     fn div_assign(&mut self, rhs: &Tensor<T>) {
         let rhs_data = &rhs.data;
         self.data.zip_mut_with(rhs_data, |a, &b| *a = *a / b);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_4d_matmul() {
+        // Test 4D tensor multiplication for Multi-Head Attention
+        // Q: [1, 2, 3, 4] (batch=1, heads=2, seq_len=3, d_k=4)
+        let q_data = (0..24).map(|i| i as f32).collect::<Vec<f32>>();
+        let q = Tensor::from_vec(q_data, vec![1, 2, 3, 4]);
+        
+        // K^T: [1, 2, 4, 3] (batch=1, heads=2, d_k=4, seq_len=3)  
+        let k_data = (0..24).map(|i| (i * 2) as f32).collect::<Vec<f32>>();
+        let k_t = Tensor::from_vec(k_data, vec![1, 2, 4, 3]);
+        
+        // QK^T should be [1, 2, 3, 3]
+        let attention_scores = q.matmul(&k_t);
+        assert_eq!(attention_scores.shape(), &[1, 2, 3, 3]);
+        
+        // Test with values: [1,2,3,4] × [1,3; 5,7; 9,11; 13,15] = [1×1+2×5+3×9+4×13, 1×3+2×7+3×11+4×15]
+        let simple_q = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 1, 1, 4]);
+        let simple_k = Tensor::from_vec(vec![1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0], vec![1, 1, 4, 2]);
+        
+        let result = simple_q.matmul(&simple_k);
+        assert_eq!(result.shape(), &[1, 1, 1, 2]);
+        
+        let expected = 1.0*1.0 + 2.0*5.0 + 3.0*9.0 + 4.0*13.0; // = 1+10+27+52 = 90
+        let result_data = result.as_slice().unwrap();
+        assert!((result_data[0] - expected).abs() < 1e-6);
+    }
+    
+    #[test]
+    fn test_attention_pattern_4d_matmul() {
+        // More realistic attention pattern test
+        let batch_size = 1;
+        let num_heads = 2; 
+        let seq_len = 4;
+        let d_k = 8;
+        
+        // Create Q and K tensors
+        let q_data = (0..batch_size * num_heads * seq_len * d_k)
+            .map(|i| (i as f32) * 0.1)
+            .collect::<Vec<f32>>();
+        let q = Tensor::from_vec(q_data, vec![batch_size, num_heads, seq_len, d_k]);
+        
+        let k_data = (0..batch_size * num_heads * d_k * seq_len)
+            .map(|i| (i as f32) * 0.05)
+            .collect::<Vec<f32>>();
+        let k_t = Tensor::from_vec(k_data, vec![batch_size, num_heads, d_k, seq_len]);
+        
+        // Compute attention scores
+        let attention_scores = q.matmul(&k_t);
+        
+        // Should have shape [batch_size, num_heads, seq_len, seq_len]
+        assert_eq!(attention_scores.shape(), &[batch_size, num_heads, seq_len, seq_len]);
+        
+        // Verify some basic properties
+        let scores_data = attention_scores.as_slice().unwrap();
+        assert_eq!(scores_data.len(), batch_size * num_heads * seq_len * seq_len);
+    }
+    
+    #[test]
+    fn test_4d_transpose() {
+        // Test 4D tensor transpose: (B, H, M, N) -> (B, H, N, M)
+        let data = (0..24).map(|i| i as f32).collect::<Vec<f32>>();
+        let tensor = Tensor::from_vec(data, vec![1, 2, 3, 4]); // [batch=1, heads=2, m=3, n=4]
+        
+        let transposed = tensor.transpose_last_two();
+        assert_eq!(transposed.shape(), &[1, 2, 4, 3]); // [batch=1, heads=2, n=4, m=3]
+        
+        // Verify specific element: tensor[0,0,1,2] should be transposed[0,0,2,1]
+        let original_val = tensor.as_slice().unwrap()[1 * 4 + 2]; // position (0,0,1,2) = 6
+        let transposed_val = transposed.as_slice().unwrap()[2 * 3 + 1]; // position (0,0,2,1) = 7th element in transposed
+        assert_eq!(original_val, transposed_val);
+    }
+    
+    #[test] 
+    fn test_3d_transpose() {
+        // Test 3D batch matrix transpose
+        let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]; // 2 batches of 1x3 matrices
+        let tensor = Tensor::from_vec(data, vec![2, 1, 3]); 
+        
+        let transposed = tensor.transpose_last_two();
+        assert_eq!(transposed.shape(), &[2, 3, 1]);
+        
+        let trans_data = transposed.as_slice().unwrap();
+        assert_eq!(trans_data[0], 1.0); // First batch, first element
+        assert_eq!(trans_data[3], 4.0); // Second batch, first element
     }
 }

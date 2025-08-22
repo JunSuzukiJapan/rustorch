@@ -6,7 +6,7 @@
 //!
 //! ## 使用例
 //!
-//! ```ignore
+//! ```no_run
 //! use rustorch::models::sequential::Sequential;
 //! use rustorch::nn::{Linear, ReLU, Dropout};
 //! use rustorch::optim::Adam;
@@ -22,7 +22,7 @@
 //!
 //! // モデルのコンパイル
 //! model.compile(
-//!     Adam::new(0.001),
+//!     Adam::default_params(0.001),
 //!     CrossEntropyLoss::new(),
 //!     vec!["accuracy".to_string()]
 //! );

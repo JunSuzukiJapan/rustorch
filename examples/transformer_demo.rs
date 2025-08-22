@@ -265,18 +265,18 @@ mod tests {
         let num_layers = 1;
         let max_length = 20;
         
-        // Create components
+        // Create components with 4D matmul support
         let word_embedding = Embedding::<f32>::new(vocab_size, d_model, Some(0), None, None);
         let pos_encoding = SinusoidalPositionalEncoding::<f32>::new(max_length, d_model);
         let transformer = TransformerEncoder::<f32>::new(num_layers, d_model, num_heads, d_ff, None);
         
-        // Test with small input
+        // Test with small sequence
         let token_input = Variable::new(
             Tensor::from_vec(vec![1.0, 2.0, 3.0, 0.0], vec![1, 4]),
             false
         );
         
-        // Process tokens individually and combine
+        // Process tokens individually and combine for 3D embedding
         let mut embeddings_data = Vec::new();
         let token_binding = token_input.data();
         let token_array = token_binding.read().unwrap();
@@ -302,11 +302,20 @@ mod tests {
         );
         
         let positioned = pos_encoding.forward(&word_embeddings);
+        
+        // Now test full transformer forward pass with 4D matmul
         let output = transformer.forward(&positioned, None);
         
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
         
-        assert_eq!(output_data.shape(), &[1, 4, 64]);
+        // Verify full transformer output
+        assert_eq!(output_data.shape(), &[1, 4, d_model]);
+        
+        println!("✅ Full Transformer pipeline successful!");
+        println!("✓ Word embedding: {} vocab → {} dimensions", vocab_size, d_model);
+        println!("✓ Positional encoding: max length {} → {} dimensions", max_length, d_model);
+        println!("✓ Transformer output: batch=1, seq_len=4, d_model={}", d_model);
+        println!("✓ 4D tensor matmul working in Multi-Head Attention!");
     }
 }

@@ -33,7 +33,7 @@ where
 
     // 3. モデルコンパイル（実際の実装では適切なオプティマイザーと損失関数を使用）
     // model.compile(
-    //     optimizer::Adam::new(0.001),
+    //     optimizer::Adam::default_params(0.001),
     //     loss::CrossEntropyLoss::new(),
     //     vec!["accuracy".to_string()]
     // )?;

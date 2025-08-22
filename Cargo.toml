@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.3.7"
+version = "0.3.8"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -107,6 +107,10 @@ path = "examples/transformer_demo.rs"
 
 [[bench]]
 name = "performance_benchmarks"
+harness = false
+
+[[bench]]
+name = "quick_benchmark"
 harness = false
 
 
