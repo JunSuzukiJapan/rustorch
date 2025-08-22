@@ -1,6 +1,15 @@
 /// Optimization algorithms for neural networks
 /// ニューラルネットワーク用最適化アルゴリズム
 
+mod adamw;
+mod lr_scheduler;
+
+pub use adamw::AdamW;
+pub use lr_scheduler::{
+    LRScheduler, StepLR, ExponentialLR, CosineAnnealingLR, 
+    ReduceLROnPlateau, MultiStepLR, PlateauMode, ThresholdMode
+};
+
 use crate::tensor::Tensor;
 use std::collections::HashMap;
 
