@@ -7,6 +7,27 @@ pub mod transformer_models;
 pub mod training;
 pub mod serialization;
 
+/// Keras風のSequential API
+/// Keras-like Sequential API
+pub mod sequential;
+
+/// 高レベルモデルAPI
+/// High-level model API
+pub mod high_level;
+
+/// Sequential APIの使用例
+/// Sequential API examples
+pub mod examples;
+
+/// 基本的なSequential API実装
+/// Basic Sequential API implementation
+pub mod sequential_basic;
+
+/// Sequential APIの統合テスト
+/// Sequential API integration tests
+#[cfg(test)]
+pub mod sequential_tests;
+
 use crate::autograd::Variable;
 use crate::nn::Module;
 use num_traits::Float;
@@ -70,6 +91,12 @@ pub use rnn::{RNNModel, RNNModelBuilder, LSTMModel, LSTMModelBuilder};
 pub use transformer_models::{TransformerModel, TransformerModelBuilder, BERT, BERTBuilder};
 pub use training::{Trainer, TrainingConfig, TrainingResult};
 pub use serialization::{ModelSaver, ModelLoader, SerializationFormat};
+
+// Re-export Sequential API
+pub use sequential::{Sequential, SequentialBuilder};
+pub use sequential_basic::{BasicSequential, BasicSequentialBuilder};
+pub use high_level::{HighLevelModel, TrainingHistory, FitConfig};
+pub use examples::run_all_examples;
 
 /// Inference engine for model evaluation
 /// モデル評価用の推論エンジン
