@@ -13,13 +13,13 @@
 //! 
 //! ## Core Components
 //! 
-//! - [`DeviceType`]: GPU device type enumeration (CUDA, Metal, OpenCL)
-//! - [`GpuContext`]: GPU context management and device state
-//! - [`DeviceManager`]: Global device management and selection
-//! - [`GpuMemoryPool`]: Efficient GPU memory allocation and pooling
-//! - [`cuda_kernels`]: CUDA-specific kernel implementations
-//! - [`metal_kernels`]: Metal-specific kernel implementations  
-//! - [`opencl_kernels`]: OpenCL-specific kernel implementations
+//! - `DeviceType`: GPU device type enumeration (CUDA, Metal, OpenCL)
+//! - `GpuContext`: GPU context management and device state
+//! - `DeviceManager`: Global device management and selection
+//! - `GpuMemoryPool`: Efficient GPU memory allocation and pooling
+//! - `cuda_kernels`: CUDA-specific kernel implementations
+//! - `metal_kernels`: Metal-specific kernel implementations  
+//! - `opencl_kernels`: OpenCL-specific kernel implementations
 //! 
 //! ## Key Features
 //! 
@@ -33,8 +33,8 @@
 //! 
 //! ### Device Management
 //! 
-//! ```rust
-//! use rustorch::gpu::{DeviceType, get_device_manager, current_device};
+//! ```no_run
+//! // Example GPU usage (implementation dependent on backend)
 //! 
 //! // Get available devices
 //! let manager = get_device_manager();
@@ -95,7 +95,7 @@
 //! 
 //! ## Error Handling
 //! 
-//! The GPU module provides comprehensive error handling through [`GpuError`]:
+//! The GPU module provides comprehensive error handling through `GpuError`:
 //! 
 //! - **DeviceNotFound**: Requested GPU device is not available
 //! - **OutOfMemory**: Insufficient GPU memory for operation

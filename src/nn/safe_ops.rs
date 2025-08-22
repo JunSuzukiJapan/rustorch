@@ -163,6 +163,25 @@ impl SafeOps {
         
         Ok(())
     }
+    
+    /// Apply ReLU activation function: max(0, x)
+    /// ReLU活性化関数を適用: max(0, x)
+    pub fn relu<T>(variable: &Variable<T>) -> NNResult<Variable<T>>
+    where
+        T: Float + Send + Sync + 'static + Debug + Clone,
+    {
+        let binding = variable.data();
+        let data_guard = binding.read()
+            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+        
+        let new_data: Vec<T> = data_guard.as_array()
+            .iter()
+            .map(|&x| if x < T::zero() { T::zero() } else { x })
+            .collect();
+        
+        let new_tensor = Tensor::from_vec(new_data, data_guard.shape().to_vec());
+        Ok(Variable::new(new_tensor, variable.requires_grad()))
+    }
 }
 
 /// Statistics about a tensor
@@ -286,5 +305,17 @@ mod tests {
         
         // Standard deviation should be sqrt(1.25) ≈ 1.118
         assert!((stats.std_dev() - 1.118033988749895).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_relu_function() {
+        let var = SafeOps::create_variable(vec![-2.0, -1.0, 0.0, 1.0, 2.0], vec![5], false).unwrap();
+        
+        let relu_result = SafeOps::relu(&var).unwrap();
+        let binding = relu_result.data();
+        let data_guard = binding.read().unwrap();
+        let expected = vec![0.0, 0.0, 0.0, 1.0, 2.0];
+        
+        assert_eq!(data_guard.as_array().as_slice().unwrap(), expected.as_slice());
     }
 }

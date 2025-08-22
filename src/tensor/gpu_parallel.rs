@@ -12,7 +12,7 @@
 //! - [`GpuParallelOp`]: GPU-accelerated parallel operations
 //! - [`GpuBatchParallelOp`]: GPU batch processing operations
 //! - [`GpuExecutionStrategy`]: Configurable GPU execution strategies
-//! - [`DeviceSelection`]: Intelligent device selection utilities
+//! - `DeviceSelection`: Intelligent device selection utilities
 //! 
 //! ## Supported GPU Backends
 //! 

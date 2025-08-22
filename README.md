@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-411%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-474%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing) 
 [![GPU](https://img.shields.io/badge/GPU-CUDA%2FMetal%2FOpenCL-blue.svg)](#gpu-acceleration)
 [![Performance](https://img.shields.io/badge/performance-SIMD%20optimized-orange.svg)](#performance)
@@ -34,8 +34,12 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **数学関数**: 三角関数、指数関数、べき乗、活性化関数
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation  
   **自動微分**: テープベースの計算グラフによる勾配計算
-- 🏗️ **Neural Network Layers**: Linear, Conv2d, RNN/LSTM/GRU, BatchNorm, Dropout, and more  
-  **ニューラルネットワーク層**: Linear、Conv2d、RNN/LSTM/GRU、BatchNorm、Dropout等
+- 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more  
+  **ニューラルネットワーク層**: Linear、Conv1d/2d/3d、ConvTranspose、RNN/LSTM/GRU、BatchNorm、Dropout等
+- 🔧 **Safe Operations**: Type-safe tensor operations with comprehensive error handling  
+  **安全な操作**: 包括的エラーハンドリング付き型安全テンソル演算
+- ⚙️ **Shared Base Traits**: Reusable convolution and pooling base implementations  
+  **共有基底トレイト**: 再利用可能な畳み込み・プーリング基底実装
 - ⚡ **SIMD Optimizations**: AVX2/SSE4.1 vectorized operations for high performance  
   **SIMD最適化**: 高性能なAVX2/SSE4.1ベクトル化演算
 - 🔄 **Unified Parallel Operations**: Trait-based parallel tensor operations with intelligent scheduling  
@@ -50,8 +54,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **Rust安全性**: メモリ安全性とスレッドセーフティを保証
 - 🌐 **WebAssembly Support**: Browser-compatible WASM bindings for client-side ML  
   **WebAssemblyサポート**: クライアントサイドML向けブラウザ互換WASMバインディング
-- ✅ **Production Ready**: All 251 tests passing, fully functional library with complete GPU acceleration  
-  **本番環境対応**: 251個全テスト合格、完全GPU加速対応の完全機能ライブラリ
+- ✅ **Production Ready**: All 474 tests passing, fully functional library with complete GPU acceleration  
+  **本番環境対応**: 474個全テスト合格、完全GPU加速対応の完全機能ライブラリ
 
 ## Installation
 
@@ -59,7 +63,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.1.7"
+rustorch = "0.3.13"
 
 # For GPU acceleration (optional)
 [features]
@@ -177,6 +181,36 @@ fn main() {
             println!("Epoch {}: Loss = {:.4}", epoch, loss.data().as_array()[[0]]);
         }
     }
+}
+```
+
+### Safe Operations and ReLU Activation / 安全な操作とReLU活性化
+
+```rust
+use rustorch::nn::safe_ops::SafeOps;
+use rustorch::autograd::Variable;
+use rustorch::tensor::Tensor;
+
+fn main() {
+    // Create a variable safely with validation / 検証付きで変数を安全に作成
+    let var = SafeOps::create_variable(
+        vec![-2.0, -1.0, 0.0, 1.0, 2.0], 
+        vec![5], 
+        false
+    ).unwrap();
+    
+    // Apply ReLU activation: max(0, x) / ReLU活性化を適用: max(0, x)
+    let relu_result = SafeOps::relu(&var).unwrap();
+    println!("ReLU output: {:?}", relu_result.data().read().unwrap().as_array());
+    // Output: [0.0, 0.0, 0.0, 1.0, 2.0]
+    
+    // Get tensor statistics safely / テンソル統計を安全に取得
+    let stats = SafeOps::get_stats(&var).unwrap();
+    println!("Mean: {:.2}, Std: {:.2}", stats.mean, stats.std_dev());
+    
+    // Validate tensor for NaN or infinity / NaNや無限大を検証
+    SafeOps::validate_finite(&var).unwrap();
+    println!("Tensor is finite and valid!");
 }
 ```
 

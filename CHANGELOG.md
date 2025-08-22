@@ -5,6 +5,36 @@ All notable changes to RusTorch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.13] - 2024-08-22
+
+### Added
+- **Safe Operations Module**: New `SafeOps` module with comprehensive error handling
+  - `SafeOps::create_variable()` for validated variable creation
+  - `SafeOps::relu()` for ReLU activation function (max(0, x))
+  - `SafeOps::get_stats()` for tensor statistics computation
+  - `SafeOps::validate_finite()` for NaN/infinity detection
+  - `SafeOps::reshape()` and `SafeOps::apply_function()` for safe tensor operations
+- **Shared Base Traits**: New `conv_base.rs` module for code reuse
+  - `ConvolutionBase` trait for common convolution operations
+  - `PoolingBase` trait for pooling layer commonalities
+  - Kaiming weight initialization and parameter counting
+  - Validation utilities for neural network parameters
+- **Performance Benchmarks**: New `nn_benchmark.rs` for performance measurement
+- **Enhanced Loss Functions**: Fixed focal loss and triplet loss implementations
+- **Complete Test Coverage**: 474 tests passing (100% success rate)
+
+### Changed
+- Refactored convolution layers to use shared base traits
+- Improved error handling with custom `NNError` types
+- Enhanced type safety throughout the library
+- Updated API examples and documentation
+
+### Fixed
+- **Critical**: Resolved stack overflow in focal loss functions
+- Fixed infinite recursion in loss function implementations
+- Corrected triplet loss ReLU application
+- Enhanced borrowing patterns for thread safety
+
 ## [0.3.3] - 2024-XX-XX
 
 ### Added

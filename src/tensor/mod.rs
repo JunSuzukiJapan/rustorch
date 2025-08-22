@@ -7,12 +7,12 @@
 //! 
 //! ## Core Components
 //! 
-//! - [`Tensor`]: The main tensor data structure with n-dimensional array support
-//! - [`parallel_traits`]: Unified parallel tensor operations system
-//! - [`gpu_parallel`]: GPU-accelerated tensor operations with device management
-//! - [`memory_optimized`]: Advanced memory management strategies
-//! - [`zero_copy`]: Zero-copy tensor views and shared ownership
-//! - [`simd_aligned`]: SIMD-aligned tensor operations for vectorization
+//! - `Tensor`: The main tensor data structure with n-dimensional array support
+//! - `parallel_traits`: Unified parallel tensor operations system
+//! - `gpu_parallel`: GPU-accelerated tensor operations with device management
+//! - `memory_optimized`: Advanced memory management strategies
+//! - `zero_copy`: Zero-copy tensor views and shared ownership
+//! - `simd_aligned`: SIMD-aligned tensor operations for vectorization
 //! 
 //! ## Key Features
 //! 
