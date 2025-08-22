@@ -1,6 +1,6 @@
 [package]
 name = "rustorch-py"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Python bindings for RusTorch deep learning library"

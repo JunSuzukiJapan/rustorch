@@ -30,7 +30,7 @@ fn sum_list(numbers: &PyList) -> PyResult<f32> {
 /// Get RusTorch version
 #[pyfunction]
 fn get_version() -> String {
-    "0.3.3".to_string()
+    "0.3.4".to_string()
 }
 
 /// Test creating and returning a simple tensor-like structure
@@ -300,7 +300,7 @@ fn _rustorch_py(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<PyResult_>()?;
     m.add_function(wrap_pyfunction!(try_catch, m)?)?;
     
-    m.add("__version__", "0.3.3")?;
+    m.add("__version__", "0.3.4")?;
     
     Ok(())
 }

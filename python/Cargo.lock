@@ -184,7 +184,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch-py"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "pyo3",
  "pyo3-build-config",

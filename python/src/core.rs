@@ -32,7 +32,7 @@ pub mod basic {
     /// Get RusTorch version
     #[pyfunction]
     pub fn get_version() -> String {
-        env!("CARGO_PKG_VERSION").to_string()
+        "0.3.4".to_string()
     }
 
     /// Test creating and returning a simple tensor-like structure
