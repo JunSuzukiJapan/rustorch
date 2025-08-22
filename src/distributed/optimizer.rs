@@ -120,7 +120,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         let sgd = if wd_f32 > 0.0 {
             SGD::with_weight_decay(lr_f32, momentum_f32, wd_f32)
         } else {
-            SGD::new(lr_f32, momentum_f32)
+            SGD::with_momentum(lr_f32, momentum_f32)
         };
         Ok(Self::new(Box::new(sgd), backend, sync_strategy))
     }
@@ -547,7 +547,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
                 if wd_f32 > 0.0 {
                     Box::new(SGD::with_weight_decay(lr_f32, momentum_f32, wd_f32))
                 } else {
-                    Box::new(SGD::new(lr_f32, momentum_f32))
+                    Box::new(SGD::with_momentum(lr_f32, momentum_f32))
                 }
             },
             OptimizerType::Adam { learning_rate, beta1, beta2, epsilon, weight_decay } => {

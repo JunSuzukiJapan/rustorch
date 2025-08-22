@@ -1,14 +1,18 @@
 /// Optimization algorithms for neural networks
 /// ニューラルネットワーク用最適化アルゴリズム
 
-mod adamw;
-mod lr_scheduler;
+pub mod adamw;
+pub mod lr_scheduler;
 
 pub use adamw::AdamW;
 pub use lr_scheduler::{
     LRScheduler, StepLR, ExponentialLR, CosineAnnealingLR, 
     ReduceLROnPlateau, MultiStepLR, PlateauMode, ThresholdMode
 };
+
+pub mod sgd {
+    pub use super::SGD;
+}
 
 use crate::tensor::Tensor;
 use std::collections::HashMap;
@@ -47,7 +51,12 @@ pub struct SGD {
 
 impl SGD {
     /// Create new SGD optimizer
-    pub fn new(learning_rate: f32, momentum: f32) -> Self {
+    pub fn new(learning_rate: f32) -> Self {
+        Self::with_momentum(learning_rate, 0.0)
+    }
+    
+    /// Create new SGD optimizer with momentum
+    pub fn with_momentum(learning_rate: f32, momentum: f32) -> Self {
         Self {
             learning_rate,
             momentum,

@@ -24,6 +24,8 @@ pub enum DType {
     UInt64,
     /// 16-bit floating point (half precision)
     Float16,
+    /// 16-bit brain floating point (bfloat16)
+    BFloat16,
     /// 32-bit floating point (single precision)
     Float32,
     /// 64-bit floating point (double precision)
@@ -41,7 +43,7 @@ impl DType {
     pub fn size(&self) -> usize {
         match self {
             DType::Int8 | DType::UInt8 | DType::Bool => 1,
-            DType::Int16 | DType::UInt16 | DType::Float16 => 2,
+            DType::Int16 | DType::UInt16 | DType::Float16 | DType::BFloat16 => 2,
             DType::Int32 | DType::UInt32 | DType::Float32 => 4,
             DType::Int64 | DType::UInt64 | DType::Float64 | DType::Complex64 => 8,
             DType::Complex128 => 16,
@@ -50,7 +52,7 @@ impl DType {
     
     /// Check if this is a floating point type
     pub fn is_float(&self) -> bool {
-        matches!(self, DType::Float16 | DType::Float32 | DType::Float64)
+        matches!(self, DType::Float16 | DType::BFloat16 | DType::Float32 | DType::Float64)
     }
     
     /// Check if this is an integer type
@@ -87,7 +89,7 @@ impl DType {
     pub fn to_float(&self) -> DType {
         match self {
             DType::Int8 | DType::UInt8 | DType::Bool => DType::Float32,
-            DType::Int16 | DType::UInt16 | DType::Float16 => DType::Float32,
+            DType::Int16 | DType::UInt16 | DType::Float16 | DType::BFloat16 => DType::Float32,
             DType::Int32 | DType::UInt32 | DType::Float32 => DType::Float32,
             DType::Int64 | DType::UInt64 | DType::Float64 => DType::Float64,
             DType::Complex64 => DType::Complex64,
@@ -99,7 +101,7 @@ impl DType {
     pub fn to_int(&self) -> DType {
         match self {
             DType::Int8 | DType::UInt8 | DType::Bool => DType::Int32,
-            DType::Int16 | DType::UInt16 | DType::Float16 => DType::Int32,
+            DType::Int16 | DType::UInt16 | DType::Float16 | DType::BFloat16 => DType::Int32,
             DType::Int32 | DType::UInt32 | DType::Float32 => DType::Int32,
             DType::Int64 | DType::UInt64 | DType::Float64 => DType::Int64,
             DType::Complex64 | DType::Complex128 => DType::Int64,
@@ -118,6 +120,7 @@ impl DType {
             DType::Int64 => Some(i64::MIN as f64),
             DType::UInt64 => Some(0.0),
             DType::Float16 => Some(-65504.0), // Approximate half precision min
+            DType::BFloat16 => Some(-3.38e38), // Approximate bfloat16 min
             DType::Float32 => Some(f32::MIN as f64),
             DType::Float64 => Some(f64::MIN),
             DType::Bool => Some(0.0),
@@ -137,6 +140,7 @@ impl DType {
             DType::Int64 => Some(i64::MAX as f64),
             DType::UInt64 => Some(u64::MAX as f64),
             DType::Float16 => Some(65504.0), // Approximate half precision max
+            DType::BFloat16 => Some(3.38e38), // Approximate bfloat16 max
             DType::Float32 => Some(f32::MAX as f64),
             DType::Float64 => Some(f64::MAX),
             DType::Bool => Some(1.0),
@@ -185,6 +189,7 @@ impl DType {
             // Float64 takes priority over other floats
             (DType::Float64, _) | (_, DType::Float64) => DType::Float64,
             (DType::Float32, _) | (_, DType::Float32) => DType::Float32,
+            (DType::BFloat16, _) | (_, DType::BFloat16) => DType::BFloat16,
             (DType::Float16, _) | (_, DType::Float16) => DType::Float16,
             
             // Integer promotion
@@ -214,6 +219,7 @@ impl DType {
             "int64" | "i64" | "long" => Ok(DType::Int64),
             "uint64" | "u64" | "ulong" => Ok(DType::UInt64),
             "float16" | "f16" | "half" => Ok(DType::Float16),
+            "bfloat16" | "bf16" => Ok(DType::BFloat16),
             "float32" | "f32" | "float" => Ok(DType::Float32),
             "float64" | "f64" | "double" => Ok(DType::Float64),
             "bool" | "boolean" => Ok(DType::Bool),
@@ -236,6 +242,7 @@ impl fmt::Display for DType {
             DType::Int64 => "int64",
             DType::UInt64 => "uint64",
             DType::Float16 => "float16",
+            DType::BFloat16 => "bfloat16",
             DType::Float32 => "float32",
             DType::Float64 => "float64",
             DType::Bool => "bool",

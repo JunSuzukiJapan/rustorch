@@ -42,7 +42,8 @@
       "Bash(for bench in autograd_ops memory_pool optimized_ops quick_benchmark simple_performance_test tensor_ops)",
       "Bash(do echo \"=== Checking $bench ===\")",
       "Bash(done)",
-      "Bash(RUSTFLAGS=\"-W unused\" cargo check --benches)"
+      "Bash(RUSTFLAGS=\"-W unused\" cargo check --benches)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": [],

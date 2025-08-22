@@ -411,7 +411,7 @@ mod tests {
     
     #[test]
     fn test_step_lr() {
-        let optimizer = SGD::new(1.0, 0.0);
+        let optimizer = SGD::new(1.0);
         let mut scheduler = StepLR::new(optimizer, 2, 0.5);
         
         assert_eq!(scheduler.get_lr(), 1.0);
@@ -431,7 +431,7 @@ mod tests {
     
     #[test]
     fn test_exponential_lr() {
-        let optimizer = SGD::new(1.0, 0.0);
+        let optimizer = SGD::new(1.0);
         let mut scheduler = ExponentialLR::new(optimizer, 0.9);
         
         assert_eq!(scheduler.get_lr(), 1.0);
@@ -445,7 +445,7 @@ mod tests {
     
     #[test]
     fn test_cosine_annealing_lr() {
-        let optimizer = SGD::new(1.0, 0.0);
+        let optimizer = SGD::new(1.0);
         let mut scheduler = CosineAnnealingLR::new(optimizer, 10, 0.0);
         
         assert_eq!(scheduler.get_lr(), 1.0);
@@ -465,7 +465,7 @@ mod tests {
     
     #[test]
     fn test_reduce_lr_on_plateau() {
-        let optimizer = SGD::new(1.0, 0.0);
+        let optimizer = SGD::new(1.0);
         let mut scheduler = ReduceLROnPlateau::default_min(optimizer);
         
         assert_eq!(scheduler.get_lr(), 1.0);
@@ -480,7 +480,7 @@ mod tests {
     
     #[test]
     fn test_multi_step_lr() {
-        let optimizer = SGD::new(1.0, 0.0);
+        let optimizer = SGD::new(1.0);
         let mut scheduler = MultiStepLR::new(optimizer, vec![2, 5, 8], 0.1);
         
         assert_eq!(scheduler.get_lr(), 1.0);

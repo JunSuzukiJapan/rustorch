@@ -1208,7 +1208,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.3.10"
+version = "0.3.11"
 dependencies = [
  "anyhow",
  "approx",
@@ -1219,6 +1219,7 @@ dependencies = [
  "criterion",
  "cudarc",
  "getrandom 0.2.16",
+ "half",
  "instant",
  "js-sys",
  "lazy_static",

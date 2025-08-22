@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.3.10"
+version = "0.3.11"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with automatic differentiation, neural networks, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -32,6 +32,7 @@ lazy_static = "1.4"
 parking_lot = "0.12"
 chrono = "0.4"
 anyhow = "1.0"
+half = "2.2"
 
 # Model import dependencies
 protobuf = { version = "3.3", optional = true }
