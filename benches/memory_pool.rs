@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
 use rustorch::tensor::Tensor;
-use rustorch::memory::{MemoryPool, get_f32_pool};
+use rustorch::memory::get_f32_pool;
 
 fn benchmark_tensor_creation_with_pool(c: &mut Criterion) {
     let mut group = c.benchmark_group("tensor_creation");
@@ -128,7 +128,7 @@ fn benchmark_memory_efficiency(c: &mut Criterion) {
             let mut batch_tensors = Vec::new();
             
             // Forward pass - allocate intermediate tensors
-            for i in 0..10 {
+            for _i in 0..10 {
                 batch_tensors.push(Tensor::<f32>::zeros(&[32, 128]));
                 batch_tensors.push(Tensor::<f32>::zeros(&[32, 64]));
                 batch_tensors.push(Tensor::<f32>::zeros(&[32, 32]));
@@ -139,7 +139,7 @@ fn benchmark_memory_efficiency(c: &mut Criterion) {
             
             // Next iteration - should reuse memory
             let mut next_batch = Vec::new();
-            for i in 0..10 {
+            for _i in 0..10 {
                 next_batch.push(Tensor::<f32>::zeros(&[32, 128]));
                 next_batch.push(Tensor::<f32>::zeros(&[32, 64]));
                 next_batch.push(Tensor::<f32>::zeros(&[32, 32]));

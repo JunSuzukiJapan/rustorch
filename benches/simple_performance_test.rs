@@ -97,7 +97,7 @@ fn main() {
     // Parallel processing
     let start = Instant::now();
     use rayon::prelude::*;
-    let _parallel_results: Vec<f32> = batch_tensors.par_iter()
+    let _parallel_results: Vec<Tensor<f32>> = batch_tensors.par_iter()
         .map(|tensor| tensor.sum())
         .collect();
     let parallel_batch_time = start.elapsed();

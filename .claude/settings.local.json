@@ -38,7 +38,11 @@
       "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_advanced.py)",
       "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_minimal.py)",
       "Bash(timeout 60s cargo bench --no-default-features --bench simple_performance_test)",
-      "Bash(timeout 30s cargo bench --bench tensor_ops)"
+      "Bash(timeout 30s cargo bench --bench tensor_ops)",
+      "Bash(for bench in autograd_ops memory_pool optimized_ops quick_benchmark simple_performance_test tensor_ops)",
+      "Bash(do echo \"=== Checking $bench ===\")",
+      "Bash(done)",
+      "Bash(RUSTFLAGS=\"-W unused\" cargo check --benches)"
     ],
     "deny": [],
     "ask": [],
