@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_params = conv_layer.parameters();
     all_params.extend(bn_layer.parameters());
     
-    let mut optimizer = SGD::new(0.01, 0.9);
+    let mut optimizer = SGD::new(0.01);
     
     // Training loop simulation
     for epoch in 0..3 {

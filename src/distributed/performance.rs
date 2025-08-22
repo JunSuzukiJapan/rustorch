@@ -263,18 +263,15 @@ pub struct MemoryPoolStats {
 pub struct CommunicationScheduler<T: Float> {
     pending_operations: Arc<Mutex<Vec<PendingOperation<T>>>>,
     batch_size: usize,
-    #[allow(dead_code)]
-    timeout_ms: u64,
 }
 
 impl<T: Float + 'static> CommunicationScheduler<T> {
     /// Create new communication scheduler
     /// 新しい通信スケジューラを作成
-    pub fn new(batch_size: usize, timeout_ms: u64) -> Self {
+    pub fn new(batch_size: usize) -> Self {
         Self {
             pending_operations: Arc::new(Mutex::new(Vec::new())),
             batch_size,
-            timeout_ms,
         }
     }
     
@@ -407,7 +404,7 @@ mod tests {
     
     #[test]
     fn test_communication_scheduler() {
-        let scheduler = CommunicationScheduler::<f32>::new(5, 1000);
+        let scheduler = CommunicationScheduler::<f32>::new(5);
         
         let operation = PendingOperation {
             operation_type: OperationType::AllReduce,

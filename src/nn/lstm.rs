@@ -505,10 +505,6 @@ pub struct LSTM<T: Float + Send + Sync> {
     /// 双方向フラグ
     bidirectional: bool,
     
-    /// Dropout probability between layers
-    /// 層間のドロップアウト確率
-    #[allow(dead_code)]
-    dropout: T,
     
     /// Training mode flag
     /// 訓練モードフラグ
@@ -545,11 +541,10 @@ where
         num_layers: Option<usize>,
         bias: Option<bool>,
         _batch_first: Option<bool>,
-        dropout: Option<T>,
+        _dropout: Option<T>,
         bidirectional: Option<bool>,
     ) -> Self {
         let num_layers = num_layers.unwrap_or(1);
-        let dropout = dropout.unwrap_or_else(|| <T as From<f32>>::from(0.0f32));
         let bidirectional = bidirectional.unwrap_or(false);
         
         let mut layers = Vec::new();
@@ -573,7 +568,6 @@ where
             layers,
             num_layers,
             bidirectional,
-            dropout,
             training: Arc::new(RwLock::new(true)),
         }
     }
@@ -750,30 +744,6 @@ where
         )
     }
     
-    /// Extract hidden state for a specific layer
-    /// 特定の層の隠れ状態を抽出
-    #[allow(dead_code)]
-    fn extract_layer_hidden(&self, hidden: &Variable<T>, layer_idx: usize) -> Variable<T> {
-        let hidden_binding = hidden.data();
-        let hidden_data = hidden_binding.read().unwrap();
-        let hidden_shape = hidden_data.shape();
-        let batch_size = hidden_shape[1];
-        let hidden_size = hidden_shape[2];
-        
-        let hidden_array = hidden_data.as_array();
-        let mut layer_data = Vec::with_capacity(batch_size * hidden_size);
-        
-        for i in 0..batch_size {
-            for j in 0..hidden_size {
-                layer_data.push(hidden_array[[layer_idx, i, j]]);
-            }
-        }
-        
-        Variable::new(
-            Tensor::from_vec(layer_data, vec![batch_size, hidden_size]),
-            hidden.requires_grad(),
-        )
-    }
     
     /// Extract input at a specific timestep
     /// 特定のタイムステップの入力を抽出
@@ -913,38 +883,6 @@ where
         )
     }
     
-    /// Stack hidden states from multiple layers
-    /// 複数層の隠れ状態をスタック
-    #[allow(dead_code)]
-    fn stack_hidden_states(&self, hiddens: &[Variable<T>]) -> Variable<T> {
-        if hiddens.is_empty() {
-            panic!("Cannot stack empty hidden states");
-        }
-        
-        let first_hidden = &hiddens[0];
-        let hidden_binding = first_hidden.data();
-        let hidden_data = hidden_binding.read().unwrap();
-        let hidden_shape = hidden_data.shape();
-        let batch_size = hidden_shape[0];
-        let hidden_size = hidden_shape[1];
-        
-        let num_states = hiddens.len();
-        let mut result_data = Vec::with_capacity(num_states * batch_size * hidden_size);
-        
-        for hidden in hiddens {
-            let data_binding = hidden.data();
-            let data = data_binding.read().unwrap();
-            let array = data.as_array();
-            for &val in array {
-                result_data.push(val);
-            }
-        }
-        
-        Variable::new(
-            Tensor::from_vec(result_data, vec![num_states, batch_size, hidden_size]),
-            hiddens.iter().any(|h| h.requires_grad()),
-        )
-    }
     
     
     /// Set training mode

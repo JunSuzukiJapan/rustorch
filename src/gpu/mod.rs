@@ -34,6 +34,7 @@
 //! ### Device Management
 //! 
 //! ```no_run
+//! use rustorch::gpu::get_device_manager;
 //! // Example GPU usage (implementation dependent on backend)
 //! 
 //! // Get available devices

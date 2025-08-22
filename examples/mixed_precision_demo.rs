@@ -206,7 +206,7 @@ fn complete_training_demo() -> Result<(), Box<dyn std::error::Error>> {
     rustorch::amp::enable_amp(amp_config);
     
     // Create model parameters (simplified)
-    let mut params = vec![
+    let params = vec![
         Tensor::from_vec(vec![0.1, 0.2, 0.3, 0.4], vec![2, 2]),
         Tensor::from_vec(vec![0.5, 0.6], vec![2]),
     ];
@@ -240,7 +240,7 @@ fn complete_training_demo() -> Result<(), Box<dyn std::error::Error>> {
         let loss = Tensor::from_vec(vec![loss_val], vec![1]);
         
         // Scale loss
-        let scaled_loss = amp_optimizer.scaler().scale_tensor(&loss);
+        let _scaled_loss = amp_optimizer.scaler().scale_tensor(&loss);
         
         // Simulate gradients
         let mut grads = vec![

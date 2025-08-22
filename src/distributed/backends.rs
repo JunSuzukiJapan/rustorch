@@ -1,8 +1,6 @@
 //! Communication backends for distributed training
 //! 分散学習用通信バックエンド
 
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use crate::tensor::Tensor;
 use super::{DistributedError, DistributedResult, DistributedOps, ReduceOp, ProcessGroup};
 use super::common::{CommonOps, BackendOptimizations};
@@ -69,8 +67,6 @@ impl<T: Float + Send + Sync + 'static> BackendOptimizations<T> for NCCLBackend {
 /// CPUおよびGPU通信用Glooバックエンド
 pub struct GlooBackend {
     process_group: ProcessGroup,
-    #[allow(dead_code)]
-    context: Option<Arc<Mutex<GlooContext>>>,
 }
 
 /// Gloo transport options
@@ -91,27 +87,17 @@ pub enum GlooTransport {
 /// Gloo communication context
 /// Gloo通信コンテキスト
 pub struct GlooContext {
-    #[allow(dead_code)]
-    rank: usize,
-    #[allow(dead_code)]
-    size: usize,
-    #[allow(dead_code)]
-    transport: GlooTransport,
 }
 
 impl GlooBackend {
     /// Create new Gloo backend instance
     /// 新しいGlooバックエンドインスタンスを作成
     pub fn new(process_group: ProcessGroup) -> DistributedResult<Self> {
-        let context = GlooContext {
-            rank: process_group.rank,
-            size: process_group.world_size,
-            transport: GlooTransport::TCP,
+        let _context = GlooContext {
         };
         
         Ok(Self {
             process_group,
-            context: Some(Arc::new(Mutex::new(context))),
         })
     }
 }
@@ -160,17 +146,11 @@ impl<T: Float + Send + Sync + 'static> BackendOptimizations<T> for GlooBackend {
 /// シンプルな分散学習用TCPバックエンド
 pub struct TCPBackend {
     process_group: ProcessGroup,
-    #[allow(dead_code)]
-    connections: HashMap<usize, TCPConnection>,
 }
 
 /// TCP connection to remote process
 /// リモートプロセスへのTCP接続
 pub struct TCPConnection {
-    #[allow(dead_code)]
-    stream: std::net::TcpStream,
-    #[allow(dead_code)]
-    remote_rank: usize,
 }
 
 impl TCPBackend {
@@ -179,7 +159,6 @@ impl TCPBackend {
     pub fn new(process_group: ProcessGroup) -> DistributedResult<Self> {
         Ok(Self {
             process_group,
-            connections: HashMap::new(),
         })
     }
 }

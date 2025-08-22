@@ -10,9 +10,7 @@
 use rustorch::prelude::*;
 use rustorch::vision::{
     Image, ImageFormat,
-    pipeline::{Pipeline, PipelineBuilder, ExecutionMode, predicates},
-    presets::*,
-    transforms::*,
+    pipeline::{PipelineBuilder, ExecutionMode, predicates},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

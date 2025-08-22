@@ -127,16 +127,6 @@ pub fn cross_entropy_loss_old<T: Float + Send + Sync + 'static>(
     nll.mean()
 }
 
-/// Helper function to clamp variable values
-#[allow(dead_code)]
-fn clamp_variable<T: Float + Send + Sync + 'static>(
-    var: &Variable<T>, 
-    _min_val: T, 
-    _max_val: T
-) -> Variable<T> {
-    // Simplified clamp implementation
-    var.clone() // Placeholder
-}
 
 /// Helper function to compute log of variable
 fn log_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
@@ -144,12 +134,6 @@ fn log_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable
     var.clone() // Placeholder
 }
 
-/// Helper function to create ones like variable
-#[allow(dead_code)]
-fn ones_like<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
-    // Simplified ones_like implementation
-    var.clone() // Placeholder
-}
 
 /// Helper function to compute softmax
 fn softmax_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {

@@ -497,10 +497,6 @@ pub struct GRU<T: Float + Send + Sync> {
     /// 双方向フラグ
     bidirectional: bool,
     
-    /// Dropout probability between layers
-    /// 層間のドロップアウト確率
-    #[allow(dead_code)]
-    dropout: T,
     
     /// Training mode flag
     /// 訓練モードフラグ
@@ -537,11 +533,10 @@ where
         num_layers: Option<usize>,
         bias: Option<bool>,
         _batch_first: Option<bool>,
-        dropout: Option<T>,
+        _dropout: Option<T>,
         bidirectional: Option<bool>,
     ) -> Self {
         let num_layers = num_layers.unwrap_or(1);
-        let dropout = dropout.unwrap_or_else(|| <T as From<f32>>::from(0.0f32));
         let bidirectional = bidirectional.unwrap_or(false);
         
         let mut layers = Vec::new();
@@ -565,7 +560,6 @@ where
             layers,
             num_layers,
             bidirectional,
-            dropout,
             training: Arc::new(RwLock::new(true)),
         }
     }

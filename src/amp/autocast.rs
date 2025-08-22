@@ -1,11 +1,8 @@
 //! Autocast context manager for automatic mixed precision
 //! 自動混合精度のためのAutocastコンテキストマネージャー
 
-#![allow(dead_code)]
-
 use crate::tensor::Tensor;
 use crate::dtype::DType;
-use crate::autograd::Variable;
 use std::cell::RefCell;
 
 thread_local! {
@@ -115,14 +112,6 @@ pub fn get_autocast_mode() -> AutocastMode {
     AUTOCAST_STATE.with(|state| state.borrow().mode)
 }
 
-/// Get current autocast dtype
-pub fn get_autocast_dtype() -> DType {
-    match get_autocast_mode() {
-        AutocastMode::FP16 => DType::Float16,
-        AutocastMode::BF16 => DType::BFloat16,
-        AutocastMode::None => DType::Float32,
-    }
-}
 
 /// Cast tensor to autocast dtype if enabled
 pub fn maybe_autocast_f32(tensor: &Tensor<f32>) -> Tensor<f32> {
@@ -145,56 +134,9 @@ pub fn maybe_autocast_f32(tensor: &Tensor<f32>) -> Tensor<f32> {
     }
 }
 
-/// Cast tensor to autocast dtype if enabled (generic version - limited support)
-pub fn maybe_autocast<T: num_traits::Float>(tensor: &Tensor<T>) -> Tensor<T> {
-    if !is_autocast_enabled() {
-        return tensor.clone();
-    }
-    
-    // For non-f32 types, we can't do actual casting yet
-    // This would require more complex type system
-    tensor.clone()
-}
 
-/// Cast variable to autocast dtype if enabled
-pub fn maybe_autocast_variable<T: num_traits::Float + Send + Sync + 'static>(var: Variable<T>) -> Variable<T> {
-    if !is_autocast_enabled() {
-        return var;
-    }
-    
-    // TODO: Implement actual dtype conversion for variables
-    var
-}
 
-/// Operations that should be performed in float32
-pub fn is_fp32_op(op_name: &str) -> bool {
-    matches!(
-        op_name,
-        "softmax" | "log_softmax" | "cross_entropy" | 
-        "nll_loss" | "mse_loss" | "l1_loss" |
-        "batch_norm" | "layer_norm" | "group_norm"
-    )
-}
 
-/// Decorator for autocast-aware operations
-pub struct AutocastOp;
-
-impl AutocastOp {
-    /// Execute operation with autocast
-    pub fn apply<F, T>(op_name: &str, f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        if !is_autocast_enabled() || is_fp32_op(op_name) {
-            // Run in original precision
-            f()
-        } else {
-            // Would cast inputs to reduced precision here
-            // For now, just run the operation
-            f()
-        }
-    }
-}
 
 /// Macro for autocast-aware operations
 #[macro_export]
@@ -216,7 +158,6 @@ mod tests {
             let _ctx = autocast("cuda", true, Some(DType::Float16));
             assert!(is_autocast_enabled());
             assert_eq!(get_autocast_mode(), AutocastMode::FP16);
-            assert_eq!(get_autocast_dtype(), DType::Float16);
         }
         
         assert!(!is_autocast_enabled());
@@ -241,14 +182,4 @@ mod tests {
         assert!(!is_autocast_enabled());
     }
     
-    #[test]
-    fn test_fp32_ops() {
-        assert!(is_fp32_op("softmax"));
-        assert!(is_fp32_op("batch_norm"));
-        assert!(is_fp32_op("cross_entropy"));
-        
-        assert!(!is_fp32_op("matmul"));
-        assert!(!is_fp32_op("conv2d"));
-        assert!(!is_fp32_op("linear"));
-    }
 }

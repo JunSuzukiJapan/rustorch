@@ -94,8 +94,6 @@ struct MemoryBlock {
     ptr: NonNull<u8>,
     size: usize,
     alignment: usize,
-    #[allow(dead_code)]
-    allocated_at: Instant,
     last_accessed: Instant,
     access_count: u64,
     is_huge_page: bool,
@@ -129,7 +127,6 @@ impl MemoryBlock {
             ptr,
             size,
             alignment,
-            allocated_at: now,
             last_accessed: now,
             access_count: 0,
             is_huge_page,
@@ -191,10 +188,6 @@ impl MemoryBlock {
         self.access_count += 1;
     }
 
-    #[allow(dead_code)]
-    fn age(&self) -> Duration {
-        self.allocated_at.elapsed()
-    }
 
     fn idle_time(&self) -> Duration {
         self.last_accessed.elapsed()

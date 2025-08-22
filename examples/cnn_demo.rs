@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create optimizer
     let all_params = conv_test.parameters();
-    let mut optimizer = SGD::new(0.01, 0.9);
+    let mut optimizer = SGD::new(0.01);
     
     // Simulate training step
     let target = Variable::new(

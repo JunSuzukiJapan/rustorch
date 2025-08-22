@@ -227,47 +227,9 @@ where
         result
     }
     
-    /// 1エポックの訓練（簡略化実装）
-    /// Train for one epoch (simplified implementation)
-    #[allow(dead_code)]
-    fn train_epoch<D>(&mut self, _train_loader: &DataLoader<T, D>) -> (f64, f64) 
-    where
-        D: Dataset<T>,
-    {
-        // 簡略化実装 - 実際の訓練ループの代わりにシミュレーション値を返す
-        let loss = 0.5;
-        let accuracy = 0.8;
-        (loss, accuracy)
-    }
     
-    /// 1エポックの検証（簡略化実装）
-    /// Validate for one epoch (simplified implementation)
-    #[allow(dead_code)]
-    fn validate_epoch<D>(&self, _val_loader: &DataLoader<T, D>) -> (f64, f64) 
-    where
-        D: Dataset<T>,
-    {
-        // 簡略化実装 - 実際の検証ループの代わりにシミュレーション値を返す
-        let loss = 0.6;
-        let accuracy = 0.75;
-        (loss, accuracy)
-    }
     
-    /// 損失値を抽出
-    /// Extract loss value
-    #[allow(dead_code)]
-    fn extract_loss_value(&self, _loss: &Variable<T>) -> f64 {
-        // 実装は簡略化 - 実際にはテンソルから値を抽出
-        0.0
-    }
     
-    /// 精度を計算
-    /// Calculate accuracy
-    #[allow(dead_code)]
-    fn calculate_accuracy(&self, _outputs: &Variable<T>, _targets: &Variable<T>) -> (usize, usize) {
-        // 実装は簡略化 - 実際には予測と正解を比較
-        (80, 100) // (correct, total)
-    }
     
     /// モデルへの参照を取得
     /// Get reference to the model

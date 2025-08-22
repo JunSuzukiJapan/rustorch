@@ -29,14 +29,6 @@ where
     /// Devices to use for parallel training
     /// 並列学習に使用するデバイス
     device_ids: Vec<DeviceType>,
-    /// Output device for gathering results
-    /// 結果を集約する出力デバイス
-    #[allow(dead_code)]
-    output_device: DeviceType,
-    /// Whether to broadcast buffers
-    /// バッファをブロードキャストするかどうか
-    #[allow(dead_code)]
-    broadcast_buffers: bool,
     /// Gradient synchronization strategy
     /// 勾配同期戦略
     sync_strategy: GradientSyncStrategy,
@@ -72,16 +64,10 @@ where
     pub fn new(
         module: M,
         device_ids: Vec<DeviceType>,
-        output_device: Option<DeviceType>,
-        broadcast_buffers: bool,
     ) -> Self {
-        let output_device = output_device.unwrap_or_else(|| device_ids[0].clone());
-        
         Self {
             module: Arc::new(module),
             device_ids,
-            output_device,
-            broadcast_buffers,
             sync_strategy: GradientSyncStrategy::Synchronous,
             _phantom: std::marker::PhantomData,
         }
@@ -548,9 +534,7 @@ mod tests {
         let linear = Linear::<f32>::new(10, 5);
         let devices = vec![DeviceType::Cpu, DeviceType::Cpu]; // Use CPU for testing
         
-        let dp = DataParallel::new(linear, devices, None, true);
+        let dp = DataParallel::new(linear, devices);
         assert_eq!(dp.num_devices(), 2);
-        assert_eq!(dp.output_device, DeviceType::Cpu);
-        assert!(dp.broadcast_buffers);
     }
 }

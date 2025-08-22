@@ -705,12 +705,6 @@ impl GraphVisualizer {
     
     fn get_default_edge_style(&self, edge_type: &EdgeType) -> EdgeStyle {
         match edge_type {
-            EdgeType::Forward => EdgeStyle {
-                color: "#666".to_string(),
-                width: 2.0,
-                line_type: LineType::Solid,
-                arrow_type: ArrowType::Standard,
-            },
             EdgeType::Gradient => EdgeStyle {
                 color: "#f44336".to_string(),
                 width: 1.5,
@@ -728,22 +722,11 @@ impl Default for GraphVisualizer {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 enum EdgeType {
-    Forward,
     Gradient,
 }
 
-#[allow(dead_code)]
 impl EdgeType {
-    /// エッジタイプの文字列表現を取得
-    /// Get string representation of edge type
-    fn as_str(&self) -> &'static str {
-        match self {
-            EdgeType::Forward => "forward",
-            EdgeType::Gradient => "gradient",
-        }
-    }
 }
 
 fn format_shape(shape: &[usize]) -> String {

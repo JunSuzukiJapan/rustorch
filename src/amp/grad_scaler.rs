@@ -1,8 +1,6 @@
 //! Gradient scaler for mixed precision training
 //! 混合精度学習のための勾配スケーラー
 
-#![allow(dead_code)]
-
 use crate::tensor::Tensor;
 use crate::autograd::Variable;
 use crate::optim::Optimizer;
@@ -389,37 +387,9 @@ pub struct ScalerStats {
 
 /// Utility functions for gradient scaling
 pub mod utils {
-    use super::*;
     
-    /// Check if value would overflow in FP16
-    pub fn would_overflow_fp16(value: f32) -> bool {
-        value.abs() > 65504.0
-    }
     
-    /// Check if value would underflow in FP16
-    pub fn would_underflow_fp16(value: f32) -> bool {
-        value != 0.0 && value.abs() < 6.0e-8
-    }
     
-    /// Compute optimal scale for gradients
-    pub fn compute_optimal_scale(gradients: &[Tensor<f32>]) -> f32 {
-        let mut max_grad = 0.0f32;
-        
-        for grad in gradients {
-            if let Some(slice) = grad.as_slice() {
-                for &value in slice {
-                    max_grad = max_grad.max(value.abs());
-                }
-            }
-        }
-        
-        if max_grad == 0.0 {
-            return 1.0;
-        }
-        
-        // Compute scale to bring max gradient to ~1000 (well within FP16 range)
-        (1000.0 / max_grad).min(65536.0).max(1.0)
-    }
 }
 
 #[cfg(test)]
@@ -506,19 +476,4 @@ mod tests {
         assert_eq!(scaler.get_scale(), initial_scale * 0.5 * 2.0);
     }
     
-    #[test]
-    fn test_utils() {
-        assert!(utils::would_overflow_fp16(100000.0));
-        assert!(!utils::would_overflow_fp16(1000.0));
-        
-        assert!(utils::would_underflow_fp16(1e-10));
-        assert!(!utils::would_underflow_fp16(0.001));
-        
-        let grads = vec![
-            Tensor::from_vec(vec![10.0, 20.0, 30.0], vec![3]),
-        ];
-        let optimal_scale = utils::compute_optimal_scale(&grads);
-        assert!(optimal_scale > 1.0);
-        assert!(optimal_scale < 100.0);
-    }
 }

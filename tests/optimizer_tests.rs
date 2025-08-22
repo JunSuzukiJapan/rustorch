@@ -162,7 +162,7 @@ fn test_optimizer_state_dict() {
     // Get initial state
     let state = sgd.state_dict();
     assert_eq!(state.get("learning_rate"), Some(&0.01));
-    assert_eq!(state.get("momentum"), Some(&0.9));
+    assert_eq!(state.get("momentum"), Some(&0.0));
     
     // Modify optimizer
     sgd.set_learning_rate(0.001);

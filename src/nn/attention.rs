@@ -44,10 +44,6 @@ pub struct MultiHeadAttention<T: Float + Send + Sync> {
     /// 出力射影層
     w_o: Linear<T>,
     
-    /// Dropout probability for attention weights
-    /// アテンション重みのドロップアウト確率
-    #[allow(dead_code)]
-    dropout_p: T,
     
     /// Temperature scaling factor
     /// 温度スケーリング因子
@@ -63,7 +59,7 @@ where
     pub fn new(
         d_model: usize,
         num_heads: usize,
-        dropout: Option<T>,
+        _dropout: Option<T>,
         bias: Option<bool>,
     ) -> Self {
         assert!(d_model > 0, "d_model must be greater than 0");
@@ -72,7 +68,6 @@ where
                 "d_model ({}) must be divisible by num_heads ({})", d_model, num_heads);
         
         let d_k = d_model / num_heads;
-        let dropout_p = dropout.unwrap_or_else(|| T::from(0.1).unwrap());
         let bias = bias.unwrap_or(true);
         
         // Create projection layers
@@ -92,7 +87,6 @@ where
             w_k,
             w_v,
             w_o,
-            dropout_p,
             temperature,
         }
     }

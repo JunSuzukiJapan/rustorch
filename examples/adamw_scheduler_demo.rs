@@ -2,17 +2,17 @@
 //! AdamWオプティマイザと学習率スケジューラのデモンストレーション
 
 use rustorch::prelude::*;
-use rustorch::nn::{Linear, Module};
+use rustorch::nn::Linear;
 use rustorch::optim::{AdamW, Optimizer, LRScheduler, StepLR, CosineAnnealingLR, ReduceLROnPlateau, PlateauMode};
 
 fn main() {
     println!("=== AdamW + Learning Rate Scheduler Demo ===\n");
     
     // Create a simple model
-    let linear = Linear::<f32>::new(10, 1);
+    let _linear = Linear::<f32>::new(10, 1);
     
     // Create AdamW optimizer
-    let mut adamw = AdamW::default_params(0.01);
+    let adamw = AdamW::default_params(0.01);
     println!("Initial learning rate: {}", adamw.learning_rate());
     
     // Demonstrate StepLR scheduler
