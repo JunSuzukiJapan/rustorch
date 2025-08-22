@@ -109,7 +109,7 @@ fn calculate_accuracy(predictions: &std::sync::Arc<std::sync::RwLock<Tensor<f32>
     let mut correct = 0;
     let batch_size = labels.len();
     
-    let tensor_guard = predictions.read().unwrap();
+    let _tensor_guard = predictions.read().unwrap();
     // 簡略化のため模擬データを使用
     // Use mock data for simplification
     let mock_data: Vec<f32> = (0..batch_size * 10).map(|i| (i % 10) as f32).collect();
@@ -164,7 +164,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let model = MNISTNet::new();
     // SGDオプティマイザーは簡略化のため省略し、手動更新を使用
     // SGD optimizer is omitted for simplification, using manual updates
-    let loss_fn = CrossEntropyLoss::<f32>::new();
+    let _loss_fn = CrossEntropyLoss::<f32>::new();
     let mut data_generator = MNISTGenerator::new();
     
     println!("\n🏗️  モデル構造 / Model Architecture:");

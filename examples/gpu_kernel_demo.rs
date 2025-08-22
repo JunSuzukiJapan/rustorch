@@ -3,8 +3,8 @@
 
 use rustorch::gpu::{
     DeviceType, 
-    kernels::{AddKernel, MatMulKernel, KernelExecutor, GpuKernel},
-    validation::{run_gpu_validation, print_gpu_validation_report}
+    kernels::{AddKernel, MatMulKernel, KernelExecutor},
+    validation::print_gpu_validation_report
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

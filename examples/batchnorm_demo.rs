@@ -2,7 +2,7 @@
 //! CNNでのバッチ正規化デモ
 
 use rustorch::prelude::*;
-use rustorch::nn::{Sequential, Conv2d, MaxPool2d, BatchNorm2d, BatchNorm1d, Linear};
+use rustorch::nn::{Sequential, Conv2d, MaxPool2d, BatchNorm2d, BatchNorm1d};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔥 RusTorch BatchNorm Demo");
