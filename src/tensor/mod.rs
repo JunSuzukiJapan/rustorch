@@ -127,10 +127,14 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.as_ptr()
     }
     
-    /// Copy data from another tensor
-    pub fn copy_from(&self, _other: &Tensor<T>) {
-        // Mock implementation - in reality would need mutable access
-        // For now, just a placeholder
+    /// Copy data from another tensor (unsafe internal implementation)
+    pub fn copy_from(&self, other: &Tensor<T>) {
+        unsafe {
+            let self_ptr = self.data.as_ptr() as *mut T;
+            let other_ptr = other.data.as_ptr();
+            let len = self.data.len().min(other.data.len());
+            std::ptr::copy_nonoverlapping(other_ptr, self_ptr, len);
+        }
     }
     
     /// Convert tensor to different device (mock implementation)

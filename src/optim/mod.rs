@@ -328,3 +328,339 @@ impl Optimizer for Adam {
         }
     }
 }
+
+/// RMSprop optimizer
+#[derive(Debug, Clone)]
+pub struct RMSprop {
+    learning_rate: f32,
+    alpha: f32,
+    epsilon: f32,
+    weight_decay: f32,
+    momentum: f32,
+    centered: bool,
+    step_count: usize,
+    square_avg: HashMap<usize, Tensor<f32>>,
+    momentum_buffer: HashMap<usize, Tensor<f32>>,
+    grad_avg: HashMap<usize, Tensor<f32>>, // for centered variant
+}
+
+impl RMSprop {
+    /// Create new RMSprop optimizer
+    /// 新しいRMSpropオプティマイザーを作成
+    pub fn new(learning_rate: f32, alpha: f32, epsilon: f32) -> Self {
+        Self {
+            learning_rate,
+            alpha,
+            epsilon,
+            weight_decay: 0.0,
+            momentum: 0.0,
+            centered: false,
+            step_count: 0,
+            square_avg: HashMap::new(),
+            momentum_buffer: HashMap::new(),
+            grad_avg: HashMap::new(),
+        }
+    }
+    
+    /// Create RMSprop with default parameters
+    /// デフォルトパラメータでRMSpropを作成
+    pub fn default_params(learning_rate: f32) -> Self {
+        Self::new(learning_rate, 0.99, 1e-8)
+    }
+    
+    /// Create RMSprop with momentum
+    /// モーメンタム付きRMSpropを作成
+    pub fn with_momentum(learning_rate: f32, alpha: f32, epsilon: f32, momentum: f32) -> Self {
+        Self {
+            learning_rate,
+            alpha,
+            epsilon,
+            weight_decay: 0.0,
+            momentum,
+            centered: false,
+            step_count: 0,
+            square_avg: HashMap::new(),
+            momentum_buffer: HashMap::new(),
+            grad_avg: HashMap::new(),
+        }
+    }
+    
+    /// Create centered RMSprop
+    /// センタード RMSpropを作成
+    pub fn centered(learning_rate: f32, alpha: f32, epsilon: f32, centered: bool) -> Self {
+        Self {
+            learning_rate,
+            alpha,
+            epsilon,
+            weight_decay: 0.0,
+            momentum: 0.0,
+            centered,
+            step_count: 0,
+            square_avg: HashMap::new(),
+            momentum_buffer: HashMap::new(),
+            grad_avg: HashMap::new(),
+        }
+    }
+    
+    /// Create RMSprop with weight decay
+    /// 重み減衰付きRMSpropを作成
+    pub fn with_weight_decay(learning_rate: f32, alpha: f32, epsilon: f32, weight_decay: f32) -> Self {
+        Self {
+            learning_rate,
+            alpha,
+            epsilon,
+            weight_decay,
+            momentum: 0.0,
+            centered: false,
+            step_count: 0,
+            square_avg: HashMap::new(),
+            momentum_buffer: HashMap::new(),
+            grad_avg: HashMap::new(),
+        }
+    }
+}
+
+impl Optimizer for RMSprop {
+    fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
+        let param_id = param.as_ptr() as usize;
+        self.step_count += 1;
+        
+        let mut d_p = grad.clone();
+        
+        // Apply weight decay
+        if self.weight_decay != 0.0 {
+            let weight_decay_term = param * self.weight_decay;
+            d_p = &d_p + &weight_decay_term;
+        }
+        
+        // Update biased second raw moment estimate
+        let square_avg = if let Some(sq_avg) = self.square_avg.get(&param_id) {
+            let alpha_term = sq_avg * self.alpha;
+            let grad_squared = &d_p * &d_p;
+            let one_minus_alpha_term = &grad_squared * (1.0 - self.alpha);
+            alpha_term + one_minus_alpha_term
+        } else {
+            let grad_squared = &d_p * &d_p;
+            grad_squared * (1.0 - self.alpha)
+        };
+        
+        self.square_avg.insert(param_id, square_avg.clone());
+        
+        let avg = if self.centered {
+            // Centered variant: subtract the squared mean of gradients
+            let grad_avg = if let Some(g_avg) = self.grad_avg.get(&param_id) {
+                let alpha_term = g_avg * self.alpha;
+                let one_minus_alpha_term = &d_p * (1.0 - self.alpha);
+                alpha_term + one_minus_alpha_term
+            } else {
+                d_p.clone() * (1.0 - self.alpha)
+            };
+            
+            self.grad_avg.insert(param_id, grad_avg.clone());
+            
+            // avg = square_avg - grad_avg^2
+            let grad_avg_squared = &grad_avg * &grad_avg;
+            &square_avg - &grad_avg_squared
+        } else {
+            square_avg.clone()
+        };
+        
+        // Compute update
+        let denom = avg.sqrt() + self.epsilon;
+        
+        if self.momentum > 0.0 {
+            // Apply momentum
+            let buf = if let Some(momentum_buf) = self.momentum_buffer.get(&param_id) {
+                let momentum_term = momentum_buf * self.momentum;
+                let grad_term = (&d_p / &denom) * self.learning_rate;
+                momentum_term + grad_term
+            } else {
+                (&d_p / &denom) * self.learning_rate
+            };
+            
+            self.momentum_buffer.insert(param_id, buf.clone());
+            let update = param - &buf;
+            param.copy_from(&update);
+        } else {
+            // No momentum
+            let update_term = (&d_p / &denom) * self.learning_rate;
+            let update = param - &update_term;
+            param.copy_from(&update);
+        }
+    }
+    
+    fn learning_rate(&self) -> f32 {
+        self.learning_rate
+    }
+    
+    fn set_learning_rate(&mut self, lr: f32) {
+        self.learning_rate = lr;
+    }
+    
+    fn state_dict(&self) -> HashMap<String, f32> {
+        let mut state = HashMap::new();
+        state.insert("learning_rate".to_string(), self.learning_rate);
+        state.insert("alpha".to_string(), self.alpha);
+        state.insert("epsilon".to_string(), self.epsilon);
+        state.insert("weight_decay".to_string(), self.weight_decay);
+        state.insert("momentum".to_string(), self.momentum);
+        state.insert("centered".to_string(), if self.centered { 1.0 } else { 0.0 });
+        state.insert("step_count".to_string(), self.step_count as f32);
+        state
+    }
+    
+    fn load_state_dict(&mut self, state: HashMap<String, f32>) {
+        if let Some(&lr) = state.get("learning_rate") {
+            self.learning_rate = lr;
+        }
+        if let Some(&alpha) = state.get("alpha") {
+            self.alpha = alpha;
+        }
+        if let Some(&epsilon) = state.get("epsilon") {
+            self.epsilon = epsilon;
+        }
+        if let Some(&weight_decay) = state.get("weight_decay") {
+            self.weight_decay = weight_decay;
+        }
+        if let Some(&momentum) = state.get("momentum") {
+            self.momentum = momentum;
+        }
+        if let Some(&centered) = state.get("centered") {
+            self.centered = centered > 0.5;
+        }
+        if let Some(&step_count) = state.get("step_count") {
+            self.step_count = step_count as usize;
+        }
+    }
+}
+
+/// AdaGrad optimizer
+#[derive(Debug, Clone)]
+pub struct AdaGrad {
+    learning_rate: f32,
+    epsilon: f32,
+    weight_decay: f32,
+    initial_accumulator_value: f32,
+    step_count: usize,
+    sum_of_squares: HashMap<usize, Tensor<f32>>,
+}
+
+impl AdaGrad {
+    /// Create new AdaGrad optimizer
+    /// 新しいAdaGradオプティマイザーを作成
+    pub fn new(learning_rate: f32, epsilon: f32) -> Self {
+        Self {
+            learning_rate,
+            epsilon,
+            weight_decay: 0.0,
+            initial_accumulator_value: 0.0,
+            step_count: 0,
+            sum_of_squares: HashMap::new(),
+        }
+    }
+    
+    /// Create AdaGrad with default parameters
+    /// デフォルトパラメータでAdaGradを作成
+    pub fn default_params(learning_rate: f32) -> Self {
+        Self::new(learning_rate, 1e-10)
+    }
+    
+    /// Create AdaGrad with weight decay
+    /// 重み減衰付きAdaGradを作成
+    pub fn with_weight_decay(learning_rate: f32, epsilon: f32, weight_decay: f32) -> Self {
+        Self {
+            learning_rate,
+            epsilon,
+            weight_decay,
+            initial_accumulator_value: 0.0,
+            step_count: 0,
+            sum_of_squares: HashMap::new(),
+        }
+    }
+    
+    /// Create AdaGrad with initial accumulator value
+    /// 初期アキュムレータ値付きAdaGradを作成
+    pub fn with_initial_accumulator(learning_rate: f32, epsilon: f32, initial_accumulator_value: f32) -> Self {
+        Self {
+            learning_rate,
+            epsilon,
+            weight_decay: 0.0,
+            initial_accumulator_value,
+            step_count: 0,
+            sum_of_squares: HashMap::new(),
+        }
+    }
+}
+
+impl Optimizer for AdaGrad {
+    fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
+        let param_id = param.as_ptr() as usize;
+        self.step_count += 1;
+        
+        let mut d_p = grad.clone();
+        
+        // Apply weight decay
+        if self.weight_decay != 0.0 {
+            let weight_decay_term = param * self.weight_decay;
+            d_p = &d_p + &weight_decay_term;
+        }
+        
+        // Update sum of squares of gradients
+        let sum_of_squares = if let Some(sos) = self.sum_of_squares.get(&param_id) {
+            let grad_squared = &d_p * &d_p;
+            sos + &grad_squared
+        } else {
+            // Initialize with initial accumulator value if first step
+            let grad_squared = &d_p * &d_p;
+            if self.initial_accumulator_value > 0.0 {
+                grad_squared + self.initial_accumulator_value
+            } else {
+                grad_squared
+            }
+        };
+        
+        self.sum_of_squares.insert(param_id, sum_of_squares.clone());
+        
+        // Compute adaptive learning rate
+        let std = sum_of_squares.sqrt() + self.epsilon;
+        let update_term = (&d_p / &std) * self.learning_rate;
+        let update = param - &update_term;
+        param.copy_from(&update);
+    }
+    
+    fn learning_rate(&self) -> f32 {
+        self.learning_rate
+    }
+    
+    fn set_learning_rate(&mut self, lr: f32) {
+        self.learning_rate = lr;
+    }
+    
+    fn state_dict(&self) -> HashMap<String, f32> {
+        let mut state = HashMap::new();
+        state.insert("learning_rate".to_string(), self.learning_rate);
+        state.insert("epsilon".to_string(), self.epsilon);
+        state.insert("weight_decay".to_string(), self.weight_decay);
+        state.insert("initial_accumulator_value".to_string(), self.initial_accumulator_value);
+        state.insert("step_count".to_string(), self.step_count as f32);
+        state
+    }
+    
+    fn load_state_dict(&mut self, state: HashMap<String, f32>) {
+        if let Some(&lr) = state.get("learning_rate") {
+            self.learning_rate = lr;
+        }
+        if let Some(&epsilon) = state.get("epsilon") {
+            self.epsilon = epsilon;
+        }
+        if let Some(&weight_decay) = state.get("weight_decay") {
+            self.weight_decay = weight_decay;
+        }
+        if let Some(&initial_accumulator_value) = state.get("initial_accumulator_value") {
+            self.initial_accumulator_value = initial_accumulator_value;
+        }
+        if let Some(&step_count) = state.get("step_count") {
+            self.step_count = step_count as usize;
+        }
+    }
+}

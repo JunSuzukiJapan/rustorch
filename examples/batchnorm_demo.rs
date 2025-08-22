@@ -157,7 +157,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut all_params = conv_layer.parameters();
     all_params.extend(bn_layer.parameters());
     
-    let mut optimizer = SGD::new(all_params, 0.01, Some(0.9), None, None, None);
+    let mut optimizer = SGD::new(0.01, 0.9);
     
     // Training loop simulation
     for epoch in 0..3 {
@@ -173,9 +173,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let loss = (&diff * &diff).sum().mean_autograd();
         
         // Backward pass
-        optimizer.zero_grad();
         loss.backward();
-        optimizer.step();
+        
+        // Update parameters
+        for param in &all_params {
+            let param_data = param.data();
+            let param_tensor = param_data.read().unwrap();
+            let grad_data = param.grad();
+            let grad_guard = grad_data.read().unwrap();
+            if let Some(ref grad_tensor) = *grad_guard {
+                optimizer.step(&param_tensor, &grad_tensor);
+            }
+        }
         
         println!("   Epoch {}: Loss shape: {:?}", 
                 epoch + 1, loss.data().read().unwrap().shape());

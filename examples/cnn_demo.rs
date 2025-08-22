@@ -120,7 +120,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     
     // Create optimizer
     let all_params = conv_test.parameters();
-    let mut optimizer = SGD::new(all_params, 0.01, Some(0.9), None, None, None);
+    let mut optimizer = SGD::new(0.01, 0.9);
     
     // Simulate training step
     let target = Variable::new(
@@ -139,9 +139,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Loss shape: {:?}", loss.data().read().unwrap().shape());
     
     // Backward pass
-    optimizer.zero_grad();
     loss.backward();
-    optimizer.step();
+    
+    // Update parameters
+    for param in &all_params {
+        let param_data = param.data();
+        let param_tensor = param_data.read().unwrap();
+        let grad_data = param.grad();
+        let grad_guard = grad_data.read().unwrap();
+        if let Some(ref grad_tensor) = *grad_guard {
+            optimizer.step(&param_tensor, &grad_tensor);
+        }
+    }
     
     println!("   Backward pass and optimization step completed");
     

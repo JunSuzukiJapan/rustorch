@@ -198,7 +198,7 @@ pub mod prelude {
     pub use crate::autograd::Variable;
     pub use crate::nn::activation::{relu, sigmoid, tanh, leaky_relu, softmax, gelu, swish, elu, selu, mish, hardswish};
     pub use crate::nn::loss::{mse_loss, binary_cross_entropy, cross_entropy, nll_loss, huber_loss};
-    pub use crate::optim::{Optimizer, SGD, Adam};
+    pub use crate::optim::{Optimizer, SGD, Adam, RMSprop, AdaGrad};
     pub use crate::data::{Dataset, TensorDataset, DataLoader};
     pub use crate::models::{Model, ModelMode, ModelBuilder, CNN, CNNBuilder, ResNet, ResNetBuilder};
     pub use crate::models::{RNNModel, RNNModelBuilder, LSTMModel, LSTMModelBuilder};

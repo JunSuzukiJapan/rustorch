@@ -55,7 +55,7 @@ fn main() {
     let params = model.parameters();
     
     // Create optimizer
-    let mut optimizer = SGD::new(params, 0.01, None, None, None, None);
+    let mut optimizer = SGD::new(0.01, 0.0);
     
     // Training parameters
     let n_epochs = 100;
@@ -76,7 +76,15 @@ fn main() {
         loss_var.backward();
         
         // Update parameters
-        optimizer.step();
+        for param in &params {
+            let param_data = param.data();
+            let param_tensor = param_data.read().unwrap();
+            let grad_data = param.grad();
+            let grad_guard = grad_data.read().unwrap();
+            if let Some(ref grad_tensor) = *grad_guard {
+                optimizer.step(&param_tensor, &grad_tensor);
+            }
+        }
         
         // Print loss every 10 epochs
         if epoch % 10 == 0 {
