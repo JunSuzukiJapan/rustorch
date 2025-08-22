@@ -239,7 +239,7 @@ pub mod prelude {
     pub use crate::models::{ModelSaver, ModelLoader, SerializationFormat};
     pub use crate::visualization::{TrainingPlotter, TensorVisualizer, GraphVisualizer};
     pub use crate::visualization::{PlotConfig, PlotStyle, ChartType, TensorPlotConfig, ColorMap};
-    pub use crate::vision::{Image, ImageFormat, transforms::*, datasets::*};
+    pub use crate::vision::{Image, ImageFormat, transforms::*, datasets::*, pipeline::*, presets::*};
 }
 
 #[cfg(test)]

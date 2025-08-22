@@ -10,9 +10,12 @@
 pub mod transforms;
 pub mod datasets;
 pub mod utils;
+pub mod pipeline;
+pub mod presets;
 
 pub use transforms::*;
 pub use datasets::*;
+pub use pipeline::*;
 
 use crate::tensor::Tensor;
 use num_traits::Float;

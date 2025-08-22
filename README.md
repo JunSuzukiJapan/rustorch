@@ -36,8 +36,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **自動微分**: テープベースの計算グラフによる勾配計算
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more  
   **ニューラルネットワーク層**: Linear、Conv1d/2d/3d、ConvTranspose、RNN/LSTM/GRU、BatchNorm、Dropout等
-- 🖼️ **Computer Vision**: Image transforms (Resize, Crop, Normalize), data augmentation, built-in datasets (MNIST, CIFAR-10/100)  
-  **コンピュータビジョン**: 画像変換（リサイズ、クロップ、正規化）、データ拡張、組み込みデータセット（MNIST、CIFAR-10/100）
+- 🖼️ **Computer Vision**: Advanced transformation pipelines with caching, conditional transforms, built-in datasets (MNIST, CIFAR-10/100)  
+  **コンピュータビジョン**: キャッシュ、条件付き変換、組み込みデータセット（MNIST、CIFAR-10/100）を持つ高度な変換パイプライン
 - 🔧 **Safe Operations**: Type-safe tensor operations with comprehensive error handling  
   **安全な操作**: 包括的エラーハンドリング付き型安全テンソル演算
 - ⚙️ **Shared Base Traits**: Reusable convolution and pooling base implementations  
@@ -188,6 +188,8 @@ fn main() {
 
 ### Computer Vision / コンピュータビジョン
 
+#### Basic Transforms / 基本変換
+
 ```rust
 use rustorch::prelude::*;
 use rustorch::vision::{transforms::*, datasets::*, Image, ImageFormat};
@@ -195,36 +197,61 @@ use rustorch::vision::{transforms::*, datasets::*, Image, ImageFormat};
 fn main() {
     // Load MNIST dataset / MNISTデータセットを読み込み
     let train_dataset = MNIST::new("./data", true, true).unwrap();
-    let test_dataset = MNIST::new("./data", false, true).unwrap();
     
-    // Create image transforms / 画像変換を作成
-    let resize = Resize::new((32, 32)).with_interpolation(InterpolationMode::Bilinear);
-    let normalize = Normalize::imagenet(); // ImageNet normalization / ImageNet正規化
-    let random_crop = RandomCrop::new((28, 28)).with_padding((4, 4));
-    let random_flip = RandomHorizontalFlip::new(0.5);
-    
-    // Compose transforms / 変換を組み合わせ
+    // Create basic transforms / 基本変換を作成
     let transform = Compose::new(vec![
-        Box::new(resize),
-        Box::new(random_crop),
-        Box::new(random_flip),
-        Box::new(normalize),
+        Box::new(Resize::new((224, 224))),
+        Box::new(RandomHorizontalFlip::new(0.5)),
         Box::new(ToTensor::new()),
+        Box::new(Normalize::imagenet()),
     ]);
     
-    // Apply transforms to CIFAR-10 dataset / CIFAR-10データセットに変換を適用
     let cifar10 = CIFAR10::new("./data", true, true)
         .unwrap()
         .with_transform(Box::new(transform));
     
-    // Create data loader / データローダーを作成
     let train_loader = DataLoader::new(cifar10, 32, true);
+}
+```
+
+#### Advanced Pipeline / 高度なパイプライン
+
+```rust
+use rustorch::prelude::*;
+
+fn main() {
+    // Create advanced pipeline with caching and conditional transforms
+    // キャッシュと条件付き変換を持つ高度なパイプラインを作成
+    let pipeline = PipelineBuilder::new("training_pipeline".to_string())
+        .transform(Box::new(Resize::new((256, 256))))
+        .conditional_transform(
+            Box::new(RandomCrop::new((224, 224))),
+            predicates::min_size(100, 100), // Only for images >= 100x100
+            "large_image_crop".to_string()
+        )
+        .conditional_transform(
+            Box::new(RandomHorizontalFlip::new(1.0)),
+            predicates::probability(0.5), // 50% chance
+            "random_flip".to_string()
+        )
+        .transform(Box::new(ToTensor::new()))
+        .transform(Box::new(Normalize::imagenet()))
+        .cache(500) // Cache 500 processed images
+        .execution_mode(ExecutionMode::Batch)
+        .build();
     
-    // Training loop example / 学習ループの例
-    for (batch_idx, (data, target)) in train_loader.enumerate().take(10) {
-        println!("Batch {}: Data shape {:?}, Target shape {:?}", 
-                 batch_idx, data.shape(), target.shape());
-    }
+    // Use preset pipelines / プリセットパイプラインを使用
+    let imagenet_train = ImageNetPreprocessing::training();
+    let cifar_train = CIFARPreprocessing::training();
+    let mobile_optimized = MobileOptimizedPreprocessing::mobile_inference();
+    
+    // Apply pipeline with performance monitoring
+    // パフォーマンス監視付きでパイプラインを適用
+    let result = pipeline.apply(&image).unwrap();
+    let stats = pipeline.get_stats();
+    println!("Processed: {} images, Cache hit rate: {:.1}%", 
+             stats.total_processed,
+             stats.cache_hits as f64 / (stats.cache_hits + stats.cache_misses) as f64 * 100.0);
 }
 ```
 
