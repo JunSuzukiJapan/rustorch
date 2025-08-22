@@ -1,0 +1,21 @@
+# Build artifacts
+target/
+*.so
+*.dylib
+*.pyd
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Rust cache  
+Cargo.lock
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store

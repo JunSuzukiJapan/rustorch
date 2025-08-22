@@ -1,0 +1,8 @@
+[build]
+rustflags = [
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+]
+
+[env]
+PYO3_PYTHON = "/usr/local/opt/python@3.9/bin/python3.9"

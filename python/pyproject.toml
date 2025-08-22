@@ -1,0 +1,100 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "rustorch"
+version = "0.3.3"
+description = "Python bindings for RusTorch - A PyTorch-compatible deep learning library in Rust"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT OR Apache-2.0" }
+authors = [
+    { name = "Jun Suzuki", email = "jun.suzuki.japan@gmail.com" }
+]
+keywords = ["machine-learning", "deep-learning", "pytorch", "tensor", "neural-networks", "rust"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "typing-extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-benchmark>=4.0.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+test = [
+    "pytest>=7.0.0",
+    "pytest-benchmark>=4.0.0",
+    "torch>=2.0.0",  # For compatibility testing
+    "torchvision>=0.15.0",
+]
+docs = [
+    "sphinx>=5.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "sphinxcontrib-napoleon>=0.7",
+]
+jupyter = [
+    "jupyter>=1.0.0",
+    "ipython>=8.0.0",
+    "matplotlib>=3.5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/JunSuzukiJapan/rustorch"
+Repository = "https://github.com/JunSuzukiJapan/rustorch"
+Documentation = "https://docs.rs/rustorch"
+"Bug Reports" = "https://github.com/JunSuzukiJapan/rustorch/issues"
+
+[tool.maturin]
+python-source = "python"
+module-name = "rustorch._rustorch_py"
+features = ["pyo3/extension-module"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+select = ["E", "F", "W", "I", "N", "UP"]
