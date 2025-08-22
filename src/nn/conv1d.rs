@@ -3,11 +3,9 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::nn::Module;
+use crate::nn::{Module, conv_base::{ConvolutionBase, NNError, Validator}};
 use std::fmt::Debug;
 use num_traits::Float;
-use rand::distributions::Distribution;
-use rand_distr::Normal;
 
 /// 1D Convolution layer for sequence processing
 /// シーケンス処理用の1D畳み込み層
@@ -56,12 +54,37 @@ pub struct Conv1d<T: Float + Send + Sync> {
     groups: usize,
 }
 
+/// Temporary helper struct for weight initialization
+struct TempConv1d {
+    in_channels: usize,
+    out_channels: usize,
+    kernel_size: usize,
+    groups: usize,
+}
+
+impl<T: Float + Send + Sync> ConvolutionBase<T> for TempConv1d {
+    fn in_channels(&self) -> usize { self.in_channels }
+    fn out_channels(&self) -> usize { self.out_channels }
+    fn groups(&self) -> usize { self.groups }
+    fn kernel_dims(&self) -> Vec<usize> { vec![self.kernel_size] }
+}
+
+impl<T> ConvolutionBase<T> for Conv1d<T>
+where
+    T: Float + Send + Sync,
+{
+    fn in_channels(&self) -> usize { self.in_channels }
+    fn out_channels(&self) -> usize { self.out_channels }
+    fn groups(&self) -> usize { self.groups }
+    fn kernel_dims(&self) -> Vec<usize> { vec![self.kernel_size] }
+}
+
 impl<T> Conv1d<T>
 where
     T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
 {
-    /// Create a new Conv1d layer
-    /// 新しいConv1d層を作成
+    /// Create a new Conv1d layer with error handling
+    /// エラーハンドリング付きの新しいConv1d層を作成
     pub fn new(
         in_channels: usize,
         out_channels: usize,
@@ -71,34 +94,25 @@ where
         dilation: Option<usize>,
         groups: Option<usize>,
         bias: Option<bool>,
-    ) -> Self {
+    ) -> Result<Self, NNError> {
         let stride = stride.unwrap_or(1);
         let padding = padding.unwrap_or(0);
         let dilation = dilation.unwrap_or(1);
         let groups = groups.unwrap_or(1);
         let use_bias = bias.unwrap_or(true);
 
-        // Validate parameters
-        assert!(in_channels % groups == 0, "in_channels must be divisible by groups");
-        assert!(out_channels % groups == 0, "out_channels must be divisible by groups");
-        assert!(kernel_size > 0, "kernel_size must be positive");
-        assert!(stride > 0, "stride must be positive");
-        assert!(dilation > 0, "dilation must be positive");
-        assert!(groups > 0, "groups must be positive");
+        // Validate parameters using the validator
+        Validator::validate_conv_params(
+            in_channels, out_channels, &[kernel_size], &[stride], 
+            &[padding], &[dilation], groups
+        )?;
 
+        // Create a temporary instance for trait methods
+        let temp_conv = TempConv1d { in_channels, out_channels, kernel_size, groups };
+        
         // Initialize weight tensor with shape [out_channels, in_channels/groups, kernel_size]
         let weight_shape = vec![out_channels, in_channels / groups, kernel_size];
-        let weight_size = weight_shape.iter().product::<usize>();
-        
-        // Initialize with Kaiming uniform (suitable for ReLU)
-        let fan_in = (in_channels / groups) * kernel_size;
-        let bound = (6.0 / fan_in as f32).sqrt();
-        
-        let mut rng = rand::thread_rng();
-        let normal = Normal::new(0.0, bound).unwrap();
-        let weight_data: Vec<T> = (0..weight_size)
-            .map(|_| <T as From<f32>>::from(normal.sample(&mut rng)))
-            .collect();
+        let weight_data = temp_conv.init_weights(weight_shape.clone());
         
         let weight_tensor = Tensor::from_vec(weight_data, weight_shape);
         let weight = Variable::new(weight_tensor, true);
@@ -112,7 +126,7 @@ where
             None
         };
 
-        Self {
+        Ok(Self {
             weight,
             bias,
             in_channels,
@@ -122,7 +136,23 @@ where
             padding,
             dilation,
             groups,
-        }
+        })
+    }
+    
+    /// Create a new Conv1d layer (panicking version for backward compatibility)
+    /// 後方互換性のためのパニック版
+    pub fn create(
+        in_channels: usize,
+        out_channels: usize,
+        kernel_size: usize,
+        stride: Option<usize>,
+        padding: Option<usize>,
+        dilation: Option<usize>,
+        groups: Option<usize>,
+        bias: Option<bool>,
+    ) -> Self {
+        Self::new(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
+            .expect("Failed to create Conv1d layer")
     }
 
     /// Perform forward pass
@@ -156,7 +186,7 @@ where
         out_channels: usize, 
         kernel_size: usize
     ) -> Self {
-        Self::new(
+        Self::create(
             in_channels,
             out_channels,
             kernel_size,
@@ -176,7 +206,7 @@ where
         kernel_size: usize,
     ) -> Self {
         let padding = (kernel_size - 1) / 2;
-        Self::new(
+        Self::create(
             in_channels,
             out_channels,
             kernel_size,
@@ -191,9 +221,7 @@ where
     /// Get number of parameters
     /// パラメータ数を取得
     pub fn num_parameters(&self) -> usize {
-        let weight_params = self.out_channels * (self.in_channels / self.groups) * self.kernel_size;
-        let bias_params = if self.bias.is_some() { self.out_channels } else { 0 };
-        weight_params + bias_params
+        ConvolutionBase::num_parameters(self, self.bias.is_some())
     }
     
     /// Get receptive field size
@@ -235,7 +263,7 @@ mod tests {
             None,           // dilation
             None,           // groups
             Some(true),     // bias
-        );
+        ).expect("Failed to create Conv1d");
         
         assert_eq!(layer.in_channels, 128);
         assert_eq!(layer.out_channels, 64);
@@ -249,7 +277,7 @@ mod tests {
     fn test_output_length_calculation() {
         let layer: Conv1d<f32> = Conv1d::new(
             10, 20, 3, Some(1), Some(1), None, None, Some(true)
-        );
+        ).expect("Failed to create Conv1d");
         
         let input_length = 100;
         let output_length = layer.calculate_output_length(input_length);
@@ -285,7 +313,7 @@ mod tests {
 
     #[test]
     fn test_num_parameters() {
-        let layer: Conv1d<f32> = Conv1d::new(
+        let layer: Conv1d<f32> = Conv1d::create(
             64, 32, 5, None, None, None, None, Some(true)
         );
         
@@ -297,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_receptive_field() {
-        let layer: Conv1d<f32> = Conv1d::new(
+        let layer: Conv1d<f32> = Conv1d::create(
             16, 32, 3, None, None, Some(2), None, None
         );
         
@@ -307,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_parameters() {
-        let layer: Conv1d<f32> = Conv1d::new(
+        let layer: Conv1d<f32> = Conv1d::create(
             8, 4, 3, None, None, None, None, Some(true)
         );
         
@@ -317,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_no_bias() {
-        let layer: Conv1d<f32> = Conv1d::new(
+        let layer: Conv1d<f32> = Conv1d::create(
             8, 4, 3, None, None, None, None, Some(false)
         );
         
@@ -328,12 +356,25 @@ mod tests {
 
     #[test]
     fn test_grouped_convolution() {
-        let layer: Conv1d<f32> = Conv1d::new(
+        let layer: Conv1d<f32> = Conv1d::create(
             32, 64, 3, None, None, None, Some(4), Some(true)
         );
         
         assert_eq!(layer.groups, 4);
         // Weight shape should be [64, 32/4, 3] = [64, 8, 3]
         assert_eq!(layer.num_parameters(), 64 * 8 * 3 + 64); // weight + bias
+    }
+
+    #[test]
+    fn test_error_handling() {
+        // Test invalid parameters
+        let result = Conv1d::<f32>::new(0, 32, 3, None, None, None, None, None);
+        assert!(result.is_err());
+        
+        let result = Conv1d::<f32>::new(32, 64, 0, None, None, None, None, None);
+        assert!(result.is_err());
+        
+        let result = Conv1d::<f32>::new(33, 64, 3, None, None, None, Some(2), None);
+        assert!(result.is_err()); // 33 not divisible by 2
     }
 }

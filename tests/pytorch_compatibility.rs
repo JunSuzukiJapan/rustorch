@@ -123,8 +123,8 @@ mod pytorch_compatibility_tests {
         let params = linear.parameters();
         
         // Test SGD - equivalent to torch.optim.SGD
-        let mut sgd = SGD::new(0.01, 0.9);
-        println!("  ✓ SGD optimizer created: lr=0.01, momentum=0.9");
+        let mut sgd = SGD::new(0.01);
+        println!("  ✓ SGD optimizer created: lr=0.01");
         
         // Test Adam - equivalent to torch.optim.Adam
         let mut adam = Adam::new(0.001, 0.9, 0.999, 1e-8);

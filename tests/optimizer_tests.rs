@@ -6,7 +6,7 @@ use rustorch::optim::{Optimizer, SGD, Adam, RMSprop, AdaGrad};
 
 #[test]
 fn test_sgd_optimizer() {
-    let mut sgd = SGD::new(0.01, 0.9);
+    let mut sgd = SGD::new(0.01);
     
     // Test basic functionality
     assert_eq!(sgd.learning_rate(), 0.01);
@@ -157,7 +157,7 @@ fn test_adagrad_with_initial_accumulator() {
 
 #[test]
 fn test_optimizer_state_dict() {
-    let mut sgd = SGD::new(0.01, 0.9);
+    let mut sgd = SGD::new(0.01);
     
     // Get initial state
     let state = sgd.state_dict();
@@ -174,7 +174,7 @@ fn test_optimizer_state_dict() {
 
 #[test]
 fn test_multiple_step_convergence() {
-    let mut sgd = SGD::new(0.1, 0.0); // No momentum for simple test
+    let mut sgd = SGD::new(0.1); // No momentum for simple test
     
     // Simple quadratic function: f(x) = (x - 2)^2
     // Gradient: f'(x) = 2(x - 2)
@@ -197,7 +197,7 @@ fn test_multiple_step_convergence() {
 #[test]
 fn test_learning_rate_modification() {
     let mut optimizers: Vec<Box<dyn Optimizer>> = vec![
-        Box::new(SGD::new(0.01, 0.9)),
+        Box::new(SGD::new(0.01)),
         Box::new(Adam::new(0.001, 0.9, 0.999, 1e-8)),
         Box::new(RMSprop::new(0.01, 0.99, 1e-8)),
         Box::new(AdaGrad::new(0.01, 1e-10)),

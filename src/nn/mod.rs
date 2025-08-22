@@ -2,6 +2,8 @@
 //! Neural network module definitions.
 
 pub mod linear;
+pub mod conv_base;
+pub mod safe_ops;
 pub mod conv1d;
 pub mod conv2d;
 pub mod conv3d;

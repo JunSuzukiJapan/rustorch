@@ -55,7 +55,7 @@ fn main() {
     let params = model.parameters();
     
     // Create optimizer
-    let mut optimizer = SGD::new(0.01, 0.0);
+    let mut optimizer = SGD::new(0.01);
     
     // Training parameters
     let n_epochs = 100;

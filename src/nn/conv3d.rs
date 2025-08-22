@@ -136,7 +136,8 @@ where
     pub fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For now, return a simple placeholder implementation
         // In a real implementation, this would perform 3D convolution
-        input.clone()
+        // TODO: Implement actual 3D convolution computation
+        Variable::new(input.data().read().unwrap().clone(), input.requires_grad())
     }
     
     /// Get layer parameters

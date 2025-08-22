@@ -43,7 +43,10 @@
       "Bash(do echo \"=== Checking $bench ===\")",
       "Bash(done)",
       "Bash(RUSTFLAGS=\"-W unused\" cargo check --benches)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib safe_ops::tests::test_tensor_stats -- --nocapture)",
+      "Bash(timeout 30s cargo bench --bench nn_benchmark)",
+      "Bash(rg:*)"
     ],
     "deny": [],
     "ask": [],
