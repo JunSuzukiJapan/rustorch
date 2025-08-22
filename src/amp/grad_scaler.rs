@@ -1,6 +1,8 @@
 //! Gradient scaler for mixed precision training
 //! 混合精度学習のための勾配スケーラー
 
+#![allow(dead_code)]
+
 use crate::tensor::Tensor;
 use crate::autograd::Variable;
 use crate::optim::Optimizer;
@@ -356,15 +358,32 @@ impl GradScaler {
 }
 
 /// Statistics about gradient scaling
+/// 勾配スケーリングの統計情報
 #[derive(Debug, Clone)]
 pub struct ScalerStats {
+    /// Current scale factor
+    /// 現在のスケール係数
     pub current_scale: f32,
+    /// Growth factor for scale updates
+    /// スケール更新の成長係数
     pub growth_factor: f32,
+    /// Backoff factor when overflow occurs
+    /// オーバーフロー時の後退係数
     pub backoff_factor: f32,
+    /// Interval between growth updates
+    /// 成長更新の間隔
     pub growth_interval: usize,
+    /// Current growth tracking counter
+    /// 現在の成長追跡カウンタ
     pub growth_tracker: usize,
+    /// Number of consecutive non-overflow steps
+    /// 連続非オーバーフローステップ数
     pub consecutive_non_overflow: usize,
+    /// Whether scaling is enabled
+    /// スケーリングが有効かどうか
     pub enabled: bool,
+    /// Whether overflow was detected
+    /// オーバーフローが検出されたかどうか
     pub has_overflow: bool,
 }
 

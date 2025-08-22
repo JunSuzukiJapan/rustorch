@@ -10,6 +10,8 @@ pub use lr_scheduler::{
     ReduceLROnPlateau, MultiStepLR, PlateauMode, ThresholdMode
 };
 
+/// SGD (Stochastic Gradient Descent) optimizer module
+/// SGD（確率的勾配降下法）オプティマイザモジュール
 pub mod sgd {
     pub use super::SGD;
 }

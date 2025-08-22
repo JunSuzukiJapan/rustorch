@@ -1,6 +1,8 @@
 //! Autocast context manager for automatic mixed precision
 //! 自動混合精度のためのAutocastコンテキストマネージャー
 
+#![allow(dead_code)]
+
 use crate::tensor::Tensor;
 use crate::dtype::DType;
 use crate::autograd::Variable;
@@ -10,6 +12,8 @@ thread_local! {
     static AUTOCAST_STATE: RefCell<AutocastState> = RefCell::new(AutocastState::default());
 }
 
+/// Autocast mode for mixed precision training
+/// 混合精度学習のためのAutocastモード
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum AutocastMode {
     /// No autocasting
@@ -24,7 +28,7 @@ pub enum AutocastMode {
 struct AutocastState {
     mode: AutocastMode,
     enabled: bool,
-    cache_enabled: bool,
+    _cache_enabled: bool,
     /// Nested level for autocast contexts
     level: usize,
 }
@@ -34,7 +38,7 @@ impl Default for AutocastState {
         Self {
             mode: AutocastMode::None,
             enabled: false,
-            cache_enabled: true,
+            _cache_enabled: true,
             level: 0,
         }
     }
@@ -43,7 +47,7 @@ impl Default for AutocastState {
 /// Autocast context manager
 pub struct AutocastContext {
     prev_state: AutocastState,
-    device_type: String,
+    _device_type: String,
 }
 
 impl AutocastContext {
@@ -70,7 +74,7 @@ impl AutocastContext {
         
         Self {
             prev_state,
-            device_type: device_type.to_string(),
+            _device_type: device_type.to_string(),
         }
     }
     

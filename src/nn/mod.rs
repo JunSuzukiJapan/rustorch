@@ -2,8 +2,12 @@
 //! Neural network module definitions.
 
 pub mod linear;
+pub mod conv1d;
 pub mod conv2d;
+pub mod conv3d;
+pub mod conv_transpose;
 pub mod pool2d;
+pub mod adaptive_pool;
 pub mod batchnorm;
 pub mod dropout;
 pub mod activation;
@@ -128,12 +132,24 @@ where
 /// 線形（全結合）レイヤー
 /// Linear (fully connected) layer
 pub use linear::Linear;
+/// 1次元畳み込みレイヤー
+/// 1D convolution layer
+pub use conv1d::Conv1d;
 /// 2次元畳み込みレイヤー
 /// 2D convolution layer
 pub use conv2d::Conv2d;
+/// 3次元畳み込みレイヤー
+/// 3D convolution layer
+pub use conv3d::Conv3d;
+/// 2次元転置畳み込みレイヤー
+/// 2D transposed convolution layer
+pub use conv_transpose::ConvTranspose2d;
 /// 2次元プーリングレイヤー
 /// 2D pooling layers
 pub use pool2d::{MaxPool2d, AvgPool2d};
+/// 適応的プーリングレイヤー
+/// Adaptive pooling layers
+pub use adaptive_pool::{AdaptiveMaxPool2d, AdaptiveAvgPool2d};
 /// バッチ正規化レイヤー
 /// Batch normalization layers
 pub use batchnorm::{BatchNorm1d, BatchNorm2d};
@@ -170,3 +186,7 @@ pub use quantization::{Quantizer, QuantizedTensor, QuantizationParams, Quantizat
 /// Pruning modules
 /// プルーニングモジュール
 pub use pruning::{Pruner, PruningMask, PruningMethod, PruningStructure, PruningSchedule, PruningAwareModule};
+/// Loss functions
+/// 損失関数
+pub use loss::{Loss, MSELoss, CrossEntropyLoss, FocalLoss, TripletLoss, KLDivLoss, 
+               mse_loss, cross_entropy_loss, focal_loss, triplet_loss, kl_div_loss};

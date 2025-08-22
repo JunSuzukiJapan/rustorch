@@ -1,6 +1,8 @@
 //! Data type conversion utilities for mixed precision
 //! 混合精度のためのデータ型変換ユーティリティ
 
+#![allow(dead_code)]
+
 use crate::tensor::Tensor;
 use crate::dtype::DType;
 use half::{f16, bf16};

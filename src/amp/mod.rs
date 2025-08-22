@@ -80,7 +80,7 @@ lazy_static::lazy_static! {
 
 struct AMPState {
     enabled: bool,
-    autocast_mode: AutocastMode,
+    _autocast_mode: AutocastMode,
     config: AMPConfig,
 }
 
@@ -88,7 +88,7 @@ impl Default for AMPState {
     fn default() -> Self {
         Self {
             enabled: false,
-            autocast_mode: AutocastMode::None,
+            _autocast_mode: AutocastMode::None,
             config: AMPConfig::default(),
         }
     }

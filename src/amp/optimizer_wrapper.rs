@@ -211,12 +211,23 @@ impl<O: Optimizer> AMPOptimizer<O> {
 }
 
 /// Training statistics for AMP optimization
+/// AMP最適化の学習統計
 #[derive(Debug, Clone)]
 pub struct TrainingStats {
+    /// Total number of optimization steps
+    /// 最適化ステップの総数
     pub total_steps: usize,
+    /// Number of successful steps
+    /// 成功したステップ数
     pub successful_steps: usize,
+    /// Number of overflow occurrences
+    /// オーバーフロー発生回数
     pub overflow_count: usize,
+    /// Rate of overflow occurrences
+    /// オーバーフロー発生率
     pub overflow_rate: f32,
+    /// Gradient scaler statistics
+    /// 勾配スケーラー統計
     pub scaler_stats: ScalerStats,
 }
 
