@@ -36,6 +36,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **自動微分**: テープベースの計算グラフによる勾配計算
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more  
   **ニューラルネットワーク層**: Linear、Conv1d/2d/3d、ConvTranspose、RNN/LSTM/GRU、BatchNorm、Dropout等
+- 🖼️ **Computer Vision**: Image transforms (Resize, Crop, Normalize), data augmentation, built-in datasets (MNIST, CIFAR-10/100)  
+  **コンピュータビジョン**: 画像変換（リサイズ、クロップ、正規化）、データ拡張、組み込みデータセット（MNIST、CIFAR-10/100）
 - 🔧 **Safe Operations**: Type-safe tensor operations with comprehensive error handling  
   **安全な操作**: 包括的エラーハンドリング付き型安全テンソル演算
 - ⚙️ **Shared Base Traits**: Reusable convolution and pooling base implementations  
@@ -180,6 +182,48 @@ fn main() {
         if epoch % 10 == 0 {
             println!("Epoch {}: Loss = {:.4}", epoch, loss.data().as_array()[[0]]);
         }
+    }
+}
+```
+
+### Computer Vision / コンピュータビジョン
+
+```rust
+use rustorch::prelude::*;
+use rustorch::vision::{transforms::*, datasets::*, Image, ImageFormat};
+
+fn main() {
+    // Load MNIST dataset / MNISTデータセットを読み込み
+    let train_dataset = MNIST::new("./data", true, true).unwrap();
+    let test_dataset = MNIST::new("./data", false, true).unwrap();
+    
+    // Create image transforms / 画像変換を作成
+    let resize = Resize::new((32, 32)).with_interpolation(InterpolationMode::Bilinear);
+    let normalize = Normalize::imagenet(); // ImageNet normalization / ImageNet正規化
+    let random_crop = RandomCrop::new((28, 28)).with_padding((4, 4));
+    let random_flip = RandomHorizontalFlip::new(0.5);
+    
+    // Compose transforms / 変換を組み合わせ
+    let transform = Compose::new(vec![
+        Box::new(resize),
+        Box::new(random_crop),
+        Box::new(random_flip),
+        Box::new(normalize),
+        Box::new(ToTensor::new()),
+    ]);
+    
+    // Apply transforms to CIFAR-10 dataset / CIFAR-10データセットに変換を適用
+    let cifar10 = CIFAR10::new("./data", true, true)
+        .unwrap()
+        .with_transform(Box::new(transform));
+    
+    // Create data loader / データローダーを作成
+    let train_loader = DataLoader::new(cifar10, 32, true);
+    
+    // Training loop example / 学習ループの例
+    for (batch_idx, (data, target)) in train_loader.enumerate().take(10) {
+        println!("Batch {}: Data shape {:?}, Target shape {:?}", 
+                 batch_idx, data.shape(), target.shape());
     }
 }
 ```

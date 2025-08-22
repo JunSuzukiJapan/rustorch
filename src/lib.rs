@@ -67,6 +67,7 @@
 //!   - [`nn::safe_ops`]: Safe tensor operations with error handling and ReLU activation
 //!   - [`nn::conv_base`]: Shared base traits for convolution and pooling layers
 //! - [`autograd`]: Automatic differentiation system
+//! - [`vision`]: Computer vision utilities including transforms and datasets
 //! - [`optim`]: Optimization algorithms (SGD, Adam, etc.)
 //! - [`gpu`]: GPU acceleration support (CUDA, Metal, OpenCL)
 //! - [`simd`]: SIMD vectorized operations
@@ -208,6 +209,9 @@ pub mod training;
 /// Visualization tools for plots, graphs, and data analysis
 /// プロット、グラフ、データ解析用の可視化ツール
 pub mod visualization;
+/// Computer vision module providing image transforms, data augmentation, and built-in datasets
+/// 画像変換、データ拡張、組み込みデータセットを提供するコンピュータビジョンモジュール
+pub mod vision;
 
 
 /// WebAssembly support and bindings
@@ -235,6 +239,7 @@ pub mod prelude {
     pub use crate::models::{ModelSaver, ModelLoader, SerializationFormat};
     pub use crate::visualization::{TrainingPlotter, TensorVisualizer, GraphVisualizer};
     pub use crate::visualization::{PlotConfig, PlotStyle, ChartType, TensorPlotConfig, ColorMap};
+    pub use crate::vision::{Image, ImageFormat, transforms::*, datasets::*};
 }
 
 #[cfg(test)]
