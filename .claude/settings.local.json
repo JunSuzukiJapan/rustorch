@@ -23,9 +23,27 @@
       "Bash(./build_wasm.sh:*)",
       "Bash(wasm-pack build:*)",
       "Bash(git checkout:*)",
-      "Bash(rustup target:*)"
+      "Bash(rustup target:*)",
+      "Bash(maturin develop:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(rustup:*)",
+      "Bash(export:*)",
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 cargo build --release)",
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_basic.py)",
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 LDFLAGS=\"-L/usr/local/lib/python3.9/config-3.9-darwin -lpython3.9\" cargo build --release)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(git reset:*)",
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_advanced.py)",
+      "Bash(PYO3_PYTHON=/usr/local/bin/python3.9 /usr/local/bin/python3.9 test_minimal.py)"
     ],
     "deny": [],
-    "ask": []
+    "ask": [],
+    "additionalDirectories": [
+      "/usr/local/Cellar/python@3.9/3.9.19/Frameworks/Python.framework/Versions/3.9/lib",
+      "/Users/suzukijun/Program/Rust",
+      "/Users/suzukijun/Program"
+    ]
   }
 }
