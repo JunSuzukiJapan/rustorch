@@ -434,6 +434,18 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
     pub fn num_coarse_classes(&self) -> usize {
         20
     }
+    
+    /// Get fine class names
+    /// 細かいクラス名を取得
+    pub fn fine_class_names(&self) -> &[String] {
+        &self.fine_classes
+    }
+    
+    /// Get coarse class names
+    /// 粗いクラス名を取得
+    pub fn coarse_class_names(&self) -> &[String] {
+        &self.coarse_classes
+    }
 }
 
 impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<T> for CIFAR100<T> {
@@ -665,5 +677,12 @@ mod tests {
         assert!(cifar100.len() > 0);
         assert_eq!(cifar100.num_fine_classes(), 100);
         assert_eq!(cifar100.num_coarse_classes(), 20);
+        
+        // Test new accessor methods
+        // 新しいアクセサメソッドをテスト
+        let fine_classes = cifar100.fine_class_names();
+        let coarse_classes = cifar100.coarse_class_names();
+        assert_eq!(fine_classes.len(), 100);
+        assert_eq!(coarse_classes.len(), 20);
     }
 }
