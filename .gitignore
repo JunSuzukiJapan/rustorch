@@ -30,3 +30,8 @@ Thumbs.db
 # Rust-specific
 **/*.rs.bk
 *.orig
+
+# Generated visualization files (examples output)
+*.svg
+*.html
+*.dot
