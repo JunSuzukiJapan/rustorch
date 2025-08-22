@@ -183,6 +183,9 @@ pub mod models;
 /// Training loop abstractions and utilities
 /// 学習ループの抽象化とユーティリティ
 pub mod training;
+/// Visualization tools for plots, graphs, and data analysis
+/// プロット、グラフ、データ解析用の可視化ツール
+pub mod visualization;
 
 
 /// WebAssembly support and bindings
@@ -208,6 +211,8 @@ pub mod prelude {
     pub use crate::models::{TransformerModel, TransformerModelBuilder, BERT, BERTBuilder};
     pub use crate::models::{Trainer, TrainingConfig, TrainingResult, InferenceEngine, Metrics};
     pub use crate::models::{ModelSaver, ModelLoader, SerializationFormat};
+    pub use crate::visualization::{TrainingPlotter, TensorVisualizer, GraphVisualizer};
+    pub use crate::visualization::{PlotConfig, PlotStyle, ChartType, TensorPlotConfig, ColorMap};
 }
 
 #[cfg(test)]
