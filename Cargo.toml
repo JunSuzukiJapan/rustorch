@@ -31,6 +31,7 @@ approx = "0.5"
 lazy_static = "1.4"
 parking_lot = "0.12"
 chrono = "0.4"
+anyhow = "1.0"
 
 # Model import dependencies
 protobuf = { version = "3.3", optional = true }
@@ -68,6 +69,7 @@ instant = { version = "0.1", features = ["wasm-bindgen"] }
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 wasm-bindgen-test = "0.3"
+tempfile = "3.8"
 
 [features]
 default = []

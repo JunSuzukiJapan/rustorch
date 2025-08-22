@@ -180,6 +180,9 @@ pub mod utils;
 /// Pre-built models and architectures
 /// 事前構築モデルとアーキテクチャ
 pub mod models;
+/// Training loop abstractions and utilities
+/// 学習ループの抽象化とユーティリティ
+pub mod training;
 
 
 /// WebAssembly support and bindings

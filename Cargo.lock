@@ -1210,6 +1210,7 @@ dependencies = [
 name = "rustorch"
 version = "0.3.4"
 dependencies = [
+ "anyhow",
  "approx",
  "base64",
  "bytes",
@@ -1240,6 +1241,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_json",
+ "tempfile",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
