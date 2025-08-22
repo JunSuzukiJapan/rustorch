@@ -2,11 +2,10 @@
 //! Basic Sequential API implementation
 
 use crate::autograd::Variable;
-use crate::nn::{Module, Linear};
+use crate::nn::Module;
 use crate::training::trainer::TrainableModel;
 use num_traits::Float;
 use std::fmt::Debug;
-use anyhow::Result;
 
 /// 基本的なSequentialモデル
 /// Basic Sequential model
@@ -160,18 +159,24 @@ pub struct BasicSequentialBuilder<T: Float + Send + Sync + Debug + Clone + 'stat
 }
 
 impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequentialBuilder<T> {
+    /// 新しいビルダーを作成
+    /// Create a new builder
     pub fn new() -> Self {
         Self {
             model: BasicSequential::new(),
         }
     }
 
+    /// 名前付きビルダーを作成
+    /// Create a named builder
     pub fn with_name(name: impl Into<String>) -> Self {
         Self {
             model: BasicSequential::with_name(name),
         }
     }
 
+    /// レイヤーを追加
+    /// Add a layer
     pub fn add<M>(mut self, layer: M) -> Self
     where
         M: Module<T> + Send + Sync + 'static,
@@ -180,6 +185,8 @@ impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequentialBuilder<T>
         self
     }
 
+    /// モデルを構築
+    /// Build the model
     pub fn build(self) -> BasicSequential<T> {
         self.model
     }

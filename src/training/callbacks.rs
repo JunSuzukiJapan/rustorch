@@ -490,7 +490,7 @@ impl<T: Float> Callback<T> for ModelCheckpoint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::training::trainer::EpochMetrics;
+    // use crate::training::trainer::EpochMetrics;  // 一時的にコメントアウト
 
     #[test]
     fn test_early_stopping_creation() {
@@ -539,7 +539,7 @@ mod tests {
         // 最初は改善とみなされる
         assert!(early_stopping.is_improvement(0.5));
         
-        let mut early_stopping_with_best = EarlyStopping {
+        let early_stopping_with_best = EarlyStopping {
             best_score: Some(0.5),
             ..early_stopping
         };

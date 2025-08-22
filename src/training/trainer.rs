@@ -260,7 +260,6 @@ where
         D: crate::data::Dataset<T>,
     {
         let mut epoch_metrics = EpochMetrics::new();
-        let mut batch_count = 0;
 
         val_loader.reset();
 
@@ -272,8 +271,6 @@ where
             let loss_value = self.extract_scalar_value(&loss);
             epoch_metrics.total_loss = epoch_metrics.total_loss + T::from(loss_value).unwrap();
             epoch_metrics.batch_count += 1;
-
-            batch_count += 1;
         }
 
         epoch_metrics.avg_loss = if epoch_metrics.batch_count > 0 {
@@ -359,12 +356,20 @@ pub trait TrainableModel<T: Float + Send + Sync + 'static> {
 /// Epoch-level metrics
 #[derive(Debug, Clone)]
 pub struct EpochMetrics<T: Float> {
+    /// 総損失
+    /// Total loss
     pub total_loss: T,
+    /// 平均損失
+    /// Average loss
     pub avg_loss: T,
+    /// バッチ数
+    /// Number of batches
     pub batch_count: usize,
 }
 
 impl<T: Float> EpochMetrics<T> {
+    /// 新しいエポックメトリクスを作成
+    /// Create new epoch metrics
     pub fn new() -> Self {
         Self {
             total_loss: T::zero(),

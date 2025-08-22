@@ -302,9 +302,17 @@ impl<T: Float> TrainingMetrics<T> {
 /// Confusion matrix
 #[derive(Debug, Clone, Default)]
 pub struct ConfusionMatrix {
+    /// 真陽性の数
+    /// Number of true positives
     pub true_positives: usize,
+    /// 偽陽性の数
+    /// Number of false positives
     pub false_positives: usize,
+    /// 真陰性の数
+    /// Number of true negatives
     pub true_negatives: usize,
+    /// 偽陰性の数
+    /// Number of false negatives
     pub false_negatives: usize,
 }
 

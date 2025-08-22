@@ -4,8 +4,7 @@
 //! Keras風の高レベルインターフェース（fit, evaluate, predict）を提供
 
 use crate::autograd::Variable;
-use crate::tensor::Tensor;
-use crate::training::{Trainer, TrainerConfig, TrainerBuilder};
+use crate::training::TrainerConfig;
 use crate::data::{DataLoader, Dataset};
 use crate::models::sequential::Sequential;
 use crate::nn::Module;
@@ -176,7 +175,7 @@ where
     /// Train the model
     fn fit<D>(
         &mut self,
-        train_data: &mut DataLoader<T, D>,
+        _train_data: &mut DataLoader<T, D>,
         validation_data: Option<&mut DataLoader<T, D>>,
         epochs: usize,
         _batch_size: usize, // DataLoaderで既に設定されていると仮定
@@ -190,7 +189,7 @@ where
         }
 
         // トレーナー設定
-        let config = TrainerConfig {
+        let _config = TrainerConfig {
             epochs,
             log_frequency: if verbose { 10 } else { 1000 },
             validation_frequency: 1,

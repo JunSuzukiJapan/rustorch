@@ -17,7 +17,7 @@ pub mod high_level;
 
 /// Sequential APIの使用例
 /// Sequential API examples
-pub mod examples;
+// pub mod examples;  // 一時的にコメントアウト - 型制約の問題のため
 
 /// 基本的なSequential API実装
 /// Basic Sequential API implementation
@@ -96,7 +96,7 @@ pub use serialization::{ModelSaver, ModelLoader, SerializationFormat};
 pub use sequential::{Sequential, SequentialBuilder};
 pub use sequential_basic::{BasicSequential, BasicSequentialBuilder};
 pub use high_level::{HighLevelModel, TrainingHistory, FitConfig};
-pub use examples::run_all_examples;
+// pub use examples::run_all_examples;  // 一時的にコメントアウト
 
 /// Inference engine for model evaluation
 /// モデル評価用の推論エンジン

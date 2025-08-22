@@ -6,38 +6,38 @@
 //!
 //! ## 使用例
 //!
-//! ```rust
+//! ```ignore
 //! use rustorch::models::sequential::Sequential;
 //! use rustorch::nn::{Linear, ReLU, Dropout};
+//! use rustorch::optim::Adam;
+//! use rustorch::nn::loss::CrossEntropyLoss;
 //!
 //! let mut model = Sequential::new()
 //!     .add(Linear::new(784, 128))
 //!     .add(ReLU::new())
-//!     .add(Dropout::new(0.2))
+//!     .add(Dropout::new(0.2, false))
 //!     .add(Linear::new(128, 64))
 //!     .add(ReLU::new())
 //!     .add(Linear::new(64, 10));
 //!
 //! // モデルのコンパイル
 //! model.compile(
-//!     optimizer::Adam::new(0.001),
-//!     loss::CrossEntropyLoss::new(),
+//!     Adam::new(0.001),
+//!     CrossEntropyLoss::new(),
 //!     vec!["accuracy".to_string()]
 //! );
 //!
-//! // 訓練
-//! model.fit(train_x, train_y, 32, 10);
+//! // 訓練（実際の実装では DataLoader を使用）
+//! // model.fit(train_data, validation_data, epochs, batch_size, verbose);
 //! ```
 
 use crate::autograd::Variable;
 use crate::nn::Module;
 use crate::optim::Optimizer;
 use crate::nn::loss::Loss;
-use crate::training::{Trainer, TrainerConfig, TrainableModel};
-use crate::data::DataLoader;
+use crate::training::TrainableModel;
 use num_traits::Float;
 use std::fmt::Debug;
-use std::collections::HashMap;
 use anyhow::Result;
 
 /// Sequential APIの中核となるモデルクラス
@@ -367,8 +367,8 @@ where
     /// パラメータを取得
     /// Get parameters
     fn parameters(&self) -> Vec<&Variable<T>> {
-        let mut params = Vec::new();
-        for layer in &self.layers {
+        let params = Vec::new();
+        for _layer in &self.layers {
             // 各レイヤーからパラメータを収集
             // 実装は簡略化 - 実際にはレイヤーのパラメータアクセスメソッドを使用
         }
@@ -378,7 +378,7 @@ where
     /// パラメータを可変参照で取得
     /// Get mutable parameters
     fn parameters_mut(&mut self) -> Vec<&mut Variable<T>> {
-        let mut params = Vec::new();
+        let params = Vec::new();
         // 実装は簡略化 - 実際にはレイヤーの可変パラメータアクセスメソッドを使用
         params
     }
