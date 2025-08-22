@@ -57,7 +57,8 @@ getrandom = { version = "0.2", features = ["js"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 
 [dev-dependencies]
-criterion = "0.5"
+criterion = { version = "0.5", features = ["html_reports"] }
+wasm-bindgen-test = "0.3"
 
 [features]
 default = []
@@ -115,6 +116,10 @@ path = "examples/distributed_training.rs"
 [[example]]
 name = "memory_optimization"
 path = "examples/memory_optimization.rs"
+
+[[bench]]
+name = "performance_benchmarks"
+harness = false
 
 
 [package.metadata.docs.rs]

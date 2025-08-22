@@ -16,7 +16,7 @@ use num_traits::Float;
 pub struct DistributedOptimizer<T: Float + Send + Sync + 'static> {
     /// Base optimizer
     /// ベースオプティマイザー
-    base_optimizer: Box<dyn Optimizer<T> + Send + Sync>,
+    base_optimizer: Box<dyn Optimizer + Send + Sync>,
     /// Communication backend
     /// 通信バックエンド
     backend: Arc<dyn DistributedOps<T> + Send + Sync>,
@@ -90,7 +90,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     /// Create new distributed optimizer
     /// 新しい分散オプティマイザーを作成
     pub fn new(
-        base_optimizer: Box<dyn Optimizer<T> + Send + Sync>,
+        base_optimizer: Box<dyn Optimizer + Send + Sync>,
         backend: Arc<dyn DistributedOps<T> + Send + Sync>,
         sync_strategy: GradientSyncStrategy,
     ) -> Self {
@@ -114,7 +114,14 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         backend: Arc<dyn DistributedOps<T> + Send + Sync>,
         sync_strategy: GradientSyncStrategy,
     ) -> DistributedResult<Self> {
-        let sgd = SGD::new(vec![], learning_rate, Some(momentum), None, Some(weight_decay), None);
+        let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
+        let momentum_f32 = momentum.to_f32().unwrap_or(0.9);
+        let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
+        let sgd = if wd_f32 > 0.0 {
+            SGD::with_weight_decay(lr_f32, momentum_f32, wd_f32)
+        } else {
+            SGD::new(lr_f32, momentum_f32)
+        };
         Ok(Self::new(Box::new(sgd), backend, sync_strategy))
     }
 
@@ -129,7 +136,16 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         backend: Arc<dyn DistributedOps<T> + Send + Sync>,
         sync_strategy: GradientSyncStrategy,
     ) -> DistributedResult<Self> {
-        let adam = Adam::new(vec![], Some(learning_rate), Some(beta1), Some(beta2), Some(epsilon), Some(weight_decay));
+        let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
+        let beta1_f32 = beta1.to_f32().unwrap_or(0.9);
+        let beta2_f32 = beta2.to_f32().unwrap_or(0.999);
+        let eps_f32 = epsilon.to_f32().unwrap_or(1e-8);
+        let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
+        let adam = if wd_f32 > 0.0 {
+            Adam::with_weight_decay(lr_f32, beta1_f32, beta2_f32, eps_f32, wd_f32)
+        } else {
+            Adam::new(lr_f32, beta1_f32, beta2_f32, eps_f32)
+        };
         Ok(Self::new(Box::new(adam), backend, sync_strategy))
     }
 
@@ -385,8 +401,8 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> Optimizer<T> for DistributedOptimizer<T> {
-    fn step(&mut self) {
+impl<T: Float + Send + Sync + 'static> Optimizer for DistributedOptimizer<T> {
+    fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         // Synchronize gradients before optimization step
         // 最適化ステップ前に勾配を同期
         if let Err(_e) = self.sync_gradients() {
@@ -397,7 +413,7 @@ impl<T: Float + Send + Sync + 'static> Optimizer<T> for DistributedOptimizer<T> 
 
         // Apply base optimizer step
         // ベースオプティマイザーステップを適用
-        self.base_optimizer.step();
+        self.base_optimizer.step(param, grad);
         
         self.step_count += 1;
     }
@@ -409,11 +425,20 @@ impl<T: Float + Send + Sync + 'static> Optimizer<T> for DistributedOptimizer<T> 
         self.local_gradients.clear();
     }
 
-    fn add_param_group(&mut self, _params: Vec<crate::autograd::Variable<T>>) {
-        // Distributed optimizer parameter group management
-        // 分散オプティマイザーパラメータグループ管理
-        // Implementation would delegate to base optimizer
-        // 実装はベースオプティマイザーに委譲
+    fn learning_rate(&self) -> f32 {
+        self.base_optimizer.learning_rate()
+    }
+    
+    fn set_learning_rate(&mut self, lr: f32) {
+        self.base_optimizer.set_learning_rate(lr);
+    }
+    
+    fn state_dict(&self) -> std::collections::HashMap<String, f32> {
+        self.base_optimizer.state_dict()
+    }
+    
+    fn load_state_dict(&mut self, state: std::collections::HashMap<String, f32>) {
+        self.base_optimizer.load_state_dict(state);
     }
 }
 
@@ -514,12 +539,28 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
             DistributedError::ConfigurationError("Backend not specified".to_string())
         })?;
 
-        let base_optimizer: Box<dyn Optimizer<T> + Send + Sync> = match self.optimizer_type {
+        let base_optimizer: Box<dyn Optimizer + Send + Sync> = match self.optimizer_type {
             OptimizerType::SGD { learning_rate, momentum, weight_decay } => {
-                Box::new(SGD::new(vec![], learning_rate, Some(momentum), None, Some(weight_decay), None))
+                let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
+                let momentum_f32 = momentum.to_f32().unwrap_or(0.9);
+                let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
+                if wd_f32 > 0.0 {
+                    Box::new(SGD::with_weight_decay(lr_f32, momentum_f32, wd_f32))
+                } else {
+                    Box::new(SGD::new(lr_f32, momentum_f32))
+                }
             },
             OptimizerType::Adam { learning_rate, beta1, beta2, epsilon, weight_decay } => {
-                Box::new(Adam::new(vec![], Some(learning_rate), Some(beta1), Some(beta2), Some(epsilon), Some(weight_decay)))
+                let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
+                let beta1_f32 = beta1.to_f32().unwrap_or(0.9);
+                let beta2_f32 = beta2.to_f32().unwrap_or(0.999);
+                let eps_f32 = epsilon.to_f32().unwrap_or(1e-8);
+                let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
+                if wd_f32 > 0.0 {
+                    Box::new(Adam::with_weight_decay(lr_f32, beta1_f32, beta2_f32, eps_f32, wd_f32))
+                } else {
+                    Box::new(Adam::new(lr_f32, beta1_f32, beta2_f32, eps_f32))
+                }
             },
         };
 

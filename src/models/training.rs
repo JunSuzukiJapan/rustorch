@@ -116,7 +116,7 @@ pub struct Trainer<T, M, O, L>
 where
     T: Float + 'static + Send + Sync + Debug,
     M: Model<T>,
-    O: Optimizer<T>,
+    O: Optimizer,
     L: Loss<T>,
 {
     model: M,
@@ -130,7 +130,7 @@ impl<T, M, O, L> Trainer<T, M, O, L>
 where
     T: Float + 'static + Send + Sync + Debug,
     M: Model<T>,
-    O: Optimizer<T>,
+    O: Optimizer,
     L: Loss<T>,
 {
     /// 新しい訓練器を作成
@@ -421,7 +421,7 @@ where
     pub fn build<M, O, L>(self, model: M, optimizer: O, loss_fn: L) -> Trainer<T, M, O, L> 
     where
         M: Model<T>,
-        O: Optimizer<T>,
+        O: Optimizer,
         L: Loss<T>,
     {
         Trainer::new(model, optimizer, loss_fn, self.config)

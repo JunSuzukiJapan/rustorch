@@ -3,6 +3,464 @@
 
 use super::{DeviceType, GpuError};
 use std::collections::HashMap;
+use std::sync::Arc;
+
+/// GPU device trait
+pub trait GpuDevice: Send + Sync {
+    /// Get device ID
+    fn id(&self) -> usize;
+    
+    /// Get device name
+    fn name(&self) -> String;
+    
+    /// Get device type
+    fn device_type(&self) -> String;
+    
+    /// Check if device is available
+    fn is_available(&self) -> bool;
+    
+    /// Get total memory in bytes
+    fn total_memory(&self) -> usize;
+    
+    /// Get allocated memory in bytes
+    fn allocated_memory(&self) -> usize;
+    
+    /// Get compute capability (for CUDA)
+    fn compute_capability(&self) -> Option<(u32, u32)>;
+    
+    /// Check if device is CPU
+    fn is_cpu(&self) -> bool;
+    
+    /// Synchronize device
+    fn synchronize(&self);
+    
+    /// Create a stream for asynchronous operations
+    fn create_stream(&self) -> Arc<dyn GpuStream>;
+}
+
+/// GPU stream trait for asynchronous operations
+pub trait GpuStream: Send + Sync {
+    /// Synchronize this stream
+    fn synchronize(&self);
+    
+    /// Get stream ID
+    fn id(&self) -> usize;
+}
+
+/// GPU backend for managing multiple devices
+pub struct GpuBackend {
+    devices: Vec<Arc<dyn GpuDevice>>,
+}
+
+impl GpuBackend {
+    /// Create new GPU backend
+    pub fn new() -> Self {
+        let mut devices: Vec<Arc<dyn GpuDevice>> = Vec::new();
+        
+        // Always add CPU device
+        devices.push(Arc::new(CpuDevice::new()));
+        
+        #[cfg(feature = "cuda")]
+        {
+            // Add CUDA devices
+            for device_id in 0..Self::get_cuda_device_count() {
+                if let Ok(device) = CudaDevice::new(device_id) {
+                    devices.push(Arc::new(device));
+                }
+            }
+        }
+        
+        #[cfg(feature = "metal")]
+        {
+            // Add Metal device
+            if let Ok(device) = MetalDevice::new() {
+                devices.push(Arc::new(device));
+            }
+        }
+        
+        #[cfg(feature = "opencl")]
+        {
+            // Add OpenCL devices
+            for device_id in 0..Self::get_opencl_device_count() {
+                if let Ok(device) = OpenCLDevice::new(0, device_id) {
+                    devices.push(Arc::new(device));
+                }
+            }
+        }
+        
+        Self { devices }
+    }
+    
+    /// List all available devices
+    pub fn list_devices(&self) -> &[Arc<dyn GpuDevice>] {
+        &self.devices
+    }
+    
+    /// Get device by ID
+    pub fn get_device(&self, id: usize) -> Option<&Arc<dyn GpuDevice>> {
+        self.devices.get(id)
+    }
+    
+    #[cfg(feature = "cuda")]
+    fn get_cuda_device_count() -> usize {
+        // Try to detect CUDA devices
+        (0..8).filter(|&i| {
+            CudaDevice::new(i).is_ok()
+        }).count()
+    }
+    
+    #[cfg(feature = "opencl")]
+    fn get_opencl_device_count() -> usize {
+        // Try to detect OpenCL devices
+        (0..8).filter(|&i| {
+            OpenCLDevice::new(0, i).is_ok()
+        }).count()
+    }
+}
+
+impl Default for GpuBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// CPU device implementation
+#[derive(Debug)]
+pub struct CpuDevice {
+    id: usize,
+}
+
+impl CpuDevice {
+    /// Create a new CPU device
+    /// 新しいCPUデバイスを作成
+    pub fn new() -> Self {
+        Self { id: 0 }
+    }
+}
+
+impl GpuDevice for CpuDevice {
+    fn id(&self) -> usize {
+        self.id
+    }
+    
+    fn name(&self) -> String {
+        "CPU".to_string()
+    }
+    
+    fn device_type(&self) -> String {
+        "cpu".to_string()
+    }
+    
+    fn is_available(&self) -> bool {
+        true
+    }
+    
+    fn total_memory(&self) -> usize {
+        // Return system memory in bytes (rough estimate)
+        8 * 1024 * 1024 * 1024 // 8GB
+    }
+    
+    fn allocated_memory(&self) -> usize {
+        0 // CPU memory is managed by OS
+    }
+    
+    fn compute_capability(&self) -> Option<(u32, u32)> {
+        None
+    }
+    
+    fn is_cpu(&self) -> bool {
+        true
+    }
+    
+    fn synchronize(&self) {
+        // CPU operations are synchronous
+    }
+    
+    fn create_stream(&self) -> Arc<dyn GpuStream> {
+        Arc::new(CpuStream::new())
+    }
+}
+
+/// CPU stream implementation
+#[derive(Debug)]
+pub struct CpuStream;
+
+impl CpuStream {
+    /// Create a new CPU stream
+    /// 新しいCPUストリームを作成
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl GpuStream for CpuStream {
+    fn synchronize(&self) {
+        // CPU operations are synchronous
+    }
+    
+    fn id(&self) -> usize {
+        0
+    }
+}
+
+// Conditional GPU device implementations
+#[cfg(feature = "cuda")]
+#[derive(Debug)]
+pub struct CudaDevice {
+    device_id: usize,
+    name: String,
+    total_memory: usize,
+    compute_capability: (u32, u32),
+}
+
+#[cfg(feature = "cuda")]
+impl CudaDevice {
+    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+        // Mock CUDA device for now
+        Ok(Self {
+            device_id,
+            name: format!("CUDA Device {}", device_id),
+            total_memory: 8 * 1024 * 1024 * 1024, // 8GB
+            compute_capability: (7, 5),
+        })
+    }
+}
+
+#[cfg(feature = "cuda")]
+impl GpuDevice for CudaDevice {
+    fn id(&self) -> usize {
+        self.device_id
+    }
+    
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    
+    fn device_type(&self) -> String {
+        "cuda".to_string()
+    }
+    
+    fn is_available(&self) -> bool {
+        true
+    }
+    
+    fn total_memory(&self) -> usize {
+        self.total_memory
+    }
+    
+    fn allocated_memory(&self) -> usize {
+        // Mock allocated memory
+        1024 * 1024 * 1024 // 1GB
+    }
+    
+    fn compute_capability(&self) -> Option<(u32, u32)> {
+        Some(self.compute_capability)
+    }
+    
+    fn is_cpu(&self) -> bool {
+        false
+    }
+    
+    fn synchronize(&self) {
+        // Mock CUDA synchronization
+    }
+    
+    fn create_stream(&self) -> Arc<dyn GpuStream> {
+        Arc::new(CudaStream::new())
+    }
+}
+
+#[cfg(feature = "cuda")]
+#[derive(Debug)]
+pub struct CudaStream;
+
+#[cfg(feature = "cuda")]
+impl CudaStream {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "cuda")]
+impl GpuStream for CudaStream {
+    fn synchronize(&self) {
+        // Mock CUDA stream synchronization
+    }
+    
+    fn id(&self) -> usize {
+        1
+    }
+}
+
+#[cfg(feature = "metal")]
+#[derive(Debug)]
+pub struct MetalDevice {
+    name: String,
+    total_memory: usize,
+}
+
+#[cfg(feature = "metal")]
+impl MetalDevice {
+    pub fn new() -> Result<Self, GpuError> {
+        Ok(Self {
+            name: "Apple M-Series GPU".to_string(),
+            total_memory: 16 * 1024 * 1024 * 1024, // 16GB unified memory
+        })
+    }
+}
+
+#[cfg(feature = "metal")]
+impl GpuDevice for MetalDevice {
+    fn id(&self) -> usize {
+        0
+    }
+    
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    
+    fn device_type(&self) -> String {
+        "metal".to_string()
+    }
+    
+    fn is_available(&self) -> bool {
+        cfg!(target_os = "macos")
+    }
+    
+    fn total_memory(&self) -> usize {
+        self.total_memory
+    }
+    
+    fn allocated_memory(&self) -> usize {
+        // Mock allocated memory
+        2 * 1024 * 1024 * 1024 // 2GB
+    }
+    
+    fn compute_capability(&self) -> Option<(u32, u32)> {
+        None
+    }
+    
+    fn is_cpu(&self) -> bool {
+        false
+    }
+    
+    fn synchronize(&self) {
+        // Mock Metal synchronization
+    }
+    
+    fn create_stream(&self) -> Arc<dyn GpuStream> {
+        Arc::new(MetalStream::new())
+    }
+}
+
+#[cfg(feature = "metal")]
+#[derive(Debug)]
+pub struct MetalStream;
+
+#[cfg(feature = "metal")]
+impl MetalStream {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "metal")]
+impl GpuStream for MetalStream {
+    fn synchronize(&self) {
+        // Mock Metal stream synchronization
+    }
+    
+    fn id(&self) -> usize {
+        2
+    }
+}
+
+#[cfg(feature = "opencl")]
+#[derive(Debug)]
+pub struct OpenCLDevice {
+    platform_id: usize,
+    device_id: usize,
+    name: String,
+    total_memory: usize,
+}
+
+#[cfg(feature = "opencl")]
+impl OpenCLDevice {
+    pub fn new(platform_id: usize, device_id: usize) -> Result<Self, GpuError> {
+        Ok(Self {
+            platform_id,
+            device_id,
+            name: format!("OpenCL Device {}:{}", platform_id, device_id),
+            total_memory: 4 * 1024 * 1024 * 1024, // 4GB
+        })
+    }
+}
+
+#[cfg(feature = "opencl")]
+impl GpuDevice for OpenCLDevice {
+    fn id(&self) -> usize {
+        self.device_id
+    }
+    
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+    
+    fn device_type(&self) -> String {
+        "opencl".to_string()
+    }
+    
+    fn is_available(&self) -> bool {
+        true
+    }
+    
+    fn total_memory(&self) -> usize {
+        self.total_memory
+    }
+    
+    fn allocated_memory(&self) -> usize {
+        // Mock allocated memory
+        512 * 1024 * 1024 // 512MB
+    }
+    
+    fn compute_capability(&self) -> Option<(u32, u32)> {
+        None
+    }
+    
+    fn is_cpu(&self) -> bool {
+        false
+    }
+    
+    fn synchronize(&self) {
+        // Mock OpenCL synchronization
+    }
+    
+    fn create_stream(&self) -> Arc<dyn GpuStream> {
+        Arc::new(OpenCLStream::new())
+    }
+}
+
+#[cfg(feature = "opencl")]
+#[derive(Debug)]
+pub struct OpenCLStream;
+
+#[cfg(feature = "opencl")]
+impl OpenCLStream {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[cfg(feature = "opencl")]
+impl GpuStream for OpenCLStream {
+    fn synchronize(&self) {
+        // Mock OpenCL stream synchronization
+    }
+    
+    fn id(&self) -> usize {
+        3
+    }
+}
 
 /// GPU device capabilities
 /// GPUデバイス機能

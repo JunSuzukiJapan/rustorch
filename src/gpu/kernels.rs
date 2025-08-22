@@ -51,6 +51,27 @@ pub trait GpuKernel<T: Float> {
     fn optimal_params(&self, problem_size: usize, device: DeviceType) -> KernelParams;
 }
 
+/// Modern GPU kernel trait without generic type parameter
+pub trait ModernGpuKernel: Send + Sync {
+    /// Get kernel name
+    fn name(&self) -> &str;
+    
+    /// Launch kernel with given parameters
+    fn launch(
+        &self,
+        args: &[*const u8],
+        global_size: &[usize],
+        block_size: (u32, u32, u32),
+        grid_size: (u32, u32, u32),
+    ) -> Result<(), GpuError>;
+    
+    /// Set kernel parameter
+    fn set_parameter(&mut self, index: usize, data: &[u8]) -> Result<(), GpuError>;
+    
+    /// Compile kernel from source
+    fn compile(&mut self, source: &str) -> Result<(), GpuError>;
+}
+
 /// Element-wise addition kernel
 /// 要素ごと加算カーネル
 pub struct AddKernel;

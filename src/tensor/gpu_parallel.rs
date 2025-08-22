@@ -680,7 +680,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
         T: num_traits::FromPrimitive,
     {
         // Fallback to CPU implementation
-        let mean_tensor = self.mean(None);
+        let mean_tensor = self.mean();
         Ok(mean_tensor)
     }
     
