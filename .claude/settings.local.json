@@ -46,7 +46,8 @@
       "WebSearch",
       "Bash(RUST_BACKTRACE=1 cargo test --lib safe_ops::tests::test_tensor_stats -- --nocapture)",
       "Bash(timeout 30s cargo bench --bench nn_benchmark)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(rustc:*)"
     ],
     "deny": [],
     "ask": [],

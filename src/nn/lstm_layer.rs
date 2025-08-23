@@ -272,10 +272,8 @@ where
         params
     }
     
-    fn zero_grad(&self) {
-        for layer in &self.layers {
-            layer.zero_grad();
-        }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
     
     fn train(&mut self) {

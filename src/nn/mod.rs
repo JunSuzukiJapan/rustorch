@@ -20,7 +20,12 @@ pub mod transformer;
 pub mod normalization;
 pub mod rnn;
 pub mod lstm;
+pub mod lstm_cell;
+pub mod lstm_layer;
 pub mod gru;
+pub mod gru_cell;
+pub mod gru_layer;
+pub mod recurrent_common;
 pub mod quantization;
 pub mod pruning;
 

@@ -67,12 +67,8 @@
 //! 
 //! Advanced memory management strategies for optimal performance and memory usage.
 
-use ndarray::{ArrayD, ArrayViewD, IxDyn, Ix1, Ix2};
 // use rayon::prelude::*;
 use num_traits::Float;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::memory::{get_f32_pool, get_f64_pool};
-use std::{fmt, ops};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;

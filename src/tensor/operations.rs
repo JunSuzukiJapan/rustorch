@@ -2,11 +2,11 @@
 //! テンソルの数学演算
 
 use super::core::Tensor;
-use ndarray::{ArrayD, Zip};
+// Removed unused imports
 use num_traits::Float;
 use std::ops;
 
-impl<T: Float + 'static> Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     /// Element-wise addition with another tensor.
     /// 別のテンソルとの要素ごとの加算
     pub fn add(&self, other: &Tensor<T>) -> Result<Self, String> {
@@ -82,7 +82,7 @@ impl<T: Float + 'static> Tensor<T> {
     /// Negation of all elements.
     /// 全要素の符号反転
     pub fn neg(&self) -> Self {
-        let result_data = -self.as_array();
+        let result_data = self.as_array().mapv(|x| -x);
         Tensor::new(result_data)
     }
 
@@ -135,7 +135,7 @@ impl<T: Float + 'static> Tensor<T> {
         let ndim = self.ndim();
         axes.swap(ndim - 2, ndim - 1);
 
-        let transposed = self.as_array().permuted_axes(axes.into_iter().collect());
+        let transposed = self.as_array().permuted_axes(axes.into_iter().collect::<Vec<_>>());
         Ok(Tensor::new(transposed))
     }
 
@@ -247,7 +247,7 @@ impl<T: Float + 'static> Tensor<T> {
 }
 
 // Operator overloading for tensors
-impl<T: Float + 'static> ops::Add for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -255,7 +255,7 @@ impl<T: Float + 'static> ops::Add for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Sub for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -263,7 +263,7 @@ impl<T: Float + 'static> ops::Sub for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Mul for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -271,7 +271,7 @@ impl<T: Float + 'static> ops::Mul for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Div for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Div for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
@@ -279,16 +279,17 @@ impl<T: Float + 'static> ops::Div for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Neg for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::ops::Neg<Output = T>> ops::Neg for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn neg(self) -> Self::Output {
-        self.neg()
+        let result_data = self.as_array().mapv(|x| -x);
+        Tensor::new(result_data)
     }
 }
 
 // Scalar operations
-impl<T: Float + 'static> ops::Add<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add<T> for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn add(self, rhs: T) -> Self::Output {
@@ -296,7 +297,7 @@ impl<T: Float + 'static> ops::Add<T> for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Sub<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub<T> for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn sub(self, rhs: T) -> Self::Output {
@@ -304,7 +305,7 @@ impl<T: Float + 'static> ops::Sub<T> for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Mul<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul<T> for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn mul(self, rhs: T) -> Self::Output {
@@ -312,7 +313,7 @@ impl<T: Float + 'static> ops::Mul<T> for &Tensor<T> {
     }
 }
 
-impl<T: Float + 'static> ops::Div<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Div<T> for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn div(self, rhs: T) -> Self::Output {
@@ -321,25 +322,25 @@ impl<T: Float + 'static> ops::Div<T> for &Tensor<T> {
 }
 
 // In-place operations
-impl<T: Float + 'static> ops::AddAssign<&Tensor<T>> for Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::AddAssign<&Tensor<T>> for Tensor<T> {
     fn add_assign(&mut self, rhs: &Tensor<T>) {
         *self = self.add(rhs).expect("AddAssign failed");
     }
 }
 
-impl<T: Float + 'static> ops::SubAssign<&Tensor<T>> for Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::SubAssign<&Tensor<T>> for Tensor<T> {
     fn sub_assign(&mut self, rhs: &Tensor<T>) {
         *self = self.sub(rhs).expect("SubAssign failed");
     }
 }
 
-impl<T: Float + 'static> ops::MulAssign<&Tensor<T>> for Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::MulAssign<&Tensor<T>> for Tensor<T> {
     fn mul_assign(&mut self, rhs: &Tensor<T>) {
         *self = self.mul(rhs).expect("MulAssign failed");
     }
 }
 
-impl<T: Float + 'static> ops::DivAssign<&Tensor<T>> for Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::DivAssign<&Tensor<T>> for Tensor<T> {
     fn div_assign(&mut self, rhs: &Tensor<T>) {
         *self = self.div(rhs).expect("DivAssign failed");
     }

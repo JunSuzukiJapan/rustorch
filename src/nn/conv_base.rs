@@ -1,6 +1,8 @@
 //! Base traits and utilities for convolution layers
 //! 畳み込み層の基底トレイトとユーティリティ
 
+use crate::autograd::Variable;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::fmt::Debug;
 use rand::distributions::Distribution;
@@ -91,7 +93,7 @@ pub type NNResult<T> = Result<T, NNError>;
 
 /// Error types for neural network operations
 /// ニューラルネットワーク操作のエラー型
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum NNError {
     /// Invalid input dimensions
     /// 無効な入力次元
@@ -225,6 +227,148 @@ impl Validator {
         }
         Ok(())
     }
+}
+
+/// Common operations for convolution layers
+/// 畳み込み層用共通操作
+pub struct ConvOps;
+
+impl ConvOps {
+    /// Initialize weights and bias for convolution layers
+    /// 畳み込み層用の重みとバイアスを初期化
+    pub fn init_conv_params<T: Float + Send + Sync + Debug + 'static + From<f32> + Copy>(
+        input_size: usize,
+        output_size: usize,
+        kernel_size: usize,
+        groups: usize,
+        use_bias: bool,
+    ) -> (Variable<T>, Option<Variable<T>>) {
+        let fan_in = (input_size / groups) * kernel_size;
+        let bound = (6.0 / fan_in as f32).sqrt();
+        
+        let mut rng = rand::thread_rng();
+        let normal = Normal::new(0.0, bound).unwrap();
+        
+        // Initialize weights
+        let weight_data: Vec<T> = (0..output_size * input_size * kernel_size / groups)
+            .map(|_| T::from(normal.sample(&mut rng)))
+            .collect();
+        let weight = Variable::new(
+            Tensor::from_vec(weight_data, vec![output_size, input_size / groups, kernel_size]),
+            true,
+        );
+        
+        // Initialize bias if needed
+        let bias = if use_bias {
+            let bias_data = vec![T::default(); output_size];
+            Some(Variable::new(
+                Tensor::from_vec(bias_data, vec![output_size]),
+                true,
+            ))
+        } else {
+            None
+        };
+        
+        (weight, bias)
+    }
+    
+    /// Calculate output size for 1D convolution
+    /// 1D畳み込みの出力サイズを計算
+    pub fn calc_output_size_1d(
+        input_size: usize,
+        kernel_size: usize,
+        stride: usize,
+        padding: usize,
+        dilation: usize,
+    ) -> usize {
+        (input_size + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1
+    }
+    
+    /// Calculate output size for 2D convolution
+    /// 2D畳み込みの出力サイズを計算
+    pub fn calc_output_size_2d(
+        input_size: (usize, usize),
+        kernel_size: (usize, usize),
+        stride: (usize, usize),
+        padding: (usize, usize),
+        dilation: (usize, usize),
+    ) -> (usize, usize) {
+        let out_h = Self::calc_output_size_1d(input_size.0, kernel_size.0, stride.0, padding.0, dilation.0);
+        let out_w = Self::calc_output_size_1d(input_size.1, kernel_size.1, stride.1, padding.1, dilation.1);
+        (out_h, out_w)
+    }
+    
+    /// Calculate output size for 3D convolution
+    /// 3D畳み込みの出力サイズを計算
+    pub fn calc_output_size_3d(
+        input_size: (usize, usize, usize),
+        kernel_size: (usize, usize, usize),
+        stride: (usize, usize, usize),
+        padding: (usize, usize, usize),
+        dilation: (usize, usize, usize),
+    ) -> (usize, usize, usize) {
+        let out_d = Self::calc_output_size_1d(input_size.0, kernel_size.0, stride.0, padding.0, dilation.0);
+        let out_h = Self::calc_output_size_1d(input_size.1, kernel_size.1, stride.1, padding.1, dilation.1);
+        let out_w = Self::calc_output_size_1d(input_size.2, kernel_size.2, stride.2, padding.2, dilation.2);
+        (out_d, out_h, out_w)
+    }
+    
+    /// Linear transformation: input @ weight^T + bias
+    /// 線形変換: input @ weight^T + bias
+    pub fn linear_transform<T: Float + Send + Sync + Debug + 'static>(
+        input: &Variable<T>,
+        weight: &Variable<T>,
+        bias: Option<&Variable<T>>,
+    ) -> Variable<T> {
+        let output = Self::matmul_variables(input, &Self::transpose_variable(weight));
+        
+        match bias {
+            Some(b) => Self::add_variables(&output, b),
+            None => output,
+        }
+    }
+    
+    /// Matrix multiplication for variables
+    /// Variable用の行列乗算
+    pub fn matmul_variables<T: Float + Send + Sync + Debug + 'static>(
+        a: &Variable<T>,
+        b: &Variable<T>,
+    ) -> Variable<T> {
+        let result_data = a.data().matmul(b.data()).unwrap();
+        Variable::new(result_data, a.requires_grad() || b.requires_grad())
+    }
+    
+    /// Addition for variables
+    /// Variable用の加算
+    pub fn add_variables<T: Float + Send + Sync + Debug + 'static>(
+        a: &Variable<T>,
+        b: &Variable<T>,
+    ) -> Variable<T> {
+        let result_data = a.data().add(b.data()).unwrap();
+        Variable::new(result_data, a.requires_grad() || b.requires_grad())
+    }
+    
+    /// Transpose for variables
+    /// Variable用の転置
+    pub fn transpose_variable<T: Float + Send + Sync + Debug + 'static>(var: &Variable<T>) -> Variable<T> {
+        let transposed_data = var.data().transpose().unwrap();
+        Variable::new(transposed_data, var.requires_grad())
+    }
+}
+
+/// Common parameter collection for convolution layers
+/// 畳み込み層用共通パラメータ収集
+pub fn collect_conv_parameters<T: Float + Send + Sync + Debug + 'static>(
+    weight: &Variable<T>,
+    bias: &Option<Variable<T>>,
+) -> Vec<Variable<T>> {
+    let mut params = vec![weight.clone()];
+    
+    if let Some(ref bias_var) = bias {
+        params.push(bias_var.clone());
+    }
+    
+    params
 }
 
 #[cfg(test)]
