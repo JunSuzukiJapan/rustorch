@@ -61,7 +61,8 @@
       "Bash(brew install:*)",
       "Bash(pkg-config:*)",
       "Bash(./test_linalg)",
-      "Bash(./matrix_bench)"
+      "Bash(./matrix_bench)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "ask": [],
