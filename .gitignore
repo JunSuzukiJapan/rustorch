@@ -35,3 +35,11 @@ Thumbs.db
 *.svg
 *.html
 *.dot
+
+# Claude Code settings
+.claude/settings.local.json
+
+# Compiled benchmark binaries
+matrix_bench
+simple_bench
+test_linalg
