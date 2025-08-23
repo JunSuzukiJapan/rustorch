@@ -154,9 +154,16 @@
 #![warn(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
+/// Unified error handling system
+/// 統一エラーハンドリングシステム
+pub mod error;
 /// Common utilities and shared functionality
 /// 共通ユーティリティと共有機能
 pub mod common;
+/// Testing utilities and helpers
+/// テストユーティリティとヘルパー
+#[cfg(test)]
+pub mod test_utils;
 /// Tensor operations and data structures
 /// テンソル操作とデータ構造
 pub mod tensor;

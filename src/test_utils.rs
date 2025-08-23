@@ -24,7 +24,7 @@ pub mod tensor_test_utils {
     
     /// Assert tensors are approximately equal
     /// テンソルが近似的に等しいことをアサート
-    pub fn assert_tensor_eq<T: Float + 'static>(a: &Tensor<T>, b: &Tensor<T>, epsilon: T) {
+    pub fn assert_tensor_eq<T: Float + 'static + std::fmt::Debug>(a: &Tensor<T>, b: &Tensor<T>, epsilon: T) {
         assert_eq!(a.shape(), b.shape(), "Tensor shapes must match");
         
         let a_data = a.as_slice().expect("Failed to get tensor data");
@@ -33,7 +33,7 @@ pub mod tensor_test_utils {
         for (i, (&a_val, &b_val)) in a_data.iter().zip(b_data.iter()).enumerate() {
             assert!(
                 (a_val - b_val).abs() < epsilon,
-                "Tensors differ at index {}: {} vs {} (epsilon: {})",
+                "Tensors differ at index {}: {:?} vs {:?} (epsilon: {:?})",
                 i, a_val, b_val, epsilon
             );
         }

@@ -5,7 +5,7 @@ use std::fmt;
 
 /// Main error type for RusTorch operations
 /// RusTorch操作のメインエラー型
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug)]
 pub enum RusTorchError {
     /// Tensor operation errors
     /// テンソル操作エラー
