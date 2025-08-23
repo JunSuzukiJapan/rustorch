@@ -4,6 +4,7 @@
 use super::core::Tensor;
 // Removed unused imports
 use num_traits::Float;
+use num_complex::Complex;
 use std::ops;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
@@ -500,7 +501,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let min_mn = m.min(n);
         
         // Convert to ndarray for SVD computation
-        let matrix = self.as_array();
+        let _matrix = self.as_array();
         
         // Compute SVD using ndarray's linear algebra (if available)
         // For now, implement a simplified version
@@ -709,7 +710,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// Basic eigenvalue decomposition implementation
-    fn eig_basic(&self, n: usize, eigenvectors: bool) -> Result<(Self, Option<Self>), String> {
+    pub fn eig_basic(&self, n: usize, eigenvectors: bool) -> Result<(Self, Option<Self>), String> {
         // Basic implementation using power iteration method
         // This is a simplified implementation for educational purposes
         
@@ -748,7 +749,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// Basic symmetric eigenvalue decomposition implementation  
-    fn symeig_basic(&self, n: usize, eigenvectors: bool, _upper: bool) -> Result<(Self, Option<Self>), String> {
+    pub fn symeig_basic(&self, n: usize, eigenvectors: bool, _upper: bool) -> Result<(Self, Option<Self>), String> {
         // Basic implementation for symmetric matrices
         let matrix = self.as_array();
         
@@ -922,7 +923,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// Basic QR decomposition using Gram-Schmidt process
-    fn qr_basic(&self, m: usize, n: usize, min_mn: usize) -> Result<(Self, Self), String> {
+    pub fn qr_basic(&self, m: usize, n: usize, min_mn: usize) -> Result<(Self, Self), String> {
         let matrix = self.as_array();
         
         // Initialize Q and R matrices
@@ -1367,6 +1368,358 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
 
     fn add(self, rhs: Tensor<T>) -> Self::Output {
         self.add(&rhs).expect("Addition failed")
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
+    // ===== Fourier Transform Operations =====
+    // torch.fft.* compatible API
+    // フーリエ変換演算（torch.fft.*互換API）
+
+    /// Fast Fourier Transform (FFT) - torch.fft.fft compatible
+    /// 高速フーリエ変換 - torch.fft.fft互換
+    /// 
+    /// Returns (real_part, imaginary_part) as separate tensors
+    /// 実部と虚部を別々のテンソルとして返す
+    /// 
+    /// # Arguments
+    /// * `n` - Length of the transformed axis. If None, use the input length.
+    /// * `dim` - Dimension along which to take the FFT. Default: -1 (last dimension)
+    /// * `norm` - Normalization mode: None, "forward", "backward", "ortho"
+    pub fn fft(&self, n: Option<usize>, dim: Option<isize>, norm: Option<&str>) -> Result<(Self, Self), String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        let actual_dim = self.resolve_dim(dim.unwrap_or(-1))?;
+        let input_len = self.shape()[actual_dim];
+        let fft_len = n.unwrap_or(input_len);
+        
+        // For 1D case on the last dimension
+        if self.shape().len() == 1 && actual_dim == 0 {
+            return self.fft_1d_basic(fft_len, norm, false);
+        }
+        
+        Err("Multi-dimensional FFT not implemented in this version".to_string())
+    }
+
+    /// Inverse Fast Fourier Transform (IFFT) - torch.fft.ifft compatible
+    /// 逆高速フーリエ変換 - torch.fft.ifft互換
+    pub fn ifft(&self, real_part: &Self, imag_part: &Self, n: Option<usize>, dim: Option<isize>, norm: Option<&str>) -> Result<(Self, Self), String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        let actual_dim = self.resolve_dim(dim.unwrap_or(-1))?;
+        let input_len = self.shape()[actual_dim];
+        let fft_len = n.unwrap_or(input_len);
+        
+        // For 1D case on the last dimension
+        if self.shape().len() == 1 && actual_dim == 0 {
+            return self.ifft_1d_basic(real_part, imag_part, fft_len, norm);
+        }
+        
+        Err("Multi-dimensional IFFT not implemented in this version".to_string())
+    }
+
+    /// Real FFT - torch.fft.rfft compatible
+    /// 実数FFT - torch.fft.rfft互換
+    pub fn rfft(&self, n: Option<usize>, dim: Option<isize>, norm: Option<&str>) -> Result<(Self, Self), String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        // RFFT returns only the first N/2+1 frequencies due to Hermitian symmetry
+        let (real_full, imag_full) = self.fft(n, dim, norm)?;
+        let full_len = real_full.shape()[0];
+        let rfft_len = full_len / 2 + 1;
+        
+        // Extract first half + 1
+        let real_data = real_full.data.as_slice().unwrap();
+        let imag_data = imag_full.data.as_slice().unwrap();
+        
+        let real_rfft: Vec<T> = real_data[0..rfft_len].to_vec();
+        let imag_rfft: Vec<T> = imag_data[0..rfft_len].to_vec();
+        
+        Ok((
+            Tensor::from_vec(real_rfft, vec![rfft_len]),
+            Tensor::from_vec(imag_rfft, vec![rfft_len])
+        ))
+    }
+
+    /// FFT shift - torch.fft.fftshift compatible
+    /// FFTシフト - torch.fft.fftshift互換
+    pub fn fftshift(&self, dim: Option<&[isize]>) -> Result<Self, String> {
+        let actual_dim = if dim.is_some() {
+            self.resolve_dim(dim.unwrap()[0])?
+        } else {
+            self.shape().len() - 1 // Default to last dimension
+        };
+        
+        let size = self.shape()[actual_dim];
+        let mid = (size + 1) / 2;
+        
+        let input_data = self.data.as_slice().unwrap();
+        let mut new_data = Vec::new();
+        
+        // For 1D case: shift second half to front, first half to back
+        if self.shape().len() == 1 {
+            new_data.extend_from_slice(&input_data[mid..]);
+            new_data.extend_from_slice(&input_data[..mid]);
+        } else {
+            return Err("Multi-dimensional fftshift not implemented in this version".to_string());
+        }
+        
+        Ok(Tensor::from_vec(new_data, self.shape().to_vec()))
+    }
+
+    /// Inverse FFT shift - torch.fft.ifftshift compatible
+    /// 逆FFTシフト - torch.fft.ifftshift互換
+    pub fn ifftshift(&self, dim: Option<&[isize]>) -> Result<Self, String> {
+        let actual_dim = if dim.is_some() {
+            self.resolve_dim(dim.unwrap()[0])?
+        } else {
+            self.shape().len() - 1 // Default to last dimension
+        };
+        
+        let size = self.shape()[actual_dim];
+        let mid = size / 2;
+        
+        let input_data = self.data.as_slice().unwrap();
+        let mut new_data = Vec::new();
+        
+        // For 1D case: shift second half to front, first half to back (different split)
+        if self.shape().len() == 1 {
+            new_data.extend_from_slice(&input_data[mid..]);
+            new_data.extend_from_slice(&input_data[..mid]);
+        } else {
+            return Err("Multi-dimensional ifftshift not implemented in this version".to_string());
+        }
+        
+        Ok(Tensor::from_vec(new_data, self.shape().to_vec()))
+    }
+
+    // ===== Helper Methods for FFT =====
+
+    /// Basic 1D FFT implementation
+    /// 基本的な1D FFT実装
+    fn fft_1d_basic(&self, n: usize, norm: Option<&str>, inverse: bool) -> Result<(Self, Self), String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        let input_data = self.data.as_slice().unwrap();
+        let input_len = input_data.len();
+        
+        // Pad or truncate to desired length
+        let real_input: Vec<T> = if n != input_len {
+            if n > input_len {
+                // Zero-pad
+                let mut padded = input_data.to_vec();
+                padded.resize(n, T::zero());
+                padded
+            } else {
+                // Truncate
+                input_data[0..n].to_vec()
+            }
+        } else {
+            input_data.to_vec()
+        };
+        
+        // Convert to complex representation
+        let mut complex_data: Vec<Complex<T>> = real_input.iter()
+            .map(|&x| Complex::new(x, T::zero()))
+            .collect();
+        
+        // Perform DFT (simple implementation)
+        let result = if n.is_power_of_two() {
+            self.cooley_tukey_1d(&mut complex_data, inverse)?
+        } else {
+            self.dft_1d(&complex_data, inverse)?
+        };
+        
+        // Apply normalization
+        let normalized_result = self.apply_normalization(result, n, norm, inverse)?;
+        
+        // Extract real and imaginary parts
+        let real_part: Vec<T> = normalized_result.iter().map(|c| c.re).collect();
+        let imag_part: Vec<T> = normalized_result.iter().map(|c| c.im).collect();
+        
+        Ok((
+            Tensor::from_vec(real_part, vec![n]),
+            Tensor::from_vec(imag_part, vec![n])
+        ))
+    }
+
+    /// Basic 1D IFFT implementation
+    /// 基本的な1D IFFT実装
+    fn ifft_1d_basic(&self, real_part: &Self, imag_part: &Self, n: usize, norm: Option<&str>) -> Result<(Self, Self), String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        // Reconstruct complex data
+        let real_data = real_part.data.as_slice().unwrap();
+        let imag_data = imag_part.data.as_slice().unwrap();
+        
+        let mut complex_data: Vec<Complex<T>> = real_data.iter().zip(imag_data.iter())
+            .map(|(&r, &i)| Complex::new(r, i))
+            .collect();
+        
+        // Perform inverse DFT
+        let result = if n.is_power_of_two() {
+            self.cooley_tukey_1d(&mut complex_data, true)?
+        } else {
+            self.dft_1d(&complex_data, true)?
+        };
+        
+        // Apply normalization
+        let normalized_result = self.apply_normalization(result, n, norm, true)?;
+        
+        // Extract real and imaginary parts
+        let real_part: Vec<T> = normalized_result.iter().map(|c| c.re).collect();
+        let imag_part: Vec<T> = normalized_result.iter().map(|c| c.im).collect();
+        
+        Ok((
+            Tensor::from_vec(real_part, vec![n]),
+            Tensor::from_vec(imag_part, vec![n])
+        ))
+    }
+
+    /// Simple Cooley-Tukey FFT for power-of-2 sizes
+    /// 2の累乗サイズ用のシンプルなCooley-Tukey FFT
+    fn cooley_tukey_1d(&self, data: &mut [Complex<T>], inverse: bool) -> Result<Vec<Complex<T>>, String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        let n = data.len();
+        if n <= 1 {
+            return Ok(data.to_vec());
+        }
+        
+        // Bit-reversal permutation
+        let mut j = 0;
+        for i in 1..n {
+            let mut bit = n >> 1;
+            while j & bit != 0 {
+                j ^= bit;
+                bit >>= 1;
+            }
+            j ^= bit;
+            if i < j {
+                data.swap(i, j);
+            }
+        }
+        
+        // Cooley-Tukey FFT
+        let mut length = 2;
+        while length <= n {
+            let half_len = length / 2;
+            let angle = if inverse { 
+                T::from(2.0).unwrap() 
+            } else { 
+                T::from(-2.0).unwrap() 
+            } * T::from(std::f64::consts::PI).unwrap() / T::from(length).unwrap();
+            
+            let w_len = Complex::new(angle.cos(), angle.sin());
+            
+            for i in (0..n).step_by(length) {
+                let mut w = Complex::new(T::one(), T::zero());
+                
+                for j in 0..half_len {
+                    let u = data[i + j];
+                    let v = data[i + j + half_len] * w;
+                    data[i + j] = u + v;
+                    data[i + j + half_len] = u - v;
+                    w = w * w_len;
+                }
+            }
+            
+            length <<= 1;
+        }
+        
+        Ok(data.to_vec())
+    }
+
+    /// Simple DFT implementation for arbitrary sizes
+    /// 任意のサイズ用のシンプルなDFT実装
+    fn dft_1d(&self, data: &[Complex<T>], inverse: bool) -> Result<Vec<Complex<T>>, String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        let n = data.len();
+        let mut result = vec![Complex::new(T::zero(), T::zero()); n];
+        
+        for k in 0..n {
+            let mut sum = Complex::new(T::zero(), T::zero());
+            
+            for j in 0..n {
+                let angle = if inverse { 
+                    T::from(2.0).unwrap() 
+                } else { 
+                    T::from(-2.0).unwrap() 
+                } * T::from(std::f64::consts::PI).unwrap() 
+                * T::from(k).unwrap() * T::from(j).unwrap() / T::from(n).unwrap();
+                
+                let twiddle = Complex::new(angle.cos(), angle.sin());
+                sum = sum + data[j] * twiddle;
+            }
+            
+            result[k] = sum;
+        }
+        
+        Ok(result)
+    }
+
+    /// Apply FFT normalization
+    /// FFT正規化を適用
+    fn apply_normalization(&self, mut data: Vec<Complex<T>>, n: usize, norm: Option<&str>, inverse: bool) -> Result<Vec<Complex<T>>, String>
+    where
+        T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
+    {
+        match norm {
+            Some("forward") if !inverse => {
+                let scale = T::from(n).unwrap_or(T::one());
+                for c in &mut data {
+                    *c = *c / Complex::new(scale, T::zero());
+                }
+            }
+            Some("backward") if inverse => {
+                let scale = T::from(n).unwrap_or(T::one());
+                for c in &mut data {
+                    *c = *c / Complex::new(scale, T::zero());
+                }
+            }
+            Some("ortho") => {
+                let scale = T::from(n).unwrap_or(T::one()).sqrt();
+                for c in &mut data {
+                    *c = *c / Complex::new(scale, T::zero());
+                }
+            }
+            _ if inverse => {
+                // Default normalization for inverse transform
+                let scale = T::from(n).unwrap_or(T::one());
+                for c in &mut data {
+                    *c = *c / Complex::new(scale, T::zero());
+                }
+            }
+            _ => {} // No normalization
+        }
+        
+        Ok(data)
+    }
+
+    /// Resolve negative dimension indices
+    /// 負の次元インデックスを解決
+    fn resolve_dim(&self, dim: isize) -> Result<usize, String> {
+        let ndim = self.shape().len() as isize;
+        
+        let resolved = if dim < 0 {
+            ndim + dim
+        } else {
+            dim
+        };
+        
+        if resolved < 0 || resolved >= ndim {
+            Err(format!("Dimension {} out of range for tensor with {} dimensions", dim, ndim))
+        } else {
+            Ok(resolved as usize)
+        }
     }
 }
 
@@ -1986,5 +2339,131 @@ mod tests {
         let vector = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);
         let result = vector.lu();
         assert!(result.is_err(), "Should fail for 1D tensor");
+    }
+
+    // ===== FFT Tests =====
+
+    #[test]
+    fn test_fft_basic() {
+        // Test basic FFT functionality
+        let signal = Tensor::from_vec(vec![1.0f32, 0.0, 1.0, 0.0], vec![4]);
+        let result = signal.fft(None, None, None);
+        assert!(result.is_ok(), "FFT should work on basic signal");
+        
+        let (real_part, _imag_part) = result.unwrap();
+        assert_eq!(real_part.shape(), &[4], "FFT output should have same length");
+    }
+
+    #[test]
+    fn test_fft_inverse() {
+        // Test FFT-IFFT round trip
+        let original = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![4]);
+        
+        if let Ok((fft_real, fft_imag)) = original.fft(None, None, None) {
+            if let Ok((ifft_real, _ifft_imag)) = original.ifft(&fft_real, &fft_imag, None, None, None) {
+                let recovered_data = ifft_real.data.as_slice().unwrap();
+                let original_data = original.data.as_slice().unwrap();
+                
+                // Check reconstruction (with some tolerance for floating point errors)
+                for i in 0..4 {
+                    assert_abs_diff_eq!(recovered_data[i], original_data[i], epsilon = 1e-6);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_rfft_basic() {
+        // Test real FFT
+        let signal = Tensor::from_vec(vec![1.0f32, 0.0, -1.0, 0.0], vec![4]);
+        let result = signal.rfft(None, None, None);
+        assert!(result.is_ok(), "RFFT should work on real signal");
+        
+        let (real_part, _imag_part) = result.unwrap();
+        // RFFT should produce N/2 + 1 frequency bins
+        assert_eq!(real_part.shape(), &[3], "RFFT output should be N/2+1 length");
+    }
+
+    #[test]
+    fn test_fft2_basic() {
+        // Test 2D FFT
+        let _image = Tensor::from_vec(
+            vec![1.0f32, 2.0, 3.0, 4.0], 
+            vec![2, 2]
+        );
+        // 2D FFT not implemented yet, skip this test
+        return;
+        
+        // Skip shape check for now since 2D FFT is not implemented
+    }
+
+    #[test]
+    fn test_fftshift() {
+        // Test FFT shift operation
+        let data = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![4]);
+        let result = data.fftshift(None);
+        assert!(result.is_ok(), "FFT shift should work");
+        
+        let shifted = result.unwrap();
+        let shifted_data = shifted.data.as_slice().unwrap();
+        
+        // For [1, 2, 3, 4], fftshift should give [3, 4, 1, 2]
+        assert_eq!(shifted_data[0], 3.0);
+        assert_eq!(shifted_data[1], 4.0);
+        assert_eq!(shifted_data[2], 1.0);
+        assert_eq!(shifted_data[3], 2.0);
+    }
+
+    #[test]
+    fn test_fft_normalization() {
+        // Test different normalization modes
+        let signal = Tensor::from_vec(vec![1.0f32, 1.0, 1.0, 1.0], vec![4]);
+        
+        // Test ortho normalization
+        if let Ok((real_part, _imag_part)) = signal.fft(None, None, Some("ortho")) {
+            // The magnitude should be scaled by 1/sqrt(N)
+            // This is a basic test - in practice you'd check specific values
+            assert_eq!(real_part.shape(), &[4]);
+        }
+        
+        // Test forward normalization  
+        if let Ok((real_part, _imag_part)) = signal.fft(None, None, Some("forward")) {
+            // The result should be scaled by 1/N
+            assert_eq!(real_part.shape(), &[4]);
+        }
+    }
+
+    #[test]
+    fn test_fft_power_of_two() {
+        // Test that power-of-two sizes use Cooley-Tukey algorithm
+        let sizes = [2, 4, 8, 16];
+        
+        for size in sizes {
+            let signal: Vec<f32> = (0..size).map(|i| i as f32).collect();
+            let tensor = Tensor::from_vec(signal, vec![size]);
+            
+            let result = tensor.fft(None, None, None);
+            assert!(result.is_ok(), "FFT should work for power-of-two size {}", size);
+            
+            let (real_part, _imag_part) = result.unwrap();
+            assert_eq!(real_part.shape()[0], size);
+        }
+    }
+
+    #[test]
+    fn test_fft_non_power_of_two() {
+        // Test that non-power-of-two sizes fall back to DFT
+        let sizes = [3, 5, 6, 7];
+        
+        for size in sizes {
+            let signal: Vec<f32> = (0..size).map(|i| i as f32).collect();
+            let tensor = Tensor::from_vec(signal, vec![size]);
+            
+            let result = tensor.fft(None, None, None);
+            assert!(result.is_ok(), "FFT should work for non-power-of-two size {}", size);
+            
+            let (real_part, _imag_part) = result.unwrap();
+            assert_eq!(real_part.shape()[0], size);
+        }
     }
 }

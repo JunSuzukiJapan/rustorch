@@ -24,6 +24,7 @@ ndarray-rand = "0.14"
 ndarray-linalg = { version = "0.16", optional = true }
 openblas-src = { version = "0.10", optional = true, features = ["system"] }
 num-traits = "0.2"
+num-complex = "0.4"
 rand = "0.8"
 rand_distr = "0.4"
 rayon = "1.5"
@@ -147,6 +148,10 @@ harness = false
 
 [[bench]]
 name = "manual_quick_bench"
+harness = false
+
+[[bench]]
+name = "fft_benchmark"
 harness = false
 
 
