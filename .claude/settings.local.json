@@ -52,7 +52,16 @@
       "Bash(timeout 60s cargo bench --bench simple_performance_test)",
       "Bash(RUST_BACKTRACE=1 cargo run --release --example performance_test)",
       "Bash(./target/release/deps/simple_performance_test-b3d2edb500ff492a)",
-      "Bash(./target/release/deps/simple_performance_test-b3d2edb500ff492a --bench)"
+      "Bash(./target/release/deps/simple_performance_test-b3d2edb500ff492a --bench)",
+      "Bash(timeout 60s cargo bench --bench matrix_decomposition_benchmark --no-default-features -- --quick)",
+      "Bash(timeout 60s cargo bench --bench optimized_matrix_benchmark --no-default-features -- --quick)",
+      "Bash(./manual_bench)",
+      "Bash(./simple_bench)",
+      "Bash(brew list:*)",
+      "Bash(brew install:*)",
+      "Bash(pkg-config:*)",
+      "Bash(./test_linalg)",
+      "Bash(./matrix_bench)"
     ],
     "deny": [],
     "ask": [],
