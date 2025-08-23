@@ -340,7 +340,7 @@ where
 /// Quantization-aware training (QAT) wrapper
 /// 量子化対応訓練（QAT）ラッパー
 #[derive(Debug)]
-pub struct QuantizationAwareModule<T: Float + Send + Sync + 'static, M: Module<T> + 'static> {
+pub struct QuantizationAwareModule<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, M: Module<T> + 'static> {
     /// Underlying module
     /// 基底モジュール
     module: M,

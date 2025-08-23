@@ -103,7 +103,7 @@ fn demo_matrix_operations() {
         println!("   {}x{} matrix multiplication: {:?}", size, size, time);
         
         // Verify shape
-        assert_eq!(result.shape(), &[size, size]);
+        assert_eq!(result.unwrap().shape(), &[size, size]);
     }
     println!();
 }

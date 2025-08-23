@@ -19,7 +19,7 @@ use rand::Rng;
 /// 訓練中、確率pで要素をランダムにゼロに設定します。
 /// 評価中、期待値を維持するために入力を(1-p)でスケールします。
 #[derive(Debug)]
-pub struct Dropout<T: Float + Send + Sync> {
+pub struct Dropout<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Dropout probability (0.0 to 1.0)
     /// ドロップアウト確率（0.0から1.0）
     p: T,

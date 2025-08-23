@@ -44,7 +44,7 @@ use anyhow::Result;
 /// Core model class for Sequential API
 pub struct Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// レイヤーのリスト
     layers: Vec<Box<dyn Module<T> + Send + Sync>>,
@@ -64,7 +64,7 @@ where
 
 impl<T> std::fmt::Debug for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sequential")
@@ -79,7 +79,7 @@ where
 
 impl<T> Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 新しいSequentialモデルを作成
     /// Create a new Sequential model
@@ -283,7 +283,7 @@ where
 
 impl<T> Default for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn default() -> Self {
         Self::new()
@@ -292,7 +292,7 @@ where
 
 impl<T> Module<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 順伝播
     /// Forward pass
@@ -344,7 +344,7 @@ where
 
 impl<T> TrainableModel<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 順伝播
     /// Forward pass
@@ -388,14 +388,14 @@ where
 /// Sequential model builder
 pub struct SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     model: Sequential<T>,
 }
 
 impl<T> SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -432,7 +432,7 @@ where
 
 impl<T> Default for SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn default() -> Self {
         Self::new()

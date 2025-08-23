@@ -236,7 +236,7 @@ pub struct ConvOps;
 impl ConvOps {
     /// Initialize weights and bias for convolution layers
     /// 畳み込み層用の重みとバイアスを初期化
-    pub fn init_conv_params<T: Float + Send + Sync + Debug + 'static + From<f32> + Copy>(
+    pub fn init_conv_params<T: Float + Send + Sync + Debug + 'static + From<f32> + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         input_size: usize,
         output_size: usize,
         kernel_size: usize,
@@ -251,7 +251,7 @@ impl ConvOps {
         
         // Initialize weights
         let weight_data: Vec<T> = (0..output_size * input_size * kernel_size / groups)
-            .map(|_| T::from(normal.sample(&mut rng)))
+            .map(|_| num_traits::cast(normal.sample(&mut rng) as f64).unwrap_or(T::zero()))
             .collect();
         let weight = Variable::new(
             Tensor::from_vec(weight_data, vec![output_size, input_size / groups, kernel_size]),
@@ -260,7 +260,7 @@ impl ConvOps {
         
         // Initialize bias if needed
         let bias = if use_bias {
-            let bias_data = vec![T::default(); output_size];
+            let bias_data = vec![T::zero(); output_size];
             Some(Variable::new(
                 Tensor::from_vec(bias_data, vec![output_size]),
                 true,
@@ -315,7 +315,7 @@ impl ConvOps {
     
     /// Linear transformation: input @ weight^T + bias
     /// 線形変換: input @ weight^T + bias
-    pub fn linear_transform<T: Float + Send + Sync + Debug + 'static>(
+    pub fn linear_transform<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         input: &Variable<T>,
         weight: &Variable<T>,
         bias: Option<&Variable<T>>,
@@ -330,35 +330,45 @@ impl ConvOps {
     
     /// Matrix multiplication for variables
     /// Variable用の行列乗算
-    pub fn matmul_variables<T: Float + Send + Sync + Debug + 'static>(
+    pub fn matmul_variables<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         a: &Variable<T>,
         b: &Variable<T>,
     ) -> Variable<T> {
-        let result_data = a.data().matmul(b.data()).unwrap();
+        let a_binding = a.data();
+        let a_data = a_binding.read().unwrap();
+        let b_binding = b.data();
+        let b_data = b_binding.read().unwrap();
+        let result_data = a_data.matmul(&*b_data).expect("MatMul failed");
         Variable::new(result_data, a.requires_grad() || b.requires_grad())
     }
     
     /// Addition for variables
     /// Variable用の加算
-    pub fn add_variables<T: Float + Send + Sync + Debug + 'static>(
+    pub fn add_variables<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         a: &Variable<T>,
         b: &Variable<T>,
     ) -> Variable<T> {
-        let result_data = a.data().add(b.data()).unwrap();
+        let a_binding = a.data();
+        let a_data = a_binding.read().unwrap();
+        let b_binding = b.data();
+        let b_data = b_binding.read().unwrap();
+        let result_data = a_data.add(&*b_data).expect("Add failed");
         Variable::new(result_data, a.requires_grad() || b.requires_grad())
     }
     
     /// Transpose for variables
     /// Variable用の転置
-    pub fn transpose_variable<T: Float + Send + Sync + Debug + 'static>(var: &Variable<T>) -> Variable<T> {
-        let transposed_data = var.data().transpose().unwrap();
+    pub fn transpose_variable<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
+        let var_binding = var.data();
+        let var_data = var_binding.read().unwrap();
+        let transposed_data = var_data.transpose().expect("Transpose failed");
         Variable::new(transposed_data, var.requires_grad())
     }
 }
 
 /// Common parameter collection for convolution layers
 /// 畳み込み層用共通パラメータ収集
-pub fn collect_conv_parameters<T: Float + Send + Sync + Debug + 'static>(
+pub fn collect_conv_parameters<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     weight: &Variable<T>,
     bias: &Option<Variable<T>>,
 ) -> Vec<Variable<T>> {

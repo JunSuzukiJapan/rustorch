@@ -9,7 +9,7 @@ use std::sync::{Arc, RwLock};
 
 /// Linear layer backward function
 /// 線形レイヤーの逆伝播関数
-pub struct LinearBackward<T: Float + Send + Sync + 'static> {
+pub struct LinearBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Input tensor for gradient computation
     /// 勾配計算用の入力テンソル
     pub input: Arc<RwLock<Tensor<T>>>,
@@ -27,7 +27,7 @@ pub struct LinearBackward<T: Float + Send + Sync + 'static> {
     pub bias_var: Option<Variable<T>>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for LinearBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for LinearBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         let grad_output = &grad_outputs[0];
         
@@ -36,14 +36,14 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for LinearBackward<T> {
         let weight_data = self.weight.read().unwrap();
         
         // Compute gradients for input: grad_output @ weight
-        let grad_input = grad_output.matmul(&weight_data);
+        let grad_input = grad_output.matmul(&weight_data).expect("MatMul failed");
         
         // Compute gradients for weight: grad_output.T @ input
-        let grad_weight = grad_output.transpose().matmul(&input_data);
+        let grad_weight = grad_output.transpose().expect("Transpose failed").matmul(&input_data).expect("MatMul failed");
         
         // Compute gradients for bias: sum(grad_output, axis=0)
         let grad_bias = if self.bias_var.is_some() {
-            Some(grad_output.sum_axis(0))
+            Some(grad_output.sum_axis(0).expect("Sum failed"))
         } else {
             None
         };

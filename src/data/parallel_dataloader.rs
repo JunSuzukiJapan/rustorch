@@ -13,7 +13,7 @@ use std::time::Duration;
 
 /// Parallel DataLoader for concurrent batch processing
 /// 並行バッチ処理のための並列DataLoader
-pub struct ParallelDataLoader<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync> {
+pub struct ParallelDataLoader<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> {
     dataset: Arc<D>,
     batch_size: usize,
     num_workers: usize,
@@ -22,7 +22,7 @@ pub struct ParallelDataLoader<T: Float + Send + Sync + 'static, D: Dataset<T> + 
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> ParallelDataLoader<T, D> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync + 'static> ParallelDataLoader<T, D> {
     /// Creates a new parallel DataLoader
     /// 新しい並列DataLoaderを作成
     pub fn new(
@@ -84,13 +84,13 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
 
 /// Parallel batch iterator with prefetching
 /// プリフェッチ機能付き並列バッチイテレータ
-pub struct ParallelBatchIterator<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync> {
+pub struct ParallelBatchIterator<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> {
     receiver: mpsc::Receiver<Option<(Tensor<T>, Tensor<T>)>>,
     _handles: Vec<thread::JoinHandle<()>>,
     _phantom: std::marker::PhantomData<D>,
 }
 
-impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> ParallelBatchIterator<T, D> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync + 'static> ParallelBatchIterator<T, D> {
     fn new(
         dataset: Arc<D>,
         batch_size: usize,
@@ -179,7 +179,7 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync + 'static> Pa
     }
 }
 
-impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync> Iterator for ParallelBatchIterator<T, D> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> Iterator for ParallelBatchIterator<T, D> {
     type Item = (Tensor<T>, Tensor<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -192,11 +192,11 @@ impl<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync> Iterator for
 
 /// Parallel batch operations for training
 /// 訓練用並列バッチ演算
-pub struct ParallelBatchProcessor<T: Float + Send + Sync + 'static> {
+pub struct ParallelBatchProcessor<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + Clone + 'static> ParallelBatchProcessor<T> {
+impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ParallelBatchProcessor<T> {
     /// Parallel gradient computation across batches
     /// バッチ間並列勾配計算
     pub fn compute_gradients_parallel(

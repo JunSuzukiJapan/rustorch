@@ -15,7 +15,7 @@ use num_traits::Float;
 /// Input shape: (batch_size, channels, height, width)
 /// Output shape: (batch_size, channels, output_height, output_width)
 #[derive(Debug)]
-pub struct AdaptiveMaxPool2d<T: Float + Send + Sync> {
+pub struct AdaptiveMaxPool2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Output size (height, width)
     /// 出力サイズ (高さ, 幅)
     output_size: (usize, usize),
@@ -29,7 +29,7 @@ pub struct AdaptiveMaxPool2d<T: Float + Send + Sync> {
 
 impl<T> AdaptiveMaxPool2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new AdaptiveMaxPool2d layer
     /// 新しいAdaptiveMaxPool2d層を作成
@@ -90,7 +90,7 @@ where
 
 impl<T> Module<T> for AdaptiveMaxPool2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -124,7 +124,7 @@ pub struct AdaptiveAvgPool2d<T: Float + Send + Sync> {
 
 impl<T> AdaptiveAvgPool2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new AdaptiveAvgPool2d layer
     /// 新しいAdaptiveAvgPool2d層を作成
@@ -182,7 +182,7 @@ where
 
 impl<T> Module<T> for AdaptiveAvgPool2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

@@ -94,7 +94,7 @@ pub struct PipelineConfig {
 
 impl<T> ModelParallel<T>
 where
-    T: Float + Send + Sync + 'static,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new model parallel wrapper
     /// 新しいモデル並列ラッパーを作成
@@ -349,7 +349,7 @@ where
 
 impl<T> Module<T> for ModelParallel<T>
 where
-    T: Float + Send + Sync + 'static + std::fmt::Debug,
+    T: Float + Send + Sync + 'static + std::fmt::Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward_parallel(input).unwrap_or_else(|_| input.clone())
@@ -477,7 +477,7 @@ where
 /// エキスパート混合モデル用エキスパート並列
 pub struct ExpertParallel<T>
 where
-    T: Float + Send + Sync + 'static,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Number of experts
     /// エキスパート数
@@ -496,7 +496,7 @@ where
 
 impl<T> ExpertParallel<T>
 where
-    T: Float + Send + Sync + 'static,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create new expert parallel context
     /// 新しいエキスパート並列コンテキストを作成

@@ -288,7 +288,7 @@ impl Optimizer for Adam {
         // Compute update
         let denom = if self.amsgrad {
             let max_exp_avg_sq = if let Some(max_avg_sq) = self.max_exp_avg_sq.get(&param_id) {
-                max_avg_sq.maximum(&corrected_exp_avg_sq)
+                max_avg_sq.maximum(&corrected_exp_avg_sq).unwrap_or_else(|_| corrected_exp_avg_sq.clone())
             } else {
                 corrected_exp_avg_sq.clone()
             };

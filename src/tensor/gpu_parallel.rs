@@ -650,7 +650,7 @@ mod tests {
         let tensor2 = Tensor::<f32>::ones(&[3, 2]);
         
         let result = tensor1.matmul(&tensor2);
-        assert_eq!(result.shape(), &[2, 2]);
+        assert_eq!(result.unwrap().shape(), &[2, 2]);
         
         // Test GPU batch matmul with 3D tensors (batch dimension required)
         let batch_tensor1 = Tensor::<f32>::ones(&[1, 2, 3]);
@@ -666,11 +666,12 @@ mod tests {
 
 
 // Additional GPU operations
-impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
+impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     /// GPU sum operation
     pub fn gpu_sum(&self, _dim: usize) -> ParallelResult<Tensor<T>> {
         // Fallback to CPU implementation
-        let sum_tensor = self.sum();
+        let sum_value = self.sum();
+        let sum_tensor = Tensor::from_vec(vec![sum_value], vec![1]);
         Ok(sum_tensor)
     }
     
@@ -680,7 +681,8 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
         T: num_traits::FromPrimitive,
     {
         // Fallback to CPU implementation
-        let mean_tensor = self.mean();
+        let mean_value = self.mean();
+        let mean_tensor = Tensor::from_vec(vec![mean_value], vec![1]);
         Ok(mean_tensor)
     }
     

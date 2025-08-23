@@ -245,7 +245,7 @@ impl TensorVisualizer {
     /// Visualize variable with gradient information
     pub fn plot_variable<T>(&self, variable: &Variable<T>) -> VisualizationResult<String>
     where
-        T: Float + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+        T: Float + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let tensor = variable.data();
         let tensor_guard = tensor.read().map_err(|e| {
@@ -514,7 +514,7 @@ impl TensorVisualizer {
     
     fn render_gradient_info<T>(&self, _variable: &Variable<T>) -> VisualizationResult<String>
     where
-        T: Float + std::fmt::Display + Send + Sync + 'static,
+        T: Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 勾配情報の描画（簡略化）
         Ok(r#"<text x="10" y="15" style="font-size: 10px; fill: #666;">Gradient: Available</text>"#.to_string())

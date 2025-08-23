@@ -38,7 +38,7 @@
 //! let matmul_result = tensor1.matmul(&tensor2);
 //! 
 //! # assert_eq!(result.shape(), &[4, 4]);
-//! # assert_eq!(matmul_result.shape(), &[4, 4]);
+//! # assert_eq!(matmul_result.unwrap().shape(), &[4, 4]);
 //! ```
 //! 
 //! ### SIMD-Optimized Operations

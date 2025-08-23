@@ -50,7 +50,7 @@ impl Default for TrainerConfig {
 /// Generic training loop trainer
 pub struct Trainer<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone,
+    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -64,7 +64,7 @@ where
 
 impl<T, O, L> Trainer<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone,
+    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -330,7 +330,7 @@ where
 
 /// 訓練可能なモデルのトレイト
 /// Trait for trainable models
-pub trait TrainableModel<T: Float + Send + Sync + 'static> {
+pub trait TrainableModel<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// 順伝播
     /// Forward pass
     fn forward(&self, input: &Variable<T>) -> Variable<T>;
@@ -399,7 +399,7 @@ pub enum CallbackSignal {
 /// TrainerBuilderパターンでの流暢なAPI
 pub struct TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone,
+    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -411,7 +411,7 @@ where
 
 impl<T, O, L> TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone,
+    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -487,7 +487,7 @@ where
 
 impl<T, O, L> Default for TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone,
+    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {

@@ -21,7 +21,7 @@ pub trait Function<T: Float + Send + Sync + 'static>: Send + Sync {
 #[derive(Debug)]
 pub struct AddFunction;
 
-impl<T: Float + Send + Sync + 'static> Function<T> for AddFunction {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Function<T> for AddFunction {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
         inputs[0] + inputs[1]
     }
@@ -36,7 +36,7 @@ impl<T: Float + Send + Sync + 'static> Function<T> for AddFunction {
 #[derive(Debug)]
 pub struct SubFunction;
 
-impl<T: Float + Send + Sync + 'static> Function<T> for SubFunction {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Function<T> for SubFunction {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
         inputs[0] - inputs[1]
     }
@@ -51,7 +51,7 @@ impl<T: Float + Send + Sync + 'static> Function<T> for SubFunction {
 #[derive(Debug)]
 pub struct MulFunction;
 
-impl<T: Float + Send + Sync + 'static> Function<T> for MulFunction {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Function<T> for MulFunction {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
         inputs[0] * inputs[1]
     }
@@ -68,14 +68,14 @@ impl<T: Float + Send + Sync + 'static> Function<T> for MulFunction {
 #[derive(Debug)]
 pub struct MatMulFunction;
 
-impl<T: Float + Send + Sync + 'static> Function<T> for MatMulFunction {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Function<T> for MatMulFunction {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
-        inputs[0].matmul(inputs[1])
+        inputs[0].matmul(inputs[1]).expect("Matrix multiplication failed")
     }
     
     fn backward(&self, grad_output: &Tensor<T>, inputs: &[&Tensor<T>]) -> Vec<Option<Tensor<T>>> {
-        let grad_input0 = grad_output.matmul(&inputs[1].transpose());
-        let grad_input1 = inputs[0].transpose().matmul(grad_output);
+        let grad_input0 = grad_output.matmul(&inputs[1].transpose().expect("Transpose failed")).expect("MatMul failed");
+        let grad_input1 = inputs[0].transpose().expect("Transpose failed").matmul(grad_output).expect("MatMul failed");
         vec![Some(grad_input0), Some(grad_input1)]
     }
 }
@@ -85,9 +85,10 @@ impl<T: Float + Send + Sync + 'static> Function<T> for MatMulFunction {
 #[derive(Debug)]
 pub struct SumFunction;
 
-impl<T: Float + Send + Sync + 'static> Function<T> for SumFunction {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Function<T> for SumFunction {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
-        inputs[0].sum()
+        let sum_value = inputs[0].sum();
+        Tensor::from_vec(vec![sum_value], vec![1])
     }
     
     fn backward(&self, grad_output: &Tensor<T>, inputs: &[&Tensor<T>]) -> Vec<Option<Tensor<T>>> {

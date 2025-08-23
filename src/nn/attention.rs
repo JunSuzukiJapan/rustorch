@@ -15,7 +15,7 @@ use std::iter::Sum;
 /// Implements the multi-head attention mechanism from "Attention Is All You Need".
 /// "Attention Is All You Need"のマルチヘッドアテンション機構を実装します。
 #[derive(Debug)]
-pub struct MultiHeadAttention<T: Float + Send + Sync> {
+pub struct MultiHeadAttention<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Number of attention heads
     /// アテンションヘッド数
     num_heads: usize,
@@ -350,7 +350,7 @@ where
 /// Cross-Attention layer for encoder-decoder architectures
 /// エンコーダー・デコーダーアーキテクチャ用クロスアテンション層
 #[derive(Debug)]
-pub struct CrossAttention<T: Float + Send + Sync> {
+pub struct CrossAttention<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Underlying multi-head attention mechanism
     /// 基底のマルチヘッドアテンション機構
     attention: MultiHeadAttention<T>,

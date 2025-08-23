@@ -20,7 +20,7 @@ impl SafeOps {
         requires_grad: bool,
     ) -> NNResult<Variable<T>>
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // Validate shape consistency
         let expected_size: usize = shape.iter().product();
@@ -51,7 +51,7 @@ impl SafeOps {
         new_shape: Vec<usize>,
     ) -> NNResult<Variable<T>>
     where
-        T: Float + Send + Sync + 'static + Debug + Clone,
+        T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let binding = variable.data();
         let data_guard = binding.read()
@@ -82,7 +82,7 @@ impl SafeOps {
         f: F,
     ) -> NNResult<Variable<T>>
     where
-        T: Float + Send + Sync + 'static + Debug + Clone,
+        T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
         F: Fn(T) -> T,
     {
         let binding = variable.data();
@@ -102,7 +102,7 @@ impl SafeOps {
     /// 安全にテンソル統計を取得
     pub fn get_stats<T>(variable: &Variable<T>) -> NNResult<TensorStats<T>>
     where
-        T: Float + Send + Sync + 'static + Debug + Clone + PartialOrd,
+        T: Float + Send + Sync + 'static + Debug + Clone + PartialOrd + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let binding = variable.data();
         let data_guard = binding.read()
@@ -142,7 +142,7 @@ impl SafeOps {
     /// NaNや無限大のテンソルを安全に検証
     pub fn validate_finite<T>(variable: &Variable<T>) -> NNResult<()>
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let binding = variable.data();
         let data_guard = binding.read()
@@ -168,7 +168,7 @@ impl SafeOps {
     /// ReLU活性化関数を適用: max(0, x)
     pub fn relu<T>(variable: &Variable<T>) -> NNResult<Variable<T>>
     where
-        T: Float + Send + Sync + 'static + Debug + Clone,
+        T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let binding = variable.data();
         let data_guard = binding.read()
@@ -205,7 +205,7 @@ pub struct TensorStats<T> {
     pub count: usize,
 }
 
-impl<T: Float> TensorStats<T> {
+impl<T: Float + ndarray::ScalarOperand + num_traits::FromPrimitive> TensorStats<T> {
     /// Get standard deviation
     /// 標準偏差を取得
     pub fn std_dev(&self) -> T {

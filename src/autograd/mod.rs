@@ -23,7 +23,7 @@ pub trait GradFn<T: Float + Send + Sync + 'static>: Send + Sync {
 
 /// A variable that supports automatic differentiation.
 /// 自動微分をサポートする変数
-pub struct Variable<T: Float + Send + Sync> {
+pub struct Variable<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     data: Arc<RwLock<Tensor<T>>>,
     grad: Arc<RwLock<Option<Tensor<T>>>>,
     requires_grad: bool,
@@ -31,7 +31,7 @@ pub struct Variable<T: Float + Send + Sync> {
     _marker: PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync> std::fmt::Debug for Variable<T> {
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> std::fmt::Debug for Variable<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Variable")
             .field("requires_grad", &self.requires_grad)
@@ -39,7 +39,7 @@ impl<T: Float + Send + Sync> std::fmt::Debug for Variable<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> Clone for Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Clone for Variable<T> {
     fn clone(&self) -> Self {
         Variable {
             data: self.data.clone(),
@@ -51,7 +51,7 @@ impl<T: Float + Send + Sync + 'static> Clone for Variable<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Variable<T> {
     /// Creates a new variable with the given tensor.
     /// 与えられたテンソルで新しい変数を作成します。
     pub fn new(data: Tensor<T>, requires_grad: bool) -> Self {
@@ -124,7 +124,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
         // Initialize gradient if not provided
         let initial_grad = grad_output.unwrap_or_else(|| {
             let data = self.data.read().unwrap();
-            if data.len() == 1 && data.shape().is_empty() {
+            if data.numel() == 1 && data.shape().is_empty() {
                 // Scalar case - gradient is 1 with scalar shape
                 Tensor::ones(&[])
             } else {
@@ -157,7 +157,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
     pub fn matmul(&self, other: &Variable<T>) -> Variable<T> {
         let lhs_data = self.data.read().unwrap().clone();
         let rhs_data = other.data.read().unwrap().clone();
-        let result_data = lhs_data.matmul(&rhs_data);
+        let result_data = lhs_data.matmul(&rhs_data).expect("MatMul failed");
 
         if self.requires_grad || other.requires_grad {
             let grad_fn = Arc::new(MatMulBackward {
@@ -176,7 +176,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
     /// 最後の2次元を転置
     pub fn transpose_last_two(&self) -> Variable<T> {
         let input_data = self.data.read().unwrap();
-        let result_data = input_data.transpose_last_two();
+        let result_data = input_data.transpose().expect("Transpose failed");
         
         // For now, no gradient support for transpose
         // 現在のところ、転置の勾配サポートはなし
@@ -188,7 +188,8 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
     pub fn sum(&self) -> Variable<T> {
         let input_data = self.data.read().unwrap();
         let input_shape = input_data.shape().to_vec();
-        let result_data = input_data.sum();
+        let sum_value = input_data.sum();
+        let result_data = Tensor::from_vec(vec![sum_value], vec![1]);
         
         if self.requires_grad {
             let grad_fn = Arc::new(SumBackward {
@@ -222,7 +223,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
     pub fn mean_autograd(&self) -> Variable<T> {
         let sum_var = self.sum();
         let input_data = self.data.read().unwrap();
-        let numel = T::from(input_data.len()).unwrap();
+        let numel = T::from(input_data.numel()).unwrap();
         
         let sum_data = sum_var.data.read().unwrap().clone();
         let mut mean_data = sum_data;
@@ -241,7 +242,7 @@ impl<T: Float + Send + Sync + 'static> Variable<T> {
 }
 
 // Implement arithmetic operators for Variables
-impl<T: Float + Send + Sync + 'static> ops::Add for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add for &Variable<T> {
     type Output = Variable<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -263,7 +264,7 @@ impl<T: Float + Send + Sync + 'static> ops::Add for &Variable<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> ops::Mul for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul for &Variable<T> {
     type Output = Variable<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -285,7 +286,7 @@ impl<T: Float + Send + Sync + 'static> ops::Mul for &Variable<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> ops::Sub for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub for &Variable<T> {
     type Output = Variable<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -307,7 +308,7 @@ impl<T: Float + Send + Sync + 'static> ops::Sub for &Variable<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> ops::Sub<&Variable<T>> for Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub<&Variable<T>> for Variable<T> {
     type Output = Variable<T>;
 
     fn sub(self, rhs: &Variable<T>) -> Self::Output {

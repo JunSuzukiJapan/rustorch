@@ -5,11 +5,11 @@ use crate::tensor::Tensor;
 use num_traits::Float;
 
 /// Parallel tensor wrapper for automatic parallelization
-pub struct ParallelTensor<T: Float> {
+pub struct ParallelTensor<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     tensor: Tensor<T>,
 }
 
-impl<T: Float + 'static> ParallelTensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ParallelTensor<T> {
     /// Create parallel tensor from regular tensor
     pub fn from_tensor(tensor: Tensor<T>) -> Self {
         Self { tensor }

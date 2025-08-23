@@ -101,7 +101,7 @@ fn gradient_scaler_demo() -> Result<(), Box<dyn std::error::Error>> {
     // Test scale tensor
     let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
     let scaled = scaler.scale_tensor(&tensor);
-    println!("   - Scaled tensor first element: {}", scaled.get(&[0]));
+    println!("   - Scaled tensor first element: {:?}", scaled.get(&[0]));
     
     // Test statistics
     let stats = scaler.get_stats();

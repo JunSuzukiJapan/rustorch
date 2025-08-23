@@ -497,7 +497,7 @@ where
 /// Pruning-aware training wrapper
 /// プルーニング対応訓練ラッパー
 #[derive(Debug)]
-pub struct PruningAwareModule<T: Float + Send + Sync + 'static, M: Module<T> + 'static> {
+pub struct PruningAwareModule<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, M: Module<T> + 'static> {
     /// Underlying module
     /// 基底モジュール
     module: M,

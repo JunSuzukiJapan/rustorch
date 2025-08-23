@@ -194,7 +194,7 @@ impl ModelSaver {
         format: SerializationFormat,
     ) -> Result<(), SaveError> 
     where
-        T: Float + 'static + Send + Sync + Debug,
+        T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
         M: Model<T>,
     {
         let state_dict = Self::extract_state_dict(model);
@@ -210,7 +210,7 @@ impl ModelSaver {
     /// Extract state dictionary from model
     fn extract_state_dict<T, M>(model: &M) -> ModelStateDict 
     where
-        T: Float + 'static + Send + Sync + Debug,
+        T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
         M: Model<T>,
     {
         let mut state_dict = ModelStateDict::new();
@@ -239,7 +239,7 @@ impl ModelSaver {
     /// Extract parameter values
     fn extract_parameter_values<T>(_param: &Variable<T>) -> Vec<f64> 
     where
-        T: Float + 'static + Send + Sync + Debug,
+        T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化 - 実際にはテンソルから値を抽出
         vec![0.0; 100] // プレースホルダー
@@ -280,7 +280,7 @@ impl ModelSaver {
         path: &Path,
     ) -> Result<(), SaveError> 
     where
-        T: Float + 'static + Send + Sync + Debug,
+        T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
         M: Model<T>,
     {
         let mut state_dict = Self::extract_state_dict(model);

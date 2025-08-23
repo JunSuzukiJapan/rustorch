@@ -47,7 +47,12 @@
       "Bash(RUST_BACKTRACE=1 cargo test --lib safe_ops::tests::test_tensor_stats -- --nocapture)",
       "Bash(timeout 30s cargo bench --bench nn_benchmark)",
       "Bash(rg:*)",
-      "Bash(rustc:*)"
+      "Bash(rustc:*)",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib test_sequential_forward_pass -- --nocapture)",
+      "Bash(timeout 60s cargo bench --bench simple_performance_test)",
+      "Bash(RUST_BACKTRACE=1 cargo run --release --example performance_test)",
+      "Bash(./target/release/deps/simple_performance_test-b3d2edb500ff492a)",
+      "Bash(./target/release/deps/simple_performance_test-b3d2edb500ff492a --bench)"
     ],
     "deny": [],
     "ask": [],

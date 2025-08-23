@@ -20,7 +20,7 @@ use num_traits::Float;
 #[derive(Debug)]
 pub struct DataParallel<T, M>
 where
-    T: Float + Send + Sync + 'static,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Module<T> + Send + Sync,
 {
     /// Base model to be replicated
@@ -56,7 +56,7 @@ pub enum GradientSyncStrategy {
 
 impl<T, M> DataParallel<T, M>
 where
-    T: Float + Send + Sync + 'static,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Module<T> + Send + Sync + 'static,
 {
     /// Create a new data parallel wrapper
@@ -184,7 +184,7 @@ where
 
 impl<T, M> Module<T> for DataParallel<T, M>
 where
-    T: Float + Send + Sync + 'static + std::fmt::Debug,
+    T: Float + Send + Sync + 'static + std::fmt::Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Module<T> + Send + Sync + 'static,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {

@@ -18,7 +18,7 @@ use num_traits::Float;
 ///
 /// Input shape: (batch_size, in_channels, height, width)
 /// Output shape: (batch_size, out_channels, out_height, out_width)
-pub struct Conv2d<T: Float + Send + Sync> {
+pub struct Conv2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Weight tensor of shape (out_channels, in_channels, kernel_height, kernel_width)
     /// 重みテンソル (出力チャンネル, 入力チャンネル, カーネル高さ, カーネル幅)
     weight: Variable<T>,
@@ -48,7 +48,7 @@ pub struct Conv2d<T: Float + Send + Sync> {
     padding: (usize, usize),
 }
 
-impl<T: Float + Send + Sync> std::fmt::Debug for Conv2d<T> {
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> std::fmt::Debug for Conv2d<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Conv2d")
             .field("in_channels", &self.in_channels)
@@ -63,7 +63,7 @@ impl<T: Float + Send + Sync> std::fmt::Debug for Conv2d<T> {
 
 impl<T> Conv2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + num_traits::FromPrimitive,
     T: ndarray::ScalarOperand,
     T: std::ops::Add<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
     T: std::ops::Sub<Output = T> + std::ops::Neg<Output = T>,
@@ -298,7 +298,7 @@ where
 
 impl<T> Module<T> for Conv2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + num_traits::FromPrimitive,
     T: ndarray::ScalarOperand,
     T: std::ops::Add<Output = T> + std::ops::Mul<Output = T> + std::ops::Div<Output = T>,
     T: std::ops::Sub<Output = T> + std::ops::Neg<Output = T>,

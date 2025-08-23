@@ -18,7 +18,7 @@ use std::sync::{Arc, RwLock};
 /// 1D Batch Normalization layer
 /// 1次元バッチ正規化レイヤー
 #[derive(Debug)]
-pub struct BatchNorm1d<T: Float + Send + Sync> {
+pub struct BatchNorm1d<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Number of features
     /// 特徴量数
     num_features: usize,
@@ -54,7 +54,7 @@ pub struct BatchNorm1d<T: Float + Send + Sync> {
 
 impl<T> BatchNorm1d<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum + num_traits::FromPrimitive,
 {
     /// Creates a new BatchNorm1d layer
     /// 新しいBatchNorm1dレイヤーを作成します
@@ -329,7 +329,7 @@ where
 
 impl<T> Module<T> for BatchNorm1d<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -347,7 +347,7 @@ where
 /// 2D Batch Normalization layer for convolutional layers
 /// 畳み込みレイヤー用の2次元バッチ正規化レイヤー
 #[derive(Debug)]
-pub struct BatchNorm2d<T: Float + Send + Sync> {
+pub struct BatchNorm2d<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Number of channels
     /// チャンネル数
     num_features: usize,
@@ -383,7 +383,7 @@ pub struct BatchNorm2d<T: Float + Send + Sync> {
 
 impl<T> BatchNorm2d<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum + num_traits::FromPrimitive,
 {
     /// Creates a new BatchNorm2d layer
     /// 新しいBatchNorm2dレイヤーを作成します
@@ -679,7 +679,7 @@ where
 
 impl<T> Module<T> for BatchNorm2d<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + From<f32> + 'static + Send + Sync + Copy + ScalarOperand + Sum + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

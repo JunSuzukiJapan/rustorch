@@ -9,6 +9,8 @@ use std::fmt;
 /// 自動微分をサポートする多次元配列
 #[derive(Debug, Clone)]
 pub struct Tensor<T: Float> {
+    /// The underlying n-dimensional array data
+    /// 基底のn次元配列データ
     pub data: ArrayD<T>,
 }
 
@@ -69,6 +71,12 @@ impl<T: Float + 'static> Tensor<T> {
         let total_size = shape.iter().product();
         let data = vec![T::one(); total_size];
         Tensor::from_vec(data, shape.to_vec())
+    }
+    
+    /// Create a scalar tensor from a single value
+    /// 単一の値からスカラーテンソルを作成
+    pub fn from_scalar(value: T) -> Self {
+        Self::from_vec(vec![value], vec![1])
     }
 
     /// Creates a tensor filled with a specific value.
@@ -147,6 +155,12 @@ impl<T: Float + 'static> Tensor<T> {
     /// 基になるデータへのスライス参照を返します。
     pub fn as_slice(&self) -> Option<&[T]> {
         self.data.as_slice()
+    }
+
+    /// Returns a mutable reference to the underlying data as a slice.
+    /// 基になるデータへの可変スライス参照を返します。
+    pub fn as_slice_mut(&mut self) -> Option<&mut [T]> {
+        self.data.as_slice_mut()
     }
 
     /// Returns a reference to the underlying ndarray.

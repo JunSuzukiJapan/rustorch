@@ -78,6 +78,12 @@ pub mod core;
 /// Mathematical operations for tensors
 /// テンソルの数学演算
 pub mod operations;
+/// Type-safe tensor operations with compile-time verification
+/// コンパイル時検証付きの型安全テンソル操作
+pub mod type_safe;
+/// Numeric safety and overflow protection
+/// 数値安全性とオーバーフロー保護
+pub mod numeric_safety;
 pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
@@ -133,6 +139,6 @@ pub fn unsqueeze<T: Float + 'static>(
     tensor: &Tensor<T>,
     dim: usize,
 ) -> Result<Tensor<T>, String> {
-    tensor.unsqueeze(dim)
+    tensor.unsqueeze(dim).map_err(|e| e.to_string())
 }
 

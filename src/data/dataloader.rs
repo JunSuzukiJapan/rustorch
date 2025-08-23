@@ -56,7 +56,7 @@ impl<T: Float + 'static> Normalize<T> {
     }
 }
 
-impl<T: Float + 'static> Transform<T> for Normalize<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for Normalize<T> {
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         // Simple normalization implementation using available operations
         if self.mean.is_empty() || self.std.is_empty() {
@@ -120,7 +120,7 @@ pub struct DataLoader<'a, T: Float, D: Dataset<T>> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T: Float + Send + Sync + 'static, D: Dataset<T>> DataLoader<'a, T, D> {
+impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T>> DataLoader<'a, T, D> {
     /// Creates a new DataLoader
     /// 新しいDataLoaderを作成します
     pub fn new(dataset: &'a D, batch_size: usize, shuffle: bool) -> Self {
@@ -348,7 +348,7 @@ impl<'a, T: Float + Send + Sync + 'static, D: Dataset<T>> DataLoader<'a, T, D> {
     }
 }
 
-impl<'a, T: Float + Send + Sync + 'static, D: Dataset<T>> Iterator for DataLoader<'a, T, D> {
+impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T>> Iterator for DataLoader<'a, T, D> {
     type Item = (Tensor<T>, Tensor<T>);
     
     fn next(&mut self) -> Option<Self::Item> {

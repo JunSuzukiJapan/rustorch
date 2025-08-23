@@ -114,7 +114,7 @@ impl TrainingResult {
 /// Model trainer
 pub struct Trainer<T, M, O, L> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
     O: Optimizer,
     L: Loss<T>,
@@ -128,7 +128,7 @@ where
 
 impl<T, M, O, L> Trainer<T, M, O, L> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
     O: Optimizer,
     L: Loss<T>,
@@ -248,7 +248,7 @@ where
 /// Inference engine
 pub struct InferenceEngine<T, M> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
 {
     model: M,
@@ -258,7 +258,7 @@ where
 
 impl<T, M> InferenceEngine<T, M> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
 {
     /// 新しい推論器を作成
@@ -317,7 +317,7 @@ where
 /// Trainer builder
 pub struct TrainerBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     config: TrainingConfig,
     _phantom: std::marker::PhantomData<T>,
@@ -325,7 +325,7 @@ where
 
 impl<T> TrainerBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -385,6 +385,7 @@ where
         M: Model<T>,
         O: Optimizer,
         L: Loss<T>,
+        T: ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         Trainer::new(model, optimizer, loss_fn, self.config)
     }
@@ -392,7 +393,7 @@ where
 
 impl<T> Default for TrainerBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn default() -> Self {
         Self::new()
@@ -408,7 +409,7 @@ impl EvaluationMetrics {
     /// Calculate accuracy
     pub fn accuracy<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.85
@@ -418,7 +419,7 @@ impl EvaluationMetrics {
     /// Calculate precision
     pub fn precision<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.82
@@ -428,7 +429,7 @@ impl EvaluationMetrics {
     /// Calculate recall
     pub fn recall<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.88
@@ -441,7 +442,7 @@ impl EvaluationMetrics {
         _targets: &Variable<T>,
     ) -> f64 
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.85
@@ -451,7 +452,7 @@ impl EvaluationMetrics {
     /// Calculate ROC AUC
     pub fn roc_auc<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
     where
-        T: Float + Send + Sync + 'static + Debug,
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.92

@@ -27,7 +27,7 @@ pub struct GraphNode<T: Float + Send + Sync + 'static> {
     pub requires_grad: bool,
 }
 
-impl<T: Float + Send + Sync + 'static> GraphNode<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GraphNode<T> {
     /// Create a new leaf node (no function, no inputs)
     /// 新しい葉ノードを作成（関数なし、入力なし）
     pub fn new_leaf(requires_grad: bool) -> Arc<Self> {
@@ -89,7 +89,7 @@ pub struct ComputationGraph<T: Float + Send + Sync + 'static> {
     next_id: usize,
 }
 
-impl<T: Float + Send + Sync + 'static> ComputationGraph<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ComputationGraph<T> {
     /// Create a new computation graph
     /// 新しい計算グラフを作成
     pub fn new() -> Self {

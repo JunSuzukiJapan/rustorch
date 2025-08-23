@@ -18,7 +18,7 @@ use rand_distr::{Normal, Distribution};
 /// シンプルなリカレントニューラルネットワークセル：
 /// h_t = tanh(W_ih @ x_t + b_ih + W_hh @ h_{t-1} + b_hh)
 #[derive(Debug)]
-pub struct RNNCell<T: Float + Send + Sync> {
+pub struct RNNCell<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Input-to-hidden weight matrix
     /// 入力から隠れ状態への重み行列
     weight_ih: Variable<T>,
@@ -50,7 +50,7 @@ pub struct RNNCell<T: Float + Send + Sync> {
 
 impl<T> RNNCell<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new RNN cell
     /// 新しいRNNセルを作成
@@ -330,7 +330,7 @@ where
 
 impl<T> Module<T> for RNNCell<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For single-step forward, we need a hidden state
@@ -365,7 +365,7 @@ where
 /// A multi-layer RNN that processes sequences of inputs
 /// 入力シーケンスを処理する多層RNN
 #[derive(Debug)]
-pub struct RNN<T: Float + Send + Sync> {
+pub struct RNN<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// RNN cells for each layer
     /// 各層のRNNセル
     layers: Vec<RNNCell<T>>,
@@ -386,7 +386,7 @@ pub struct RNN<T: Float + Send + Sync> {
 
 impl<T> RNN<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new multi-layer RNN
     /// 新しい多層RNNを作成
@@ -745,7 +745,7 @@ where
 
 impl<T> Module<T> for RNN<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let (output, _) = self.forward_with_hidden(input, None);

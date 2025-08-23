@@ -15,7 +15,7 @@ use std::iter::Sum;
 /// Normalizes across the feature dimension for each sample independently.
 /// 各サンプルについて特徴量次元で独立して正規化します。
 #[derive(Debug)]
-pub struct LayerNorm<T: Float + Send + Sync> {
+pub struct LayerNorm<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Learnable scale parameter (gamma)
     /// 学習可能なスケールパラメータ（ガンマ）
     weight: Variable<T>,
@@ -39,7 +39,7 @@ pub struct LayerNorm<T: Float + Send + Sync> {
 
 impl<T> LayerNorm<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ndarray::ScalarOperand,
 {
     /// Creates a new LayerNorm layer
     /// 新しいLayerNorm層を作成します
@@ -239,7 +239,7 @@ where
 
 impl<T> Module<T> for LayerNorm<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -260,7 +260,7 @@ where
 /// Normalizes features by dividing channels into groups and normalizing within each group.
 /// チャンネルをグループに分割し、各グループ内で正規化します。
 #[derive(Debug)]
-pub struct GroupNorm<T: Float + Send + Sync> {
+pub struct GroupNorm<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Learnable scale parameter (gamma)
     /// 学習可能なスケールパラメータ（ガンマ）
     weight: Variable<T>,
@@ -288,7 +288,7 @@ pub struct GroupNorm<T: Float + Send + Sync> {
 
 impl<T> GroupNorm<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new GroupNorm layer
     /// 新しいGroupNorm層を作成します
@@ -498,7 +498,7 @@ where
 /// A simplified normalization that only uses RMS, without centering.
 /// 中心化せずにRMSのみを使用する簡略化された正規化。
 #[derive(Debug)]
-pub struct RMSNorm<T: Float + Send + Sync> {
+pub struct RMSNorm<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Learnable scale parameter
     /// 学習可能なスケールパラメータ
     weight: Variable<T>,
@@ -655,7 +655,7 @@ where
 
 impl<T> Module<T> for GroupNorm<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static + Send + Sync + Copy + ScalarOperand + Sum + std::fmt::Display + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

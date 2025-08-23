@@ -7,7 +7,7 @@ use num_traits::Float;
 
 /// Addition backward function
 /// 加算の逆伝播関数
-pub struct AddBackward<T: Float + Send + Sync + 'static> {
+pub struct AddBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// First input tensor data
     /// 最初の入力テンソルデータ
     pub input0_data: crate::tensor::Tensor<T>,
@@ -22,7 +22,7 @@ pub struct AddBackward<T: Float + Send + Sync + 'static> {
     pub input1_var: crate::autograd::Variable<T>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for AddBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for AddBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         let grad_output = &grad_outputs[0];
         
@@ -41,7 +41,7 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for AddBackward<T> {
 
 /// Subtraction backward function
 /// 減算の逆伝播関数
-pub struct SubBackward<T: Float + Send + Sync + 'static> {
+pub struct SubBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// First input tensor data
     /// 最初の入力テンソルデータ
     pub input0_data: crate::tensor::Tensor<T>,
@@ -56,7 +56,7 @@ pub struct SubBackward<T: Float + Send + Sync + 'static> {
     pub input1_var: crate::autograd::Variable<T>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for SubBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for SubBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         let grad_output = &grad_outputs[0];
         
@@ -79,7 +79,7 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for SubBackward<T> {
 
 /// Multiplication backward function
 /// 乗算の逆伝播関数
-pub struct MulBackward<T: Float + Send + Sync + 'static> {
+pub struct MulBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// First input tensor data for gradient computation
     /// 勾配計算用の最初の入力テンソルデータ
     pub input0_data: Tensor<T>,
@@ -94,7 +94,7 @@ pub struct MulBackward<T: Float + Send + Sync + 'static> {
     pub input1_var: crate::autograd::Variable<T>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for MulBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for MulBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         let grad_output = &grad_outputs[0];
         
@@ -117,7 +117,7 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for MulBackward<T> {
 
 /// Matrix multiplication backward function
 /// 行列乗算の逆伝播関数
-pub struct MatMulBackward<T: Float + Send + Sync + 'static> {
+pub struct MatMulBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// First input tensor data for gradient computation
     /// 勾配計算用の最初の入力テンソルデータ
     pub input0_data: Tensor<T>,
@@ -132,7 +132,7 @@ pub struct MatMulBackward<T: Float + Send + Sync + 'static> {
     pub input1_var: Option<crate::autograd::Variable<T>>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for MatMulBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for MatMulBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         if grad_outputs.is_empty() {
             return vec![];
@@ -141,10 +141,10 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for MatMulBackward<T> {
         let grad_output = &grad_outputs[0];
         
         // Gradient w.r.t. first input: grad_output @ input1^T
-        let grad_input0 = grad_output.matmul(&self.input1_data.transpose());
+        let grad_input0 = grad_output.matmul(&self.input1_data.transpose().expect("Transpose failed")).expect("MatMul failed");
         
         // Gradient w.r.t. second input: input0^T @ grad_output
-        let grad_input1 = self.input0_data.transpose().matmul(grad_output);
+        let grad_input1 = self.input0_data.transpose().expect("Transpose failed").matmul(grad_output).expect("MatMul failed");
         
         // Propagate gradients to input variables
         if let Some(ref input0_var) = self.input0_var {
@@ -165,7 +165,7 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for MatMulBackward<T> {
 
 /// Sum backward function
 /// 総和の逆伝播関数
-pub struct SumBackward<T: Float + Send + Sync + 'static> {
+pub struct SumBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Original input tensor shape for gradient broadcasting
     /// 勾配ブロードキャスト用の元の入力テンソル形状
     pub input_shape: Vec<usize>,
@@ -177,7 +177,7 @@ pub struct SumBackward<T: Float + Send + Sync + 'static> {
     pub _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for SumBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for SumBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         let grad_output = &grad_outputs[0];
         // For sum, gradient is broadcast to match input shape
@@ -207,7 +207,7 @@ impl<T: Float + Send + Sync + 'static> GradFn<T> for SumBackward<T> {
 
 /// Mean backward function
 /// 平均の逆伝播関数
-pub struct MeanBackward<T: Float + Send + Sync + 'static> {
+pub struct MeanBackward<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Input variable
     /// 入力変数
     pub input_var: Option<crate::autograd::Variable<T>>,
@@ -216,7 +216,7 @@ pub struct MeanBackward<T: Float + Send + Sync + 'static> {
     pub numel: T,
 }
 
-impl<T: Float + Send + Sync + 'static> GradFn<T> for MeanBackward<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradFn<T> for MeanBackward<T> {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>> {
         if grad_outputs.is_empty() {
             return vec![];

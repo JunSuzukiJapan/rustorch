@@ -148,7 +148,7 @@ where
 #[derive(Debug, Default)]
 pub struct CNNBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     input_channels: Option<usize>,
     num_classes: Option<usize>,
@@ -159,7 +159,7 @@ where
 
 impl<T> CNNBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -221,7 +221,7 @@ where
 #[derive(Debug)]
 pub struct ResNetBlock<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     conv1: Conv2d<T>,
     bn1: BatchNorm2d<T>,
@@ -305,7 +305,7 @@ where
 #[derive(Debug)]
 pub struct ResNet<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     conv1: Conv2d<T>,
     bn1: BatchNorm2d<T>,
@@ -479,7 +479,7 @@ where
 #[derive(Debug, Default)]
 pub struct ResNetBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     layers: Vec<usize>,
     num_classes: Option<usize>,
@@ -488,7 +488,7 @@ where
 
 impl<T> ResNetBuilder<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 新しいビルダーを作成
     /// Create a new builder

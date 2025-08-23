@@ -198,7 +198,7 @@ impl GraphVisualizer {
     /// Build computation graph from variable
     pub fn build_graph<T>(&mut self, variable: &Variable<T>) -> VisualizationResult<()>
     where
-        T: Float + Debug + std::fmt::Display + Send + Sync + 'static,
+        T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         self.nodes.clear();
         self.edges.clear();
@@ -216,7 +216,7 @@ impl GraphVisualizer {
     /// Build computation graph from multiple variables
     pub fn build_graph_multi<T>(&mut self, variables: &[&Variable<T>]) -> VisualizationResult<()>
     where
-        T: Float + Debug + std::fmt::Display + Send + Sync + 'static,
+        T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         self.nodes.clear();
         self.edges.clear();
@@ -345,7 +345,7 @@ impl GraphVisualizer {
     
     fn traverse_variable<T>(&mut self, _variable: &Variable<T>, visited: &mut HashSet<String>, node_counter: &mut usize) -> VisualizationResult<()>
     where
-        T: Float + Debug + std::fmt::Display + Send + Sync + 'static,
+        T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         // 簡略化された実装 - 実際にはVariable構造を走査
         let node_id = format!("var_{}", node_counter);

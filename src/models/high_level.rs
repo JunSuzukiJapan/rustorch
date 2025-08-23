@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// High-level model trait
 pub trait HighLevelModel<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// モデルを訓練
     /// Train the model
@@ -169,7 +169,7 @@ impl<T: Float> Default for TrainingHistory<T> {
 
 impl<T> HighLevelModel<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// モデルを訓練
     /// Train the model

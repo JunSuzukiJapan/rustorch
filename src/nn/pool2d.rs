@@ -123,7 +123,7 @@ impl MaxPool2d {
     /// MaxPool2dレイヤーの順伝播
     pub fn forward<T>(&self, input: &Variable<T>) -> Variable<T>
     where
-        T: Float + Copy + Send + Sync + 'static,
+        T: Float + Copy + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
@@ -172,7 +172,7 @@ impl MaxPool2d {
 
 impl<T> Module<T> for MaxPool2d
 where
-    T: Float + Copy + Send + Sync + 'static,
+    T: Float + Copy + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -300,7 +300,7 @@ impl AvgPool2d {
     /// AvgPool2dレイヤーの順伝播
     pub fn forward<T>(&self, input: &Variable<T>) -> Variable<T>
     where
-        T: Float + Copy + Send + Sync + 'static,
+        T: Float + Copy + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
@@ -348,7 +348,7 @@ impl AvgPool2d {
 
 impl<T> Module<T> for AvgPool2d
 where
-    T: Float + Copy + Send + Sync + 'static,
+    T: Float + Copy + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

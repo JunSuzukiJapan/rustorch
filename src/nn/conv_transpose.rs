@@ -18,7 +18,7 @@ use rand_distr::Normal;
 /// Input shape: (batch_size, in_channels, height, width)
 /// Output shape: (batch_size, out_channels, out_height, out_width)
 #[derive(Debug)]
-pub struct ConvTranspose2d<T: Float + Send + Sync> {
+pub struct ConvTranspose2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Weight tensor of shape (in_channels, out_channels/groups, kernel_height, kernel_width)
     /// 重みテンソル (入力チャンネル, 出力チャンネル/グループ, カーネル高さ, カーネル幅)
     weight: Variable<T>,
@@ -62,7 +62,7 @@ pub struct ConvTranspose2d<T: Float + Send + Sync> {
 
 impl<T> ConvTranspose2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new ConvTranspose2d layer
     /// 新しいConvTranspose2d層を作成
@@ -208,7 +208,7 @@ where
 
 impl<T> Module<T> for ConvTranspose2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

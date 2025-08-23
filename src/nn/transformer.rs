@@ -15,7 +15,7 @@ use std::iter::Sum;
 /// A single layer of the Transformer encoder consisting of multi-head attention and feed-forward network.
 /// マルチヘッドアテンションとフィードフォワードネットワークからなるTransformerエンコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerEncoderLayer<T: Float + Send + Sync> {
+pub struct TransformerEncoderLayer<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Multi-head self-attention
     /// マルチヘッドセルフアテンション
     self_attention: MultiHeadAttention<T>,
@@ -224,7 +224,7 @@ where
 /// Stack of Transformer encoder layers.
 /// Transformerエンコーダー層のスタック。
 #[derive(Debug)]
-pub struct TransformerEncoder<T: Float + Send + Sync> {
+pub struct TransformerEncoder<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Stack of encoder layers
     /// エンコーダー層のスタック
     layers: Vec<TransformerEncoderLayer<T>>,
@@ -324,7 +324,7 @@ where
 /// A single layer of the Transformer decoder with masked self-attention and cross-attention.
 /// マスク付きセルフアテンションとクロスアテンションを持つTransformerデコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerDecoderLayer<T: Float + Send + Sync> {
+pub struct TransformerDecoderLayer<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Masked multi-head self-attention
     /// マスク付きマルチヘッドセルフアテンション
     self_attention: MultiHeadAttention<T>,
@@ -566,7 +566,7 @@ where
 /// Full Transformer architecture with encoder and decoder stacks.
 /// エンコーダーとデコーダースタックを持つ完全なTransformerアーキテクチャ。
 #[derive(Debug)]
-pub struct Transformer<T: Float + Send + Sync> {
+pub struct Transformer<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Transformer encoder
     /// Transformerエンコーダー
     encoder: TransformerEncoder<T>,

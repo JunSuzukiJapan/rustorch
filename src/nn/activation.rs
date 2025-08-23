@@ -13,7 +13,7 @@ use std::fmt::Debug;
 /// 
 /// Applies the element-wise function: ReLU(x) = max(0, x)
 /// 要素ごとに関数を適用: ReLU(x) = max(0, x)
-pub fn relu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn relu<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply ReLU: max(0, x)
@@ -37,7 +37,7 @@ pub fn relu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: Sigmoid(x) = 1 / (1 + exp(-x))
 /// 要素ごとに関数を適用: Sigmoid(x) = 1 / (1 + exp(-x))
-pub fn sigmoid<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn sigmoid<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Sigmoid: 1 / (1 + exp(-x))
@@ -55,7 +55,7 @@ pub fn sigmoid<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T>
 /// 
 /// Applies the element-wise function: Tanh(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x))
 /// 要素ごとに関数を適用: Tanh(x) = (exp(x) - exp(-x)) / (exp(x) + exp(-x))
-pub fn tanh<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn tanh<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Tanh
@@ -73,7 +73,7 @@ pub fn tanh<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: LeakyReLU(x) = max(alpha * x, x)
 /// 要素ごとに関数を適用: LeakyReLU(x) = max(alpha * x, x)
-pub fn leaky_relu<T: Float + Send + Sync + 'static>(x: &Variable<T>, alpha: T) -> Variable<T> {
+pub fn leaky_relu<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>, alpha: T) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Leaky ReLU: max(alpha * x, x)
@@ -91,7 +91,7 @@ pub fn leaky_relu<T: Float + Send + Sync + 'static>(x: &Variable<T>, alpha: T) -
 /// 
 /// Applies softmax along the last dimension: Softmax(x_i) = exp(x_i) / sum(exp(x_j))
 /// 最後の次元に沿ってソフトマックスを適用: Softmax(x_i) = exp(x_i) / sum(exp(x_j))
-pub fn softmax<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn softmax<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Softmax
@@ -169,7 +169,7 @@ fn apply_softmax<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
 /// 
 /// Applies the element-wise function: GELU(x) = x * Φ(x) where Φ(x) is the CDF of standard normal
 /// 要素ごとに関数を適用: GELU(x) = x * Φ(x) ここでΦ(x)は標準正規分布の累積分布関数
-pub fn gelu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn gelu<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply GELU approximation: 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
@@ -187,7 +187,7 @@ pub fn gelu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: Swish(x) = x * sigmoid(x)
 /// 要素ごとに関数を適用: Swish(x) = x * sigmoid(x)
-pub fn swish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn swish<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Swish: x * sigmoid(x)
@@ -205,7 +205,7 @@ pub fn swish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: ELU(x) = x if x > 0 else alpha * (exp(x) - 1)
 /// 要素ごとに関数を適用: ELU(x) = x if x > 0 else alpha * (exp(x) - 1)
-pub fn elu<T: Float + Send + Sync + 'static>(x: &Variable<T>, alpha: T) -> Variable<T> {
+pub fn elu<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>, alpha: T) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply ELU
@@ -223,7 +223,7 @@ pub fn elu<T: Float + Send + Sync + 'static>(x: &Variable<T>, alpha: T) -> Varia
 /// 
 /// Applies the element-wise function with fixed parameters for self-normalizing properties
 /// 自己正規化特性のため固定パラメータで要素ごとに関数を適用
-pub fn selu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn selu<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // SELU with fixed parameters: alpha = 1.6732632423543772848170429916717, scale = 1.0507009873554804934193349852946
@@ -243,7 +243,7 @@ pub fn selu<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: Mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
 /// 要素ごとに関数を適用: Mish(x) = x * tanh(softplus(x)) = x * tanh(ln(1 + exp(x)))
-pub fn mish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn mish<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Mish: x * tanh(softplus(x))
@@ -261,7 +261,7 @@ pub fn mish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
 /// 
 /// Applies the element-wise function: Hardswish(x) = x * ReLU6(x + 3) / 6
 /// 要素ごとに関数を適用: Hardswish(x) = x * ReLU6(x + 3) / 6
-pub fn hardswish<T: Float + Send + Sync + 'static>(x: &Variable<T>) -> Variable<T> {
+pub fn hardswish<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(x: &Variable<T>) -> Variable<T> {
     let input_data = x.data().read().unwrap().clone();
     
     // Apply Hardswish
@@ -371,7 +371,7 @@ pub struct ReLU<T: Float + Send + Sync + 'static + Debug> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> ReLU<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> ReLU<T> {
     /// Create a new ReLU activation function
     /// 新しいReLU活性化関数を作成
     pub fn new() -> Self {
@@ -381,7 +381,7 @@ impl<T: Float + Send + Sync + 'static + Debug> ReLU<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Module<T> for ReLU<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for ReLU<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         relu(input)
     }
@@ -410,7 +410,7 @@ pub struct Softmax<T: Float + Send + Sync + 'static + Debug> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Softmax<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Softmax<T> {
     /// Create a new Softmax activation function
     /// 新しいSoftmax活性化関数を作成
     pub fn new(_dim: i32) -> Self {
@@ -420,7 +420,7 @@ impl<T: Float + Send + Sync + 'static + Debug> Softmax<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Module<T> for Softmax<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for Softmax<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         softmax(input)
     }
@@ -449,7 +449,7 @@ pub struct GELU<T: Float + Send + Sync + 'static + Debug> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> GELU<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> GELU<T> {
     /// Create a new GELU activation function
     /// 新しいGELU活性化関数を作成
     pub fn new() -> Self {
@@ -459,7 +459,7 @@ impl<T: Float + Send + Sync + 'static + Debug> GELU<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Module<T> for GELU<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for GELU<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         gelu(input)
     }
@@ -495,7 +495,7 @@ pub struct Tanh<T: Float + Send + Sync + 'static + Debug> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Swish<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Swish<T> {
     /// Create a new Swish activation function
     /// 新しいSwish活性化関数を作成
     pub fn new() -> Self {
@@ -505,7 +505,39 @@ impl<T: Float + Send + Sync + 'static + Debug> Swish<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Module<T> for Tanh<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Tanh<T> {
+    /// Create a new Tanh activation function
+    /// 新しいTanh活性化関数を作成
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for Swish<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        swish(input)
+    }
+    
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+    
+    fn train(&mut self) {
+        // No parameters to train
+    }
+    
+    fn eval(&mut self) {
+        // No parameters to eval
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for Tanh<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         tanh(input)
     }

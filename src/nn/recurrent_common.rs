@@ -101,7 +101,7 @@ pub struct RecurrentOps;
 impl RecurrentOps {
     /// Initialize weights using Xavier/Glorot initialization
     /// Xavier/Glorot初期化で重みを初期化
-    pub fn init_weights<T: Float + Send + Sync + Debug + 'static>(
+    pub fn init_weights<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         input_size: usize,
         hidden_size: usize,
         num_gates: usize,
@@ -111,7 +111,7 @@ impl RecurrentOps {
         
         // Input-to-hidden weights
         let weight_ih_data: Vec<T> = (0..num_gates * hidden_size * input_size)
-            .map(|_| T::from(normal.sample(&mut rng)).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rng) as f64).unwrap_or(T::zero()))
             .collect();
         let weight_ih = Variable::new(
             Tensor::from_vec(weight_ih_data, vec![num_gates * hidden_size, input_size]),
@@ -120,7 +120,7 @@ impl RecurrentOps {
         
         // Hidden-to-hidden weights
         let weight_hh_data: Vec<T> = (0..num_gates * hidden_size * hidden_size)
-            .map(|_| T::from(normal.sample(&mut rng)).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rng) as f64).unwrap_or(T::zero()))
             .collect();
         let weight_hh = Variable::new(
             Tensor::from_vec(weight_hh_data, vec![num_gates * hidden_size, hidden_size]),
@@ -132,7 +132,7 @@ impl RecurrentOps {
     
     /// Initialize bias
     /// バイアスを初期化
-    pub fn init_bias<T: Float + Send + Sync + Debug + 'static>(
+    pub fn init_bias<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         hidden_size: usize,
         num_gates: usize,
     ) -> (Option<Variable<T>>, Option<Variable<T>>) {
@@ -140,7 +140,7 @@ impl RecurrentOps {
         let normal = Normal::new(0.0, 0.1).unwrap();
         
         let bias_ih_data: Vec<T> = (0..num_gates * hidden_size)
-            .map(|_| T::from(normal.sample(&mut rng)).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rng) as f64).unwrap_or(T::zero()))
             .collect();
         let bias_ih = Some(Variable::new(
             Tensor::from_vec(bias_ih_data, vec![num_gates * hidden_size]),
@@ -148,7 +148,7 @@ impl RecurrentOps {
         ));
         
         let bias_hh_data: Vec<T> = (0..num_gates * hidden_size)
-            .map(|_| T::from(normal.sample(&mut rng)).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rng) as f64).unwrap_or(T::zero()))
             .collect();
         let bias_hh = Some(Variable::new(
             Tensor::from_vec(bias_hh_data, vec![num_gates * hidden_size]),
@@ -160,7 +160,7 @@ impl RecurrentOps {
     
     /// Linear transformation: input @ weight^T + bias
     /// 線形変換: input @ weight^T + bias
-    pub fn linear_transform<T: Float + Send + Sync + Debug + 'static>(
+    pub fn linear_transform<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         input: &Variable<T>,
         weight: &Variable<T>,
         bias: Option<&Variable<T>>,
@@ -175,68 +175,76 @@ impl RecurrentOps {
     
     /// Matrix multiplication for variables
     /// Variable用の行列乗算
-    pub fn matmul_variables<T: Float + Send + Sync + Debug + 'static>(
+    pub fn matmul_variables<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         a: &Variable<T>,
         b: &Variable<T>,
     ) -> Variable<T> {
-        let result_data = a.data().matmul(b.data()).unwrap();
-        Variable::new(result_data, a.requires_grad() || b.requires_grad())
+        // Use Variable's matmul method directly
+        a.matmul(b)
     }
     
     /// Addition for variables
     /// Variable用の加算
-    pub fn add_variables<T: Float + Send + Sync + Debug + 'static>(
+    pub fn add_variables<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         a: &Variable<T>,
         b: &Variable<T>,
     ) -> Variable<T> {
-        let result_data = a.data().add(b.data()).unwrap();
-        Variable::new(result_data, a.requires_grad() || b.requires_grad())
+        // Use Variable's add operator directly
+        a + b
     }
     
     /// Multiplication for variables
     /// Variable用の乗算
-    pub fn multiply_variables<T: Float + Send + Sync + Debug + 'static>(
+    pub fn multiply_variables<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         a: &Variable<T>,
         b: &Variable<T>,
     ) -> Variable<T> {
-        let result_data = a.data().mul(b.data()).unwrap();
-        Variable::new(result_data, a.requires_grad() || b.requires_grad())
+        // Use Variable's multiplication operator directly
+        a * b
     }
     
     /// Subtract variable from scalar
     /// スカラーから変数を減算
-    pub fn subtract_from_scalar<T: Float + Send + Sync + Debug + 'static>(
+    pub fn subtract_from_scalar<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         var: &Variable<T>,
         scalar: T,
     ) -> Variable<T> {
-        let result_data = var.data().map(|x| scalar - x);
+        let var_binding = var.data();
+        let var_data = var_binding.read().unwrap();
+        let result_data = var_data.map(|x| scalar - x);
         Variable::new(result_data, var.requires_grad())
     }
     
     /// Transpose for variables
     /// Variable用の転置
-    pub fn transpose_variable<T: Float + Send + Sync + Debug + 'static>(var: &Variable<T>) -> Variable<T> {
-        let transposed_data = var.data().transpose().unwrap();
+    pub fn transpose_variable<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
+        let var_binding = var.data();
+        let var_data = var_binding.read().unwrap();
+        let transposed_data = var_data.transpose().unwrap();
         Variable::new(transposed_data, var.requires_grad())
     }
     
     /// Sigmoid activation for variables
     /// Variable用のシグモイド活性化
-    pub fn sigmoid<T: Float + Send + Sync + Debug + 'static>(var: &Variable<T>) -> Variable<T> {
-        let sigmoid_data = var.data().map(|x| T::one() / (T::one() + (-x).exp()));
+    pub fn sigmoid<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
+        let var_binding = var.data();
+        let var_data = var_binding.read().unwrap();
+        let sigmoid_data = var_data.map(|x| T::one() / (T::one() + (-x).exp()));
         Variable::new(sigmoid_data, var.requires_grad())
     }
     
     /// Tanh activation for variables
     /// Variable用のtanh活性化
-    pub fn tanh<T: Float + Send + Sync + Debug + 'static>(var: &Variable<T>) -> Variable<T> {
-        let tanh_data = var.data().map(|x| x.tanh());
+    pub fn tanh<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
+        let var_binding = var.data();
+        let var_data = var_binding.read().unwrap();
+        let tanh_data = var_data.map(|x| x.tanh());
         Variable::new(tanh_data, var.requires_grad())
     }
     
     /// Slice gates from concatenated tensor
     /// 連結されたテンソルからゲートをスライス
-    pub fn slice_gates<T: Float + Send + Sync + Debug + 'static>(
+    pub fn slice_gates<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         gates: &Variable<T>,
         gate_idx: usize,
         hidden_size: usize,
@@ -245,16 +253,18 @@ impl RecurrentOps {
         let end_idx = (gate_idx + 1) * hidden_size;
         
         // Simplified slicing - in practice would need proper tensor slicing
-        let gate_data: Vec<T> = gates.data().as_slice().unwrap()[start_idx..end_idx].to_vec();
+        let gates_binding = gates.data();
+        let gates_data = gates_binding.read().unwrap();
+        let gate_data: Vec<T> = gates_data.as_slice().unwrap()[start_idx..end_idx].to_vec();
         Variable::new(
-            Tensor::from_vec(gate_data, vec![gates.data().shape()[0], hidden_size]),
+            Tensor::from_vec(gate_data, vec![gates_data.shape()[0], hidden_size]),
             gates.requires_grad(),
         )
     }
     
     /// Create zero hidden state
     /// ゼロ隠れ状態を作成
-    pub fn zero_hidden_state<T: Float + Send + Sync + Debug + 'static>(
+    pub fn zero_hidden_state<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         batch_size: usize,
         hidden_size: usize,
     ) -> Variable<T> {
@@ -295,7 +305,7 @@ impl From<TrainingMode> for bool {
 
 /// Common parameter collection for recurrent cells
 /// リカレントセル用共通パラメータ収集
-pub fn collect_recurrent_parameters<T: Float + Send + Sync + Debug + 'static>(
+pub fn collect_recurrent_parameters<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     weight_ih: &Variable<T>,
     weight_hh: &Variable<T>,
     bias_ih: &Option<Variable<T>>,
@@ -321,12 +331,13 @@ pub struct MultiLayerUtils;
 impl MultiLayerUtils {
     /// Get input for a specific timestep
     /// 特定のタイムステップの入力を取得
-    pub fn get_timestep_input<T: Float + Send + Sync + Debug + 'static>(
+    pub fn get_timestep_input<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         input: &Variable<T>,
         timestep: usize,
     ) -> Variable<T> {
         // Simplified implementation - would need proper tensor slicing
-        let input_data = input.data();
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
         let batch_size = input_data.shape()[0];
         let feature_size = input_data.shape()[2];
         
@@ -348,18 +359,22 @@ impl MultiLayerUtils {
     
     /// Stack outputs along sequence dimension
     /// シーケンス次元に沿って出力をスタック
-    pub fn stack_outputs<T: Float + Send + Sync + Debug + 'static>(
+    pub fn stack_outputs<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         outputs: &[Variable<T>],
     ) -> Variable<T> {
-        let batch_size = outputs[0].data().shape()[0];
-        let hidden_size = outputs[0].data().shape()[1];
+        let output_binding = outputs[0].data();
+        let output_data = output_binding.read().unwrap();
+        let batch_size = output_data.shape()[0];
+        let hidden_size = output_data.shape()[1];
         let seq_len = outputs.len();
         
         let mut stacked_data = Vec::new();
         
         for batch_idx in 0..batch_size {
             for t in 0..seq_len {
-                let output_slice = outputs[t].data().as_slice().unwrap();
+                let output_binding = outputs[t].data();
+                let output_data = output_binding.read().unwrap();
+                let output_slice = output_data.as_slice().unwrap();
                 let start_idx = batch_idx * hidden_size;
                 let end_idx = start_idx + hidden_size;
                 stacked_data.extend_from_slice(&output_slice[start_idx..end_idx]);
@@ -374,17 +389,21 @@ impl MultiLayerUtils {
     
     /// Stack hidden states by layer
     /// レイヤーごとに隠れ状態をスタック
-    pub fn stack_hidden_states<T: Float + Send + Sync + Debug + 'static>(
+    pub fn stack_hidden_states<T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
         states: &[Variable<T>],
         num_layers: usize,
     ) -> Variable<T> {
-        let batch_size = states[0].data().shape()[0];
-        let hidden_size = states[0].data().shape()[1];
+        let state_binding = states[0].data();
+        let state_data = state_binding.read().unwrap();
+        let batch_size = state_data.shape()[0];
+        let hidden_size = state_data.shape()[1];
         
         let mut stacked_data = Vec::new();
         
         for state in states {
-            stacked_data.extend_from_slice(state.data().as_slice().unwrap());
+            let state_binding = state.data();
+            let state_data = state_binding.read().unwrap();
+            stacked_data.extend_from_slice(state_data.as_slice().unwrap());
         }
         
         Variable::new(

@@ -10,7 +10,7 @@ use std::fmt::Debug;
 /// 基本的なSequentialモデル
 /// Basic Sequential model
 #[derive(Debug)]
-pub struct BasicSequential<T: Float + Send + Sync + Debug + Clone + 'static> {
+pub struct BasicSequential<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// レイヤーのリスト
     layers: Vec<Box<dyn Module<T> + Send + Sync>>,
     /// 訓練モードかどうか
@@ -19,7 +19,7 @@ pub struct BasicSequential<T: Float + Send + Sync + Debug + Clone + 'static> {
     name: Option<String>,
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequential<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> BasicSequential<T> {
     /// 新しいSequentialモデルを作成
     pub fn new() -> Self {
         Self {
@@ -84,13 +84,13 @@ impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequential<T> {
     }
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> Default for BasicSequential<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Default for BasicSequential<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> Module<T> for BasicSequential<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Module<T> for BasicSequential<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let mut output = input.clone();
         
@@ -129,7 +129,7 @@ impl<T: Float + Send + Sync + Debug + Clone + 'static> Module<T> for BasicSequen
     }
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> TrainableModel<T> for BasicSequential<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> TrainableModel<T> for BasicSequential<T> {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         Module::forward(self, input)
     }
@@ -154,11 +154,11 @@ impl<T: Float + Send + Sync + Debug + Clone + 'static> TrainableModel<T> for Bas
 }
 
 /// Sequentialビルダー
-pub struct BasicSequentialBuilder<T: Float + Send + Sync + Debug + Clone + 'static> {
+pub struct BasicSequentialBuilder<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     model: BasicSequential<T>,
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequentialBuilder<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> BasicSequentialBuilder<T> {
     /// 新しいビルダーを作成
     /// Create a new builder
     pub fn new() -> Self {
@@ -192,7 +192,7 @@ impl<T: Float + Send + Sync + Debug + Clone + 'static> BasicSequentialBuilder<T>
     }
 }
 
-impl<T: Float + Send + Sync + Debug + Clone + 'static> Default for BasicSequentialBuilder<T> {
+impl<T: Float + Send + Sync + Debug + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Default for BasicSequentialBuilder<T> {
     fn default() -> Self {
         Self::new()
     }

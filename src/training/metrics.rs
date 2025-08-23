@@ -9,14 +9,14 @@ use std::time::Duration;
 
 /// 訓練メトリクスの収集器
 /// Training metrics collector
-pub struct MetricsCollector<T: Float + Send + Sync + 'static> {
+pub struct MetricsCollector<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// カスタムメトリクス関数
     custom_metrics: HashMap<String, Box<dyn Fn(&Variable<T>, &Variable<T>) -> f64 + Send + Sync>>,
     /// メトリクス履歴
     history: Vec<EpochMetrics<T>>,
 }
 
-impl<T: Float + Send + Sync + 'static> MetricsCollector<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> MetricsCollector<T> {
     /// 新しいメトリクス収集器を作成
     /// Create a new metrics collector
     pub fn new() -> Self {
@@ -173,7 +173,7 @@ impl<T: Float + Send + Sync + 'static> MetricsCollector<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static> Default for MetricsCollector<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Default for MetricsCollector<T> {
     fn default() -> Self {
         Self::new()
     }

@@ -7,7 +7,7 @@ use std::fmt::Debug;
 
 /// Trait for loss functions
 /// 損失関数のトレイト
-pub trait Loss<T: Float + Send + Sync + 'static + Debug>: Send + Sync + Debug {
+pub trait Loss<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive>: Send + Sync + Debug {
     /// Compute the loss between predictions and targets
     /// 予測とターゲット間の損失を計算
     fn forward(&self, predictions: &Variable<T>, targets: &Variable<T>) -> Variable<T>;
@@ -22,7 +22,7 @@ pub trait Loss<T: Float + Send + Sync + 'static + Debug>: Send + Sync + Debug {
 #[derive(Debug, Clone)]
 pub struct MSELoss;
 
-impl<T: Float + Send + Sync + 'static + Debug> Loss<T> for MSELoss {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Loss<T> for MSELoss {
     fn forward(&self, predictions: &Variable<T>, targets: &Variable<T>) -> Variable<T> {
         mse_loss(predictions, targets)
     }
@@ -49,7 +49,7 @@ impl<T: Float + Send + Sync + 'static> CrossEntropyLoss<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug> Loss<T> for CrossEntropyLoss<T> {
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive> Loss<T> for CrossEntropyLoss<T> {
     fn forward(&self, predictions: &Variable<T>, targets: &Variable<T>) -> Variable<T> {
         cross_entropy_loss(predictions, targets)
     }
@@ -66,7 +66,7 @@ impl<T: Float + Send + Sync + 'static + Debug> Loss<T> for CrossEntropyLoss<T> {
 /// MSE = mean((input - target)^2)
 /// 入力とターゲット間の平均二乗誤差を計算:
 /// MSE = mean((input - target)^2)
-pub fn mse_loss<T: Float + Send + Sync + 'static>(
+pub fn mse_loss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     input: &Variable<T>, 
     target: &Variable<T>
 ) -> Variable<T> {
@@ -84,7 +84,7 @@ pub fn mse_loss<T: Float + Send + Sync + 'static>(
 
 /// Helper function to compute cross-entropy loss
 /// クロスエントロピー損失を計算するヘルパー関数
-pub fn cross_entropy_loss<T: Float + Send + Sync + 'static + Debug>(
+pub fn cross_entropy_loss<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     predictions: &Variable<T>,
     targets: &Variable<T>,
 ) -> Variable<T> {
@@ -94,7 +94,7 @@ pub fn cross_entropy_loss<T: Float + Send + Sync + 'static + Debug>(
 
 /// Cross-entropy loss function (alias for cross_entropy_loss)
 /// クロスエントロピー損失関数（cross_entropy_lossのエイリアス）
-pub fn cross_entropy<T: Float + Send + Sync + 'static + Debug>(
+pub fn cross_entropy<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     predictions: &Variable<T>,
     targets: &Variable<T>,
 ) -> Variable<T> {
@@ -103,7 +103,7 @@ pub fn cross_entropy<T: Float + Send + Sync + 'static + Debug>(
 
 /// Negative log-likelihood loss function
 /// 負の対数尤度損失関数
-pub fn nll_loss<T: Float + Send + Sync + 'static + Debug>(
+pub fn nll_loss<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     log_probabilities: &Variable<T>,
     targets: &Variable<T>,
 ) -> Variable<T> {
@@ -114,7 +114,7 @@ pub fn nll_loss<T: Float + Send + Sync + 'static + Debug>(
 
 /// Cross Entropy loss function
 /// 交差エントロピー損失関数
-pub fn cross_entropy_loss_old<T: Float + Send + Sync + 'static>(
+pub fn cross_entropy_loss_old<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     input: &Variable<T>, 
     _target: &Variable<T>
 ) -> Variable<T> {
@@ -129,14 +129,14 @@ pub fn cross_entropy_loss_old<T: Float + Send + Sync + 'static>(
 
 
 /// Helper function to compute log of variable
-fn log_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
+fn log_variable<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
     // Simplified log implementation
     var.clone() // Placeholder
 }
 
 
 /// Helper function to compute softmax
-fn softmax_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Variable<T> {
+fn softmax_variable<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(var: &Variable<T>) -> Variable<T> {
     // Simplified softmax implementation
     var.clone() // Placeholder
 }
@@ -148,7 +148,7 @@ fn softmax_variable<T: Float + Send + Sync + 'static>(var: &Variable<T>) -> Vari
 /// BCE = -mean(target * log(input) + (1 - target) * log(1 - input))
 /// 二値交差エントロピー損失を計算:
 /// BCE = -mean(target * log(input) + (1 - target) * log(1 - input))
-pub fn binary_cross_entropy<T: Float + Send + Sync + 'static>(
+pub fn binary_cross_entropy<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     input: &Variable<T>, 
     _target: &Variable<T>
 ) -> Variable<T> {
@@ -166,7 +166,7 @@ pub fn binary_cross_entropy<T: Float + Send + Sync + 'static>(
 /// Huber = mean(smooth_l1(input - target))
 /// 外れ値にMSEより敏感でないHuber損失を計算:
 /// Huber = mean(smooth_l1(input - target))
-pub fn huber_loss<T: Float + Send + Sync + 'static>(
+pub fn huber_loss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     input: &Variable<T>, 
     target: &Variable<T>,
     _delta: T
@@ -195,7 +195,7 @@ pub struct FocalLoss<T: Float + Send + Sync + 'static> {
 
 impl<T> FocalLoss<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new FocalLoss
     /// 新しいFocalLoss を作成
@@ -230,7 +230,7 @@ where
 
 impl<T> Loss<T> for FocalLoss<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, predictions: &Variable<T>, targets: &Variable<T>) -> Variable<T> {
         // Simple weighted cross entropy as focal loss approximation
@@ -260,7 +260,7 @@ pub struct TripletLoss<T: Float + Send + Sync + 'static> {
 
 impl<T> TripletLoss<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new TripletLoss
     /// 新しいTripletLossを作成
@@ -316,7 +316,7 @@ pub struct KLDivLoss<T: Float + Send + Sync + 'static> {
 
 impl<T> KLDivLoss<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new KLDivLoss
     /// 新しいKLDivLossを作成
@@ -352,7 +352,7 @@ where
 
 impl<T> Loss<T> for KLDivLoss<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, predictions: &Variable<T>, targets: &Variable<T>) -> Variable<T> {
         self.forward(predictions, targets)
@@ -372,7 +372,7 @@ pub fn focal_loss<T>(
     gamma: Option<T>
 ) -> Variable<T> 
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     // Direct implementation to avoid recursion
     let ce_loss = cross_entropy_loss(input, target);
@@ -396,7 +396,7 @@ pub fn triplet_loss<T>(
     margin: Option<T>
 ) -> Variable<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     let triplet = TripletLoss::new(margin);
     triplet.forward(anchor, positive, negative)
@@ -410,7 +410,7 @@ pub fn kl_div_loss<T>(
     reduction: Option<String>
 ) -> Variable<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     let kl_div = KLDivLoss::new(reduction);
     kl_div.forward(input, target)
@@ -421,7 +421,7 @@ where
 
 
 // Add missing operations to Variable
-impl<T: Float + Send + Sync + 'static> Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Variable<T> {
     /// Compute the mean of all elements with proper gradient tracking
     /// 適切な勾配追跡機能付きで全要素の平均を計算
     pub fn mean(&self) -> Variable<T> {

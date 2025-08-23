@@ -18,7 +18,7 @@ use rand_distr::Normal;
 /// Input shape: (batch_size, in_channels, depth, height, width)
 /// Output shape: (batch_size, out_channels, out_depth, out_height, out_width)
 #[derive(Debug)]
-pub struct Conv3d<T: Float + Send + Sync> {
+pub struct Conv3d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Weight tensor of shape (out_channels, in_channels/groups, kernel_d, kernel_h, kernel_w)
     /// 重みテンソル (出力チャンネル, 入力チャンネル/グループ, カーネル深度, カーネル高さ, カーネル幅)
     weight: Variable<T>,
@@ -58,7 +58,7 @@ pub struct Conv3d<T: Float + Send + Sync> {
 
 impl<T> Conv3d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new Conv3d layer
     /// 新しいConv3d層を作成
@@ -244,7 +244,7 @@ where
 
 impl<T> Module<T> for Conv3d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

@@ -91,7 +91,7 @@ fn main() {
     println!("Ready for building neural networks! 🚀");
 }
 
-fn print_activation_result<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static>(
+fn print_activation_result<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     name: &str, 
     output: &Variable<T>
 ) {
@@ -101,7 +101,7 @@ fn print_activation_result<T: num_traits::Float + std::fmt::Display + Send + Syn
     print_tensor_values_generic(data.as_array().iter());
 }
 
-fn print_tensor_values<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static>(tensor: &Variable<T>) {
+fn print_tensor_values<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(tensor: &Variable<T>) {
     let binding = tensor.data();
     let data = binding.read().unwrap();
     print_tensor_values_generic(data.as_array().iter());

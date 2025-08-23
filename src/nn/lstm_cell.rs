@@ -20,7 +20,7 @@ use std::fmt::Debug;
 /// c_t = f_t ⊙ c_{t-1} + i_t ⊙ g_t  (cell state)
 /// h_t = o_t ⊙ tanh(c_t)  (hidden state)
 #[derive(Debug)]
-pub struct LSTMCell<T: Float + Send + Sync> {
+pub struct LSTMCell<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Input-to-hidden weights for all gates [input, forget, cell, output]
     /// 全ゲート用の入力から隠れ状態への重み [input, forget, cell, output]
     weight_ih: Variable<T>,
@@ -52,7 +52,7 @@ pub struct LSTMCell<T: Float + Send + Sync> {
 
 impl<T> LSTMCell<T>
 where
-    T: Float + Send + Sync + Debug + 'static,
+    T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new LSTM cell
     /// 新しいLSTMセルを作成
@@ -79,7 +79,9 @@ where
     /// Forward pass through the LSTM cell
     /// LSTMセルの順伝播
     pub fn forward(&self, input: &Variable<T>, hidden: Option<(&Variable<T>, &Variable<T>)>) -> (Variable<T>, Variable<T>) {
-        let batch_size = input.data().shape()[0];
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
+        let batch_size = input_data.shape()[0];
         
         let (h_prev, c_prev) = match hidden {
             Some((h, c)) => (h.clone(), c.clone()),
@@ -147,7 +149,7 @@ where
 
 impl<T> Module<T> for LSTMCell<T>
 where
-    T: Float + Send + Sync + Debug + 'static,
+    T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For Module trait compatibility, return only hidden state

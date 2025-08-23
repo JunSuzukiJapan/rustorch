@@ -5,6 +5,55 @@ All notable changes to RusTorch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.16] - 2024-08-23
+
+### Fixed
+- **Compilation**: Fixed 350+ trait boundary errors by adding `ScalarOperand` and `FromPrimitive` constraints
+- **Tensor Operations**: Resolved method resolution issues by implementing missing methods:
+  - `randn` - Random normal distribution tensor generation
+  - `batch_size` - Get first dimension size for batch processing
+  - `transpose_last_two` - Transpose the last two dimensions of a tensor
+- **Matrix Multiplication**: Enhanced `matmul` to support 2D, 3D, and 4D tensors for attention mechanisms
+- **Broadcasting**: Implemented comprehensive broadcasting support for tensor operations
+- **Neural Networks**: Fixed shape mismatch errors in Linear layer bias processing
+- **Documentation**: Resolved 45 documentation warnings with comprehensive bilingual comments
+
+### Added
+- **Broadcasting Module**: Complete tensor broadcasting operations (`src/tensor/broadcasting.rs`)
+  - `broadcast_with` - Broadcast two tensors to compatible shapes
+  - `broadcast_to` - Broadcast tensor to specific shape
+  - `unsqueeze` - Add singleton dimensions
+  - `squeeze` - Remove singleton dimensions
+  - `repeat` - Repeat tensor along specified dimensions
+- **Performance Benchmarking**: Comprehensive benchmark suite in `examples/performance_test.rs`
+- **Test Coverage**: Expanded test suite to 494 passing tests
+
+### Improved
+- **Performance**: Achieved real-world benchmarks:
+  - Tensor operations: 34K-2.3M operations/second
+  - Matrix multiplication: 0.71-0.77 GFLOPS
+  - Neural network inference: 15-60 inferences/second
+- **Memory Safety**: Enhanced tensor operations with proper broadcasting and shape validation
+- **Type System**: Standardized trait bounds across all neural network modules
+
+### Technical Details
+- **Trait Bounds**: Systematically applied `Float + Send + Sync + 'static + ScalarOperand + FromPrimitive` constraints
+- **Broadcasting Support**: Linear layer now supports `(N, M) + (1, M)` bias addition patterns
+- **Multi-dimensional MatMul**: Support for batch matrix multiplication in transformer attention
+- **Error Handling**: Comprehensive error types for broadcasting and shape mismatch scenarios
+
+### Testing
+- All 494 tests passing
+- Zero compilation errors
+- Complete benchmark validation
+- Broadcasting operation tests with edge cases
+
+### Documentation
+- Bilingual (English/Japanese) documentation for all public APIs
+- Performance benchmark results in README
+- Broadcasting examples and usage patterns
+- Complete API documentation with examples
+
 ## [0.3.13] - 2024-08-22
 
 ### Added

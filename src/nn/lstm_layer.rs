@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock};
 /// Multi-layer LSTM implementation
 /// 多層LSTM実装
 #[derive(Debug)]
-pub struct LSTM<T: Float + Send + Sync> {
+pub struct LSTM<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// LSTM cells for each layer
     /// 各層のLSTMセル
     layers: Vec<LSTMCell<T>>,
@@ -31,7 +31,7 @@ pub struct LSTM<T: Float + Send + Sync> {
 
 impl<T> LSTM<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new multi-layer LSTM
     /// 新しい多層LSTMを作成
@@ -81,8 +81,10 @@ where
         input: &Variable<T>,
         hidden: Option<(&Variable<T>, &Variable<T>)>,
     ) -> (Variable<T>, (Variable<T>, Variable<T>)) {
-        let batch_size = input.data().shape()[0];
-        let seq_len = input.data().shape()[1];
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
+        let batch_size = input_data.shape()[0];
+        let seq_len = input_data.shape()[1];
         
         // Initialize hidden states if not provided
         let (mut h_states, mut c_states) = match hidden {
@@ -108,7 +110,7 @@ where
             }
         };
         
-        let mut layer_input = input.clone();
+        let layer_input = input.clone();
         let mut outputs = Vec::new();
         
         // Process each time step
@@ -149,7 +151,8 @@ where
     /// 特定のタイムステップの入力を取得
     fn get_timestep_input(&self, input: &Variable<T>, timestep: usize) -> Variable<T> {
         // Simplified implementation - would need proper tensor slicing
-        let input_data = input.data();
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
         let batch_size = input_data.shape()[0];
         let feature_size = input_data.shape()[2];
         
@@ -171,15 +174,19 @@ where
     /// Stack outputs along sequence dimension
     /// シーケンス次元に沿って出力をスタック
     fn stack_outputs(&self, outputs: &[Variable<T>]) -> Variable<T> {
-        let batch_size = outputs[0].data().shape()[0];
-        let hidden_size = outputs[0].data().shape()[1];
+        let output_binding = outputs[0].data();
+        let output_data = output_binding.read().unwrap();
+        let batch_size = output_data.shape()[0];
+        let hidden_size = output_data.shape()[1];
         let seq_len = outputs.len();
         
         let mut stacked_data = Vec::new();
         
         for batch_idx in 0..batch_size {
             for t in 0..seq_len {
-                let output_slice = outputs[t].data().as_slice().unwrap();
+                let output_binding = outputs[t].data();
+                let output_data = output_binding.read().unwrap();
+                let output_slice = output_data.as_slice().unwrap();
                 let start_idx = batch_idx * hidden_size;
                 let end_idx = start_idx + hidden_size;
                 stacked_data.extend_from_slice(&output_slice[start_idx..end_idx]);
@@ -195,7 +202,8 @@ where
     /// Split hidden states by layer
     /// レイヤーごとに隠れ状態を分割
     fn split_hidden_states(&self, hidden: &Variable<T>) -> Vec<Variable<T>> {
-        let data = hidden.data();
+        let data_binding = hidden.data();
+        let data = data_binding.read().unwrap();
         let hidden_size = data.shape()[1];
         let batch_size = data.shape()[0];
         
@@ -215,13 +223,17 @@ where
     /// Stack hidden states by layer
     /// レイヤーごとに隠れ状態をスタック
     fn stack_hidden_states(&self, states: &[Variable<T>]) -> Variable<T> {
-        let batch_size = states[0].data().shape()[0];
-        let hidden_size = states[0].data().shape()[1];
+        let state_binding = states[0].data();
+        let state_data = state_binding.read().unwrap();
+        let batch_size = state_data.shape()[0];
+        let hidden_size = state_data.shape()[1];
         
         let mut stacked_data = Vec::new();
         
         for state in states {
-            stacked_data.extend_from_slice(state.data().as_slice().unwrap());
+            let state_binding = state.data();
+            let state_data = state_binding.read().unwrap();
+            stacked_data.extend_from_slice(state_data.as_slice().unwrap());
         }
         
         Variable::new(
@@ -257,7 +269,7 @@ where
 
 impl<T> Module<T> for LSTM<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let (output, _hidden) = self.forward(input, None);

@@ -15,7 +15,7 @@ use rand_distr::Normal;
 /// Maps discrete tokens to dense vectors of fixed size.
 /// 離散的なトークンを固定サイズの密ベクトルにマッピングします。
 #[derive(Debug)]
-pub struct Embedding<T: Float + Send + Sync> {
+pub struct Embedding<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Embedding weight matrix of shape (vocab_size, embedding_dim)
     /// 埋め込み重み行列 (語彙サイズ, 埋め込み次元)
     weight: Variable<T>,
@@ -43,7 +43,7 @@ pub struct Embedding<T: Float + Send + Sync> {
 
 impl<T> Embedding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new Embedding layer
     /// 新しいEmbedding層を作成します
@@ -207,7 +207,7 @@ where
 
 impl<T> Module<T> for Embedding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -228,7 +228,7 @@ where
 /// Adds positional information to input embeddings using learnable parameters.
 /// 学習可能なパラメータを使用して入力埋め込みに位置情報を追加します。
 #[derive(Debug)]
-pub struct PositionalEmbedding<T: Float + Send + Sync> {
+pub struct PositionalEmbedding<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Positional embedding weight matrix of shape (max_length, embedding_dim)
     /// 位置埋め込み重み行列 (最大長, 埋め込み次元)
     weight: Variable<T>,
@@ -244,7 +244,7 @@ pub struct PositionalEmbedding<T: Float + Send + Sync> {
 
 impl<T> PositionalEmbedding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new PositionalEmbedding layer
     /// 新しいPositionalEmbedding層を作成します
@@ -374,7 +374,7 @@ where
 
 impl<T> Module<T> for PositionalEmbedding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -395,7 +395,7 @@ where
 /// Uses sinusoidal functions to encode positional information.
 /// 正弦波関数を使用して位置情報をエンコードします。
 #[derive(Debug)]
-pub struct SinusoidalPositionalEncoding<T: Float + Send + Sync> {
+pub struct SinusoidalPositionalEncoding<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Maximum sequence length
     /// 最大シーケンス長
     max_length: usize,
@@ -411,7 +411,7 @@ pub struct SinusoidalPositionalEncoding<T: Float + Send + Sync> {
 
 impl<T> SinusoidalPositionalEncoding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Creates a new SinusoidalPositionalEncoding layer
     /// 新しいSinusoidalPositionalEncoding層を作成します
@@ -526,7 +526,7 @@ where
 
 impl<T> Module<T> for SinusoidalPositionalEncoding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

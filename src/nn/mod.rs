@@ -39,7 +39,7 @@ use std::marker::{Send, Sync};
 /// A trait for neural network modules.
 pub trait Module<T>: Send + Sync + Debug 
 where
-    T: Float + 'static + Send + Sync,
+    T: Float + 'static + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// モジュールの順伝搬を実行します。
     /// Performs the forward pass of the module.
@@ -75,7 +75,7 @@ pub struct Sequential<T> {
 
 impl<T> Sequential<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// 空のシーケンシャルコンテナを作成します。
     /// Creates a new empty sequential container.
@@ -111,7 +111,7 @@ where
 
 impl<T> Module<T> for Sequential<T> 
 where
-    T: Float + 'static + Send + Sync + Debug,
+    T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let mut x = input.clone();

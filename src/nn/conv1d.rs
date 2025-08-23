@@ -16,7 +16,7 @@ use num_traits::Float;
 /// Input shape: (batch_size, in_channels, length)
 /// Output shape: (batch_size, out_channels, out_length)
 #[derive(Debug)]
-pub struct Conv1d<T: Float + Send + Sync> {
+pub struct Conv1d<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Weight tensor of shape (out_channels, in_channels/groups, kernel_size)
     /// 重みテンソル (出力チャンネル, 入力チャンネル/グループ, カーネルサイズ)
     weight: Variable<T>,
@@ -62,7 +62,7 @@ struct TempConv1d {
     groups: usize,
 }
 
-impl<T: Float + Send + Sync> ConvolutionBase<T> for TempConv1d {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ConvolutionBase<T> for TempConv1d {
     fn in_channels(&self) -> usize { self.in_channels }
     fn out_channels(&self) -> usize { self.out_channels }
     fn groups(&self) -> usize { self.groups }
@@ -71,7 +71,7 @@ impl<T: Float + Send + Sync> ConvolutionBase<T> for TempConv1d {
 
 impl<T> ConvolutionBase<T> for Conv1d<T>
 where
-    T: Float + Send + Sync,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn in_channels(&self) -> usize { self.in_channels }
     fn out_channels(&self) -> usize { self.out_channels }
@@ -81,7 +81,7 @@ where
 
 impl<T> Conv1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new Conv1d layer with error handling
     /// エラーハンドリング付きの新しいConv1d層を作成
@@ -233,7 +233,7 @@ where
 
 impl<T> Module<T> for Conv1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy,
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)

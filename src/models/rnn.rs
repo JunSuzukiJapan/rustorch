@@ -199,7 +199,7 @@ where
         };
         
         let input_size = embedding_dim.unwrap_or(hidden_size);
-        let lstm = LSTM::new(input_size, hidden_size, Some(num_layers), Some(true), Some(true), Some(<T as From<f32>>::from(dropout_rate as f32)), Some(bidirectional));
+        let lstm = LSTM::new(input_size, hidden_size, num_layers, true, true, <T as From<f32>>::from(dropout_rate as f32), bidirectional);
         let dropout = Dropout::new(<T as From<f32>>::from(dropout_rate as f32), false);
         
         let classifier_input_size = if bidirectional { hidden_size * 2 } else { hidden_size };
@@ -231,7 +231,7 @@ where
         }
         
         // LSTM 層
-        let output = self.lstm.forward(&x);
+        let (output, _hidden) = self.lstm.forward(&x, None);
         
         // 最後の時刻の出力を使用
         let last_output = self.extract_last_output(&output);

@@ -103,7 +103,7 @@ fn main() {
     println!("🚀 Ready to build more complex architectures!");
 }
 
-fn print_variable_data<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static>(
+fn print_variable_data<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     var: &Variable<T>
 ) {
     let binding = var.data();
@@ -140,7 +140,7 @@ fn print_tensor_data<T: num_traits::Float + std::fmt::Display + 'static>(tensor:
     }
 }
 
-fn format_tensor_values<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static>(
+fn format_tensor_values<T: num_traits::Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
     var: &Variable<T>
 ) -> String {
     let binding = var.data();

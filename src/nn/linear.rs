@@ -16,7 +16,7 @@ use std::iter::Sum;
 /// 線形（全結合）レイヤー
 ///
 /// This layer applies a linear transformation to the incoming data: `y = xW^T + b`
-pub struct Linear<T: Float + Send + Sync> {
+pub struct Linear<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// The weight matrix of shape (output_features, input_features)
     /// 重み行列 (出力特徴量, 入力特徴量)
     weight: Variable<T>,
@@ -34,7 +34,7 @@ pub struct Linear<T: Float + Send + Sync> {
     output_size: usize,
 }
 
-impl<T: Float + Send + Sync> std::fmt::Debug for Linear<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> std::fmt::Debug for Linear<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Linear")
             .field("input_size", &self.input_size)
@@ -57,7 +57,7 @@ where
         
         // Initialize weights
         let weight_data: Vec<T> = (0..input_size * output_size)
-            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rand::thread_rng()) as f64).unwrap_or(T::zero()))
             .collect();
         
         let weight = Variable::new(
@@ -67,7 +67,7 @@ where
         
         // Initialize bias
         let bias_data: Vec<T> = (0..output_size)
-            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rand::thread_rng()) as f64).unwrap_or(T::zero()))
             .collect();
         
         let bias = Variable::new(
@@ -92,7 +92,7 @@ where
         
         // Initialize weights
         let weight_data: Vec<T> = (0..input_size * output_size)
-            .map(|_| T::from(normal.sample(&mut rand::thread_rng()) as f32).unwrap())
+            .map(|_| num_traits::cast(normal.sample(&mut rand::thread_rng()) as f64).unwrap_or(T::zero()))
             .collect();
         
         let weight = Variable::new(
@@ -118,8 +118,8 @@ where
         
         // Matrix multiplication: input @ weight.T
         // For batch processing: (batch_size, input_features) @ (input_features, output_features)
-        let weight_t = weight_data.transpose();
-        let mut output_data = input_data.matmul(&weight_t);
+        let weight_t = weight_data.transpose().expect("Transpose failed");
+        let mut output_data = input_data.matmul(&weight_t).expect("MatMul failed");
         
         // Add bias if present
         if let Some(ref bias) = self.bias {

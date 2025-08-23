@@ -47,7 +47,7 @@ pub enum ModelMode {
 /// Base model trait
 pub trait Model<T>: Module<T> 
 where
-    T: Float + 'static + Send + Sync,
+    T: Float + 'static + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// モデルを訓練モードに設定
     /// Set model to training mode
@@ -74,7 +74,7 @@ where
 /// Builder pattern for model construction
 pub trait ModelBuilder<T> 
 where
-    T: Float + 'static + Send + Sync,
+    T: Float + 'static + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// The model type that this builder creates
     /// このビルダーが作成するモデルの型
@@ -105,7 +105,7 @@ pub struct InferenceEngine<T: Float + Send + Sync + 'static> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static> InferenceEngine<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> InferenceEngine<T> {
     /// Create a new inference engine
     /// 新しい推論エンジンを作成
     pub fn new() -> Self {

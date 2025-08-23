@@ -42,15 +42,36 @@ pub enum RusTorchError {
 pub enum TensorError {
     /// Shape mismatch between tensors
     /// テンソル間の形状不一致
-    ShapeMismatch { expected: Vec<usize>, actual: Vec<usize> },
+    ShapeMismatch { 
+        /// Expected shape
+        /// 期待される形状
+        expected: Vec<usize>, 
+        /// Actual shape
+        /// 実際の形状
+        actual: Vec<usize> 
+    },
     
     /// Invalid dimension index
     /// 無効な次元インデックス
-    InvalidDimension { dim: usize, max_dim: usize },
+    InvalidDimension { 
+        /// Dimension index
+        /// 次元インデックス
+        dim: usize, 
+        /// Maximum allowed dimension
+        /// 最大許可次元
+        max_dim: usize 
+    },
     
     /// Index out of bounds
     /// インデックス範囲外
-    IndexOutOfBounds { index: Vec<usize>, shape: Vec<usize> },
+    IndexOutOfBounds { 
+        /// Index that was out of bounds
+        /// 境界外のインデックス
+        index: Vec<usize>, 
+        /// Shape of the tensor
+        /// テンソルの形状
+        shape: Vec<usize> 
+    },
     
     /// Empty tensor operation
     /// 空テンソル操作
@@ -294,6 +315,8 @@ impl From<ParallelError> for RusTorchError {
 
 // Convenience functions for common error creation
 impl TensorError {
+    /// Create a shape mismatch error
+    /// 形状不一致エラーを作成
     pub fn shape_mismatch(expected: &[usize], actual: &[usize]) -> Self {
         TensorError::ShapeMismatch {
             expected: expected.to_vec(),
@@ -301,10 +324,14 @@ impl TensorError {
         }
     }
     
+    /// Create an invalid dimension error
+    /// 無効な次元エラーを作成
     pub fn invalid_dimension(dim: usize, max_dim: usize) -> Self {
         TensorError::InvalidDimension { dim, max_dim }
     }
     
+    /// Create an index out of bounds error
+    /// インデックス境界外エラーを作成
     pub fn index_out_of_bounds(index: &[usize], shape: &[usize]) -> Self {
         TensorError::IndexOutOfBounds {
             index: index.to_vec(),
@@ -314,6 +341,8 @@ impl TensorError {
 }
 
 impl ParallelError {
+    /// Create a shape mismatch error with operation context
+    /// 操作コンテキスト付きの形状不一致エラーを作成
     pub fn shape_mismatch(expected: &[usize], actual: &[usize], operation: &str) -> Self {
         ParallelError::SyncError(format!(
             "Shape mismatch in {}: expected {:?}, got {:?}",

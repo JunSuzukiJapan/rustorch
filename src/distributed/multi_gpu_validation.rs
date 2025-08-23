@@ -121,7 +121,7 @@ pub struct MemoryUsage {
 
 /// Multi-GPU validator
 /// マルチGPUバリデータ
-pub struct MultiGpuValidator<T: Float> {
+pub struct MultiGpuValidator<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Available GPU devices
     /// 利用可能なGPUデバイス
     devices: Vec<GpuDeviceInfo>,
@@ -139,7 +139,7 @@ pub struct MultiGpuValidator<T: Float> {
 
 impl<T> MultiGpuValidator<T>
 where
-    T: Float + FromPrimitive + Send + Sync + 'static,
+    T: Float + FromPrimitive + Send + Sync + 'static + ndarray::ScalarOperand,
 {
     /// Create a new multi-GPU validator
     /// 新しいマルチGPUバリデータを作成

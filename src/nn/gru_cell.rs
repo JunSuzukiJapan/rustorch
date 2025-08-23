@@ -18,7 +18,7 @@ use std::fmt::Debug;
 /// n_t = tanh(W_in @ x_t + b_in + r_t ⊙ (W_hn @ h_{t-1} + b_hn))  (new gate)
 /// h_t = (1 - z_t) ⊙ n_t + z_t ⊙ h_{t-1}  (hidden state)
 #[derive(Debug)]
-pub struct GRUCell<T: Float + Send + Sync> {
+pub struct GRUCell<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     /// Input-to-hidden weights for all gates [reset, update, new]
     /// 全ゲート用の入力から隠れ状態への重み [reset, update, new]
     weight_ih: Variable<T>,
@@ -50,7 +50,7 @@ pub struct GRUCell<T: Float + Send + Sync> {
 
 impl<T> GRUCell<T>
 where
-    T: Float + Send + Sync + Debug + 'static,
+    T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// Create a new GRU cell
     /// 新しいGRUセルを作成
@@ -77,7 +77,9 @@ where
     /// Forward pass through the GRU cell
     /// GRUセルの順伝播
     pub fn forward(&self, input: &Variable<T>, hidden: Option<&Variable<T>>) -> Variable<T> {
-        let batch_size = input.data().shape()[0];
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
+        let batch_size = input_data.shape()[0];
         
         let h_prev = match hidden {
             Some(h) => h.clone(),
@@ -147,7 +149,7 @@ where
 
 impl<T> Module<T> for GRUCell<T>
 where
-    T: Float + Send + Sync + Debug + 'static,
+    T: Float + Send + Sync + Debug + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input, None)
