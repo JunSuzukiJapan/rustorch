@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.3.18"
+version = "0.3.19"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -152,6 +152,22 @@ harness = false
 
 [[bench]]
 name = "fft_benchmark"
+harness = false
+
+[[bench]]
+name = "distributions_benchmark"
+harness = false
+
+[[bench]]
+name = "quick_distributions_benchmark"
+harness = false
+
+[[bench]]
+name = "micro_distributions_benchmark"
+harness = false
+
+[[bench]]
+name = "simple_distributions_bench"
 harness = false
 
 

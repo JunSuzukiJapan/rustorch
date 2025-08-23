@@ -219,6 +219,9 @@ pub mod visualization;
 /// Computer vision module providing image transforms, data augmentation, and built-in datasets
 /// 画像変換、データ拡張、組み込みデータセットを提供するコンピュータビジョンモジュール
 pub mod vision;
+/// Statistical distributions module providing PyTorch-compatible probability distributions
+/// PyTorch互換の確率分布を提供する統計分布モジュール
+pub mod distributions;
 
 
 /// WebAssembly support and bindings
@@ -247,6 +250,8 @@ pub mod prelude {
     pub use crate::visualization::{TrainingPlotter, TensorVisualizer, GraphVisualizer};
     pub use crate::visualization::{PlotConfig, PlotStyle, ChartType, TensorPlotConfig, ColorMap};
     pub use crate::vision::{Image, ImageFormat, transforms::*, datasets::*, pipeline::*, presets::*};
+    pub use crate::distributions::{DistributionTrait, Distribution, DistributionError};
+    pub use crate::distributions::{Normal, Bernoulli, Categorical, Gamma, Uniform, Beta, Exponential};
 }
 
 #[cfg(test)]
