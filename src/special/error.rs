@@ -154,7 +154,7 @@ pub fn erfinv_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
     // Check domain: |x| < 1
     if x_f64.abs() >= 1.0 {
         if x_f64.abs() == 1.0 {
-            return T::from(x_f64 * f64::INFINITY).ok_or(RusTorchError::OverflowError);
+            return T::from(x_f64 * f64::INFINITY).ok_or(RusTorchError::OverflowError("Error function overflow"));
         }
         return Err(RusTorchError::DomainError(
             format!("erfinv undefined for |x| >= 1, got x = {}", x_f64),
@@ -176,7 +176,7 @@ pub fn erfinv_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
     // Newton-Raphson refinement
     let refined = newton_raphson_erfinv(x_f64, result)?;
     
-    T::from(refined).ok_or(RusTorchError::OverflowError)
+    T::from(refined).ok_or(RusTorchError::OverflowError("Error function overflow"))
 }
 
 /// Series expansion for erfinv (Maclaurin series)

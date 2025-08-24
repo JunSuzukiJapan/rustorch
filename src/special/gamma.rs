@@ -43,12 +43,12 @@ pub fn gamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
         }
         let gamma_1_minus_x = gamma_scalar(T::from(1.0 - x_f64).unwrap())?;
         let result = PI / (sin_pi_x * gamma_1_minus_x.to_f64().unwrap());
-        return T::from(result).ok_or(RusTorchError::OverflowError);
+        return T::from(result).ok_or(RusTorchError::OverflowError("Gamma function overflow"));
     }
     
     // Lanczos approximation for positive x
     let result = lanczos_gamma(x_f64)?;
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Gamma function overflow"))
 }
 
 /// Lanczos approximation for gamma function
@@ -90,12 +90,12 @@ pub fn lgamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
     // Use Stirling's approximation for large x
     if x_f64 > 12.0 {
         let result = stirling_lgamma(x_f64);
-        return T::from(result).ok_or(RusTorchError::OverflowError);
+        return T::from(result).ok_or(RusTorchError::OverflowError("Lgamma Stirling overflow"));
     }
     
     // Use Lanczos approximation
     let result = lanczos_lgamma(x_f64)?;
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Lgamma Lanczos overflow"))
 }
 
 /// Stirling's approximation for lgamma
@@ -164,7 +164,7 @@ pub fn digamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
         digamma_asymptotic(x_f64)
     };
     
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Digamma overflow"))
 }
 
 /// Asymptotic expansion for digamma function
@@ -185,7 +185,7 @@ fn digamma_asymptotic(x: f64) -> f64 {
 pub fn beta<T: Float>(a: T, b: T) -> Result<T, RusTorchError> {
     // Use logarithmic form to avoid overflow
     let lbeta_val = lbeta(a, b)?;
-    T::from(lbeta_val.to_f64().unwrap().exp()).ok_or(RusTorchError::OverflowError)
+    T::from(lbeta_val.to_f64().unwrap().exp()).ok_or(RusTorchError::OverflowError("Beta function overflow"))
 }
 
 /// Log beta function ln(B(a, b))

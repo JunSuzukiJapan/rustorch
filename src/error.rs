@@ -523,6 +523,11 @@ impl RusTorchError {
     pub fn InvalidImageShape(message: impl Into<String>) -> Self {
         RusTorchError::invalid_image_shape(&[])
     }
+    
+    /// Create convergence error
+    pub fn ConvergenceError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Convergence error: {}", message.into()), source: None }
+    }
 }
 
 // All individual From implementations removed - using unified RusTorchError only

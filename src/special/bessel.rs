@@ -20,9 +20,9 @@ pub fn bessel_j_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
     // Handle special cases
     if x_f64 == 0.0 {
         if n_f64 == 0.0 {
-            return T::from(1.0).ok_or(RusTorchError::OverflowError);
+            return T::from(1.0).ok_or(RusTorchError::OverflowError("Bessel J overflow"));
         } else {
-            return T::from(0.0).ok_or(RusTorchError::OverflowError);
+            return T::from(0.0).ok_or(RusTorchError::OverflowError("Bessel J overflow"));
         }
     }
     
@@ -34,7 +34,7 @@ pub fn bessel_j_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
         bessel_j_series(n_f64, x_f64)?
     };
     
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Bessel J conversion overflow"))
 }
 
 /// Bessel J function for integer orders using recurrence
@@ -245,7 +245,7 @@ pub fn bessel_y_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
         (j_nu * nu_pi.cos() - j_minus_nu) / sin_nu_pi
     };
     
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Bessel overflow"))
 }
 
 /// Bessel Y function for integer orders
@@ -392,7 +392,7 @@ pub fn bessel_i_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
         bessel_i_series(n_f64, x_f64)?
     };
     
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Bessel overflow"))
 }
 
 /// Modified Bessel I function for integer orders
@@ -474,7 +474,7 @@ pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
         if sin_nu_pi.abs() < EPSILON {
             // Use limiting form for near-integer orders
             let k_result = bessel_k_integer(n_f64.round() as i32, x_f64)?;
-            return T::from(k_result).ok_or(RusTorchError::OverflowError);
+            return T::from(k_result).ok_or(RusTorchError::OverflowError("Bessel overflow"));
         }
         
         let i_nu = bessel_i_series(n_f64, x_f64)?;
@@ -482,7 +482,7 @@ pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
         PI / 2.0 * (i_minus_nu - i_nu) / sin_nu_pi
     };
     
-    T::from(result).ok_or(RusTorchError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError("Bessel overflow"))
 }
 
 /// Modified Bessel K function for integer orders

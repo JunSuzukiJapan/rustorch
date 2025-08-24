@@ -64,7 +64,7 @@ impl<T: Float + 'static> Image<T> {
             (ImageFormat::HWC, 3) => (shape[0], shape[1], shape[2]),
             (ImageFormat::CHW, 4) => (shape[2], shape[3], shape[1]), // Batch dimension included
             (ImageFormat::HWC, 4) => (shape[1], shape[2], shape[3]), // Batch dimension included
-            _ => return Err(crate::error::RusTorchError::invalid_image_shape(&format!("{:?}", shape)))
+            _ => return Err(crate::error::RusTorchError::invalid_image_shape(shape))
         };
         
         Ok(Image {

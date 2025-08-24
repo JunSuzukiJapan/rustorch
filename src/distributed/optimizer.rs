@@ -301,7 +301,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
             // Synchronize accumulated local gradients
             // 蓄積されたローカル勾配を同期
             for (_name, gradient) in &mut self.local_gradients {
-                self.backend.all_reduce(gradient, ReduceOp::Average)?;
+                self.backend.all_reduce(gradient, crate::distributed::ReduceOp::Average)?;
             }
             self.local_gradients.clear();
         } else {
@@ -361,7 +361,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     ) -> RusTorchResult<()> {
         for tensor_ref in &bucket.tensors {
             let mut tensor = tensor_ref.lock().unwrap();
-            backend.all_reduce(&mut tensor, ReduceOp::Average)?;
+            backend.all_reduce(&mut tensor, crate::distributed::ReduceOp::Average)?;
         }
         Ok(())
     }
@@ -384,7 +384,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
             
             // Synchronize compressed tensor
             // 圧縮テンソルを同期
-            backend.all_reduce(&mut tensor, ReduceOp::Average)?;
+            backend.all_reduce(&mut tensor, crate::distributed::ReduceOp::Average)?;
             
             // Decompress if needed
             // 必要に応じて展開
