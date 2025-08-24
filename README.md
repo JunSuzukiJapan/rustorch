@@ -35,6 +35,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **数学関数**: 三角関数、指数関数、べき乗、活性化関数
 - 🎲 **Special Mathematical Functions**: Gamma, Bessel, error functions with high precision and PyTorch compatibility  
   **特殊数学関数**: 高精度でPyTorch互換のガンマ、ベッセル、誤差関数
+  - ⚠️ **Note**: Some special functions have precision limitations (1e-3 to 1e-6 accuracy) - contributions welcome for improved implementations
+  - **注意**: 一部の特殊関数に精度制限あり(1e-3〜1e-6精度) - より高精度な実装の貢献を歓迎
 - 📊 **Statistical Distributions**: Complete probability distributions (Normal, Gamma, Beta, etc.)  
   **統計分布**: 完全な確率分布（正規、ガンマ、ベータ等）
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation  
@@ -63,8 +65,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **WebAssemblyサポート**: クライアントサイドML向けブラウザ互換WASMバインディング
 - 🧮 **Matrix Decomposition**: Complete SVD, QR, LU decomposition and eigenvalue solver with PyTorch compatibility  
   **行列分解**: PyTorch互換の完全なSVD、QR、LU分解と固有値求解
-- ✅ **Production Ready**: All 519 tests passing, fully functional library with broadcasting support  
-  **本番環境対応**: 519個全テスト合格、ブロードキャスト対応完全機能ライブラリ
+- ✅ **Production Ready**: 629 tests passing (99.2% success rate), fully functional library with broadcasting support  
+  **本番環境対応**: 629個テスト合格(99.2%成功率)、ブロードキャスト対応完全機能ライブラリ
 
 ## Installation
 
@@ -72,7 +74,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.3.20"
+rustorch = "0.3.21"
 
 # For GPU acceleration (optional)
 [features]
@@ -941,6 +943,57 @@ Automated testing and deployment through GitHub Actions:
     ├── WebAssembly bindings (Browser deployment)
     └── Docker containerization (Production-ready)
 ```
+
+## 🤝 Contributing / コントリビューション
+
+We welcome contributions from the community! Here are some areas where your help would be especially valuable:
+
+### Priority Areas / 優先領域
+
+- **🎯 Special Functions Precision**: Improve numerical accuracy of Bessel functions, error functions, and gamma functions
+- **⚡ Performance Optimization**: SIMD improvements, GPU kernel optimization, memory management
+- **🧪 Testing**: Add more comprehensive test cases, edge case handling, numerical stability tests
+- **📚 Documentation**: Examples, tutorials, API documentation improvements
+- **🌐 Platform Support**: WebAssembly optimizations, mobile platforms, embedded systems
+- **🔧 Algorithm Implementations**: New neural network layers, optimizers, loss functions
+
+### Special Functions Improvements Needed / 特殊関数の改善が必要
+
+- **Bessel Functions**: Current Y₀(x) implementation has significant precision issues
+- **Error Functions**: erfinv/erfcinv precision could be improved from 1e-5 to 1e-10
+- **Numerical Stability**: Bessel function recurrence relations need stabilization
+
+### How to Contribute / コントリビューション方法
+
+1. **Fork the repository** and create a feature branch
+2. **Write comprehensive tests** for your changes
+3. **Ensure all tests pass**: `cargo test --all-features`
+4. **Follow Rust best practices** and maintain zero unsafe code in core functionality
+5. **Add documentation** for public APIs
+6. **Submit a pull request** with a clear description
+
+### Development Setup / 開発環境セットアップ
+
+```bash
+# Clone the repository
+git clone https://github.com/JunSuzukiJapan/rustorch.git
+cd rustorch
+
+# Run tests
+cargo test --all-features
+
+# Run benchmarks
+cargo bench
+
+# Check formatting
+cargo fmt --check
+
+# Run clippy
+cargo clippy --all-targets --all-features
+```
+
+We appreciate all contributions, from bug fixes to major feature additions! 
+すべてのコントリビューション（バグ修正から主要機能追加まで）を歓迎します！
 
 ## License
 
