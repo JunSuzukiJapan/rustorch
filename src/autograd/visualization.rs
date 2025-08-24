@@ -47,7 +47,7 @@ pub struct NodeInfo {
     gradient_norm: Option<f32>,
     /// Requires gradient flag
     /// 勾配要求フラグ
-    requires_grad: bool,
+    _requires_grad: bool,
 }
 
 /// Edge information for visualization
@@ -143,7 +143,7 @@ impl GradientFlowVisualizer {
             node_type,
             shape,
             gradient_norm,
-            requires_grad: var.requires_grad,
+            _requires_grad: var.requires_grad,
         });
 
         node_id
@@ -162,7 +162,7 @@ impl GradientFlowVisualizer {
             node_type: NodeType::Operation(op_name.to_string()),
             shape: Vec::new(),
             gradient_norm: None,
-            requires_grad: true,
+            _requires_grad: true,
         });
 
         // Add edges from inputs to operation
@@ -532,7 +532,7 @@ mod tests {
             node_type: NodeType::Input,
             shape: vec![32, 10],
             gradient_norm: None,
-            requires_grad: false,
+            _requires_grad: false,
         });
 
         let param_id = visualizer.node_counter;
@@ -543,7 +543,7 @@ mod tests {
             node_type: NodeType::Parameter,
             shape: vec![10, 5],
             gradient_norm: Some(0.5),
-            requires_grad: true,
+            _requires_grad: true,
         });
 
         // Add operation
@@ -568,7 +568,7 @@ mod tests {
                 node_type: NodeType::Parameter,
                 shape: vec![10, 10],
                 gradient_norm: Some((i + 1) as f32 * 0.1),
-                requires_grad: true,
+                _requires_grad: true,
             });
         }
 
@@ -590,7 +590,7 @@ mod tests {
             node_type: NodeType::Parameter,
             shape: vec![10],
             gradient_norm: Some(1e-7),
-            requires_grad: true,
+            _requires_grad: true,
         });
 
         // Add node with exploding gradient
@@ -600,7 +600,7 @@ mod tests {
             node_type: NodeType::Parameter,
             shape: vec![10],
             gradient_norm: Some(1e4),
-            requires_grad: true,
+            _requires_grad: true,
         });
 
         let issues = visualizer.detect_issues();
@@ -612,7 +612,7 @@ mod tests {
         let mut analyzer = GradientFlowAnalyzer::new(100);
         
         // Simulate gradient recording
-        let tensor = Tensor::from_vec(vec![0.1, 0.2, 0.3], vec![3]);
+        let _tensor = Tensor::from_vec(vec![0.1, 0.2, 0.3], vec![3]);
         
         for i in 0..20 {
             let scaled = Tensor::from_vec(

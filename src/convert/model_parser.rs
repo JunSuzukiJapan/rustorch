@@ -21,7 +21,12 @@ pub enum ParsingError {
     MissingConnection(String),
     /// Incompatible layer dimensions
     /// 互換性のないレイヤー次元
-    IncompatibleDimensions { layer1: String, layer2: String },
+    IncompatibleDimensions { 
+        /// First layer name
+        layer1: String, 
+        /// Second layer name
+        layer2: String 
+    },
 }
 
 impl fmt::Display for ParsingError {
@@ -68,31 +73,57 @@ pub struct LayerInfo {
 pub enum LayerType {
     /// Linear/Dense layer
     /// Linear/Denseレイヤー
-    Linear { in_features: usize, out_features: usize },
+    Linear { 
+        /// Input features
+        in_features: usize, 
+        /// Output features
+        out_features: usize 
+    },
     /// 2D Convolution layer
     /// 2D畳み込みレイヤー
     Conv2d { 
+        /// Input channels
         in_channels: usize, 
+        /// Output channels
         out_channels: usize, 
+        /// Kernel size
         kernel_size: (usize, usize),
+        /// Stride
         stride: (usize, usize),
+        /// Padding
         padding: (usize, usize),
     },
     /// 2D Batch Normalization
     /// 2Dバッチ正規化
-    BatchNorm2d { num_features: usize },
+    BatchNorm2d { 
+        /// Number of features
+        num_features: usize 
+    },
     /// ReLU activation
     /// ReLU活性化
     ReLU,
     /// Dropout layer
     /// Dropoutレイヤー
-    Dropout { p: f64 },
+    Dropout { 
+        /// Dropout probability
+        p: f64 
+    },
     /// 2D Max Pooling
     /// 2D最大プーリング
-    MaxPool2d { kernel_size: (usize, usize), stride: (usize, usize) },
+    MaxPool2d { 
+        /// Kernel size
+        kernel_size: (usize, usize), 
+        /// Stride
+        stride: (usize, usize) 
+    },
     /// 2D Average Pooling
     /// 2D平均プーリング
-    AvgPool2d { kernel_size: (usize, usize), stride: (usize, usize) },
+    AvgPool2d { 
+        /// Kernel size
+        kernel_size: (usize, usize), 
+        /// Stride
+        stride: (usize, usize) 
+    },
     /// Flatten layer
     /// Flattenレイヤー
     Flatten,

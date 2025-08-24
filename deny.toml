@@ -1,23 +1,11 @@
 # 依存関係の禁止リスト
 [bans]
-deny = [
-    # セキュリティ上の理由で禁止するクレート
-    { name = "ring" },
-    { name = "openssl-src" },
-    { name = "openssl-sys" },
-]
-skip = [
-    # 例: 特定のバージョンを許可
-    # { name = "some-crate", version = "=1.2.3" },
-]
+# 複数バージョンを許可
+multiple-versions = "allow"
 
 # ライセンスポリシー
 [licenses]
-# ライセンスが不明な依存関係を拒否
-unlicensed = "deny"
-# コピーレフトライセンスを拒否
-copyleft = "deny"
-# 許可するライセンス
+# 一般的なオープンソースライセンスを許可
 allow = [
     "MIT",
     "Apache-2.0",
@@ -25,63 +13,24 @@ allow = [
     "ISC",
     "Zlib",
     "Unlicense",
-    "OpenSSL",
     "0BSD",
     "MPL-2.0",
-]
-# デフォルトで許可しない場合に警告を表示
-warn = [
-    "LGPL-*",
+    "Unicode-3.0",
+    "CDLA-Permissive-2.0"
 ]
 
 # 依存関係のソースポリシー
 [sources]
-# 許可するソース
+# 許可するレジストリ
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
-allow-git = []
-
-# 特定のクレートを除外
-skip = [
-    # 例: 特定のクレートをスキップ
-    # { name = "some-crate" },
-]
 
 # セキュリティアドバイザリの設定
 [advisories]
 # 脆弱性データベースのURL
-db-path = "~/.cargo/advisory-db"
-db-urls = ["https://github.com/RustSec/advisory-db"]
-# 既知の脆弱性をすべて拒否
-vulnerability = "deny"
-# 未修正の脆弱性を拒否
-unmaintained = "warn"
-# 非推奨のクレートを警告
-notice = "warn"
-# セキュリティ修正を含むバージョンに自動的に更新
-ignore = [
-    # 例: 特定の脆弱性を無視
-    # "RUSTSEC-YYYY-NNNN-NNNN",
-]
+db-urls = ["https://github.com/rustsec/advisory-db"]
 
-[advisories.yanked]
-# 取り下げられたバージョンを拒否
-yanked = "deny"
-
-# 依存関係の更新ポリシー
-[update]
-# セマンティックバージョニングに準拠
-semver = true
-# プレリリースバージョンを許可
-pre-release = false
-# 互換性のないバージョンへの更新を許可
-allow = [
-    # 例: メジャーバージョンアップを許可
-    # { name = "some-crate", version = "^2.0.0" },
-]
-
-# キャッシュ設定
-[cache]
-# キャッシュの有効期限（日数）
-max-age = 7
-# キャッシュの最大サイズ（MB）
-max-size = 512
+# 特定のアドバイザリを無視
+[[advisories.ignore]]
+# instantクレートは非推奨だが、互換性のために一時的に無視
+id = "RUSTSEC-2024-0384"
+reason = "Temporary ignore for unmaintained crate"

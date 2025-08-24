@@ -108,7 +108,7 @@ fn verify_svd_properties() {
     print_matrix(&matrix);
     
     match matrix.svd(false) {
-        Ok((u, s, v)) => {
+        Ok((u, _, v)) => {
             println!("\n  Verification:");
             
             // Check orthogonality of U (U^T * U should be identity)
@@ -148,7 +148,7 @@ fn rank_deficient_svd_demo() {
     print_matrix(&matrix);
     
     match matrix.svd(true) {
-        Ok((u, s, v)) => {
+        Ok((_, s, _)) => {
             println!("\n  SVD of rank-deficient matrix:");
             println!("    Singular values: {:?}", 
                 s.data.as_slice().unwrap_or(&[]).iter()

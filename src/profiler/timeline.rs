@@ -219,6 +219,7 @@ struct ChromeTraceEvent {
 /// Chrome trace format
 /// Chromeトレース形式
 #[derive(Serialize, Deserialize)]
+#[allow(non_snake_case)]
 struct ChromeTrace {
     traceEvents: Vec<ChromeTraceEvent>,
     displayTimeUnit: String,

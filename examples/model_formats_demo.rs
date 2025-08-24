@@ -2,8 +2,7 @@
 //! モデルフォーマットのデモンストレーション
 
 use rustorch::tensor::Tensor;
-use rustorch::formats::pytorch::{PyTorchModel, StateDict};
-use std::collections::HashMap;
+use rustorch::formats::pytorch::PyTorchModel;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 RusTorch Model Formats Demo");
@@ -184,6 +183,7 @@ fn onnx_format_demo() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(feature = "safetensors"))]
+#[allow(dead_code)]
 fn safetensors_format_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔒 Safetensors Format Demo");
     println!("--------------------------");
@@ -193,6 +193,7 @@ fn safetensors_format_demo() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(not(feature = "onnx"))]
+#[allow(dead_code)]
 fn onnx_format_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔄 ONNX Format Demo");
     println!("-------------------");

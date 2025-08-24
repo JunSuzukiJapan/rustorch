@@ -51,7 +51,7 @@ fn qr_demo() {
             print_matrix(&r);
             
             // Verify orthogonality of Q: Q^T * Q should be identity
-            if let (Ok(qt), Ok(qtq)) = (q.transpose(), q.transpose().and_then(|qt| qt.matmul(&q))) {
+            if let (Ok(_), Ok(qtq)) = (q.transpose(), q.transpose().and_then(|qt| qt.matmul(&q))) {
                 println!("\n    Orthogonality check (Q^T * Q):");
                 print_matrix(&qtq);
             }
@@ -134,14 +134,14 @@ fn linear_system_demo() {
     println!("    Expected solution: x = [2.0000, 3.0000]");
     
     // Using QR decomposition
-    if let Ok((q, r)) = a.qr() {
+    if let Ok((_q, _r)) = a.qr() {
         println!("\n    Using QR decomposition:");
         println!("      This would require solving Rx = Q^T * b for triangular system");
         println!("      (Implementation of triangular solve would go here)");
     }
     
     // Using LU decomposition  
-    if let Ok((l, u, p)) = a.lu() {
+    if let Ok((_l, _u, _p)) = a.lu() {
         println!("\n    Using LU decomposition:");
         println!("      This would require solving Ly = Pb, then Ux = y");
         println!("      (Implementation of forward/backward substitution would go here)");

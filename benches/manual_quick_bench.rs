@@ -26,17 +26,17 @@ fn benchmark_scaling_performance(iterations: usize, max_size: usize) {
     
     for size in (4..=max_size).step_by(2) {
         // テスト行列作成
-        let matrix_data: Vec<f32> = (0..size * size)
-            .map(|i| (i as f32 + 1.0) % 8.0 + 1.0)
+        let matrix_data: Vec<f64> = (0..size * size)
+            .map(|i| (i as f64 + 1.0) % 8.0 + 1.0)
             .collect();
         let matrix = Tensor::from_vec(matrix_data.clone(), vec![size, size]);
         
         // 対称行列作成
-        let mut sym_data = vec![0.0f32; size * size];
+        let mut sym_data = vec![0.0f64; size * size];
         for i in 0..size {
             for j in 0..size {
                 if i == j {
-                    sym_data[i * size + j] = (i + 1) as f32;
+                    sym_data[i * size + j] = (i + 1) as f64;
                 } else if i < j {
                     sym_data[i * size + j] = 0.3;
                     sym_data[j * size + i] = 0.3;
@@ -89,17 +89,17 @@ fn benchmark_decomposition_comparison(iterations: usize) {
     println!("\n📊 2. Decomposition Method Comparison (8x8 matrix)");
     
     let size = 8;
-    let matrix_data: Vec<f32> = (0..size * size)
-        .map(|i| (i as f32 * 1.4 + 2.1) % 6.0 + 1.0)
+    let matrix_data: Vec<f64> = (0..size * size)
+        .map(|i| (i as f64 * 1.4 + 2.1) % 6.0 + 1.0)
         .collect();
     let matrix = Tensor::from_vec(matrix_data, vec![size, size]);
     
     // 対称行列
-    let mut sym_data = vec![0.0f32; size * size];
+    let mut sym_data = vec![0.0f64; size * size];
     for i in 0..size {
         for j in 0..size {
             if i == j {
-                sym_data[i * size + j] = (i + 1) as f32 * 1.5;
+                sym_data[i * size + j] = (i + 1) as f64 * 1.5;
             } else if i < j {
                 sym_data[i * size + j] = 0.4;
                 sym_data[j * size + i] = 0.4;
@@ -160,8 +160,8 @@ fn benchmark_rectangular_matrices(iterations: usize) {
     println!("   ──────┼────────┼────────");
     
     for (rows, cols, label) in test_cases {
-        let matrix_data: Vec<f32> = (0..rows * cols)
-            .map(|i| (i as f32 + 1.0) % 7.0 + 1.0)
+        let matrix_data: Vec<f64> = (0..rows * cols)
+            .map(|i| (i as f64 + 1.0) % 7.0 + 1.0)
             .collect();
         let matrix = Tensor::from_vec(matrix_data, vec![rows, cols]);
         
@@ -189,22 +189,22 @@ fn benchmark_special_cases(iterations: usize) {
     let size = 8;
     
     // 単位行列
-    let mut identity_data = vec![0.0f32; size * size];
+    let mut identity_data = vec![0.0f64; size * size];
     for i in 0..size {
         identity_data[i * size + i] = 1.0;
     }
     let identity = Tensor::from_vec(identity_data, vec![size, size]);
     
     // 対角行列
-    let mut diagonal_data = vec![0.0f32; size * size];
+    let mut diagonal_data = vec![0.0f64; size * size];
     for i in 0..size {
-        diagonal_data[i * size + i] = (i + 1) as f32;
+        diagonal_data[i * size + i] = (i + 1) as f64;
     }
     let diagonal = Tensor::from_vec(diagonal_data, vec![size, size]);
     
     // ランダム様行列
-    let random_data: Vec<f32> = (0..size * size)
-        .map(|i| (i as f32 * 17.0 + 31.0) % 13.0 + 1.0)
+    let random_data: Vec<f64> = (0..size * size)
+        .map(|i| (i as f64 * 17.0 + 31.0) % 13.0 + 1.0)
         .collect();
     let random = Tensor::from_vec(random_data, vec![size, size]);
     

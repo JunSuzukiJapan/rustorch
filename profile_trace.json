@@ -1,0 +1,95 @@
+{
+  "traceEvents": [
+    {
+      "name": "tensor_creation",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 0.0,
+      "dur": 866811.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "tensor_addition",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 9882.0,
+      "dur": 608.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "tensor_multiplication",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 10494.0,
+      "dur": 566.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "matrix_multiplication",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 11062.0,
+      "dur": 855746.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "neural_network",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 866846.0,
+      "dur": 6599054.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "forward_pass",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 994241.0,
+      "dur": 6471641.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "layer1_forward",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 1006365.0,
+      "dur": 6459515.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "layer2_forward",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 6529571.0,
+      "dur": 936304.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    },
+    {
+      "name": "layer3_forward",
+      "cat": "Cpu",
+      "ph": "X",
+      "ts": 7430136.0,
+      "dur": 35734.0,
+      "pid": 23047,
+      "tid": "ThreadId(1)",
+      "args": {}
+    }
+  ],
+  "displayTimeUnit": "ms"
+}

@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.3.22"
+version = "0.3.23"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -36,7 +36,7 @@ crate-type = ["cdylib", "rlib"]
 # Core dependencies
 ndarray = { version = "0.16.1", features = ["rayon", "approx"] }
 ndarray-rand = "0.15.0"
-ndarray-linalg = { version = "0.17.0", optional = true, features = ["intel-mkl-static"] }
+ndarray-linalg = { version = "0.17.0", optional = true }
 openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
 num-traits = "0.2"
 num-complex = "0.4"
@@ -146,14 +146,17 @@ path = "examples/vision_pipeline_demo.rs"
 [[example]]
 name = "svd_demo"
 path = "examples/svd_demo.rs"
+required-features = ["linalg"]
 
 [[example]]
 name = "eigenvalue_demo"
 path = "examples/eigenvalue_demo.rs"
+required-features = ["linalg"]
 
 [[example]]
 name = "matrix_decomposition_demo"
 path = "examples/matrix_decomposition_demo.rs"
+required-features = ["linalg"]
 
 [[bench]]
 name = "quick_benchmark"
@@ -162,18 +165,22 @@ harness = false
 [[bench]]
 name = "matrix_decomposition_benchmark"
 harness = false
+required-features = ["linalg"]
 
 [[bench]]
 name = "quick_matrix_benchmark"
 harness = false
+required-features = ["linalg"]
 
 [[bench]]
 name = "matrix_decomp_micro_bench"
 harness = false
+required-features = ["linalg"]
 
 [[bench]]
 name = "optimized_matrix_benchmark"
 harness = false
+required-features = ["linalg"]
 
 [[bench]]
 name = "manual_quick_bench"

@@ -1,10 +1,7 @@
 //! TensorBoard integration demonstration
 //! TensorBoard統合デモンストレーション
 
-use rustorch::tensorboard::{SummaryWriter, ImageData, GraphDef, NodeDef, EdgeDef, python_compat};
-use rustorch::tensor::Tensor;
-use rustorch::nn::Linear;
-use rustorch::autograd::Variable;
+use rustorch::tensorboard::{SummaryWriter, ImageData, GraphDef, NodeDef, EdgeDef};
 use std::collections::HashMap;
 use std::fs;
 
@@ -23,8 +20,9 @@ fn main() {
     demo_image_logging();
     demo_text_logging();
     demo_graph_logging();
-    demo_embedding_logging();
-    demo_training_loop_logging();
+    // Skip time-intensive demos
+    // demo_embedding_logging();
+    // demo_training_loop_logging();
     
     println!("\n✅ TensorBoard demo completed!");
     println!("📝 Check the 'runs' directory for TensorBoard logs");
@@ -39,7 +37,7 @@ fn demo_scalar_logging() {
     let mut writer = SummaryWriter::new("runs/scalar_demo").unwrap();
     
     // Simulate training metrics
-    for epoch in 0..50 {
+    for epoch in 0..10 {
         let loss = 2.0 * (-0.1 * epoch as f32).exp() + 0.1;
         let accuracy = 1.0 - (-0.05 * epoch as f32).exp();
         let learning_rate = 0.001 * 0.95_f32.powi(epoch / 10);
@@ -266,94 +264,6 @@ fn demo_graph_logging() {
     println!("✓ Computational graph logged\n");
 }
 
-/// Demonstrate embedding logging
-fn demo_embedding_logging() -> Result<(), std::io::Error> {
-    println!("6️⃣ Embedding Logging Demo");
-    println!("-------------------------");
-    
-    let mut writer = SummaryWriter::new("runs/embedding_demo")?;
-    
-    // Generate sample embeddings
-    let embedding_dim = 50;
-    let num_words = 100;
-    
-    let mut embeddings = Vec::new();
-    let mut metadata = Vec::new();
-    
-    for i in 0..num_words {
-        let mut embedding = Vec::new();
-        for _ in 0..embedding_dim {
-            embedding.push(rand::random::<f32>() * 2.0 - 1.0);
-        }
-        embeddings.push(embedding);
-        metadata.push(format!("word_{}", i));
-    }
-    
-    writer.add_embedding(&embeddings, Some(metadata), Some("word_embeddings"))?;
-    writer.close();
-    
-    println!("✓ Embeddings logged\n");
-    Ok(())
-}
-
-/// Demonstrate training loop with comprehensive logging
-fn demo_training_loop_logging() {
-    println!("7️⃣ Training Loop Demo");
-    println!("---------------------");
-    
-    // Use Python-compatible API for easier integration
-    let mut writer = python_compat::create_writer(Some("runs")).unwrap();
-    
-    // Simulate a training loop
-    let layer1: Linear<f32> = Linear::new(784, 256);
-    let layer2: Linear<f32> = Linear::new(256, 10);
-    
-    for epoch in 0..10 {
-        writer.add_text("Status", &format!("Starting epoch {}", epoch), Some(epoch));
-        
-        let mut epoch_loss = 0.0;
-        let mut epoch_acc = 0.0;
-        
-        // Simulate batch training
-        for batch in 0..100 {
-            let input = Variable::new(Tensor::<f32>::randn(&[32, 784]), false);
-            
-            // Forward pass
-            let hidden = layer1.forward(&input);
-            let output = layer2.forward(&hidden);
-            
-            // Simulate loss and accuracy
-            let loss = 2.0 * (-0.01 * (epoch * 100 + batch) as f32).exp() + 0.1;
-            let acc = 1.0 - (-0.005 * (epoch * 100 + batch) as f32).exp();
-            
-            epoch_loss += loss;
-            epoch_acc += acc;
-            
-            // Log every 20 batches
-            if batch % 20 == 0 {
-                let step = epoch * 100 + batch;
-                writer.add_scalar("Batch/Loss", loss, Some(step));
-                writer.add_scalar("Batch/Accuracy", acc, Some(step));
-            }
-        }
-        
-        // Log epoch metrics
-        epoch_loss /= 100.0;
-        epoch_acc /= 100.0;
-        
-        writer.add_scalar("Epoch/Loss", epoch_loss, Some(epoch));
-        writer.add_scalar("Epoch/Accuracy", epoch_acc, Some(epoch));
-        
-        // Log model parameters as histograms
-        let weights: Vec<f32> = (0..1000).map(|_| rand::random::<f32>() * 0.1).collect();
-        writer.add_histogram(&format!("Weights/Epoch_{}", epoch), &weights, Some(epoch));
-        
-        println!("  Epoch {}: Loss = {:.4}, Accuracy = {:.4}", epoch, epoch_loss, epoch_acc);
-    }
-    
-    writer.close();
-    println!("✓ Training loop logged\n");
-}
 
 /// Demonstrate the macro interface
 #[allow(dead_code)]

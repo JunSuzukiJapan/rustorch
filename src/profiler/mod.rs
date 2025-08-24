@@ -29,7 +29,7 @@ pub struct ProfileContext {
     /// Start time
     start_time: Instant,
     /// Parent context
-    parent: Option<String>,
+    _parent: Option<String>,
 }
 
 impl ProfileContext {
@@ -46,7 +46,7 @@ impl ProfileContext {
         Self {
             name,
             start_time,
-            parent: None,
+            _parent: None,
         }
     }
 }
@@ -150,11 +150,11 @@ impl Default for OperationStats {
 #[derive(Debug, Clone)]
 struct ThreadProfileData {
     /// Thread ID
-    thread_id: thread::ThreadId,
+    _thread_id: thread::ThreadId,
     /// Call stack
     call_stack: Vec<String>,
     /// Operation timings
-    timings: HashMap<String, Vec<Duration>>,
+    _timings: HashMap<String, Vec<Duration>>,
 }
 
 impl Profiler {
@@ -214,9 +214,9 @@ impl Profiler {
         // Update thread data
         let thread_data = self.thread_data.entry(thread_id)
             .or_insert_with(|| ThreadProfileData {
-                thread_id,
+                _thread_id: thread_id,
                 call_stack: Vec::new(),
-                timings: HashMap::new(),
+                _timings: HashMap::new(),
             });
         thread_data.call_stack.push(name.to_string());
     }
@@ -228,23 +228,28 @@ impl Profiler {
             return;
         }
 
-        // Update operation stats
-        if let Some(stats) = self.operations.get_mut(name) {
-            stats.count += 1;
-            stats.total_time += duration;
-            stats.avg_time = stats.total_time / stats.count as u32;
-            stats.min_time = stats.min_time.min(duration);
-            stats.max_time = stats.max_time.max(duration);
-            
-            // Update memory stats
-            let mem_stats = self.memory_profiler.get_current_stats();
-            stats.memory_allocated = mem_stats.allocated;
-            stats.memory_freed = mem_stats.freed;
-            
-            // Update CUDA time if applicable
-            if let Some(cuda_time) = self.kernel_profiler.get_last_kernel_time() {
-                stats.cuda_time = Some(cuda_time);
-            }
+        // Update operation stats - ensure operation exists
+        let stats = self.operations.entry(name.to_string())
+            .or_insert_with(|| {
+                let mut stats = OperationStats::default();
+                stats.name = name.to_string();
+                stats
+            });
+        
+        stats.count += 1;
+        stats.total_time += duration;
+        stats.avg_time = stats.total_time / stats.count as u32;
+        stats.min_time = stats.min_time.min(duration);
+        stats.max_time = stats.max_time.max(duration);
+        
+        // Update memory stats
+        let mem_stats = self.memory_profiler.get_current_stats();
+        stats.memory_allocated = mem_stats.allocated;
+        stats.memory_freed = mem_stats.freed;
+        
+        // Update CUDA time if applicable
+        if let Some(cuda_time) = self.kernel_profiler.get_last_kernel_time() {
+            stats.cuda_time = Some(cuda_time);
         }
         
         // Update call stack
@@ -435,6 +440,14 @@ pub fn clear_profiler() {
     }
 }
 
+/// Force reset profiler to completely clean state (for testing)
+/// プロファイラーを完全にクリーンな状態に強制リセット（テスト用）
+pub fn force_reset_profiler() {
+    if let Ok(mut profiler) = PROFILER.lock() {
+        *profiler = Profiler::new();
+    }
+}
+
 /// Print profiler report
 /// プロファイラーレポートを出力
 pub fn print_profiler_report() {
@@ -457,7 +470,9 @@ mod tests {
 
     #[test]
     fn test_basic_profiling() {
-        clear_profiler();
+        // Ensure completely clean state
+        disable_profiler();
+        force_reset_profiler();
         enable_profiler();
         
         {
@@ -468,7 +483,7 @@ mod tests {
         let summary = get_profiler_summary().unwrap();
         assert!(summary.operations.len() > 0);
         let test_op = summary.operations.iter().find(|op| op.name == "test_operation");
-        assert!(test_op.is_some());
+        assert!(test_op.is_some(), "test_operation not found in profiler summary");
         assert_eq!(test_op.unwrap().count, 1);
         
         disable_profiler();
@@ -476,7 +491,9 @@ mod tests {
 
     #[test]
     fn test_nested_profiling() {
-        clear_profiler();
+        // Ensure completely clean state
+        disable_profiler();
+        force_reset_profiler();
         enable_profiler();
         
         {
@@ -492,15 +509,17 @@ mod tests {
         assert!(summary.operations.len() > 0);
         let outer_op = summary.operations.iter().find(|op| op.name == "outer");
         let inner_op = summary.operations.iter().find(|op| op.name == "inner");
-        assert!(outer_op.is_some());
-        assert!(inner_op.is_some());
+        assert!(outer_op.is_some(), "outer operation not found in profiler summary");
+        assert!(inner_op.is_some(), "inner operation not found in profiler summary");
         
         disable_profiler();
     }
 
     #[test]
     fn test_profile_macro() {
-        clear_profiler();
+        // Ensure completely clean state
+        disable_profiler();
+        force_reset_profiler();
         enable_profiler();
         
         profile!("macro_test", {

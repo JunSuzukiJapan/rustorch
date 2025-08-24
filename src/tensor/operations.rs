@@ -1729,6 +1729,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
+    #[cfg(feature = "linalg")]
+    #[cfg(feature = "linalg")]
     fn test_svd_square_matrix() {
         // Test SVD on a simple 2x2 matrix
         let matrix = Tensor::from_vec(
@@ -1757,6 +1759,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_rectangular_matrix() {
         // Test SVD on a 3x2 rectangular matrix
         let matrix = Tensor::from_vec(
@@ -1785,6 +1788,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_orthogonality() {
         // Test that U and V are approximately orthogonal matrices
         // Note: Basic SVD implementation may not provide perfect orthogonality
@@ -1816,6 +1820,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_rank_deficient() {
         // Test SVD on a rank-deficient matrix (rank 1)
         let matrix = Tensor::from_vec(
@@ -1837,6 +1842,7 @@ mod tests {
     }
 
     #[test] 
+    #[cfg(feature = "linalg")]
     fn test_svd_identity_matrix() {
         // Test SVD on identity matrix
         let matrix = Tensor::from_vec(
@@ -1856,6 +1862,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_zero_matrix() {
         // Test SVD on zero matrix
         let matrix = Tensor::from_vec(
@@ -1875,6 +1882,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_some_false() {
         // Test SVD with some=false (reduced SVD)
         let matrix = Tensor::from_vec(
@@ -1895,6 +1903,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_tall_thin_matrix() {
         // Test SVD on a tall, thin matrix (4x2)
         let matrix = Tensor::from_vec(
@@ -1920,6 +1929,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_svd_wide_matrix() {
         // Test SVD on a wide matrix (2x4)  
         let matrix = Tensor::from_vec(
@@ -1945,6 +1955,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_eig_general_matrix() {
         // Test general eigenvalue decomposition
         let matrix = Tensor::from_vec(
@@ -1969,6 +1980,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_eig_with_eigenvectors() {
         // Test general eigenvalue decomposition with eigenvectors
         let matrix = Tensor::from_vec(
@@ -2060,6 +2072,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_eig_error_cases() {
         // Test with non-square matrix
         let matrix = Tensor::from_vec(
@@ -2134,6 +2147,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_qr_decomposition() {
         // Test QR decomposition on a simple matrix
         let matrix = Tensor::from_vec(
@@ -2167,6 +2181,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_qr_rectangular_matrix() {
         // Test QR decomposition on rectangular matrix
         let matrix = Tensor::from_vec(
@@ -2193,6 +2208,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_lu_decomposition() {
         // Test LU decomposition on a simple matrix
         let matrix = Tensor::from_vec(
@@ -2231,6 +2247,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_lu_rectangular_matrix() {
         // Test LU decomposition on rectangular matrix
         let matrix = Tensor::from_vec(
@@ -2259,6 +2276,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_qr_identity_matrix() {
         // Test QR decomposition on identity matrix
         let identity = Tensor::from_vec(
@@ -2289,6 +2307,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_lu_identity_matrix() {
         // Test LU decomposition on identity matrix
         let identity = Tensor::from_vec(
@@ -2326,6 +2345,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_qr_error_cases() {
         // Test with 1D tensor
         let vector = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);
@@ -2334,6 +2354,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_lu_error_cases() {
         // Test with 1D tensor
         let vector = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);

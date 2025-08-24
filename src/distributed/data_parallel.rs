@@ -264,7 +264,7 @@ impl<T: Float + Send + Sync + 'static> DistributedDataLoader<T> {
     
     /// Get batch iterator
     /// バッチイテレータを取得
-    pub fn iter(&self) -> DistributedDataIterator<T> {
+    pub fn iter(&self) -> DistributedDataIterator<'_, T> {
         DistributedDataIterator::new(
             &self.data,
             &self.labels,

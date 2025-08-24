@@ -12,7 +12,7 @@ pub mod event_writer;
 pub mod summary;
 
 use self::event_writer::EventWriter;
-use self::summary::{Summary, SummaryValue};
+use self::summary::Summary;
 
 /// TensorBoard writer for logging training metrics
 /// 訓練メトリクスログ用TensorBoardライター
@@ -350,7 +350,7 @@ mod tests {
     #[test]
     fn test_summary_writer_creation() {
         let dir = tempdir().unwrap();
-        let writer = SummaryWriter::new(dir.path()).unwrap();
+        let _writer = SummaryWriter::new(dir.path()).unwrap();
         
         // Check that event file was created
         let entries: Vec<_> = fs::read_dir(dir.path())

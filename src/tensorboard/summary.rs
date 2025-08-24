@@ -257,7 +257,7 @@ fn create_pr_curve(labels: &[bool], predictions: &[f32]) -> PrCurveData {
     let mut true_positives = 0;
     let mut false_positives = 0;
     
-    for (i, &(_, (&label, &pred))) in sorted_pairs.iter().enumerate() {
+    for (_i, &(_, (&label, &pred))) in sorted_pairs.iter().enumerate() {
         if label {
             true_positives += 1;
         } else {

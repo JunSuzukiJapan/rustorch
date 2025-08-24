@@ -76,12 +76,12 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.3.21"
+rustorch = "0.3.23"
 
 # Optional features
 [features]
 default = ["linalg"]
-linalg = ["rustorch/linalg"]
+linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, LU, eigenvalue)
 cuda = ["rustorch/cuda"]
 metal = ["rustorch/metal"] 
 opencl = ["rustorch/opencl"]
@@ -89,6 +89,9 @@ safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
 all-gpu = ["cuda", "metal", "opencl"]
 all-formats = ["safetensors", "onnx"]
+
+# To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
+rustorch = { version = "0.3.21", default-features = false }
 ```
 
 ## 📊 Performance / パフォーマンス
@@ -226,6 +229,14 @@ fn main() {
 ```
 
 ## 🧮 Matrix Decomposition / 行列分解
+
+**⚠️ Important Note / 重要な注意**:  
+Matrix decomposition features require the `linalg` feature (enabled by default). On some systems, this may require OpenBLAS/LAPACK libraries to be installed. To avoid these dependencies, use:  
+行列分解機能は `linalg` フィーチャーが必要です（デフォルト有効）。一部のシステムでは、OpenBLAS/LAPACKライブラリのインストールが必要な場合があります。これらの依存関係を避けるには：
+
+```toml
+rustorch = { version = "0.3.21", default-features = false }
+```
 
 ### SVD, QR, LU Decomposition and Eigenvalue Decomposition / SVD、QR、LU分解と固有値分解
 

@@ -1,10 +1,8 @@
 //! PyTorch to RusTorch automatic conversion demonstration
 //! PyTorchからRusTorch自動変換のデモンストレーション
 
-use rustorch::prelude::*;
 use rustorch::formats::pytorch::{PyTorchModel, StateDict, TensorData};
 use rustorch::convert::{ModelParser, SimplePyTorchConverter};
-use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 PyTorch → RusTorch Automatic Conversion Demo");
@@ -188,7 +186,7 @@ fn inference_demo(pytorch_model: &PyTorchModel) -> Result<(), Box<dyn std::error
         if let Some(layer) = converted_model.get_layer(layer_name) {
             if let Some(weight_tensor) = layer.tensors.get("weight") {
                 let sample_size = weight_tensor.data.len().min(5);
-                let sample_data = &weight_tensor.data[..sample_size];
+                let sample_data: Vec<f32> = weight_tensor.data.iter().take(sample_size).cloned().collect();
                 println!("   {}.weight (first {} values): {:?}", layer_name, sample_size, sample_data);
             }
         }

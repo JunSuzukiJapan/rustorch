@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             
             // Compute IFFT to verify round-trip
             match tensor.ifft(&real_part, &imag_part, None, None, None) {
-                Ok((recovered, _imag_recovered)) => {
+                Ok((recovered, _)) => {
                     let recovered_data = recovered.data.as_slice().unwrap();
                     println!("Recovered signal: {:?}", recovered_data);
                     
@@ -59,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Real signal: {:?}", real_signal);
     
     match real_tensor.rfft(None, None, None) {
-        Ok((real_part, imag_part)) => {
+        Ok((real_part, _)) => {
             println!("RFFT computed successfully!");
             println!("RFFT result shape: {:?} (should be N/2+1 = 5)", real_part.shape());
             
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         9.0, 8.0, 7.0, 6.0,
         5.0, 4.0, 3.0, 2.0,
     ];
-    let image = Tensor::from_vec(image_data.clone(), vec![4, 4]);
+    Tensor::from_vec(image_data.clone(), vec![4, 4]);
     
     println!("Original 4x4 image:");
     for i in 0..4 {
@@ -170,7 +170,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let iterations = if size <= 32 { 1000 } else { 100 };
         
         for _ in 0..iterations {
-            if let Ok((real_part, _imag_part)) = perf_tensor.fft(None, None, None) {
+            if let Ok((real_part, _)) = perf_tensor.fft(None, None, None) {
                 // Force computation by accessing data
                 let _ = real_part.shape();
             }

@@ -5,6 +5,34 @@ All notable changes to RusTorch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.23] - 2025-01-24
+
+### Added - 新機能
+- **🔧 Conditional Compilation Support**: Complete feature-gated compilation system
+  - **Linear Algebra Features**: Optional `linalg` feature for matrix decomposition operations
+  - **Required Features**: Examples requiring external libraries now use `required-features` in Cargo.toml
+  - **Flexible Dependencies**: Users can avoid OpenBLAS/LAPACK dependencies with `default-features = false`
+
+### Fixed - 修正
+- **🚨 Warning Elimination**: All compiler warnings removed for cleaner codebase
+  - **Unused Variables**: Removed unused variables instead of underscore prefixing
+  - **Unused Functions**: Cleaned up dead code in examples and library
+  - **Unused Imports**: Removed unnecessary import statements
+  - **Code Quality**: Improved code maintainability and readability
+
+### Improved - 改善
+- **✅ Build System**: Robust conditional compilation for different use cases
+  - **No Default Features**: 647 tests pass without external library dependencies  
+  - **Flexible Testing**: Matrix decomposition tests only run when `linalg` feature is enabled
+  - **Documentation**: Clear instructions for avoiding external dependencies in README
+- **📚 Documentation**: Enhanced feature configuration examples and troubleshooting
+
+### Technical Details - 技術詳細
+- **Conditional Tests**: All SVD, QR, LU, eigenvalue tests now use `#[cfg(feature = "linalg")]`
+- **Example Configuration**: Matrix decomposition examples require explicit `--features linalg`
+- **Benchmark Configuration**: Linear algebra benchmarks properly feature-gated
+- **Zero Warnings**: Clean compilation across all feature combinations
+
 ## [0.3.21] - 2025-01-25
 
 ### Fixed - 修正

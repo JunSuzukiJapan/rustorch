@@ -6,7 +6,7 @@ use rustorch::profiler::{
     clear_profiler, export_chrome_trace, ProfileContext
 };
 use rustorch::tensor::Tensor;
-use rustorch::nn::{Module, Linear};
+use rustorch::nn::Linear;
 use rustorch::autograd::Variable;
 use std::thread;
 use std::time::Duration;
@@ -21,11 +21,12 @@ fn main() {
     // Enable profiler
     enable_profiler();
     
-    // Run different profiling scenarios
+    // Run different profiling scenarios (simplified)
     profile_basic_operations();
     profile_neural_network();
-    profile_nested_operations();
-    profile_parallel_operations();
+    // Skip time-intensive demos
+    // profile_nested_operations();
+    // profile_parallel_operations();
     
     // Disable profiler
     disable_profiler();
@@ -52,8 +53,8 @@ fn profile_basic_operations() {
     
     {
         let _ctx = ProfileContext::new("tensor_creation");
-        let tensor1 = Tensor::<f32>::randn(&[1000, 1000]);
-        let tensor2 = Tensor::<f32>::randn(&[1000, 1000]);
+        let tensor1 = Tensor::<f32>::randn(&[100, 100]);
+        let tensor2 = Tensor::<f32>::randn(&[100, 100]);
         
         {
             let _ctx = ProfileContext::new("tensor_addition");
@@ -95,17 +96,17 @@ fn profile_neural_network() {
             let _ctx = ProfileContext::new("layer1_forward");
             let hidden1 = layer1.forward(&input);
             // Simulate additional processing
-            thread::sleep(Duration::from_millis(5));
+            thread::sleep(Duration::from_millis(1));
             
             {
                 let _ctx = ProfileContext::new("layer2_forward");
                 let hidden2 = layer2.forward(&hidden1);
-                thread::sleep(Duration::from_millis(3));
+                // Removed sleep for faster execution
                 
                 {
                     let _ctx = ProfileContext::new("layer3_forward");
-                    let _output = layer3.forward(&hidden2);
-                    thread::sleep(Duration::from_millis(2));
+                    layer3.forward(&hidden2);
+                    // Removed sleep for faster execution
                 }
             }
         }
@@ -114,76 +115,3 @@ fn profile_neural_network() {
     println!("✓ Neural network operations profiled\n");
 }
 
-/// Profile nested operations
-fn profile_nested_operations() {
-    println!("3️⃣ Profiling Nested Operations");
-    println!("-------------------------------");
-    
-    let _ctx = ProfileContext::new("nested_operations");
-    
-    {
-        let _ctx = ProfileContext::new("outer_operation");
-        
-        for i in 0..3 {
-            let _ctx = ProfileContext::new(&format!("iteration_{}", i));
-            
-            {
-                let _ctx = ProfileContext::new("inner_computation");
-                let tensor = Tensor::<f32>::randn(&[100, 100]);
-                let _result = tensor.sum();
-            }
-            
-            thread::sleep(Duration::from_millis(2));
-        }
-    }
-    
-    println!("✓ Nested operations profiled\n");
-}
-
-/// Profile parallel operations
-fn profile_parallel_operations() {
-    println!("4️⃣ Profiling Parallel Operations");
-    println!("---------------------------------");
-    
-    let _ctx = ProfileContext::new("parallel_operations");
-    
-    // Use the profile! macro
-    rustorch::profile!("macro_profiled_operation", {
-        let tensors: Vec<_> = (0..4).map(|i| {
-            let _ctx = ProfileContext::new(&format!("parallel_tensor_{}", i));
-            Tensor::<f32>::randn(&[500, 500])
-        }).collect();
-        
-        // Parallel reduction
-        let _ctx = ProfileContext::new("parallel_reduction");
-        let _sum: f32 = tensors.iter()
-            .map(|t| t.sum())
-            .sum();
-    });
-    
-    println!("✓ Parallel operations profiled\n");
-}
-
-/// Demonstrate memory profiling
-fn profile_memory_operations() {
-    println!("5️⃣ Profiling Memory Operations");
-    println!("-------------------------------");
-    
-    let _ctx = ProfileContext::new("memory_operations");
-    
-    // Large allocation
-    {
-        let _ctx = ProfileContext::new("large_allocation");
-        let _large_tensor = Tensor::<f32>::zeros(&[10000, 10000]);
-    }
-    
-    // Many small allocations
-    {
-        let _ctx = ProfileContext::new("small_allocations");
-        let _small_tensors: Vec<_> = (0..1000)
-            .map(|_| Tensor::<f32>::zeros(&[10, 10]))
-            .collect();
-    }
-    
-    println!("✓ Memory operations profiled\n");
-}
