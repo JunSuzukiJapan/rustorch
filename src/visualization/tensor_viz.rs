@@ -1,9 +1,10 @@
 //! テンソル可視化機能
 //! Tensor visualization functionality
 
-use super::{PlotData, VisualizationResult, VisualizationError, Visualizable};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::autograd::Variable;
+use crate::visualization::{PlotData, Visualizable, PlotConfig, PlotStyle};
 use num_traits::Float;
 use std::collections::HashMap;
 
@@ -100,14 +101,14 @@ impl TensorVisualizer {
     
     /// 2Dテンソルをヒートマップとして可視化
     /// Visualize 2D tensor as heatmap
-    pub fn plot_heatmap<T>(&self, tensor: &Tensor<T>) -> VisualizationResult<String>
+    pub fn plot_heatmap<T>(&self, tensor: &Tensor<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug + 'static,
     {
         let shape = tensor.shape();
         
         if shape.len() != 2 {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 format!("Expected 2D tensor, got {}D tensor", shape.len())
             ).into());
         }
@@ -115,7 +116,7 @@ impl TensorVisualizer {
         let height = shape[0];
         let width = shape[1];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
+            RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
         
         let mut svg = self.generate_heatmap_header(width, height);
@@ -146,21 +147,21 @@ impl TensorVisualizer {
     
     /// 1Dテンソルを棒グラフとして可視化
     /// Visualize 1D tensor as bar chart
-    pub fn plot_bar_chart<T>(&self, tensor: &Tensor<T>) -> VisualizationResult<String>
+    pub fn plot_bar_chart<T>(&self, tensor: &Tensor<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug + 'static,
     {
         let shape = tensor.shape();
         
         if shape.len() != 1 {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 format!("Expected 1D tensor, got {}D tensor", shape.len())
             ).into());
         }
         
         let length = shape[0];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
+            RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
         
         let mut svg = self.generate_bar_chart_header(length);
@@ -179,14 +180,14 @@ impl TensorVisualizer {
     
     /// 3Dテンソルを複数のヒートマップとして可視化
     /// Visualize 3D tensor as multiple heatmaps
-    pub fn plot_3d_slices<T>(&self, tensor: &Tensor<T>) -> VisualizationResult<String>
+    pub fn plot_3d_slices<T>(&self, tensor: &Tensor<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug + 'static,
     {
         let shape = tensor.shape();
         
         if shape.len() != 3 {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 format!("Expected 3D tensor, got {}D tensor", shape.len())
             ).into());
         }
@@ -195,7 +196,7 @@ impl TensorVisualizer {
         let height = shape[1];
         let width = shape[2];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
+            RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
         
         let mut svg = self.generate_3d_slices_header(depth, width, height);
@@ -223,12 +224,12 @@ impl TensorVisualizer {
     
     /// テンソルの統計情報を可視化
     /// Visualize tensor statistics
-    pub fn plot_statistics<T>(&self, tensor: &Tensor<T>) -> VisualizationResult<String>
+    pub fn plot_statistics<T>(&self, tensor: &Tensor<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug + 'static,
     {
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
+            RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
         let stats = self.compute_statistics(&data)?;
         
@@ -243,13 +244,13 @@ impl TensorVisualizer {
     
     /// 変数の可視化（勾配情報付き）
     /// Visualize variable with gradient information
-    pub fn plot_variable<T>(&self, variable: &Variable<T>) -> VisualizationResult<String>
+    pub fn plot_variable<T>(&self, variable: &Variable<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
         let tensor = variable.data();
         let tensor_guard = tensor.read().map_err(|e| {
-            VisualizationError::PlottingError(format!("Failed to read tensor data: {}", e))
+            RusTorchError::PlottingError(format!("Failed to read tensor data: {}", e))
         })?;
         
         let mut svg = self.plot_heatmap(&tensor_guard)?;
@@ -328,7 +329,7 @@ impl TensorVisualizer {
 "#.to_string()
     }
     
-    fn normalize_data<T>(&self, data: &[T]) -> VisualizationResult<Vec<f32>>
+    fn normalize_data<T>(&self, data: &[T]) -> RusTorchResult<Vec<f32>>
     where
         T: Float + std::fmt::Display,
     {
@@ -350,7 +351,7 @@ impl TensorVisualizer {
         }
     }
     
-    fn render_heatmap_cells<T>(&self, data: &[T], width: usize, _height: usize) -> VisualizationResult<String>
+    fn render_heatmap_cells<T>(&self, data: &[T], width: usize, _height: usize) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display,
     {
@@ -381,7 +382,7 @@ impl TensorVisualizer {
         Ok(cells)
     }
     
-    fn render_bar_chart<T>(&self, data: &[T], length: usize) -> VisualizationResult<String>
+    fn render_bar_chart<T>(&self, data: &[T], length: usize) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display,
     {
@@ -434,7 +435,7 @@ impl TensorVisualizer {
         Ok(bars)
     }
     
-    fn render_slice_heatmap<T>(&self, data: &[T], slice_idx: usize, width: usize, height: usize) -> VisualizationResult<String>
+    fn render_slice_heatmap<T>(&self, data: &[T], slice_idx: usize, width: usize, height: usize) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display,
     {
@@ -471,7 +472,7 @@ impl TensorVisualizer {
         Ok(slice_svg)
     }
     
-    fn render_colorbar(&self) -> VisualizationResult<String> {
+    fn render_colorbar(&self) -> RusTorchResult<String> {
         let mut colorbar = String::new();
         
         // カラーバーの実装（簡略化）
@@ -505,14 +506,14 @@ impl TensorVisualizer {
         Ok(colorbar)
     }
     
-    fn render_title(&self, title: &str, width: usize) -> VisualizationResult<String> {
+    fn render_title(&self, title: &str, width: usize) -> RusTorchResult<String> {
         Ok(format!(
             r#"<text x="{}" y="30" class="title">{}</text>"#,
             width * 10 + 50, title
         ))
     }
     
-    fn render_gradient_info<T>(&self, _variable: &Variable<T>) -> VisualizationResult<String>
+    fn render_gradient_info<T>(&self, _variable: &Variable<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -520,7 +521,7 @@ impl TensorVisualizer {
         Ok(r#"<text x="10" y="15" style="font-size: 10px; fill: #666;">Gradient: Available</text>"#.to_string())
     }
     
-    fn render_statistics_chart(&self, stats: &HashMap<String, f32>) -> VisualizationResult<String> {
+    fn render_statistics_chart(&self, stats: &HashMap<String, f32>) -> RusTorchResult<String> {
         let mut chart = String::new();
         let mut y_offset = 50;
         
@@ -611,7 +612,7 @@ impl TensorVisualizer {
         }
     }
     
-    fn extract_slice<T>(&self, data: &[T], slice_idx: usize, height: usize, width: usize) -> VisualizationResult<Vec<T>>
+    fn extract_slice<T>(&self, data: &[T], slice_idx: usize, height: usize, width: usize) -> RusTorchResult<Vec<T>>
     where
         T: Float + Copy,
     {
@@ -619,7 +620,7 @@ impl TensorVisualizer {
         let end_idx = start_idx + height * width;
         
         if end_idx > data.len() {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 "Slice index out of bounds".to_string()
             ).into());
         }
@@ -627,7 +628,7 @@ impl TensorVisualizer {
         Ok(data[start_idx..end_idx].to_vec())
     }
     
-    fn compute_statistics<T>(&self, data: &[T]) -> VisualizationResult<HashMap<String, f32>>
+    fn compute_statistics<T>(&self, data: &[T]) -> RusTorchResult<HashMap<String, f32>>
     where
         T: Float + std::fmt::Display,
     {
@@ -665,10 +666,10 @@ impl Default for TensorVisualizer {
 }
 
 impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> for Tensor<T> {
-    fn to_plot_data(&self) -> VisualizationResult<PlotData<T>> {
+    fn to_plot_data(&self) -> RusTorchResult<PlotData<T>> {
         let shape = self.shape();
         if shape.len() != 1 {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 "Can only convert 1D tensor to plot data".to_string()
             ).into());
         }
@@ -678,16 +679,16 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
             .collect();
         
         let data = self.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
+            RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
         
         Ok(PlotData::new(indices, data.to_vec(), "Tensor Values".to_string()))
     }
     
-    fn validate_config(&self, _config: &super::plotting::PlotConfig) -> VisualizationResult<()> {
+    fn validate_config(&self, _config: &super::plotting::PlotConfig) -> RusTorchResult<()> {
         let shape = self.shape();
         if shape.is_empty() || shape.iter().any(|&dim| dim == 0) {
-            return Err(VisualizationError::ConfigError(
+            return Err(RusTorchError::ConfigError(
                 "Cannot visualize empty tensor".to_string()
             ).into());
         }

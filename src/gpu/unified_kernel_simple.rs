@@ -1,8 +1,9 @@
 //! Simplified unified kernel interface for cross-platform GPU acceleration
 //! クロスプラットフォームGPU加速のための簡潔な統一カーネルインターフェース
 
-use super::{DeviceType, GpuError, GpuResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
+use crate::gpu::DeviceType;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -71,10 +72,10 @@ pub struct UnifiedKernelExecutor {
 }
 
 impl UnifiedKernelExecutor {
-    pub fn new(device: DeviceType) -> GpuResult<Self> {
+    pub fn new(device: DeviceType) -> RusTorchResult<Self> {
         // Validate device availability
         if !device.is_available() {
-            return Err(GpuError::DeviceNotAvailable(format!("Device {} not available", device)).into());
+            return Err(RusTorchError::DeviceNotAvailable(format!("Device {} not available", device)).into());
         }
 
         Ok(Self {
@@ -85,39 +86,39 @@ impl UnifiedKernelExecutor {
 
     /// Execute kernel operation on f32 tensors
     /// f32テンソルでカーネル操作を実行
-    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], _params: &KernelParams) -> GpuResult<Tensor<f32>> {
+    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], _params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
         let start_time = std::time::Instant::now();
         
         let result = match op {
             KernelOp::Add => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Add requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Add requires exactly 2 inputs"));
                 }
                 inputs[0].add(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Mul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Mul requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Mul requires exactly 2 inputs"));
                 }
                 inputs[0].mul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Sub => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Sub requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Sub requires exactly 2 inputs"));
                 }
                 inputs[0].sub(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("MatMul requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("MatMul requires exactly 2 inputs"));
                 }
                 inputs[0].matmul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
         };
 
         // Update metrics
@@ -153,39 +154,39 @@ impl UnifiedKernelExecutor {
 
     /// Execute kernel operation on f64 tensors
     /// f64テンソルでカーネル操作を実行
-    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], _params: &KernelParams) -> GpuResult<Tensor<f64>> {
+    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], _params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
         let start_time = std::time::Instant::now();
         
         let result = match op {
             KernelOp::Add => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Add requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Add requires exactly 2 inputs"));
                 }
                 inputs[0].add(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Mul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Mul requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Mul requires exactly 2 inputs"));
                 }
                 inputs[0].mul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Sub => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Sub requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("Sub requires exactly 2 inputs"));
                 }
                 inputs[0].sub(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("MatMul requires exactly 2 inputs".to_string()).into());
+                    return Err(RusTorchError::InvalidOperation("MatMul requires exactly 2 inputs"));
                 }
                 inputs[0].matmul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
         };
 
         // Update metrics
@@ -277,21 +278,21 @@ impl KernelSelector {
 
     /// Execute operation with best executor
     /// 最適な実行者で操作を実行
-    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> GpuResult<Tensor<f32>> {
+    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
         if let Some(executor) = self.select_best(op) {
             executor.execute_f32(op, inputs, params)
         } else {
-            Err(GpuError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
+            Err(RusTorchError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
         }
     }
 
     /// Execute operation with best executor
     /// 最適な実行者で操作を実行
-    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> GpuResult<Tensor<f64>> {
+    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
         if let Some(executor) = self.select_best(op) {
             executor.execute_f64(op, inputs, params)
         } else {
-            Err(GpuError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
+            Err(RusTorchError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
         }
     }
 

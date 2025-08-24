@@ -45,8 +45,19 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install pkg-config
+          brew install openblas
+          
+      - name: Install MPI (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenmpi-dev openmpi-bin
+
       - name: Run tests
-        if: matrix.os != 'macos-latest' || matrix.rust == 'nightly'
         run: |
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             # macOSではmetal機能を有効にしてテスト

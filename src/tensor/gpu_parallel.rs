@@ -125,9 +125,10 @@
 //! - `opengl`: Enable OpenGL support
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use super::parallel_traits::{ParallelOp, ParallelConfig, BatchParallelOp, MatrixParallelOp, ReductionParallelOp};
-use crate::gpu::{GpuError, DeviceType, get_device_manager};
+use crate::gpu::{DeviceType, get_device_manager};
 // GPU parallel operations implementation
 use num_traits::Float;
 
@@ -319,7 +320,7 @@ impl GpuParallelContext {
     
     /// デバイスを設定
     /// Set device
-    pub fn set_device(&mut self, device: DeviceType) -> Result<(), GpuError> {
+    pub fn set_device(&mut self, device: DeviceType) -> RusTorchResult<()> {
         crate::gpu::set_device(device)?;
         self.current_device = device;
         Ok(())
@@ -344,11 +345,7 @@ where
     {
         // 形状チェック
         if self.shape() != other.shape() {
-            return Err(ParallelError::ShapeMismatch {
-                expected: self.shape().to_vec(),
-                actual: other.shape().to_vec(),
-                operation: "gpu_elementwise_op".to_string(),
-            }.into());
+            return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
         let ctx = GpuParallelContext::default();
@@ -438,9 +435,7 @@ where
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    Err(ParallelError::DeviceError {
-                        message: "CUDA support not compiled".to_string(),
-                    }.into())
+                    Err(RusTorchError::gpu("CUDA support not compiled"))
                 }
             }
             DeviceType::Metal(_) => {
@@ -452,9 +447,7 @@ where
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    Err(ParallelError::DeviceError {
-                        message: "Metal support not compiled".to_string(),
-                    }.into())
+                    Err(RusTorchError::gpu("Metal support not compiled"))
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -466,9 +459,7 @@ where
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    Err(ParallelError::DeviceError {
-                        message: "OpenCL support not compiled".to_string(),
-                    }.into())
+                    Err(RusTorchError::gpu("OpenCL support not compiled"))
                 }
             }
         }

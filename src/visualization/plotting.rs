@@ -1,8 +1,9 @@
 //! 学習曲線プロット機能
 //! Training curve plotting functionality
 
-use super::{PlotData, PlotMetadata, VisualizationResult, VisualizationError, Visualizable};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::models::high_level::TrainingHistory;
+use crate::visualization::{PlotData, PlotMetadata, Visualizable};
 use num_traits::Float;
 use std::path::Path;
 
@@ -120,7 +121,7 @@ impl TrainingPlotter {
     
     /// 学習曲線をプロット
     /// Plot training curves
-    pub fn plot_training_curves<T>(&self, history: &TrainingHistory<T>) -> VisualizationResult<String>
+    pub fn plot_training_curves<T>(&self, history: &TrainingHistory<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug,
     {
@@ -154,7 +155,7 @@ impl TrainingPlotter {
     
     /// 損失比較プロット
     /// Plot loss comparison
-    pub fn plot_loss_comparison<T>(&self, histories: Vec<(&str, &TrainingHistory<T>)>) -> VisualizationResult<String>
+    pub fn plot_loss_comparison<T>(&self, histories: Vec<(&str, &TrainingHistory<T>)>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug,
     {
@@ -182,7 +183,7 @@ impl TrainingPlotter {
     
     /// メトリクス時系列プロット
     /// Plot metrics over time
-    pub fn plot_metrics_timeline<T>(&self, history: &TrainingHistory<T>, metric_name: &str) -> VisualizationResult<String>
+    pub fn plot_metrics_timeline<T>(&self, history: &TrainingHistory<T>, metric_name: &str) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug,
     {
@@ -206,7 +207,7 @@ impl TrainingPlotter {
     
     /// ファイルに保存
     /// Save to file
-    pub fn save_plot<P: AsRef<Path>>(&self, content: &str, path: P) -> VisualizationResult<()> {
+    pub fn save_plot<P: AsRef<Path>>(&self, content: &str, path: P) -> RusTorchResult<()> {
         std::fs::write(path, content)?;
         Ok(())
     }
@@ -235,7 +236,7 @@ impl TrainingPlotter {
         )
     }
     
-    fn prepare_loss_data<T>(&self, loss_data: &[T], label: &str, color: &str) -> VisualizationResult<PlotData<f32>>
+    fn prepare_loss_data<T>(&self, loss_data: &[T], label: &str, color: &str) -> RusTorchResult<PlotData<f32>>
     where
         T: Float + std::fmt::Display,
     {
@@ -249,9 +250,9 @@ impl TrainingPlotter {
             .with_style(PlotStyle::Line))
     }
     
-    fn render_line_plot(&self, data: &PlotData<f32>) -> VisualizationResult<String> {
+    fn render_line_plot(&self, data: &PlotData<f32>) -> RusTorchResult<String> {
         if data.x_data.len() != data.y_data.len() || data.x_data.is_empty() {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 "X and Y data must have the same non-zero length".to_string()
             ).into());
         }
@@ -292,7 +293,7 @@ impl TrainingPlotter {
         ))
     }
     
-    fn render_metrics_plots<T>(&self, _history: &TrainingHistory<T>) -> VisualizationResult<String>
+    fn render_metrics_plots<T>(&self, _history: &TrainingHistory<T>) -> RusTorchResult<String>
     where
         T: Float + std::fmt::Display + std::fmt::Debug,
     {
@@ -300,20 +301,20 @@ impl TrainingPlotter {
         Ok(String::new())
     }
     
-    fn extract_metric_values<T>(&self, history: &TrainingHistory<T>, metric_name: &str) -> VisualizationResult<Vec<f32>>
+    fn extract_metric_values<T>(&self, history: &TrainingHistory<T>, metric_name: &str) -> RusTorchResult<Vec<f32>>
     where
         T: Float + std::fmt::Display,
     {
         if let Some(metric_values) = history.metrics.get(metric_name) {
             let values: Vec<f32> = metric_values.iter().map(|&v| v as f32).collect();
             if values.is_empty() {
-                return Err(VisualizationError::InvalidDataFormat(
+                return Err(RusTorchError::InvalidDataFormat(
                     format!("Metric '{}' has no values", metric_name)
                 ).into());
             }
             Ok(values)
         } else {
-            Err(VisualizationError::InvalidDataFormat(
+            Err(RusTorchError::InvalidDataFormat(
                 format!("Metric '{}' not found in training history", metric_name)
             ).into())
         }
@@ -327,9 +328,9 @@ impl Default for TrainingPlotter {
 }
 
 impl<T: Float + std::fmt::Display + std::fmt::Debug> Visualizable<T> for TrainingHistory<T> {
-    fn to_plot_data(&self) -> VisualizationResult<PlotData<T>> {
+    fn to_plot_data(&self) -> RusTorchResult<PlotData<T>> {
         if self.train_loss.is_empty() {
-            return Err(VisualizationError::InvalidDataFormat(
+            return Err(RusTorchError::InvalidDataFormat(
                 "Training history contains no data".to_string()
             ).into());
         }
@@ -341,9 +342,9 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug> Visualizable<T> for Trainin
         Ok(PlotData::new(epochs, self.train_loss.clone(), "Training Loss".to_string()))
     }
     
-    fn validate_config(&self, _config: &PlotConfig) -> VisualizationResult<()> {
+    fn validate_config(&self, _config: &PlotConfig) -> RusTorchResult<()> {
         if self.train_loss.is_empty() {
-            return Err(VisualizationError::ConfigError(
+            return Err(RusTorchError::ConfigError(
                 "Cannot plot empty training history".to_string()
             ).into());
         }

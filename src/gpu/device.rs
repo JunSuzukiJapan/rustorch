@@ -1,7 +1,8 @@
 /// GPU device management and capabilities
 /// GPUデバイス管理と機能
 
-use super::{DeviceType, GpuError};
+use super::DeviceType;
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -215,7 +216,7 @@ pub struct CudaDevice {
 
 #[cfg(feature = "cuda")]
 impl CudaDevice {
-    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+    pub fn new(device_id: usize) -> RusTorchResult<Self> {
         // Mock CUDA device for now
         Ok(Self {
             device_id,
@@ -301,7 +302,7 @@ pub struct MetalDevice {
 
 #[cfg(feature = "metal")]
 impl MetalDevice {
-    pub fn new() -> Result<Self, GpuError> {
+    pub fn new() -> RusTorchResult<Self> {
         Ok(Self {
             name: "Apple M-Series GPU".to_string(),
             total_memory: 16 * 1024 * 1024 * 1024, // 16GB unified memory
@@ -386,7 +387,7 @@ pub struct OpenCLDevice {
 
 #[cfg(feature = "opencl")]
 impl OpenCLDevice {
-    pub fn new(platform_id: usize, device_id: usize) -> Result<Self, GpuError> {
+    pub fn new(platform_id: usize, device_id: usize) -> RusTorchResult<Self> {
         Ok(Self {
             platform_id,
             device_id,
@@ -548,12 +549,12 @@ impl DeviceInfo {
 
     /// Create device info for CUDA device
     /// CUDAデバイス用デバイス情報を作成
-    pub fn cuda(_device_id: usize) -> Result<Self, GpuError> {
+    pub fn cuda(_device_id: usize) -> RusTorchResult<Self> {
         #[cfg(feature = "cuda")]
         {
             // CUDA device query would go here
             let capabilities = DeviceCapabilities {
-                name: format!("CUDA Device {}", device_id),
+                name: format!("CUDA Device {}", _device_id),
                 total_memory: 8 * 1024 * 1024 * 1024, // 8GB placeholder
                 available_memory: 7 * 1024 * 1024 * 1024, // 7GB placeholder
                 compute_major: 7,
@@ -569,24 +570,24 @@ impl DeviceInfo {
             };
 
             Ok(DeviceInfo {
-                device_type: DeviceType::Cuda(device_id),
+                device_type: DeviceType::Cuda(_device_id),
                 capabilities,
                 is_available: true,
             })
         }
         #[cfg(not(feature = "cuda"))]
         {
-            Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()))
+            Err(RusTorchError::gpu("CUDA not supported"))
         }
     }
 
     /// Create device info for Metal device
     /// Metalデバイス用デバイス情報を作成
-    pub fn metal(_device_id: usize) -> Result<Self, GpuError> {
+    pub fn metal(_device_id: usize) -> RusTorchResult<Self> {
         #[cfg(feature = "metal")]
         {
             let capabilities = DeviceCapabilities {
-                name: format!("Metal Device {}", device_id),
+                name: format!("Metal Device {}", _device_id),
                 total_memory: 16 * 1024 * 1024 * 1024, // 16GB placeholder for Apple Silicon
                 available_memory: 14 * 1024 * 1024 * 1024,
                 compute_major: 3,
@@ -602,14 +603,14 @@ impl DeviceInfo {
             };
 
             Ok(DeviceInfo {
-                device_type: DeviceType::Metal(device_id),
+                device_type: DeviceType::Metal(_device_id),
                 capabilities,
                 is_available: true,
             })
         }
         #[cfg(not(feature = "metal"))]
         {
-            Err(GpuError::UnsupportedDevice("Metal not supported".to_string()))
+            Err(RusTorchError::gpu("Metal not supported"))
         }
     }
 

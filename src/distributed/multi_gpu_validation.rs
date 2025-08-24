@@ -20,8 +20,17 @@ use std::time::{Duration, Instant};
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use crate::gpu::DeviceType;
-use super::{DistributedError, DistributedResult, ProcessGroup};
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::{Float, FromPrimitive};
+
+/// Process group for distributed operations
+/// 分散操作用プロセスグループ
+#[derive(Debug, Clone)]
+pub struct ProcessGroup {
+    pub rank: usize,
+    pub world_size: usize,
+    pub backend: String,
+}
 
 /// GPU device information
 /// GPUデバイス情報
@@ -143,7 +152,7 @@ where
 {
     /// Create a new multi-GPU validator
     /// 新しいマルチGPUバリデータを作成
-    pub fn new() -> DistributedResult<Self> {
+    pub fn new() -> RusTorchResult<Self> {
         let devices = Self::discover_devices()?;
         
         Ok(Self {
@@ -157,7 +166,7 @@ where
     
     /// Discover available GPU devices
     /// 利用可能なGPUデバイスを検出
-    fn discover_devices() -> DistributedResult<Vec<GpuDeviceInfo>> {
+    fn discover_devices() -> RusTorchResult<Vec<GpuDeviceInfo>> {
         let mut devices = Vec::new();
         
         // Check for CUDA devices
@@ -207,7 +216,7 @@ where
     /// Get CUDA device count
     /// CUDAデバイス数を取得
     #[cfg(feature = "cuda")]
-    fn get_cuda_device_count() -> Result<usize, DistributedError> {
+    fn get_cuda_device_count() -> Result<usize, RusTorchError> {
         // Simplified implementation
         Ok(0)
     }
@@ -215,7 +224,7 @@ where
     /// Get CUDA device information
     /// CUDAデバイス情報を取得
     #[cfg(feature = "cuda")]
-    fn get_cuda_device_info(device_id: usize) -> Result<GpuDeviceInfo, DistributedError> {
+    fn get_cuda_device_info(device_id: usize) -> Result<GpuDeviceInfo, RusTorchError> {
         Ok(GpuDeviceInfo {
             device_id,
             name: format!("CUDA Device {}", device_id),
@@ -230,7 +239,7 @@ where
     /// Get Metal device information
     /// Metalデバイス情報を取得
     #[cfg(target_os = "macos")]
-    fn get_metal_device_info() -> Result<GpuDeviceInfo, DistributedError> {
+    fn get_metal_device_info() -> Result<GpuDeviceInfo, RusTorchError> {
         Ok(GpuDeviceInfo {
             device_id: 0,
             name: "Apple Metal GPU".to_string(),
@@ -245,17 +254,17 @@ where
     /// Get OpenCL devices
     /// OpenCLデバイスを取得
     #[cfg(feature = "opencl")]
-    fn get_opencl_devices() -> Result<Vec<GpuDeviceInfo>, DistributedError> {
+    fn get_opencl_devices() -> Result<Vec<GpuDeviceInfo>, RusTorchError> {
         // Simplified implementation
         Ok(Vec::new())
     }
     
     /// Initialize multi-GPU environment
     /// マルチGPU環境を初期化
-    pub fn initialize(&mut self, process_group: ProcessGroup) -> DistributedResult<()> {
+    pub fn initialize(&mut self, process_group: ProcessGroup) -> RusTorchResult<()> {
         // Validate that we have enough devices
         if self.devices.len() < 2 {
-            return Err(DistributedError::ConfigurationError(
+            return Err(RusTorchError::ConfigurationError(
                 "Multi-GPU validation requires at least 2 devices".to_string()
             ).into());
         }
@@ -271,7 +280,7 @@ where
         model: &M,
         validation_data: Vec<(Tensor<T>, Tensor<T>)>,
         batch_size: usize,
-    ) -> DistributedResult<ValidationMetrics>
+    ) -> RusTorchResult<ValidationMetrics>
     where
         M: Module<T> + Send + Sync,
     {
@@ -341,7 +350,7 @@ where
         _model: &M,
         data: &[(Tensor<T>, Tensor<T>)],
         batch_size: usize,
-    ) -> DistributedResult<(f64, f64)>
+    ) -> RusTorchResult<(f64, f64)>
     where
         M: Module<T>,
     {
@@ -381,7 +390,7 @@ where
         &self,
         device_losses: &HashMap<usize, f64>,
         device_accuracies: &HashMap<usize, f64>,
-    ) -> DistributedResult<(f64, f64)> {
+    ) -> RusTorchResult<(f64, f64)> {
         // Calculate averages (in real implementation, would use all-reduce)
         let total_loss: f64 = device_losses.values().sum::<f64>() / device_losses.len() as f64;
         let total_accuracy: f64 = device_accuracies.values().sum::<f64>() / device_accuracies.len() as f64;
@@ -396,7 +405,7 @@ where
         model: &M,
         sample_data: Tensor<T>,
         iterations: usize,
-    ) -> DistributedResult<BenchmarkResults>
+    ) -> RusTorchResult<BenchmarkResults>
     where
         M: Module<T> + Send + Sync,
     {
@@ -439,7 +448,7 @@ where
         _model: &M,
         sample_data: &Tensor<T>,
         iterations: usize,
-    ) -> DistributedResult<f64>
+    ) -> RusTorchResult<f64>
     where
         M: Module<T>,
     {
@@ -463,7 +472,7 @@ where
         _model: &M,
         sample_data: &Tensor<T>,
         iterations: usize,
-    ) -> DistributedResult<f64>
+    ) -> RusTorchResult<f64>
     where
         M: Module<T>,
     {
@@ -485,7 +494,7 @@ where
     
     /// Measure communication overhead
     /// 通信オーバーヘッドを測定
-    fn measure_communication_overhead(&self, data: &Tensor<T>) -> DistributedResult<f64> {
+    fn measure_communication_overhead(&self, data: &Tensor<T>) -> RusTorchResult<f64> {
         let iterations = 100;
         let data_size = data.shape().iter().product::<usize>() * std::mem::size_of::<T>();
         
@@ -511,7 +520,7 @@ where
     
     /// Get memory usage for all devices
     /// 全デバイスのメモリ使用量を取得
-    fn get_memory_usage(&self) -> DistributedResult<HashMap<usize, MemoryUsage>> {
+    fn get_memory_usage(&self) -> RusTorchResult<HashMap<usize, MemoryUsage>> {
         let mut usage_map = HashMap::new();
         
         for device in &self.devices {
@@ -533,7 +542,7 @@ where
         &self,
         _model: &M,
         sample_data: &Tensor<T>,
-    ) -> DistributedResult<usize>
+    ) -> RusTorchResult<usize>
     where
         M: Module<T>,
     {
@@ -556,7 +565,7 @@ where
     
     /// Test a specific batch size
     /// 特定のバッチサイズをテスト
-    fn test_batch_size(&self, batch_size: usize, data: &Tensor<T>) -> DistributedResult<f64> {
+    fn test_batch_size(&self, batch_size: usize, data: &Tensor<T>) -> RusTorchResult<f64> {
         let start = Instant::now();
         let iterations = 10;
         

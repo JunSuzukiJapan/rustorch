@@ -13,7 +13,7 @@ use crate::autograd::Variable;
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use crate::gpu::DeviceType;
-use super::{DistributedError, DistributedResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 /// Model parallel wrapper for splitting models across devices
@@ -153,7 +153,7 @@ where
     
     /// Execute forward pass with model parallelism
     /// モデル並列でフォワードパスを実行
-    pub fn forward_parallel(&self, input: &Variable<T>) -> DistributedResult<Variable<T>> {
+    pub fn forward_parallel(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         if let Some(ref pipeline_config) = self.pipeline_config {
             self.forward_pipeline(input, pipeline_config)
         } else {
@@ -163,7 +163,7 @@ where
     
     /// Sequential forward pass through partitions
     /// パーティションを通じた順次フォワードパス
-    fn forward_sequential(&self, input: &Variable<T>) -> DistributedResult<Variable<T>> {
+    fn forward_sequential(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let mut current_input = input.clone();
         
         for (i, partition) in self.partitions.iter().enumerate() {
@@ -189,7 +189,7 @@ where
     
     /// Pipeline parallel forward pass
     /// パイプライン並列フォワードパス
-    fn forward_pipeline(&self, input: &Variable<T>, config: &PipelineConfig) -> DistributedResult<Variable<T>> {
+    fn forward_pipeline(&self, input: &Variable<T>, config: &PipelineConfig) -> RusTorchResult<Variable<T>> {
         let batch_size = input.data().read().unwrap().shape()[0];
         let micro_batch_size = batch_size / config.num_micro_batches;
         
@@ -223,7 +223,7 @@ where
     
     /// 1F1B (One Forward One Backward) pipeline schedule
     /// 1F1B（ワンフォワードワンバックワード）パイプラインスケジュール
-    fn forward_1f1b(&self, input: &Variable<T>) -> DistributedResult<Variable<T>> {
+    fn forward_1f1b(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         // Simplified 1F1B implementation
         // 簡略化1F1B実装
         self.forward_sequential(input)
@@ -231,7 +231,7 @@ where
     
     /// Create micro-batch from input
     /// 入力からマイクロバッチを作成
-    fn create_micro_batch(&self, input: &Variable<T>, start_idx: usize, end_idx: usize) -> DistributedResult<Variable<T>> {
+    fn create_micro_batch(&self, input: &Variable<T>, start_idx: usize, end_idx: usize) -> RusTorchResult<Variable<T>> {
         // Simplified micro-batch creation
         // 簡略化マイクロバッチ作成
         let mut shape = input.data().read().unwrap().shape().to_vec();
@@ -243,9 +243,9 @@ where
     
     /// Concatenate micro-batch outputs
     /// マイクロバッチ出力を連結
-    fn concatenate_outputs(&self, outputs: Vec<Variable<T>>) -> DistributedResult<Variable<T>> {
+    fn concatenate_outputs(&self, outputs: Vec<Variable<T>>) -> RusTorchResult<Variable<T>> {
         if outputs.is_empty() {
-            return Err(DistributedError::ProcessGroupError("No outputs to concatenate".to_string()).into());
+            return Err(RusTorchError::ProcessGroupError("No outputs to concatenate"));
         }
         
         // Calculate total batch size
@@ -262,7 +262,7 @@ where
     
     /// Move variable to specified device
     /// 変数を指定されたデバイスに移動
-    fn move_to_device(&self, var: &Variable<T>, _device: DeviceType) -> DistributedResult<Variable<T>> {
+    fn move_to_device(&self, var: &Variable<T>, _device: DeviceType) -> RusTorchResult<Variable<T>> {
         // Simplified device movement - in real implementation, this would
         // actually transfer data between devices
         // 簡略化デバイス移動 - 実際の実装では、これは
@@ -277,7 +277,7 @@ where
         source: usize,
         dest: usize,
         data: Variable<T>,
-    ) -> DistributedResult<Variable<T>> {
+    ) -> RusTorchResult<Variable<T>> {
         // Find communication operation
         // 通信操作を検索
         for comm_op in &self.communication_schedule {
@@ -297,7 +297,7 @@ where
         &self,
         comm_op: &CommunicationOp,
         data: Variable<T>,
-    ) -> DistributedResult<Variable<T>> {
+    ) -> RusTorchResult<Variable<T>> {
         match comm_op.op_type {
             CommunicationType::P2P => {
                 // Point-to-point communication
@@ -340,7 +340,7 @@ where
     
     /// Balance load across partitions
     /// パーティション間で負荷を均衡化
-    pub fn balance_load(&mut self) -> DistributedResult<()> {
+    pub fn balance_load(&mut self) -> RusTorchResult<()> {
         // Load balancing implementation
         // 負荷均衡化実装
         Ok(())
@@ -430,10 +430,10 @@ where
     
     /// Split tensor along parallel dimension
     /// 並列次元に沿ってテンソルを分割
-    pub fn split_tensor(&self, tensor: &Tensor<T>) -> DistributedResult<Tensor<T>> {
+    pub fn split_tensor(&self, tensor: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let shape = tensor.shape();
         if self.parallel_dim >= shape.len() {
-            return Err(DistributedError::ProcessGroupError(
+            return Err(RusTorchError::ProcessGroupError(
                 "Parallel dimension exceeds tensor dimensions".to_string()
             ).into());
         }
@@ -455,7 +455,7 @@ where
     
     /// Gather tensors from all partitions
     /// 全パーティションからテンソルを収集
-    pub fn gather_tensors(&self, tensor: &Tensor<T>) -> DistributedResult<Tensor<T>> {
+    pub fn gather_tensors(&self, tensor: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Simplified gather implementation
         // 簡略化gather実装
         let mut gathered_shape = tensor.shape().to_vec();
@@ -466,7 +466,7 @@ where
     
     /// All-reduce tensor across partitions
     /// パーティション間でテンソルをall-reduce
-    pub fn all_reduce_tensor(&self, _tensor: &mut Tensor<T>) -> DistributedResult<()> {
+    pub fn all_reduce_tensor(&self, _tensor: &mut Tensor<T>) -> RusTorchResult<()> {
         // Simplified all-reduce implementation
         // 簡略化all-reduce実装
         Ok(())
@@ -517,7 +517,7 @@ where
     
     /// Route tokens to appropriate experts
     /// トークンを適切なエキスパートにルーティング
-    pub fn route_tokens(&self, input: &Variable<T>, _routing_weights: &Tensor<T>) -> DistributedResult<Variable<T>> {
+    pub fn route_tokens(&self, input: &Variable<T>, _routing_weights: &Tensor<T>) -> RusTorchResult<Variable<T>> {
         // Simplified expert routing implementation
         // 簡略化エキスパートルーティング実装
         if self.experts.is_empty() {

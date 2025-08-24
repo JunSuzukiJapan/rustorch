@@ -8,7 +8,7 @@
 
 use super::unified_kernel::{KernelOp, KernelParams, KernelMetrics};
 use super::kernel_selector::{PerformanceDatabase, WorkloadProfile};
-use super::{DeviceType, GpuError, GpuResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -218,7 +218,7 @@ impl KernelParameterOptimizer {
         inputs: &[&Tensor<T>],
         base_params: &KernelParams,
         config: &OptimizationConfig,
-    ) -> GpuResult<OptimizationResult> {
+    ) -> RusTorchResult<OptimizationResult> {
         let workload = WorkloadProfile::analyze(inputs, op);
         let cache_key = (device, op, inputs.iter().map(|t| t.shape().to_vec()).collect::<Vec<_>>().concat());
 
@@ -251,7 +251,7 @@ impl KernelParameterOptimizer {
         workload: &WorkloadProfile,
         base_params: &KernelParams,
         config: &OptimizationConfig,
-    ) -> GpuResult<OptimizationResult> {
+    ) -> RusTorchResult<OptimizationResult> {
         let mut best_params = base_params.clone();
         let mut best_metrics = KernelMetrics::default();
         let mut best_score = f64::INFINITY;
@@ -424,7 +424,7 @@ impl KernelParameterOptimizer {
         op: KernelOp,
         workload: &WorkloadProfile,
         params: &KernelParams,
-    ) -> GpuResult<KernelMetrics> {
+    ) -> RusTorchResult<KernelMetrics> {
         // Check historical performance data first
         if let Ok(db) = self.performance_db.read() {
             if let Some(historical_metrics) = db.get_performance(device, op, workload.total_elements) {
@@ -525,7 +525,7 @@ impl KernelParameterOptimizer {
 
     /// Clear optimization cache
     /// 最適化キャッシュをクリア
-    pub fn clear_cache(&self) -> GpuResult<()> {
+    pub fn clear_cache(&self) -> RusTorchResult<()> {
         if let Ok(mut cache) = self.optimization_cache.write() {
             cache.clear();
         }

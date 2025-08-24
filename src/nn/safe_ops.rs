@@ -3,7 +3,8 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::nn::conv_base::{NNError, NNResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type NNResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use std::fmt::Debug;
 
@@ -25,7 +26,7 @@ impl SafeOps {
         // Validate shape consistency
         let expected_size: usize = shape.iter().product();
         if data.len() != expected_size {
-            return Err(NNError::InvalidDimensions(format!(
+            return Err(RusTorchError::InvalidDimensions(format!(
                 "Data length {} does not match shape {:?} (expected {})",
                 data.len(),
                 shape,
@@ -35,7 +36,7 @@ impl SafeOps {
         
         // Check for empty dimensions
         if shape.iter().any(|&dim| dim == 0) {
-            return Err(NNError::InvalidDimensions(
+            return Err(RusTorchError::InvalidDimensions(
                 "Shape dimensions must be positive".to_string()
             ).into());
         }
@@ -55,13 +56,13 @@ impl SafeOps {
     {
         let binding = variable.data();
         let data_guard = binding.read()
-            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+            .map_err(|_| RusTorchError::MemoryError("Failed to acquire data lock".to_string()))?;
         
         let current_size = data_guard.shape().iter().product::<usize>();
         let new_size: usize = new_shape.iter().product();
         
         if current_size != new_size {
-            return Err(NNError::InvalidDimensions(format!(
+            return Err(RusTorchError::InvalidDimensions(format!(
                 "Cannot reshape tensor of size {} to size {}",
                 current_size,
                 new_size
@@ -87,7 +88,7 @@ impl SafeOps {
     {
         let binding = variable.data();
         let data_guard = binding.read()
-            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+            .map_err(|_| RusTorchError::MemoryError("Failed to acquire data lock".to_string()))?;
         
         let new_data: Vec<T> = data_guard.as_array()
             .iter()
@@ -106,12 +107,12 @@ impl SafeOps {
     {
         let binding = variable.data();
         let data_guard = binding.read()
-            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+            .map_err(|_| RusTorchError::MemoryError("Failed to acquire data lock".to_string()))?;
         
         let data = data_guard.as_array();
         
         if data.is_empty() {
-            return Err(NNError::InvalidDimensions("Empty tensor".to_string()).into());
+            return Err(RusTorchError::InvalidDimensions("Empty tensor"));
         }
         
         let first = *data.iter().next().unwrap();
@@ -146,16 +147,16 @@ impl SafeOps {
     {
         let binding = variable.data();
         let data_guard = binding.read()
-            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+            .map_err(|_| RusTorchError::MemoryError("Failed to acquire data lock".to_string()))?;
         
         for (i, &value) in data_guard.as_array().iter().enumerate() {
             if value.is_nan() {
-                return Err(NNError::ComputationError(format!(
+                return Err(RusTorchError::ComputationError(format!(
                     "NaN detected at index {}", i
                 )).into());
             }
             if value.is_infinite() {
-                return Err(NNError::ComputationError(format!(
+                return Err(RusTorchError::ComputationError(format!(
                     "Infinity detected at index {}", i
                 )).into());
             }
@@ -172,7 +173,7 @@ impl SafeOps {
     {
         let binding = variable.data();
         let data_guard = binding.read()
-            .map_err(|_| NNError::MemoryError("Failed to acquire data lock".to_string()))?;
+            .map_err(|_| RusTorchError::MemoryError("Failed to acquire data lock".to_string()))?;
         
         let new_data: Vec<T> = data_guard.as_array()
             .iter()

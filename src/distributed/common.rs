@@ -2,7 +2,7 @@
 //! 分散操作用共通ユーティリティ
 
 use crate::tensor::Tensor;
-use super::{DistributedResult, DistributedError};
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 /// Common distributed operation implementations
@@ -15,7 +15,7 @@ impl CommonOps {
     pub fn default_all_gather<T: Float + Send + Sync + 'static>(
         tensor: &Tensor<T>,
         world_size: usize,
-    ) -> DistributedResult<Vec<Tensor<T>>> {
+    ) -> RusTorchResult<Vec<Tensor<T>>> {
         // Simplified implementation - in production, this would use actual communication
         // 簡略化実装 - プロダクションでは実際の通信を使用
         Ok(vec![tensor.clone(); world_size])
@@ -27,7 +27,7 @@ impl CommonOps {
         tensor: &Tensor<T>,
         world_size: usize,
         _root: usize,
-    ) -> DistributedResult<Vec<Tensor<T>>> {
+    ) -> RusTorchResult<Vec<Tensor<T>>> {
         // Simplified implementation
         // 簡略化実装
         Ok(vec![tensor.clone(); world_size])
@@ -38,7 +38,7 @@ impl CommonOps {
     pub fn default_broadcast<T: Float + Send + Sync + 'static>(
         _tensor: &mut Tensor<T>,
         _root: usize,
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         // Simplified implementation
         // 簡略化実装
         Ok(())
@@ -49,7 +49,7 @@ impl CommonOps {
     pub fn default_all_reduce<T: Float + Send + Sync + 'static>(
         _tensor: &mut Tensor<T>,
         _op: super::ReduceOp,
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         // Simplified implementation
         // 簡略化実装
         Ok(())
@@ -57,17 +57,17 @@ impl CommonOps {
 
     /// Validate tensor for distributed operations
     /// 分散操作用のテンソル検証
-    pub fn validate_tensor<T: Float + 'static>(tensor: &Tensor<T>) -> DistributedResult<()> {
+    pub fn validate_tensor<T: Float + 'static>(tensor: &Tensor<T>) -> RusTorchResult<()> {
         let shape = tensor.shape();
         if shape.is_empty() {
-            return Err(DistributedError::CommunicationError(
+            return Err(RusTorchError::CommunicationError(
                 "Empty tensor shape".to_string()
             ).into());
         }
         
         // Check for zero-sized dimensions
         if shape.iter().any(|&dim| dim == 0) {
-            return Err(DistributedError::TensorShapeMismatch {
+            return Err(RusTorchError::TensorShapeMismatch {
                 expected: vec![1], // Minimum expected shape
                 actual: shape.to_vec(),
             }.into());
@@ -77,7 +77,7 @@ impl CommonOps {
         let total_elements: usize = shape.iter().product();
         const MAX_ELEMENTS: usize = 1_000_000_000; // 1B elements max
         if total_elements > MAX_ELEMENTS {
-            return Err(DistributedError::CommunicationError(
+            return Err(RusTorchError::CommunicationError(
                 format!("Tensor too large: {} elements exceeds maximum {}", 
                        total_elements, MAX_ELEMENTS)
             ).into());
@@ -88,9 +88,9 @@ impl CommonOps {
     
     /// Validate rank for distributed operations
     /// 分散操作用のランク検証
-    pub fn validate_rank(rank: usize, world_size: usize) -> DistributedResult<()> {
+    pub fn validate_rank(rank: usize, world_size: usize) -> RusTorchResult<()> {
         if rank >= world_size {
-            return Err(DistributedError::InvalidRank { rank, world_size }.into());
+            return Err(RusTorchError::InvalidRank { rank, world_size }.into());
         }
         Ok(())
     }
@@ -100,11 +100,11 @@ impl CommonOps {
     pub fn validate_tensor_shapes<T: Float + 'static>(
         tensors: &[Tensor<T>], 
         expected_shape: &[usize]
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         for (_i, tensor) in tensors.iter().enumerate() {
             let actual_shape = tensor.shape();
             if actual_shape != expected_shape {
-                return Err(DistributedError::TensorShapeMismatch {
+                return Err(RusTorchError::TensorShapeMismatch {
                     expected: expected_shape.to_vec(),
                     actual: actual_shape.to_vec(),
                 }.into());
@@ -115,8 +115,8 @@ impl CommonOps {
 
     /// Create error for unsupported operations
     /// サポートされていない操作のエラー作成
-    pub fn unsupported_operation_error(operation: &str, backend: &str) -> DistributedError {
-        DistributedError::BackendNotAvailable(
+    pub fn unsupported_operation_error(operation: &str, backend: &str) -> RusTorchError {
+        RusTorchError::BackendNotAvailable(
             format!("Operation '{}' not supported by backend '{}'", operation, backend)
         )
     }
@@ -169,7 +169,7 @@ pub trait BackendOptimizations<T: Float> {
     
     /// Optimize tensor for communication
     /// 通信用テンソル最適化
-    fn optimize_for_communication(&self, tensor: &mut Tensor<T>) -> DistributedResult<()> {
+    fn optimize_for_communication(&self, tensor: &mut Tensor<T>) -> RusTorchResult<()> {
         // Default implementation does nothing
         // デフォルト実装は何もしない
         let _ = tensor;
@@ -210,7 +210,7 @@ mod tests {
     fn test_unsupported_operation_error() {
         let error = CommonOps::unsupported_operation_error("test_op", "test_backend");
         match error {
-            DistributedError::BackendNotAvailable(msg) => {
+            RusTorchError::BackendNotAvailable(msg) => {
                 assert!(msg.contains("test_op"));
                 assert!(msg.contains("test_backend"));
             }

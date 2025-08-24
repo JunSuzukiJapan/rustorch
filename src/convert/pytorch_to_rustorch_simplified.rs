@@ -3,10 +3,21 @@
 
 use crate::formats::pytorch::{PyTorchModel, StateDict};
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 // use num_traits::Float; // Unused import
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+
+/// Layer description for model conversion
+/// モデル変換用レイヤー記述
+#[derive(Debug, Clone)]
+pub struct LayerDescription {
+    pub name: String,
+    pub layer_type: String,
+    pub input_shape: Vec<usize>,
+    pub output_shape: Vec<usize>,
+}
 
 /// Simplified conversion error
 /// 簡略化変換エラー
@@ -41,7 +52,7 @@ impl Error for SimpleConversionError {}
 /// Simplified layer information
 /// 簡略化レイヤー情報
 #[derive(Debug, Clone)]
-pub struct SimpleLayerInfo {
+pub struct SimpleLayerDescription {
     /// Layer name
     /// レイヤー名
     pub name: String,
@@ -65,7 +76,7 @@ pub struct SimpleLayerInfo {
 pub struct SimplifiedPyTorchModel {
     /// Model layers
     /// モデルレイヤー
-    pub layers: HashMap<String, SimpleLayerInfo>,
+    pub layers: HashMap<String, SimpleLayerDescription>,
     /// Execution order
     /// 実行順序
     pub execution_order: Vec<String>,
@@ -146,7 +157,7 @@ impl SimplePyTorchConverter {
     fn convert_layer(
         layer_name: &str,
         params: &HashMap<String, &crate::formats::pytorch::TensorData>
-    ) -> Result<SimpleLayerInfo, SimpleConversionError> {
+    ) -> Result<SimpleLayerDescription, SimpleConversionError> {
         // Infer layer type from parameters
         let layer_type = Self::infer_layer_type(layer_name, params);
         
@@ -164,7 +175,7 @@ impl SimplePyTorchConverter {
             num_parameters += param_count;
         }
         
-        Ok(SimpleLayerInfo {
+        Ok(SimpleLayerDescription {
             name: layer_name.to_string(),
             layer_type,
             parameter_shapes,
@@ -242,7 +253,7 @@ impl SimplifiedPyTorchModel {
     
     /// Get layer by name
     /// 名前でレイヤーを取得
-    pub fn get_layer(&self, name: &str) -> Option<&SimpleLayerInfo> {
+    pub fn get_layer(&self, name: &str) -> Option<&SimpleLayerDescription> {
         self.layers.get(name)
     }
     
@@ -271,7 +282,7 @@ impl SimplifiedPyTorchModel {
     /// 単一レイヤーの順伝播をシミュレーション
     fn simulate_layer_forward(
         &self,
-        layer: &SimpleLayerInfo,
+        layer: &SimpleLayerDescription,
         input_shape: Vec<usize>
     ) -> Result<Vec<usize>, SimpleConversionError> {
         match layer.layer_type.as_str() {

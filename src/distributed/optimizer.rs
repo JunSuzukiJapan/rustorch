@@ -8,8 +8,19 @@ use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use crate::tensor::Tensor;
 use crate::optim::{Optimizer, SGD, Adam};
-use super::{DistributedError, DistributedResult, DistributedOps, ReduceOp};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::distributed::DistributedOps;
 use num_traits::Float;
+
+/// Reduction operation types
+/// リダクション操作タイプ
+#[derive(Debug, Clone, Copy)]
+pub enum ReduceOp {
+    Sum,
+    Average,
+    Max,
+    Min,
+}
 
 /// Distributed optimizer wrapper
 /// 分散オプティマイザーラッパー
@@ -113,7 +124,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         weight_decay: T,
         backend: Arc<dyn DistributedOps<T> + Send + Sync>,
         sync_strategy: GradientSyncStrategy,
-    ) -> DistributedResult<Self> {
+    ) -> RusTorchResult<Self> {
         let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
         let momentum_f32 = momentum.to_f32().unwrap_or(0.9);
         let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
@@ -135,7 +146,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         weight_decay: T,
         backend: Arc<dyn DistributedOps<T> + Send + Sync>,
         sync_strategy: GradientSyncStrategy,
-    ) -> DistributedResult<Self> {
+    ) -> RusTorchResult<Self> {
         let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
         let beta1_f32 = beta1.to_f32().unwrap_or(0.9);
         let beta2_f32 = beta2.to_f32().unwrap_or(0.999);
@@ -151,7 +162,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Initialize gradient buckets for efficient communication
     /// 効率的な通信のための勾配バケットを初期化
-    pub fn init_gradient_buckets(&mut self, max_bucket_size: usize) -> DistributedResult<()> {
+    pub fn init_gradient_buckets(&mut self, max_bucket_size: usize) -> RusTorchResult<()> {
         self.gradient_buckets.clear();
         
         // Create initial bucket
@@ -170,7 +181,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Add tensor to gradient bucket
     /// 勾配バケットにテンソルを追加
-    pub fn add_to_bucket(&mut self, tensor: Arc<Mutex<Tensor<T>>>) -> DistributedResult<()> {
+    pub fn add_to_bucket(&mut self, tensor: Arc<Mutex<Tensor<T>>>) -> RusTorchResult<()> {
         let tensor_size = {
             let t = tensor.lock().unwrap();
             t.shape().iter().product::<usize>()
@@ -195,7 +206,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Find suitable bucket or create new one
     /// 適切なバケットを見つけるか新しいものを作成
-    fn find_or_create_bucket(&mut self, tensor_size: usize) -> DistributedResult<usize> {
+    fn find_or_create_bucket(&mut self, tensor_size: usize) -> RusTorchResult<usize> {
         // Try to find existing bucket with space
         // 空きのある既存バケットを探す
         for (idx, bucket) in self.gradient_buckets.iter().enumerate() {
@@ -220,7 +231,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Synchronize gradients across all processes
     /// 全プロセス間で勾配を同期
-    pub fn sync_gradients(&mut self) -> DistributedResult<()> {
+    pub fn sync_gradients(&mut self) -> RusTorchResult<()> {
         match self.sync_strategy {
             GradientSyncStrategy::Synchronous => {
                 self.sync_gradients_synchronous()
@@ -242,7 +253,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Synchronous gradient synchronization
     /// 同期勾配同期
-    fn sync_gradients_synchronous(&mut self) -> DistributedResult<()> {
+    fn sync_gradients_synchronous(&mut self) -> RusTorchResult<()> {
         // Process all ready buckets
         // 準備完了の全バケットを処理
         let backend = self.backend.clone();
@@ -266,7 +277,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Asynchronous gradient synchronization
     /// 非同期勾配同期
-    fn sync_gradients_asynchronous(&mut self) -> DistributedResult<()> {
+    fn sync_gradients_asynchronous(&mut self) -> RusTorchResult<()> {
         // Start async communication for ready buckets
         // 準備完了バケットの非同期通信を開始
         let backend = self.backend.clone();
@@ -283,7 +294,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Local SGD with periodic synchronization
     /// 定期同期を伴うローカルSGD
-    fn sync_gradients_local_sgd(&mut self, sync_frequency: usize) -> DistributedResult<()> {
+    fn sync_gradients_local_sgd(&mut self, sync_frequency: usize) -> RusTorchResult<()> {
         self.step_count += 1;
 
         if self.step_count % sync_frequency == 0 {
@@ -319,7 +330,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Compressed gradient synchronization
     /// 圧縮勾配同期
-    fn sync_gradients_compressed(&mut self, compression_ratio: f32) -> DistributedResult<()> {
+    fn sync_gradients_compressed(&mut self, compression_ratio: f32) -> RusTorchResult<()> {
         let backend = self.backend.clone();
         for bucket in &mut self.gradient_buckets {
             if bucket.ready {
@@ -334,7 +345,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
 
     /// Hierarchical gradient synchronization
     /// 階層勾配同期
-    fn sync_gradients_hierarchical(&mut self) -> DistributedResult<()> {
+    fn sync_gradients_hierarchical(&mut self) -> RusTorchResult<()> {
         // Implement hierarchical all-reduce
         // 階層all-reduceを実装
         // This would involve multiple stages of communication
@@ -347,7 +358,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     fn sync_bucket_with_backend(
         backend: &Arc<dyn DistributedOps<T> + Send + Sync>,
         bucket: &mut GradientBucket<T>
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         for tensor_ref in &bucket.tensors {
             let mut tensor = tensor_ref.lock().unwrap();
             backend.all_reduce(&mut tensor, ReduceOp::Average)?;
@@ -361,7 +372,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         backend: &Arc<dyn DistributedOps<T> + Send + Sync>,
         bucket: &mut GradientBucket<T>, 
         _compression_ratio: f32
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         // Implement gradient compression (e.g., top-k, quantization)
         // 勾配圧縮を実装（例：top-k、量子化）
         for tensor_ref in &bucket.tensors {
@@ -534,9 +545,9 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
 
     /// Build the distributed optimizer
     /// 分散オプティマイザーを構築
-    pub fn build(self) -> DistributedResult<DistributedOptimizer<T>> {
+    pub fn build(self) -> RusTorchResult<DistributedOptimizer<T>> {
         let backend = self.backend.ok_or_else(|| {
-            DistributedError::ConfigurationError("Backend not specified".to_string())
+            RusTorchError::ConfigurationError("Backend not specified".to_string())
         })?;
 
         let base_optimizer: Box<dyn Optimizer + Send + Sync> = match self.optimizer_type {

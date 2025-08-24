@@ -138,6 +138,7 @@ pub mod unified_kernel_simple;
 pub mod integration_tests;
 
 use std::fmt;
+use crate::error::{RusTorchError, RusTorchResult};
 
 /// GPU device types
 /// GPU デバイスタイプ
@@ -234,7 +235,7 @@ pub struct GpuContext {
 impl GpuContext {
     /// Create a new GPU context
     /// 新しいGPUコンテキストを作成
-    pub fn new(device: DeviceType) -> Result<Self, GpuError> {
+    pub fn new(device: DeviceType) -> crate::error::RusTorchResult<Self> {
         match device {
             DeviceType::Cpu => Ok(GpuContext {
                 device,
@@ -253,7 +254,7 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    Err(GpuError::UnsupportedDevice("CUDA support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu("CUDA support not compiled"))
                 }
             }
             DeviceType::Metal(_) => {
@@ -268,7 +269,7 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    Err(GpuError::UnsupportedDevice("Metal support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu("Metal support not compiled"))
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -283,7 +284,7 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    Err(GpuError::UnsupportedDevice("OpenCL support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu("OpenCL support not compiled"))
                 }
             }
         }
@@ -316,86 +317,11 @@ impl GpuContext {
 
 /// GPU error types
 /// GPUエラータイプ
-#[derive(Debug, Clone)]
-pub enum GpuError {
-    /// GPU device not found
-    /// GPUデバイスが見つからない
-    DeviceNotFound(usize),
-    /// GPU device not available
-    /// GPUデバイスが利用できない
-    DeviceNotAvailable(String),
-    /// Unsupported GPU device
-    /// サポートされていないGPUデバイス
-    UnsupportedDevice(String),
-    /// GPU memory allocation failed
-    /// GPUメモリ割り当て失敗
-    MemoryAllocationFailed(usize),
-    /// GPU memory allocation error
-    /// GPUメモリ割り当てエラー
-    MemoryAllocationError(String),
-    /// GPU kernel compilation failed
-    /// GPUカーネルコンパイル失敗
-    KernelCompilationFailed(String),
-    /// GPU kernel execution failed
-    /// GPUカーネル実行失敗
-    KernelExecutionFailed(String),
-    /// GPU kernel execution error
-    /// GPUカーネル実行エラー
-    KernelExecutionError(String),
-    /// Invalid GPU device
-    /// 無効なGPUデバイス
-    InvalidDevice(String),
-    /// GPU out of memory
-    /// GPUメモリ不足
-    OutOfMemory,
-    /// GPU context creation failed
-    /// GPUコンテキスト作成失敗
-    ContextCreationFailed(String),
-    /// GPU driver error
-    /// GPUドライバーエラー
-    DriverError(String),
-    /// Unsupported GPU operation
-    /// サポートされていないGPU操作
-    UnsupportedOperation(String),
-    /// GPU kernel error
-    /// GPUカーネルエラー
-    KernelError(String),
-    /// Data transfer error
-    /// データ転送エラー
-    DataTransferError(String),
-    /// Invalid operation
-    /// 無効な操作
-    InvalidOperation(String),
-}
+// GpuError enum removed - now using unified RusTorchError system
+// GpuErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-impl fmt::Display for GpuError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            GpuError::DeviceNotFound(id) => write!(f, "GPU device {} not found", id),
-            GpuError::DeviceNotAvailable(msg) => write!(f, "Device not available: {}", msg),
-            GpuError::UnsupportedDevice(msg) => write!(f, "Unsupported device: {}", msg),
-            GpuError::MemoryAllocationFailed(size) => write!(f, "GPU memory allocation failed: {} bytes", size),
-            GpuError::MemoryAllocationError(msg) => write!(f, "Memory allocation error: {}", msg),
-            GpuError::KernelCompilationFailed(msg) => write!(f, "GPU kernel compilation failed: {}", msg),
-            GpuError::KernelExecutionFailed(msg) => write!(f, "GPU kernel execution failed: {}", msg),
-            GpuError::KernelExecutionError(msg) => write!(f, "Kernel execution error: {}", msg),
-            GpuError::InvalidDevice(device) => write!(f, "Invalid GPU device: {}", device),
-            GpuError::OutOfMemory => write!(f, "GPU out of memory"),
-            GpuError::ContextCreationFailed(msg) => write!(f, "GPU context creation failed: {}", msg),
-            GpuError::DriverError(msg) => write!(f, "GPU driver error: {}", msg),
-            GpuError::UnsupportedOperation(msg) => write!(f, "Unsupported GPU operation: {}", msg),
-            GpuError::KernelError(msg) => write!(f, "GPU kernel error: {}", msg),
-            GpuError::DataTransferError(msg) => write!(f, "Data transfer error: {}", msg),
-            GpuError::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for GpuError {}
-
-/// Result type for GPU operations (now unified)
-/// GPU演算の結果型（統一済み）
-pub type GpuResult<T> = crate::error::RusTorchResult<T>;
+/// Result type for GPU operations (now unified) - using global RusTorchResult
+/// GPU演算の結果型（統一済み）- グローバルRusTorchResultを使用
 
 // Re-export simplified unified kernel system components
 // 簡潔な統一カーネルシステムコンポーネントを再エクスポート
@@ -450,12 +376,12 @@ impl DeviceManager {
 
     /// Set current device
     /// 現在のデバイスを設定
-    pub fn set_device(&mut self, device: DeviceType) -> Result<(), GpuError> {
+    pub fn set_device(&mut self, device: DeviceType) -> crate::error::RusTorchResult<()> {
         if let Some(index) = self.contexts.iter().position(|ctx| ctx.device() == device) {
             self.current_device = index;
             Ok(())
         } else {
-            Err(GpuError::DeviceNotAvailable(format!("Device {} not found", device)))
+            Err(crate::error::RusTorchError::device_not_available(device))
         }
     }
 
@@ -531,7 +457,7 @@ pub fn get_device_manager() -> &'static mut DeviceManager {
 
 /// Set the current device globally
 /// グローバルに現在のデバイスを設定
-pub fn set_device(device: DeviceType) -> Result<(), GpuError> {
+pub fn set_device(device: DeviceType) -> crate::error::RusTorchResult<()> {
     get_device_manager().set_device(device)
 }
 

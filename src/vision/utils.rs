@@ -2,7 +2,8 @@
 //! ビジョンユーティリティとヘルパー関数
 
 use crate::tensor::Tensor;
-use crate::vision::{Image, ImageFormat, VisionError, VisionResult};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::vision::{Image, ImageFormat};
 use num_traits::Float;
 
 /// Make a grid of images for visualization
@@ -15,11 +16,11 @@ pub fn make_grid<T: Float + From<f32> + Copy + 'static>(
     _value_range: Option<(T, T)>,
     _scale_each: bool,
     pad_value: T,
-) -> VisionResult<Image<T>> {
+) -> RusTorchResult<Image<T>> {
     if images.is_empty() {
-        return Err(VisionError::InvalidTransformParams(
-            "Cannot make grid from empty image list".to_string()
-        ).into());
+        return Err(RusTorchError::vision(
+            "Cannot make grid from empty image list"
+        ));
     }
     
     let num_images = images.len();
@@ -55,7 +56,7 @@ pub fn make_grid<T: Float + From<f32> + Copy + 'static>(
 pub fn save_image<T: Float + From<f32> + Copy + 'static>(
     image: &Image<T>,
     path: &str,
-) -> VisionResult<()> {
+) -> RusTorchResult<()> {
     // For now, just print a message - actual implementation would save to file
     // 現在はメッセージを出力するだけ - 実際の実装ではファイルに保存
     println!("Saving image to: {}", path);
@@ -71,7 +72,7 @@ pub fn save_image<T: Float + From<f32> + Copy + 'static>(
 pub fn to_pil_image<T: Float + From<f32> + Copy + 'static>(
     tensor: &Tensor<T>,
     _mode: Option<&str>,
-) -> VisionResult<Image<T>> {
+) -> RusTorchResult<Image<T>> {
     let shape = tensor.shape();
     
     // Determine format based on tensor shape
@@ -85,7 +86,7 @@ pub fn to_pil_image<T: Float + From<f32> + Copy + 'static>(
                 (ImageFormat::HWC, shape[2])
             }
         },
-        _ => return Err(VisionError::InvalidImageShape(
+        _ => return Err(RusTorchError::InvalidImageShape(
             format!("Expected 2D or 3D tensor, got {:?}", shape)
         ).into()),
     };
@@ -108,11 +109,11 @@ pub fn normalize_tensor<T: Float + From<f32> + Copy + 'static>(
     mean: &[T],
     std: &[T],
     _inplace: bool,
-) -> VisionResult<Tensor<T>> {
+) -> RusTorchResult<Tensor<T>> {
     let _shape = tensor.shape();
     
     if mean.len() != std.len() {
-        return Err(VisionError::InvalidTransformParams(
+        return Err(RusTorchError::InvalidTransformParams(
             "Mean and std must have same length".to_string()
         ).into());
     }
@@ -129,11 +130,11 @@ pub fn denormalize_tensor<T: Float + From<f32> + Copy + 'static>(
     mean: &[T],
     std: &[T],
     _inplace: bool,
-) -> VisionResult<Tensor<T>> {
+) -> RusTorchResult<Tensor<T>> {
     let _shape = tensor.shape();
     
     if mean.len() != std.len() {
-        return Err(VisionError::InvalidTransformParams(
+        return Err(RusTorchError::InvalidTransformParams(
             "Mean and std must have same length".to_string()
         ).into());
     }

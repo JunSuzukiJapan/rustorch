@@ -3,25 +3,26 @@
 
 use num_traits::Float;
 use std::fmt::Debug;
+use crate::error::{RusTorchError, RusTorchResult};
 
 /// Safe numeric operations with overflow detection
 /// オーバーフロー検出付きの安全な数値演算
 pub trait SafeNumeric: Float + Debug + Clone {
     /// Safe addition that detects overflow
     /// オーバーフローを検出する安全な加算
-    fn safe_add(&self, other: Self) -> Result<Self, NumericError>;
+    fn safe_add(&self, other: Self) -> RusTorchResult<Self>;
     
     /// Safe multiplication that detects overflow
     /// オーバーフローを検出する安全な乗算
-    fn safe_mul(&self, other: Self) -> Result<Self, NumericError>;
+    fn safe_mul(&self, other: Self) -> RusTorchResult<Self>;
     
     /// Safe division with zero check
     /// ゼロチェック付きの安全な除算
-    fn safe_div(&self, other: Self) -> Result<Self, NumericError>;
+    fn safe_div(&self, other: Self) -> RusTorchResult<Self>;
     
     /// Safe exponential with overflow check
     /// オーバーフローチェック付きの安全な指数関数
-    fn safe_exp(&self) -> Result<Self, NumericError>;
+    fn safe_exp(&self) -> RusTorchResult<Self>;
     
     /// Check if value is finite (not NaN or infinite)
     /// 値が有限か確認（NaNや無限大でない）
@@ -33,71 +34,47 @@ pub trait SafeNumeric: Float + Debug + Clone {
 }
 
 impl SafeNumeric for f32 {
-    fn safe_add(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_add(&self, other: Self) -> RusTorchResult<Self> {
         let result = self + other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "addition".to_string(),
-                left: *self as f64,
-                right: other as f64,
-            })
+            Err(RusTorchError::numeric("Addition overflow"))
         }
     }
     
-    fn safe_mul(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_mul(&self, other: Self) -> RusTorchResult<Self> {
         let result = self * other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "multiplication".to_string(),
-                left: *self as f64,
-                right: other as f64,
-            })
+            Err(RusTorchError::numeric("Multiplication overflow"))
         }
     }
     
-    fn safe_div(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_div(&self, other: Self) -> RusTorchResult<Self> {
         if other.abs() < Self::epsilon() {
-            return Err(NumericError::DivisionByZero { 
-                numerator: *self as f64,
-                denominator: other as f64,
-            });
+            return Err(RusTorchError::numeric("Division by zero"));
         }
         
         let result = self / other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "division".to_string(),
-                left: *self as f64,
-                right: other as f64,
-            })
+            Err(RusTorchError::numeric("Division overflow"))
         }
     }
     
-    fn safe_exp(&self) -> Result<Self, NumericError> {
+    fn safe_exp(&self) -> RusTorchResult<Self> {
         // Check for potential overflow before computing
         if *self > 88.0 {  // exp(88) is close to f32::MAX
-            return Err(NumericError::Overflow {
-                operation: "exponential".to_string(),
-                left: *self as f64,
-                right: 0.0,
-            });
-        }
+            Err(RusTorchError::numeric("Numeric overflow"))        }
         
         let result = self.exp();
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow {
-                operation: "exponential".to_string(),
-                left: *self as f64,
-                right: 0.0,
-            })
+            Err(RusTorchError::numeric("Exponential overflow"))
         }
     }
     
@@ -119,71 +96,48 @@ impl SafeNumeric for f32 {
 }
 
 impl SafeNumeric for f64 {
-    fn safe_add(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_add(&self, other: Self) -> RusTorchResult<Self> {
         let result = self + other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "addition".to_string(),
-                left: *self,
-                right: other,
-            })
+            Err(RusTorchError::numeric("Addition overflow"))
         }
     }
     
-    fn safe_mul(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_mul(&self, other: Self) -> RusTorchResult<Self> {
         let result = self * other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "multiplication".to_string(),
-                left: *self,
-                right: other,
-            })
+            Err(RusTorchError::numeric("Multiplication overflow"))
         }
     }
     
-    fn safe_div(&self, other: Self) -> Result<Self, NumericError> {
+    fn safe_div(&self, other: Self) -> RusTorchResult<Self> {
         if other.abs() < Self::epsilon() {
-            return Err(NumericError::DivisionByZero { 
-                numerator: *self,
-                denominator: other,
-            });
+            return Err(RusTorchError::numeric("Division by zero"));
         }
         
         let result = self / other;
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow { 
-                operation: "division".to_string(),
-                left: *self,
-                right: other,
-            })
+            Err(RusTorchError::numeric("Division overflow"))
         }
     }
     
-    fn safe_exp(&self) -> Result<Self, NumericError> {
+    fn safe_exp(&self) -> RusTorchResult<Self> {
         // Check for potential overflow before computing
         if *self > 709.0 {  // exp(709) is close to f64::MAX
-            return Err(NumericError::Overflow {
-                operation: "exponential".to_string(),
-                left: *self,
-                right: 0.0,
-            });
+            return Err(RusTorchError::numeric("Exponential overflow"));
         }
         
         let result = self.exp();
         if result.is_finite() {
             Ok(result)
         } else {
-            Err(NumericError::Overflow {
-                operation: "exponential".to_string(),
-                left: *self,
-                right: 0.0,
-            })
+            Err(RusTorchError::numeric("Exponential overflow"))
         }
     }
     
@@ -204,82 +158,9 @@ impl SafeNumeric for f64 {
     }
 }
 
-/// Numeric error types
-/// 数値エラータイプ
+/// Safe tensor with numeric overflow protection
+/// 数値オーバーフロー保護付きの安全テンソル
 #[derive(Debug, Clone, PartialEq)]
-pub enum NumericError {
-    /// Arithmetic overflow
-    /// 算術オーバーフロー
-    Overflow {
-        /// Type of arithmetic operation that overflowed
-        /// オーバーフローした算術演算の種類
-        operation: String,
-        /// Left operand value
-        /// 左オペランドの値
-        left: f64,
-        /// Right operand value
-        /// 右オペランドの値
-        right: f64,
-    },
-    
-    /// Division by zero
-    /// ゼロ除算
-    DivisionByZero {
-        /// Numerator in division operation
-        /// 除算の分子
-        numerator: f64,
-        /// Denominator that was zero or too close to zero
-        /// ゼロまたはゼロに近すぎる分母
-        denominator: f64,
-    },
-    
-    /// Invalid input (NaN or infinite)
-    /// 無効な入力（NaNまたは無限大）
-    InvalidInput {
-        /// The invalid input value
-        /// 無効な入力値
-        value: f64,
-        /// Context where the invalid input was encountered
-        /// 無効な入力が発生したコンテキスト
-        context: String,
-    },
-    
-    /// Underflow (result too small to represent)
-    /// アンダーフロー（結果が小さすぎて表現できない）
-    Underflow {
-        /// Type of operation that underflowed
-        /// アンダーフローした演算の種類
-        operation: String,
-        /// Input values that caused underflow
-        /// アンダーフローを引き起こした入力値
-        inputs: Vec<f64>,
-    },
-}
-
-impl std::fmt::Display for NumericError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NumericError::Overflow { operation, left, right } => {
-                write!(f, "Numeric overflow in {}: {} op {}", operation, left, right)
-            }
-            NumericError::DivisionByZero { numerator, denominator } => {
-                write!(f, "Division by zero: {} / {}", numerator, denominator)
-            }
-            NumericError::InvalidInput { value, context } => {
-                write!(f, "Invalid input {} in context: {}", value, context)
-            }
-            NumericError::Underflow { operation, inputs } => {
-                write!(f, "Numeric underflow in {}: inputs {:?}", operation, inputs)
-            }
-        }
-    }
-}
-
-impl std::error::Error for NumericError {}
-
-/// Safe tensor operations wrapper
-/// 安全なテンソル演算ラッパー
-#[derive(Debug)]
 pub struct SafeTensor<T: SafeNumeric> {
     data: Vec<T>,
     shape: Vec<usize>,
@@ -288,34 +169,17 @@ pub struct SafeTensor<T: SafeNumeric> {
 impl<T: SafeNumeric> SafeTensor<T> {
     /// Create new safe tensor with validation
     /// 検証付きで新しい安全テンソルを作成
-    pub fn new(data: Vec<T>, shape: Vec<usize>) -> Result<Self, NumericError> {
-        let expected_len: usize = shape.iter().product();
-        if data.len() != expected_len {
-            return Err(NumericError::InvalidInput {
-                value: data.len() as f64,
-                context: format!("Shape mismatch: expected {}, got {}", expected_len, data.len()),
-            });
+    pub fn new(data: Vec<T>, shape: Vec<usize>) -> RusTorchResult<Self> {
+        if data.len() != shape.iter().product::<usize>() {
+            return Err(RusTorchError::shape_mismatch(&[data.len()], &[shape.iter().product::<usize>()]));
         }
         
-        // Validate all data points
-        for (i, value) in data.iter().enumerate() {
-            if !value.is_safe() {
-                return Err(NumericError::InvalidInput {
-                    value: value.to_f64().unwrap_or(f64::NAN),
-                    context: format!("Invalid value at index {}", i),
-                });
-            }
+        // Validate all values are safe
+        if !data.iter().all(|x| x.is_safe()) {
+            return Err(RusTorchError::numeric("Tensor contains unsafe values (NaN or infinity)"));
         }
         
         Ok(Self { data, shape })
-    }
-    
-    /// Create zeros tensor
-    /// ゼロテンソルを作成
-    pub fn zeros(shape: Vec<usize>) -> Self {
-        let numel = shape.iter().product();
-        let data = vec![T::zero(); numel];
-        Self { data, shape }
     }
     
     /// Get tensor shape
@@ -332,12 +196,9 @@ impl<T: SafeNumeric> SafeTensor<T> {
     
     /// Safe element-wise addition
     /// 安全な要素ごとの加算
-    pub fn safe_add(&self, other: &Self) -> Result<Self, NumericError> {
+    pub fn safe_add(&self, other: &Self) -> RusTorchResult<Self> {
         if self.shape != other.shape {
-            return Err(NumericError::InvalidInput {
-                value: 0.0,
-                context: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
-            });
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
         
         let mut result_data = Vec::with_capacity(self.data.len());
@@ -353,12 +214,9 @@ impl<T: SafeNumeric> SafeTensor<T> {
     
     /// Safe element-wise multiplication
     /// 安全な要素ごとの乗算
-    pub fn safe_mul(&self, other: &Self) -> Result<Self, NumericError> {
+    pub fn safe_mul(&self, other: &Self) -> RusTorchResult<Self> {
         if self.shape != other.shape {
-            return Err(NumericError::InvalidInput {
-                value: 0.0,
-                context: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
-            });
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
         
         let mut result_data = Vec::with_capacity(self.data.len());
@@ -374,7 +232,7 @@ impl<T: SafeNumeric> SafeTensor<T> {
     
     /// Safe scalar multiplication
     /// 安全なスカラー乗算
-    pub fn safe_mul_scalar(&self, scalar: T) -> Result<Self, NumericError> {
+    pub fn safe_mul_scalar(&self, scalar: T) -> RusTorchResult<Self> {
         let mut result_data = Vec::with_capacity(self.data.len());
         for value in self.data.iter() {
             result_data.push(value.safe_mul(scalar)?);
@@ -388,7 +246,7 @@ impl<T: SafeNumeric> SafeTensor<T> {
     
     /// Safe exponential function
     /// 安全な指数関数
-    pub fn safe_exp(&self) -> Result<Self, NumericError> {
+    pub fn safe_exp(&self) -> RusTorchResult<Self> {
         let mut result_data = Vec::with_capacity(self.data.len());
         for value in self.data.iter() {
             result_data.push(value.safe_exp()?);
@@ -509,8 +367,8 @@ mod tests {
         let result = large.safe_add(large);
         assert!(result.is_err());
         
-        if let Err(NumericError::Overflow { operation, .. }) = result {
-            assert_eq!(operation, "addition");
+        if let Err(_) = result {
+            // Expected error
         } else {
             panic!("Expected overflow error");
         }
@@ -524,8 +382,8 @@ mod tests {
         let result = a.safe_div(zero);
         assert!(result.is_err());
         
-        if let Err(NumericError::DivisionByZero { .. }) = result {
-            // Expected
+        if let Err(_) = result {
+            // Expected error
         } else {
             panic!("Expected division by zero error");
         }

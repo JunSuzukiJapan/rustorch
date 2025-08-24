@@ -7,7 +7,8 @@
 //! このモジュールは、条件付きロジック、並列処理、キャッシュ機能を持つ
 //! 複数変換のチェーン化のための高度なパイプライン機能を提供します。
 
-use crate::vision::{Image, ImageFormat, VisionResult};
+use crate::vision::{Image, ImageFormat};
+use crate::error::RusTorchResult;
 use crate::vision::transforms::Transform;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -85,7 +86,7 @@ impl<T: Float> fmt::Debug for ConditionalTransform<T> {
 }
 
 impl<T: Float + 'static + std::fmt::Debug> Transform<T> for ConditionalTransform<T> {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         if (self.predicate)(image) {
             self.transform.apply(image)
         } else {
@@ -178,7 +179,7 @@ impl<T: Float + Clone + 'static + std::fmt::Debug> Pipeline<T> {
     
     /// Apply all transformations in the pipeline
     /// パイプライン内のすべての変換を適用
-    pub fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    pub fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let start_time = std::time::Instant::now();
         
         // Generate cache key based on image properties
@@ -250,7 +251,7 @@ impl<T: Float + Clone + 'static + std::fmt::Debug> Pipeline<T> {
     
     /// Apply transformations sequentially
     /// 変換を逐次的に適用
-    fn apply_sequential(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply_sequential(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let mut result = image.clone();
         
         for transform in &self.transforms {
@@ -262,7 +263,7 @@ impl<T: Float + Clone + 'static + std::fmt::Debug> Pipeline<T> {
     
     /// Apply transformations with parallel processing where possible
     /// 可能な場合は並列処理で変換を適用
-    fn apply_parallel(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply_parallel(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         // For now, fall back to sequential processing
         // 現在は逐次処理にフォールバック
         // Future implementation could use rayon for parallel processing
@@ -272,7 +273,7 @@ impl<T: Float + Clone + 'static + std::fmt::Debug> Pipeline<T> {
     
     /// Apply transformations in batch mode
     /// バッチモードで変換を適用
-    pub fn apply_batch(&self, images: &[Image<T>]) -> VisionResult<Vec<Image<T>>> {
+    pub fn apply_batch(&self, images: &[Image<T>]) -> RusTorchResult<Vec<Image<T>>> {
         let mut results = Vec::with_capacity(images.len());
         
         for image in images {
@@ -363,7 +364,7 @@ impl<T: Float + 'static + std::fmt::Debug> fmt::Debug for Pipeline<T> {
 }
 
 impl<T: Float + 'static + std::fmt::Debug> Transform<T> for Pipeline<T> {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         self.apply(image)
     }
 }

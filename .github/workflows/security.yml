@@ -12,7 +12,7 @@ on:
 jobs:
   audit:
     name: Security Audit
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,13 +23,16 @@ jobs:
       - name: Install audit tools
         run: |
           cargo install cargo-audit
-          cargo install cargo-deny
+          cargo install cargo-deny --locked
 
       - name: Run cargo audit
         run: cargo audit
 
-      - name: Run cargo deny
-        run: cargo deny check
+      - name: Run cargo deny check
+        run: |
+          # Ensure cargo-deny is in PATH
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo deny check
 
       - name: Check for known vulnerabilities
         run: |
@@ -44,7 +47,7 @@ jobs:
 
   dependency-review:
     name: Dependency Review
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code

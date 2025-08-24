@@ -93,7 +93,8 @@
 //! See [`parallel_errors`](crate::tensor::parallel_errors) for complete error type documentation.
 
 use super::Tensor;
-use super::parallel_errors::ParallelResult;
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use rayon::prelude::*;
 

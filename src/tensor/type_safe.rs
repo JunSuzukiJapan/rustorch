@@ -1,6 +1,7 @@
 //! Type-safe tensor shapes and operations
 //! 型安全なテンソル形状と操作
 
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -121,12 +122,9 @@ pub struct TypedTensor<T: Float, D: Dimension> {
 impl<T: Float, D: Dimension> TypedTensor<T, D> {
     /// Create a new typed tensor with shape verification
     /// 形状検証付きで新しい型付きテンソルを作成
-    pub fn new(data: Vec<T>, shape: D) -> Result<Self, TypeSafetyError> {
+    pub fn new(data: Vec<T>, shape: D) -> RusTorchResult<Self> {
         if data.len() != shape.numel() {
-            return Err(TypeSafetyError::ShapeMismatch {
-                expected: shape.numel(),
-                actual: data.len(),
-            });
+            return Err(RusTorchError::type_error("Shape mismatch"));
         }
         
         Ok(Self {
@@ -194,12 +192,9 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
 impl<T: Float> TypedTensor<T, Dim2> {
     /// Perform matrix multiplication with compile-time dimension verification
     /// コンパイル時次元検証付きで行列乗算を実行
-    pub fn matmul(&self, other: &TypedTensor<T, Dim2>) -> Result<TypedTensor<T, Dim2>, TypeSafetyError> {
+    pub fn matmul(&self, other: &TypedTensor<T, Dim2>) -> RusTorchResult<TypedTensor<T, Dim2>> {
         if self.shape.cols != other.shape.rows {
-            return Err(TypeSafetyError::MatmulDimensionMismatch {
-                left_cols: self.shape.cols,
-                right_rows: other.shape.rows,
-            });
+            return Err(RusTorchError::type_error("Matrix dimension mismatch"));
         }
         
         let result_shape = Dim2 {
@@ -235,19 +230,15 @@ impl<T: Float> TypedTensor<T, Dim2> {
 pub trait TypeSafeReshape<T: Float, From: Dimension, To: Dimension> {
     /// Reshape tensor from one dimension type to another
     /// テンソルを異なる次元タイプにリシェイプ
-    fn reshape(tensor: TypedTensor<T, From>) -> Result<TypedTensor<T, To>, TypeSafetyError>;
+    fn reshape(tensor: TypedTensor<T, From>) -> RusTorchResult<TypedTensor<T, To>>;
 }
 
 /// Reshape 1D to 2D
 /// 1Dから2Dへのリシェイプ
 impl<T: Float> TypeSafeReshape<T, Dim1, Dim2> for TypedTensor<T, Dim2> {
-    fn reshape(tensor: TypedTensor<T, Dim1>) -> Result<TypedTensor<T, Dim2>, TypeSafetyError> {
+    fn reshape(tensor: TypedTensor<T, Dim1>) -> RusTorchResult<TypedTensor<T, Dim2>> {
         // This would need specific shape parameters - for now, return error
-        Err(TypeSafetyError::InvalidReshape {
-            from_shape: tensor.shape.shape(),
-            to_shape: vec![],
-            reason: "Manual reshape parameters required".to_string(),
-        })
+        Err(RusTorchError::type_error("Manual reshape parameters required"))
     }
 }
 
@@ -256,12 +247,9 @@ impl<T: Float> TypeSafeReshape<T, Dim1, Dim2> for TypedTensor<T, Dim2> {
 impl<T: Float, D: Dimension> TypedTensor<T, D> {
     /// Element-wise addition
     /// 要素ごとの加算
-    pub fn add(&self, other: &TypedTensor<T, D>) -> Result<TypedTensor<T, D>, TypeSafetyError> {
+    pub fn add(&self, other: &TypedTensor<T, D>) -> RusTorchResult<TypedTensor<T, D>> {
         if self.shape != other.shape {
-            return Err(TypeSafetyError::ShapeIncompatible {
-                left: self.shape.shape(),
-                right: other.shape.shape(),
-            });
+            return Err(RusTorchError::type_error("Shape incompatible"));
         }
         
         let result_data: Vec<T> = self.data.iter()
@@ -278,12 +266,9 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
     
     /// Element-wise multiplication
     /// 要素ごとの乗算
-    pub fn mul(&self, other: &TypedTensor<T, D>) -> Result<TypedTensor<T, D>, TypeSafetyError> {
+    pub fn mul(&self, other: &TypedTensor<T, D>) -> RusTorchResult<TypedTensor<T, D>> {
         if self.shape != other.shape {
-            return Err(TypeSafetyError::ShapeIncompatible {
-                left: self.shape.shape(),
-                right: other.shape.shape(),
-            });
+            return Err(RusTorchError::type_error("Shape incompatible"));
         }
         
         let result_data: Vec<T> = self.data.iter()
@@ -344,78 +329,8 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
     }
 }
 
-/// Type safety error types
-/// 型安全性エラータイプ
-#[derive(Debug, Clone, PartialEq)]
-pub enum TypeSafetyError {
-    /// Shape mismatch between expected and actual sizes
-    /// 期待サイズと実際のサイズの不一致
-    ShapeMismatch {
-        /// Expected number of elements
-        /// 期待される要素数
-        expected: usize,
-        /// Actual number of elements provided
-        /// 実際に提供された要素数
-        actual: usize,
-    },
-    
-    /// Incompatible shapes for operation
-    /// 操作に対する非互換形状
-    ShapeIncompatible {
-        /// Shape of left operand
-        /// 左オペランドの形状
-        left: Vec<usize>,
-        /// Shape of right operand
-        /// 右オペランドの形状
-        right: Vec<usize>,
-    },
-    
-    /// Matrix multiplication dimension mismatch
-    /// 行列乗算の次元不一致
-    MatmulDimensionMismatch {
-        /// Number of columns in left matrix
-        /// 左行列の列数
-        left_cols: usize,
-        /// Number of rows in right matrix
-        /// 右行列の行数
-        right_rows: usize,
-    },
-    
-    /// Invalid reshape operation
-    /// 無効なリシェイプ操作
-    InvalidReshape {
-        /// Original tensor shape
-        /// 元のテンソル形状
-        from_shape: Vec<usize>,
-        /// Target reshape dimensions
-        /// ターゲットのリシェイプ次元
-        to_shape: Vec<usize>,
-        /// Reason why reshape is invalid
-        /// リシェイプが無効である理由
-        reason: String,
-    },
-}
-
-impl std::fmt::Display for TypeSafetyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TypeSafetyError::ShapeMismatch { expected, actual } => {
-                write!(f, "Shape mismatch: expected {} elements, got {}", expected, actual)
-            }
-            TypeSafetyError::ShapeIncompatible { left, right } => {
-                write!(f, "Incompatible shapes: {:?} and {:?}", left, right)
-            }
-            TypeSafetyError::MatmulDimensionMismatch { left_cols, right_rows } => {
-                write!(f, "Matrix multiplication dimension mismatch: {} != {}", left_cols, right_rows)
-            }
-            TypeSafetyError::InvalidReshape { from_shape, to_shape, reason } => {
-                write!(f, "Invalid reshape from {:?} to {:?}: {}", from_shape, to_shape, reason)
-            }
-        }
-    }
-}
-
-impl std::error::Error for TypeSafetyError {}
+// TypeSafetyError enum removed - now using unified RusTorchError system
+// TypeSafetyErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
 #[cfg(test)]
 mod tests {
@@ -439,11 +354,10 @@ mod tests {
         let result = TypedTensor::new(data, shape);
         assert!(result.is_err());
         
-        if let Err(TypeSafetyError::ShapeMismatch { expected, actual }) = result {
-            assert_eq!(expected, 6);
-            assert_eq!(actual, 3);
+        if let Err(_) = result {
+            // Error occurred as expected
         } else {
-            panic!("Expected ShapeMismatch error");
+            panic!("Expected error");
         }
     }
     

@@ -3,6 +3,7 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::fmt::Debug;
 use rand::distributions::Distribution;
@@ -92,35 +93,8 @@ pub trait PoolingBase<T: Float + Send + Sync> {
 pub type NNResult<T> = crate::error::RusTorchResult<T>;
 
 /// Error types for neural network operations
-/// ニューラルネットワーク操作のエラー型
-#[derive(Debug)]
-pub enum NNError {
-    /// Invalid input dimensions
-    /// 無効な入力次元
-    InvalidDimensions(String),
-    /// Parameter initialization error
-    /// パラメータ初期化エラー
-    InitializationError(String),
-    /// Forward pass computation error
-    /// 順伝搬計算エラー
-    ComputationError(String),
-    /// Memory allocation error
-    /// メモリ割り当てエラー
-    MemoryError(String),
-}
-
-impl std::fmt::Display for NNError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            NNError::InvalidDimensions(msg) => write!(f, "Invalid dimensions: {}", msg),
-            NNError::InitializationError(msg) => write!(f, "Initialization error: {}", msg),
-            NNError::ComputationError(msg) => write!(f, "Computation error: {}", msg),
-            NNError::MemoryError(msg) => write!(f, "Memory error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for NNError {}
+// RusTorchError enum removed - now using unified RusTorchError system  
+// RusTorchErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
 /// Validation utilities for neural network layers
 /// ニューラルネットワーク層の検証ユーティリティ
@@ -137,28 +111,28 @@ impl Validator {
         _padding: &[usize],
         dilation: &[usize],
         groups: usize,
-    ) -> Result<(), NNError> {
+    ) -> Result<(), RusTorchError> {
         if in_channels == 0 || out_channels == 0 {
-            return Err(NNError::InvalidDimensions(
+            return Err(RusTorchError::InvalidDimensions(
                 "Input and output channels must be positive".to_string()
             ));
         }
         
         if in_channels % groups != 0 {
-            return Err(NNError::InvalidDimensions(
+            return Err(RusTorchError::InvalidDimensions(
                 "Input channels must be divisible by groups".to_string()
             ));
         }
         
         if out_channels % groups != 0 {
-            return Err(NNError::InvalidDimensions(
+            return Err(RusTorchError::InvalidDimensions(
                 "Output channels must be divisible by groups".to_string()
             ));
         }
         
         for &k in kernel_size {
             if k == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Kernel size must be positive".to_string()
                 ));
             }
@@ -166,7 +140,7 @@ impl Validator {
         
         for &s in stride {
             if s == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Stride must be positive".to_string()
                 ));
             }
@@ -174,14 +148,14 @@ impl Validator {
         
         for &d in dilation {
             if d == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Dilation must be positive".to_string()
                 ));
             }
         }
         
         if groups == 0 {
-            return Err(NNError::InvalidDimensions(
+            return Err(RusTorchError::InvalidDimensions(
                 "Groups must be positive".to_string()
             ));
         }
@@ -195,10 +169,10 @@ impl Validator {
         kernel_size: &[usize],
         stride: &[usize],
         _padding: &[usize],
-    ) -> Result<(), NNError> {
+    ) -> Result<(), RusTorchError> {
         for &k in kernel_size {
             if k == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Kernel size must be positive".to_string()
                 ));
             }
@@ -206,7 +180,7 @@ impl Validator {
         
         for &s in stride {
             if s == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Stride must be positive".to_string()
                 ));
             }
@@ -217,10 +191,10 @@ impl Validator {
     
     /// Validate output size for adaptive pooling
     /// 適応的プーリングの出力サイズ検証
-    pub fn validate_adaptive_output_size(output_size: &[usize]) -> Result<(), NNError> {
+    pub fn validate_adaptive_output_size(output_size: &[usize]) -> Result<(), RusTorchError> {
         for &size in output_size {
             if size == 0 {
-                return Err(NNError::InvalidDimensions(
+                return Err(RusTorchError::InvalidDimensions(
                     "Output size must be positive".to_string()
                 ));
             }

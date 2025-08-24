@@ -1,7 +1,7 @@
 //! Error functions and related special functions
 //! 誤差関数と関連特殊関数
 
-use super::SpecialFunctionError;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::f64::consts::PI;
 
@@ -146,17 +146,17 @@ fn erfc_asymptotic(x: f64) -> f64 {
 }
 
 /// Inverse error function erf^(-1)(x)
-pub fn erfinv_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn erfinv_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert to f64".to_string(),
     ))?;
     
     // Check domain: |x| < 1
     if x_f64.abs() >= 1.0 {
         if x_f64.abs() == 1.0 {
-            return T::from(x_f64 * f64::INFINITY).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(x_f64 * f64::INFINITY).ok_or(RusTorchError::OverflowError);
         }
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             format!("erfinv undefined for |x| >= 1, got x = {}", x_f64),
         ));
     }
@@ -176,11 +176,11 @@ pub fn erfinv_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
     // Newton-Raphson refinement
     let refined = newton_raphson_erfinv(x_f64, result)?;
     
-    T::from(refined).ok_or(SpecialFunctionError::OverflowError)
+    T::from(refined).ok_or(RusTorchError::OverflowError)
 }
 
 /// Series expansion for erfinv (Maclaurin series)
-fn erfinv_series(x: f64) -> Result<f64, SpecialFunctionError> {
+fn erfinv_series(x: f64) -> Result<f64, RusTorchError> {
     // erfinv(x) = √(π/2) * Σ c_n * x^(2n+1)
     // First few coefficients
     let c0 = 1.0;
@@ -203,7 +203,7 @@ fn erfinv_series(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Rational approximation for erfinv
-fn erfinv_rational(x: f64) -> Result<f64, SpecialFunctionError> {
+fn erfinv_rational(x: f64) -> Result<f64, RusTorchError> {
     // Use Winitzki's approximation as initial guess
     let ln_1_minus_x2 = (1.0 - x * x).ln();
     let a = ERFINV_A;
@@ -213,7 +213,7 @@ fn erfinv_rational(x: f64) -> Result<f64, SpecialFunctionError> {
     
     let sqrt_arg = term1 * term1 - term2;
     if sqrt_arg < 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "Negative argument in square root".to_string(),
         ));
     }
@@ -222,7 +222,7 @@ fn erfinv_rational(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Newton-Raphson refinement for erfinv
-fn newton_raphson_erfinv(target: f64, initial_guess: f64) -> Result<f64, SpecialFunctionError> {
+fn newton_raphson_erfinv(target: f64, initial_guess: f64) -> Result<f64, RusTorchError> {
     let mut x = initial_guess;
     
     for _ in 0..10 {
@@ -237,7 +237,7 @@ fn newton_raphson_erfinv(target: f64, initial_guess: f64) -> Result<f64, Special
         let deriv = 2.0 / PI.sqrt() * (-x * x).exp();
         
         if deriv.abs() < 1e-15 {
-            return Err(SpecialFunctionError::ConvergenceError(10));
+            return Err(RusTorchError::ConvergenceError(10));
         }
         
         x -= diff / deriv;
@@ -247,20 +247,20 @@ fn newton_raphson_erfinv(target: f64, initial_guess: f64) -> Result<f64, Special
 }
 
 /// Inverse complementary error function erfc^(-1)(x)
-pub fn erfcinv_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn erfcinv_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert to f64".to_string(),
     ))?;
     
     // Check domain: 0 < x < 2
     if x_f64 <= 0.0 || x_f64 >= 2.0 {
         if x_f64 == 0.0 {
-            return T::from(f64::INFINITY).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(f64::INFINITY).ok_or(RusTorchError::OverflowError);
         }
         if x_f64 == 2.0 {
-            return T::from(-f64::INFINITY).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(-f64::INFINITY).ok_or(RusTorchError::OverflowError);
         }
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             format!("erfcinv undefined for x <= 0 or x >= 2, got x = {}", x_f64),
         ));
     }
@@ -311,7 +311,7 @@ fn erfcx_asymptotic(x: f64) -> f64 {
 }
 
 /// Error functions for tensors
-pub fn erf<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn erf<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = erf_scalar(val);
@@ -320,7 +320,7 @@ pub fn erf<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::te
 }
 
 /// Complementary error function erfc(x) for tensors
-pub fn erfc<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn erfc<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = erfc_scalar(val);
@@ -329,7 +329,7 @@ pub fn erfc<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::t
 }
 
 /// Inverse error function erfinv(x) for tensors
-pub fn erfinv<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn erfinv<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = erfinv_scalar(val)?;
@@ -338,7 +338,7 @@ pub fn erfinv<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate:
 }
 
 /// Inverse complementary error function erfcinv(x) for tensors
-pub fn erfcinv<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn erfcinv<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = erfcinv_scalar(val)?;

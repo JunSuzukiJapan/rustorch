@@ -7,7 +7,7 @@
 //! に基づいた、インテリジェントなカーネル選択を提供します。
 
 use super::unified_kernel::{UnifiedKernelExecutor, KernelOp, KernelParams, KernelMetrics};
-use super::{DeviceType, GpuError, GpuResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -191,9 +191,9 @@ impl KernelSelector {
         op: KernelOp,
         inputs: &[&Tensor<T>],
         params: &KernelParams
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         if self.executors.is_empty() {
-            return Err(GpuError::DeviceNotFound(0));
+            return Err(RusTorchError::DeviceNotFound(0));
         }
 
         let workload = WorkloadProfile::analyze(inputs, op);
@@ -213,7 +213,7 @@ impl KernelSelector {
         op: KernelOp,
         inputs: &[&Tensor<T>],
         params: &KernelParams
-    ) -> GpuResult<Tensor<T>> {
+    ) -> RusTorchResult<Tensor<T>> {
         let executor = self.select_executor(op, inputs, params)?;
         let result = executor.execute(op, inputs, params)?;
         
@@ -232,7 +232,7 @@ impl KernelSelector {
         &self,
         op: KernelOp,
         workload: &WorkloadProfile
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         // Check performance database first
         if let Ok(db) = self.performance_db.read() {
             if let Some((best_device, _)) = db.get_best_performance(op, workload.total_elements) {
@@ -250,7 +250,7 @@ impl KernelSelector {
         &self,
         op: KernelOp,
         workload: &WorkloadProfile
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         // For small workloads, prefer CPU to save energy
         if workload.total_elements < 1000 {
             if let Some(executor) = self.find_executor(DeviceType::Cpu) {
@@ -275,7 +275,7 @@ impl KernelSelector {
         &self,
         op: KernelOp,
         workload: &WorkloadProfile
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         // Balance compute intensity with memory requirements
         let score_threshold = workload.compute_intensity * workload.parallelization;
         
@@ -305,7 +305,7 @@ impl KernelSelector {
         &self,
         preferred_device: DeviceType,
         op: KernelOp
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         if let Some(executor) = self.find_executor(preferred_device) {
             if executor.supports_operation(op) {
                 return Ok(executor);
@@ -320,7 +320,7 @@ impl KernelSelector {
         &self,
         op: KernelOp,
         workload: &WorkloadProfile
-    ) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    ) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         // Simple heuristics based on operation type and workload size
         match op {
             KernelOp::MatMul if workload.total_elements > 10000 => {
@@ -354,14 +354,14 @@ impl KernelSelector {
         self.select_any_available(op)
     }
 
-    fn select_any_available(&self, op: KernelOp) -> GpuResult<&dyn UnifiedKernelExecutor> {
+    fn select_any_available(&self, op: KernelOp) -> RusTorchResult<&dyn UnifiedKernelExecutor> {
         for executor in &self.executors {
             if executor.supports_operation(op) {
                 return Ok(executor.as_ref());
             }
         }
 
-        Err(GpuError::UnsupportedOperation(format!("No executor supports operation {:?}", op)))
+        Err(RusTorchError::UnsupportedOperation(format!("No executor supports operation {:?}", op)))
     }
 
     fn find_executor(&self, device_type: DeviceType) -> Option<&dyn UnifiedKernelExecutor> {
@@ -373,7 +373,7 @@ impl KernelSelector {
 
     /// Benchmark all available devices
     /// 全ての利用可能デバイスをベンチマーク
-    pub fn benchmark_devices(&self) -> GpuResult<()> {
+    pub fn benchmark_devices(&self) -> RusTorchResult<()> {
         let benchmark_op = KernelOp::MatMul;
         let size = 100;
         

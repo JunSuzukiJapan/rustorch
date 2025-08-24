@@ -2,7 +2,8 @@
 //! Implementation of parallel tensor operations
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use super::parallel_traits::{ParallelOp, BatchParallelOp, MatrixParallelOp, ReductionParallelOp, SimdParallelOp, parallel_utils};
 use num_traits::Float;
 use std::sync::Arc;
@@ -18,12 +19,7 @@ impl<T: Float + Send + Sync + Clone + 'static> BatchParallelOp<T> for Tensor<T> 
         F: Fn(T, T) -> T + Send + Sync,
     {
         if self.data.shape() != other.data.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.data.shape(),
-                other.data.shape(),
-                "element-wise operation"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
         
         let mut result = Self::zeros(self.data.shape());
         
@@ -141,16 +137,11 @@ impl<T: Float + Send + Sync + Clone + 'static> MatrixParallelOp<T> for Tensor<T>
         let other_shape = other.data.shape();
         
         if self_shape.len() < 3 || other_shape.len() < 3 {
-            return Err(ParallelError::insufficient_dimensions(
-                3,
-                self_shape.len().min(other_shape.len()),
-                "batch matmul"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Insufficient dimensions"));        }
         
         let batch_size = self_shape[0];
         if batch_size != other_shape[0] {
-            return Err(ParallelError::batch_size_mismatch(batch_size, other_shape[0]).into());
+            return Err(RusTorchError::parallel("Batch size mismatch"));
         }
         
         let m = self_shape[1];
@@ -158,7 +149,7 @@ impl<T: Float + Send + Sync + Clone + 'static> MatrixParallelOp<T> for Tensor<T>
         let n = other_shape[2];
         
         if k != other_shape[1] {
-            return Err(ParallelError::matmul_dimension_mismatch(self_shape, other_shape).into());
+            return Err(RusTorchError::parallel("Matrix dimension mismatch"));
         }
         
         let result_shape = vec![batch_size, m, n];
@@ -212,12 +203,7 @@ impl<T: Float + Send + Sync + Clone + 'static> MatrixParallelOp<T> for Tensor<T>
         let kernel_shape = kernel.data.shape();
         
         if input_shape.len() != 4 || kernel_shape.len() != 4 {
-            return Err(ParallelError::insufficient_dimensions(
-                4,
-                input_shape.len().min(kernel_shape.len()),
-                "convolution"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Insufficient dimensions"));        }
         
         let batch_size = input_shape[0];
         let in_channels = input_shape[1];
@@ -229,12 +215,7 @@ impl<T: Float + Send + Sync + Clone + 'static> MatrixParallelOp<T> for Tensor<T>
         let kernel_width = kernel_shape[3];
         
         if in_channels != kernel_shape[1] {
-            return Err(ParallelError::convolution_error(
-                in_channels,
-                kernel_shape[1],
-                "input channels must match kernel input channels"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Convolution error"));        }
         
         let out_height = (in_height + 2 * padding - kernel_height) / stride + 1;
         let out_width = (in_width + 2 * padding - kernel_width) / stride + 1;
@@ -320,12 +301,7 @@ impl<T: Float + Send + Sync + Clone + 'static> ReductionParallelOp<T> for Tensor
     {
         let shape = self.data.shape();
         if dim >= shape.len() {
-            return Err(ParallelError::dimension_error(
-                dim,
-                shape.len() - 1,
-                "parallel reduce"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Dimension error"));        }
         
         let mut result_shape = shape.to_vec();
         result_shape.remove(dim);
@@ -381,12 +357,7 @@ impl<T: Float + Send + Sync + Clone + 'static> ReductionParallelOp<T> for Tensor
     fn parallel_mean(&self, dim: usize) -> ParallelResult<Tensor<T>> {
         let shape = self.data.shape();
         if dim >= shape.len() {
-            return Err(ParallelError::dimension_error(
-                dim,
-                shape.len() - 1,
-                "parallel mean"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Dimension error"));        }
         
         let sum_result = self.parallel_sum(dim)?;
         let dim_size = T::from(shape[dim]).unwrap();
@@ -400,12 +371,7 @@ impl<T: Float + Send + Sync + Clone + 'static> ReductionParallelOp<T> for Tensor
 impl SimdParallelOp for Tensor<f32> {
     fn simd_parallel_add(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>> {
         if self.data.shape() != other.data.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.data.shape(),
-                other.data.shape(),
-                "SIMD parallel addition"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
         
         let mut result = Self::zeros(self.data.shape());
         
@@ -444,12 +410,7 @@ impl SimdParallelOp for Tensor<f32> {
         let other_shape = other.data.shape();
         
         if self_shape.len() < 3 || other_shape.len() < 3 {
-            return Err(ParallelError::insufficient_dimensions(
-                3,
-                self_shape.len().min(other_shape.len()),
-                "SIMD batch matmul"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Insufficient dimensions"));        }
         
         let batch_size = self_shape[0];
         let m = self_shape[1];

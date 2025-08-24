@@ -1,7 +1,9 @@
 /// GPU kernel validation and correctness testing
 /// GPUカーネル検証と正確性テスト
 
-use super::{DeviceType, GpuError, kernels::{AddKernel, MatMulKernel, KernelExecutor, GpuKernel}};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::gpu::DeviceType;
+use crate::gpu::kernels::{KernelExecutor, AddKernel, MatMulKernel, GpuKernel};
 
 /// Validation results for GPU operations
 /// GPU操作の検証結果
@@ -207,7 +209,7 @@ impl GpuValidator {
         inputs: &[&[f32]],
         outputs: &mut [&mut [f32]],
         expected: &[f32],
-    ) -> Result<f32, GpuError> {
+    ) -> RusTorchResult<f32> {
         executor.execute_kernel(kernel, inputs, outputs)?;
         
         let max_error = outputs[0].iter()
@@ -226,7 +228,7 @@ impl GpuValidator {
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
             let buffer = CudaBuffer::from_host_data(&test_data)?;
             
@@ -271,7 +273,7 @@ impl GpuValidator {
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
             let buffer = MetalBuffer::from_host_data(&test_data)?;
             
@@ -316,7 +318,7 @@ impl GpuValidator {
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
             let buffer = OpenClBuffer::from_host_data(&test_data)?;
             

@@ -22,10 +22,23 @@ jobs:
         with:
           components: rustfmt, clippy, miri
 
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install pkg-config
+          brew install openblas
+
       - name: Run extended tests
         run: |
-          cargo test --all-features --release
-          cargo test --all-features --release --examples
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # On macOS, enable metal feature
+            cargo test --verbose --features "metal" --release
+            cargo test --verbose --features "metal" --release --examples
+          else
+            # On other platforms, enable all features
+            cargo test --all-features --release
+            cargo test --all-features --release --examples
+          fi
 
       - name: Run Miri tests (unsafe code validation)
         if: runner.os == 'Linux'

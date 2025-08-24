@@ -2,7 +2,8 @@
 //! 最大パフォーマンスのためのSIMDアライメントメモリ割り当てと演算
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::ptr::NonNull;
@@ -149,15 +150,10 @@ impl SimdTensor<f32> {
     /// SIMD最適化要素ごと加算
     pub fn add_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape != other.shape {
-            return Err(ParallelError::shape_mismatch(
-                &self.shape,
-                &other.shape,
-                "SIMD tensor addition"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         let mut result = SimdTensor::zeros(&self.shape)
-            .map_err(|_| ParallelError::parallel_execution_error("SIMD allocation failed"))?;
+            .map_err(|_| RusTorchError::parallel("SIMD allocation failed"))?;
 
         let self_slice = self.as_slice();
         let other_slice = other.as_slice();
@@ -183,15 +179,10 @@ impl SimdTensor<f32> {
     /// SIMD最適化要素ごと乗算
     pub fn mul_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape != other.shape {
-            return Err(ParallelError::shape_mismatch(
-                &self.shape,
-                &other.shape,
-                "SIMD tensor multiplication"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         let mut result = SimdTensor::zeros(&self.shape)
-            .map_err(|_| ParallelError::parallel_execution_error("SIMD allocation failed"))?;
+            .map_err(|_| RusTorchError::parallel("SIMD allocation failed"))?;
 
         let self_slice = self.as_slice();
         let other_slice = other.as_slice();
@@ -240,20 +231,14 @@ impl SimdTensor<f32> {
     /// SIMD最適化行列乗算
     pub fn matmul_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape.len() != 2 || other.shape.len() != 2 {
-            return Err(ParallelError::insufficient_dimensions(
-                2, self.shape.len(), "SIMD matrix multiplication"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Insufficient dimensions"));        }
 
         if self.shape[1] != other.shape[0] {
-            return Err(ParallelError::matmul_dimension_mismatch(
-                &self.shape, &other.shape
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Matrix dimension mismatch"));        }
 
         let result_shape = vec![self.shape[0], other.shape[1]];
         let mut result = SimdTensor::zeros(&result_shape)
-            .map_err(|_| ParallelError::parallel_execution_error("SIMD allocation failed"))?;
+            .map_err(|_| RusTorchError::parallel("SIMD allocation failed"))?;
 
         // Get slices and dimensions
         let self_rows = self.shape[0];
@@ -295,12 +280,7 @@ impl SimdTensor<f32> {
     /// 最大効率のためのインプレースSIMD演算
     pub fn add_assign_simd(&mut self, other: &SimdTensor<f32>) -> ParallelResult<()> {
         if self.shape != other.shape {
-            return Err(ParallelError::shape_mismatch(
-                &self.shape,
-                &other.shape,
-                "SIMD in-place addition"
-            ).into());
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         let self_slice = self.as_mut_slice();
         let other_slice = other.as_slice();

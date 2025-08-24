@@ -2,7 +2,8 @@
 //! 高性能テンソル演算のための高度なメモリ管理
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::collections::{HashMap, VecDeque};
@@ -102,9 +103,7 @@ struct MemoryBlock {
 impl MemoryBlock {
     fn new(size: usize, alignment: usize, is_huge_page: bool) -> ParallelResult<Self> {
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
 
         let ptr = unsafe {
             let raw_ptr = if is_huge_page {
@@ -114,9 +113,7 @@ impl MemoryBlock {
             };
 
             if raw_ptr.is_null() {
-                return Err(ParallelError::ParallelExecutionError {
-                    message: "Allocation failed".to_string(),
-                }.into());
+                return Err(RusTorchError::memory("Allocation failed"));
             }
 
             NonNull::new_unchecked(raw_ptr)
@@ -144,9 +141,7 @@ impl MemoryBlock {
             .read(true)
             .write(true)
             .open("/dev/zero")
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Failed to open /dev/zero: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::io(&format!("Failed to open /dev/zero: {}", e)))?;
 
         unsafe {
             let ptr = libc::mmap(
@@ -162,9 +157,7 @@ impl MemoryBlock {
                 // Fallback to regular allocation
                 // 通常の割り当てにフォールバック
                 let layout = Layout::from_size_align(size, alignment)
-                    .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+                    .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
                 Ok(alloc_zeroed(layout))
             } else {
                 Ok(ptr as *mut u8)
@@ -177,9 +170,7 @@ impl MemoryBlock {
         // Fallback to regular allocation on non-Linux systems
         // Linux以外のシステムでは通常の割り当てにフォールバック
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
         Ok(unsafe { alloc_zeroed(layout) })
     }
 
@@ -322,9 +313,7 @@ impl AdvancedMemoryPool {
         let block = {
             let mut allocated = self.allocated_blocks.write().unwrap();
             allocated.remove(&raw_ptr).ok_or_else(|| {
-                ParallelError::ParallelExecutionError {
-                    message: "Pointer not found in allocated blocks".to_string(),
-                }
+                RusTorchError::memory("Pointer not found in allocated blocks")
             })?
         };
 
@@ -558,11 +547,7 @@ impl OptimizedTensorOps {
         b: &Tensor<T>,
     ) -> ParallelResult<()> {
         if a.shape() != b.shape() {
-            return Err(ParallelError::ShapeMismatch {
-                expected: a.shape().to_vec(),
-                actual: b.shape().to_vec(),
-                operation: "inplace_add".to_string(),
-            }.into());
+            return Err(RusTorchError::shape_mismatch(a.shape(), b.shape()));
         }
 
         // Vectorized in-place addition

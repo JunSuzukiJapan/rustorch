@@ -4,11 +4,12 @@
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 
 impl<T: Float + 'static> Tensor<T> {
     /// Broadcast two tensors to compatible shapes
     /// 2つのテンソルを互換性のある形状にブロードキャスト
-    pub fn broadcast_with(&self, other: &Self) -> Result<(Self, Self), BroadcastError> {
+    pub fn broadcast_with(&self, other: &Self) -> RusTorchResult<(Self, Self)> {
         let self_shape = self.data.shape();
         let other_shape = other.data.shape();
         
@@ -22,12 +23,12 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Broadcast tensor to a specific shape
     /// テンソルを特定の形状にブロードキャスト
-    pub fn broadcast_to(&self, target_shape: &[usize]) -> Result<Self, BroadcastError> {
+    pub fn broadcast_to(&self, target_shape: &[usize]) -> Result<Self, RusTorchError> {
         let current_shape = self.data.shape();
         
         // Check if broadcasting is possible
         if !can_broadcast(current_shape, target_shape) {
-            return Err(BroadcastError::IncompatibleShapes {
+            return Err(RusTorchError::IncompatibleShapes {
                 from: current_shape.to_vec(),
                 to: target_shape.to_vec(),
             });
@@ -51,11 +52,11 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Expand tensor dimensions by adding singleton dimensions
     /// 単一次元を追加してテンソルの次元を拡張
-    pub fn unsqueeze(&self, dim: usize) -> Result<Self, BroadcastError> {
+    pub fn unsqueeze(&self, dim: usize) -> Result<Self, RusTorchError> {
         let mut new_shape = self.data.shape().to_vec();
         
         if dim > new_shape.len() {
-            return Err(BroadcastError::InvalidDimension {
+            return Err(RusTorchError::InvalidDimension {
                 dim,
                 max_dim: new_shape.len(),
             });
@@ -64,7 +65,7 @@ impl<T: Float + 'static> Tensor<T> {
         new_shape.insert(dim, 1);
         
         let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
-            .map_err(|_| BroadcastError::ReshapeError)?;
+            .map_err(|_| RusTorchError::ReshapeError)?;
         
         Ok(Tensor::new(reshaped_data))
     }
@@ -93,18 +94,18 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Remove a specific singleton dimension
     /// 特定の単一次元を削除
-    pub fn squeeze_dim(&self, dim: usize) -> Result<Self, BroadcastError> {
+    pub fn squeeze_dim(&self, dim: usize) -> Result<Self, RusTorchError> {
         let current_shape = self.data.shape();
         
         if dim >= current_shape.len() {
-            return Err(BroadcastError::InvalidDimension {
+            return Err(RusTorchError::InvalidDimension {
                 dim,
                 max_dim: current_shape.len() - 1,
             });
         }
         
         if current_shape[dim] != 1 {
-            return Err(BroadcastError::NotSingletonDimension { dim, size: current_shape[dim] });
+            return Err(RusTorchError::NotSingletonDimension { dim, size: current_shape[dim] });
         }
         
         let mut new_shape = current_shape.to_vec();
@@ -116,18 +117,18 @@ impl<T: Float + 'static> Tensor<T> {
         }
         
         let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
-            .map_err(|_| BroadcastError::ReshapeError)?;
+            .map_err(|_| RusTorchError::ReshapeError)?;
         
         Ok(Tensor::new(reshaped_data))
     }
     
     /// Repeat tensor along specified dimensions
     /// 指定された次元に沿ってテンソルを繰り返し
-    pub fn repeat(&self, repeats: &[usize]) -> Result<Self, BroadcastError> {
+    pub fn repeat(&self, repeats: &[usize]) -> Result<Self, RusTorchError> {
         let current_shape = self.data.shape();
         
         if repeats.len() != current_shape.len() {
-            return Err(BroadcastError::MismatchedDimensions {
+            return Err(RusTorchError::MismatchedDimensions {
                 expected: current_shape.len(),
                 got: repeats.len(),
             });
@@ -185,7 +186,7 @@ impl<T: Float + 'static> Tensor<T> {
 
 /// Compute the broadcast shape for two shapes
 /// 2つの形状のブロードキャスト形状を計算
-fn compute_broadcast_shape(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usize>, BroadcastError> {
+fn compute_broadcast_shape(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usize>, RusTorchError> {
     let max_len = shape1.len().max(shape2.len());
     let mut result_shape = Vec::with_capacity(max_len);
     
@@ -197,7 +198,7 @@ fn compute_broadcast_shape(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usi
         match (dim1, dim2) {
             (1, d) | (d, 1) => result_shape.push(*d),
             (d1, d2) if d1 == d2 => result_shape.push(*d1),
-            (_d1, _d2) => return Err(BroadcastError::IncompatibleShapes {
+            (_d1, _d2) => return Err(RusTorchError::IncompatibleShapes {
                 from: shape1.to_vec(),
                 to: shape2.to_vec(),
             }),
@@ -224,7 +225,7 @@ fn pad_shape_left(shape: &[usize], target_len: usize) -> Vec<usize> {
 
 /// Broadcast an array to a target shape
 /// 配列を目標形状にブロードキャスト
-fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Result<ArrayD<T>, BroadcastError> {
+fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Result<ArrayD<T>, RusTorchError> {
     let current_shape = array.shape();
     
     if current_shape == target_shape {
@@ -233,7 +234,7 @@ fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Resul
     
     // Use ndarray's broadcast functionality
     let broadcasted = array.broadcast(IxDyn(target_shape))
-        .ok_or_else(|| BroadcastError::IncompatibleShapes {
+        .ok_or_else(|| RusTorchError::IncompatibleShapes {
             from: current_shape.to_vec(),
             to: target_shape.to_vec(),
         })?;
@@ -242,73 +243,8 @@ fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Resul
     Ok(broadcasted.to_owned())
 }
 
-/// Broadcasting error types
-/// ブロードキャスティングエラータイプ
-#[derive(Debug, Clone)]
-pub enum BroadcastError {
-    /// Shapes are incompatible for broadcasting
-    IncompatibleShapes { 
-        /// Source shape
-        /// ソース形状
-        from: Vec<usize>, 
-        /// Target shape
-        /// ターゲット形状
-        to: Vec<usize> 
-    },
-    /// Invalid dimension index
-    InvalidDimension { 
-        /// Invalid dimension index
-        /// 無効な次元インデックス
-        dim: usize, 
-        /// Maximum allowed dimension
-        /// 許可される最大次元
-        max_dim: usize 
-    },
-    /// Dimension is not singleton (size 1)
-    NotSingletonDimension { 
-        /// Dimension index
-        /// 次元インデックス
-        dim: usize, 
-        /// Actual size
-        /// 実際のサイズ
-        size: usize 
-    },
-    /// Mismatched number of dimensions
-    MismatchedDimensions { 
-        /// Expected dimension count
-        /// 期待される次元数
-        expected: usize, 
-        /// Actual dimension count
-        /// 実際の次元数
-        got: usize 
-    },
-    /// Reshape operation failed
-    ReshapeError,
-}
-
-impl std::fmt::Display for BroadcastError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            BroadcastError::IncompatibleShapes { from, to } => {
-                write!(f, "Cannot broadcast shape {:?} to {:?}", from, to)
-            }
-            BroadcastError::InvalidDimension { dim, max_dim } => {
-                write!(f, "Invalid dimension {} (max: {})", dim, max_dim)
-            }
-            BroadcastError::NotSingletonDimension { dim, size } => {
-                write!(f, "Dimension {} has size {} (expected 1)", dim, size)
-            }
-            BroadcastError::MismatchedDimensions { expected, got } => {
-                write!(f, "Expected {} dimensions, got {}", expected, got)
-            }
-            BroadcastError::ReshapeError => {
-                write!(f, "Reshape operation failed")
-            }
-        }
-    }
-}
-
-impl std::error::Error for BroadcastError {}
+// RusTorchError enum removed - now using unified RusTorchError system
+// RusTorchErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
 #[cfg(test)]
 mod tests {

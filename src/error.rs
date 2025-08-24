@@ -100,15 +100,6 @@ pub enum RusTorchError {
         source: Option<Box<dyn Error + Send + Sync>> 
     },
 
-    /// Legacy tensor operation errors for backward compatibility
-    /// 後方互換性のためのレガシーテンソル操作エラー
-    #[error("Tensor error: {0}")]
-    Tensor(TensorError),
-    
-    /// GPU and parallel processing errors
-    /// GPU・並列処理エラー
-    #[error("Parallel processing error: {0}")]
-    Parallel(ParallelError),
     
     /// GPU-specific errors
     /// GPU固有エラー
@@ -152,357 +143,27 @@ pub enum RusTorchError {
     IO(#[from] std::io::Error),
 }
 
-/// Tensor-specific errors
-/// テンソル固有エラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum TensorError {
-    /// Shape mismatch between tensors
-    /// テンソル間の形状不一致
-    ShapeMismatch { 
-        /// Expected shape
-        /// 期待される形状
-        expected: Vec<usize>, 
-        /// Actual shape
-        /// 実際の形状
-        actual: Vec<usize> 
-    },
-    
-    /// Invalid dimension index
-    /// 無効な次元インデックス
-    InvalidDimension { 
-        /// Dimension index
-        /// 次元インデックス
-        dim: usize, 
-        /// Maximum allowed dimension
-        /// 最大許可次元
-        max_dim: usize 
-    },
-    
-    /// Index out of bounds
-    /// インデックス範囲外
-    IndexOutOfBounds { 
-        /// Index that was out of bounds
-        /// 境界外のインデックス
-        index: Vec<usize>, 
-        /// Shape of the tensor
-        /// テンソルの形状
-        shape: Vec<usize> 
-    },
-    
-    /// Empty tensor operation
-    /// 空テンソル操作
-    EmptyTensor,
-    
-    /// Type conversion error
-    /// 型変換エラー
-    TypeConversion(String),
-    
-    /// Mathematical operation error (e.g., division by zero)
-    /// 数学演算エラー（ゼロ除算など）
-    MathError(String),
-}
+// All individual error types removed - only RusTorchError is used now
+// 個別エラー型は全て削除 - RusTorchErrorのみ使用
 
-/// Neural network layer errors
-/// ニューラルネットワークレイヤーエラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum NeuralNetworkError {
-    /// Layer configuration error
-    /// レイヤー設定エラー
-    InvalidConfiguration(String),
-    
-    /// Forward pass error
-    /// 順伝播エラー
-    ForwardError(String),
-    
-    /// Backward pass error
-    /// 逆伝播エラー
-    BackwardError(String),
-    
-    /// Parameter initialization error
-    /// パラメータ初期化エラー
-    InitializationError(String),
-}
-
-/// Automatic differentiation errors
-/// 自動微分エラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum AutogradError {
-    /// Gradient computation error
-    /// 勾配計算エラー
-    GradientError(String),
-    
-    /// Computational graph error
-    /// 計算グラフエラー
-    GraphError(String),
-    
-    /// Variable state error
-    /// 変数状態エラー
-    VariableError(String),
-}
-
-/// Optimizer errors
-/// オプティマイザーエラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum OptimizerError {
-    /// Invalid learning rate
-    /// 無効な学習率
-    InvalidLearningRate(f64),
-    
-    /// Parameter update error
-    /// パラメータ更新エラー
-    UpdateError(String),
-    
-    /// Optimizer state error
-    /// オプティマイザー状態エラー
-    StateError(String),
-}
-
-/// Data handling errors
-/// データハンドリングエラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum DataError {
-    /// Dataset loading error
-    /// データセット読み込みエラー
-    LoadError(String),
-    
-    /// Data format error
-    /// データフォーマットエラー
-    FormatError(String),
-    
-    /// Batch processing error
-    /// バッチ処理エラー
-    BatchError(String),
-}
-
-/// Parallel processing errors
-/// 並列処理エラー
-#[derive(Debug, Clone, PartialEq)]
-pub enum ParallelError {
-    /// Thread pool error
-    /// スレッドプールエラー
-    ThreadError(String),
-    
-    /// GPU operation error
-    /// GPU操作エラー
-    GpuError(String),
-    
-    /// Synchronization error
-    /// 同期エラー
-    SyncError(String),
-}
-
-/// Unified Result type for all RusTorch operations
-/// 全RusTorch操作用統一Result型
+/// Unified Result type for all RusTorch operations - the ONLY Result type used
+/// 全RusTorch操作用統一Result型 - 唯一使用されるResult型
 pub type RusTorchResult<T> = Result<T, RusTorchError>;
 
-/// Legacy type alias for backward compatibility
-/// 後方互換性のためのレガシータイプエイリアス
-pub type BackendResult<T> = RusTorchResult<T>;
-pub type GpuResult<T> = RusTorchResult<T>;
-pub type VisionResult<T> = RusTorchResult<T>;
-pub type DistributedResult<T> = RusTorchResult<T>;
-pub type ImportResult<T> = RusTorchResult<T>;
-pub type VisualizationResult<T> = RusTorchResult<T>;
-pub type NNResult<T> = RusTorchResult<T>;
-pub type ParallelResult<T> = RusTorchResult<T>;
+
+// All Display implementations and From traits removed - RusTorchError handles everything directly
+// 全DisplayとFromトレイト削除 - RusTorchErrorが直接全てを処理
 
 
-impl fmt::Display for TensorError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            TensorError::ShapeMismatch { expected, actual } => {
-                write!(f, "Shape mismatch: expected {:?}, got {:?}", expected, actual)
-            }
-            TensorError::InvalidDimension { dim, max_dim } => {
-                write!(f, "Invalid dimension {} (max: {})", dim, max_dim)
-            }
-            TensorError::IndexOutOfBounds { index, shape } => {
-                write!(f, "Index {:?} out of bounds for shape {:?}", index, shape)
-            }
-            TensorError::EmptyTensor => write!(f, "Operation on empty tensor"),
-            TensorError::TypeConversion(msg) => write!(f, "Type conversion error: {}", msg),
-            TensorError::MathError(msg) => write!(f, "Math error: {}", msg),
-        }
-    }
-}
-
-impl fmt::Display for NeuralNetworkError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            NeuralNetworkError::InvalidConfiguration(msg) => write!(f, "Invalid configuration: {}", msg),
-            NeuralNetworkError::ForwardError(msg) => write!(f, "Forward pass error: {}", msg),
-            NeuralNetworkError::BackwardError(msg) => write!(f, "Backward pass error: {}", msg),
-            NeuralNetworkError::InitializationError(msg) => write!(f, "Initialization error: {}", msg),
-        }
-    }
-}
-
-impl fmt::Display for AutogradError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AutogradError::GradientError(msg) => write!(f, "Gradient error: {}", msg),
-            AutogradError::GraphError(msg) => write!(f, "Graph error: {}", msg),
-            AutogradError::VariableError(msg) => write!(f, "Variable error: {}", msg),
-        }
-    }
-}
-
-impl fmt::Display for OptimizerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            OptimizerError::InvalidLearningRate(lr) => write!(f, "Invalid learning rate: {}", lr),
-            OptimizerError::UpdateError(msg) => write!(f, "Update error: {}", msg),
-            OptimizerError::StateError(msg) => write!(f, "State error: {}", msg),
-        }
-    }
-}
-
-impl fmt::Display for DataError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DataError::LoadError(msg) => write!(f, "Load error: {}", msg),
-            DataError::FormatError(msg) => write!(f, "Format error: {}", msg),
-            DataError::BatchError(msg) => write!(f, "Batch error: {}", msg),
-        }
-    }
-}
-
-impl fmt::Display for ParallelError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ParallelError::ThreadError(msg) => write!(f, "Thread error: {}", msg),
-            ParallelError::GpuError(msg) => write!(f, "GPU error: {}", msg),
-            ParallelError::SyncError(msg) => write!(f, "Sync error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for TensorError {}
-impl std::error::Error for NeuralNetworkError {}
-impl std::error::Error for AutogradError {}
-impl std::error::Error for OptimizerError {}
-impl std::error::Error for DataError {}
-impl std::error::Error for ParallelError {}
-
-impl From<TensorError> for RusTorchError {
-    fn from(error: TensorError) -> Self {
-        RusTorchError::Tensor(error)
-    }
-}
-
-impl From<ParallelError> for RusTorchError {
-    fn from(error: ParallelError) -> Self {
-        RusTorchError::Parallel(error)
-    }
-}
-
-impl From<NeuralNetworkError> for RusTorchError {
-    fn from(error: NeuralNetworkError) -> Self {
-        RusTorchError::NeuralNetwork {
-            layer: "unknown".to_string(),
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<AutogradError> for RusTorchError {
-    fn from(error: AutogradError) -> Self {
-        RusTorchError::Autograd {
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<OptimizerError> for RusTorchError {
-    fn from(error: OptimizerError) -> Self {
-        RusTorchError::InvalidParameters {
-            operation: "optimizer".to_string(),
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<DataError> for RusTorchError {
-    fn from(error: DataError) -> Self {
-        RusTorchError::DataLoading {
-            message: error.to_string(),
-            source: None,
-        }
-    }
-}
-
-// Missing From implementations
-use crate::gpu::GpuError;
-
-impl From<GpuError> for RusTorchError {
-    fn from(error: GpuError) -> Self {
-        RusTorchError::Gpu {
-            message: error.to_string(),
-            source: None,
-        }
-    }
-}
-
-// Convenience functions for common error creation
-impl TensorError {
-    /// Create a shape mismatch error
-    /// 形状不一致エラーを作成
-    pub fn shape_mismatch(expected: &[usize], actual: &[usize]) -> Self {
-        TensorError::ShapeMismatch {
-            expected: expected.to_vec(),
-            actual: actual.to_vec(),
-        }
-    }
-    
-    /// Create an invalid dimension error
-    /// 無効な次元エラーを作成
-    pub fn invalid_dimension(dim: usize, max_dim: usize) -> Self {
-        TensorError::InvalidDimension { dim, max_dim }
-    }
-    
-    /// Create an index out of bounds error
-    /// インデックス境界外エラーを作成
-    pub fn index_out_of_bounds(index: &[usize], shape: &[usize]) -> Self {
-        TensorError::IndexOutOfBounds {
-            index: index.to_vec(),
-            shape: shape.to_vec(),
-        }
-    }
-}
-
-impl ParallelError {
-    /// Create a shape mismatch error with operation context
-    /// 操作コンテキスト付きの形状不一致エラーを作成
-    pub fn shape_mismatch(expected: &[usize], actual: &[usize], operation: &str) -> Self {
-        ParallelError::SyncError(format!(
-            "Shape mismatch in {}: expected {:?}, got {:?}",
-            operation, expected, actual
-        ))
-    }
-}
-
-// Convenience constructors for unified error handling
+// Comprehensive convenience constructors for unified error handling
 impl RusTorchError {
-    /// Create a tensor operation error with context
-    /// コンテキスト付きのテンソル操作エラーを作成
+    // === Tensor Operations ===
+    /// Create a tensor operation error
     pub fn tensor_op(message: impl Into<String>) -> Self {
-        RusTorchError::TensorOp {
-            message: message.into(),
-            source: None,
-        }
-    }
-    
-    /// Create a tensor operation error with source
-    /// ソース付きのテンソル操作エラーを作成
-    pub fn tensor_op_with_source(message: impl Into<String>, source: Box<dyn Error + Send + Sync>) -> Self {
-        RusTorchError::TensorOp {
-            message: message.into(),
-            source: Some(source),
-        }
+        RusTorchError::TensorOp { message: message.into(), source: None }
     }
     
     /// Create a shape mismatch error
-    /// 形状不一致エラーを作成
     pub fn shape_mismatch(expected: &[usize], actual: &[usize]) -> Self {
         RusTorchError::ShapeMismatch {
             expected: expected.to_vec(),
@@ -510,8 +171,32 @@ impl RusTorchError {
         }
     }
     
+    /// Create empty tensor error
+    pub fn empty_tensor() -> Self {
+        RusTorchError::TensorOp { 
+            message: "Operation on empty tensor".into(),
+            source: None 
+        }
+    }
+    
+    /// Create index out of bounds error
+    pub fn index_out_of_bounds(index: &[usize], shape: &[usize]) -> Self {
+        RusTorchError::TensorOp {
+            message: format!("Index {:?} out of bounds for shape {:?}", index, shape),
+            source: None,
+        }
+    }
+    
+    /// Create invalid dimension error
+    pub fn invalid_dimension(dim: usize, max_dim: usize) -> Self {
+        RusTorchError::TensorOp {
+            message: format!("Invalid dimension {} (max: {})", dim, max_dim),
+            source: None,
+        }
+    }
+    
+    // === Device & GPU Operations ===
     /// Create a device error
-    /// デバイスエラーを作成
     pub fn device(device: impl Into<String>, message: impl Into<String>) -> Self {
         RusTorchError::Device {
             device: device.into(),
@@ -519,117 +204,287 @@ impl RusTorchError {
         }
     }
     
-    /// Create a GPU error with context
-    /// コンテキスト付きのGPUエラーを作成
+    /// Create a GPU error
     pub fn gpu(message: impl Into<String>) -> Self {
-        RusTorchError::Gpu {
+        RusTorchError::Gpu { message: message.into(), source: None }
+    }
+    
+    /// Create device not available error
+    pub fn device_not_available(device: impl Into<String>) -> Self {
+        RusTorchError::Device {
+            device: device.into(),
+            message: "Device not available".into(),
+        }
+    }
+    
+    /// Create memory allocation error
+    pub fn memory_alloc(size: usize, device: impl Into<String>) -> Self {
+        RusTorchError::MemoryAllocation {
+            size,
+            device: device.into(),
+        }
+    }
+    
+    // === Neural Network Operations ===
+    /// Create neural network error
+    pub fn neural_network(layer: impl Into<String>, message: impl Into<String>) -> Self {
+        RusTorchError::NeuralNetwork {
+            layer: layer.into(),
             message: message.into(),
+        }
+    }
+    
+    /// Create invalid configuration error
+    pub fn invalid_config(layer: impl Into<String>, message: impl Into<String>) -> Self {
+        RusTorchError::NeuralNetwork {
+            layer: layer.into(),
+            message: format!("Invalid configuration: {}", message.into()),
+        }
+    }
+    
+    /// Create forward pass error
+    pub fn forward_error(layer: impl Into<String>, message: impl Into<String>) -> Self {
+        RusTorchError::NeuralNetwork {
+            layer: layer.into(),
+            message: format!("Forward pass error: {}", message.into()),
+        }
+    }
+    
+    /// Create backward pass error
+    pub fn backward_error(layer: impl Into<String>, message: impl Into<String>) -> Self {
+        RusTorchError::NeuralNetwork {
+            layer: layer.into(),
+            message: format!("Backward pass error: {}", message.into()),
+        }
+    }
+    
+    // === Data Operations ===
+    /// Create data loading error
+    pub fn data_loading(message: impl Into<String>) -> Self {
+        RusTorchError::DataLoading { message: message.into(), source: None }
+    }
+    
+    /// Create dataset error
+    pub fn dataset_error(message: impl Into<String>) -> Self {
+        RusTorchError::DataLoading {
+            message: format!("Dataset error: {}", message.into()),
             source: None,
         }
     }
     
-    /// Create a GPU error with source
-    /// ソース付きのGPUエラーを作成
-    pub fn gpu_with_source(message: impl Into<String>, source: Box<dyn Error + Send + Sync>) -> Self {
-        RusTorchError::Gpu {
-            message: message.into(),
-            source: Some(source),
+    // === Vision Operations ===
+    /// Create vision processing error
+    pub fn vision(message: impl Into<String>) -> Self {
+        RusTorchError::Vision { message: message.into(), source: None }
+    }
+    
+    /// Create invalid image format error
+    pub fn invalid_image_format(format: impl Into<String>) -> Self {
+        RusTorchError::Vision {
+            message: format!("Invalid image format: {}", format.into()),
+            source: None,
         }
     }
     
-    /// Create an invalid parameters error
-    /// 無効なパラメータエラーを作成
+    /// Create invalid image shape error
+    pub fn invalid_image_shape(shape: &[usize]) -> Self {
+        RusTorchError::Vision {
+            message: format!("Invalid image shape: {:?}", shape),
+            source: None,
+        }
+    }
+    
+    // === Distributed Operations ===
+    /// Create distributed error
+    pub fn distributed(message: impl Into<String>) -> Self {
+        RusTorchError::Distributed { message: message.into(), source: None }
+    }
+    
+    /// Create process group error
+    pub fn process_group_error(message: impl Into<String>) -> Self {
+        RusTorchError::Distributed {
+            message: format!("Process group error: {}", message.into()),
+            source: None,
+        }
+    }
+    
+    // === Visualization Operations ===
+    /// Create visualization error
+    pub fn visualization(message: impl Into<String>) -> Self {
+        RusTorchError::Visualization { message: message.into(), source: None }
+    }
+    
+    /// Create plotting error
+    pub fn plotting_error(message: impl Into<String>) -> Self {
+        RusTorchError::Visualization {
+            message: format!("Plotting error: {}", message.into()),
+            source: None,
+        }
+    }
+    
+    // === Autograd Operations ===
+    /// Create autograd error
+    pub fn autograd(message: impl Into<String>) -> Self {
+        RusTorchError::Autograd { message: message.into() }
+    }
+    
+    /// Create gradient computation error
+    pub fn gradient_error(message: impl Into<String>) -> Self {
+        RusTorchError::Autograd {
+            message: format!("Gradient error: {}", message.into()),
+        }
+    }
+    
+    // === Model I/O Operations ===
+    /// Create model I/O error
+    pub fn model_io(message: impl Into<String>) -> Self {
+        RusTorchError::ModelIo { message: message.into(), source: None }
+    }
+    
+    /// Create import error
+    pub fn import_error(message: impl Into<String>) -> Self {
+        RusTorchError::Import { message: message.into(), source: None }
+    }
+    
+    /// Create unsupported format error
+    pub fn unsupported_format(format: impl Into<String>) -> Self {
+        RusTorchError::Import {
+            message: format!("Unsupported format: {}", format.into()),
+            source: None,
+        }
+    }
+    
+    // === Parameter Operations ===
+    /// Create invalid parameters error
     pub fn invalid_params(operation: impl Into<String>, message: impl Into<String>) -> Self {
         RusTorchError::InvalidParameters {
             operation: operation.into(),
             message: message.into(),
         }
     }
-}
-
-// Additional From implementations for module-specific error types
-
-impl From<crate::vision::VisionError> for RusTorchError {
-    fn from(error: crate::vision::VisionError) -> Self {
-        RusTorchError::Vision {
-            message: error.to_string(),
-            source: Some(Box::new(error)),
-        }
+    
+    /// Create backend unavailable error
+    pub fn backend_unavailable(backend: impl Into<String>) -> Self {
+        RusTorchError::BackendUnavailable { backend: backend.into() }
+    }
+    
+    // === Type and Numeric Operations ===
+    /// Create type error
+    pub fn type_error(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: message.into(), source: None }
+    }
+    
+    /// Create numeric error
+    pub fn numeric(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: message.into(), source: None }
+    }
+    
+    // === Additional Helper Functions ===
+    /// Create unsupported device error
+    pub fn UnsupportedDevice(message: impl Into<String>) -> Self {
+        RusTorchError::device("gpu", message)
+    }
+    
+    /// Create parallel error
+    pub fn parallel(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Parallel error: {}", message.into()), source: None }
+    }
+    
+    /// Create domain error
+    pub fn DomainError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Domain error: {}", message.into()), source: None }
+    }
+    
+    /// Create overflow error
+    pub fn OverflowError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Overflow error: {}", message.into()), source: None }
+    }
+    
+    /// Create invalid dimensions error
+    pub fn InvalidDimensions(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Invalid dimensions: {}", message.into()), source: None }
+    }
+    
+    /// Create invalid data format error
+    pub fn InvalidDataFormat(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Invalid data format: {}", message.into()), source: None }
+    }
+    
+    /// Create invalid operation error
+    pub fn InvalidOperation(message: impl Into<String>) -> Self {
+        RusTorchError::invalid_params("operation", message)
+    }
+    
+    /// Create kernel execution error
+    pub fn KernelExecutionError(message: impl Into<String>) -> Self {
+        RusTorchError::gpu(format!("Kernel execution error: {}", message.into()))
+    }
+    
+    /// Create communication error
+    pub fn CommunicationError(message: impl Into<String>) -> Self {
+        RusTorchError::distributed(format!("Communication error: {}", message.into()))
+    }
+    
+    // === More Helper Functions ===
+    /// Create unsupported operation error
+    pub fn UnsupportedOperation(message: impl Into<String>) -> Self {
+        RusTorchError::invalid_params("operation", format!("Unsupported operation: {}", message.into()))
+    }
+    
+    /// Create IO error
+    pub fn IoError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(message)
+    }
+    
+    /// Create kernel error
+    pub fn KernelError(message: impl Into<String>) -> Self {
+        RusTorchError::gpu(format!("Kernel error: {}", message.into()))
+    }
+    
+    /// Create invalid transform params error
+    pub fn InvalidTransformParams(message: impl Into<String>) -> Self {
+        RusTorchError::vision(format!("Invalid transform params: {}", message.into()))
+    }
+    
+    /// Create process group error
+    pub fn ProcessGroupError(message: impl Into<String>) -> Self {
+        RusTorchError::process_group_error(message)
+    }
+    
+    /// Create memory error
+    pub fn MemoryError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Memory error: {}", message.into()), source: None }
+    }
+    
+    /// Create plotting error
+    pub fn PlottingError(message: impl Into<String>) -> Self {
+        RusTorchError::plotting_error(message)
+    }
+    
+    // === Final Helper Functions ===
+    /// Create memory error (simple)
+    pub fn memory(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Memory: {}", message.into()), source: None }
+    }
+    
+    /// Create invalid model error
+    pub fn InvalidModel(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Invalid model: {}", message.into()))
+    }
+    
+    /// Create dataset error
+    pub fn DatasetError(message: impl Into<String>) -> Self {
+        RusTorchError::dataset_error(message)
+    }
+    
+    /// Create configuration error
+    pub fn ConfigurationError(message: impl Into<String>) -> Self {
+        RusTorchError::invalid_params("config", format!("Configuration error: {}", message.into()))
     }
 }
 
-impl From<crate::visualization::VisualizationError> for RusTorchError {
-    fn from(error: crate::visualization::VisualizationError) -> Self {
-        RusTorchError::Visualization {
-            message: error.to_string(),
-            source: Some(Box::new(error)),
-        }
-    }
-}
+// All individual From implementations removed - using unified RusTorchError only
+// 全ての個別From実装削除 - 統一RusTorchErrorのみ使用
 
-impl From<crate::model_import::ImportError> for RusTorchError {
-    fn from(error: crate::model_import::ImportError) -> Self {
-        RusTorchError::Import {
-            message: error.to_string(),
-            source: Some(Box::new(error)),
-        }
-    }
-}
-
-impl From<crate::distributed::DistributedError> for RusTorchError {
-    fn from(error: crate::distributed::DistributedError) -> Self {
-        RusTorchError::Distributed {
-            message: error.to_string(),
-            source: Some(Box::new(error)),
-        }
-    }
-}
-
-impl From<crate::nn::conv_base::NNError> for RusTorchError {
-    fn from(error: crate::nn::conv_base::NNError) -> Self {
-        RusTorchError::NeuralNetwork {
-            layer: "conv_base".to_string(),
-            message: error.to_string(),
-        }
-    }
-}
-
-impl From<crate::tensor::parallel_errors::ParallelError> for RusTorchError {
-    fn from(error: crate::tensor::parallel_errors::ParallelError) -> Self {
-        // Convert to the ParallelError type defined in this module
-        let parallel_error = match error {
-            crate::tensor::parallel_errors::ParallelError::ShapeMismatch { .. } => {
-                ParallelError::SyncError(error.to_string())
-            },
-            crate::tensor::parallel_errors::ParallelError::ParallelExecutionError { .. } => {
-                ParallelError::ThreadError(error.to_string())
-            },
-            crate::tensor::parallel_errors::ParallelError::SimdError { .. } => {
-                ParallelError::GpuError(error.to_string())
-            },
-            _ => ParallelError::SyncError(error.to_string()),
-        };
-        RusTorchError::Parallel(parallel_error)
-    }
-}
-
-// Format-specific error conversions
-#[cfg(feature = "onnx")]
-impl From<crate::formats::onnx::OnnxError> for RusTorchError {
-    fn from(error: crate::formats::onnx::OnnxError) -> Self {
-        RusTorchError::ModelIo {
-            message: format!("ONNX error: {}", error),
-            source: Some(Box::new(error)),
-        }
-    }
-}
-
-#[cfg(feature = "safetensors")]
-impl From<crate::formats::safetensors::SafetensorsError> for RusTorchError {
-    fn from(error: crate::formats::safetensors::SafetensorsError) -> Self {
-        RusTorchError::ModelIo {
-            message: format!("Safetensors error: {}", error),
-            source: Some(Box::new(error)),
-        }
-    }
-}
+// Format-specific error conversions removed - using unified error handling
+// フォーマット固有エラー変換削除 - 統一エラーハンドリング使用

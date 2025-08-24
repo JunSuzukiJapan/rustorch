@@ -3,7 +3,8 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::nn::{Module, conv_base::{ConvolutionBase, NNError, Validator}};
+use crate::nn::{Module, conv_base::{ConvolutionBase, Validator}};
+use crate::error::{RusTorchError, RusTorchResult};
 use std::fmt::Debug;
 use num_traits::Float;
 
@@ -94,7 +95,7 @@ where
         dilation: Option<usize>,
         groups: Option<usize>,
         bias: Option<bool>,
-    ) -> Result<Self, NNError> {
+    ) -> Result<Self, RusTorchError> {
         let stride = stride.unwrap_or(1);
         let padding = padding.unwrap_or(0);
         let dilation = dilation.unwrap_or(1);

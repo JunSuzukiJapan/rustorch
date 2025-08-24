@@ -8,7 +8,8 @@
 //! 基本変換、データ拡張、合成ユーティリティを含みます。
 
 use crate::tensor::Tensor;
-use crate::vision::{Image, ImageFormat, VisionError, VisionResult};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::vision::{Image, ImageFormat};
 use num_traits::Float;
 use rand::Rng;
 
@@ -17,7 +18,7 @@ use rand::Rng;
 pub trait Transform<T: Float>: std::fmt::Debug {
     /// Apply transformation to an image
     /// 画像に変換を適用
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>>;
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>>;
 }
 
 /// Resize transformation
@@ -66,7 +67,7 @@ impl Resize {
 }
 
 impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for Resize {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let (target_height, target_width) = self.size;
         
         // Simple implementation: create new tensor with target size
@@ -102,11 +103,11 @@ impl CenterCrop {
 }
 
 impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for CenterCrop {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let (crop_height, crop_width) = self.size;
         
         if crop_height > image.height || crop_width > image.width {
-            return Err(VisionError::InvalidTransformParams(
+            return Err(RusTorchError::InvalidTransformParams(
                 format!("Crop size ({}, {}) larger than image size ({}, {})",
                        crop_height, crop_width, image.height, image.width)
             ).into());
@@ -158,7 +159,7 @@ impl RandomCrop {
 }
 
 impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for RandomCrop {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let (crop_height, crop_width) = self.size;
         let mut rng = rand::thread_rng();
         
@@ -173,7 +174,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for RandomCr
         };
         
         if crop_height > working_image.height || crop_width > working_image.width {
-            return Err(VisionError::InvalidTransformParams(
+            return Err(RusTorchError::InvalidTransformParams(
                 format!("Crop size ({}, {}) larger than image size ({}, {})",
                        crop_height, crop_width, working_image.height, working_image.width)
             ).into());
@@ -215,7 +216,7 @@ impl RandomHorizontalFlip {
 }
 
 impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for RandomHorizontalFlip {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let mut rng = rand::thread_rng();
         
         if rng.gen::<f64>() < self.probability {
@@ -258,7 +259,7 @@ impl RandomRotation {
 }
 
 impl<T: Float + From<f32> + From<f64> + 'static + std::fmt::Debug> Transform<T> for RandomRotation {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let mut rng = rand::thread_rng();
         let _angle = rng.gen_range(self.degrees.0..=self.degrees.1);
         
@@ -283,9 +284,9 @@ pub struct Normalize<T: Float> {
 impl<T: Float + From<f32> + Copy> Normalize<T> {
     /// Create new normalize transformation
     /// 新しい正規化変換を作成
-    pub fn new(mean: Vec<T>, std: Vec<T>) -> VisionResult<Self> {
+    pub fn new(mean: Vec<T>, std: Vec<T>) -> RusTorchResult<Self> {
         if mean.len() != std.len() {
-            return Err(VisionError::InvalidTransformParams(
+            return Err(RusTorchError::InvalidTransformParams(
                 "Mean and std must have same length".to_string()
             ).into());
         }
@@ -304,9 +305,9 @@ impl<T: Float + From<f32> + Copy> Normalize<T> {
 }
 
 impl<T: Float + From<f32> + Copy + 'static + std::fmt::Debug> Transform<T> for Normalize<T> {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         if self.mean.len() != image.channels {
-            return Err(VisionError::InvalidTransformParams(
+            return Err(RusTorchError::InvalidTransformParams(
                 format!("Mean length {} doesn't match image channels {}",
                        self.mean.len(), image.channels)
             ).into());
@@ -349,7 +350,7 @@ impl Default for ToTensor {
 }
 
 impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for ToTensor {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         // Convert to target format
         // 目標形式に変換
         image.to_format(self.format).map_err(|e| e.into())
@@ -374,7 +375,7 @@ impl<T: Float> Compose<T> {
 }
 
 impl<T: Float + 'static + std::fmt::Debug> Transform<T> for Compose<T> {
-    fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
+    fn apply(&self, image: &Image<T>) -> RusTorchResult<Image<T>> {
         let mut result = image.clone();
         
         for transform in &self.transforms {

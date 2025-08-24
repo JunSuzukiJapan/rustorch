@@ -1,7 +1,7 @@
 //! 計算グラフ可視化機能
 //! Computation graph visualization functionality
 
-use super::{VisualizationResult, VisualizationError};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::autograd::Variable;
 use num_traits::Float;
 use std::collections::{HashMap, HashSet};
@@ -196,7 +196,7 @@ impl GraphVisualizer {
     
     /// 変数から計算グラフを構築
     /// Build computation graph from variable
-    pub fn build_graph<T>(&mut self, variable: &Variable<T>) -> VisualizationResult<()>
+    pub fn build_graph<T>(&mut self, variable: &Variable<T>) -> RusTorchResult<()>
     where
         T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -214,7 +214,7 @@ impl GraphVisualizer {
     
     /// 複数の変数から計算グラフを構築
     /// Build computation graph from multiple variables
-    pub fn build_graph_multi<T>(&mut self, variables: &[&Variable<T>]) -> VisualizationResult<()>
+    pub fn build_graph_multi<T>(&mut self, variables: &[&Variable<T>]) -> RusTorchResult<()>
     where
         T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -234,7 +234,7 @@ impl GraphVisualizer {
     
     /// グラフをSVGとして出力
     /// Export graph as SVG
-    pub fn to_svg(&self) -> VisualizationResult<String> {
+    pub fn to_svg(&self) -> RusTorchResult<String> {
         let mut svg = self.generate_svg_header();
         
         // 背景の描画
@@ -262,7 +262,7 @@ impl GraphVisualizer {
     
     /// グラフをDOT形式で出力
     /// Export graph as DOT format
-    pub fn to_dot(&self) -> VisualizationResult<String> {
+    pub fn to_dot(&self) -> RusTorchResult<String> {
         let mut dot = String::from("digraph ComputationGraph {\n");
         dot.push_str("    rankdir=TB;\n");
         dot.push_str("    node [fontname=\"Arial\"];\n");
@@ -343,7 +343,7 @@ impl GraphVisualizer {
     
     // プライベートメソッド
     
-    fn traverse_variable<T>(&mut self, _variable: &Variable<T>, visited: &mut HashSet<String>, node_counter: &mut usize) -> VisualizationResult<()>
+    fn traverse_variable<T>(&mut self, _variable: &Variable<T>, visited: &mut HashSet<String>, node_counter: &mut usize) -> RusTorchResult<()>
     where
         T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -356,7 +356,7 @@ impl GraphVisualizer {
             
             let tensor_data = _variable.data();
             let tensor_guard = tensor_data.read().map_err(|e| {
-                VisualizationError::PlottingError(format!("Failed to read variable data: {}", e))
+                RusTorchError::PlottingError(format!("Failed to read variable data: {}", e))
             })?;
             
             let shape = tensor_guard.shape().to_vec();
@@ -402,7 +402,7 @@ impl GraphVisualizer {
         Ok(())
     }
     
-    fn apply_layout(&mut self) -> VisualizationResult<()> {
+    fn apply_layout(&mut self) -> RusTorchResult<()> {
         match self.layout {
             GraphLayout::Hierarchical => self.apply_hierarchical_layout(),
             GraphLayout::ForceDirected => self.apply_force_directed_layout(),
@@ -411,7 +411,7 @@ impl GraphVisualizer {
         }
     }
     
-    fn apply_hierarchical_layout(&mut self) -> VisualizationResult<()> {
+    fn apply_hierarchical_layout(&mut self) -> RusTorchResult<()> {
         // 階層的レイアウトの実装
         let levels = self.compute_node_levels()?;
         let margin = 50.0;
@@ -433,7 +433,7 @@ impl GraphVisualizer {
         Ok(())
     }
     
-    fn apply_force_directed_layout(&mut self) -> VisualizationResult<()> {
+    fn apply_force_directed_layout(&mut self) -> RusTorchResult<()> {
         // 力学的レイアウトの実装（簡略化）
         let center_x = self.canvas_size.0 / 2.0;
         let center_y = self.canvas_size.1 / 2.0;
@@ -451,7 +451,7 @@ impl GraphVisualizer {
         Ok(())
     }
     
-    fn apply_circular_layout(&mut self) -> VisualizationResult<()> {
+    fn apply_circular_layout(&mut self) -> RusTorchResult<()> {
         let center_x = self.canvas_size.0 / 2.0;
         let center_y = self.canvas_size.1 / 2.0;
         let radius = (self.canvas_size.0.min(self.canvas_size.1) / 2.0) * 0.8;
@@ -468,7 +468,7 @@ impl GraphVisualizer {
         Ok(())
     }
     
-    fn apply_grid_layout(&mut self) -> VisualizationResult<()> {
+    fn apply_grid_layout(&mut self) -> RusTorchResult<()> {
         let cols = (self.nodes.len() as f32).sqrt().ceil() as usize;
         let rows = (self.nodes.len() + cols - 1) / cols;
         
@@ -489,7 +489,7 @@ impl GraphVisualizer {
         Ok(())
     }
     
-    fn compute_node_levels(&self) -> VisualizationResult<Vec<Vec<String>>> {
+    fn compute_node_levels(&self) -> RusTorchResult<Vec<Vec<String>>> {
         // トポロジカルソートによるレベル計算（簡略化）
         let mut levels = Vec::new();
         let mut current_level = Vec::new();
@@ -526,7 +526,7 @@ impl GraphVisualizer {
         )
     }
     
-    fn render_node(&self, node: &GraphNode) -> VisualizationResult<String> {
+    fn render_node(&self, node: &GraphNode) -> RusTorchResult<String> {
         let mut node_svg = String::new();
         
         let (x, y) = node.position;
@@ -578,11 +578,11 @@ impl GraphVisualizer {
         Ok(node_svg)
     }
     
-    fn render_edge(&self, edge: &GraphEdge) -> VisualizationResult<String> {
+    fn render_edge(&self, edge: &GraphEdge) -> RusTorchResult<String> {
         let from_node = self.nodes.iter().find(|n| n.id == edge.from)
-            .ok_or_else(|| VisualizationError::PlottingError("Source node not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::PlottingError("Source node not found".to_string()))?;
         let to_node = self.nodes.iter().find(|n| n.id == edge.to)
-            .ok_or_else(|| VisualizationError::PlottingError("Target node not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::PlottingError("Target node not found".to_string()))?;
         
         let (x1, y1) = from_node.position;
         let (x2, y2) = to_node.position;
@@ -617,7 +617,7 @@ impl GraphVisualizer {
         Ok(edge_svg)
     }
     
-    fn render_legend(&self) -> VisualizationResult<String> {
+    fn render_legend(&self) -> RusTorchResult<String> {
         let mut legend = String::new();
         let legend_x = 20.0;
         let mut legend_y = self.canvas_size.1 - 120.0;

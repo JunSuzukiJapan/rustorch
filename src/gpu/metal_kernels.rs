@@ -1,7 +1,7 @@
 //! Metal Performance Shaders kernel implementations for GPU acceleration
 //! GPU加速のためのMetal Performance Shadersカーネル実装
 
-use super::{GpuError};
+use crate::error::{RusTorchError, RusTorchResult};
 // Metal GPU kernel implementations
 use std::ffi::c_void;
 use std::marker::PhantomData;
@@ -68,7 +68,7 @@ impl<T> MetalBuffer<T> {
     /// Create a new Metal buffer
     /// 新しいMetalバッファを作成
     #[cfg(feature = "metal")]
-    pub fn new(size: usize, device: &Device) -> Result<Self, GpuError> {
+    pub fn new(size: usize, device: &Device) -> RusTorchResult<Self> {
         let buffer_size = size * std::mem::size_of::<T>();
         let buffer = device.new_buffer(buffer_size as u64, MTLResourceOptions::StorageModeShared);
         
@@ -82,15 +82,15 @@ impl<T> MetalBuffer<T> {
     #[cfg(not(feature = "metal"))]
     /// Create a new Metal buffer with specified size
     /// 指定されたサイズで新しいMetalバッファを作成
-    pub fn new(_size: usize, _device: &()) -> Result<Self, GpuError> {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+    pub fn new(_size: usize, _device: &()) -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
     
     /// Copy data from host to Metal buffer
     /// ホストからMetalバッファへデータをコピー
-    pub fn copy_from_host(&mut self, host_data: &[T]) -> Result<(), GpuError> {
+    pub fn copy_from_host(&mut self, host_data: &[T]) -> RusTorchResult<()> {
         if host_data.len() != self.size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Size mismatch in host-to-device copy".to_string()
             ));
         }
@@ -105,15 +105,15 @@ impl<T> MetalBuffer<T> {
         }
         #[cfg(not(feature = "metal"))]
         {
-            Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
         }
     }
     
     /// Copy data from Metal buffer to host
     /// Metalバッファからホストへデータをコピー
-    pub fn copy_to_host(&self, host_data: &mut [T]) -> Result<(), GpuError> {
+    pub fn copy_to_host(&self, host_data: &mut [T]) -> RusTorchResult<()> {
         if host_data.len() != self.size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Size mismatch in device-to-host copy".to_string()
             ));
         }
@@ -128,7 +128,7 @@ impl<T> MetalBuffer<T> {
         }
         #[cfg(not(feature = "metal"))]
         {
-            Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
         }
     }
 }
@@ -147,9 +147,9 @@ pub struct MetalKernelExecutor {
 impl MetalKernelExecutor {
     /// Create a new Metal kernel executor
     /// 新しいMetalカーネル実行器を作成
-    pub fn new() -> Result<Self, GpuError> {
+    pub fn new() -> RusTorchResult<Self> {
         let device = Device::system_default().ok_or_else(|| {
-            GpuError::InitializationError("No Metal device available".to_string())
+            RusTorchError::InitializationError("No Metal device available".to_string())
         })?;
         
         let command_queue = device.new_command_queue();
@@ -229,27 +229,27 @@ impl MetalKernelExecutor {
         "#;
         
         let library = device.new_library_with_source(shader_source, &CompileOptions::new())
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to compile Metal shaders: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to compile Metal shaders: {:?}", e)))?;
         
         let mut pipeline_states = HashMap::new();
         
         // Create compute pipeline states
         let add_function = library.get_function("elementwise_add_f32", None)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to get add function: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to get add function: {:?}", e)))?;
         let add_pipeline = device.new_compute_pipeline_state_with_function(&add_function)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to create add pipeline: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create add pipeline: {:?}", e)))?;
         pipeline_states.insert(MetalKernelType::ElementWise, add_pipeline);
         
         let matmul_function = library.get_function("matrix_multiply_f32", None)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to get matmul function: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to get matmul function: {:?}", e)))?;
         let matmul_pipeline = device.new_compute_pipeline_state_with_function(&matmul_function)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to create matmul pipeline: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create matmul pipeline: {:?}", e)))?;
         pipeline_states.insert(MetalKernelType::MatMul, matmul_pipeline);
         
         let reduce_function = library.get_function("reduce_sum_f32", None)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to get reduce function: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to get reduce function: {:?}", e)))?;
         let reduce_pipeline = device.new_compute_pipeline_state_with_function(&reduce_function)
-            .map_err(|e| GpuError::KernelCompilationError(format!("Failed to create reduce pipeline: {:?}", e)))?;
+            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create reduce pipeline: {:?}", e)))?;
         pipeline_states.insert(MetalKernelType::Reduction, reduce_pipeline);
         
         Ok(Self {
@@ -267,10 +267,10 @@ impl MetalKernelExecutor {
         a: &[f32],
         b: &[f32],
         c: &mut [f32],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         let size = a.len();
         if b.len() != size || c.len() != size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Array size mismatch in element-wise addition".to_string()
             ));
         }
@@ -295,7 +295,7 @@ impl MetalKernelExecutor {
         
         // Get pipeline state
         let pipeline_state = self.pipeline_states.get(&MetalKernelType::ElementWise)
-            .ok_or_else(|| GpuError::KernelExecutionError("ElementWise pipeline not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::KernelExecutionError("ElementWise pipeline not found".to_string()))?;
         
         // Create command buffer and encoder
         let command_buffer = self.command_queue.new_command_buffer();
@@ -339,7 +339,7 @@ impl MetalKernelExecutor {
         m: usize,
         n: usize,
         k: usize,
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // Create Metal buffers
         let a_buffer = self.device.new_buffer_with_data(
             a.as_ptr() as *const c_void,
@@ -377,7 +377,7 @@ impl MetalKernelExecutor {
         
         // Get pipeline state
         let pipeline_state = self.pipeline_states.get(&MetalKernelType::MatMul)
-            .ok_or_else(|| GpuError::KernelExecutionError("MatMul pipeline not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::KernelExecutionError("MatMul pipeline not found".to_string()))?;
         
         // Create command buffer and encoder
         let command_buffer = self.command_queue.new_command_buffer();
@@ -416,7 +416,7 @@ impl MetalKernelExecutor {
     
     /// Execute reduction operation (sum) using Metal
     /// Metalを使用してリダクション演算（合計）を実行
-    pub fn reduce_sum_f32(&self, input: &[f32]) -> Result<f32, GpuError> {
+    pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
         let size = input.len();
         let block_size = 256;
         let grid_size = (size + block_size - 1) / block_size;
@@ -435,7 +435,7 @@ impl MetalKernelExecutor {
         
         // Get pipeline state
         let pipeline_state = self.pipeline_states.get(&MetalKernelType::Reduction)
-            .ok_or_else(|| GpuError::KernelExecutionError("Reduction pipeline not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::KernelExecutionError("Reduction pipeline not found".to_string()))?;
         
         // Create command buffer and encoder
         let command_buffer = self.command_queue.new_command_buffer();
@@ -478,8 +478,8 @@ pub struct MetalKernelExecutor;
 impl MetalKernelExecutor {
     /// Create a new Metal kernel executor (fallback implementation)
     /// 新しいMetalカーネル実行器を作成（フォールバック実装）
-    pub fn new() -> Result<Self, GpuError> {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+    pub fn new() -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
     
     /// Perform element-wise addition using Metal
@@ -489,8 +489,8 @@ impl MetalKernelExecutor {
         _a: &[f32],
         _b: &[f32],
         _c: &mut [f32],
-    ) -> Result<(), GpuError> {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+    ) -> RusTorchResult<()> {
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
     
     /// Perform matrix multiplication using Metal
@@ -503,14 +503,14 @@ impl MetalKernelExecutor {
         _m: usize,
         _n: usize,
         _k: usize,
-    ) -> Result<(), GpuError> {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+    ) -> RusTorchResult<()> {
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
     
     /// Perform reduction sum using Metal
     /// Metalを使用してリダクション合計を実行
-    pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+    pub fn reduce_sum_f32(&self, _input: &[f32]) -> RusTorchResult<f32> {
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
 }
 
@@ -526,7 +526,7 @@ pub fn metal_matmul_f32(
     _m: usize,
     _n: usize,
     _k: usize,
-) -> Result<(), GpuError> {
+) -> RusTorchResult<()> {
     #[cfg(feature = "metal")]
     {
         let executor = MetalKernelExecutor::new()?;
@@ -534,7 +534,7 @@ pub fn metal_matmul_f32(
     }
     #[cfg(not(feature = "metal"))]
     {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
 }
 
@@ -544,7 +544,7 @@ pub fn metal_elementwise_add_f32(
     _a: &[f32],
     _b: &[f32],
     _c: &mut [f32],
-) -> Result<(), GpuError> {
+) -> RusTorchResult<()> {
     #[cfg(feature = "metal")]
     {
         let executor = MetalKernelExecutor::new()?;
@@ -552,13 +552,13 @@ pub fn metal_elementwise_add_f32(
     }
     #[cfg(not(feature = "metal"))]
     {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
 }
 
 /// Execute Metal reduction sum
 /// Metalリダクション合計を実行
-pub fn metal_reduce_sum_f32(_input: &[f32]) -> Result<f32, GpuError> {
+pub fn metal_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     #[cfg(feature = "metal")]
     {
         let executor = MetalKernelExecutor::new()?;
@@ -566,7 +566,7 @@ pub fn metal_reduce_sum_f32(_input: &[f32]) -> Result<f32, GpuError> {
     }
     #[cfg(not(feature = "metal"))]
     {
-        Err(GpuError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
     }
 }
 

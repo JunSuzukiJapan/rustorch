@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use crate::tensor::Tensor;
-use super::{DistributedResult, DistributedError};
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 /// Gradient compression algorithms
@@ -62,7 +62,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
     
     /// Compress gradient tensor
     /// 勾配テンソルを圧縮
-    pub fn compress(&self, gradient: &Tensor<T>) -> DistributedResult<CompressedGradient<T>> {
+    pub fn compress(&self, gradient: &Tensor<T>) -> RusTorchResult<CompressedGradient<T>> {
         match self.algorithm {
             CompressionAlgorithm::None => {
                 Ok(CompressedGradient {
@@ -85,7 +85,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
     
     /// Decompress gradient tensor
     /// 勾配テンソルを展開
-    pub fn decompress(&self, compressed: &CompressedGradient<T>) -> DistributedResult<Tensor<T>> {
+    pub fn decompress(&self, compressed: &CompressedGradient<T>) -> RusTorchResult<Tensor<T>> {
         match compressed.algorithm {
             CompressionAlgorithm::None => Ok(compressed.data.clone()),
             _ => {
@@ -96,7 +96,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
         }
     }
     
-    fn compress_top_k(&self, gradient: &Tensor<T>, k: usize) -> DistributedResult<CompressedGradient<T>> {
+    fn compress_top_k(&self, gradient: &Tensor<T>, k: usize) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified top-k compression
         // 簡略化されたtop-k圧縮
         let total_elements = gradient.shape().iter().product::<usize>();
@@ -111,11 +111,11 @@ impl<T: Float + 'static> GradientCompressor<T> {
         })
     }
     
-    fn compress_random(&self, gradient: &Tensor<T>, ratio: f32) -> DistributedResult<CompressedGradient<T>> {
+    fn compress_random(&self, gradient: &Tensor<T>, ratio: f32) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified random sparsification
         // 簡略化されたランダムスパース化
         if ratio <= 0.0 || ratio > 1.0 {
-            return Err(DistributedError::ConfigurationError(
+            return Err(RusTorchError::ConfigurationError(
                 format!("Invalid compression ratio: {}", ratio)
             ).into());
         }
@@ -127,11 +127,11 @@ impl<T: Float + 'static> GradientCompressor<T> {
         })
     }
     
-    fn compress_quantization(&self, gradient: &Tensor<T>, bits: u8) -> DistributedResult<CompressedGradient<T>> {
+    fn compress_quantization(&self, gradient: &Tensor<T>, bits: u8) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified quantization
         // 簡略化された量子化
         if bits == 0 || bits > 32 {
-            return Err(DistributedError::ConfigurationError(
+            return Err(RusTorchError::ConfigurationError(
                 format!("Invalid quantization bits: {}", bits)
             ).into());
         }
@@ -178,9 +178,9 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
     
     /// Get tensor from pool or allocate new one
     /// プールからテンソルを取得または新規割り当て
-    pub fn get_tensor(&self, shape: &[usize]) -> DistributedResult<Tensor<T>> {
+    pub fn get_tensor(&self, shape: &[usize]) -> RusTorchResult<Tensor<T>> {
         let mut pools = self.pools.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock memory pool".to_string())
+            RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
         
         let shape_vec = shape.to_vec();
@@ -197,9 +197,9 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
     
     /// Return tensor to pool
     /// テンソルをプールに返却
-    pub fn return_tensor(&self, tensor: Tensor<T>) -> DistributedResult<()> {
+    pub fn return_tensor(&self, tensor: Tensor<T>) -> RusTorchResult<()> {
         let mut pools = self.pools.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock memory pool".to_string())
+            RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
         
         let shape = tensor.shape().to_vec();
@@ -216,9 +216,9 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
     
     /// Clear all pools
     /// 全プールをクリア
-    pub fn clear(&self) -> DistributedResult<()> {
+    pub fn clear(&self) -> RusTorchResult<()> {
         let mut pools = self.pools.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock memory pool".to_string())
+            RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
         
         pools.clear();
@@ -227,9 +227,9 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
     
     /// Get memory pool statistics
     /// メモリプール統計を取得
-    pub fn get_stats(&self) -> DistributedResult<MemoryPoolStats> {
+    pub fn get_stats(&self) -> RusTorchResult<MemoryPoolStats> {
         let pools = self.pools.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock memory pool".to_string())
+            RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
         
         let total_tensors = pools.values().map(|pool| pool.len()).sum();
@@ -277,9 +277,9 @@ impl<T: Float + 'static> CommunicationScheduler<T> {
     
     /// Schedule operation for batched execution
     /// バッチ実行用の操作をスケジュール
-    pub fn schedule_operation(&self, operation: PendingOperation<T>) -> DistributedResult<()> {
+    pub fn schedule_operation(&self, operation: PendingOperation<T>) -> RusTorchResult<()> {
         let mut ops = self.pending_operations.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock scheduler".to_string())
+            RusTorchError::CommunicationError("Failed to lock scheduler".to_string())
         })?;
         
         ops.push(operation);
@@ -295,9 +295,9 @@ impl<T: Float + 'static> CommunicationScheduler<T> {
     
     /// Force execution of pending operations
     /// 保留中の操作を強制実行
-    pub fn flush(&self) -> DistributedResult<()> {
+    pub fn flush(&self) -> RusTorchResult<()> {
         let mut ops = self.pending_operations.lock().map_err(|_| {
-            DistributedError::CommunicationError("Failed to lock scheduler".to_string())
+            RusTorchError::CommunicationError("Failed to lock scheduler".to_string())
         })?;
         
         if !ops.is_empty() {
@@ -307,7 +307,7 @@ impl<T: Float + 'static> CommunicationScheduler<T> {
         Ok(())
     }
     
-    fn execute_batch(&self, operations: &mut Vec<PendingOperation<T>>) -> DistributedResult<()> {
+    fn execute_batch(&self, operations: &mut Vec<PendingOperation<T>>) -> RusTorchResult<()> {
         // Simplified batch execution
         // 簡略化されたバッチ実行
         for _op in operations.drain(..) {

@@ -6,7 +6,7 @@
 //! このモジュールは、CUDA、Metal、OpenCL間でGPUカーネルの統一インターフェースを提供し、
 //! 異なるGPUバックエンドでのシームレスな実行と自動最適化を可能にします。
 
-use super::{DeviceType, GpuError, GpuResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -111,11 +111,11 @@ impl Default for KernelMetrics {
 pub trait UnifiedKernelExecutor: Send + Sync {
     /// Execute a kernel operation for f32 tensors
     /// f32テンソル用カーネル操作を実行
-    fn execute_f32(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> GpuResult<Tensor<f32>>;
+    fn execute_f32(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> RusTorchResult<Tensor<f32>>;
 
     /// Execute a kernel operation for f64 tensors
     /// f64テンソル用カーネル操作を実行
-    fn execute_f64(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> GpuResult<Tensor<f64>>;
+    fn execute_f64(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> RusTorchResult<Tensor<f64>>;
 
     /// Check if operation is supported
     /// 操作がサポートされているかチェック
@@ -131,13 +131,13 @@ pub trait UnifiedKernelExecutor: Send + Sync {
 
     /// Optimize kernel parameters for given operation
     /// 指定された操作に対してカーネルパラメータを最適化
-    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> GpuResult<()>;
+    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> RusTorchResult<()>;
 }
 
 /// Generic execute helper trait for internal use
 /// 内部使用向けジェネリック実行ヘルパートレイト
 trait ExecuteGeneric<T: Float + 'static + Send + Sync> {
-    fn execute(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> GpuResult<Tensor<T>>;
+    fn execute(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> RusTorchResult<Tensor<T>>;
 }
 
 /// CUDA kernel executor
@@ -150,11 +150,11 @@ pub struct CudaUnifiedExecutor {
 
 #[cfg(feature = "cuda")]
 impl CudaUnifiedExecutor {
-    pub fn new(device_id: usize) -> GpuResult<Self> {
+    pub fn new(device_id: usize) -> RusTorchResult<Self> {
         // Validate CUDA device
         use crate::gpu::cuda_kernels::CudaKernelExecutor;
         let _executor = CudaKernelExecutor::new(device_id)
-            .map_err(|_| GpuError::DeviceNotFound(device_id))?;
+            .map_err(|_| RusTorchError::DeviceNotFound(device_id))?;
 
         Ok(Self {
             device_id,
@@ -165,7 +165,7 @@ impl CudaUnifiedExecutor {
 
 #[cfg(feature = "cuda")]
 impl ExecuteGeneric<f32> for CudaUnifiedExecutor {
-    fn execute(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> GpuResult<Tensor<f32>> {
+    fn execute(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
         let start_time = Instant::now();
         
         // Execute CUDA-specific operation
@@ -174,7 +174,7 @@ impl ExecuteGeneric<f32> for CudaUnifiedExecutor {
             KernelOp::Mul => self.execute_cuda_mul(inputs, params),
             KernelOp::MatMul => self.execute_cuda_matmul(inputs, params),
             KernelOp::Conv2D => self.execute_cuda_conv2d(inputs, params),
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented for CUDA", op))),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented for CUDA", op))),
         };
 
         // Update metrics
@@ -193,7 +193,7 @@ impl ExecuteGeneric<f32> for CudaUnifiedExecutor {
 
 #[cfg(feature = "cuda")]
 impl ExecuteGeneric<f64> for CudaUnifiedExecutor {
-    fn execute(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> GpuResult<Tensor<f64>> {
+    fn execute(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
         let start_time = Instant::now();
         
         // Execute CUDA-specific operation
@@ -202,7 +202,7 @@ impl ExecuteGeneric<f64> for CudaUnifiedExecutor {
             KernelOp::Mul => self.execute_cuda_mul(inputs, params),
             KernelOp::MatMul => self.execute_cuda_matmul(inputs, params),
             KernelOp::Conv2D => self.execute_cuda_conv2d(inputs, params),
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented for CUDA", op))),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented for CUDA", op))),
         };
 
         // Update metrics
@@ -220,11 +220,11 @@ impl ExecuteGeneric<f64> for CudaUnifiedExecutor {
 
 #[cfg(feature = "cuda")]
 impl UnifiedKernelExecutor for CudaUnifiedExecutor {
-    fn execute_f32(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> GpuResult<Tensor<f32>> {
+    fn execute_f32(&self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
         <Self as ExecuteGeneric<f32>>::execute(self, op, inputs, params)
     }
 
-    fn execute_f64(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> GpuResult<Tensor<f64>> {
+    fn execute_f64(&self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
         <Self as ExecuteGeneric<f64>>::execute(self, op, inputs, params)
     }
 
@@ -240,7 +240,7 @@ impl UnifiedKernelExecutor for CudaUnifiedExecutor {
         self.metrics.lock().unwrap().clone()
     }
 
-    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> GpuResult<()> {
+    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> RusTorchResult<()> {
         // CUDA-specific parameter optimization
         match op {
             KernelOp::MatMul => {
@@ -261,51 +261,51 @@ impl UnifiedKernelExecutor for CudaUnifiedExecutor {
 
 #[cfg(feature = "cuda")]
 impl CudaUnifiedExecutor {
-    fn execute_cuda_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_cuda_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
         }
 
         // Placeholder implementation - would use actual CUDA kernels
         inputs[0].add(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_cuda_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_cuda_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
         }
 
         // Placeholder implementation
         inputs[0].mul(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_cuda_matmul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_cuda_matmul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
         }
 
         // Placeholder implementation
         inputs[0].matmul(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_cuda_conv2d<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_cuda_conv2d<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         // Placeholder implementation for convolution
-        Err(GpuError::UnsupportedOperation("Conv2D not yet implemented".to_string()))
+        Err(RusTorchError::UnsupportedOperation("Conv2D not yet implemented".to_string()))
     }
 }
 
@@ -319,10 +319,10 @@ pub struct MetalUnifiedExecutor {
 
 #[cfg(feature = "metal")]
 impl MetalUnifiedExecutor {
-    pub fn new(device_id: usize) -> GpuResult<Self> {
+    pub fn new(device_id: usize) -> RusTorchResult<Self> {
         use crate::gpu::metal_kernels::MetalKernelExecutor;
         let _executor = MetalKernelExecutor::new()
-            .map_err(|_| GpuError::DeviceNotFound(device_id))?;
+            .map_err(|_| RusTorchError::DeviceNotFound(device_id))?;
 
         Ok(Self {
             device_id,
@@ -333,7 +333,7 @@ impl MetalUnifiedExecutor {
 
 #[cfg(feature = "metal")]
 impl UnifiedKernelExecutor for MetalUnifiedExecutor {
-    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
@@ -344,7 +344,7 @@ impl UnifiedKernelExecutor for MetalUnifiedExecutor {
             KernelOp::Add => self.execute_metal_add(inputs, params),
             KernelOp::Mul => self.execute_metal_mul(inputs, params),
             KernelOp::MatMul => self.execute_metal_matmul(inputs, params),
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented for Metal", op))),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented for Metal", op))),
         };
 
         // Update metrics
@@ -371,7 +371,7 @@ impl UnifiedKernelExecutor for MetalUnifiedExecutor {
         self.metrics.lock().unwrap().clone()
     }
 
-    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> GpuResult<()> {
+    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> RusTorchResult<()> {
         // Metal-specific parameter optimization
         match op {
             KernelOp::MatMul => {
@@ -387,41 +387,41 @@ impl UnifiedKernelExecutor for MetalUnifiedExecutor {
 
 #[cfg(feature = "metal")]
 impl MetalUnifiedExecutor {
-    fn execute_metal_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_metal_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
         }
 
         // Placeholder implementation - would use actual Metal shaders
         inputs[0].add(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_metal_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_metal_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
         }
 
         inputs[0].mul(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_metal_matmul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_metal_matmul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
         }
 
         inputs[0].matmul(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 }
 
@@ -435,10 +435,10 @@ pub struct OpenClUnifiedExecutor {
 
 #[cfg(feature = "opencl")]
 impl OpenClUnifiedExecutor {
-    pub fn new(device_id: usize) -> GpuResult<Self> {
+    pub fn new(device_id: usize) -> RusTorchResult<Self> {
         use crate::gpu::opencl_kernels::OpenClKernelExecutor;
         let _executor = OpenClKernelExecutor::new(device_id)
-            .map_err(|_| GpuError::DeviceNotFound(device_id))?;
+            .map_err(|_| RusTorchError::DeviceNotFound(device_id))?;
 
         Ok(Self {
             device_id,
@@ -449,7 +449,7 @@ impl OpenClUnifiedExecutor {
 
 #[cfg(feature = "opencl")]
 impl UnifiedKernelExecutor for OpenClUnifiedExecutor {
-    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
@@ -459,7 +459,7 @@ impl UnifiedKernelExecutor for OpenClUnifiedExecutor {
         let result = match op {
             KernelOp::Add => self.execute_opencl_add(inputs, params),
             KernelOp::Mul => self.execute_opencl_mul(inputs, params),
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented for OpenCL", op))),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented for OpenCL", op))),
         };
 
         // Update metrics
@@ -486,7 +486,7 @@ impl UnifiedKernelExecutor for OpenClUnifiedExecutor {
         self.metrics.lock().unwrap().clone()
     }
 
-    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> GpuResult<()> {
+    fn optimize_params(&self, op: KernelOp, params: &mut KernelParams) -> RusTorchResult<()> {
         // OpenCL-specific parameter optimization
         match op {
             KernelOp::Add | KernelOp::Mul => {
@@ -500,28 +500,28 @@ impl UnifiedKernelExecutor for OpenClUnifiedExecutor {
 
 #[cfg(feature = "opencl")]
 impl OpenClUnifiedExecutor {
-    fn execute_opencl_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_opencl_add<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
         }
 
         inputs[0].add(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 
-    fn execute_opencl_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute_opencl_mul<T>(&self, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
         if inputs.len() != 2 {
-            return Err(GpuError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
+            return Err(RusTorchError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
         }
 
         inputs[0].mul(inputs[1])
-            .map_err(|e| GpuError::KernelExecutionError(e))
+            .map_err(|e| RusTorchError::KernelExecutionError(e))
     }
 }
 
@@ -546,7 +546,7 @@ impl Default for CpuFallbackExecutor {
 }
 
 impl UnifiedKernelExecutor for CpuFallbackExecutor {
-    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], _params: &KernelParams) -> GpuResult<Tensor<T>>
+    fn execute<T>(&self, op: KernelOp, inputs: &[&Tensor<T>], _params: &KernelParams) -> RusTorchResult<Tensor<T>>
     where
         T: Float + 'static + Send + Sync,
     {
@@ -556,33 +556,33 @@ impl UnifiedKernelExecutor for CpuFallbackExecutor {
         let result = match op {
             KernelOp::Add => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
+                    return Err(RusTorchError::InvalidOperation("Add operation requires exactly 2 inputs".to_string()));
                 }
                 inputs[0].add(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Mul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
+                    return Err(RusTorchError::InvalidOperation("Mul operation requires exactly 2 inputs".to_string()));
                 }
                 inputs[0].mul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::Sub => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("Sub operation requires exactly 2 inputs".to_string()));
+                    return Err(RusTorchError::InvalidOperation("Sub operation requires exactly 2 inputs".to_string()));
                 }
                 inputs[0].sub(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
-                    return Err(GpuError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
+                    return Err(RusTorchError::InvalidOperation("MatMul operation requires exactly 2 inputs".to_string()));
                 }
                 inputs[0].matmul(inputs[1])
-                    .map_err(|e| GpuError::KernelExecutionError(e))
+                    .map_err(|e| RusTorchError::KernelExecutionError(e))
             },
-            _ => Err(GpuError::UnsupportedOperation(format!("Operation {:?} not implemented for CPU fallback", op))),
+            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented for CPU fallback", op))),
         };
 
         // Update metrics
@@ -609,7 +609,7 @@ impl UnifiedKernelExecutor for CpuFallbackExecutor {
         self.metrics.lock().unwrap().clone()
     }
 
-    fn optimize_params(&self, _op: KernelOp, _params: &mut KernelParams) -> GpuResult<()> {
+    fn optimize_params(&self, _op: KernelOp, _params: &mut KernelParams) -> RusTorchResult<()> {
         // CPU doesn't need special parameter optimization
         Ok(())
     }

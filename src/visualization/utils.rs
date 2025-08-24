@@ -1,7 +1,7 @@
 //! 可視化ユーティリティ
 //! Visualization utilities
 
-use super::{VisualizationResult, VisualizationError};
+use crate::error::{RusTorchError, RusTorchResult};
 use std::fs;
 use std::path::Path;
 
@@ -49,7 +49,7 @@ impl PlotFormat {
 
 /// プロットをファイルに保存
 /// Save plot to file
-pub fn save_plot<P: AsRef<Path>>(content: &str, path: P, format: PlotFormat) -> VisualizationResult<()> {
+pub fn save_plot<P: AsRef<Path>>(content: &str, path: P, format: PlotFormat) -> RusTorchResult<()> {
     let file_path = path.as_ref();
     
     // ディレクトリが存在しない場合は作成
@@ -72,7 +72,7 @@ pub fn save_plot<P: AsRef<Path>>(content: &str, path: P, format: PlotFormat) -> 
 
 /// HTMLファイルにSVGを埋め込み
 /// Embed SVG in HTML file
-pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> VisualizationResult<String> {
+pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> RusTorchResult<String> {
     match format {
         PlotFormat::Html => {
             Ok(format!(
@@ -124,15 +124,13 @@ pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> VisualizationResul
                 svg_content
             ))
         },
-        _ => Err(VisualizationError::ConfigError(
-            "Invalid format for HTML wrapping".to_string()
-        ).into()),
+        _ => Err(crate::error::RusTorchError::visualization("Invalid format for HTML wrapping")),
     }
 }
 
 /// 複数のプロットを一つのHTMLファイルにまとめる
 /// Combine multiple plots into a single HTML file
-pub fn create_dashboard(plots: Vec<(&str, &str)>) -> VisualizationResult<String> {
+pub fn create_dashboard(plots: Vec<(&str, &str)>) -> RusTorchResult<String> {
     let mut plot_sections = String::new();
     
     for (i, (title, svg_content)) in plots.iter().enumerate() {
@@ -307,25 +305,23 @@ impl ColorPalette {
 
 /// フォーマット変換ユーティリティ
 /// Format conversion utilities
-pub fn export_format(content: &str, from_format: PlotFormat, to_format: PlotFormat) -> VisualizationResult<String> {
+pub fn export_format(content: &str, from_format: PlotFormat, to_format: PlotFormat) -> RusTorchResult<String> {
     match (&from_format, &to_format) {
         (PlotFormat::Svg, PlotFormat::Html) => wrap_in_html(content, PlotFormat::Html),
         (PlotFormat::Dot, PlotFormat::Svg) => {
             // DOT to SVG conversion would require Graphviz
-            Err(VisualizationError::ConfigError(
-                "DOT to SVG conversion requires Graphviz".to_string()
-            ).into())
+            Err(crate::error::RusTorchError::visualization("DOT to SVG conversion requires Graphviz"))
         },
         (from, to) if from == to => Ok(content.to_string()),
-        _ => Err(VisualizationError::ConfigError(
+        _ => Err(crate::error::RusTorchError::visualization(
             format!("Conversion from {:?} to {:?} is not supported", from_format, to_format)
-        ).into()),
+        )),
     }
 }
 
 /// SVGサイズ調整ユーティリティ
 /// SVG size adjustment utilities
-pub fn resize_svg(svg_content: &str, new_width: u32, new_height: u32) -> VisualizationResult<String> {
+pub fn resize_svg(svg_content: &str, new_width: u32, new_height: u32) -> RusTorchResult<String> {
     // 簡単なSVGサイズ変更（正規表現を使わない実装）
     if let Some(start) = svg_content.find("<svg") {
         if let Some(end) = svg_content[start..].find(">") {
@@ -344,10 +340,10 @@ pub fn resize_svg(svg_content: &str, new_width: u32, new_height: u32) -> Visuali
             
             Ok(result)
         } else {
-            Err(VisualizationError::PlottingError("Invalid SVG format".to_string()).into())
+            Err(crate::error::RusTorchError::plotting_error("Invalid SVG format"))
         }
     } else {
-        Err(VisualizationError::PlottingError("No SVG tag found".to_string()).into())
+        Err(crate::error::RusTorchError::plotting_error("No SVG tag found"))
     }
 }
 

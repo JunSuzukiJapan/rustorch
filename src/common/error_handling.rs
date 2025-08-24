@@ -450,11 +450,7 @@ impl From<MemoryError> for RusTorchError {
     }
 }
 
-impl From<crate::tensor::parallel_errors::ParallelError> for RusTorchError {
-    fn from(err: crate::tensor::parallel_errors::ParallelError) -> Self {
-        RusTorchError::TensorError(TensorError::InvalidOperation(format!("{:?}", err)))
-    }
-}
+// ParallelError has been unified into RusTorchError - no conversion needed
 
 /// Helper macros for error creation
 /// エラー作成用ヘルパーマクロ

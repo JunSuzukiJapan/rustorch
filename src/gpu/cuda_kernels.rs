@@ -1,7 +1,7 @@
 //! CUDA kernel implementations for GPU acceleration
 //! GPU加速のためのCUDAカーネル実装
 
-use super::GpuError;
+use crate::error::{RusTorchError, RusTorchResult};
 
 #[cfg(feature = "cuda")]
 use cudarc::{
@@ -78,17 +78,17 @@ pub struct CudaBuffer<T> {
 impl<T> CudaBuffer<T> {
     /// Create a new CUDA buffer
     /// 新しいCUDAバッファを作成
-    pub fn new(_size: usize, _device_id: usize) -> Result<Self, GpuError> {
+    pub fn new(_size: usize, _device_id: usize) -> RusTorchResult<Self> {
         #[cfg(feature = "cuda")]
         {
             use cudarc::driver::CudaDevice;
             
             let device = CudaDevice::new(device_id).map_err(|e| {
-                GpuError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
+                RusTorchError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
             })?;
             
             let ptr = device.alloc_zeros::<T>(size).map_err(|e| {
-                GpuError::AllocationError(format!("Failed to allocate CUDA memory: {}", e))
+                RusTorchError::AllocationError(format!("Failed to allocate CUDA memory: {}", e))
             })?;
             
             Ok(Self {
@@ -99,15 +99,15 @@ impl<T> CudaBuffer<T> {
         }
         #[cfg(not(feature = "cuda"))]
         {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
         }
     }
     
     /// Copy data from host to device
     /// ホストからデバイスへデータをコピー
-    pub fn copy_from_host(&mut self, host_data: &[T]) -> Result<(), GpuError> {
+    pub fn copy_from_host(&mut self, host_data: &[T]) -> RusTorchResult<()> {
         if host_data.len() != self.size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Size mismatch in host-to-device copy".to_string()
             ));
         }
@@ -117,27 +117,27 @@ impl<T> CudaBuffer<T> {
             use cudarc::driver::{CudaDevice, DevicePtr};
             
             let device = CudaDevice::new(self.device_id).map_err(|e| {
-                GpuError::InitializationError(format!("Failed to get CUDA device: {}", e))
+                RusTorchError::InitializationError(format!("Failed to get CUDA device: {}", e))
             })?;
             
             let device_ptr = unsafe { DevicePtr::wrap(self.ptr as *mut T, self.size) };
             device.htod_copy(host_data, &device_ptr).map_err(|e| {
-                GpuError::InvalidOperation(format!("Host-to-device copy failed: {}", e))
+                RusTorchError::InvalidOperation(format!("Host-to-device copy failed: {}", e))
             })?;
             
             Ok(())
         }
         #[cfg(not(feature = "cuda"))]
         {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
         }
     }
     
     /// Copy data from device to host
     /// デバイスからホストへデータをコピー
-    pub fn copy_to_host(&self, host_data: &mut [T]) -> Result<(), GpuError> {
+    pub fn copy_to_host(&self, host_data: &mut [T]) -> RusTorchResult<()> {
         if host_data.len() != self.size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Size mismatch in device-to-host copy".to_string()
             ));
         }
@@ -147,19 +147,19 @@ impl<T> CudaBuffer<T> {
             use cudarc::driver::{CudaDevice, DevicePtr};
             
             let device = CudaDevice::new(self.device_id).map_err(|e| {
-                GpuError::InitializationError(format!("Failed to get CUDA device: {}", e))
+                RusTorchError::InitializationError(format!("Failed to get CUDA device: {}", e))
             })?;
             
             let device_ptr = unsafe { DevicePtr::wrap(self.ptr as *mut T, self.size) };
             device.dtoh_sync_copy(&device_ptr, host_data).map_err(|e| {
-                GpuError::InvalidOperation(format!("Device-to-host copy failed: {}", e))
+                RusTorchError::InvalidOperation(format!("Device-to-host copy failed: {}", e))
             })?;
             
             Ok(())
         }
         #[cfg(not(feature = "cuda"))]
         {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
         }
     }
 }
@@ -194,13 +194,13 @@ pub struct CudaKernelExecutor {
 impl CudaKernelExecutor {
     /// Create a new CUDA kernel executor
     /// 新しいCUDAカーネル実行器を作成
-    pub fn new(device_id: usize) -> Result<Self, GpuError> {
+    pub fn new(device_id: usize) -> RusTorchResult<Self> {
         let device = CudaDevice::new(device_id).map_err(|e| {
-            GpuError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
+            RusTorchError::InitializationError(format!("Failed to initialize CUDA device {}: {}", device_id, e))
         })?;
         
         let cublas = CudaBlas::new(device.clone()).map_err(|e| {
-            GpuError::InitializationError(format!("Failed to initialize cuBLAS: {}", e))
+            RusTorchError::InitializationError(format!("Failed to initialize cuBLAS: {}", e))
         })?;
         
         Ok(Self {
@@ -220,18 +220,18 @@ impl CudaKernelExecutor {
         m: usize,
         n: usize,
         k: usize,
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // Allocate device memory
         let a_gpu = self.device.htod_copy(a.to_vec()).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to copy matrix A to device: {}", e))
+            RusTorchError::AllocationError(format!("Failed to copy matrix A to device: {}", e))
         })?;
         
         let b_gpu = self.device.htod_copy(b.to_vec()).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to copy matrix B to device: {}", e))
+            RusTorchError::AllocationError(format!("Failed to copy matrix B to device: {}", e))
         })?;
         
         let mut c_gpu = self.device.alloc_zeros::<f32>(m * n).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to allocate result matrix: {}", e))
+            RusTorchError::AllocationError(format!("Failed to allocate result matrix: {}", e))
         })?;
         
         // Perform matrix multiplication using cuBLAS
@@ -251,13 +251,13 @@ impl CudaKernelExecutor {
                 &mut c_gpu,
                 m as i32,
             ).map_err(|e| {
-                GpuError::KernelExecutionError(format!("cuBLAS GEMM failed: {}", e))
+                RusTorchError::KernelExecutionError(format!("cuBLAS GEMM failed: {}", e))
             })?;
         }
         
         // Copy result back to host
         self.device.dtoh_sync_copy(&c_gpu, c).map_err(|e| {
-            GpuError::InvalidOperation(format!("Failed to copy result to host: {}", e))
+            RusTorchError::InvalidOperation(format!("Failed to copy result to host: {}", e))
         })?;
         
         Ok(())
@@ -270,10 +270,10 @@ impl CudaKernelExecutor {
         a: &[f32],
         b: &[f32],
         c: &mut [f32],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         let size = a.len();
         if b.len() != size || c.len() != size {
-            return Err(GpuError::InvalidOperation(
+            return Err(RusTorchError::InvalidOperation(
                 "Array size mismatch in element-wise addition".to_string()
             ));
         }
@@ -295,29 +295,29 @@ impl CudaKernelExecutor {
         
         // Compile kernel
         let ptx = compile_ptx(kernel_src).map_err(|e| {
-            GpuError::KernelCompilationError(format!("Failed to compile CUDA kernel: {}", e))
+            RusTorchError::KernelCompilationError(format!("Failed to compile CUDA kernel: {}", e))
         })?;
         
         self.device.load_ptx(ptx, "elementwise_add", &["elementwise_add_f32"]).map_err(|e| {
-            GpuError::KernelCompilationError(format!("Failed to load PTX: {}", e))
+            RusTorchError::KernelCompilationError(format!("Failed to load PTX: {}", e))
         })?;
         
         // Allocate device memory
         let a_gpu = self.device.htod_copy(a.to_vec()).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to copy array A to device: {}", e))
+            RusTorchError::AllocationError(format!("Failed to copy array A to device: {}", e))
         })?;
         
         let b_gpu = self.device.htod_copy(b.to_vec()).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to copy array B to device: {}", e))
+            RusTorchError::AllocationError(format!("Failed to copy array B to device: {}", e))
         })?;
         
         let mut c_gpu = self.device.alloc_zeros::<f32>(size).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to allocate result array: {}", e))
+            RusTorchError::AllocationError(format!("Failed to allocate result array: {}", e))
         })?;
         
         // Launch kernel
         let func = self.device.get_func("elementwise_add", "elementwise_add_f32").map_err(|e| {
-            GpuError::KernelExecutionError(format!("Failed to get kernel function: {}", e))
+            RusTorchError::KernelExecutionError(format!("Failed to get kernel function: {}", e))
         })?;
         
         let block_size = 256;
@@ -331,13 +331,13 @@ impl CudaKernelExecutor {
         
         unsafe {
             func.launch(config, (&a_gpu, &b_gpu, &mut c_gpu, size as i32)).map_err(|e| {
-                GpuError::KernelExecutionError(format!("Kernel launch failed: {}", e))
+                RusTorchError::KernelExecutionError(format!("Kernel launch failed: {}", e))
             })?;
         }
         
         // Copy result back to host
         self.device.dtoh_sync_copy(&c_gpu, c).map_err(|e| {
-            GpuError::InvalidOperation(format!("Failed to copy result to host: {}", e))
+            RusTorchError::InvalidOperation(format!("Failed to copy result to host: {}", e))
         })?;
         
         Ok(())
@@ -345,7 +345,7 @@ impl CudaKernelExecutor {
     
     /// Execute reduction operation (sum) using CUDA
     /// CUDAを使用してリダクション演算（合計）を実行
-    pub fn reduce_sum_f32(&self, input: &[f32]) -> Result<f32, GpuError> {
+    pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
         let size = input.len();
         
         // CUDA reduction kernel
@@ -378,27 +378,27 @@ impl CudaKernelExecutor {
         
         // Compile kernel
         let ptx = compile_ptx(kernel_src).map_err(|e| {
-            GpuError::KernelCompilationError(format!("Failed to compile reduction kernel: {}", e))
+            RusTorchError::KernelCompilationError(format!("Failed to compile reduction kernel: {}", e))
         })?;
         
         self.device.load_ptx(ptx, "reduce_sum", &["reduce_sum_f32"]).map_err(|e| {
-            GpuError::KernelCompilationError(format!("Failed to load reduction PTX: {}", e))
+            RusTorchError::KernelCompilationError(format!("Failed to load reduction PTX: {}", e))
         })?;
         
         // Allocate device memory
         let input_gpu = self.device.htod_copy(input.to_vec()).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to copy input to device: {}", e))
+            RusTorchError::AllocationError(format!("Failed to copy input to device: {}", e))
         })?;
         
         let block_size = 256;
         let grid_size = (size + block_size - 1) / block_size;
         let mut output_gpu = self.device.alloc_zeros::<f32>(grid_size).map_err(|e| {
-            GpuError::AllocationError(format!("Failed to allocate output array: {}", e))
+            RusTorchError::AllocationError(format!("Failed to allocate output array: {}", e))
         })?;
         
         // Launch kernel
         let func = self.device.get_func("reduce_sum", "reduce_sum_f32").map_err(|e| {
-            GpuError::KernelExecutionError(format!("Failed to get reduction function: {}", e))
+            RusTorchError::KernelExecutionError(format!("Failed to get reduction function: {}", e))
         })?;
         
         let config = LaunchConfig {
@@ -409,14 +409,14 @@ impl CudaKernelExecutor {
         
         unsafe {
             func.launch(config, (&input_gpu, &mut output_gpu, size as i32)).map_err(|e| {
-                GpuError::KernelExecutionError(format!("Reduction kernel launch failed: {}", e))
+                RusTorchError::KernelExecutionError(format!("Reduction kernel launch failed: {}", e))
             })?;
         }
         
         // Copy partial results back and sum on CPU
         let mut partial_results = vec![0.0f32; grid_size];
         self.device.dtoh_sync_copy(&output_gpu, &mut partial_results).map_err(|e| {
-            GpuError::InvalidOperation(format!("Failed to copy partial results: {}", e))
+            RusTorchError::InvalidOperation(format!("Failed to copy partial results: {}", e))
         })?;
         
         Ok(partial_results.iter().sum())
@@ -434,8 +434,8 @@ pub struct CudaKernelExecutor {
 impl CudaKernelExecutor {
     /// Create a new CUDA kernel executor for the specified device
     /// 指定されたデバイス用の新しいCUDAカーネル実行器を作成
-    pub fn new(_device_id: usize) -> Result<Self, GpuError> {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    pub fn new(_device_id: usize) -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
     /// Perform matrix multiplication using CUDA
@@ -448,8 +448,8 @@ impl CudaKernelExecutor {
         _m: usize,
         _n: usize,
         _k: usize,
-    ) -> Result<(), GpuError> {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    ) -> RusTorchResult<()> {
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
     /// Perform element-wise addition using CUDA
@@ -459,14 +459,14 @@ impl CudaKernelExecutor {
         _a: &[f32],
         _b: &[f32],
         _c: &mut [f32],
-    ) -> Result<(), GpuError> {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    ) -> RusTorchResult<()> {
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
     
     /// Perform reduction sum using CUDA
     /// CUDAを使用してリダクション合計を実行
-    pub fn reduce_sum_f32(&self, _input: &[f32]) -> Result<f32, GpuError> {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+    pub fn reduce_sum_f32(&self, _input: &[f32]) -> RusTorchResult<f32> {
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
 }
 
@@ -482,7 +482,7 @@ pub fn cuda_matmul_f32(
     _m: usize,
     _n: usize,
     _k: usize,
-) -> Result<(), GpuError> {
+) -> RusTorchResult<()> {
     #[cfg(feature = "cuda")]
     {
         let executor = CudaKernelExecutor::new(0)?;
@@ -490,7 +490,7 @@ pub fn cuda_matmul_f32(
     }
     #[cfg(not(feature = "cuda"))]
     {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
 }
 
@@ -500,7 +500,7 @@ pub fn cuda_elementwise_add_f32(
     _a: &[f32],
     _b: &[f32],
     _c: &mut [f32],
-) -> Result<(), GpuError> {
+) -> RusTorchResult<()> {
     #[cfg(feature = "cuda")]
     {
         let executor = CudaKernelExecutor::new(0)?;
@@ -508,13 +508,13 @@ pub fn cuda_elementwise_add_f32(
     }
     #[cfg(not(feature = "cuda"))]
     {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
 }
 
 /// Execute CUDA reduction sum
 /// CUDAリダクション合計を実行
-pub fn cuda_reduce_sum_f32(_input: &[f32]) -> Result<f32, GpuError> {
+pub fn cuda_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     #[cfg(feature = "cuda")]
     {
         let executor = CudaKernelExecutor::new(0)?;
@@ -522,7 +522,7 @@ pub fn cuda_reduce_sum_f32(_input: &[f32]) -> Result<f32, GpuError> {
     }
     #[cfg(not(feature = "cuda"))]
     {
-        Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
     }
 }
 
@@ -541,13 +541,13 @@ pub mod cuda_utils {
     
     /// Get device properties
     /// デバイスプロパティを取得
-    pub fn get_device_properties(_device_id: usize) -> Result<DeviceProperties, GpuError> {
+    pub fn get_device_properties(_device_id: usize) -> RusTorchResult<DeviceProperties> {
         #[cfg(feature = "cuda")]
         {
             use cudarc::driver::CudaDevice;
             
             let device = CudaDevice::new(0).map_err(|e| {
-                GpuError::InitializationError(format!("Failed to get device 0: {}", e))
+                RusTorchError::InitializationError(format!("Failed to get device 0: {}", e))
             })?;
             
             Ok(DeviceProperties {
@@ -561,7 +561,7 @@ pub mod cuda_utils {
         }
         #[cfg(not(feature = "cuda"))]
         {
-            Err(GpuError::UnsupportedDevice("CUDA not available".to_string()))
+            Err(RusTorchError::UnsupportedDevice("CUDA not available".to_string()))
         }
     }
 }

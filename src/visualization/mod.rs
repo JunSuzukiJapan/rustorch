@@ -86,60 +86,32 @@ pub use tensor_viz::{TensorVisualizer, TensorPlotConfig, ColorMap};
 pub use graph_viz::{GraphVisualizer, GraphNode, GraphEdge, GraphLayout};
 pub use utils::{save_plot, export_format, PlotFormat};
 
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::collections::HashMap;
 
-/// 可視化エラー
-/// Visualization errors
-#[derive(Debug)]
-pub enum VisualizationError {
-    /// データ形式が無効
-    /// Invalid data format
-    InvalidDataFormat(String),
-    /// I/Oエラー
-    /// I/O error
-    IoError(std::io::Error),
-    /// プロッティングエラー
-    /// Plotting error
-    PlottingError(String),
-    /// 設定エラー
-    /// Configuration error
-    ConfigError(String),
-}
+// PlotData is defined later with generic type parameter
 
-impl std::fmt::Display for VisualizationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VisualizationError::InvalidDataFormat(msg) => write!(f, "Invalid data format: {}", msg),
-            VisualizationError::IoError(err) => write!(f, "File I/O error: {}", err),
-            VisualizationError::PlottingError(msg) => write!(f, "Plotting error: {}", msg),
-            VisualizationError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
-        }
-    }
-}
+// TensorSpec is defined in model_import::mod - import when needed
+pub use crate::model_import::TensorSpec;
 
-impl std::error::Error for VisualizationError {}
-
-impl From<std::io::Error> for VisualizationError {
-    fn from(err: std::io::Error) -> Self {
-        VisualizationError::IoError(err)
-    }
-}
+// VisualizationError enum removed - now using unified RusTorchError system
+// VisualizationErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
 /// 可視化結果 (統一済み)
 /// Visualization result (統一済み)
-pub type VisualizationResult<T> = crate::error::RusTorchResult<T>;
+// RusTorchResult already imported - no need to redefine
 
 /// 基本的な可視化トレイト
 /// Base visualization trait
 pub trait Visualizable<T: Float> {
     /// データを可視化用フォーマットに変換
     /// Convert data to visualization format
-    fn to_plot_data(&self) -> VisualizationResult<PlotData<T>>;
+    fn to_plot_data(&self) -> RusTorchResult<PlotData<T>>;
     
     /// 可視化設定を検証
     /// Validate visualization configuration
-    fn validate_config(&self, config: &PlotConfig) -> VisualizationResult<()>;
+    fn validate_config(&self, config: &PlotConfig) -> RusTorchResult<()>;
 }
 
 /// プロットデータ

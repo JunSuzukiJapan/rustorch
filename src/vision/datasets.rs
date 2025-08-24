@@ -9,8 +9,9 @@
 
 use crate::tensor::Tensor;
 use crate::data::Dataset;
-use crate::vision::{Image, ImageFormat, VisionError, VisionResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::vision::transforms::Transform;
+use crate::vision::{Image, ImageFormat};
 use num_traits::Float;
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
@@ -46,7 +47,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
         root: P,
         train: bool,
         download: bool,
-    ) -> VisionResult<Self> {
+    ) -> RusTorchResult<Self> {
         let root = root.as_ref().to_path_buf();
         
         let mut dataset = MNIST {
@@ -71,7 +72,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
     
     /// Load MNIST data from files
     /// ファイルからMNISTデータを読み込み
-    fn load_data(&mut self) -> VisionResult<()> {
+    fn load_data(&mut self) -> RusTorchResult<()> {
         // Check if data files exist
         // データファイルの存在を確認
         let data_dir = self.root.join("MNIST").join("raw");
@@ -80,7 +81,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
             if self.download {
                 self.download_data()?;
             } else {
-                return Err(VisionError::DatasetError(
+                return Err(RusTorchError::DatasetError(
                     format!("MNIST data not found at {:?}. Set download=true to download.", data_dir)
                 ).into());
             }
@@ -107,12 +108,12 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
     
     /// Download MNIST data
     /// MNISTデータをダウンロード
-    fn download_data(&self) -> VisionResult<()> {
+    fn download_data(&self) -> RusTorchResult<()> {
         // Create directory structure
         // ディレクトリ構造を作成
         let data_dir = self.root.join("MNIST").join("raw");
         std::fs::create_dir_all(&data_dir)
-            .map_err(|e| VisionError::IoError(format!("Failed to create directory: {}", e)))?;
+            .map_err(|e| RusTorchError::IoError(format!("Failed to create directory: {}", e)))?;
         
         // In a real implementation, this would download from the official MNIST URLs
         // 実際の実装では、公式のMNIST URLからダウンロード
@@ -189,7 +190,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
         root: P,
         train: bool,
         download: bool,
-    ) -> VisionResult<Self> {
+    ) -> RusTorchResult<Self> {
         let root = root.as_ref().to_path_buf();
         
         let classes = vec![
@@ -221,14 +222,14 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
     
     /// Load CIFAR-10 data from files
     /// ファイルからCIFAR-10データを読み込み
-    fn load_data(&mut self) -> VisionResult<()> {
+    fn load_data(&mut self) -> RusTorchResult<()> {
         let data_dir = self.root.join("cifar-10-batches-py");
         
         if !data_dir.exists() {
             if self.download {
                 self.download_data()?;
             } else {
-                return Err(VisionError::DatasetError(
+                return Err(RusTorchError::DatasetError(
                     format!("CIFAR-10 data not found at {:?}. Set download=true to download.", data_dir)
                 ).into());
             }
@@ -255,10 +256,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
     
     /// Download CIFAR-10 data
     /// CIFAR-10データをダウンロード
-    fn download_data(&self) -> VisionResult<()> {
+    fn download_data(&self) -> RusTorchResult<()> {
         let data_dir = self.root.join("cifar-10-batches-py");
         std::fs::create_dir_all(&data_dir)
-            .map_err(|e| VisionError::IoError(format!("Failed to create directory: {}", e)))?;
+            .map_err(|e| RusTorchError::IoError(format!("Failed to create directory: {}", e)))?;
         
         println!("Note: CIFAR-10 download not implemented - using dummy data");
         
@@ -345,7 +346,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
         root: P,
         train: bool,
         download: bool,
-    ) -> VisionResult<Self> {
+    ) -> RusTorchResult<Self> {
         let root = root.as_ref().to_path_buf();
         
         // Simplified class names - in real implementation would load from meta file
@@ -378,14 +379,14 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
     
     /// Load CIFAR-100 data from files
     /// ファイルからCIFAR-100データを読み込み
-    fn load_data(&mut self) -> VisionResult<()> {
+    fn load_data(&mut self) -> RusTorchResult<()> {
         let data_dir = self.root.join("cifar-100-python");
         
         if !data_dir.exists() {
             if self.download {
                 self.download_data()?;
             } else {
-                return Err(VisionError::DatasetError(
+                return Err(RusTorchError::DatasetError(
                     format!("CIFAR-100 data not found at {:?}. Set download=true to download.", data_dir)
                 ).into());
             }
@@ -413,10 +414,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
     
     /// Download CIFAR-100 data
     /// CIFAR-100データをダウンロード
-    fn download_data(&self) -> VisionResult<()> {
+    fn download_data(&self) -> RusTorchResult<()> {
         let data_dir = self.root.join("cifar-100-python");
         std::fs::create_dir_all(&data_dir)
-            .map_err(|e| VisionError::IoError(format!("Failed to create directory: {}", e)))?;
+            .map_err(|e| RusTorchError::IoError(format!("Failed to create directory: {}", e)))?;
         
         println!("Note: CIFAR-100 download not implemented - using dummy data");
         
@@ -498,11 +499,11 @@ pub struct ImageFolder<T: Float> {
 impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
     /// Create new image folder dataset
     /// 新しい画像フォルダデータセットを作成
-    pub fn new<P: AsRef<Path>>(root: P) -> VisionResult<Self> {
+    pub fn new<P: AsRef<Path>>(root: P) -> RusTorchResult<Self> {
         let root = root.as_ref().to_path_buf();
         
         if !root.exists() || !root.is_dir() {
-            return Err(VisionError::DatasetError(
+            return Err(RusTorchError::DatasetError(
                 format!("Root directory {:?} does not exist or is not a directory", root)
             ).into());
         }
@@ -527,15 +528,15 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
     
     /// Scan directory for images
     /// 画像のディレクトリをスキャン
-    fn scan_directory(&mut self) -> VisionResult<()> {
+    fn scan_directory(&mut self) -> RusTorchResult<()> {
         let mut class_names = Vec::new();
         
         // Get class directories
         // クラスディレクトリを取得
         for entry in std::fs::read_dir(&self.root)
-            .map_err(|e| VisionError::IoError(format!("Failed to read directory: {}", e)))? 
+            .map_err(|e| RusTorchError::IoError(format!("Failed to read directory: {}", e)))? 
         {
-            let entry = entry.map_err(|e| VisionError::IoError(e.to_string()))?;
+            let entry = entry.map_err(|e| RusTorchError::IoError(e.to_string()))?;
             let path = entry.path();
             
             if path.is_dir() {
@@ -564,9 +565,9 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
             let class_idx = self.class_to_idx[&class_name];
             
             for entry in std::fs::read_dir(&class_dir)
-                .map_err(|e| VisionError::IoError(format!("Failed to read class directory: {}", e)))?
+                .map_err(|e| RusTorchError::IoError(format!("Failed to read class directory: {}", e)))?
             {
-                let entry = entry.map_err(|e| VisionError::IoError(e.to_string()))?;
+                let entry = entry.map_err(|e| RusTorchError::IoError(e.to_string()))?;
                 let path = entry.path();
                 
                 if path.is_file() {

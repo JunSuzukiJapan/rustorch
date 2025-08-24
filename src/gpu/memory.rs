@@ -1,7 +1,8 @@
 /// GPU memory management
 /// GPUメモリ管理
 
-use super::{DeviceType, GpuError};
+use super::DeviceType;
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -37,12 +38,12 @@ pub struct GpuMemoryPool {
 impl GpuMemoryPool {
     /// Create a new GPU memory pool
     /// 新しいGPUメモリプールを作成
-    pub fn new(device: DeviceType, size: usize) -> Result<Self, GpuError> {
+    pub fn new(device: DeviceType, size: usize) -> RusTorchResult<Self> {
         let base_ptr = match device {
             DeviceType::Cpu => {
                 // For CPU, we can use regular allocation
                 let layout = std::alloc::Layout::from_size_align(size, 64)
-                    .map_err(|_| GpuError::MemoryAllocationError("Invalid layout".to_string()))?;
+                    .map_err(|_| RusTorchError::tensor_op("Invalid memory layout"))?;
                 unsafe { std::alloc::alloc(layout) as usize }
             }
             DeviceType::Cuda(_) => {
@@ -54,7 +55,7 @@ impl GpuMemoryPool {
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
@@ -65,7 +66,7 @@ impl GpuMemoryPool {
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -76,13 +77,13 @@ impl GpuMemoryPool {
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         };
 
         if base_ptr == 0 && !matches!(device, DeviceType::Cpu) {
-            return Err(GpuError::MemoryAllocationError("Failed to allocate GPU memory".to_string()));
+            return Err(RusTorchError::tensor_op("Failed to allocate GPU memory"));
         }
 
         Ok(GpuMemoryPool {
@@ -97,7 +98,7 @@ impl GpuMemoryPool {
 
     /// Allocate memory from the pool
     /// プールからメモリを割り当て
-    pub fn allocate(&mut self, size: usize) -> Result<MemoryAllocation, GpuError> {
+    pub fn allocate(&mut self, size: usize) -> RusTorchResult<MemoryAllocation> {
         // Align size to 256 bytes for GPU efficiency
         let aligned_size = (size + 255) & !255;
 
@@ -113,7 +114,7 @@ impl GpuMemoryPool {
         }
 
         let block_idx = best_block_idx
-            .ok_or_else(|| GpuError::MemoryAllocationError("No suitable free block found".to_string()))?;
+            .ok_or_else(|| RusTorchError::tensor_op("No suitable free block found"))?;
 
         let (offset, block_size) = self.free_blocks[block_idx];
         self.free_blocks.remove(block_idx);
@@ -141,9 +142,9 @@ impl GpuMemoryPool {
 
     /// Deallocate memory back to the pool
     /// メモリをプールに戻す
-    pub fn deallocate(&mut self, ptr: usize) -> Result<(), GpuError> {
+    pub fn deallocate(&mut self, ptr: usize) -> RusTorchResult<()> {
         let allocation = self.allocations.remove(&ptr)
-            .ok_or_else(|| GpuError::InvalidOperation("Invalid pointer for deallocation".to_string()))?;
+            .ok_or_else(|| RusTorchError::tensor_op("Invalid pointer for deallocation"))?;
 
         let offset = ptr - self.base_ptr;
         let size = allocation.size;
@@ -257,7 +258,7 @@ impl GpuMemoryManager {
 
     /// Get or create memory pool for device
     /// デバイス用メモリプールを取得または作成
-    pub fn get_pool(&mut self, device: DeviceType) -> Result<Arc<Mutex<GpuMemoryPool>>, GpuError> {
+    pub fn get_pool(&mut self, device: DeviceType) -> RusTorchResult<Arc<Mutex<GpuMemoryPool>>> {
         if let Some(pool) = self.pools.get(&device) {
             Ok(pool.clone())
         } else {
@@ -270,7 +271,7 @@ impl GpuMemoryManager {
 
     /// Allocate memory on specific device
     /// 特定デバイスでメモリを割り当て
-    pub fn allocate(&mut self, device: DeviceType, size: usize) -> Result<MemoryAllocation, GpuError> {
+    pub fn allocate(&mut self, device: DeviceType, size: usize) -> RusTorchResult<MemoryAllocation> {
         let pool = self.get_pool(device)?;
         let mut pool_guard = pool.lock().unwrap();
         pool_guard.allocate(size)
@@ -278,12 +279,12 @@ impl GpuMemoryManager {
 
     /// Deallocate memory
     /// メモリを解放
-    pub fn deallocate(&mut self, allocation: &MemoryAllocation) -> Result<(), GpuError> {
+    pub fn deallocate(&mut self, allocation: &MemoryAllocation) -> RusTorchResult<()> {
         if let Some(pool) = self.pools.get(&allocation.device) {
             let mut pool_guard = pool.lock().unwrap();
             pool_guard.deallocate(allocation.ptr)
         } else {
-            Err(GpuError::InvalidOperation("Device pool not found".to_string()))
+            Err(RusTorchError::tensor_op("Device pool not found"))
         }
     }
 
@@ -316,10 +317,10 @@ impl DataTransfer {
     pub fn host_to_device<T: Copy>(
         src: &[T],
         dst_allocation: &MemoryAllocation,
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         let src_size = src.len() * std::mem::size_of::<T>();
         if src_size > dst_allocation.size {
-            return Err(GpuError::DataTransferError("Source data too large".to_string()));
+            return Err(RusTorchError::tensor_op("Source data too large"));
         }
 
         match dst_allocation.device {
@@ -338,7 +339,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
@@ -348,7 +349,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -358,7 +359,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         }
@@ -371,10 +372,10 @@ impl DataTransfer {
     pub fn device_to_host<T: Copy>(
         src_allocation: &MemoryAllocation,
         dst: &mut [T],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         let dst_size = dst.len() * std::mem::size_of::<T>();
         if dst_size > src_allocation.size {
-            return Err(GpuError::DataTransferError("Destination buffer too small".to_string()));
+            return Err(RusTorchError::tensor_op("Destination buffer too small"));
         }
 
         match src_allocation.device {
@@ -393,7 +394,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
@@ -403,7 +404,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -413,7 +414,7 @@ impl DataTransfer {
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         }
@@ -427,10 +428,10 @@ impl DataTransfer {
         src_allocation: &MemoryAllocation,
         dst_allocation: &MemoryAllocation,
         count: usize,
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         let transfer_size = count * std::mem::size_of::<T>();
         if transfer_size > src_allocation.size || transfer_size > dst_allocation.size {
-            return Err(GpuError::DataTransferError("Transfer size too large".to_string()));
+            return Err(RusTorchError::tensor_op("Transfer size too large"));
         }
 
         // For now, implement via host memory (not optimal but functional)

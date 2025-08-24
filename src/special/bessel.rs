@@ -1,7 +1,7 @@
 //! Bessel functions implementation
 //! ベッセル関数の実装
 
-use super::SpecialFunctionError;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::f64::consts::PI;
 
@@ -9,20 +9,20 @@ const MAX_ITERATIONS: usize = 100;
 const EPSILON: f64 = 1e-15;
 
 /// Bessel function of the first kind J_n(x)
-pub fn bessel_j_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> {
-    let n_f64 = n.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn bessel_j_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
+    let n_f64 = n.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert n to f64".to_string(),
     ))?;
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert x to f64".to_string(),
     ))?;
     
     // Handle special cases
     if x_f64 == 0.0 {
         if n_f64 == 0.0 {
-            return T::from(1.0).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(1.0).ok_or(RusTorchError::OverflowError);
         } else {
-            return T::from(0.0).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(0.0).ok_or(RusTorchError::OverflowError);
         }
     }
     
@@ -34,11 +34,11 @@ pub fn bessel_j_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         bessel_j_series(n_f64, x_f64)?
     };
     
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Bessel J function for integer orders using recurrence
-fn bessel_j_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_j_integer(n: i32, x: f64) -> Result<f64, RusTorchError> {
     if n < 0 {
         // J_{-n}(x) = (-1)^n J_n(x)
         let sign = if n % 2 == 0 { 1.0 } else { -1.0 };
@@ -70,7 +70,7 @@ fn bessel_j_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel J_0(x) using series expansion
-fn bessel_j0(x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_j0(x: f64) -> Result<f64, RusTorchError> {
     let x_abs = x.abs();
     
     if x_abs < 8.0 {
@@ -106,7 +106,7 @@ fn bessel_j0(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel J_1(x) using series expansion
-fn bessel_j1(x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_j1(x: f64) -> Result<f64, RusTorchError> {
     let x_abs = x.abs();
     
     if x_abs < 8.0 {
@@ -143,7 +143,7 @@ fn bessel_j1(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Miller's backward recurrence algorithm
-fn miller_algorithm(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn miller_algorithm(n: i32, x: f64) -> Result<f64, RusTorchError> {
     let start_n = n + 20 + (x.abs() as i32);
     let mut j_next = 0.0;
     let mut j_curr = 1e-30; // Start with small value
@@ -186,7 +186,7 @@ fn miller_algorithm(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel function of the first kind for non-integer orders (series expansion)
-fn bessel_j_series(nu: f64, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_j_series(nu: f64, x: f64) -> Result<f64, RusTorchError> {
     let x_half = x / 2.0;
     let x_half_nu = x_half.powf(nu);
     
@@ -210,16 +210,16 @@ fn bessel_j_series(nu: f64, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel function of the second kind Y_n(x)
-pub fn bessel_y_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> {
-    let n_f64 = n.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn bessel_y_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
+    let n_f64 = n.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert n to f64".to_string(),
     ))?;
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert x to f64".to_string(),
     ))?;
     
     if x_f64 <= 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "Y_n(x) is undefined for x <= 0".to_string(),
         ));
     }
@@ -235,7 +235,7 @@ pub fn bessel_y_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         let nu_pi = n_f64 * PI;
         let sin_nu_pi = nu_pi.sin();
         if sin_nu_pi.abs() < EPSILON {
-            return Err(SpecialFunctionError::DomainError(
+            return Err(RusTorchError::DomainError(
                 "Y_n undefined for integer n through non-integer formula".to_string(),
             ));
         }
@@ -245,11 +245,11 @@ pub fn bessel_y_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         (j_nu * nu_pi.cos() - j_minus_nu) / sin_nu_pi
     };
     
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Bessel Y function for integer orders
-fn bessel_y_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_y_integer(n: i32, x: f64) -> Result<f64, RusTorchError> {
     if n < 0 {
         // Y_{-n}(x) = (-1)^n Y_n(x)
         let sign = if n % 2 == 0 { 1.0 } else { -1.0 };
@@ -276,9 +276,9 @@ fn bessel_y_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel Y_0(x) - Standard algorithm from Numerical Recipes
-fn bessel_y0(x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_y0(x: f64) -> Result<f64, RusTorchError> {
     if x <= 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "Y_0(x) undefined for x <= 0".to_string(),
         ));
     }
@@ -328,9 +328,9 @@ fn bessel_y0(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel Y_1(x)
-fn bessel_y1(x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_y1(x: f64) -> Result<f64, RusTorchError> {
     if x <= 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "Y_1(x) undefined for x <= 0".to_string(),
         ));
     }
@@ -376,11 +376,11 @@ fn bessel_y1(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Modified Bessel function of the first kind I_n(x)
-pub fn bessel_i_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> {
-    let n_f64 = n.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn bessel_i_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
+    let n_f64 = n.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert n to f64".to_string(),
     ))?;
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert x to f64".to_string(),
     ))?;
     
@@ -392,11 +392,11 @@ pub fn bessel_i_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         bessel_i_series(n_f64, x_f64)?
     };
     
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Modified Bessel I function for integer orders
-fn bessel_i_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_i_integer(n: i32, x: f64) -> Result<f64, RusTorchError> {
     if n < 0 {
         // I_{-n}(x) = I_n(x)
         return bessel_i_integer(-n, x);
@@ -426,7 +426,7 @@ fn bessel_i_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Series expansion for modified Bessel I function
-fn bessel_i_series(nu: f64, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_i_series(nu: f64, x: f64) -> Result<f64, RusTorchError> {
     let x_half = x / 2.0;
     let x_half_nu = x_half.powf(nu);
     
@@ -450,16 +450,16 @@ fn bessel_i_series(nu: f64, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Modified Bessel function of the second kind K_n(x)
-pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> {
-    let n_f64 = n.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, RusTorchError> {
+    let n_f64 = n.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert n to f64".to_string(),
     ))?;
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert x to f64".to_string(),
     ))?;
     
     if x_f64 <= 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "K_n(x) is undefined for x <= 0".to_string(),
         ));
     }
@@ -474,7 +474,7 @@ pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         if sin_nu_pi.abs() < EPSILON {
             // Use limiting form for near-integer orders
             let k_result = bessel_k_integer(n_f64.round() as i32, x_f64)?;
-            return T::from(k_result).ok_or(SpecialFunctionError::OverflowError);
+            return T::from(k_result).ok_or(RusTorchError::OverflowError);
         }
         
         let i_nu = bessel_i_series(n_f64, x_f64)?;
@@ -482,13 +482,13 @@ pub fn bessel_k_scalar<T: Float>(n: T, x: T) -> Result<T, SpecialFunctionError> 
         PI / 2.0 * (i_minus_nu - i_nu) / sin_nu_pi
     };
     
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Modified Bessel K function for integer orders
-fn bessel_k_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_k_integer(n: i32, x: f64) -> Result<f64, RusTorchError> {
     if x <= 0.0 {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             "K_n(x) undefined for x <= 0".to_string(),
         ));
     }
@@ -503,7 +503,7 @@ fn bessel_k_integer(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// K_n for small x using series expansion
-fn bessel_k_small_x(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_k_small_x(n: i32, x: f64) -> Result<f64, RusTorchError> {
     let x_half = x / 2.0;
     
     if n == 0 {
@@ -569,7 +569,7 @@ fn bessel_k_small_x(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 
 
 /// K_n for large x using asymptotic expansion
-fn bessel_k_large_x(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
+fn bessel_k_large_x(n: i32, x: f64) -> Result<f64, RusTorchError> {
     let ex = (-x).exp() * (PI / (2.0 * x)).sqrt();
     let mut sum = 1.0;
     let mut term = 1.0;
@@ -588,7 +588,7 @@ fn bessel_k_large_x(n: i32, x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Bessel functions for tensors
-pub fn bessel_j<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn bessel_j<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = bessel_j_scalar(n, val)?;
@@ -597,7 +597,7 @@ pub fn bessel_j<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Resul
 }
 
 /// Bessel function of the second kind Y_n(x) for tensors
-pub fn bessel_y<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn bessel_y<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = bessel_y_scalar(n, val)?;
@@ -606,7 +606,7 @@ pub fn bessel_y<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Resul
 }
 
 /// Modified Bessel function of the first kind I_n(x) for tensors
-pub fn bessel_i<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn bessel_i<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = bessel_i_scalar(n, val)?;
@@ -615,7 +615,7 @@ pub fn bessel_i<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Resul
 }
 
 /// Modified Bessel function of the second kind K_n(x) for tensors
-pub fn bessel_k<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn bessel_k<T: Float + 'static>(n: T, x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = bessel_k_scalar(n, val)?;

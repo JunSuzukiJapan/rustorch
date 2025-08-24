@@ -1,7 +1,7 @@
 //! Gamma functions and related special functions
 //! ガンマ関数と関連特殊関数
 
-use super::SpecialFunctionError;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::f64::consts::PI;
 
@@ -20,9 +20,9 @@ const LANCZOS_COEF: [f64; 9] = [
 ];
 
 /// Compute gamma function Γ(x) for scalar input
-pub fn gamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
+pub fn gamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
     // Convert to f64 for computation
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert to f64".to_string(),
     ))?;
     
@@ -30,34 +30,34 @@ pub fn gamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
     if x_f64 <= 0.0 {
         if x_f64 == x_f64.floor() {
             // Gamma is undefined for non-positive integers
-            return Err(SpecialFunctionError::DomainError(
+            return Err(RusTorchError::DomainError(
                 format!("Gamma undefined for x = {}", x_f64),
             ));
         }
         // Use reflection formula: Γ(x) = π / (sin(πx) * Γ(1-x))
         let sin_pi_x = (PI * x_f64).sin();
         if sin_pi_x.abs() < 1e-10 {
-            return Err(SpecialFunctionError::DomainError(
+            return Err(RusTorchError::DomainError(
                 "Near pole of gamma function".to_string(),
             ));
         }
         let gamma_1_minus_x = gamma_scalar(T::from(1.0 - x_f64).unwrap())?;
         let result = PI / (sin_pi_x * gamma_1_minus_x.to_f64().unwrap());
-        return T::from(result).ok_or(SpecialFunctionError::OverflowError);
+        return T::from(result).ok_or(RusTorchError::OverflowError);
     }
     
     // Lanczos approximation for positive x
     let result = lanczos_gamma(x_f64)?;
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Lanczos approximation for gamma function
-fn lanczos_gamma(x: f64) -> Result<f64, SpecialFunctionError> {
+fn lanczos_gamma(x: f64) -> Result<f64, RusTorchError> {
     if x < 0.5 {
         // Use reflection formula for small x
         let sin_pi_x = (PI * x).sin();
         if sin_pi_x.abs() < 1e-10 {
-            return Err(SpecialFunctionError::DomainError(
+            return Err(RusTorchError::DomainError(
                 "Near pole of gamma function".to_string(),
             ));
         }
@@ -76,13 +76,13 @@ fn lanczos_gamma(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Natural logarithm of gamma function ln(Γ(x))
-pub fn lgamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn lgamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert to f64".to_string(),
     ))?;
     
     if x_f64 <= 0.0 && x_f64 == x_f64.floor() {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             format!("lgamma undefined for non-positive integer x = {}", x_f64),
         ));
     }
@@ -90,12 +90,12 @@ pub fn lgamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
     // Use Stirling's approximation for large x
     if x_f64 > 12.0 {
         let result = stirling_lgamma(x_f64);
-        return T::from(result).ok_or(SpecialFunctionError::OverflowError);
+        return T::from(result).ok_or(RusTorchError::OverflowError);
     }
     
     // Use Lanczos approximation
     let result = lanczos_lgamma(x_f64)?;
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Stirling's approximation for lgamma
@@ -113,12 +113,12 @@ fn stirling_lgamma(x: f64) -> f64 {
 }
 
 /// Lanczos approximation for lgamma
-fn lanczos_lgamma(x: f64) -> Result<f64, SpecialFunctionError> {
+fn lanczos_lgamma(x: f64) -> Result<f64, RusTorchError> {
     if x < 0.5 {
         // Use reflection formula
         let sin_pi_x = (PI * x).sin();
         if sin_pi_x.abs() < 1e-10 {
-            return Err(SpecialFunctionError::DomainError(
+            return Err(RusTorchError::DomainError(
                 "Near pole of gamma function".to_string(),
             ));
         }
@@ -136,13 +136,13 @@ fn lanczos_lgamma(x: f64) -> Result<f64, SpecialFunctionError> {
 }
 
 /// Digamma function ψ(x) = d/dx ln(Γ(x))
-pub fn digamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
-    let x_f64 = x.to_f64().ok_or(SpecialFunctionError::DomainError(
+pub fn digamma_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
+    let x_f64 = x.to_f64().ok_or(RusTorchError::DomainError(
         "Cannot convert to f64".to_string(),
     ))?;
     
     if x_f64 <= 0.0 && x_f64 == x_f64.floor() {
-        return Err(SpecialFunctionError::DomainError(
+        return Err(RusTorchError::DomainError(
             format!("Digamma has poles at non-positive integers, x = {}", x_f64),
         ));
     }
@@ -164,7 +164,7 @@ pub fn digamma_scalar<T: Float>(x: T) -> Result<T, SpecialFunctionError> {
         digamma_asymptotic(x_f64)
     };
     
-    T::from(result).ok_or(SpecialFunctionError::OverflowError)
+    T::from(result).ok_or(RusTorchError::OverflowError)
 }
 
 /// Asymptotic expansion for digamma function
@@ -182,14 +182,14 @@ fn digamma_asymptotic(x: f64) -> f64 {
 }
 
 /// Beta function B(a, b) = Γ(a)Γ(b)/Γ(a+b)
-pub fn beta<T: Float>(a: T, b: T) -> Result<T, SpecialFunctionError> {
+pub fn beta<T: Float>(a: T, b: T) -> Result<T, RusTorchError> {
     // Use logarithmic form to avoid overflow
     let lbeta_val = lbeta(a, b)?;
-    T::from(lbeta_val.to_f64().unwrap().exp()).ok_or(SpecialFunctionError::OverflowError)
+    T::from(lbeta_val.to_f64().unwrap().exp()).ok_or(RusTorchError::OverflowError)
 }
 
 /// Log beta function ln(B(a, b))
-pub fn lbeta<T: Float>(a: T, b: T) -> Result<T, SpecialFunctionError> {
+pub fn lbeta<T: Float>(a: T, b: T) -> Result<T, RusTorchError> {
     let lgamma_a = lgamma_scalar(a)?;
     let lgamma_b = lgamma_scalar(b)?;
     let a_plus_b = a + b;
@@ -199,7 +199,7 @@ pub fn lbeta<T: Float>(a: T, b: T) -> Result<T, SpecialFunctionError> {
 }
 
 /// Gamma function for tensors
-pub fn gamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn gamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = gamma_scalar(val)?;
@@ -208,7 +208,7 @@ pub fn gamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::
 }
 
 /// Log gamma function for tensors
-pub fn lgamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn lgamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = lgamma_scalar(val)?;
@@ -217,7 +217,7 @@ pub fn lgamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate:
 }
 
 /// Digamma function for tensors
-pub fn digamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, SpecialFunctionError> {
+pub fn digamma<T: Float + 'static>(x: &crate::tensor::Tensor<T>) -> Result<crate::tensor::Tensor<T>, RusTorchError> {
     let mut result = vec![T::zero(); x.data.len()];
     for (i, &val) in x.data.iter().enumerate() {
         result[i] = digamma_scalar(val)?;

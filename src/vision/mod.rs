@@ -56,7 +56,7 @@ pub enum ImageFormat {
 impl<T: Float + 'static> Image<T> {
     /// Create a new image from tensor data
     /// テンソルデータから新しい画像を作成
-    pub fn new(data: Tensor<T>, format: ImageFormat) -> Result<Self, VisionError> {
+    pub fn new(data: Tensor<T>, format: ImageFormat) -> crate::error::RusTorchResult<Self> {
         let shape = data.shape();
         
         let (height, width, channels) = match (format, shape.len()) {
@@ -64,7 +64,7 @@ impl<T: Float + 'static> Image<T> {
             (ImageFormat::HWC, 3) => (shape[0], shape[1], shape[2]),
             (ImageFormat::CHW, 4) => (shape[2], shape[3], shape[1]), // Batch dimension included
             (ImageFormat::HWC, 4) => (shape[1], shape[2], shape[3]), // Batch dimension included
-            _ => return Err(VisionError::InvalidImageShape(format!("Expected 3D or 4D tensor, got {:?}", shape)))
+            _ => return Err(crate::error::RusTorchError::invalid_image_shape(&format!("{:?}", shape)))
         };
         
         Ok(Image {
@@ -78,7 +78,7 @@ impl<T: Float + 'static> Image<T> {
     
     /// Convert image format (CHW <-> HWC)
     /// 画像形式を変換 (CHW <-> HWC)
-    pub fn to_format(&self, target_format: ImageFormat) -> Result<Image<T>, VisionError> {
+    pub fn to_format(&self, target_format: ImageFormat) -> crate::error::RusTorchResult<Image<T>> {
         if self.format == target_format {
             return Ok(self.clone());
         }
@@ -97,37 +97,9 @@ impl<T: Float + 'static> Image<T> {
     }
 }
 
-/// Vision-related errors
-/// ビジョン関連エラー
-#[derive(Debug, Clone)]
-pub enum VisionError {
-    /// Invalid image shape
-    /// 無効な画像形状
-    InvalidImageShape(String),
-    /// Invalid transform parameters
-    /// 無効な変換パラメータ
-    InvalidTransformParams(String),
-    /// Dataset loading error
-    /// データセット読み込みエラー
-    DatasetError(String),
-    /// I/O error
-    /// I/Oエラー
-    IoError(String),
-}
-
-impl std::fmt::Display for VisionError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VisionError::InvalidImageShape(msg) => write!(f, "Invalid image shape: {}", msg),
-            VisionError::InvalidTransformParams(msg) => write!(f, "Invalid transform parameters: {}", msg),
-            VisionError::DatasetError(msg) => write!(f, "Dataset error: {}", msg),
-            VisionError::IoError(msg) => write!(f, "I/O error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for VisionError {}
+// VisionError enum removed - now using unified RusTorchError system
+// VisionErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
 /// Result type for vision operations (統一済み)
 /// ビジョン操作の結果型 (統一済み)
-pub type VisionResult<T> = crate::error::RusTorchResult<T>;
+pub type RusTorchResult<T> = crate::error::RusTorchResult<T>;

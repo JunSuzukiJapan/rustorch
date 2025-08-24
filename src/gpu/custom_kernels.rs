@@ -1,8 +1,9 @@
 //! Custom GPU kernels for specialized tensor operations
 //! 特殊テンソル演算用のカスタムGPUカーネル
 
-use super::{GpuError, GpuResult, DeviceType};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
+use crate::gpu::DeviceType;
 use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -122,7 +123,7 @@ impl CustomKernelManager {
 
     /// Compile and cache custom kernel
     /// カスタムカーネルをコンパイルしてキャッシュ
-    pub fn compile_kernel(&self, config: &KernelConfig) -> GpuResult<()> {
+    pub fn compile_kernel(&self, config: &KernelConfig) -> RusTorchResult<()> {
         let source_code = self.generate_kernel_source(config)?;
         let binary_data = self.compile_source(&source_code, config)?;
         
@@ -135,7 +136,7 @@ impl CustomKernelManager {
         };
 
         let mut kernels = self.compiled_kernels.lock().map_err(|_| {
-            GpuError::KernelError("Failed to lock kernel cache".to_string())
+            RusTorchError::KernelError("Failed to lock kernel cache".to_string())
         })?;
 
         kernels.insert(config.kernel_type.clone(), compiled_kernel);
@@ -150,20 +151,20 @@ impl CustomKernelManager {
         inputs: &[&Tensor<T>],
         outputs: &mut [&mut Tensor<T>],
         config: &KernelConfig,
-    ) -> GpuResult<()> {
+    ) -> RusTorchResult<()> {
         let kernels = self.compiled_kernels.lock().map_err(|_| {
-            GpuError::KernelError("Failed to lock kernel cache".to_string())
+            RusTorchError::KernelError("Failed to lock kernel cache".to_string())
         })?;
 
         let kernel = kernels.get(kernel_type).ok_or_else(|| {
-            GpuError::KernelError(format!("Kernel {:?} not found", kernel_type))
+            RusTorchError::KernelError(format!("Kernel {:?} not found", kernel_type))
         })?;
 
         match self.device_type {
             DeviceType::Cuda(_) => self.execute_cuda_kernel(kernel, inputs, outputs, config),
             DeviceType::Metal(_) => self.execute_metal_kernel(kernel, inputs, outputs, config),
             DeviceType::OpenCL(_) => self.execute_opencl_kernel(kernel, inputs, outputs, config),
-            DeviceType::Cpu => Err(GpuError::UnsupportedOperation(
+            DeviceType::Cpu => Err(RusTorchError::UnsupportedOperation(
                 "Custom kernels not supported on CPU".to_string()
             ).into()),
         }
@@ -171,7 +172,7 @@ impl CustomKernelManager {
 
     /// Generate kernel source code
     /// カーネルソースコードを生成
-    fn generate_kernel_source(&self, config: &KernelConfig) -> GpuResult<String> {
+    fn generate_kernel_source(&self, config: &KernelConfig) -> RusTorchResult<String> {
         match &config.kernel_type {
             CustomKernelType::OptimizedConvolution => self.generate_convolution_kernel(config),
             CustomKernelType::FastFourierTransform => self.generate_fft_kernel(config),
@@ -186,10 +187,10 @@ impl CustomKernelManager {
 
     /// Generate optimized convolution kernel
     /// 最適化畳み込みカーネルを生成
-    fn generate_convolution_kernel(&self, config: &KernelConfig) -> GpuResult<String> {
+    fn generate_convolution_kernel(&self, config: &KernelConfig) -> RusTorchResult<String> {
         let kernel_size = config.parameters.get("kernel_size")
             .and_then(|p| if let KernelParameter::IntArray(arr) = p { Some(arr) } else { None })
-            .ok_or_else(|| GpuError::KernelError("Missing kernel_size parameter".to_string()))?;
+            .ok_or_else(|| RusTorchError::KernelError("Missing kernel_size parameter".to_string()))?;
 
         let default_stride = vec![1, 1];
         let stride = config.parameters.get("stride")
@@ -352,7 +353,7 @@ kernel void optimized_convolution(
                 stride[0], padding[0], stride[1], padding[1]
             )),
             
-            _ => Err(GpuError::UnsupportedOperation(
+            _ => Err(RusTorchError::UnsupportedOperation(
                 format!("Convolution kernel not supported for {:?}", self.device_type)
             ).into()),
         }
@@ -360,7 +361,7 @@ kernel void optimized_convolution(
 
     /// Generate attention mechanism kernel
     /// アテンション機構カーネルを生成
-    fn generate_attention_kernel(&self, config: &KernelConfig) -> GpuResult<String> {
+    fn generate_attention_kernel(&self, config: &KernelConfig) -> RusTorchResult<String> {
         let head_dim = config.parameters.get("head_dim")
             .and_then(|p| if let KernelParameter::Int(val) = p { Some(*val) } else { None })
             .unwrap_or(64);
@@ -464,7 +465,7 @@ extern "C" __global__ void fused_attention(
 }}
 "#, head_dim * 32, head_dim * 32, head_dim * 32)), // shared memory sizes
             
-            _ => Err(GpuError::UnsupportedOperation(
+            _ => Err(RusTorchError::UnsupportedOperation(
                 format!("Attention kernel not supported for {:?}", self.device_type)
             ).into()),
         }
@@ -472,33 +473,33 @@ extern "C" __global__ void fused_attention(
 
     /// Generate other kernel types (simplified implementations)
     /// 他のカーネルタイプを生成（簡略化実装）
-    fn generate_fft_kernel(&self, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_fft_kernel(&self, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// FFT kernel implementation placeholder".to_string())
     }
 
-    fn generate_batchnorm_kernel(&self, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_batchnorm_kernel(&self, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// Batch normalization kernel implementation placeholder".to_string())
     }
 
-    fn generate_activation_kernel(&self, _name: &str, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_activation_kernel(&self, _name: &str, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// Custom activation kernel implementation placeholder".to_string())
     }
 
-    fn generate_reduction_kernel(&self, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_reduction_kernel(&self, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// Optimized reduction kernel implementation placeholder".to_string())
     }
 
-    fn generate_sparse_kernel(&self, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_sparse_kernel(&self, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// Sparse operations kernel implementation placeholder".to_string())
     }
 
-    fn generate_fusion_kernel(&self, _config: &KernelConfig) -> GpuResult<String> {
+    fn generate_fusion_kernel(&self, _config: &KernelConfig) -> RusTorchResult<String> {
         Ok("// Tensor fusion kernel implementation placeholder".to_string())
     }
 
     /// Compile kernel source code
     /// カーネルソースコードをコンパイル
-    fn compile_source(&self, source: &str, _config: &KernelConfig) -> GpuResult<Vec<u8>> {
+    fn compile_source(&self, source: &str, _config: &KernelConfig) -> RusTorchResult<Vec<u8>> {
         // Simplified compilation - in practice would use actual GPU compiler
         // 簡略化されたコンパイル - 実際にはGPUコンパイラを使用
         Ok(source.as_bytes().to_vec())
@@ -527,7 +528,7 @@ extern "C" __global__ void fused_attention(
         _inputs: &[&Tensor<T>],
         _outputs: &mut [&mut Tensor<T>],
         _config: &KernelConfig,
-    ) -> GpuResult<()> {
+    ) -> RusTorchResult<()> {
         // Simplified execution - would use actual CUDA runtime
         // 簡略化された実行 - 実際にはCUDAランタイムを使用
         Ok(())
@@ -541,7 +542,7 @@ extern "C" __global__ void fused_attention(
         _inputs: &[&Tensor<T>],
         _outputs: &mut [&mut Tensor<T>],
         _config: &KernelConfig,
-    ) -> GpuResult<()> {
+    ) -> RusTorchResult<()> {
         // Simplified execution - would use actual Metal runtime
         // 簡略化された実行 - 実際にはMetalランタイムを使用
         Ok(())
@@ -555,7 +556,7 @@ extern "C" __global__ void fused_attention(
         _inputs: &[&Tensor<T>],
         _outputs: &mut [&mut Tensor<T>],
         _config: &KernelConfig,
-    ) -> GpuResult<()> {
+    ) -> RusTorchResult<()> {
         // Simplified execution - would use actual OpenCL runtime
         // 簡略化された実行 - 実際にはOpenCLランタイムを使用
         Ok(())
@@ -563,13 +564,13 @@ extern "C" __global__ void fused_attention(
 
     /// Get kernel performance statistics
     /// カーネルパフォーマンス統計を取得
-    pub fn get_kernel_stats(&self, kernel_type: &CustomKernelType) -> GpuResult<KernelStats> {
+    pub fn get_kernel_stats(&self, kernel_type: &CustomKernelType) -> RusTorchResult<KernelStats> {
         let kernels = self.compiled_kernels.lock().map_err(|_| {
-            GpuError::KernelError("Failed to lock kernel cache".to_string())
+            RusTorchError::KernelError("Failed to lock kernel cache".to_string())
         })?;
 
         let kernel = kernels.get(kernel_type).ok_or_else(|| {
-            GpuError::KernelError(format!("Kernel {:?} not found", kernel_type))
+            RusTorchError::KernelError(format!("Kernel {:?} not found", kernel_type))
         })?;
 
         Ok(KernelStats {

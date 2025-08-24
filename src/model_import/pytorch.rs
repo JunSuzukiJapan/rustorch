@@ -1,7 +1,20 @@
 /// PyTorch model import implementation
 /// PyTorchモデルインポート実装
 
-use super::{ImportResult, ImportError, ImportedModel, ModelMetadata, ModelArchitecture, TensorSpec, LayerInfo};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelStructure, ModelArchitecture, LayerInfo};
+
+/// Layer description for model conversion
+/// モデル変換用レイヤー記述
+#[derive(Debug, Clone)]
+pub struct LayerDescription {
+    pub name: String,
+    pub layer_type: String,
+    pub input_shape: Vec<usize>,
+    pub output_shape: Vec<usize>,
+    pub params: usize,
+    pub attributes: HashMap<String, String>,
+}
 use std::collections::HashMap;
 use std::path::Path;
 use crate::tensor::Tensor;
@@ -71,14 +84,14 @@ pub struct TorchStateDict {
 #[derive(Debug, Clone)]
 pub struct TorchModelInfo {
     pub model_class: String,
-    pub layers: Vec<TorchLayerInfo>,
+    pub layers: Vec<TorchLayerDescription>,
     pub total_params: usize,
 }
 
 /// PyTorch layer information
 /// PyTorchレイヤー情報
 #[derive(Debug, Clone)]
-pub struct TorchLayerInfo {
+pub struct TorchLayerDescription {
     pub name: String,
     pub module_type: String,
     pub parameters: Vec<String>,
@@ -87,12 +100,12 @@ pub struct TorchLayerInfo {
 
 /// Import PyTorch model from file
 /// ファイルからPyTorchモデルをインポート
-pub fn import_pytorch_model<P: AsRef<Path>>(path: P) -> ImportResult<ImportedModel> {
+pub fn import_pytorch_model<P: AsRef<Path>>(path: P) -> RusTorchResult<ImportedModel> {
     let path = path.as_ref();
     
     // Read PyTorch file
     let torch_data = std::fs::read(path)
-        .map_err(|e| ImportError::FileNotFound(e.to_string()))?;
+        .map_err(|e| RusTorchError::FileNotFound(e.to_string()))?;
     
     // Parse PyTorch model
     let state_dict = parse_pytorch_data(&torch_data)?;
@@ -111,14 +124,14 @@ pub fn import_pytorch_model<P: AsRef<Path>>(path: P) -> ImportResult<ImportedMod
 
 /// Parse PyTorch binary data (pickle format)
 /// PyTorchバイナリデータを解析（ピクル形式）
-fn parse_pytorch_data(data: &[u8]) -> ImportResult<TorchStateDict> {
+fn parse_pytorch_data(data: &[u8]) -> RusTorchResult<TorchStateDict> {
     if data.len() < 2 {
-        return Err(ImportError::InvalidModel("File too small".to_string()).into());
+        return Err(RusTorchError::InvalidModel("File too small"));
     }
     
     // Check for pickle protocol marker
     if data[0] != PICKLE_PROTOCOL_2 {
-        return Err(ImportError::InvalidModel("Not a valid PyTorch pickle file".to_string()).into());
+        return Err(RusTorchError::InvalidModel("Not a valid PyTorch pickle file"));
     }
     
     // Mock PyTorch parsing implementation
@@ -128,7 +141,7 @@ fn parse_pytorch_data(data: &[u8]) -> ImportResult<TorchStateDict> {
 
 /// Parse mock PyTorch state dict for demonstration
 /// デモンストレーション用のモックPyTorch状態辞書を解析
-fn parse_mock_pytorch_state_dict() -> ImportResult<TorchStateDict> {
+fn parse_mock_pytorch_state_dict() -> RusTorchResult<TorchStateDict> {
     let mut tensors = HashMap::new();
     
     // Mock some common layer weights
@@ -201,7 +214,7 @@ fn create_pytorch_metadata(state_dict: &TorchStateDict, path: &Path) -> ModelMet
 
 /// Extract weights from PyTorch state dict
 /// PyTorch状態辞書から重みを抽出
-fn extract_pytorch_weights(state_dict: &TorchStateDict) -> ImportResult<HashMap<String, Tensor<f32>>> {
+fn extract_pytorch_weights(state_dict: &TorchStateDict) -> RusTorchResult<HashMap<String, Tensor<f32>>> {
     let mut weights = HashMap::new();
     
     for (name, tensor_info) in &state_dict.tensors {
@@ -214,7 +227,7 @@ fn extract_pytorch_weights(state_dict: &TorchStateDict) -> ImportResult<HashMap<
 
 /// Convert PyTorch tensor to RusTorch tensor
 /// PyTorchテンソルをRusTorchテンソルに変換
-fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> ImportResult<Tensor<f32>> {
+fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> RusTorchResult<Tensor<f32>> {
     match torch_tensor.storage_type {
         TorchStorageType::FloatStorage => {
             let float_data: Vec<f32> = torch_tensor.data
@@ -261,7 +274,7 @@ fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> ImportRes
 
 /// Infer model architecture from PyTorch state dict
 /// PyTorch状態辞書からモデルアーキテクチャを推論
-fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> ImportResult<ModelArchitecture> {
+fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<ModelStructure> {
     let layers = infer_layers_from_state_dict(state_dict);
     
     // Infer input/output shapes from layer structure
@@ -276,7 +289,7 @@ fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> ImportResult<Model
         .map(|tensor| tensor.data.len())
         .sum();
     
-    Ok(ModelArchitecture {
+    Ok(ModelStructure {
         inputs,
         outputs,
         layers,
@@ -287,7 +300,7 @@ fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> ImportResult<Model
 
 /// Infer layers from PyTorch state dict
 /// PyTorch状態辞書からレイヤーを推論
-fn infer_layers_from_state_dict(state_dict: &TorchStateDict) -> Vec<LayerInfo> {
+fn infer_layers_from_state_dict(state_dict: &TorchStateDict) -> Vec<LayerDescription> {
     let mut layers = Vec::new();
     let mut processed_prefixes = std::collections::HashSet::new();
     
@@ -316,7 +329,7 @@ fn extract_layer_prefix(tensor_name: &str) -> String {
 
 /// Infer layer information from tensor name
 /// テンソル名からレイヤー情報を推論
-fn infer_layer_from_tensor_name(tensor_name: &str, state_dict: &TorchStateDict) -> Option<LayerInfo> {
+fn infer_layer_from_tensor_name(tensor_name: &str, state_dict: &TorchStateDict) -> Option<LayerDescription> {
     let layer_prefix = extract_layer_prefix(tensor_name);
     
     // Look for weight tensor to determine layer type
@@ -336,7 +349,7 @@ fn infer_layer_from_tensor_name(tensor_name: &str, state_dict: &TorchStateDict) 
     
     let total_params = weight_params + bias_params;
     
-    Some(LayerInfo {
+    Some(LayerDescription {
         name: layer_prefix.clone(),
         layer_type,
         input_shape: infer_input_shape(&weight_tensor.shape),
@@ -379,7 +392,7 @@ fn infer_output_shape(weight_shape: &[usize]) -> Vec<Option<usize>> {
 
 /// Infer input specifications from layers
 /// レイヤーから入力仕様を推論
-fn infer_input_specs(layers: &[LayerInfo]) -> Vec<TensorSpec> {
+fn infer_input_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(first_layer) = layers.first() {
         vec![TensorSpec {
             name: "input".to_string(),
@@ -399,7 +412,7 @@ fn infer_input_specs(layers: &[LayerInfo]) -> Vec<TensorSpec> {
 
 /// Infer output specifications from layers
 /// レイヤーから出力仕様を推論
-fn infer_output_specs(layers: &[LayerInfo]) -> Vec<TensorSpec> {
+fn infer_output_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(last_layer) = layers.last() {
         vec![TensorSpec {
             name: "output".to_string(),
@@ -422,21 +435,21 @@ fn infer_output_specs(layers: &[LayerInfo]) -> Vec<TensorSpec> {
 pub fn export_to_pytorch<P: AsRef<Path>>(
     model: &dyn crate::nn::Module<f32>,
     path: P,
-) -> ImportResult<()> {
+) -> RusTorchResult<()> {
     let path = path.as_ref();
     
     // Create mock PyTorch export
     let mock_pytorch_data = create_mock_pytorch_export(model)?;
     
     std::fs::write(path, mock_pytorch_data)
-        .map_err(|e| ImportError::SerializationError(e.to_string()))?;
+        .map_err(|e| RusTorchError::SerializationError(e.to_string()))?;
     
     Ok(())
 }
 
 /// Create mock PyTorch export data
 /// モックPyTorchエクスポートデータを作成
-fn create_mock_pytorch_export(_model: &dyn crate::nn::Module<f32>) -> ImportResult<Vec<u8>> {
+fn create_mock_pytorch_export(_model: &dyn crate::nn::Module<f32>) -> RusTorchResult<Vec<u8>> {
     // Mock PyTorch export data (would be pickle format)
     let mock_data = b"Mock PyTorch export data - would contain pickle serialized state_dict";
     Ok(mock_data.to_vec())
@@ -444,14 +457,14 @@ fn create_mock_pytorch_export(_model: &dyn crate::nn::Module<f32>) -> ImportResu
 
 /// Load pretrained PyTorch model from URL
 /// URLから事前学習済みPyTorchモデルを読み込み
-pub fn load_pretrained_pytorch_model(model_name: &str) -> ImportResult<ImportedModel> {
+pub fn load_pretrained_pytorch_model(model_name: &str) -> RusTorchResult<ImportedModel> {
     let url = match model_name {
         "resnet18" => "https://download.pytorch.org/models/resnet18-5c106cde.pth",
         "resnet50" => "https://download.pytorch.org/models/resnet50-19c8e357.pth",
         "mobilenet_v2" => "https://download.pytorch.org/models/mobilenet_v2-b0353104.pth",
         "densenet121" => "https://download.pytorch.org/models/densenet121-a639ec97.pth",
         "vgg16" => "https://download.pytorch.org/models/vgg16-397923af.pth",
-        _ => return Err(ImportError::InvalidModel(format!("Unknown model: {}", model_name)).into()),
+        _ => return Err(RusTorchError::InvalidModel(format!("Unknown model: {}", model_name)).into()),
     };
     
     // In a real implementation, this would download and parse the actual model
@@ -461,7 +474,7 @@ pub fn load_pretrained_pytorch_model(model_name: &str) -> ImportResult<ImportedM
 
 /// Create mock pretrained model
 /// モック事前学習済みモデルを作成
-fn create_mock_pretrained_model(model_name: &str) -> ImportResult<ImportedModel> {
+fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedModel> {
     let (input_shape, output_classes, layers) = match model_name {
         "resnet18" => (vec![None, Some(3), Some(224), Some(224)], 1000, create_resnet18_layers()),
         "resnet50" => (vec![None, Some(3), Some(224), Some(224)], 1000, create_resnet50_layers()),
@@ -481,7 +494,7 @@ fn create_mock_pretrained_model(model_name: &str) -> ImportResult<ImportedModel>
         extra: HashMap::new(),
     };
     
-    let architecture = ModelArchitecture {
+    let architecture = ModelStructure {
         inputs: vec![TensorSpec {
             name: "input".to_string(),
             shape: input_shape,
@@ -515,9 +528,9 @@ fn create_mock_pretrained_model(model_name: &str) -> ImportResult<ImportedModel>
 
 /// Create ResNet18 layer structure
 /// ResNet18レイヤー構造を作成
-fn create_resnet18_layers() -> Vec<LayerInfo> {
+fn create_resnet18_layers() -> Vec<LayerDescription> {
     vec![
-        LayerInfo {
+        LayerDescription {
             name: "conv1".to_string(),
             layer_type: "Conv2d".to_string(),
             input_shape: vec![None, Some(3), Some(224), Some(224)],
@@ -525,7 +538,7 @@ fn create_resnet18_layers() -> Vec<LayerInfo> {
             params: 9408, // 64 * 3 * 7 * 7
             attributes: HashMap::new(),
         },
-        LayerInfo {
+        LayerDescription {
             name: "layer1".to_string(),
             layer_type: "ResNetLayer".to_string(),
             input_shape: vec![None, Some(64), Some(56), Some(56)],
@@ -533,7 +546,7 @@ fn create_resnet18_layers() -> Vec<LayerInfo> {
             params: 147648,
             attributes: HashMap::new(),
         },
-        LayerInfo {
+        LayerDescription {
             name: "fc".to_string(),
             layer_type: "Linear".to_string(),
             input_shape: vec![None, Some(512)],
@@ -546,9 +559,9 @@ fn create_resnet18_layers() -> Vec<LayerInfo> {
 
 /// Create ResNet50 layer structure
 /// ResNet50レイヤー構造を作成
-fn create_resnet50_layers() -> Vec<LayerInfo> {
+fn create_resnet50_layers() -> Vec<LayerDescription> {
     vec![
-        LayerInfo {
+        LayerDescription {
             name: "conv1".to_string(),
             layer_type: "Conv2d".to_string(),
             input_shape: vec![None, Some(3), Some(224), Some(224)],
@@ -556,7 +569,7 @@ fn create_resnet50_layers() -> Vec<LayerInfo> {
             params: 9408,
             attributes: HashMap::new(),
         },
-        LayerInfo {
+        LayerDescription {
             name: "fc".to_string(),
             layer_type: "Linear".to_string(),
             input_shape: vec![None, Some(2048)],
@@ -569,9 +582,9 @@ fn create_resnet50_layers() -> Vec<LayerInfo> {
 
 /// Create MobileNet layer structure
 /// MobileNetレイヤー構造を作成
-fn create_mobilenet_layers() -> Vec<LayerInfo> {
+fn create_mobilenet_layers() -> Vec<LayerDescription> {
     vec![
-        LayerInfo {
+        LayerDescription {
             name: "features.0".to_string(),
             layer_type: "Conv2d".to_string(),
             input_shape: vec![None, Some(3), Some(224), Some(224)],
@@ -579,7 +592,7 @@ fn create_mobilenet_layers() -> Vec<LayerInfo> {
             params: 864, // 32 * 3 * 3 * 3
             attributes: HashMap::new(),
         },
-        LayerInfo {
+        LayerDescription {
             name: "classifier".to_string(),
             layer_type: "Linear".to_string(),
             input_shape: vec![None, Some(1280)],

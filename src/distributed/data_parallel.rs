@@ -12,7 +12,8 @@ use crate::autograd::Variable;
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use crate::gpu::DeviceType;
-use super::{DistributedError, DistributedResult, get_distributed_state};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::distributed::get_distributed_state;
 use num_traits::Float;
 
 /// Data parallel wrapper for models
@@ -87,7 +88,7 @@ where
     
     /// Replicate input across devices
     /// 入力をデバイス間で複製
-    pub fn replicate_input(&self, input: &Variable<T>) -> DistributedResult<Vec<Variable<T>>> {
+    pub fn replicate_input(&self, input: &Variable<T>) -> RusTorchResult<Vec<Variable<T>>> {
         let batch_size = input.data().read().unwrap().shape()[0];
         let chunk_size = (batch_size + self.device_ids.len() - 1) / self.device_ids.len();
         
@@ -122,9 +123,9 @@ where
     
     /// Gather outputs from devices
     /// デバイスから出力を集約
-    pub fn gather_outputs(&self, outputs: Vec<Variable<T>>) -> DistributedResult<Variable<T>> {
+    pub fn gather_outputs(&self, outputs: Vec<Variable<T>>) -> RusTorchResult<Variable<T>> {
         if outputs.is_empty() {
-            return Err(DistributedError::ProcessGroupError("No outputs to gather".to_string()).into());
+            return Err(RusTorchError::ProcessGroupError("No outputs to gather"));
         }
         
         // Calculate total output size
@@ -143,7 +144,7 @@ where
     
     /// Synchronize gradients across devices
     /// デバイス間で勾配を同期
-    pub fn sync_gradients(&self) -> DistributedResult<()> {
+    pub fn sync_gradients(&self) -> RusTorchResult<()> {
         match self.sync_strategy {
             GradientSyncStrategy::Synchronous => self.sync_gradients_sync(),
             GradientSyncStrategy::Asynchronous => self.sync_gradients_async(),
@@ -151,7 +152,7 @@ where
         }
     }
     
-    fn sync_gradients_sync(&self) -> DistributedResult<()> {
+    fn sync_gradients_sync(&self) -> RusTorchResult<()> {
         // Synchronous gradient synchronization
         // 同期勾配同期
         let state = get_distributed_state();
@@ -165,17 +166,17 @@ where
             drop(state_guard);
             Ok(())
         } else {
-            Err(DistributedError::ProcessGroupError("Process group not initialized".to_string()).into())
+            Err(RusTorchError::ProcessGroupError("Process group not initialized"))
         }
     }
     
-    fn sync_gradients_async(&self) -> DistributedResult<()> {
+    fn sync_gradients_async(&self) -> RusTorchResult<()> {
         // Asynchronous gradient synchronization
         // 非同期勾配同期
         Ok(())
     }
     
-    fn sync_gradients_local_sgd(&self) -> DistributedResult<()> {
+    fn sync_gradients_local_sgd(&self) -> RusTorchResult<()> {
         // Local SGD gradient synchronization
         // ローカルSGD勾配同期
         Ok(())
@@ -385,7 +386,7 @@ impl DistributedSampler {
         rank: Option<usize>,
         drop_last: bool,
         seed: u64,
-    ) -> DistributedResult<Self> {
+    ) -> RusTorchResult<Self> {
         let state = get_distributed_state();
         let state_guard = state.lock().unwrap();
         
@@ -393,7 +394,7 @@ impl DistributedSampler {
         let rank = rank.or_else(|| state_guard.rank()).unwrap_or(0);
         
         if rank >= num_replicas {
-            return Err(DistributedError::ProcessGroupError(
+            return Err(RusTorchError::ProcessGroupError(
                 format!("Rank {} is greater than or equal to num_replicas {}", rank, num_replicas)
             ).into());
         }

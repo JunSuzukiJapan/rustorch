@@ -6,7 +6,17 @@ use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
 use serde::{Serialize, Deserialize};
-use super::{DistributedError, DistributedResult, ProcessGroup, DistributedBackend};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::distributed::multi_gpu_validation::ProcessGroup;
+
+/// Distributed backend types
+/// 分散バックエンドタイプ
+#[derive(Debug, Clone)]
+pub enum DistributedBackend {
+    Nccl,
+    Gloo,
+    Mpi,
+}
 
 /// Cluster configuration for multi-machine training
 /// マルチマシン学習用クラスター設定
@@ -226,7 +236,7 @@ pub enum SchedulingStrategy {
 impl ClusterManager {
     /// Create new cluster manager
     /// 新しいクラスターマネージャーを作成
-    pub fn new(config: ClusterConfig) -> DistributedResult<Self> {
+    pub fn new(config: ClusterConfig) -> RusTorchResult<Self> {
         let active_nodes = Arc::new(Mutex::new(HashMap::new()).into());
         
         // Initialize active nodes from config
@@ -251,7 +261,7 @@ impl ClusterManager {
 
     /// Start cluster services
     /// クラスターサービスを開始
-    pub fn start(&mut self) -> DistributedResult<()> {
+    pub fn start(&mut self) -> RusTorchResult<()> {
         // Start heartbeat monitoring
         // ハートビートモニタリングを開始
         if self.config.fault_tolerance.enable_failover {
@@ -271,7 +281,7 @@ impl ClusterManager {
 
     /// Stop cluster services
     /// クラスターサービスを停止
-    pub fn stop(&mut self) -> DistributedResult<()> {
+    pub fn stop(&mut self) -> RusTorchResult<()> {
         // Stop heartbeat monitor
         // ハートビートモニターを停止
         if let Some(monitor) = &mut self.heartbeat_monitor {
@@ -292,7 +302,7 @@ impl ClusterManager {
         job_id: String,
         world_size: usize,
         backend: DistributedBackend,
-    ) -> DistributedResult<ProcessGroup> {
+    ) -> RusTorchResult<ProcessGroup> {
         // Schedule nodes for this job
         // このジョブ用のノードをスケジュール
         let _selected_nodes = self.resource_scheduler.schedule_job(world_size)?;
@@ -314,7 +324,7 @@ impl ClusterManager {
 
     /// Handle node failure
     /// ノード障害を処理
-    pub fn handle_node_failure(&mut self, failed_node_id: usize) -> DistributedResult<()> {
+    pub fn handle_node_failure(&mut self, failed_node_id: usize) -> RusTorchResult<()> {
         // Mark node as failed
         // ノードを故障としてマーク
         {
@@ -335,7 +345,7 @@ impl ClusterManager {
 
     /// Trigger failover for failed node
     /// 故障ノードのフェイルオーバーをトリガー
-    fn trigger_failover(&mut self, failed_node_id: usize) -> DistributedResult<()> {
+    fn trigger_failover(&mut self, failed_node_id: usize) -> RusTorchResult<()> {
         // Find replacement node
         // 代替ノードを見つける
         let replacement_node = self.find_replacement_node()?;
@@ -353,7 +363,7 @@ impl ClusterManager {
 
     /// Find replacement node for failover
     /// フェイルオーバー用代替ノードを見つける
-    fn find_replacement_node(&self) -> DistributedResult<NodeInfo> {
+    fn find_replacement_node(&self) -> RusTorchResult<NodeInfo> {
         let nodes = self.active_nodes.lock().unwrap();
         
         for node in nodes.values() {
@@ -362,12 +372,12 @@ impl ClusterManager {
             }
         }
 
-        Err(DistributedError::ClusterError("No available replacement node".to_string()).into())
+        Err(RusTorchError::ClusterError("No available replacement node"))
     }
 
     /// Migrate jobs from failed node to replacement
     /// 故障ノードから代替ノードへジョブを移行
-    fn migrate_jobs(&mut self, _failed_node: usize, _replacement_node: usize) -> DistributedResult<()> {
+    fn migrate_jobs(&mut self, _failed_node: usize, _replacement_node: usize) -> RusTorchResult<()> {
         // Implementation would handle job migration
         // 実装ではジョブ移行を処理
         Ok(())
@@ -379,7 +389,7 @@ impl ClusterManager {
         &mut self, 
         _failed_node: usize, 
         _replacement_node: usize
-    ) -> DistributedResult<()> {
+    ) -> RusTorchResult<()> {
         // Implementation would update process group configurations
         // 実装ではプロセスグループ設定を更新
         Ok(())
@@ -387,7 +397,7 @@ impl ClusterManager {
 
     /// Start heartbeat monitoring
     /// ハートビートモニタリングを開始
-    fn start_heartbeat_monitor(&mut self) -> DistributedResult<()> {
+    fn start_heartbeat_monitor(&mut self) -> RusTorchResult<()> {
         let monitor = HeartbeatMonitor::new(
             self.active_nodes.clone(),
             self.config.fault_tolerance.heartbeat_interval,
@@ -400,7 +410,7 @@ impl ClusterManager {
 
     /// Initialize cluster topology
     /// クラスタートポロジーを初期化
-    fn initialize_topology(&self) -> DistributedResult<()> {
+    fn initialize_topology(&self) -> RusTorchResult<()> {
         match &self.config.topology {
             ClusterTopology::Flat => {
                 // All-to-all connections
@@ -484,7 +494,7 @@ impl HeartbeatMonitor {
         nodes: Arc<Mutex<HashMap<usize, NodeInfo>>>,
         heartbeat_interval: u64,
         node_timeout: u64,
-    ) -> DistributedResult<Self> {
+    ) -> RusTorchResult<Self> {
         let last_heartbeat = Arc::new(Mutex::new(HashMap::new()).into());
         let shutdown = Arc::new(Mutex::new(false).into());
 
@@ -513,7 +523,7 @@ impl HeartbeatMonitor {
 
     /// Start monitoring thread
     /// モニタリングスレッドを開始
-    fn start_monitoring(&mut self, heartbeat_interval: u64, node_timeout: u64) -> DistributedResult<()> {
+    fn start_monitoring(&mut self, heartbeat_interval: u64, node_timeout: u64) -> RusTorchResult<()> {
         let nodes = self.nodes.clone();
         let last_heartbeat = self.last_heartbeat.clone();
         let shutdown = self.shutdown.clone();
@@ -567,7 +577,7 @@ impl HeartbeatMonitor {
 
     /// Stop monitoring
     /// モニタリングを停止
-    pub fn stop(&mut self) -> DistributedResult<()> {
+    pub fn stop(&mut self) -> RusTorchResult<()> {
         // Signal shutdown
         // シャットダウンをシグナル
         {
@@ -579,7 +589,7 @@ impl HeartbeatMonitor {
         // モニタリングスレッドの終了を待機
         if let Some(handle) = self.monitor_handle.take() {
             handle.join().map_err(|_| {
-                DistributedError::ClusterError("Failed to stop heartbeat monitor".to_string())
+                RusTorchError::ClusterError("Failed to stop heartbeat monitor".to_string())
             })?;
         }
 
@@ -588,7 +598,7 @@ impl HeartbeatMonitor {
 
     /// Update heartbeat for node
     /// ノードのハートビートを更新
-    pub fn update_heartbeat(&self, node_id: usize) -> DistributedResult<()> {
+    pub fn update_heartbeat(&self, node_id: usize) -> RusTorchResult<()> {
         let mut heartbeat_guard = self.last_heartbeat.lock().unwrap();
         heartbeat_guard.insert(node_id, Instant::now().into());
         Ok(())
@@ -608,7 +618,7 @@ impl ResourceScheduler {
 
     /// Schedule job on available nodes
     /// 利用可能ノードでジョブをスケジュール
-    pub fn schedule_job(&mut self, required_nodes: usize) -> DistributedResult<Vec<usize>> {
+    pub fn schedule_job(&mut self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         match self.strategy {
             SchedulingStrategy::FirstFit => self.schedule_first_fit(required_nodes),
             SchedulingStrategy::BestFit => self.schedule_best_fit(required_nodes),
@@ -619,7 +629,7 @@ impl ResourceScheduler {
 
     /// First-fit scheduling
     /// ファーストフィットスケジューリング
-    fn schedule_first_fit(&self, required_nodes: usize) -> DistributedResult<Vec<usize>> {
+    fn schedule_first_fit(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         let mut selected_nodes = Vec::new();
         
         for (node_id, _resources) in &self.node_resources {
@@ -633,7 +643,7 @@ impl ResourceScheduler {
         }
 
         if selected_nodes.len() < required_nodes {
-            return Err(DistributedError::ClusterError(
+            return Err(RusTorchError::ClusterError(
                 format!("Not enough available nodes: need {}, found {}", 
                        required_nodes, selected_nodes.len())
             ).into());
@@ -644,7 +654,7 @@ impl ResourceScheduler {
 
     /// Best-fit scheduling
     /// ベストフィットスケジューリング
-    fn schedule_best_fit(&self, required_nodes: usize) -> DistributedResult<Vec<usize>> {
+    fn schedule_best_fit(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         // Implementation would find nodes with best resource fit
         // 実装では最適なリソースフィットのノードを見つける
         self.schedule_first_fit(required_nodes)
@@ -652,7 +662,7 @@ impl ResourceScheduler {
 
     /// Load balancing scheduling
     /// 負荷分散スケジューリング
-    fn schedule_load_balancing(&self, required_nodes: usize) -> DistributedResult<Vec<usize>> {
+    fn schedule_load_balancing(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         // Implementation would balance load across nodes
         // 実装ではノード間で負荷を分散
         self.schedule_first_fit(required_nodes)
@@ -660,7 +670,7 @@ impl ResourceScheduler {
 
     /// Locality-aware scheduling
     /// 局所性を考慮したスケジューリング
-    fn schedule_locality_aware(&self, required_nodes: usize) -> DistributedResult<Vec<usize>> {
+    fn schedule_locality_aware(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         // Implementation would consider network locality
         // 実装ではネットワーク局所性を考慮
         self.schedule_first_fit(required_nodes)
@@ -678,7 +688,7 @@ impl ResourceScheduler {
 
     /// Start resource monitoring
     /// リソースモニタリングを開始
-    pub fn start_monitoring(&mut self) -> DistributedResult<()> {
+    pub fn start_monitoring(&mut self) -> RusTorchResult<()> {
         // Implementation would start resource monitoring
         // 実装ではリソースモニタリングを開始
         Ok(())
@@ -686,7 +696,7 @@ impl ResourceScheduler {
 
     /// Stop resource monitoring
     /// リソースモニタリングを停止
-    pub fn stop_monitoring(&mut self) -> DistributedResult<()> {
+    pub fn stop_monitoring(&mut self) -> RusTorchResult<()> {
         // Implementation would stop resource monitoring
         // 実装ではリソースモニタリングを停止
         Ok(())

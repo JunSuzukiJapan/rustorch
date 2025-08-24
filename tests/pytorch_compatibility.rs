@@ -36,9 +36,10 @@ mod pytorch_compatibility_tests {
         
         // Matrix multiplication
         let matmul_result = tensor1.matmul(&tensor2);
+        assert!(matmul_result.is_ok(), "Matrix multiplication failed: {:?}", matmul_result.err());
         let matmul_unwrapped = matmul_result.unwrap();
         println!("  ✓ Matrix multiplication: {:?}", matmul_unwrapped.shape());
-        assert_eq!(matmul_unwrapped.shape(), &[2, 2]);
+        assert_eq!(matmul_unwrapped.shape(), &[2, 2], "Expected shape [2, 2], got {:?}", matmul_unwrapped.shape());
         
         // Reduction operations
         let sum_result: f32 = tensor1.sum();

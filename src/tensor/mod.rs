@@ -114,8 +114,7 @@ pub mod gpu_parallel;
 mod broadcasting;
 
 // Re-export important types and functions
-pub use broadcasting::BroadcastError;
-pub use parallel_errors::{ParallelError, ParallelResult};
+pub use crate::error::RusTorchResult as ParallelResult;
 pub use core::Tensor;
 
 // Convenience functions
