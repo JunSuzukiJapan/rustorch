@@ -219,7 +219,12 @@ pub mod visualization;
 /// Computer vision module providing image transforms, data augmentation, and built-in datasets
 /// 画像変換、データ拡張、組み込みデータセットを提供するコンピュータビジョンモジュール
 pub mod vision;
+/// Model format support and conversion utilities
+/// モデル形式サポートと変換ユーティリティ
 pub mod formats;
+/// PyTorch to RusTorch conversion system
+/// PyTorchからRusTorch変換システム
+pub mod convert;
 /// Statistical distributions module providing PyTorch-compatible probability distributions
 /// PyTorch互換の確率分布を提供する統計分布モジュール
 pub mod distributions;
@@ -260,6 +265,8 @@ pub mod prelude {
     pub use crate::special::{gamma, lgamma, digamma, beta, lbeta};
     pub use crate::special::{bessel_j, bessel_y, bessel_i, bessel_k};
     pub use crate::special::{erf, erfc, erfinv, erfcinv};
+    pub use crate::convert::{SimplePyTorchConverter, SimplifiedPyTorchModel, SimpleConversionError};
+    pub use crate::convert::{ModelParser, ModelGraph, LayerInfo, LayerType};
 }
 
 #[cfg(test)]

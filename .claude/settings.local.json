@@ -76,7 +76,8 @@
       "WebFetch(domain:dlmf.nist.gov)",
       "Bash(RUST_BACKTRACE=1 cargo test --no-default-features special::bessel::tests::test_bessel_recurrence -- --nocapture)",
       "Bash(RUST_BACKTRACE=1 cargo test --no-default-features special::error::tests::test_erf_series_vs_approx -- --nocapture)",
-      "Bash(RUST_BACKTRACE=1 cargo test --no-default-features special::error::tests::test_erfcx_basic -- --nocapture)"
+      "Bash(RUST_BACKTRACE=1 cargo test --no-default-features special::error::tests::test_erfcx_basic -- --nocapture)",
+      "Bash(RUSTFLAGS=\"--cfg test_simplified_only\" cargo run --example pytorch_conversion_simple_demo)"
     ],
     "deny": [],
     "ask": [],
