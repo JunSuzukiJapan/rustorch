@@ -245,7 +245,7 @@ where
     /// マイクロバッチ出力を連結
     fn concatenate_outputs(&self, outputs: Vec<Variable<T>>) -> DistributedResult<Variable<T>> {
         if outputs.is_empty() {
-            return Err(DistributedError::ProcessGroupError("No outputs to concatenate".to_string()));
+            return Err(DistributedError::ProcessGroupError("No outputs to concatenate".to_string()).into());
         }
         
         // Calculate total batch size
@@ -358,7 +358,7 @@ where
     fn parameters(&self) -> Vec<Variable<T>> {
         let mut all_params = Vec::new();
         for partition in &self.partitions {
-            all_params.extend(partition.parameters());
+            all_params.extend(partition.parameters().into());
         }
         all_params
     }
@@ -435,7 +435,7 @@ where
         if self.parallel_dim >= shape.len() {
             return Err(DistributedError::ProcessGroupError(
                 "Parallel dimension exceeds tensor dimensions".to_string()
-            ));
+            ).into());
         }
         
         let dim_size = shape[self.parallel_dim];
@@ -521,7 +521,7 @@ where
         // Simplified expert routing implementation
         // 簡略化エキスパートルーティング実装
         if self.experts.is_empty() {
-            return Ok(input.clone());
+            return Ok(input.clone().into());
         }
         
         // Use first expert as fallback

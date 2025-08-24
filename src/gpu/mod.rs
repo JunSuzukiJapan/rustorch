@@ -129,6 +129,13 @@ pub mod custom_kernels;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;
+/// Unified kernel interface for cross-platform GPU acceleration (simplified)
+/// クロスプラットフォームGPU加速のための統一カーネルインターフェース（簡潔版）
+pub mod unified_kernel_simple;
+/// Integration tests for unified GPU kernel system
+/// 統一GPUカーネルシステムの統合テスト
+#[cfg(test)]
+pub mod integration_tests;
 
 use std::fmt;
 
@@ -386,9 +393,13 @@ impl fmt::Display for GpuError {
 
 impl std::error::Error for GpuError {}
 
-/// Result type for GPU operations
-/// GPU演算の結果型
-pub type GpuResult<T> = Result<T, GpuError>;
+/// Result type for GPU operations (now unified)
+/// GPU演算の結果型（統一済み）
+pub type GpuResult<T> = crate::error::RusTorchResult<T>;
+
+// Re-export simplified unified kernel system components
+// 簡潔な統一カーネルシステムコンポーネントを再エクスポート
+pub use unified_kernel_simple::{UnifiedKernelExecutor, KernelSelector, KernelOp, KernelParams, KernelMetrics};
 
 /// GPU device manager
 /// GPUデバイスマネージャー

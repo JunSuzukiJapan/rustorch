@@ -50,7 +50,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOps<T> for NCCLBackend {
         if tensors.is_empty() {
             return Err(DistributedError::CommunicationError(
                 "Empty tensor array for scatter operation".to_string()
-            ));
+            ).into());
         }
         Ok(tensors[0].clone())
     }
@@ -127,7 +127,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOps<T> for GlooBackend {
         if tensors.is_empty() {
             return Err(DistributedError::CommunicationError(
                 "Empty tensor array for scatter operation".to_string()
-            ));
+            ).into());
         }
         Ok(tensors[0].clone())
     }
@@ -190,7 +190,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOps<T> for TCPBackend {
         if tensors.is_empty() {
             return Err(DistributedError::CommunicationError(
                 "Empty tensor array for scatter operation".to_string()
-            ));
+            ).into());
         }
         Ok(tensors[0].clone())
     }
@@ -229,10 +229,10 @@ impl BackendFactory {
             },
             #[cfg(not(feature = "nccl"))]
             super::DistributedBackend::NCCL => {
-                Err(DistributedError::BackendNotAvailable("NCCL not compiled".to_string()))
+                Err(DistributedError::BackendNotAvailable("NCCL not compiled".to_string()).into())
             },
             super::DistributedBackend::MPI => {
-                Err(DistributedError::BackendNotAvailable("MPI not implemented".to_string()))
+                Err(DistributedError::BackendNotAvailable("MPI not implemented".to_string()).into())
             },
         }
     }

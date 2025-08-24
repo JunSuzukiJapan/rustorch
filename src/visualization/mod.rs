@@ -126,9 +126,9 @@ impl From<std::io::Error> for VisualizationError {
     }
 }
 
-/// 可視化結果
-/// Visualization result
-pub type VisualizationResult<T> = Result<T, VisualizationError>;
+/// 可視化結果 (統一済み)
+/// Visualization result (統一済み)
+pub type VisualizationResult<T> = crate::error::RusTorchResult<T>;
 
 /// 基本的な可視化トレイト
 /// Base visualization trait

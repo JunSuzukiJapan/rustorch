@@ -348,7 +348,7 @@ where
                 expected: self.shape().to_vec(),
                 actual: other.shape().to_vec(),
                 operation: "gpu_elementwise_op".to_string(),
-            });
+            }.into());
         }
 
         let ctx = GpuParallelContext::default();
@@ -440,7 +440,7 @@ where
                 {
                     Err(ParallelError::DeviceError {
                         message: "CUDA support not compiled".to_string(),
-                    })
+                    }.into())
                 }
             }
             DeviceType::Metal(_) => {
@@ -454,7 +454,7 @@ where
                 {
                     Err(ParallelError::DeviceError {
                         message: "Metal support not compiled".to_string(),
-                    })
+                    }.into())
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -468,7 +468,7 @@ where
                 {
                     Err(ParallelError::DeviceError {
                         message: "OpenCL support not compiled".to_string(),
-                    })
+                    }.into())
                 }
             }
         }

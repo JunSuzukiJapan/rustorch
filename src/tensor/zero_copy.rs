@@ -186,7 +186,7 @@ impl<'a, T: Float + 'static> TensorView<'a, T> {
                 self.view.shape(),
                 other.view.shape(),
                 "zero-copy element-wise operation"
-            ));
+            ).into());
         }
 
         let mut result = Tensor::zeros(self.view.shape());
@@ -242,7 +242,7 @@ impl<'a, T: Float> TensorViewMut<'a, T> {
                 self.view.shape(),
                 other.view.shape(),
                 "zero-copy in-place operation"
-            ));
+            ).into());
         }
 
         if let (Some(self_slice), Some(other_slice)) = (
@@ -302,7 +302,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                 self.data.ndim(),
                 ranges.len(),
                 "tensor slicing"
-            ));
+            ).into());
         }
 
         // Validate ranges
@@ -312,7 +312,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                     self.data.shape()[i],
                     range.end,
                     "slice range"
-                ));
+                ).into());
             }
         }
 
@@ -369,7 +369,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                 &[self.data.len()],
                 &[total_elements],
                 "reshape view"
-            ));
+            ).into());
         }
 
         // Create reshaped tensor using ndarray reshape
@@ -395,7 +395,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
     /// 軸に沿ったゼロコピー連結（可能な場合）
     pub fn concat_views(views: &[TensorView<T>], axis: usize) -> ParallelResult<Tensor<T>> {
         if views.is_empty() {
-            return Err(ParallelError::empty_tensor_list("concatenation"));
+            return Err(ParallelError::empty_tensor_list("concatenation").into());
         }
 
         let first_shape = views[0].shape();
@@ -404,7 +404,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                 first_shape.len(),
                 axis,
                 "concatenation axis"
-            ));
+            ).into());
         }
 
         // Check shape compatibility
@@ -415,7 +415,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                     first_shape,
                     shape,
                     "concatenation shapes"
-                ));
+                ).into());
             }
             for (i, (&dim1, &dim2)) in first_shape.iter().zip(shape.iter()).enumerate() {
                 if i != axis && dim1 != dim2 {
@@ -423,7 +423,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                         first_shape,
                         shape,
                         "concatenation dimensions"
-                    ));
+                    ).into());
                 }
             }
         }
@@ -463,7 +463,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         // 実際の実装では、ファイルをメモリマップしてテンソルを作成
         Err(ParallelError::parallel_execution_error(
             "Memory mapping not yet implemented"
-        ))
+        ).into())
     }
 }
 

@@ -30,14 +30,14 @@ impl SafeOps {
                 data.len(),
                 shape,
                 expected_size
-            )));
+            )).into());
         }
         
         // Check for empty dimensions
         if shape.iter().any(|&dim| dim == 0) {
             return Err(NNError::InvalidDimensions(
                 "Shape dimensions must be positive".to_string()
-            ));
+            ).into());
         }
         
         let tensor = Tensor::from_vec(data, shape);
@@ -65,7 +65,7 @@ impl SafeOps {
                 "Cannot reshape tensor of size {} to size {}",
                 current_size,
                 new_size
-            )));
+            )).into());
         }
         
         // Create new tensor with same data but new shape
@@ -111,7 +111,7 @@ impl SafeOps {
         let data = data_guard.as_array();
         
         if data.is_empty() {
-            return Err(NNError::InvalidDimensions("Empty tensor".to_string()));
+            return Err(NNError::InvalidDimensions("Empty tensor".to_string()).into());
         }
         
         let first = *data.iter().next().unwrap();
@@ -152,12 +152,12 @@ impl SafeOps {
             if value.is_nan() {
                 return Err(NNError::ComputationError(format!(
                     "NaN detected at index {}", i
-                )));
+                )).into());
             }
             if value.is_infinite() {
                 return Err(NNError::ComputationError(format!(
                     "Infinity detected at index {}", i
-                )));
+                )).into());
             }
         }
         

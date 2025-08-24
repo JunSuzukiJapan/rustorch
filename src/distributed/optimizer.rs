@@ -308,7 +308,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
                     } else {
                         // Store new gradient
                         // 新しい勾配を保存
-                        self.local_gradients.insert(key, tensor.clone());
+                        self.local_gradients.insert(key, tensor.clone().into());
                     }
                 }
             }
@@ -580,7 +580,7 @@ mod tests {
     #[test]
     fn test_distributed_optimizer_creation() {
         let pg = ProcessGroup::new(0, 4, DistributedBackend::Gloo, "localhost".to_string(), 12345);
-        let backend = Arc::new(GlooBackend::new(pg).unwrap());
+        let backend = Arc::new(GlooBackend::new(pg).unwrap().into());
         
         let optimizer = DistributedOptimizerBuilder::<f32>::sgd(0.01, 0.9, 0.0001)
             .backend(backend)
@@ -607,7 +607,7 @@ mod tests {
                                      GradientSyncStrategy::Asynchronous |
                                      GradientSyncStrategy::LocalSGD { .. } |
                                      GradientSyncStrategy::Compressed { .. } |
-                                     GradientSyncStrategy::Hierarchical));
+                                     GradientSyncStrategy::Hierarchical).into());
         }
     }
 }

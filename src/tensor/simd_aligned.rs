@@ -153,7 +153,7 @@ impl SimdTensor<f32> {
                 &self.shape,
                 &other.shape,
                 "SIMD tensor addition"
-            ));
+            ).into());
         }
 
         let mut result = SimdTensor::zeros(&self.shape)
@@ -187,7 +187,7 @@ impl SimdTensor<f32> {
                 &self.shape,
                 &other.shape,
                 "SIMD tensor multiplication"
-            ));
+            ).into());
         }
 
         let mut result = SimdTensor::zeros(&self.shape)
@@ -242,13 +242,13 @@ impl SimdTensor<f32> {
         if self.shape.len() != 2 || other.shape.len() != 2 {
             return Err(ParallelError::insufficient_dimensions(
                 2, self.shape.len(), "SIMD matrix multiplication"
-            ));
+            ).into());
         }
 
         if self.shape[1] != other.shape[0] {
             return Err(ParallelError::matmul_dimension_mismatch(
                 &self.shape, &other.shape
-            ));
+            ).into());
         }
 
         let result_shape = vec![self.shape[0], other.shape[1]];
@@ -299,7 +299,7 @@ impl SimdTensor<f32> {
                 &self.shape,
                 &other.shape,
                 "SIMD in-place addition"
-            ));
+            ).into());
         }
 
         let self_slice = self.as_mut_slice();

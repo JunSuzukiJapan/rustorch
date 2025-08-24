@@ -116,7 +116,7 @@ impl MemoryBlock {
             if raw_ptr.is_null() {
                 return Err(ParallelError::ParallelExecutionError {
                     message: "Allocation failed".to_string(),
-                });
+                }.into());
             }
 
             NonNull::new_unchecked(raw_ptr)
@@ -562,7 +562,7 @@ impl OptimizedTensorOps {
                 expected: a.shape().to_vec(),
                 actual: b.shape().to_vec(),
                 operation: "inplace_add".to_string(),
-            });
+            }.into());
         }
 
         // Vectorized in-place addition

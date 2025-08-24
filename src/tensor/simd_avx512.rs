@@ -43,7 +43,7 @@ impl Avx512F32Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len(), result.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         for i in 0..a.len() {
@@ -60,7 +60,7 @@ impl Avx512F32Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len(), result.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         for i in 0..a.len() {
@@ -77,7 +77,7 @@ impl Avx512F32Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len(), c.len(), result.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         for i in 0..a.len() {
@@ -94,7 +94,7 @@ impl Avx512F32Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         let mut sum = 0.0;
@@ -119,7 +119,7 @@ impl Avx512F32Ops {
                 expected: vec![rows_a * cols_a],
                 actual: vec![a.len()],
                 operation: "matrix_multiply".to_string(),
-            });
+            }.into());
         }
 
         for i in 0..rows_a {
@@ -149,7 +149,7 @@ impl Avx512F64Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len(), result.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         for i in 0..a.len() {
@@ -166,7 +166,7 @@ impl Avx512F64Ops {
                 expected: vec![a.len()],
                 actual: vec![b.len()],
                 operation: "simd_operation".to_string(),
-            });
+            }.into());
         }
 
         let mut sum = 0.0;
@@ -198,7 +198,7 @@ impl Avx512TensorOps<f32> for Tensor<f32> {
                 expected: self.data.shape().to_vec(),
                 actual: other.data.shape().to_vec(),
                 operation: "avx512_add".to_string(),
-            });
+            }.into());
         }
 
         let mut result = Tensor::zeros(self.data.shape());
@@ -225,7 +225,7 @@ impl Avx512TensorOps<f32> for Tensor<f32> {
                 expected: self.data.shape().to_vec(),
                 actual: other.data.shape().to_vec(),
                 operation: "avx512_mul".to_string(),
-            });
+            }.into());
         }
 
         let mut result = Tensor::zeros(self.data.shape());
@@ -252,7 +252,7 @@ impl Avx512TensorOps<f32> for Tensor<f32> {
                 expected: vec![self.data.len()],
                 actual: vec![other.data.len()],
                 operation: "avx512_dot".to_string(),
-            });
+            }.into());
         }
 
         unsafe {
@@ -274,7 +274,7 @@ impl Avx512TensorOps<f64> for Tensor<f64> {
                 expected: self.data.shape().to_vec(),
                 actual: other.data.shape().to_vec(),
                 operation: "avx512_add".to_string(),
-            });
+            }.into());
         }
 
         let mut result = Tensor::zeros(self.data.shape());
@@ -306,7 +306,7 @@ impl Avx512TensorOps<f64> for Tensor<f64> {
                 expected: vec![self.data.len()],
                 actual: vec![other.data.len()],
                 operation: "avx512_dot".to_string(),
-            });
+            }.into());
         }
 
         unsafe {

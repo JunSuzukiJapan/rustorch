@@ -23,8 +23,8 @@ mod visualization_integration_tests {
             let val_loss = train_loss + 0.1; // 検証損失は少し高め
             
             let mut metrics = HashMap::new();
-            metrics.insert("accuracy".to_string(), (epoch as f64 * 0.07 + 0.3).min(0.95));
-            metrics.insert("precision".to_string(), (epoch as f64 * 0.06 + 0.4).min(0.92));
+            metrics.insert("accuracy".to_string(), (epoch as f64 * 0.07 + 0.3).min(0.95.into());
+            metrics.insert("precision".to_string(), (epoch as f64 * 0.06 + 0.4).min(0.92.into());
             
             history.add_epoch(train_loss, Some(val_loss), metrics);
         }
@@ -37,8 +37,8 @@ mod visualization_integration_tests {
         assert!(svg_result.is_ok(), "Failed to generate training curves");
         
         let svg_content = svg_result.unwrap();
-        assert!(svg_content.contains("<svg"));
-        assert!(svg_content.contains("</svg>"));
+        assert!(svg_content.contains(
+        assert!(svg_content.contains(
         assert!(svg_content.len() > 100); // 適切なサイズのSVG
         
         // メトリクス時系列プロット
@@ -46,7 +46,7 @@ mod visualization_integration_tests {
         assert!(metrics_result.is_ok(), "Failed to generate metrics timeline");
         
         let metrics_svg = metrics_result.unwrap();
-        assert!(metrics_svg.contains("<svg"));
+        assert!(metrics_svg.contains(
         
         println!("✓ Training plotter integration test passed");
     }
@@ -63,8 +63,8 @@ mod visualization_integration_tests {
         assert!(bar_chart_result.is_ok(), "Failed to generate 1D bar chart");
         
         let bar_chart_svg = bar_chart_result.unwrap();
-        assert!(bar_chart_svg.contains("rect")); // バーが含まれる
-        assert!(bar_chart_svg.contains("class=\"bar\""));
+        assert!(bar_chart_svg.contains(
+        assert!(bar_chart_svg.contains(
         
         // 2Dテンソルのヒートマップテスト
         let data_2d = vec![
@@ -78,8 +78,8 @@ mod visualization_integration_tests {
         assert!(heatmap_result.is_ok(), "Failed to generate 2D heatmap");
         
         let heatmap_svg = heatmap_result.unwrap();
-        assert!(heatmap_svg.contains("rect")); // ヒートマップセルが含まれる
-        assert!(heatmap_svg.contains("class=\"cell\""));
+        assert!(heatmap_svg.contains(
+        assert!(heatmap_svg.contains(
         
         // 3Dテンソルのスライステスト
         let data_3d = (0..24).map(|i| i as f32).collect();
@@ -89,9 +89,9 @@ mod visualization_integration_tests {
         assert!(slices_result.is_ok(), "Failed to generate 3D slices");
         
         let slices_svg = slices_result.unwrap();
-        assert!(slices_svg.contains("rect"));
-        assert!(slices_svg.contains("Slice 0"));
-        assert!(slices_svg.contains("Slice 1"));
+        assert!(slices_svg.contains(
+        assert!(slices_svg.contains(
+        assert!(slices_svg.contains(
         
         // 統計情報の可視化テスト
         let stats_result = visualizer.plot_statistics(&tensor_2d);
@@ -154,19 +154,19 @@ mod visualization_integration_tests {
         assert!(svg_result.is_ok(), "Failed to generate computation graph SVG");
         
         let svg_content = svg_result.unwrap();
-        assert!(svg_content.contains("<svg"));
-        assert!(svg_content.contains("Input"));
-        assert!(svg_content.contains("Add"));
-        assert!(svg_content.contains("line")); // エッジ
+        assert!(svg_content.contains(
+        assert!(svg_content.contains(
+        assert!(svg_content.contains(
+        assert!(svg_content.contains(
         
         // DOT形式生成テスト
         let dot_result = visualizer.to_dot();
         assert!(dot_result.is_ok(), "Failed to generate DOT format");
         
         let dot_content = dot_result.unwrap();
-        assert!(dot_content.contains("digraph ComputationGraph"));
-        assert!(dot_content.contains("var_0"));
-        assert!(dot_content.contains("op_0"));
+        assert!(dot_content.contains(
+        assert!(dot_content.contains(
+        assert!(dot_content.contains(
         
         // 統計情報テスト
         let stats = visualizer.get_statistics();
@@ -181,7 +181,7 @@ mod visualization_integration_tests {
         // カテゴリカルカラーパレット
         let categorical_colors = ColorPalette::categorical();
         assert_eq!(categorical_colors.len(), 10);
-        assert!(categorical_colors[0].starts_with('#'));
+        assert!(categorical_colors[0].starts_with('#'.into());
         
         // 異なるインデックスで異なる色を取得
         let color_0 = ColorPalette::get_categorical_color(0);
@@ -190,7 +190,7 @@ mod visualization_integration_tests {
         
         // インデックスのオーバーフロー処理
         let color_overflow = ColorPalette::get_categorical_color(100);
-        assert!(color_overflow.starts_with('#'));
+        assert!(color_overflow.starts_with('#'.into());
         
         // シーケンシャルカラー
         let color_min = ColorPalette::get_sequential_color(0.0);
@@ -231,8 +231,8 @@ mod visualization_integration_tests {
         assert!(html_result.is_ok(), "Failed to save HTML plot");
         
         let html_content = std::fs::read_to_string(&html_path).unwrap();
-        assert!(html_content.contains("<!DOCTYPE html>"));
-        assert!(html_content.contains(svg_content));
+        assert!(html_content.contains(
+        assert!(html_content.contains(
         
         println!("✓ File operations test passed");
     }
@@ -246,23 +246,23 @@ mod visualization_integration_tests {
             ("Learning Rate", r#"<svg><line x1="0" y1="0" x2="100" y2="100" stroke="red"/></svg>"#),
         ];
         
-        let dashboard_result = create_dashboard(plots.clone());
+        let dashboard_result = create_dashboard(plots.clone(.into());
         assert!(dashboard_result.is_ok(), "Failed to create dashboard");
         
         let dashboard_content = dashboard_result.unwrap();
         
         // ダッシュボードの基本構造を確認
-        assert!(dashboard_content.contains("<!DOCTYPE html>"));
-        assert!(dashboard_content.contains("RusTorch Visualization Dashboard"));
+        assert!(dashboard_content.contains(
+        assert!(dashboard_content.contains(
         
         // 各プロットが含まれることを確認
         for (title, svg) in plots {
-            assert!(dashboard_content.contains(title));
-            assert!(dashboard_content.contains(svg));
+            assert!(dashboard_content.contains(
+            assert!(dashboard_content.contains(
         }
         
         // プロット数が正しく表示されることを確認
-        assert!(dashboard_content.contains("3 plots"));
+        assert!(dashboard_content.contains(
         
         println!("✓ Dashboard creation test passed");
     }
@@ -282,15 +282,15 @@ mod visualization_integration_tests {
         assert_eq!(stats.total_elements, 4); // rect + circle + line + text
         
         // ファイルサイズの確認
-        assert_eq!(stats.file_size_bytes, svg_content.len());
+        assert_eq!(stats.file_size_bytes, svg_content.len(.into());
         
         // 生成時間の確認
         assert_eq!(stats.generation_time_ms, 150);
         
         // フォーマット機能のテスト
         let formatted = stats.format();
-        assert!(formatted.contains("Elements: 4"));
-        assert!(formatted.contains("150ms"));
+        assert!(formatted.contains(
+        assert!(formatted.contains(
         
         println!("✓ Plot statistics test passed");
     }
@@ -305,9 +305,9 @@ mod visualization_integration_tests {
         assert!(resized_result.is_ok(), "Failed to resize SVG");
         
         let resized_svg = resized_result.unwrap();
-        assert!(resized_svg.contains(r#"width="800""#));
-        assert!(resized_svg.contains(r#"height="600""#));
-        assert!(resized_svg.contains("rect")); // 元の内容が保持されている
+        assert!(resized_svg.contains(
+        assert!(resized_svg.contains(
+        assert!(resized_svg.contains(
         
         println!("✓ SVG resize test passed");
     }
@@ -325,8 +325,8 @@ mod visualization_integration_tests {
         assert!(variable_viz_result.is_ok(), "Failed to visualize variable");
         
         let viz_svg = variable_viz_result.unwrap();
-        assert!(viz_svg.contains("<svg"));
-        assert!(viz_svg.contains("rect")); // ヒートマップセル
+        assert!(viz_svg.contains(
+        assert!(viz_svg.contains(
         
         println!("✓ Variable visualization test passed");
     }
@@ -387,10 +387,10 @@ mod visualization_integration_tests {
         let dashboard = create_dashboard(dashboard_plots).unwrap();
         
         // 結果の検証
-        assert!(dashboard.contains("Training Progress"));
-        assert!(dashboard.contains("Tensor Visualization"));
-        assert!(dashboard.contains("Computation Graph"));
-        assert!(dashboard.contains("RusTorch Visualization Dashboard"));
+        assert!(dashboard.contains(
+        assert!(dashboard.contains(
+        assert!(dashboard.contains(
+        assert!(dashboard.contains(
         
         println!("✓ Comprehensive integration test passed");
         println!("✅ All visualization integration tests completed successfully!");

@@ -3,9 +3,9 @@
 
 use std::fmt;
 
-/// Common result type for RusTorch operations
-/// RusTorch操作の共通結果型
-pub type RusTorchResult<T> = Result<T, RusTorchError>;
+/// Common result type for RusTorch operations (統一済み)
+/// RusTorch操作の共通結果型 (統一済み)
+pub type RusTorchResult<T> = crate::error::RusTorchResult<T>;
 
 /// Unified error type for all RusTorch operations
 /// 全RusTorch操作の統一エラー型

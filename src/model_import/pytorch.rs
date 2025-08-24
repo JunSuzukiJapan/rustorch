@@ -113,12 +113,12 @@ pub fn import_pytorch_model<P: AsRef<Path>>(path: P) -> ImportResult<ImportedMod
 /// PyTorchバイナリデータを解析（ピクル形式）
 fn parse_pytorch_data(data: &[u8]) -> ImportResult<TorchStateDict> {
     if data.len() < 2 {
-        return Err(ImportError::InvalidModel("File too small".to_string()));
+        return Err(ImportError::InvalidModel("File too small".to_string()).into());
     }
     
     // Check for pickle protocol marker
     if data[0] != PICKLE_PROTOCOL_2 {
-        return Err(ImportError::InvalidModel("Not a valid PyTorch pickle file".to_string()));
+        return Err(ImportError::InvalidModel("Not a valid PyTorch pickle file".to_string()).into());
     }
     
     // Mock PyTorch parsing implementation
@@ -451,7 +451,7 @@ pub fn load_pretrained_pytorch_model(model_name: &str) -> ImportResult<ImportedM
         "mobilenet_v2" => "https://download.pytorch.org/models/mobilenet_v2-b0353104.pth",
         "densenet121" => "https://download.pytorch.org/models/densenet121-a639ec97.pth",
         "vgg16" => "https://download.pytorch.org/models/vgg16-397923af.pth",
-        _ => return Err(ImportError::InvalidModel(format!("Unknown model: {}", model_name))),
+        _ => return Err(ImportError::InvalidModel(format!("Unknown model: {}", model_name)).into()),
     };
     
     // In a real implementation, this would download and parse the actual model

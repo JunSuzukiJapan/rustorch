@@ -82,7 +82,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
             } else {
                 return Err(VisionError::DatasetError(
                     format!("MNIST data not found at {:?}. Set download=true to download.", data_dir)
-                ));
+                ).into());
             }
         }
         
@@ -230,7 +230,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
             } else {
                 return Err(VisionError::DatasetError(
                     format!("CIFAR-10 data not found at {:?}. Set download=true to download.", data_dir)
-                ));
+                ).into());
             }
         }
         
@@ -387,7 +387,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
             } else {
                 return Err(VisionError::DatasetError(
                     format!("CIFAR-100 data not found at {:?}. Set download=true to download.", data_dir)
-                ));
+                ).into());
             }
         }
         
@@ -504,7 +504,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
         if !root.exists() || !root.is_dir() {
             return Err(VisionError::DatasetError(
                 format!("Root directory {:?} does not exist or is not a directory", root)
-            ));
+            ).into());
         }
         
         let mut dataset = ImageFolder {

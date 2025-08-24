@@ -257,7 +257,7 @@ where
         if self.devices.len() < 2 {
             return Err(DistributedError::ConfigurationError(
                 "Multi-GPU validation requires at least 2 devices".to_string()
-            ));
+            ).into());
         }
         
         self.process_group = Some(process_group);
@@ -306,7 +306,7 @@ where
             
             device_losses.insert(device.device_id, loss);
             device_accuracies.insert(device.device_id, accuracy);
-            device_times.insert(device.device_id, device_start.elapsed());
+            device_times.insert(device.device_id, device_start.elapsed().into());
         }
         
         // Synchronize results across devices
@@ -329,7 +329,7 @@ where
             throughput,
         };
         
-        self.metrics_history.push(metrics.clone());
+        self.metrics_history.push(metrics.clone().into());
         
         Ok(metrics)
     }
@@ -427,7 +427,7 @@ where
             optimal_batch_size,
         };
         
-        self.benchmark_cache = Some(results.clone());
+        self.benchmark_cache = Some(results.clone().into());
         
         Ok(results)
     }
@@ -500,11 +500,11 @@ where
         let comm_start = Instant::now();
         for _ in 0..iterations {
             // Simulate all-reduce
-            std::thread::sleep(Duration::from_micros(data_size as u64 / 1000));
+            std::thread::sleep(Duration::from_micros(data_size as u64 / 1000).into());
         }
         let comm_time = comm_start.elapsed();
         
-        let overhead = comm_time.as_secs_f64() / (comp_time.as_secs_f64() + comm_time.as_secs_f64());
+        let overhead = comm_time.as_secs_f64() / (comp_time.as_secs_f64() + comm_time.as_secs_f64().into());
         
         Ok(overhead * 100.0) // Return as percentage
     }

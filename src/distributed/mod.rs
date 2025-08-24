@@ -229,9 +229,9 @@ impl From<GpuError> for DistributedError {
     }
 }
 
-/// Result type for distributed operations
-/// 分散操作の結果タイプ
-pub type DistributedResult<T> = Result<T, DistributedError>;
+/// Result type for distributed operations (統一済み)
+/// 分散操作の結果タイプ (統一済み)
+pub type DistributedResult<T> = crate::error::RusTorchResult<T>;
 
 /// Communication operations for distributed training
 /// 分散学習用通信操作
@@ -343,7 +343,7 @@ impl DistributedState {
 pub fn get_distributed_state() -> &'static Arc<Mutex<DistributedState>> {
     unsafe {
         DISTRIBUTED_INIT.call_once(|| {
-            DISTRIBUTED_STATE = Some(Arc::new(Mutex::new(DistributedState::new())));
+            DISTRIBUTED_STATE = Some(Arc::new(Mutex::new(DistributedState::new())).into());
         });
         #[allow(static_mut_refs)]
         DISTRIBUTED_STATE.as_ref().unwrap()

@@ -53,6 +53,7 @@ crc32fast = "1.4"
 tempfile = { version = "3.0", optional = true }
 chrono = "0.4"
 anyhow = "1.0"
+thiserror = "1.0"
 half = "2.2"
 
 # Model import dependencies
@@ -142,6 +143,10 @@ path = "examples/transformer_demo.rs"
 [[example]]
 name = "vision_pipeline_demo"
 path = "examples/vision_pipeline_demo.rs"
+
+[[example]]
+name = "backend_demo"
+path = "examples/backend_demo.rs"
 
 [[example]]
 name = "svd_demo"

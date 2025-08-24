@@ -227,14 +227,14 @@ impl ClusterManager {
     /// Create new cluster manager
     /// 新しいクラスターマネージャーを作成
     pub fn new(config: ClusterConfig) -> DistributedResult<Self> {
-        let active_nodes = Arc::new(Mutex::new(HashMap::new()));
+        let active_nodes = Arc::new(Mutex::new(HashMap::new()).into());
         
         // Initialize active nodes from config
         // 設定からアクティブノードを初期化
         {
             let mut nodes = active_nodes.lock().unwrap();
             for node in &config.worker_nodes {
-                nodes.insert(node.node_id, node.clone());
+                nodes.insert(node.node_id, node.clone().into());
             }
         }
 
@@ -307,7 +307,7 @@ impl ClusterManager {
             self.config.master_port,
         );
 
-        self.process_groups.insert(job_id, process_group.clone());
+        self.process_groups.insert(job_id, process_group.clone().into());
 
         Ok(process_group)
     }
@@ -358,11 +358,11 @@ impl ClusterManager {
         
         for node in nodes.values() {
             if node.status == NodeStatus::Available {
-                return Ok(node.clone());
+                return Ok(node.clone().into());
             }
         }
 
-        Err(DistributedError::ClusterError("No available replacement node".to_string()))
+        Err(DistributedError::ClusterError("No available replacement node".to_string()).into())
     }
 
     /// Migrate jobs from failed node to replacement
@@ -485,8 +485,8 @@ impl HeartbeatMonitor {
         heartbeat_interval: u64,
         node_timeout: u64,
     ) -> DistributedResult<Self> {
-        let last_heartbeat = Arc::new(Mutex::new(HashMap::new()));
-        let shutdown = Arc::new(Mutex::new(false));
+        let last_heartbeat = Arc::new(Mutex::new(HashMap::new()).into());
+        let shutdown = Arc::new(Mutex::new(false).into());
 
         // Initialize heartbeat timestamps
         // ハートビートタイムスタンプを初期化
@@ -590,7 +590,7 @@ impl HeartbeatMonitor {
     /// ノードのハートビートを更新
     pub fn update_heartbeat(&self, node_id: usize) -> DistributedResult<()> {
         let mut heartbeat_guard = self.last_heartbeat.lock().unwrap();
-        heartbeat_guard.insert(node_id, Instant::now());
+        heartbeat_guard.insert(node_id, Instant::now().into());
         Ok(())
     }
 }
@@ -636,7 +636,7 @@ impl ResourceScheduler {
             return Err(DistributedError::ClusterError(
                 format!("Not enough available nodes: need {}, found {}", 
                        required_nodes, selected_nodes.len())
-            ));
+            ).into());
         }
 
         Ok(selected_nodes)

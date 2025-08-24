@@ -87,9 +87,9 @@ pub trait PoolingBase<T: Float + Send + Sync> {
     }
 }
 
-/// Result type for neural network operations
-/// ニューラルネットワーク操作の結果型
-pub type NNResult<T> = Result<T, NNError>;
+/// Result type for neural network operations (統一済み)
+/// ニューラルネットワーク操作の結果型 (統一済み)
+pub type NNResult<T> = crate::error::RusTorchResult<T>;
 
 /// Error types for neural network operations
 /// ニューラルネットワーク操作のエラー型

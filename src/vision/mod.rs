@@ -128,6 +128,6 @@ impl std::fmt::Display for VisionError {
 
 impl std::error::Error for VisionError {}
 
-/// Result type for vision operations
-/// ビジョン操作の結果型
-pub type VisionResult<T> = Result<T, VisionError>;
+/// Result type for vision operations (統一済み)
+/// ビジョン操作の結果型 (統一済み)
+pub type VisionResult<T> = crate::error::RusTorchResult<T>;

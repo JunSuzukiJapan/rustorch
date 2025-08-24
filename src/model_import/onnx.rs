@@ -131,7 +131,7 @@ fn parse_onnx_data(data: &[u8]) -> ImportResult<OnnxModel> {
     // In a real implementation, this would use protobuf to parse the ONNX format
     
     if data.len() < 10 {
-        return Err(ImportError::InvalidModel("File too small to be valid ONNX".to_string()));
+        return Err(ImportError::InvalidModel("File too small to be valid ONNX".to_string()).into());
     }
     
     // Create a mock ONNX model for demonstration

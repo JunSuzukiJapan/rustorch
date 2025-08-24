@@ -109,13 +109,13 @@ impl TensorVisualizer {
         if shape.len() != 2 {
             return Err(VisualizationError::InvalidDataFormat(
                 format!("Expected 2D tensor, got {}D tensor", shape.len())
-            ));
+            ).into());
         }
         
         let height = shape[0];
         let width = shape[1];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string())
+            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
         })?;
         
         let mut svg = self.generate_heatmap_header(width, height);
@@ -155,12 +155,12 @@ impl TensorVisualizer {
         if shape.len() != 1 {
             return Err(VisualizationError::InvalidDataFormat(
                 format!("Expected 1D tensor, got {}D tensor", shape.len())
-            ));
+            ).into());
         }
         
         let length = shape[0];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string())
+            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
         })?;
         
         let mut svg = self.generate_bar_chart_header(length);
@@ -188,14 +188,14 @@ impl TensorVisualizer {
         if shape.len() != 3 {
             return Err(VisualizationError::InvalidDataFormat(
                 format!("Expected 3D tensor, got {}D tensor", shape.len())
-            ));
+            ).into());
         }
         
         let depth = shape[0];
         let height = shape[1];
         let width = shape[2];
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string())
+            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
         })?;
         
         let mut svg = self.generate_3d_slices_header(depth, width, height);
@@ -228,7 +228,7 @@ impl TensorVisualizer {
         T: Float + std::fmt::Display + std::fmt::Debug + 'static,
     {
         let data = tensor.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string())
+            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
         })?;
         let stats = self.compute_statistics(&data)?;
         
@@ -621,7 +621,7 @@ impl TensorVisualizer {
         if end_idx > data.len() {
             return Err(VisualizationError::InvalidDataFormat(
                 "Slice index out of bounds".to_string()
-            ));
+            ).into());
         }
         
         Ok(data[start_idx..end_idx].to_vec())
@@ -670,7 +670,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
         if shape.len() != 1 {
             return Err(VisualizationError::InvalidDataFormat(
                 "Can only convert 1D tensor to plot data".to_string()
-            ));
+            ).into());
         }
         
         let indices: Vec<T> = (0..shape[0])
@@ -678,7 +678,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
             .collect();
         
         let data = self.as_slice().ok_or_else(|| {
-            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string())
+            VisualizationError::InvalidDataFormat("Tensor data not accessible as slice".to_string()).into()
         })?;
         
         Ok(PlotData::new(indices, data.to_vec(), "Tensor Values".to_string()))
@@ -689,7 +689,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
         if shape.is_empty() || shape.iter().any(|&dim| dim == 0) {
             return Err(VisualizationError::ConfigError(
                 "Cannot visualize empty tensor".to_string()
-            ));
+            ).into());
         }
         Ok(())
     }

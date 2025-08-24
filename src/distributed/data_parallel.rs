@@ -124,7 +124,7 @@ where
     /// デバイスから出力を集約
     pub fn gather_outputs(&self, outputs: Vec<Variable<T>>) -> DistributedResult<Variable<T>> {
         if outputs.is_empty() {
-            return Err(DistributedError::ProcessGroupError("No outputs to gather".to_string()));
+            return Err(DistributedError::ProcessGroupError("No outputs to gather".to_string()).into());
         }
         
         // Calculate total output size
@@ -165,7 +165,7 @@ where
             drop(state_guard);
             Ok(())
         } else {
-            Err(DistributedError::ProcessGroupError("Process group not initialized".to_string()))
+            Err(DistributedError::ProcessGroupError("Process group not initialized".to_string()).into())
         }
     }
     
@@ -395,7 +395,7 @@ impl DistributedSampler {
         if rank >= num_replicas {
             return Err(DistributedError::ProcessGroupError(
                 format!("Rank {} is greater than or equal to num_replicas {}", rank, num_replicas)
-            ));
+            ).into());
         }
         
         Ok(Self {
@@ -501,7 +501,7 @@ mod tests {
             Tensor::<f32>::zeros(&[10, 1]),
         ];
         
-        let loader = DistributedDataLoader::new(data, labels, 2, true, Some(42));
+        let loader = DistributedDataLoader::new(data, labels, 2, true, Some(42).into());
         assert_eq!(loader.len(), 2); // ceil(3/2) = 2 batches
         
         let mut iter = loader.iter();

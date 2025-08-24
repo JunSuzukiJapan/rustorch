@@ -19,7 +19,7 @@ pub fn make_grid<T: Float + From<f32> + Copy + 'static>(
     if images.is_empty() {
         return Err(VisionError::InvalidTransformParams(
             "Cannot make grid from empty image list".to_string()
-        ));
+        ).into());
     }
     
     let num_images = images.len();
@@ -47,7 +47,7 @@ pub fn make_grid<T: Float + From<f32> + Copy + 'static>(
     
     // Create grid image
     // グリッド画像を作成
-    Image::new(grid_tensor, images[0].format)
+    Image::new(grid_tensor, images[0].format).map_err(|e| e.into())
 }
 
 /// Save image tensor to file
@@ -87,10 +87,10 @@ pub fn to_pil_image<T: Float + From<f32> + Copy + 'static>(
         },
         _ => return Err(VisionError::InvalidImageShape(
             format!("Expected 2D or 3D tensor, got {:?}", shape)
-        )),
+        ).into()),
     };
     
-    Image::new(tensor.clone(), format)
+    Image::new(tensor.clone(), format).map_err(|e| e.into())
 }
 
 /// Convert PIL-like image to tensor
@@ -114,7 +114,7 @@ pub fn normalize_tensor<T: Float + From<f32> + Copy + 'static>(
     if mean.len() != std.len() {
         return Err(VisionError::InvalidTransformParams(
             "Mean and std must have same length".to_string()
-        ));
+        ).into());
     }
     
     // For now, return cloned tensor - actual implementation would normalize
@@ -135,7 +135,7 @@ pub fn denormalize_tensor<T: Float + From<f32> + Copy + 'static>(
     if mean.len() != std.len() {
         return Err(VisionError::InvalidTransformParams(
             "Mean and std must have same length".to_string()
-        ));
+        ).into());
     }
     
     // For now, return cloned tensor - actual implementation would denormalize

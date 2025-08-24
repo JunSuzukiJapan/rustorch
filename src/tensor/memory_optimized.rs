@@ -214,7 +214,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
                 self.data.shape(),
                 other.data.shape(),
                 "in-place element-wise operation"
-            ));
+            ).into());
         }
 
         if let (Some(self_slice), Some(other_slice)) = (
@@ -270,13 +270,13 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         if self_shape.len() != 2 || other_shape.len() != 2 {
             return Err(ParallelError::insufficient_dimensions(
                 2, self_shape.len(), "matrix multiplication"
-            ));
+            ).into());
         }
 
         if self_shape[1] != other_shape[0] {
             return Err(ParallelError::matmul_dimension_mismatch(
                 self_shape, other_shape
-            ));
+            ).into());
         }
 
         let result_shape = vec![self_shape[0], other_shape[1]];
@@ -380,7 +380,7 @@ impl Tensor<f32> {
                 self.data.shape(),
                 other.data.shape(),
                 "SIMD addition"
-            ));
+            ).into());
         }
 
         let mut result = Self::with_strategy(self.data.shape(), AllocationStrategy::SimdAligned);

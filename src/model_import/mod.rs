@@ -46,9 +46,9 @@ impl std::fmt::Display for ImportError {
 
 impl std::error::Error for ImportError {}
 
-/// Result type for model import operations
-/// モデルインポート操作の結果型
-pub type ImportResult<T> = Result<T, ImportError>;
+/// Result type for model import operations (統一済み)
+/// モデルインポート操作の結果型 (統一済み)
+pub type ImportResult<T> = crate::error::RusTorchResult<T>;
 
 /// Represents an imported model with weights and structure
 /// 重みと構造を持つインポートされたモデルを表現
@@ -176,7 +176,7 @@ impl ModelImporter {
         let path = path.as_ref();
         
         if !path.exists() {
-            return Err(ImportError::FileNotFound(path.to_string_lossy().to_string()));
+            return Err(ImportError::FileNotFound(path.to_string_lossy().to_string()).into());
         }
         
         // Determine format from file extension
@@ -185,7 +185,7 @@ impl ModelImporter {
         match format.as_str() {
             "onnx" => onnx::import_onnx_model(path),
             "pytorch" | "pth" | "pt" => pytorch::import_pytorch_model(path),
-            _ => Err(ImportError::UnsupportedFormat(format)),
+            _ => Err(ImportError::UnsupportedFormat(format).into()),
         }
     }
     
@@ -213,7 +213,7 @@ impl ModelImporter {
         } else {
             Err(ImportError::InvalidModel(
                 format!("Unknown pretrained model: {}", model_name)
-            ))
+            ).into())
         }
     }
     
@@ -247,7 +247,7 @@ impl ModelImporter {
             "pth" | "pt" => Ok("pytorch".to_string()),
             "pb" => Ok("tensorflow".to_string()),
             "h5" => Ok("keras".to_string()),
-            _ => Err(ImportError::UnsupportedFormat(extension.to_string())),
+            _ => Err(ImportError::UnsupportedFormat(extension.to_string()).into()),
         }
     }
     

@@ -91,7 +91,9 @@
       "Bash(RUSTFLAGS=\"-W unused\" cargo check --lib)",
       "Bash(gtimeout 300 cargo test --lib --no-default-features)",
       "Bash(sed:*)",
-      "Bash(perl:*)"
+      "Bash(perl:*)",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib profiler::tests::test_nested_profiling --no-default-features -- --nocapture)",
+      "Bash(timeout 300s cargo test --lib --no-default-features)"
     ],
     "deny": [],
     "ask": [],

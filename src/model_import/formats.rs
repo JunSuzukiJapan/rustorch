@@ -23,6 +23,21 @@ pub enum ModelFormat {
     Caffe,
     /// MXNet (.params)
     MXNet,
+}
+
+/// Custom model format with name
+/// 名前付きカスタムモデルフォーマット
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CustomFormat {
+    pub name: String,
+}
+
+/// Extended model format enum
+/// 拡張モデルフォーマット列挙型
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ExtendedModelFormat {
+    /// Standard formats
+    Standard(ModelFormat),
     /// Custom format
     Custom(String),
 }
@@ -56,7 +71,6 @@ impl ModelFormat {
             ModelFormat::CoreML => &["mlmodel"],
             ModelFormat::Caffe => &["caffemodel"],
             ModelFormat::MXNet => &["params"],
-            ModelFormat::Custom(_) => &[],
         }
     }
     
@@ -87,7 +101,6 @@ impl ModelFormat {
             ModelFormat::CoreML => "Apple CoreML format",
             ModelFormat::Caffe => "Caffe model format",
             ModelFormat::MXNet => "Apache MXNet format",
-            ModelFormat::Custom(name) => name,
         }
     }
 }
@@ -103,7 +116,6 @@ impl std::fmt::Display for ModelFormat {
             ModelFormat::CoreML => "CoreML",
             ModelFormat::Caffe => "Caffe",
             ModelFormat::MXNet => "MXNet",
-            ModelFormat::Custom(name) => name,
         };
         write!(f, "{}", name)
     }

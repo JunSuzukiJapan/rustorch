@@ -19,12 +19,12 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 3,
                 self_shape.len().min(other_shape.len()),
                 "batch matmul"
-            ));
+            ).into());
         }
         
         let batch_size = self_shape[0];
         if batch_size != other_shape[0] {
-            return Err(ParallelError::batch_size_mismatch(batch_size, other_shape[0]));
+            return Err(ParallelError::batch_size_mismatch(batch_size, other_shape[0]).into());
         }
         
         let m = self_shape[1];
@@ -32,7 +32,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
         let n = other_shape[2];
         
         if k != other_shape[1] {
-            return Err(ParallelError::matmul_dimension_mismatch(self_shape, other_shape));
+            return Err(ParallelError::matmul_dimension_mismatch(self_shape, other_shape).into());
         }
         
         let result_shape = vec![batch_size, m, n];
@@ -89,7 +89,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 self.data.shape(),
                 other.data.shape(),
                 "parallel addition"
-            ));
+            ).into());
         }
         
         let mut result = Self::zeros(self.data.shape());
@@ -197,7 +197,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 4,
                 input_shape.len().min(kernel_shape.len()),
                 "convolution"
-            ));
+            ).into());
         }
         
         let batch_size = input_shape[0];
@@ -214,7 +214,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 in_channels,
                 kernel_shape[1],
                 "input channels must match kernel input channels"
-            ));
+            ).into());
         }
         
         let out_height = (in_height + 2 * padding - kernel_height) / stride + 1;
@@ -301,7 +301,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 dim,
                 shape.len() - 1,
                 "parallel sum"
-            ));
+            ).into());
         }
         
         let mut result_shape = shape.to_vec();
@@ -363,7 +363,7 @@ impl<T: Float + Send + Sync + Clone + 'static> Tensor<T> {
                 dim,
                 shape.len() - 1,
                 "parallel mean"
-            ));
+            ).into());
         }
         
         let sum_result = self.batch_sum_parallel(dim)?;
@@ -384,7 +384,7 @@ impl Tensor<f32> {
                 self.data.shape(),
                 other.data.shape(),
                 "SIMD parallel addition"
-            ));
+            ).into());
         }
         
         let mut result = Self::zeros(self.data.shape());
@@ -430,7 +430,7 @@ impl Tensor<f32> {
                 3,
                 self_shape.len().min(other_shape.len()),
                 "SIMD batch matmul"
-            ));
+            ).into());
         }
         
         let batch_size = self_shape[0];

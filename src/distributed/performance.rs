@@ -117,7 +117,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
         if ratio <= 0.0 || ratio > 1.0 {
             return Err(DistributedError::ConfigurationError(
                 format!("Invalid compression ratio: {}", ratio)
-            ));
+            ).into());
         }
         
         Ok(CompressedGradient {
@@ -133,7 +133,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
         if bits == 0 || bits > 32 {
             return Err(DistributedError::ConfigurationError(
                 format!("Invalid quantization bits: {}", bits)
-            ));
+            ).into());
         }
         
         Ok(CompressedGradient {
@@ -384,7 +384,7 @@ mod tests {
         let compressed = compressor.compress(&gradient).unwrap();
         let decompressed = compressor.decompress(&compressed).unwrap();
         
-        assert_eq!(gradient.shape(), decompressed.shape());
+        assert_eq!(gradient.shape(), decompressed.shape().into());
     }
     
     #[test]

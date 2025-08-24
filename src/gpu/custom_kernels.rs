@@ -165,7 +165,7 @@ impl CustomKernelManager {
             DeviceType::OpenCL(_) => self.execute_opencl_kernel(kernel, inputs, outputs, config),
             DeviceType::Cpu => Err(GpuError::UnsupportedOperation(
                 "Custom kernels not supported on CPU".to_string()
-            )),
+            ).into()),
         }
     }
 
@@ -354,7 +354,7 @@ kernel void optimized_convolution(
             
             _ => Err(GpuError::UnsupportedOperation(
                 format!("Convolution kernel not supported for {:?}", self.device_type)
-            )),
+            ).into()),
         }
     }
 
@@ -466,7 +466,7 @@ extern "C" __global__ void fused_attention(
             
             _ => Err(GpuError::UnsupportedOperation(
                 format!("Attention kernel not supported for {:?}", self.device_type)
-            )),
+            ).into()),
         }
     }
 

@@ -157,6 +157,10 @@
 /// Unified error handling system
 /// 統一エラーハンドリングシステム
 pub mod error;
+
+/// Unified compute backend abstraction layer  
+/// 統一計算バックエンド抽象化レイヤー
+pub mod backends;
 /// Common utilities and shared functionality
 /// 共通ユーティリティと共有機能
 pub mod common;
@@ -228,6 +232,9 @@ pub mod vision;
 /// Model format support and conversion utilities
 /// モデル形式サポートと変換ユーティリティ
 pub mod formats;
+/// Model import functionality for PyTorch and ONNX models
+/// PyTorchとONNXモデルのインポート機能
+pub mod model_import;
 /// PyTorch to RusTorch conversion system
 /// PyTorchからRusTorch変換システム
 pub mod convert;

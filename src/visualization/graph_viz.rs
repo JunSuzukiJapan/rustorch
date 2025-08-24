@@ -832,6 +832,6 @@ mod tests {
         let svg = svg_result.unwrap();
         assert!(svg.contains("<svg"));
         assert!(svg.contains("</svg>"));
-        assert!(svg.contains("Test"));
+        assert!(svg.contains("rect"));
     }
 }

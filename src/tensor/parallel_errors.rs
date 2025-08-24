@@ -188,9 +188,9 @@ impl fmt::Display for ParallelError {
 
 impl std::error::Error for ParallelError {}
 
-/// 並列操作の結果型
-/// Result type for parallel operations
-pub type ParallelResult<T> = Result<T, ParallelError>;
+/// 並列操作の結果型 (統一済み)
+/// Result type for parallel operations (統一済み)
+pub type ParallelResult<T> = crate::error::RusTorchResult<T>;
 
 /// エラー生成のヘルパー関数
 /// Helper functions for error generation

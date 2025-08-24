@@ -253,7 +253,7 @@ impl TrainingPlotter {
         if data.x_data.len() != data.y_data.len() || data.x_data.is_empty() {
             return Err(VisualizationError::InvalidDataFormat(
                 "X and Y data must have the same non-zero length".to_string()
-            ));
+            ).into());
         }
         
         // データの正規化とスケーリング
@@ -309,13 +309,13 @@ impl TrainingPlotter {
             if values.is_empty() {
                 return Err(VisualizationError::InvalidDataFormat(
                     format!("Metric '{}' has no values", metric_name)
-                ));
+                ).into());
             }
             Ok(values)
         } else {
             Err(VisualizationError::InvalidDataFormat(
                 format!("Metric '{}' not found in training history", metric_name)
-            ))
+            ).into())
         }
     }
 }
@@ -331,7 +331,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug> Visualizable<T> for Trainin
         if self.train_loss.is_empty() {
             return Err(VisualizationError::InvalidDataFormat(
                 "Training history contains no data".to_string()
-            ));
+            ).into());
         }
         
         let epochs: Vec<T> = (1..=self.train_loss.len())
@@ -345,7 +345,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug> Visualizable<T> for Trainin
         if self.train_loss.is_empty() {
             return Err(VisualizationError::ConfigError(
                 "Cannot plot empty training history".to_string()
-            ));
+            ).into());
         }
         Ok(())
     }

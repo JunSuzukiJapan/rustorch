@@ -80,7 +80,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for Resize {
         // 現在はゼロで埋められたテンソルを作成 - 実際の実装では補間を実行
         let resized_data = Tensor::zeros(&new_shape);
         
-        Image::new(resized_data, image.format)
+        Image::new(resized_data, image.format).map_err(|e| e.into())
     }
 }
 
@@ -109,7 +109,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for CenterCr
             return Err(VisionError::InvalidTransformParams(
                 format!("Crop size ({}, {}) larger than image size ({}, {})",
                        crop_height, crop_width, image.height, image.width)
-            ));
+            ).into());
         }
         
         // Calculate crop coordinates
@@ -126,7 +126,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for CenterCr
         
         let cropped_data = Tensor::zeros(&new_shape);
         
-        Image::new(cropped_data, image.format)
+        Image::new(cropped_data, image.format).map_err(|e| e.into())
     }
 }
 
@@ -176,7 +176,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for RandomCr
             return Err(VisionError::InvalidTransformParams(
                 format!("Crop size ({}, {}) larger than image size ({}, {})",
                        crop_height, crop_width, working_image.height, working_image.width)
-            ));
+            ).into());
         }
         
         // Random crop coordinates
@@ -193,7 +193,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for RandomCr
         
         let cropped_data = Tensor::zeros(&new_shape);
         
-        Image::new(cropped_data, image.format)
+        Image::new(cropped_data, image.format).map_err(|e| e.into())
     }
 }
 
@@ -287,7 +287,7 @@ impl<T: Float + From<f32> + Copy> Normalize<T> {
         if mean.len() != std.len() {
             return Err(VisionError::InvalidTransformParams(
                 "Mean and std must have same length".to_string()
-            ));
+            ).into());
         }
         
         Ok(Self { mean, std })
@@ -309,7 +309,7 @@ impl<T: Float + From<f32> + Copy + 'static + std::fmt::Debug> Transform<T> for N
             return Err(VisionError::InvalidTransformParams(
                 format!("Mean length {} doesn't match image channels {}",
                        self.mean.len(), image.channels)
-            ));
+            ).into());
         }
         
         // For now, return cloned image - actual implementation would normalize the tensor
@@ -352,7 +352,7 @@ impl<T: Float + From<f32> + 'static + std::fmt::Debug> Transform<T> for ToTensor
     fn apply(&self, image: &Image<T>) -> VisionResult<Image<T>> {
         // Convert to target format
         // 目標形式に変換
-        image.to_format(self.format)
+        image.to_format(self.format).map_err(|e| e.into())
     }
 }
 

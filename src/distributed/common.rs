@@ -62,7 +62,7 @@ impl CommonOps {
         if shape.is_empty() {
             return Err(DistributedError::CommunicationError(
                 "Empty tensor shape".to_string()
-            ));
+            ).into());
         }
         
         // Check for zero-sized dimensions
@@ -70,7 +70,7 @@ impl CommonOps {
             return Err(DistributedError::TensorShapeMismatch {
                 expected: vec![1], // Minimum expected shape
                 actual: shape.to_vec(),
-            });
+            }.into());
         }
         
         // Check for reasonable tensor size (prevent memory issues)
@@ -80,7 +80,7 @@ impl CommonOps {
             return Err(DistributedError::CommunicationError(
                 format!("Tensor too large: {} elements exceeds maximum {}", 
                        total_elements, MAX_ELEMENTS)
-            ));
+            ).into());
         }
         
         Ok(())
@@ -90,7 +90,7 @@ impl CommonOps {
     /// 分散操作用のランク検証
     pub fn validate_rank(rank: usize, world_size: usize) -> DistributedResult<()> {
         if rank >= world_size {
-            return Err(DistributedError::InvalidRank { rank, world_size });
+            return Err(DistributedError::InvalidRank { rank, world_size }.into());
         }
         Ok(())
     }
@@ -107,7 +107,7 @@ impl CommonOps {
                 return Err(DistributedError::TensorShapeMismatch {
                     expected: expected_shape.to_vec(),
                     actual: actual_shape.to_vec(),
-                });
+                }.into());
             }
         }
         Ok(())
