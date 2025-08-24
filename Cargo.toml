@@ -8,7 +8,6 @@ documentation = "https://docs.rs/rustorch"
 homepage = "https://github.com/JunSuzukiJapan/rustorch"
 repository = "https://github.com/JunSuzukiJapan/rustorch"
 license = "MIT OR Apache-2.0"
-license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 readme = "README.md"
 keywords = ["pytorch", "machine-learning", "tensor", "fft", "matrix-decomposition"]
 categories = ["science", "algorithms"]

@@ -84,6 +84,9 @@ pub mod type_safe;
 /// Numeric safety and overflow protection
 /// 数値安全性とオーバーフロー保護
 pub mod numeric_safety;
+/// Complex number support for tensors
+/// テンソルの複素数サポート
+pub mod complex;
 pub mod parallel_errors;
 pub mod parallel_traits;
 pub mod parallel_impl;
