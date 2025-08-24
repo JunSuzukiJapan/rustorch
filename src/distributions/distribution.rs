@@ -16,7 +16,12 @@ pub enum DistributionError {
     
     /// Shape mismatch between tensors
     /// テンソル間の形状不一致
-    ShapeMismatch { expected: Vec<usize>, got: Vec<usize> },
+    ShapeMismatch {
+        /// Expected shape
+        expected: Vec<usize>,
+        /// Actual shape received
+        got: Vec<usize>
+    },
     
     /// Sampling error
     /// サンプリングエラー

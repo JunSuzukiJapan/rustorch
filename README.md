@@ -33,6 +33,10 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **柔軟なインデックス**: 選択操作、スライシング、高度なテンソル操作
 - 🧮 **Mathematical Functions**: Trigonometric, exponential, power, and activation functions  
   **数学関数**: 三角関数、指数関数、べき乗、活性化関数
+- 🎲 **Special Mathematical Functions**: Gamma, Bessel, error functions with PyTorch compatibility  
+  **特殊数学関数**: PyTorch互換のガンマ、ベッセル、誤差関数
+- 📊 **Statistical Distributions**: Complete probability distributions (Normal, Gamma, Beta, etc.)  
+  **統計分布**: 完全な確率分布（正規、ガンマ、ベータ等）
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation  
   **自動微分**: テープベースの計算グラフによる勾配計算
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more  
@@ -68,7 +72,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.3.17"
+rustorch = "0.3.20"
 
 # For GPU acceleration (optional)
 [features]
@@ -664,6 +668,16 @@ src/
 │   ├── interop.rs   # JavaScript interoperability and benchmarking / JavaScript相互運用とベンチマーク
 │   ├── browser.rs   # Browser-specific features (storage, canvas, workers) / ブラウザ専用機能（ストレージ、Canvas、Worker）
 │   └── optimized.rs # Performance-optimized WASM operations / パフォーマンス最適化WASM操作
+├── special/         # Special mathematical functions / 特殊数学関数
+│   ├── gamma.rs     # Gamma functions (Γ, ln Γ, ψ, B) / ガンマ関数（Γ、ln Γ、ψ、B）
+│   ├── bessel.rs    # Bessel functions (J, Y, I, K) / ベッセル関数（J、Y、I、K）
+│   ├── error.rs     # Error functions (erf, erfc, erfinv) / 誤差関数（erf、erfc、erfinv）
+│   └── utils.rs     # Utility functions / ユーティリティ関数
+├── distributions/   # Statistical distributions / 統計分布
+│   ├── normal.rs    # Normal distribution / 正規分布
+│   ├── gamma.rs     # Gamma distribution / ガンマ分布
+│   ├── beta.rs      # Beta distribution / ベータ分布
+│   └── ...         # Other distributions / その他の分布
 ├── optim/           # Optimization algorithms / 最適化アルゴリズム
 └── data/            # Data loaders / データローダー
 ```
@@ -673,6 +687,7 @@ src/
 ### Tensor Operations / テンソル演算
 - **Basic operations / 基本演算**: `+`, `-`, `*`, `/`, `matmul()`
 - **Mathematical functions / 数学関数**: `sin()`, `cos()`, `exp()`, `log()`, `sqrt()`, `pow()`, `sigmoid()`, `tanh()`
+- **Special functions / 特殊関数**: `gamma()`, `lgamma()`, `digamma()`, `erf()`, `erfc()`, `bessel_j()`, `bessel_y()`, `bessel_i()`, `bessel_k()`
 - **Statistical operations / 統計演算**: `mean()`, `var()`, `std()`, `median()`, `quantile()`, `cumsum()`, `cov()`, `corrcoef()`
 - **Matrix decomposition / 行列分解**: `svd()`, `qr()`, `lu()`, `eig()`, `symeig()` with PyTorch compatibility
 - **Broadcasting / ブロードキャスティング**: `broadcast_to()`, `broadcast_with()`, `unsqueeze()`, `squeeze()`, `repeat()`
@@ -720,6 +735,8 @@ Comprehensive examples in the [examples/](examples/) directory:
   - [transformer_demo.rs](examples/transformer_demo.rs) - Complete transformer pipeline
   - [embedding_demo.rs](examples/embedding_demo.rs) - Word and positional embeddings
   - [attention_demo.rs](examples/attention_demo.rs) - Multi-head attention mechanisms
+- **Special Functions / 特殊関数**:
+  - [special_functions_demo.rs](examples/special_functions_demo.rs) - Gamma, Bessel, error functions demonstration
 - **Performance Optimization / パフォーマンス最適化**:
   - [parallel_operations_demo.rs](examples/parallel_operations_demo.rs) - Parallel tensor operations with trait-based system
   - [memory_optimization_demo.rs](examples/memory_optimization_demo.rs) - Advanced memory optimization strategies
@@ -737,6 +754,9 @@ Comprehensive examples in the [examples/](examples/) directory:
 cargo run --example math_ops_demo --release
 cargo run --example broadcasting_demo --release
 cargo run --example statistics_demo --release
+
+# Run special functions examples / 特殊関数サンプル実行
+cargo run --example special_functions_demo --release
 
 # Run matrix decomposition examples / 行列分解サンプル実行
 cargo run --example svd_demo --release

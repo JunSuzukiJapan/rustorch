@@ -6,12 +6,19 @@
 /// PyTorch互換の統計分布実装を提供し、確率密度関数、サンプリング、パラメータ推定を含む
 
 pub mod distribution;
+/// Normal (Gaussian) distribution implementation
 pub mod normal;
+/// Bernoulli distribution implementation
 pub mod bernoulli;
+/// Categorical distribution implementation  
 pub mod categorical;
+/// Gamma distribution implementation
 pub mod gamma;
+/// Uniform distribution implementation
 pub mod uniform;
+/// Beta distribution implementation
 pub mod beta;
+/// Exponential distribution implementation
 pub mod exponential;
 
 // Re-export main types

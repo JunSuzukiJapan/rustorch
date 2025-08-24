@@ -222,6 +222,9 @@ pub mod vision;
 /// Statistical distributions module providing PyTorch-compatible probability distributions
 /// PyTorch互換の確率分布を提供する統計分布モジュール
 pub mod distributions;
+/// Special mathematical functions (gamma, Bessel, error functions)
+/// 特殊数学関数（ガンマ、ベッセル、誤差関数）
+pub mod special;
 
 
 /// WebAssembly support and bindings
@@ -252,6 +255,10 @@ pub mod prelude {
     pub use crate::vision::{Image, ImageFormat, transforms::*, datasets::*, pipeline::*, presets::*};
     pub use crate::distributions::{DistributionTrait, Distribution, DistributionError};
     pub use crate::distributions::{Normal, Bernoulli, Categorical, Gamma, Uniform, Beta, Exponential};
+    pub use crate::special::{SpecialFunctions, SpecialFunctionError};
+    pub use crate::special::{gamma, lgamma, digamma, beta, lbeta};
+    pub use crate::special::{bessel_j, bessel_y, bessel_i, bessel_k};
+    pub use crate::special::{erf, erfc, erfinv, erfcinv};
 }
 
 #[cfg(test)]

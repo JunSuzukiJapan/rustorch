@@ -5,6 +5,103 @@ All notable changes to RusTorch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.20] - 2025-01-25
+
+### Added - 新機能
+- **🎲 Special Mathematical Functions System**: Complete implementation of special mathematical functions with PyTorch compatibility
+  - **Gamma Functions**: `Γ(x)`, `ln Γ(x)`, `ψ(x)` (digamma), `B(a,b)` (beta), `ln B(a,b)` (log beta)
+  - **Bessel Functions**: `J_n(x)`, `Y_n(x)`, `I_n(x)`, `K_n(x)` for all four types of Bessel functions
+  - **Error Functions**: `erf(x)`, `erfc(x)`, `erfinv(x)`, `erfcinv(x)`, `erfcx(x)` (scaled complementary)
+  - **Tensor Support**: All special functions support both scalar and tensor operations
+  - **High Precision**: Lanczos approximation, Miller's algorithm, Newton-Raphson refinement
+  - **Numerical Stability**: Asymptotic expansions for large arguments, careful handling of edge cases
+  - **PyTorch API Compatibility**: `tensor.gamma()`, `tensor.erf()`, `tensor.bessel_j(n)` etc.
+
+### Enhanced - 改善
+- **Documentation**: Updated README.md with special functions examples and API documentation
+- **Library Description**: Enhanced Cargo.toml description to include special functions
+- **Code Quality**: Zero warnings compilation with comprehensive documentation
+- **Test Coverage**: Extended test coverage for special functions with mathematical validation
+
+### Technical Details - 技術詳細
+- **Gamma Functions**: 
+  - Lanczos approximation with 15-digit precision
+  - Stirling's approximation for large values
+  - Reflection formula for negative arguments
+- **Bessel Functions**:
+  - Miller's backward recurrence algorithm
+  - Series expansions for small arguments
+  - Asymptotic expansions for large arguments
+  - Support for integer and non-integer orders
+- **Error Functions**:
+  - Abramowitz and Stegun approximation
+  - Series expansion for high precision
+  - Newton-Raphson refinement for inverse functions
+  - Asymptotic expansions for large arguments
+
+### Examples - サンプル
+- Added `special_functions_demo.rs` showcasing all special functions
+- Mathematical identity verification examples
+- Performance demonstration examples
+- Tensor operation examples for special functions
+
+## [0.3.19] - 2025-01-24
+
+### Added - 新機能
+- **📊 PyTorch-Compatible Statistical Distributions System**: Complete implementation of `torch.distributions.*` API
+  - **Normal Distribution**: Gaussian distribution with loc and scale parameters
+  - **Bernoulli Distribution**: Binary distribution with probability and logits parameterization
+  - **Categorical Distribution**: Multinomial distribution with probabilities and logits
+  - **Gamma Distribution**: Gamma distribution with concentration and rate/scale parameters
+  - **Uniform Distribution**: Uniform distribution over interval [low, high)
+  - **Beta Distribution**: Beta distribution with concentration parameters α and β
+  - **Exponential Distribution**: Exponential distribution with rate parameter
+- **🎯 Complete Distribution API**: 
+  - `sample()`: Generate random samples with specified shapes
+  - `log_prob()`: Log probability density function
+  - `cdf()`: Cumulative distribution function
+  - `icdf()`: Inverse cumulative distribution function
+  - `mean()`, `variance()`, `entropy()`: Statistical properties
+- **🔢 Advanced Sampling Algorithms**:
+  - Box-Muller transform for normal distribution
+  - Inverse transform sampling for uniform and exponential
+  - Marsaglia-Tsang algorithm for gamma distribution
+  - Ratio-of-uniforms method for complex distributions
+- **📈 Numerical Stability Features**:
+  - Log-sum-exp for numerical stability in categorical distributions
+  - Stirling's approximation for large gamma function values
+  - Robust parameter validation and error handling
+- **⚡ Performance Optimizations**: Efficient tensor-based operations with broadcasting support
+
+### Enhanced - 改善
+- **GitHub Actions**: Updated CI/CD workflows to latest versions (CodeQL v3, upload-artifact v4)
+- **Code Quality**: Comprehensive error handling and parameter validation
+- **Documentation**: Extensive inline documentation and examples
+
+## [0.3.18] - 2025-01-24
+
+### Added - 新機能
+- **🌊 PyTorch-Compatible FFT System**: Complete Fourier transform implementation
+  - **1D FFT**: `fft()`, `ifft()`, `rfft()`, `irfft()` with multiple normalization modes
+  - **2D FFT**: `fft2()`, `ifft2()` for image processing applications
+  - **N-D FFT**: `fftn()`, `ifftn()` for multi-dimensional transforms
+  - **FFT Utilities**: `fftshift()`, `ifftshift()` for frequency domain manipulation
+- **🎯 Advanced FFT Features**:
+  - **Normalization Modes**: 'forward', 'backward', 'ortho', 'none' for different use cases
+  - **Optimized Algorithms**: Cooley-Tukey for power-of-2 sizes, general DFT for arbitrary sizes
+  - **Real FFT Support**: Efficient real-valued FFT with proper output sizing
+  - **Memory Efficient**: In-place operations where possible
+- **⚡ Performance Optimizations**:
+  - Bit-reversal optimization for Cooley-Tukey algorithm
+  - Twiddle factor caching for repeated operations
+  - SIMD-friendly complex number operations
+
+### Technical Implementation - 技術実装
+- **Complex Number Handling**: Proper complex arithmetic with numerical precision
+- **Algorithm Selection**: Automatic selection of optimal algorithm based on input size
+- **Error Handling**: Comprehensive validation for FFT parameters and dimensions
+- **PyTorch Compatibility**: API matching PyTorch's `torch.fft.*` module
+
 ## [0.3.16] - 2024-08-23
 
 ### Fixed

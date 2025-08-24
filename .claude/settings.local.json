@@ -67,7 +67,8 @@
       "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib\" cargo run --example svd_demo)",
       "Bash(nm:*)",
       "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example svd_demo)",
-      "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example matrix_decomposition_demo)"
+      "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example matrix_decomposition_demo)",
+      "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example special_functions_demo)"
     ],
     "deny": [],
     "ask": [],
