@@ -46,7 +46,15 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
-        run: cargo test --verbose --all-features
+        if: matrix.os != 'macos-latest' || matrix.rust == 'nightly'
+        run: |
+          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+            # macOSではmetal機能を有効にしてテスト
+            cargo test --verbose --features "metal"
+          else
+            # その他のOSでは全ての機能を有効に
+            cargo test --verbose --all-features
+          fi
 
       - name: Run doctests
         run: cargo test --doc --all-features
