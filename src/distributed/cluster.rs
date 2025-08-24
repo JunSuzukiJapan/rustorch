@@ -237,14 +237,14 @@ impl ClusterManager {
     /// Create new cluster manager
     /// 新しいクラスターマネージャーを作成
     pub fn new(config: ClusterConfig) -> RusTorchResult<Self> {
-        let active_nodes = Arc::new(Mutex::new(HashMap::new()).into());
+        let active_nodes: Arc<Mutex<HashMap<usize, NodeInfo>>> = Arc::new(Mutex::new(HashMap::new()));
         
         // Initialize active nodes from config
         // 設定からアクティブノードを初期化
         {
             let mut nodes = active_nodes.lock().unwrap();
             for node in &config.worker_nodes {
-                nodes.insert(node.node_id, node.clone().into());
+                nodes.insert(node.node_id, node.clone());
             }
         }
 
@@ -309,13 +309,11 @@ impl ClusterManager {
 
         // Create process group
         // プロセスグループを作成
-        let process_group = ProcessGroup::new(
-            0, // rank will be assigned per process
+        let process_group = ProcessGroup {
+            rank: 0, // rank will be assigned per process
             world_size,
-            backend,
-            self.config.master_addr.clone(),
-            self.config.master_port,
-        );
+            backend: Default::default(),
+        };
 
         self.process_groups.insert(job_id, process_group.clone().into());
 
@@ -495,8 +493,8 @@ impl HeartbeatMonitor {
         heartbeat_interval: u64,
         node_timeout: u64,
     ) -> RusTorchResult<Self> {
-        let last_heartbeat = Arc::new(Mutex::new(HashMap::new()).into());
-        let shutdown = Arc::new(Mutex::new(false).into());
+        let last_heartbeat: Arc<Mutex<HashMap<usize, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
+        let shutdown: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 
         // Initialize heartbeat timestamps
         // ハートビートタイムスタンプを初期化

@@ -274,7 +274,7 @@ fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> RusTorchR
 
 /// Infer model architecture from PyTorch state dict
 /// PyTorch状態辞書からモデルアーキテクチャを推論
-fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<ModelStructure> {
+fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<ModelArchitecture> {
     let layers = infer_layers_from_state_dict(state_dict);
     
     // Infer input/output shapes from layer structure
@@ -289,10 +289,17 @@ fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<Mod
         .map(|tensor| tensor.data.len())
         .sum();
     
-    Ok(ModelStructure {
+    Ok(ModelArchitecture {
         inputs,
         outputs,
-        layers,
+        layers: layers.into_iter().map(|desc| LayerInfo {
+            name: desc.name,
+            layer_type: desc.layer_type,
+            input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            params: desc.params,
+            attributes: desc.attributes,
+        }).collect(),
         parameter_count,
         model_size,
     })
@@ -372,21 +379,21 @@ fn infer_layer_type_from_weight_shape(shape: &[usize]) -> String {
 
 /// Infer input shape from weight shape
 /// 重み形状から入力形状を推論
-fn infer_input_shape(weight_shape: &[usize]) -> Vec<Option<usize>> {
+fn infer_input_shape(weight_shape: &[usize]) -> Vec<usize> {
     match weight_shape.len() {
-        2 => vec![None, Some(weight_shape[1])], // [batch, input_features]
-        4 => vec![None, Some(weight_shape[1]), None, None], // [batch, channels, height, width]
-        _ => vec![None],
+        2 => vec![0, weight_shape[1]], // [batch, input_features]
+        4 => vec![0, weight_shape[1], 0, 0], // [batch, channels, height, width]
+        _ => vec![0],
     }
 }
 
 /// Infer output shape from weight shape
 /// 重み形状から出力形状を推論
-fn infer_output_shape(weight_shape: &[usize]) -> Vec<Option<usize>> {
+fn infer_output_shape(weight_shape: &[usize]) -> Vec<usize> {
     match weight_shape.len() {
-        2 => vec![None, Some(weight_shape[0])], // [batch, output_features]
-        4 => vec![None, Some(weight_shape[0]), None, None], // [batch, out_channels, height, width]
-        _ => vec![None],
+        2 => vec![0, weight_shape[0]], // [batch, output_features]
+        4 => vec![0, weight_shape[0], 0, 0], // [batch, out_channels, height, width]
+        _ => vec![0],
     }
 }
 
@@ -396,14 +403,14 @@ fn infer_input_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(first_layer) = layers.first() {
         vec![TensorSpec {
             name: "input".to_string(),
-            shape: first_layer.input_shape.clone(),
+            shape: first_layer.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
             dtype: DType::Float32,
             description: Some("Model input".to_string()),
         }]
     } else {
         vec![TensorSpec {
             name: "input".to_string(),
-            shape: vec![None, Some(784)], // Default MNIST-like input
+            shape: vec![None, Some(784)], // Default MNIST-like input (None for batch dim)
             dtype: DType::Float32,
             description: Some("Model input".to_string()),
         }]
@@ -416,14 +423,14 @@ fn infer_output_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(last_layer) = layers.last() {
         vec![TensorSpec {
             name: "output".to_string(),
-            shape: last_layer.output_shape.clone(),
+            shape: last_layer.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
             dtype: DType::Float32,
             description: Some("Model output".to_string()),
         }]
     } else {
         vec![TensorSpec {
             name: "output".to_string(),
-            shape: vec![None, Some(10)], // Default classification output
+            shape: vec![None, Some(10)], // Default classification output (None for batch dim)
             dtype: DType::Float32,
             description: Some("Model output".to_string()),
         }]
@@ -476,10 +483,10 @@ pub fn load_pretrained_pytorch_model(model_name: &str) -> RusTorchResult<Importe
 /// モック事前学習済みモデルを作成
 fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedModel> {
     let (input_shape, output_classes, layers) = match model_name {
-        "resnet18" => (vec![None, Some(3), Some(224), Some(224)], 1000, create_resnet18_layers()),
-        "resnet50" => (vec![None, Some(3), Some(224), Some(224)], 1000, create_resnet50_layers()),
-        "mobilenet_v2" => (vec![None, Some(3), Some(224), Some(224)], 1000, create_mobilenet_layers()),
-        _ => (vec![None, Some(3), Some(224), Some(224)], 1000, vec![]),
+        "resnet18" => (vec![0, 3, 224, 224], 1000, create_resnet18_layers()),
+        "resnet50" => (vec![0, 3, 224, 224], 1000, create_resnet50_layers()),
+        "mobilenet_v2" => (vec![0, 3, 224, 224], 1000, create_mobilenet_layers()),
+        _ => (vec![0, 3, 224, 224], 1000, vec![]),
     };
     
     let metadata = ModelMetadata {
@@ -494,10 +501,10 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
         extra: HashMap::new(),
     };
     
-    let architecture = ModelStructure {
+    let architecture = ModelArchitecture {
         inputs: vec![TensorSpec {
             name: "input".to_string(),
-            shape: input_shape,
+            shape: input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
             dtype: DType::Float32,
             description: Some("RGB image input".to_string()),
         }],
@@ -507,7 +514,14 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
             dtype: DType::Float32,
             description: Some("Classification logits".to_string()),
         }],
-        layers,
+        layers: layers.into_iter().map(|desc| LayerInfo {
+            name: desc.name,
+            layer_type: desc.layer_type,
+            input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            params: desc.params,
+            attributes: desc.attributes,
+        }).collect(),
         parameter_count: 11000000, // Mock parameter count
         model_size: 44000000, // Mock model size
     };
@@ -533,24 +547,24 @@ fn create_resnet18_layers() -> Vec<LayerDescription> {
         LayerDescription {
             name: "conv1".to_string(),
             layer_type: "Conv2d".to_string(),
-            input_shape: vec![None, Some(3), Some(224), Some(224)],
-            output_shape: vec![None, Some(64), Some(112), Some(112)],
+            input_shape: vec![0, 3, 224, 224],
+            output_shape: vec![0, 64, 112, 112],
             params: 9408, // 64 * 3 * 7 * 7
             attributes: HashMap::new(),
         },
         LayerDescription {
             name: "layer1".to_string(),
             layer_type: "ResNetLayer".to_string(),
-            input_shape: vec![None, Some(64), Some(56), Some(56)],
-            output_shape: vec![None, Some(64), Some(56), Some(56)],
+            input_shape: vec![0, 64, 56, 56],
+            output_shape: vec![0, 64, 56, 56],
             params: 147648,
             attributes: HashMap::new(),
         },
         LayerDescription {
             name: "fc".to_string(),
             layer_type: "Linear".to_string(),
-            input_shape: vec![None, Some(512)],
-            output_shape: vec![None, Some(1000)],
+            input_shape: vec![0, 512],
+            output_shape: vec![0, 1000],
             params: 513000, // 512 * 1000 + 1000
             attributes: HashMap::new(),
         },
@@ -564,16 +578,16 @@ fn create_resnet50_layers() -> Vec<LayerDescription> {
         LayerDescription {
             name: "conv1".to_string(),
             layer_type: "Conv2d".to_string(),
-            input_shape: vec![None, Some(3), Some(224), Some(224)],
-            output_shape: vec![None, Some(64), Some(112), Some(112)],
+            input_shape: vec![0, 3, 224, 224],
+            output_shape: vec![0, 64, 112, 112],
             params: 9408,
             attributes: HashMap::new(),
         },
         LayerDescription {
             name: "fc".to_string(),
             layer_type: "Linear".to_string(),
-            input_shape: vec![None, Some(2048)],
-            output_shape: vec![None, Some(1000)],
+            input_shape: vec![0, 2048],
+            output_shape: vec![0, 1000],
             params: 2049000, // 2048 * 1000 + 1000
             attributes: HashMap::new(),
         },
@@ -587,16 +601,16 @@ fn create_mobilenet_layers() -> Vec<LayerDescription> {
         LayerDescription {
             name: "features.0".to_string(),
             layer_type: "Conv2d".to_string(),
-            input_shape: vec![None, Some(3), Some(224), Some(224)],
-            output_shape: vec![None, Some(32), Some(112), Some(112)],
+            input_shape: vec![0, 3, 224, 224],
+            output_shape: vec![0, 32, 112, 112],
             params: 864, // 32 * 3 * 3 * 3
             attributes: HashMap::new(),
         },
         LayerDescription {
             name: "classifier".to_string(),
             layer_type: "Linear".to_string(),
-            input_shape: vec![None, Some(1280)],
-            output_shape: vec![None, Some(1000)],
+            input_shape: vec![0, 1280],
+            output_shape: vec![0, 1000],
             params: 1281000, // 1280 * 1000 + 1000
             attributes: HashMap::new(),
         },

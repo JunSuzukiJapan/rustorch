@@ -67,10 +67,10 @@ impl CommonOps {
         
         // Check for zero-sized dimensions
         if shape.iter().any(|&dim| dim == 0) {
-            return Err(RusTorchError::TensorShapeMismatch {
+            return Err(RusTorchError::ShapeMismatch {
                 expected: vec![1], // Minimum expected shape
                 actual: shape.to_vec(),
-            }.into());
+            });
         }
         
         // Check for reasonable tensor size (prevent memory issues)
@@ -90,7 +90,9 @@ impl CommonOps {
     /// 分散操作用のランク検証
     pub fn validate_rank(rank: usize, world_size: usize) -> RusTorchResult<()> {
         if rank >= world_size {
-            return Err(RusTorchError::InvalidRank { rank, world_size }.into());
+            return Err(RusTorchError::InvalidRank(
+                format!("Invalid rank {} for world size {}", rank, world_size)
+            ));
         }
         Ok(())
     }
@@ -104,10 +106,10 @@ impl CommonOps {
         for (_i, tensor) in tensors.iter().enumerate() {
             let actual_shape = tensor.shape();
             if actual_shape != expected_shape {
-                return Err(RusTorchError::TensorShapeMismatch {
+                return Err(RusTorchError::ShapeMismatch {
                     expected: expected_shape.to_vec(),
                     actual: actual_shape.to_vec(),
-                }.into());
+                });
             }
         }
         Ok(())
@@ -116,7 +118,7 @@ impl CommonOps {
     /// Create error for unsupported operations
     /// サポートされていない操作のエラー作成
     pub fn unsupported_operation_error(operation: &str, backend: &str) -> RusTorchError {
-        RusTorchError::BackendNotAvailable(
+        RusTorchError::backend_unavailable(
             format!("Operation '{}' not supported by backend '{}'", operation, backend)
         )
     }
@@ -210,11 +212,11 @@ mod tests {
     fn test_unsupported_operation_error() {
         let error = CommonOps::unsupported_operation_error("test_op", "test_backend");
         match error {
-            RusTorchError::BackendNotAvailable(msg) => {
+            RusTorchError::BackendUnavailable { backend: msg } => {
                 assert!(msg.contains("test_op"));
                 assert!(msg.contains("test_backend"));
             }
-            _ => panic!("Expected BackendNotAvailable error"),
+            _ => panic!("Expected BackendUnavailable error"),
         }
     }
 }

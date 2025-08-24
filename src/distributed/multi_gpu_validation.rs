@@ -513,7 +513,7 @@ where
         }
         let comm_time = comm_start.elapsed();
         
-        let overhead = comm_time.as_secs_f64() / (comp_time.as_secs_f64() + comm_time.as_secs_f64().into());
+        let overhead = comm_time.as_secs_f64() / (comp_time.as_secs_f64() + comm_time.as_secs_f64());
         
         Ok(overhead * 100.0) // Return as percentage
     }

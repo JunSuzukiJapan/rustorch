@@ -381,7 +381,7 @@ impl DeviceManager {
             self.current_device = index;
             Ok(())
         } else {
-            Err(crate::error::RusTorchError::device_not_available(device))
+            Err(crate::error::RusTorchError::device_not_available(device.to_string()))
         }
     }
 

@@ -278,7 +278,7 @@ fn convert_onnx_tensor_to_rustorch(onnx_tensor: &OnnxTensorInfo) -> RusTorchResu
 
 /// Create model architecture from ONNX model
 /// ONNXモデルからモデルアーキテクチャを作成
-fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelStructure> {
+fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelArchitecture> {
     let inputs = onnx_model.graph.inputs.iter()
         .map(|input| create_tensor_spec(input))
         .collect();
@@ -287,9 +287,18 @@ fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelStructure>
         .map(|output| create_tensor_spec(output))
         .collect();
     
-    let layers = onnx_model.graph.nodes.iter()
+    let layer_descs: Vec<LayerDescription> = onnx_model.graph.nodes.iter()
         .map(|node| create_layer_info(node))
         .collect();
+    
+    let layers = layer_descs.into_iter().map(|desc| LayerInfo {
+        name: desc.name,
+        layer_type: desc.layer_type,
+        input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+        output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+        params: 0, // Would need to calculate from initializers
+        attributes: std::collections::HashMap::new(),
+    }).collect();
     
     let parameter_count = onnx_model.graph.initializers.iter()
         .map(|init| init.shape.iter().map(|&dim| dim.max(1) as usize).product::<usize>())
@@ -299,7 +308,7 @@ fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelStructure>
         .map(|init| init.data.len())
         .sum();
     
-    Ok(ModelStructure {
+    Ok(ModelArchitecture {
         inputs,
         outputs,
         layers,
@@ -329,10 +338,8 @@ fn create_layer_info(node: &OnnxNode) -> LayerDescription {
     LayerDescription {
         name: node.name.clone(),
         layer_type: map_onnx_op_to_layer_type(&node.op_type),
-        input_shape: vec![None], // Would need to infer from graph
-        output_shape: vec![None], // Would need to infer from graph
-        params: 0, // Would need to calculate from initializers
-        attributes: node.attributes.clone(),
+        input_shape: vec![0], // Would need to infer from graph
+        output_shape: vec![0], // Would need to infer from graph
     }
 }
 

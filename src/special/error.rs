@@ -237,7 +237,7 @@ fn newton_raphson_erfinv(target: f64, initial_guess: f64) -> Result<f64, RusTorc
         let deriv = 2.0 / PI.sqrt() * (-x * x).exp();
         
         if deriv.abs() < 1e-15 {
-            return Err(RusTorchError::ConvergenceError(10));
+            return Err(RusTorchError::ConvergenceError("Newton-Raphson iteration failed to converge".to_string()));
         }
         
         x -= diff / deriv;

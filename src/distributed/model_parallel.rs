@@ -358,7 +358,7 @@ where
     fn parameters(&self) -> Vec<Variable<T>> {
         let mut all_params = Vec::new();
         for partition in &self.partitions {
-            all_params.extend(partition.parameters().into());
+            all_params.extend(partition.parameters());
         }
         all_params
     }

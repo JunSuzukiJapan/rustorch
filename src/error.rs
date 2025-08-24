@@ -528,6 +528,41 @@ impl RusTorchError {
     pub fn ConvergenceError(message: impl Into<String>) -> Self {
         RusTorchError::TensorOp { message: format!("Convergence error: {}", message.into()), source: None }
     }
+    
+    /// Create serialization error
+    pub fn SerializationError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Serialization error: {}", message.into()))
+    }
+    
+    /// Create parse error
+    pub fn ParseError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Parse error: {}", message.into()))
+    }
+    
+    /// Create validation error
+    pub fn ValidationError(message: impl Into<String>) -> Self {
+        RusTorchError::tensor_op(format!("Validation error: {}", message.into()))
+    }
+    
+    /// Create device not available error
+    pub fn DeviceNotAvailable(message: impl Into<String>) -> Self {
+        RusTorchError::device_not_available(message.into())
+    }
+    
+    /// Create file not found error
+    pub fn FileNotFound(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("File not found: {}", message.into()))
+    }
+    
+    /// Create cluster error
+    pub fn ClusterError(message: impl Into<String>) -> Self {
+        RusTorchError::distributed(format!("Cluster error: {}", message.into()))
+    }
+    
+    /// Create invalid rank error
+    pub fn InvalidRank(message: impl Into<String>) -> Self {
+        RusTorchError::distributed(format!("Invalid rank: {}", message.into()))
+    }
 }
 
 // All individual From implementations removed - using unified RusTorchError only

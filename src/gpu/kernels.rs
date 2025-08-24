@@ -94,7 +94,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
         let c = &mut outputs[0];
 
         if a.len() != b.len() || a.len() != c.len() {
-            return Err(RusTorchError::shape_mismatch(&"inputs", &"outputs"));
+            return Err(RusTorchError::shape_mismatch(&[a.len()], &[b.len()]));
         }
 
         match device {

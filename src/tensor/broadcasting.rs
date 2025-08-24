@@ -28,10 +28,9 @@ impl<T: Float + 'static> Tensor<T> {
         
         // Check if broadcasting is possible
         if !can_broadcast(current_shape, target_shape) {
-            return Err(RusTorchError::IncompatibleShapes {
-                from: current_shape.to_vec(),
-                to: target_shape.to_vec(),
-            });
+            return Err(RusTorchError::IncompatibleShapes(
+                format!("Cannot broadcast from {:?} to {:?}", current_shape, target_shape)
+            ));
         }
         
         // If shapes are already the same, return clone
@@ -56,16 +55,15 @@ impl<T: Float + 'static> Tensor<T> {
         let mut new_shape = self.data.shape().to_vec();
         
         if dim > new_shape.len() {
-            return Err(RusTorchError::InvalidDimension {
-                dim,
-                max_dim: new_shape.len(),
-            });
+            return Err(RusTorchError::InvalidDimension(
+                format!("Invalid dimension {} (max: {})", dim, new_shape.len())
+            ));
         }
         
         new_shape.insert(dim, 1);
         
         let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
-            .map_err(|_| RusTorchError::ReshapeError)?;
+            .map_err(|_| RusTorchError::ReshapeError("Failed to unsqueeze tensor".to_string()))?;
         
         Ok(Tensor::new(reshaped_data))
     }
@@ -98,14 +96,15 @@ impl<T: Float + 'static> Tensor<T> {
         let current_shape = self.data.shape();
         
         if dim >= current_shape.len() {
-            return Err(RusTorchError::InvalidDimension {
-                dim,
-                max_dim: current_shape.len() - 1,
-            });
+            return Err(RusTorchError::InvalidDimension(
+                format!("Invalid dimension {} (max: {})", dim, current_shape.len() - 1)
+            ));
         }
         
         if current_shape[dim] != 1 {
-            return Err(RusTorchError::NotSingletonDimension { dim, size: current_shape[dim] });
+            return Err(RusTorchError::NotSingletonDimension(
+                format!("Cannot squeeze dimension {} with size {}", dim, current_shape[dim])
+            ));
         }
         
         let mut new_shape = current_shape.to_vec();
@@ -117,7 +116,7 @@ impl<T: Float + 'static> Tensor<T> {
         }
         
         let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
-            .map_err(|_| RusTorchError::ReshapeError)?;
+            .map_err(|_| RusTorchError::ReshapeError("Failed to squeeze dimension".to_string()))?;
         
         Ok(Tensor::new(reshaped_data))
     }
@@ -128,10 +127,9 @@ impl<T: Float + 'static> Tensor<T> {
         let current_shape = self.data.shape();
         
         if repeats.len() != current_shape.len() {
-            return Err(RusTorchError::MismatchedDimensions {
-                expected: current_shape.len(),
-                got: repeats.len(),
-            });
+            return Err(RusTorchError::MismatchedDimensions(
+                format!("Expected {} dimensions, got {}", current_shape.len(), repeats.len())
+            ));
         }
         
         let new_shape: Vec<usize> = current_shape.iter()
@@ -198,10 +196,9 @@ fn compute_broadcast_shape(shape1: &[usize], shape2: &[usize]) -> Result<Vec<usi
         match (dim1, dim2) {
             (1, d) | (d, 1) => result_shape.push(*d),
             (d1, d2) if d1 == d2 => result_shape.push(*d1),
-            (_d1, _d2) => return Err(RusTorchError::IncompatibleShapes {
-                from: shape1.to_vec(),
-                to: shape2.to_vec(),
-            }),
+            (_d1, _d2) => return Err(RusTorchError::IncompatibleShapes(
+                format!("Incompatible shapes: {:?} and {:?}", shape1, shape2)
+            )),
         }
     }
     
@@ -234,10 +231,9 @@ fn broadcast_array<T: Float>(array: &ArrayD<T>, target_shape: &[usize]) -> Resul
     
     // Use ndarray's broadcast functionality
     let broadcasted = array.broadcast(IxDyn(target_shape))
-        .ok_or_else(|| RusTorchError::IncompatibleShapes {
-            from: current_shape.to_vec(),
-            to: target_shape.to_vec(),
-        })?;
+        .ok_or_else(|| RusTorchError::IncompatibleShapes(
+            format!("Cannot broadcast from {:?} to {:?}", current_shape, target_shape)
+        ))?;
     
     // Convert broadcasted view to owned array
     Ok(broadcasted.to_owned())
