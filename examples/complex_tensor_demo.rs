@@ -282,8 +282,7 @@ fn print_complex_matrix(matrix: &Tensor<Complex<f64>>) {
     for i in 0..rows {
         print!("  [");
         for j in 0..cols {
-            let idx = i * cols + j;
-            print!("{:>12}", format!("{}", matrix.data[idx]));
+            print!("{:>12}", format!("{}", matrix.data[[i, j]]));
             if j < cols - 1 {
                 print!(" ");
             }
