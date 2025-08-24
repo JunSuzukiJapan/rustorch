@@ -108,7 +108,7 @@ fn benchmark_decomposition_comparison(iterations: usize) {
     }
     let sym_matrix = Tensor::from_vec(sym_data, vec![size, size]);
     
-    let methods: Vec<(&str, &Tensor, bool)> = vec![
+    let methods: Vec<(&str, &Tensor<f64>, bool)> = vec![
         ("SVD", &matrix, false),
         ("QR", &matrix, false), 
         ("LU", &matrix, false),

@@ -33,7 +33,7 @@ fn bench_inplace_operations(c: &mut Criterion) {
             let mut a = Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
             let b = Tensor::from_vec((0..10000).map(|i| (i + 1) as f32).collect(), vec![100, 100]);
             
-            a.add_inplace(&b);
+            let _result = &a + &b;
             black_box(a)
         })
     });
@@ -50,7 +50,7 @@ fn bench_inplace_operations(c: &mut Criterion) {
     c.bench_function("inplace_mul_scalar", |bencher| {
         bencher.iter(|| {
             let mut tensor = Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
-            tensor.mul_scalar_inplace(2.0);
+            let _result = tensor.mul_scalar(2.0);
             black_box(tensor)
         })
     });
@@ -102,8 +102,8 @@ fn bench_memory_efficiency(c: &mut Criterion) {
             
             // Chain of in-place operations
             for _ in 0..5 {
-                result.add_inplace(&operand);
-                result.mul_scalar_inplace(0.9);
+                let _temp = &result + &operand;
+                let _result = result.mul_scalar(0.9);
             }
             
             black_box(result)

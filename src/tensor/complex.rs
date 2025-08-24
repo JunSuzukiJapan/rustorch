@@ -975,9 +975,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
             for j in 0..n {
                 let mut sum = Complex::zero();
                 for l in 0..k {
-                    let a_idx = i * k + l;
-                    let b_idx = l * n + j;
-                    sum = sum + self.data[a_idx] * other.data[b_idx];
+                    sum = sum + self.data[[i, l]] * other.data[[l, j]];
                 }
                 result[i * n + j] = sum;
             }
@@ -1001,9 +999,8 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         
         for i in 0..rows {
             for j in 0..cols {
-                let src_idx = i * cols + j;
                 let dst_idx = j * rows + i;
-                result[dst_idx] = self.data[src_idx];
+                result[dst_idx] = self.data[[i, j]];
             }
         }
         
@@ -1025,9 +1022,8 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         
         for i in 0..rows {
             for j in 0..cols {
-                let src_idx = i * cols + j;
                 let dst_idx = j * rows + i;
-                result[dst_idx] = self.data[src_idx].conj();
+                result[dst_idx] = self.data[[i, j]].conj();
             }
         }
         
@@ -1048,8 +1044,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         
         let mut sum = Complex::zero();
         for i in 0..min_dim {
-            let idx = i * cols + i;
-            sum = sum + self.data[idx];
+            sum = sum + self.data[[i, i]];
         }
         
         Ok(sum)
@@ -1068,12 +1063,12 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         }
         
         if shape[0] == 1 {
-            return Ok(self.data[0]);
+            return Ok(self.data[[0, 0]]);
         } else if shape[0] == 2 {
-            let a = self.data[0];  // [0,0]
-            let b = self.data[1];  // [0,1]
-            let c = self.data[2];  // [1,0]
-            let d = self.data[3];  // [1,1]
+            let a = self.data[[0, 0]];  // [0,0]
+            let b = self.data[[0, 1]];  // [0,1]
+            let c = self.data[[1, 0]];  // [1,0]
+            let d = self.data[[1, 1]];  // [1,1]
             return Ok(a * d - b * c);
         } else {
             return Err("Determinant only implemented for 1x1 and 2x2 matrices currently".to_string());
@@ -1561,10 +1556,10 @@ mod tests {
         // Verify matrix multiplication result
         // [1+i, 2] * [1, i] = [1+i+2+2i, i-1+2] = [3+3i, 1+i]
         // [i, 1-i]   [1+i, 1]   [i+1-i-i^2, -1+i] = [1+i, -1+i]
-        assert_relative_eq!(result.data[0].real(), 3.0, epsilon = 1e-10);
-        assert_relative_eq!(result.data[0].imag(), 3.0, epsilon = 1e-10);
-        assert_relative_eq!(result.data[1].real(), 1.0, epsilon = 1e-10);
-        assert_relative_eq!(result.data[1].imag(), 1.0, epsilon = 1e-10);
+        assert_relative_eq!(result.data[[0, 0]].real(), 3.0, epsilon = 1e-10);
+        assert_relative_eq!(result.data[[0, 0]].imag(), 3.0, epsilon = 1e-10);
+        assert_relative_eq!(result.data[[0, 1]].real(), 1.0, epsilon = 1e-10);
+        assert_relative_eq!(result.data[[0, 1]].imag(), 1.0, epsilon = 1e-10);
     }
     
     #[test]
@@ -1579,10 +1574,10 @@ mod tests {
         assert_eq!(transposed.shape(), &[2, 2]);
         
         // Check transposition
-        assert_eq!(transposed.data[0], Complex::new(1.0, 2.0)); // [0,0] -> [0,0]
-        assert_eq!(transposed.data[1], Complex::new(5.0, 6.0)); // [1,0] -> [0,1]
-        assert_eq!(transposed.data[2], Complex::new(3.0, 4.0)); // [0,1] -> [1,0]
-        assert_eq!(transposed.data[3], Complex::new(7.0, 8.0)); // [1,1] -> [1,1]
+        assert_eq!(transposed.data[[0, 0]], Complex::new(1.0, 2.0)); // [0,0] -> [0,0]
+        assert_eq!(transposed.data[[0, 1]], Complex::new(5.0, 6.0)); // [1,0] -> [0,1]
+        assert_eq!(transposed.data[[1, 0]], Complex::new(3.0, 4.0)); // [0,1] -> [1,0]
+        assert_eq!(transposed.data[[1, 1]], Complex::new(7.0, 8.0)); // [1,1] -> [1,1]
     }
     
     #[test]
@@ -1597,10 +1592,10 @@ mod tests {
         assert_eq!(conj_transposed.shape(), &[2, 2]);
         
         // Check conjugate transposition
-        assert_eq!(conj_transposed.data[0], Complex::new(1.0, -2.0)); // [0,0] -> conj([0,0])
-        assert_eq!(conj_transposed.data[1], Complex::new(5.0, -6.0)); // [1,0] -> conj([0,1])
-        assert_eq!(conj_transposed.data[2], Complex::new(3.0, -4.0)); // [0,1] -> conj([1,0])
-        assert_eq!(conj_transposed.data[3], Complex::new(7.0, -8.0)); // [1,1] -> conj([1,1])
+        assert_eq!(conj_transposed.data[[0, 0]], Complex::new(1.0, -2.0)); // [0,0] -> conj([0,0])
+        assert_eq!(conj_transposed.data[[0, 1]], Complex::new(5.0, -6.0)); // [1,0] -> conj([0,1])
+        assert_eq!(conj_transposed.data[[1, 0]], Complex::new(3.0, -4.0)); // [0,1] -> conj([1,0])
+        assert_eq!(conj_transposed.data[[1, 1]], Complex::new(7.0, -8.0)); // [1,1] -> conj([1,1])
     }
     
     #[test]

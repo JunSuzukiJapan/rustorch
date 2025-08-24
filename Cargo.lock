@@ -2050,6 +2050,7 @@ dependencies = [
  "num-complex",
  "num-traits",
  "objc",
+ "objc_exception",
  "openblas-src",
  "opencl3",
  "parking_lot",

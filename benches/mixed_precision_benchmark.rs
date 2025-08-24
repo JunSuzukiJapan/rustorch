@@ -7,7 +7,7 @@ use rustorch::amp::{
     autocast, GradScaler, AMPOptimizer, ParamGroup,
     cast_to_fp16, cast_to_fp32, maybe_autocast_f32
 };
-use rustorch::optim::sgd::SGD;
+use rustorch::optim::{sgd::SGD, Optimizer};
 use rustorch::dtype::DType;
 
 fn bench_dtype_conversions(c: &mut Criterion) {

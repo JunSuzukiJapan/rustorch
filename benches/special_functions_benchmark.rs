@@ -230,7 +230,7 @@ fn benchmark_combined_operations(c: &mut Criterion) {
         b.iter(|| {
             let x = black_box(1.5_f64);
             let sqrt_2 = 2.0_f64.sqrt();
-            error::erf_scalar(x / sqrt_2).map(|v| (1.0 + v) / 2.0)
+            (1.0 + error::erf_scalar(x / sqrt_2)) / 2.0
         })
     });
     

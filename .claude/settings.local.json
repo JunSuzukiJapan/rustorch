@@ -68,7 +68,10 @@
       "Bash(nm:*)",
       "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example svd_demo)",
       "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example matrix_decomposition_demo)",
-      "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example special_functions_demo)"
+      "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" cargo run --example special_functions_demo)",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib tensor::complex::tests::test_complex_matrix_multiplication --no-default-features -- --nocapture)",
+      "Bash(RUST_BACKTRACE=full cargo test --lib tensor::complex::tests::test_complex_matrix_multiplication --no-default-features -- --nocapture)",
+      "Bash(timeout 60s cargo bench --bench special_functions_benchmark --no-default-features)"
     ],
     "deny": [],
     "ask": [],

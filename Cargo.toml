@@ -75,11 +75,15 @@ console_error_panic_hook = { version = "0.1", optional = true }
 cudarc = { version = "0.11", optional = true }
 metal = { version = "0.27", optional = true }
 objc = { version = "0.2", optional = true }
+objc_exception = { version = "0.1", optional = true }
 opencl3 = { version = "0.9", optional = true }
 
 # Distributed computing dependencies
 mpi = { version = "0.6", optional = true }
 nccl = { version = "0.6", optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc_exception = { version = "0.1", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -95,7 +99,7 @@ default = ["linalg"]
 linalg = ["dep:ndarray-linalg", "dep:openblas-src"]
 cuda = ["dep:cudarc"]
 opencl = ["dep:opencl3"]
-metal = ["dep:metal", "dep:objc"]
+metal = ["dep:metal", "dep:objc", "dep:objc_exception"]
 mpi = ["dep:mpi"]
 nccl = ["dep:nccl"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
