@@ -63,7 +63,7 @@ impl<T: Float + 'static> Tensor<T> {
         
         new_shape.insert(dim, 1);
         
-        let reshaped_data = self.data.clone().into_shape(new_shape)
+        let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
             .map_err(|_| BroadcastError::ReshapeError)?;
         
         Ok(Tensor::new(reshaped_data))
@@ -85,7 +85,7 @@ impl<T: Float + 'static> Tensor<T> {
             new_shape
         };
         
-        let reshaped_data = self.data.clone().into_shape(final_shape)
+        let reshaped_data = self.data.clone().into_shape_with_order(final_shape)
             .expect("Squeeze should always be valid");
         
         Tensor::new(reshaped_data)
@@ -115,7 +115,7 @@ impl<T: Float + 'static> Tensor<T> {
             new_shape.push(1);
         }
         
-        let reshaped_data = self.data.clone().into_shape(new_shape)
+        let reshaped_data = self.data.clone().into_shape_with_order(new_shape)
             .map_err(|_| BroadcastError::ReshapeError)?;
         
         Ok(Tensor::new(reshaped_data))

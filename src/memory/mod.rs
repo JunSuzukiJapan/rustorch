@@ -65,7 +65,7 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
                     // Clone array before attempting reshape to avoid move
                     // リシェイプ試行前に配列をクローンして移動を回避
                     let cloned_array = array.clone();
-                    match cloned_array.into_shape(IxDyn(shape)) {
+                    match cloned_array.into_shape_with_order(IxDyn(shape)) {
                         Ok(reshaped) => return reshaped,
                         Err(_) => {
                             // Put back original array if reshape failed

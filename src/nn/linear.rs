@@ -134,7 +134,7 @@ where
                 let output_features = output_shape[1];
                 
                 // Create bias tensor with shape (1, output_features) for broadcasting
-                let bias_expanded = bias_data.as_array().clone().into_shape((1, output_features)).unwrap();
+                let bias_expanded = bias_data.as_array().clone().into_shape_with_order((1, output_features)).unwrap();
                 let bias_tensor = Tensor::new(bias_expanded.into_dyn());
                 
                 output_data = &output_data + &bias_tensor;

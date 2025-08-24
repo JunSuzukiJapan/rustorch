@@ -1082,7 +1082,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
     
     /// Forward FFT for complex tensor
     /// 複素テンソルの順フーリエ変換
-    pub fn fft(&self, n: Option<usize>, dim: Option<isize>, norm: Option<&str>) -> Result<Self, String>
+    pub fn fft(&self, n: Option<usize>, _dim: Option<isize>, norm: Option<&str>) -> Result<Self, String>
     where
         T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
     {
@@ -1116,7 +1116,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
     
     /// Inverse FFT for complex tensor
     /// 複素テンソルの逆フーリエ変換
-    pub fn ifft(&self, n: Option<usize>, dim: Option<isize>, norm: Option<&str>) -> Result<Self, String>
+    pub fn ifft(&self, n: Option<usize>, _dim: Option<isize>, norm: Option<&str>) -> Result<Self, String>
     where
         T: Float + 'static + Default + Clone + std::fmt::Debug + num_traits::FromPrimitive,
     {
@@ -1150,7 +1150,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
     
     /// FFT shift for complex tensor
     /// 複素テンソルのFFTシフト
-    pub fn fftshift(&self, dim: Option<&[isize]>) -> Result<Self, String> {
+    pub fn fftshift(&self, _dim: Option<&[isize]>) -> Result<Self, String> {
         if self.ndim() != 1 {
             return Err("Complex fftshift currently supports only 1D tensors".to_string());
         }
@@ -1169,7 +1169,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
     
     /// Inverse FFT shift for complex tensor
     /// 複素テンソルの逆FFTシフト
-    pub fn ifftshift(&self, dim: Option<&[isize]>) -> Result<Self, String> {
+    pub fn ifftshift(&self, _dim: Option<&[isize]>) -> Result<Self, String> {
         if self.ndim() != 1 {
             return Err("Complex ifftshift currently supports only 1D tensors".to_string());
         }
@@ -1709,6 +1709,10 @@ mod tests {
         
         let powered = base.pow(&exponent).unwrap();
         assert_relative_eq!(powered.data[0].real(), 2.0_f64.sqrt(), epsilon = 1e-10); // 2^0.5
-        assert_relative_eq!(powered.data[2].real(), (1.0 + 1.0).sqrt(), epsilon = 1e-10); // (1+i)^1
+        assert_relative_eq!(powered.data[0].imag(), 0.0, epsilon = 1e-10);
+        assert_relative_eq!(powered.data[1].real(), -1.0, epsilon = 1e-10); // i^2 = -1
+        assert_relative_eq!(powered.data[1].imag(), 0.0, epsilon = 1e-10);
+        assert_relative_eq!(powered.data[2].real(), 1.0, epsilon = 1e-10); // (1+i)^1 = 1+i, real part = 1
+        assert_relative_eq!(powered.data[2].imag(), 1.0, epsilon = 1e-10); // (1+i)^1 = 1+i, imag part = 1
     }
 }

@@ -130,7 +130,7 @@ impl<T: Float + 'static> Tensor<T> {
             ));
         }
         
-        match self.data.clone().into_shape(IxDyn(shape)) {
+        match self.data.clone().into_shape_with_order(IxDyn(shape)) {
             Ok(reshaped) => Ok(Tensor::new(reshaped)),
             Err(e) => Err(format!("Reshape failed: {}", e)),
         }
@@ -146,7 +146,7 @@ impl<T: Float + 'static> Tensor<T> {
     /// テンソルを1次元に平坦化します。
     pub fn flatten(&self) -> Self {
         let total_elements = self.data.len();
-        let flattened = self.data.clone().into_shape(IxDyn(&[total_elements])).unwrap();
+        let flattened = self.data.clone().into_shape_with_order(IxDyn(&[total_elements])).unwrap();
         Tensor::new(flattened)
     }
 

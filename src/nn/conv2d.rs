@@ -244,7 +244,7 @@ where
             
             // Reshape bias for broadcasting: (1, out_channels, 1, 1)
             let bias_reshaped = bias_data.as_array().clone()
-                .into_shape((1, self.out_channels, 1, 1)).unwrap();
+                .into_shape_with_order((1, self.out_channels, 1, 1)).unwrap();
             let bias_tensor = Tensor::new(bias_reshaped.into_dyn());
             
             output_tensor = &output_tensor + &bias_tensor;
