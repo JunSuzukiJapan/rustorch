@@ -8,9 +8,25 @@ documentation = "https://docs.rs/rustorch"
 homepage = "https://github.com/JunSuzukiJapan/rustorch"
 repository = "https://github.com/JunSuzukiJapan/rustorch"
 license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 readme = "README.md"
 keywords = ["pytorch", "machine-learning", "tensor", "fft", "matrix-decomposition"]
 categories = ["science", "algorithms"]
+
+[package.metadata.docs.rs]
+# ドキュメントビルドの設定
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.rust-analyzer]
+# 開発時の依存関係の最適化
+cargo.all_features = true
+
+[workspace.metadata]
+# ワークスペースのメタデータ
+maintainer = "Jun Suzuki <jun.suzuki.japan@gmail.com>"
+repository = "https://github.com/JunSuzukiJapan/rustorch"
+
 
 [lib]
 name = "rustorch"
@@ -19,16 +35,16 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 # Core dependencies
-ndarray = "0.15"
-ndarray-rand = "0.14"
-ndarray-linalg = { version = "0.16", optional = true }
-openblas-src = { version = "0.10", optional = true, features = ["system"] }
+ndarray = { version = "0.16.1", features = ["rayon", "approx"] }
+ndarray-rand = "0.15.0"
+ndarray-linalg = { version = "0.17.0", optional = true, features = ["intel-mkl-static"] }
+openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
 num-traits = "0.2"
 num-complex = "0.4"
-rand = "0.8"
-rand_distr = "0.4"
-rayon = "1.5"
-serde = { version = "1.0", features = ["derive"] }
+rand = { version = "0.8.5", features = ["std", "std_rng"] }
+rand_distr = "0.4.3"
+rayon = { version = "1.10.0" }
+serde = { version = "1.0.202", features = ["derive", "rc"] }
 serde_json = "1.0"
 approx = "0.5"
 lazy_static = "1.4"
@@ -174,6 +190,3 @@ harness = false
 name = "special_functions_benchmark"
 harness = false
 
-
-[package.metadata.docs.rs]
-features = ["cuda", "opencl", "metal", "mpi", "nccl"]
