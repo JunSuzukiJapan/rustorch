@@ -9,6 +9,7 @@ pub mod function;
 pub mod graph;
 pub mod grad_fn;
 pub mod linear_grad_fn;
+pub mod visualization;
 
 #[cfg(test)]
 mod tests;
