@@ -176,6 +176,9 @@ pub mod nn;
 /// Optimization algorithms
 /// 最適化アルゴリズム
 pub mod optim;
+/// Performance profiler
+/// パフォーマンスプロファイラー
+pub mod profiler;
 /// Automatic Mixed Precision (AMP) training support
 /// 自動混合精度(AMP)学習サポート
 pub mod amp;
