@@ -1,15 +1,15 @@
 //! Complex number support for tensors
 //! テンソルの複素数サポート
 
-use num_traits::{Float, Zero, One, Num, NumCast, ToPrimitive, FromPrimitive};
+use num_traits::{Float, Zero, One, Num, NumCast, ToPrimitive};
 use std::ops::{Add, Sub, Mul, Div, Neg, Rem};
 use std::fmt::{Debug, Display};
-use std::cmp::PartialOrd;
 use crate::tensor::Tensor;
+use approx::{AbsDiffEq, RelativeEq, UlpsEq};
 
 /// Complex number type for tensor operations
 /// テンソル演算用複素数型
-#[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct Complex<T: Float> {
     /// Real part / 実部
     pub re: T,
@@ -239,6 +239,15 @@ impl<T: Float> One for Complex<T> {
     }
 }
 
+// PartialOrd implementation based on magnitude
+impl<T: Float> PartialOrd for Complex<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        let self_mag = self.re * self.re + self.im * self.im;
+        let other_mag = other.re * other.re + other.im * other.im;
+        self_mag.partial_cmp(&other_mag)
+    }
+}
+
 // Implement Num trait
 impl<T: Float> Num for Complex<T> {
     type FromStrRadixErr = <T as Num>::FromStrRadixErr;
@@ -347,6 +356,7 @@ impl<T: Float> Float for Complex<T> {
     }
     
     fn abs(self) -> Self {
+        // For Float trait, return the complex magnitude as a real number
         let magnitude = (self.re * self.re + self.im * self.im).sqrt();
         Self::new(magnitude, T::zero())
     }
@@ -377,12 +387,28 @@ impl<T: Float> Float for Complex<T> {
     }
     
     fn powi(self, n: i32) -> Self {
-        let exp = Complex::from_real(T::from(n).unwrap());
-        self.pow(exp)
+        if self.is_zero() {
+            if n == 0 {
+                Self::one() // 0^0 = 1 by convention
+            } else {
+                Self::zero()
+            }
+        } else {
+            let exp = Complex::from_real(T::from(n).unwrap());
+            (self.ln() * exp).exp()
+        }
     }
     
     fn powf(self, n: Self) -> Self {
-        self.pow(n)
+        if self.is_zero() {
+            if n.is_zero() {
+                Self::one() // 0^0 = 1 by convention
+            } else {
+                Self::zero()
+            }
+        } else {
+            (self.ln() * n).exp()
+        }
     }
     
     fn sqrt(self) -> Self {
@@ -441,7 +467,7 @@ impl<T: Float> Float for Complex<T> {
     
     fn cbrt(self) -> Self {
         let one_third = Complex::from_real(T::one() / T::from(3.0).unwrap());
-        self.pow(one_third)
+        self.powf(one_third)
     }
     
     fn hypot(self, other: Self) -> Self {
@@ -469,18 +495,19 @@ impl<T: Float> Float for Complex<T> {
     }
     
     fn asin(self) -> Self {
-        let i = Complex::i();
+        let i: Self = Complex::i();
         -i * (i * self + (Self::one() - self * self).sqrt()).ln()
     }
     
     fn acos(self) -> Self {
-        let i = Complex::i();
+        let i: Self = Complex::i();
         -i * (self + i * (Self::one() - self * self).sqrt()).ln()
     }
     
     fn atan(self) -> Self {
-        let i = Complex::i();
-        (i / (T::from(2.0).unwrap())) * ((i + self) / (i - self)).ln()
+        let i: Self = Complex::i();
+        let two = T::from(2.0).unwrap();
+        (i / two) * ((i + self) / (i - self)).ln()
     }
     
     fn atan2(self, other: Self) -> Self {
@@ -538,7 +565,54 @@ impl<T: Float> Float for Complex<T> {
     }
 }
 
-impl<T: Float> Display for Complex<T> {
+// AbsDiffEq implementation for approx testing
+impl<T: Float + AbsDiffEq> AbsDiffEq for Complex<T>
+where 
+    T::Epsilon: Clone,
+{
+    type Epsilon = T::Epsilon;
+    
+    fn default_epsilon() -> Self::Epsilon {
+        T::default_epsilon()
+    }
+    
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.re.abs_diff_eq(&other.re, epsilon.clone()) && 
+        self.im.abs_diff_eq(&other.im, epsilon)
+    }
+}
+
+// RelativeEq implementation for approx testing
+impl<T: Float + RelativeEq> RelativeEq for Complex<T>
+where 
+    T::Epsilon: Clone,
+{
+    fn default_max_relative() -> Self::Epsilon {
+        T::default_max_relative()
+    }
+    
+    fn relative_eq(&self, other: &Self, epsilon: Self::Epsilon, max_relative: Self::Epsilon) -> bool {
+        self.re.relative_eq(&other.re, epsilon.clone(), max_relative.clone()) && 
+        self.im.relative_eq(&other.im, epsilon, max_relative)
+    }
+}
+
+// UlpsEq implementation for approx testing
+impl<T: Float + UlpsEq> UlpsEq for Complex<T>
+where 
+    T::Epsilon: Clone,
+{
+    fn default_max_ulps() -> u32 {
+        T::default_max_ulps()
+    }
+    
+    fn ulps_eq(&self, other: &Self, epsilon: Self::Epsilon, max_ulps: u32) -> bool {
+        self.re.ulps_eq(&other.re, epsilon.clone(), max_ulps) && 
+        self.im.ulps_eq(&other.im, epsilon, max_ulps)
+    }
+}
+
+impl<T: Float + Display> Display for Complex<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.im >= T::zero() {
             write!(f, "{}+{}i", self.re, self.im)
@@ -1020,7 +1094,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         let fft_len = n.unwrap_or(input_len);
         
         // Convert to Vec<Complex<T>> for FFT processing
-        let mut fft_data = self.data.to_vec();
+        let mut fft_data: Vec<Complex<T>> = self.data.iter().cloned().collect();
         
         // Pad or truncate to desired length
         if fft_data.len() != fft_len {
@@ -1054,7 +1128,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         let fft_len = n.unwrap_or(input_len);
         
         // Convert to Vec<Complex<T>> for IFFT processing
-        let mut fft_data = self.data.to_vec();
+        let mut fft_data: Vec<Complex<T>> = self.data.iter().cloned().collect();
         
         // Pad or truncate to desired length
         if fft_data.len() != fft_len {
@@ -1081,7 +1155,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
             return Err("Complex fftshift currently supports only 1D tensors".to_string());
         }
         
-        let input_data = &self.data;
+        let input_data: Vec<Complex<T>> = self.data.iter().cloned().collect();
         let input_len = input_data.len();
         let mid = (input_len + 1) / 2;
         let mut new_data = Vec::with_capacity(input_len);
@@ -1100,7 +1174,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
             return Err("Complex ifftshift currently supports only 1D tensors".to_string());
         }
         
-        let input_data = &self.data;
+        let input_data: Vec<Complex<T>> = self.data.iter().cloned().collect();
         let input_len = input_data.len();
         let mid = input_len / 2;
         let mut new_data = Vec::with_capacity(input_len);
@@ -1269,8 +1343,8 @@ mod tests {
     fn test_complex_properties() {
         let z = Complex::new(3.0, 4.0);
         
-        // Magnitude
-        assert_relative_eq!(z.abs(), 5.0, epsilon = 1e-10);
+        // Magnitude  
+        assert_relative_eq!(Complex::abs(&z), 5.0, epsilon = 1e-10);
         
         // Magnitude squared
         assert_relative_eq!(z.abs_sq(), 25.0, epsilon = 1e-10);
@@ -1363,10 +1437,10 @@ mod tests {
         let complex_tensor = Tensor::from_vec(complex_data, vec![3]);
         
         let real_part = Complex::tensor_real_part(&complex_tensor);
-        assert_eq!(real_part.data.as_slice(), &[1.0, 3.0, 5.0]);
+        assert_eq!(real_part.data.as_slice().unwrap(), &[1.0, 3.0, 5.0]);
         
         let imag_part = Complex::tensor_imag_part(&complex_tensor);
-        assert_eq!(imag_part.data.as_slice(), &[2.0, 4.0, 6.0]);
+        assert_eq!(imag_part.data.as_slice().unwrap(), &[2.0, 4.0, 6.0]);
         
         let abs_part = Complex::tensor_abs(&complex_tensor);
         assert_relative_eq!(abs_part.data[0], 5.0_f64.sqrt(), epsilon = 1e-10);
