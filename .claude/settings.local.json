@@ -107,7 +107,10 @@
       "Bash(if [ -f \"$file\" ])",
       "Bash(! grep -q \"use crate::visualization::PlotData\" \"$file\")",
       "Bash(timeout 60s cargo build:*)",
-      "Bash(gtimeout:*)"
+      "Bash(gtimeout:*)",
+      "Bash(if rustc --crate-type lib --edition 2021 -L /Users/suzukijun/Program/Rust/rustorch/target/debug/deps --extern rustorch=/Users/suzukijun/Program/Rust/rustorch/target/debug/deps/librustorch.rlib /Users/suzukijun/Program/Rust/rustorch/src/convert/$file)",
+      "Bash(else)",
+      "Bash(timeout 60s cargo check --lib)"
     ],
     "deny": [],
     "ask": [],

@@ -384,7 +384,7 @@ mod tests {
         let compressed = compressor.compress(&gradient).unwrap();
         let decompressed = compressor.decompress(&compressed).unwrap();
         
-        assert_eq!(gradient.shape(), decompressed.shape().into());
+        assert_eq!(gradient.shape(), decompressed.shape());
     }
     
     #[test]

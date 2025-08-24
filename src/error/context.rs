@@ -211,7 +211,7 @@ macro_rules! with_context {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::{TensorError, RusTorchError};
+    use crate::error::RusTorchError;
     
     #[test]
     fn test_error_context_creation() {
@@ -228,7 +228,7 @@ mod tests {
     
     #[test]
     fn test_with_context_trait() {
-        let tensor_error = TensorError::EmptyTensor;
+        let tensor_error = RusTorchError::empty_tensor();
         let result: Result<(), _> = Err(tensor_error);
         
         let enhanced = result.with_operation("test operation");

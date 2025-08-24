@@ -3,7 +3,7 @@
 
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchError;
 use num_traits::Float;
 use std::fmt::Debug;
 use rand::distributions::Distribution;

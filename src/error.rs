@@ -1,7 +1,6 @@
 //! Unified error handling system for RusTorch
 //! RusTorch用統一エラーハンドリングシステム
 
-use std::fmt;
 use std::error::Error;
 
 pub mod context;

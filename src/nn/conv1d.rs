@@ -4,7 +4,7 @@
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
 use crate::nn::{Module, conv_base::{ConvolutionBase, Validator}};
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchError;
 use std::fmt::Debug;
 use num_traits::Float;
 

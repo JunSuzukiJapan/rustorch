@@ -456,12 +456,12 @@ mod tests {
     
     #[test]
     fn test_format_validation() {
-        // Mock ONNX data
-        let onnx_data = vec![0x08, 0x01, 0x12, 0x04];
+        // Mock ONNX data (needs >8 bytes)
+        let onnx_data = vec![0x08, 0x01, 0x12, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00];
         assert!(FormatValidator::validate_format(&onnx_data, ModelFormat::Onnx));
         
-        // Mock PyTorch data
-        let pytorch_data = vec![0x80, 0x02];
+        // Mock PyTorch data (needs >2 bytes)
+        let pytorch_data = vec![0x80, 0x02, 0x00];
         assert!(FormatValidator::validate_format(&pytorch_data, ModelFormat::PyTorch));
         
         // Invalid data

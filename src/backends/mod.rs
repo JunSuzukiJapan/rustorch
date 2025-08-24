@@ -8,7 +8,6 @@
 //! CPU、CUDA、Metal、OpenCLの実装間でのシームレスな切り替えを可能にします。
 
 use crate::tensor::Tensor;
-use crate::error::RusTorchError;
 use std::any::Any;
 use std::fmt;
 
