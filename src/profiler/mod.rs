@@ -467,8 +467,9 @@ mod tests {
         
         let summary = get_profiler_summary().unwrap();
         assert!(summary.operations.len() > 0);
-        assert!(summary.operations[0].name == "test_operation");
-        assert!(summary.operations[0].count == 1);
+        let test_op = summary.operations.iter().find(|op| op.name == "test_operation");
+        assert!(test_op.is_some());
+        assert_eq!(test_op.unwrap().count, 1);
         
         disable_profiler();
     }
@@ -488,7 +489,11 @@ mod tests {
         }
         
         let summary = get_profiler_summary().unwrap();
-        assert!(summary.operations.len() >= 2);
+        assert!(summary.operations.len() > 0);
+        let outer_op = summary.operations.iter().find(|op| op.name == "outer");
+        let inner_op = summary.operations.iter().find(|op| op.name == "inner");
+        assert!(outer_op.is_some());
+        assert!(inner_op.is_some());
         
         disable_profiler();
     }

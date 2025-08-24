@@ -293,7 +293,7 @@ mod tests {
         
         let loaded_tensor: Tensor<f32> = state_dict.get_tensor("test_layer.weight").unwrap();
         assert_eq!(loaded_tensor.shape(), &[2, 2]);
-        assert_eq!(loaded_tensor.data, vec![1.0, 2.0, 3.0, 4.0]);
+        assert_eq!(loaded_tensor.data.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
     }
 
     #[test]
@@ -308,8 +308,8 @@ mod tests {
         let loaded_weights: Tensor<f32> = model.get_layer_weights("linear1").unwrap();
         let loaded_bias: Tensor<f32> = model.get_layer_bias("linear1").unwrap();
         
-        assert_eq!(loaded_weights.data, weights.data);
-        assert_eq!(loaded_bias.data, bias.data);
+        assert_eq!(loaded_weights.data.as_slice().unwrap(), weights.data.as_slice().unwrap());
+        assert_eq!(loaded_bias.data.as_slice().unwrap(), bias.data.as_slice().unwrap());
     }
 
     #[test]
@@ -325,7 +325,7 @@ mod tests {
         let loaded_state_dict = StateDict::load_from_file(temp_file.path()).unwrap();
         let loaded_tensor: Tensor<f32> = loaded_state_dict.get_tensor("test").unwrap();
         
-        assert_eq!(loaded_tensor.data, vec![1.0, 2.0, 3.0]);
+        assert_eq!(loaded_tensor.data.as_slice().unwrap(), &[1.0, 2.0, 3.0]);
         assert_eq!(loaded_state_dict.get_metadata("version"), Some(&"1.0".to_string()));
     }
 
