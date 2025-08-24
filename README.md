@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-519%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-625%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 [![Matrix](https://img.shields.io/badge/matrix%20decomposition-SVD%2FQIR%2FLU%2FEig-blueviolet.svg)](#matrix-decomposition) 
 [![GPU](https://img.shields.io/badge/GPU-CUDA%2FMetal%2FOpenCL-blue.svg)](#gpu-acceleration)
@@ -33,8 +33,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **柔軟なインデックス**: 選択操作、スライシング、高度なテンソル操作
 - 🧮 **Mathematical Functions**: Trigonometric, exponential, power, and activation functions  
   **数学関数**: 三角関数、指数関数、べき乗、活性化関数
-- 🎲 **Special Mathematical Functions**: Gamma, Bessel, error functions with PyTorch compatibility  
-  **特殊数学関数**: PyTorch互換のガンマ、ベッセル、誤差関数
+- 🎲 **Special Mathematical Functions**: Gamma, Bessel, error functions with high precision and PyTorch compatibility  
+  **特殊数学関数**: 高精度でPyTorch互換のガンマ、ベッセル、誤差関数
 - 📊 **Statistical Distributions**: Complete probability distributions (Normal, Gamma, Beta, etc.)  
   **統計分布**: 完全な確率分布（正規、ガンマ、ベータ等）
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation  
