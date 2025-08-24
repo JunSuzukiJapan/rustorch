@@ -65,6 +65,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **WebAssemblyサポート**: クライアントサイドML向けブラウザ互換WASMバインディング
 - 🧮 **Matrix Decomposition**: Complete SVD, QR, LU decomposition and eigenvalue solver with PyTorch compatibility  
   **行列分解**: PyTorch互換の完全なSVD、QR、LU分解と固有値求解
+- 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility  
+  **モデル形式サポート**: Safetensors、ONNX推論、PyTorchステートディクト互換
 - ✅ **Production Ready**: 629 tests passing (99.2% success rate), fully functional library with broadcasting support  
   **本番環境対応**: 629個テスト合格(99.2%成功率)、ブロードキャスト対応完全機能ライブラリ
 
@@ -76,13 +78,17 @@ Add this to your `Cargo.toml`:
 [dependencies]
 rustorch = "0.3.21"
 
-# For GPU acceleration (optional)
+# Optional features
 [features]
-default = []
+default = ["linalg"]
+linalg = ["rustorch/linalg"]
 cuda = ["rustorch/cuda"]
 metal = ["rustorch/metal"] 
 opencl = ["rustorch/opencl"]
+safetensors = ["rustorch/safetensors"]
+onnx = ["rustorch/onnx"]
 all-gpu = ["cuda", "metal", "opencl"]
+all-formats = ["safetensors", "onnx"]
 ```
 
 ## 📊 Performance / パフォーマンス
@@ -739,6 +745,8 @@ Comprehensive examples in the [examples/](examples/) directory:
   - [attention_demo.rs](examples/attention_demo.rs) - Multi-head attention mechanisms
 - **Special Functions / 特殊関数**:
   - [special_functions_demo.rs](examples/special_functions_demo.rs) - Gamma, Bessel, error functions demonstration
+- **Model Formats / モデル形式**:
+  - [model_formats_demo.rs](examples/model_formats_demo.rs) - Safetensors, ONNX, PyTorch compatibility demonstration
 - **Performance Optimization / パフォーマンス最適化**:
   - [parallel_operations_demo.rs](examples/parallel_operations_demo.rs) - Parallel tensor operations with trait-based system
   - [memory_optimization_demo.rs](examples/memory_optimization_demo.rs) - Advanced memory optimization strategies

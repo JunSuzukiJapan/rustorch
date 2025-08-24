@@ -219,6 +219,7 @@ pub mod visualization;
 /// Computer vision module providing image transforms, data augmentation, and built-in datasets
 /// 画像変換、データ拡張、組み込みデータセットを提供するコンピュータビジョンモジュール
 pub mod vision;
+pub mod formats;
 /// Statistical distributions module providing PyTorch-compatible probability distributions
 /// PyTorch互換の確率分布を提供する統計分布モジュール
 pub mod distributions;
