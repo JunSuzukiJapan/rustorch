@@ -255,10 +255,10 @@ pub fn erfcinv_scalar<T: Float>(x: T) -> Result<T, RusTorchError> {
     // Check domain: 0 < x < 2
     if x_f64 <= 0.0 || x_f64 >= 2.0 {
         if x_f64 == 0.0 {
-            return T::from(f64::INFINITY).ok_or(RusTorchError::OverflowError);
+            return T::from(f64::INFINITY).ok_or(RusTorchError::OverflowError("Overflow at erfcinv(0)"));
         }
         if x_f64 == 2.0 {
-            return T::from(-f64::INFINITY).ok_or(RusTorchError::OverflowError);
+            return T::from(-f64::INFINITY).ok_or(RusTorchError::OverflowError("Overflow at erfcinv(2)"));
         }
         return Err(RusTorchError::DomainError(
             format!("erfcinv undefined for x <= 0 or x >= 2, got x = {}", x_f64),

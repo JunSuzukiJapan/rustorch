@@ -68,7 +68,8 @@ impl SafeNumeric for f32 {
     fn safe_exp(&self) -> RusTorchResult<Self> {
         // Check for potential overflow before computing
         if *self > 88.0 {  // exp(88) is close to f32::MAX
-            Err(RusTorchError::numeric("Numeric overflow"))        }
+            return Err(RusTorchError::numeric("Numeric overflow"));
+        }
         
         let result = self.exp();
         if result.is_finite() {

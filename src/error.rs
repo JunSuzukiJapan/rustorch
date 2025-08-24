@@ -481,6 +481,48 @@ impl RusTorchError {
     pub fn ConfigurationError(message: impl Into<String>) -> Self {
         RusTorchError::invalid_params("config", format!("Configuration error: {}", message.into()))
     }
+    
+    // === Broadcasting and Shape Operations ===
+    /// Create incompatible shapes error
+    pub fn IncompatibleShapes(message: impl Into<String>) -> Self {
+        RusTorchError::shape_mismatch(&[], &[])
+    }
+    
+    /// Create invalid dimension error
+    pub fn InvalidDimension(message: impl Into<String>) -> Self {
+        RusTorchError::InvalidDimensions(message)
+    }
+    
+    /// Create reshape error
+    pub fn ReshapeError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Reshape error: {}", message.into()), source: None }
+    }
+    
+    /// Create not singleton dimension error
+    pub fn NotSingletonDimension(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Not singleton dimension: {}", message.into()), source: None }
+    }
+    
+    /// Create mismatched dimensions error
+    pub fn MismatchedDimensions(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Mismatched dimensions: {}", message.into()), source: None }
+    }
+    
+    /// Create computation error
+    pub fn ComputationError(message: impl Into<String>) -> Self {
+        RusTorchError::TensorOp { message: format!("Computation error: {}", message.into()), source: None }
+    }
+    
+    // === Additional Missing Functions ===
+    /// Create config error
+    pub fn ConfigError(message: impl Into<String>) -> Self {
+        RusTorchError::invalid_params("config", message)
+    }
+    
+    /// Create invalid image shape error
+    pub fn InvalidImageShape(message: impl Into<String>) -> Self {
+        RusTorchError::invalid_image_shape(&[])
+    }
 }
 
 // All individual From implementations removed - using unified RusTorchError only
