@@ -179,6 +179,9 @@ pub mod optim;
 /// Performance profiler
 /// パフォーマンスプロファイラー
 pub mod profiler;
+/// TensorBoard integration
+/// TensorBoard統合
+pub mod tensorboard;
 /// Automatic Mixed Precision (AMP) training support
 /// 自動混合精度(AMP)学習サポート
 pub mod amp;
