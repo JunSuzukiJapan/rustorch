@@ -128,6 +128,9 @@ pub mod kernels;
 /// GPU memory management and allocation
 /// GPUメモリ管理とアロケーション
 pub mod memory;
+/// GPU memory transfer operations
+/// GPUメモリ転送操作
+pub mod memory_transfer;
 pub mod metal_kernels;
 pub mod opencl_kernels;
 /// Unified kernel interface for cross-platform GPU acceleration (simplified)

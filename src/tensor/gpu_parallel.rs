@@ -411,53 +411,28 @@ where
     }
 
     fn to_device(&self, device: DeviceType) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::memory_transfer::GpuMemoryManager;
+        
         match device {
             DeviceType::Cpu => {
                 // すでにCPU上にある場合はクローンを返す
                 Ok(self.clone())
             }
-            DeviceType::Cuda(_) => {
-                #[cfg(feature = "cuda")]
-                {
-                    // CUDA転送実装
-                    // TODO: CUDA memory transfer
-                    Ok(self.clone())
-                }
-                #[cfg(not(feature = "cuda"))]
-                {
-                    Err(RusTorchError::gpu("CUDA support not compiled"))
-                }
-            }
-            DeviceType::Metal(_) => {
-                #[cfg(feature = "metal")]
-                {
-                    // Metal転送実装
-                    // TODO: Metal buffer transfer
-                    Ok(self.clone())
-                }
-                #[cfg(not(feature = "metal"))]
-                {
-                    Err(RusTorchError::gpu("Metal support not compiled"))
-                }
-            }
-            DeviceType::OpenCL(_) => {
-                #[cfg(feature = "opencl")]
-                {
-                    // OpenCL転送実装
-                    // TODO: OpenCL buffer transfer
-                    Ok(self.clone())
-                }
-                #[cfg(not(feature = "opencl"))]
-                {
-                    Err(RusTorchError::gpu("OpenCL support not compiled"))
-                }
+            _ => {
+                // GPU転送処理
+                let gpu_buffer = GpuMemoryManager::to_device(self, &device)?;
+                
+                // For now, immediately transfer back to CPU tensor
+                // In future, we'll maintain GPU buffer and track device location
+                GpuMemoryManager::to_cpu(&gpu_buffer, self.shape())
             }
         }
     }
 
     fn to_cpu(&self) -> ParallelResult<Tensor<T>> {
         // GPU上のデータをCPUに転送
-        // TODO: 実際のGPU->CPU転送実装
+        // In future implementation, this will check if tensor is on GPU
+        // and transfer it back. For now, just return clone.
         Ok(self.clone())
     }
 }
