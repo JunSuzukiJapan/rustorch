@@ -12,7 +12,6 @@ use crate::error::RusTorchResult;
 use crate::tensor::Tensor;
 use std::any::Any;
 use std::collections::HashMap;
-// use std::sync::Arc; // Unused
 
 /// Device types available for computation
 /// 計算に利用可能なデバイス種別

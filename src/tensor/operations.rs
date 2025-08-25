@@ -26,21 +26,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         Tensor::from_vec(data, shape.to_vec())
     }
 
-    /// Get the batch size (first dimension)
-    /// バッチサイズを取得（最初の次元）
-    pub fn batch_size_legacy(&self) -> usize {
-        self.shape().get(0).copied().unwrap_or(1)
-    }
 
-    /// Apply function to each element
-    /// 各要素に関数を適用
-    pub fn map_legacy<F>(&self, f: F) -> Tensor<T>
-    where
-        F: Fn(T) -> T,
-    {
-        let mapped_data: Vec<T> = self.data.iter().map(|&x| f(x)).collect();
-        Tensor::from_vec(mapped_data, self.shape().to_vec())
-    }
 
     /// Element-wise maximum with another tensor
     /// 別のテンソルとの要素ごとの最大値
@@ -446,50 +432,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
     }
 
-    /// Transpose the tensor's last two dimensions.
-    /// テンソルの最後の2次元を転置
-    pub fn transpose_last_two_legacy(&self) -> Result<Self, String> {
-        if self.ndim() < 2 {
-            return Err("transpose_last_two requires at least 2D tensor".to_string());
-        }
-
-        let mut new_shape = self.shape().to_vec();
-        let last = new_shape.len() - 1;
-        let second_last = new_shape.len() - 2;
-        new_shape.swap(second_last, last);
-
-        let mut new_data = vec![T::zero(); self.data.len()];
-
-        // For 2D case, use simple transpose
-        if self.ndim() == 2 {
-            let rows = self.shape()[0];
-            let cols = self.shape()[1];
-            for i in 0..rows {
-                for j in 0..cols {
-                    let src_idx = i * cols + j;
-                    let dst_idx = j * rows + i;
-                    new_data[dst_idx] = self.data.as_slice().unwrap_or(&[])[src_idx];
-                }
-            }
-        } else {
-            // For higher dimensions, transpose only last two
-            let total_batches: usize = self.shape().iter().take(self.ndim() - 2).product();
-            let rows = self.shape()[self.ndim() - 2];
-            let cols = self.shape()[self.ndim() - 1];
-
-            for batch in 0..total_batches {
-                for i in 0..rows {
-                    for j in 0..cols {
-                        let src_idx = batch * rows * cols + i * cols + j;
-                        let dst_idx = batch * rows * cols + j * rows + i;
-                        new_data[dst_idx] = self.data.as_slice().unwrap_or(&[])[src_idx];
-                    }
-                }
-            }
-        }
-
-        Ok(Tensor::from_vec(new_data, new_shape))
-    }
 
     /// Transpose the tensor (swap last two dimensions).
     /// テンソルの転置（最後の2次元を入れ替え）
@@ -523,17 +465,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         sum / count
     }
 
-    /// Get a single scalar value from a tensor (must contain exactly one element)
-    /// テンソルから単一のスカラー値を取得（テンソルは正確に1つの要素を含む必要がある）
-    pub fn item_legacy(&self) -> T {
-        if self.numel() != 1 {
-            panic!(
-                "Tensor must contain exactly one element to call item(), but it contains {}",
-                self.numel()
-            );
-        }
-        self.as_array().iter().next().unwrap().clone()
-    }
 
     /// Singular Value Decomposition (SVD)
     /// 特異値分解 - torch.svd compatible
@@ -1357,23 +1288,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         self.map(|x| x.powf(exponent))
     }
 
-    /// Maximum value of the tensor.
-    /// テンソルの最大値
-    pub fn max_legacy(&self) -> Option<T> {
-        self.as_slice()?
-            .iter()
-            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .copied()
-    }
-
-    /// Minimum value of the tensor.
-    /// テンソルの最小値
-    pub fn min_legacy(&self) -> Option<T> {
-        self.as_slice()?
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            .copied()
-    }
 }
 
 // Operator overloading for tensors

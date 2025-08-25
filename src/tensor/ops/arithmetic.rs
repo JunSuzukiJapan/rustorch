@@ -4,7 +4,6 @@
 use super::super::core::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
-// use ndarray::Array; // Unused currently
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     /// Element-wise addition with another tensor (new implementation)

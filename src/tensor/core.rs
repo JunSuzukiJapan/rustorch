@@ -151,9 +151,10 @@ impl<T: Float + 'static> Tensor<T> {
         ))
     }
 
-    /// Reshapes the tensor to the given shape (legacy).
-    /// テンソルを指定された形状に変形します。（旧実装）
-    pub fn reshape_legacy(&self, shape: &[usize]) -> Result<Self, String> {
+
+    /// Creates a view into the tensor.
+    /// テンソルのビューを作成します。
+    pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
         let total_elements = self.data.len();
         let new_total_elements: usize = shape.iter().product();
 
@@ -166,14 +167,8 @@ impl<T: Float + 'static> Tensor<T> {
 
         match self.data.clone().into_shape_with_order(IxDyn(shape)) {
             Ok(reshaped) => Ok(Tensor::new(reshaped)),
-            Err(e) => Err(format!("Reshape failed: {}", e)),
+            Err(e) => Err(format!("View failed: {}", e)),
         }
-    }
-
-    /// Creates a view into the tensor.
-    /// テンソルのビューを作成します。
-    pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
-        self.reshape_legacy(shape)
     }
 
     /// Flattens the tensor to 1D.

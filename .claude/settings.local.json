@@ -143,7 +143,12 @@
       "Bash(timeout 60s cargo check --features \"linalg-netlib,cuda\" --lib)",
       "Bash(timeout 60s cargo check --features \"linalg-netlib,opencl,mpi,wasm,model-import,safetensors,onnx\" --lib)",
       "Bash(timeout 60s cargo check --features \"linalg-netlib,opencl,wasm,model-import,safetensors,onnx\" --lib)",
-      "Bash(timeout 60s cargo test --features \"linalg-netlib\" --lib)"
+      "Bash(timeout 60s cargo test --features \"linalg-netlib\" --lib)",
+      "Bash(/sc:load)",
+      "Bash(timeout 60s cargo test tensor::core::tests --lib --no-default-features)",
+      "Bash(timeout 60s cargo test --lib --no-default-features -- --list)",
+      "Bash(timeout 60s cargo test --lib --no-default-features autograd::tests::test_basic_operations)",
+      "mcp__sequential-thinking__sequentialthinking"
     ],
     "deny": [],
     "ask": [],

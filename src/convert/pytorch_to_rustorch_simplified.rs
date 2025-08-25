@@ -3,8 +3,6 @@
 
 use crate::formats::pytorch::{PyTorchModel, StateDict};
 use crate::tensor::Tensor;
-// use crate::error::{RusTorchError, RusTorchResult}; // Currently unused in simplified version
-// use num_traits::Float; // Unused import
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
