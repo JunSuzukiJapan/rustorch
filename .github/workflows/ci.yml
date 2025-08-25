@@ -125,10 +125,10 @@ jobs:
 
       - name: Install audit tools
         run: |
-          cargo install cargo-deny
-          cargo install cargo-license
-          cargo install cargo-outdated
-          cargo install cargo-audit
+          cargo install cargo-deny --locked
+          cargo install cargo-license --locked
+          cargo install cargo-outdated --locked
+          cargo install cargo-audit --locked
           
       - name: Check licenses
         run: |
@@ -155,8 +155,10 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         
-      - name: Install cargo-license
-        run: cargo install cargo-license
+      - name: Install license checking tools
+        run: |
+          cargo install cargo-license --locked
+          cargo install cargo-deny --locked
         
       - name: Generate license report
         run: |
