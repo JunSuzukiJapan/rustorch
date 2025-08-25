@@ -141,7 +141,7 @@ impl MemoryBlock {
             .read(true)
             .write(true)
             .open("/dev/zero")
-            .map_err(|e| RusTorchError::io(&format!("Failed to open /dev/zero: {}", e)))?;
+            .map_err(|e| RusTorchError::IO(e))?;
 
         unsafe {
             let ptr = libc::mmap(
@@ -371,12 +371,16 @@ impl AdvancedMemoryPool {
     /// Optimize memory layout for NUMA
     /// NUMA用のメモリレイアウト最適化
     pub fn optimize_for_numa(&self) -> ParallelResult<()> {
-        if let Some(_node) = self.numa_node {
+        if let Some(node) = self.numa_node {
             // Bind memory allocations to specific NUMA node
             // メモリ割り当てを特定のNUMAノードにバインド
             #[cfg(target_os = "linux")]
             {
                 self.set_numa_policy(node)?;
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                let _ = node; // Suppress unused variable warning on non-Linux platforms
             }
         }
         Ok(())
@@ -504,7 +508,7 @@ impl AdvancedMemoryPool {
     }
 
     #[cfg(target_os = "linux")]
-    fn set_numa_policy(&self, node: u32) -> ParallelResult<()> {
+    fn set_numa_policy(&self, _node: u32) -> ParallelResult<()> {
         // Simplified NUMA policy setting
         // 簡略化されたNUMAポリシー設定
         Ok(())

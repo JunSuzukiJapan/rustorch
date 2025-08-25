@@ -1743,6 +1743,7 @@ dependencies = [
  "instant",
  "js-sys",
  "lazy_static",
+ "libc",
  "memmap2",
  "metal",
  "mpi",

@@ -49,6 +49,7 @@ serde_json = "1.0"
 approx = "0.5"
 lazy_static = "1.4"
 parking_lot = "0.12"
+libc = "0.2"
 # hostname moved to non-WASM targets
 crc32fast = "1.4"
 tempfile = { version = "3.0", optional = true }
