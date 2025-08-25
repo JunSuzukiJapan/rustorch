@@ -11,9 +11,24 @@ mod wasm_tests {
         let shape = vec![2, 2];
         let tensor = tensor::WasmTensor::new(data.clone(), shape.clone());
         
-        assert_eq!(tensor.shape(), &shape, "Expected shape {:?}, got {:?}", shape, tensor.shape());
-        assert_eq!(tensor.data(), &data, "Tensor data does not match input data");
-        assert_eq!(tensor.numel(), 4, "Expected 4 elements, got {}", tensor.numel());
+        assert_eq!(
+            tensor.shape(),
+            &shape,
+            "Expected shape {:?}, got {:?}",
+            shape,
+            tensor.shape()
+        );
+        assert_eq!(
+            tensor.data(),
+            &data,
+            "Tensor data does not match input data"
+        );
+        assert_eq!(
+            tensor.numel(),
+            4,
+            "Expected 4 elements, got {}",
+            tensor.numel()
+        );
     }
 
     #[wasm_bindgen_test]
@@ -22,16 +37,28 @@ mod wasm_tests {
         let b = tensor::WasmTensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
         
         let sum = a.add(&b).expect("Addition failed");
-        assert_eq!(sum.data(), &vec![6.0, 8.0, 10.0, 12.0], 
-                 "Addition result incorrect. Expected [6,8,10,12], got {:?}", sum.data());
+        assert_eq!(
+            sum.data(),
+            &vec![6.0, 8.0, 10.0, 12.0],
+            "Addition result incorrect. Expected [6,8,10,12], got {:?}",
+            sum.data()
+        );
         
         let diff = b.sub(&a).expect("Subtraction failed");
-        assert_eq!(diff.data(), &vec![4.0, 4.0, 4.0, 4.0],
-                 "Subtraction result incorrect. Expected [4,4,4,4], got {:?}", diff.data());
+        assert_eq!(
+            diff.data(),
+            &vec![4.0, 4.0, 4.0, 4.0],
+            "Subtraction result incorrect. Expected [4,4,4,4], got {:?}",
+            diff.data()
+        );
         
         let prod = a.mul(&b).expect("Multiplication failed");
-        assert_eq!(prod.data(), &vec![5.0, 12.0, 21.0, 32.0],
-                 "Multiplication result incorrect. Expected [5,12,21,32], got {:?}", prod.data());
+        assert_eq!(
+            prod.data(),
+            &vec![5.0, 12.0, 21.0, 32.0],
+            "Multiplication result incorrect. Expected [5,12,21,32], got {:?}",
+            prod.data()
+        );
     }
 
     #[wasm_bindgen_test]
@@ -40,10 +67,18 @@ mod wasm_tests {
         let b = tensor::WasmTensor::new(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
         
         let result = a.matmul(&b).expect("Matrix multiplication failed");
-        assert_eq!(result.shape(), &vec![2, 2], 
-                 "Result shape should be [2,2], got {:?}", result.shape());
-        assert_eq!(result.data(), &vec![19.0, 22.0, 43.0, 50.0],
-                 "Matrix multiplication result incorrect. Expected [19,22,43,50], got {:?}", result.data());
+        assert_eq!(
+            result.shape(),
+            &vec![2, 2],
+            "Result shape should be [2,2], got {:?}",
+            result.shape()
+        );
+        assert_eq!(
+            result.data(),
+            &vec![19.0, 22.0, 43.0, 50.0],
+            "Matrix multiplication result incorrect. Expected [19,22,43,50], got {:?}",
+            result.data()
+        );
     }
 
     #[wasm_bindgen_test]
@@ -54,8 +89,14 @@ mod wasm_tests {
         );
         
         let transposed = tensor.transpose().expect("Transpose failed");
-        assert_eq!(transposed.shape(), &vec![3, 2]);
-        assert_eq!(transposed.data(), &vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+        assert_eq!(
+            transposed.shape(),
+            &vec![3, 2]
+        );
+        assert_eq!(
+            transposed.data(),
+            &vec![1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
+        );
     }
 
     #[wasm_bindgen_test]
@@ -120,7 +161,10 @@ mod wasm_tests {
         let input = tensor::WasmTensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![1, 4]);
         
         let output = layer.forward(&input);
-        assert_eq!(output.shape(), &vec![1, 2]);
+        assert_eq!(
+            output.shape(),
+            &vec![1, 2]
+        );
     }
 
     #[wasm_bindgen_test]
@@ -133,7 +177,10 @@ mod wasm_tests {
         
         let output = relu.forward(&input);
         let expected = vec![0.0, 0.0, 0.0, 1.0, 2.0];
-        assert_eq!(output.data(), &expected);
+        assert_eq!(
+            output.data(),
+            &expected
+        );
     }
 
     #[wasm_bindgen_test]
