@@ -1,6 +1,5 @@
 /// GPU device management and capabilities
 /// GPUデバイス管理と機能
-
 use super::DeviceType;
 use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
@@ -10,31 +9,31 @@ use std::sync::Arc;
 pub trait GpuDevice: Send + Sync {
     /// Get device ID
     fn id(&self) -> usize;
-    
+
     /// Get device name
     fn name(&self) -> String;
-    
+
     /// Get device type
     fn device_type(&self) -> String;
-    
+
     /// Check if device is available
     fn is_available(&self) -> bool;
-    
+
     /// Get total memory in bytes
     fn total_memory(&self) -> usize;
-    
+
     /// Get allocated memory in bytes
     fn allocated_memory(&self) -> usize;
-    
+
     /// Get compute capability (for CUDA)
     fn compute_capability(&self) -> Option<(u32, u32)>;
-    
+
     /// Check if device is CPU
     fn is_cpu(&self) -> bool;
-    
+
     /// Synchronize device
     fn synchronize(&self);
-    
+
     /// Create a stream for asynchronous operations
     fn create_stream(&self) -> Arc<dyn GpuStream>;
 }
@@ -43,7 +42,7 @@ pub trait GpuDevice: Send + Sync {
 pub trait GpuStream: Send + Sync {
     /// Synchronize this stream
     fn synchronize(&self);
-    
+
     /// Get stream ID
     fn id(&self) -> usize;
 }
@@ -57,10 +56,10 @@ impl GpuBackend {
     /// Create new GPU backend
     pub fn new() -> Self {
         let mut devices: Vec<Arc<dyn GpuDevice>> = Vec::new();
-        
+
         // Always add CPU device
         devices.push(Arc::new(CpuDevice::new()));
-        
+
         #[cfg(feature = "cuda")]
         {
             // Add CUDA devices
@@ -70,7 +69,7 @@ impl GpuBackend {
                 }
             }
         }
-        
+
         #[cfg(feature = "metal")]
         {
             // Add Metal device
@@ -78,7 +77,7 @@ impl GpuBackend {
                 devices.push(Arc::new(device));
             }
         }
-        
+
         #[cfg(feature = "opencl")]
         {
             // Add OpenCL devices
@@ -88,34 +87,30 @@ impl GpuBackend {
                 }
             }
         }
-        
+
         Self { devices }
     }
-    
+
     /// List all available devices
     pub fn list_devices(&self) -> &[Arc<dyn GpuDevice>] {
         &self.devices
     }
-    
+
     /// Get device by ID
     pub fn get_device(&self, id: usize) -> Option<&Arc<dyn GpuDevice>> {
         self.devices.get(id)
     }
-    
+
     #[cfg(feature = "cuda")]
     fn get_cuda_device_count() -> usize {
         // Try to detect CUDA devices
-        (0..8).filter(|&i| {
-            CudaDevice::new(i).is_ok()
-        }).count()
+        (0..8).filter(|&i| CudaDevice::new(i).is_ok()).count()
     }
-    
+
     #[cfg(feature = "opencl")]
     fn get_opencl_device_count() -> usize {
         // Try to detect OpenCL devices
-        (0..8).filter(|&i| {
-            OpenCLDevice::new(0, i).is_ok()
-        }).count()
+        (0..8).filter(|&i| OpenCLDevice::new(0, i).is_ok()).count()
     }
 }
 
@@ -143,40 +138,40 @@ impl GpuDevice for CpuDevice {
     fn id(&self) -> usize {
         self.id
     }
-    
+
     fn name(&self) -> String {
         "CPU".to_string()
     }
-    
+
     fn device_type(&self) -> String {
         "cpu".to_string()
     }
-    
+
     fn is_available(&self) -> bool {
         true
     }
-    
+
     fn total_memory(&self) -> usize {
         // Return system memory in bytes (rough estimate)
         8 * 1024 * 1024 * 1024 // 8GB
     }
-    
+
     fn allocated_memory(&self) -> usize {
         0 // CPU memory is managed by OS
     }
-    
+
     fn compute_capability(&self) -> Option<(u32, u32)> {
         None
     }
-    
+
     fn is_cpu(&self) -> bool {
         true
     }
-    
+
     fn synchronize(&self) {
         // CPU operations are synchronous
     }
-    
+
     fn create_stream(&self) -> Arc<dyn GpuStream> {
         Arc::new(CpuStream::new())
     }
@@ -198,7 +193,7 @@ impl GpuStream for CpuStream {
     fn synchronize(&self) {
         // CPU operations are synchronous
     }
-    
+
     fn id(&self) -> usize {
         0
     }
@@ -232,40 +227,40 @@ impl GpuDevice for CudaDevice {
     fn id(&self) -> usize {
         self.device_id
     }
-    
+
     fn name(&self) -> String {
         self.name.clone()
     }
-    
+
     fn device_type(&self) -> String {
         "cuda".to_string()
     }
-    
+
     fn is_available(&self) -> bool {
         true
     }
-    
+
     fn total_memory(&self) -> usize {
         self.total_memory
     }
-    
+
     fn allocated_memory(&self) -> usize {
         // Mock allocated memory
         1024 * 1024 * 1024 // 1GB
     }
-    
+
     fn compute_capability(&self) -> Option<(u32, u32)> {
         Some(self.compute_capability)
     }
-    
+
     fn is_cpu(&self) -> bool {
         false
     }
-    
+
     fn synchronize(&self) {
         // Mock CUDA synchronization
     }
-    
+
     fn create_stream(&self) -> Arc<dyn GpuStream> {
         Arc::new(CudaStream::new())
     }
@@ -287,7 +282,7 @@ impl GpuStream for CudaStream {
     fn synchronize(&self) {
         // Mock CUDA stream synchronization
     }
-    
+
     fn id(&self) -> usize {
         1
     }
@@ -315,40 +310,40 @@ impl GpuDevice for MetalDevice {
     fn id(&self) -> usize {
         0
     }
-    
+
     fn name(&self) -> String {
         self.name.clone()
     }
-    
+
     fn device_type(&self) -> String {
         "metal".to_string()
     }
-    
+
     fn is_available(&self) -> bool {
         cfg!(target_os = "macos")
     }
-    
+
     fn total_memory(&self) -> usize {
         self.total_memory
     }
-    
+
     fn allocated_memory(&self) -> usize {
         // Mock allocated memory
         2 * 1024 * 1024 * 1024 // 2GB
     }
-    
+
     fn compute_capability(&self) -> Option<(u32, u32)> {
         None
     }
-    
+
     fn is_cpu(&self) -> bool {
         false
     }
-    
+
     fn synchronize(&self) {
         // Mock Metal synchronization
     }
-    
+
     fn create_stream(&self) -> Arc<dyn GpuStream> {
         Arc::new(MetalStream::new())
     }
@@ -370,7 +365,7 @@ impl GpuStream for MetalStream {
     fn synchronize(&self) {
         // Mock Metal stream synchronization
     }
-    
+
     fn id(&self) -> usize {
         2
     }
@@ -402,40 +397,40 @@ impl GpuDevice for OpenCLDevice {
     fn id(&self) -> usize {
         self.device_id
     }
-    
+
     fn name(&self) -> String {
         self.name.clone()
     }
-    
+
     fn device_type(&self) -> String {
         "opencl".to_string()
     }
-    
+
     fn is_available(&self) -> bool {
         true
     }
-    
+
     fn total_memory(&self) -> usize {
         self.total_memory
     }
-    
+
     fn allocated_memory(&self) -> usize {
         // Mock allocated memory
         512 * 1024 * 1024 // 512MB
     }
-    
+
     fn compute_capability(&self) -> Option<(u32, u32)> {
         None
     }
-    
+
     fn is_cpu(&self) -> bool {
         false
     }
-    
+
     fn synchronize(&self) {
         // Mock OpenCL synchronization
     }
-    
+
     fn create_stream(&self) -> Arc<dyn GpuStream> {
         Arc::new(OpenCLStream::new())
     }
@@ -457,7 +452,7 @@ impl GpuStream for OpenCLStream {
     fn synchronize(&self) {
         // Mock OpenCL stream synchronization
     }
-    
+
     fn id(&self) -> usize {
         3
     }
@@ -596,7 +591,7 @@ impl DeviceInfo {
                 max_block_dims: [1024, 1024, 1024],
                 max_grid_dims: [65535, 65535, 65535],
                 shared_memory_per_block: 32768,
-                warp_size: 32, // SIMD group size
+                warp_size: 32,          // SIMD group size
                 supports_double: false, // Metal typically uses float
                 supports_half: true,
                 supports_tensor_cores: false,
@@ -668,10 +663,14 @@ impl DeviceInfo {
 
     /// Get optimal grid size for given problem size and block size
     /// 指定された問題サイズとブロックサイズに対する最適グリッドサイズを取得
-    pub fn optimal_grid_size(&self, problem_size: usize, block_size: (u32, u32, u32)) -> (u32, u32, u32) {
+    pub fn optimal_grid_size(
+        &self,
+        problem_size: usize,
+        block_size: (u32, u32, u32),
+    ) -> (u32, u32, u32) {
         let total_threads = block_size.0 * block_size.1 * block_size.2;
         let num_blocks = ((problem_size as u32 + total_threads - 1) / total_threads).max(1);
-        
+
         match self.device_type {
             DeviceType::Cpu => (1, 1, 1),
             _ => {
@@ -733,7 +732,9 @@ impl DeviceRegistry {
         {
             for device_id in 0..Self::get_cuda_device_count() {
                 if let Ok(device_info) = DeviceInfo::cuda(device_id) {
-                    registry.devices.insert(DeviceType::Cuda(device_id), device_info);
+                    registry
+                        .devices
+                        .insert(DeviceType::Cuda(device_id), device_info);
                 }
             }
         }
@@ -849,7 +850,7 @@ mod tests {
     fn test_device_registry() {
         let registry = DeviceRegistry::new();
         assert!(registry.get_device(DeviceType::Cpu).is_some());
-        
+
         let devices = registry.list_devices();
         assert!(!devices.is_empty());
         assert!(devices.contains(&DeviceType::Cpu));
@@ -858,11 +859,11 @@ mod tests {
     #[test]
     fn test_best_device_selection() {
         let registry = DeviceRegistry::new();
-        
+
         // Small data should prefer CPU
         let device = registry.best_device_for_operation("matmul", 100);
         assert_eq!(device, DeviceType::Cpu);
-        
+
         // Large data should prefer GPU if available
         let device = registry.best_device_for_operation("matmul", 1000000);
         // Will be CPU since no GPU is actually available in test

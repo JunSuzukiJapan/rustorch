@@ -21,11 +21,11 @@ pub enum ParsingError {
     MissingConnection(String),
     /// Incompatible layer dimensions
     /// 互換性のないレイヤー次元
-    IncompatibleDimensions { 
+    IncompatibleDimensions {
         /// First layer name
-        layer1: String, 
+        layer1: String,
         /// Second layer name
-        layer2: String 
+        layer2: String,
     },
 }
 
@@ -35,8 +35,11 @@ impl fmt::Display for ParsingError {
             ParsingError::InvalidArchitecture(msg) => write!(f, "Invalid architecture: {}", msg),
             ParsingError::CircularDependency(msg) => write!(f, "Circular dependency: {}", msg),
             ParsingError::MissingConnection(msg) => write!(f, "Missing connection: {}", msg),
-            ParsingError::IncompatibleDimensions { layer1, layer2 } => 
-                write!(f, "Incompatible dimensions between {} and {}", layer1, layer2),
+            ParsingError::IncompatibleDimensions { layer1, layer2 } => write!(
+                f,
+                "Incompatible dimensions between {} and {}",
+                layer1, layer2
+            ),
         }
     }
 }
@@ -73,19 +76,19 @@ pub struct LayerInfo {
 pub enum LayerType {
     /// Linear/Dense layer
     /// Linear/Denseレイヤー
-    Linear { 
+    Linear {
         /// Input features
-        in_features: usize, 
+        in_features: usize,
         /// Output features
-        out_features: usize 
+        out_features: usize,
     },
     /// 2D Convolution layer
     /// 2D畳み込みレイヤー
-    Conv2d { 
+    Conv2d {
         /// Input channels
-        in_channels: usize, 
+        in_channels: usize,
         /// Output channels
-        out_channels: usize, 
+        out_channels: usize,
         /// Kernel size
         kernel_size: (usize, usize),
         /// Stride
@@ -95,34 +98,34 @@ pub enum LayerType {
     },
     /// 2D Batch Normalization
     /// 2Dバッチ正規化
-    BatchNorm2d { 
+    BatchNorm2d {
         /// Number of features
-        num_features: usize 
+        num_features: usize,
     },
     /// ReLU activation
     /// ReLU活性化
     ReLU,
     /// Dropout layer
     /// Dropoutレイヤー
-    Dropout { 
+    Dropout {
         /// Dropout probability
-        p: f64 
+        p: f64,
     },
     /// 2D Max Pooling
     /// 2D最大プーリング
-    MaxPool2d { 
+    MaxPool2d {
         /// Kernel size
-        kernel_size: (usize, usize), 
+        kernel_size: (usize, usize),
         /// Stride
-        stride: (usize, usize) 
+        stride: (usize, usize),
     },
     /// 2D Average Pooling
     /// 2D平均プーリング
-    AvgPool2d { 
+    AvgPool2d {
         /// Kernel size
-        kernel_size: (usize, usize), 
+        kernel_size: (usize, usize),
         /// Stride
-        stride: (usize, usize) 
+        stride: (usize, usize),
     },
     /// Flatten layer
     /// Flattenレイヤー
@@ -168,7 +171,7 @@ impl ModelParser {
         let mut parser = Self {
             layer_patterns: HashMap::new(),
         };
-        
+
         // Initialize common layer patterns
         parser.init_layer_patterns();
         parser
@@ -179,19 +182,55 @@ impl ModelParser {
     fn init_layer_patterns(&mut self) {
         // Common patterns for different layer types
         let patterns = vec![
-            ("linear", LayerType::Linear { in_features: 0, out_features: 0 }),
-            ("fc", LayerType::Linear { in_features: 0, out_features: 0 }),
-            ("classifier", LayerType::Linear { in_features: 0, out_features: 0 }),
-            ("conv", LayerType::Conv2d { 
-                in_channels: 0, out_channels: 0, 
-                kernel_size: (0, 0), stride: (1, 1), padding: (0, 0) 
-            }),
+            (
+                "linear",
+                LayerType::Linear {
+                    in_features: 0,
+                    out_features: 0,
+                },
+            ),
+            (
+                "fc",
+                LayerType::Linear {
+                    in_features: 0,
+                    out_features: 0,
+                },
+            ),
+            (
+                "classifier",
+                LayerType::Linear {
+                    in_features: 0,
+                    out_features: 0,
+                },
+            ),
+            (
+                "conv",
+                LayerType::Conv2d {
+                    in_channels: 0,
+                    out_channels: 0,
+                    kernel_size: (0, 0),
+                    stride: (1, 1),
+                    padding: (0, 0),
+                },
+            ),
             ("bn", LayerType::BatchNorm2d { num_features: 0 }),
             ("batch_norm", LayerType::BatchNorm2d { num_features: 0 }),
             ("relu", LayerType::ReLU),
             ("dropout", LayerType::Dropout { p: 0.5 }),
-            ("maxpool", LayerType::MaxPool2d { kernel_size: (2, 2), stride: (2, 2) }),
-            ("avgpool", LayerType::AvgPool2d { kernel_size: (2, 2), stride: (2, 2) }),
+            (
+                "maxpool",
+                LayerType::MaxPool2d {
+                    kernel_size: (2, 2),
+                    stride: (2, 2),
+                },
+            ),
+            (
+                "avgpool",
+                LayerType::AvgPool2d {
+                    kernel_size: (2, 2),
+                    stride: (2, 2),
+                },
+            ),
             ("flatten", LayerType::Flatten),
         ];
 
@@ -205,9 +244,10 @@ impl ModelParser {
     pub fn parse_model(&self, pytorch_model: &PyTorchModel) -> Result<ModelGraph, ParsingError> {
         // Extract layer information from state dict
         let layers = self.extract_layers(&pytorch_model.state_dict)?;
-        
+
         // Infer model architecture
-        let (execution_order, connections) = if let Some(architecture) = &pytorch_model.architecture {
+        let (execution_order, connections) = if let Some(architecture) = &pytorch_model.architecture
+        {
             self.parse_explicit_architecture(architecture, &layers)?
         } else {
             self.infer_architecture(&layers)?
@@ -232,16 +272,20 @@ impl ModelParser {
 
     /// Extract layer information from state dictionary
     /// ステートディクショナリからレイヤー情報を抽出
-    fn extract_layers(&self, state_dict: &StateDict) -> Result<HashMap<String, LayerInfo>, ParsingError> {
+    fn extract_layers(
+        &self,
+        state_dict: &StateDict,
+    ) -> Result<HashMap<String, LayerInfo>, ParsingError> {
         let mut layers = HashMap::new();
-        
+
         // Group parameters by layer name
         let mut layer_params: HashMap<String, HashMap<String, &TensorData>> = HashMap::new();
-        
+
         for (param_name, tensor_data) in &state_dict.tensors {
             let (layer_name, param_type) = self.parse_parameter_name(param_name)?;
-            
-            layer_params.entry(layer_name.clone())
+
+            layer_params
+                .entry(layer_name.clone())
                 .or_insert_with(HashMap::new)
                 .insert(param_type, tensor_data);
         }
@@ -259,16 +303,17 @@ impl ModelParser {
     /// パラメータ名を解析してレイヤー名とパラメータタイプを抽出
     fn parse_parameter_name(&self, param_name: &str) -> Result<(String, String), ParsingError> {
         let parts: Vec<&str> = param_name.split('.').collect();
-        
+
         if parts.len() < 2 {
-            return Err(ParsingError::InvalidArchitecture(
-                format!("Invalid parameter name format: {}", param_name)
-            ));
+            return Err(ParsingError::InvalidArchitecture(format!(
+                "Invalid parameter name format: {}",
+                param_name
+            )));
         }
 
         let param_type = parts.last().unwrap().to_string();
-        let layer_name = parts[..parts.len()-1].join(".");
-        
+        let layer_name = parts[..parts.len() - 1].join(".");
+
         Ok((layer_name, param_type))
     }
 
@@ -277,12 +322,13 @@ impl ModelParser {
     fn create_layer_info(
         &self,
         layer_name: &str,
-        params: &HashMap<String, &TensorData>
+        params: &HashMap<String, &TensorData>,
     ) -> Result<LayerInfo, ParsingError> {
         let layer_type = self.infer_layer_type(layer_name, params)?;
-        
+
         // Calculate total parameters
-        let num_parameters: usize = params.values()
+        let num_parameters: usize = params
+            .values()
             .map(|tensor_data| tensor_data.shape.iter().product::<usize>())
             .sum();
 
@@ -310,7 +356,7 @@ impl ModelParser {
     fn infer_layer_type(
         &self,
         layer_name: &str,
-        params: &HashMap<String, &TensorData>
+        params: &HashMap<String, &TensorData>,
     ) -> Result<LayerType, ParsingError> {
         // Check layer name patterns first
         for (pattern, base_type) in &self.layer_patterns {
@@ -326,8 +372,11 @@ impl ModelParser {
                     // Linear layer
                     let out_features = weight.shape[0];
                     let in_features = weight.shape[1];
-                    Ok(LayerType::Linear { in_features, out_features })
-                },
+                    Ok(LayerType::Linear {
+                        in_features,
+                        out_features,
+                    })
+                }
                 4 => {
                     // Conv2d layer
                     let out_channels = weight.shape[0];
@@ -338,16 +387,19 @@ impl ModelParser {
                         in_channels,
                         out_channels,
                         kernel_size: (kernel_h, kernel_w),
-                        stride: (1, 1), // Default
+                        stride: (1, 1),  // Default
                         padding: (0, 0), // Default
                     })
-                },
+                }
                 1 => {
                     // BatchNorm layer
                     let num_features = weight.shape[0];
                     Ok(LayerType::BatchNorm2d { num_features })
-                },
-                _ => Ok(LayerType::Unknown(format!("weight_shape_{:?}", weight.shape))),
+                }
+                _ => Ok(LayerType::Unknown(format!(
+                    "weight_shape_{:?}",
+                    weight.shape
+                ))),
             }
         } else {
             // No weight parameter - might be activation or pooling
@@ -360,18 +412,26 @@ impl ModelParser {
     fn refine_layer_type(
         &self,
         mut base_type: LayerType,
-        params: &HashMap<String, &TensorData>
+        params: &HashMap<String, &TensorData>,
     ) -> Result<LayerType, ParsingError> {
         match &mut base_type {
-            LayerType::Linear { in_features, out_features } => {
+            LayerType::Linear {
+                in_features,
+                out_features,
+            } => {
                 if let Some(weight) = params.get("weight") {
                     if weight.shape.len() == 2 {
                         *out_features = weight.shape[0];
                         *in_features = weight.shape[1];
                     }
                 }
-            },
-            LayerType::Conv2d { in_channels, out_channels, kernel_size, .. } => {
+            }
+            LayerType::Conv2d {
+                in_channels,
+                out_channels,
+                kernel_size,
+                ..
+            } => {
                 if let Some(weight) = params.get("weight") {
                     if weight.shape.len() == 4 {
                         *out_channels = weight.shape[0];
@@ -379,15 +439,15 @@ impl ModelParser {
                         *kernel_size = (weight.shape[2], weight.shape[3]);
                     }
                 }
-            },
+            }
             LayerType::BatchNorm2d { num_features } => {
                 if let Some(weight) = params.get("weight") {
                     if weight.shape.len() == 1 {
                         *num_features = weight.shape[0];
                     }
                 }
-            },
-            _ => {}, // Other types don't need refinement
+            }
+            _ => {} // Other types don't need refinement
         }
 
         Ok(base_type)
@@ -398,20 +458,25 @@ impl ModelParser {
     fn infer_shapes(
         &self,
         layer_type: &LayerType,
-        _params: &HashMap<String, &TensorData>
+        _params: &HashMap<String, &TensorData>,
     ) -> (Option<Vec<usize>>, Option<Vec<usize>>) {
         match layer_type {
-            LayerType::Linear { in_features, out_features } => {
-                (Some(vec![*in_features]), Some(vec![*out_features]))
-            },
-            LayerType::Conv2d { in_channels, out_channels, .. } => {
+            LayerType::Linear {
+                in_features,
+                out_features,
+            } => (Some(vec![*in_features]), Some(vec![*out_features])),
+            LayerType::Conv2d {
+                in_channels,
+                out_channels,
+                ..
+            } => {
                 // Input: [batch, in_channels, H, W] - we can't know H, W from weights alone
                 // Output: [batch, out_channels, H', W'] - depends on input size
                 (Some(vec![*in_channels]), Some(vec![*out_channels]))
-            },
+            }
             LayerType::BatchNorm2d { num_features } => {
                 (Some(vec![*num_features]), Some(vec![*num_features]))
-            },
+            }
             _ => (None, None), // Cannot infer shapes for other layer types
         }
     }
@@ -420,7 +485,7 @@ impl ModelParser {
     /// レイヤーからモデルアーキテクチャを推論
     fn infer_architecture(
         &self,
-        layers: &HashMap<String, LayerInfo>
+        layers: &HashMap<String, LayerInfo>,
     ) -> Result<(Vec<String>, HashMap<String, Vec<String>>), ParsingError> {
         // Simple sequential ordering based on layer names
         let mut execution_order: Vec<String> = layers.keys().cloned().collect();
@@ -431,8 +496,9 @@ impl ModelParser {
         for i in 0..execution_order.len().saturating_sub(1) {
             let current_layer = &execution_order[i];
             let next_layer = &execution_order[i + 1];
-            
-            connections.entry(current_layer.clone())
+
+            connections
+                .entry(current_layer.clone())
                 .or_insert_with(Vec::new)
                 .push(next_layer.clone());
         }
@@ -445,7 +511,7 @@ impl ModelParser {
     fn parse_explicit_architecture(
         &self,
         _architecture: &str,
-        layers: &HashMap<String, LayerInfo>
+        layers: &HashMap<String, LayerInfo>,
     ) -> Result<(Vec<String>, HashMap<String, Vec<String>>), ParsingError> {
         // TODO: Implement parsing of explicit architecture descriptions
         // For now, fall back to inference
@@ -457,10 +523,10 @@ impl ModelParser {
     fn find_input_layers(
         &self,
         execution_order: &[String],
-        connections: &HashMap<String, Vec<String>>
+        connections: &HashMap<String, Vec<String>>,
     ) -> Vec<String> {
         let mut has_incoming: HashSet<String> = HashSet::new();
-        
+
         // Mark all layers that have incoming connections
         for targets in connections.values() {
             for target in targets {
@@ -469,7 +535,8 @@ impl ModelParser {
         }
 
         // Input layers are those without incoming connections
-        execution_order.iter()
+        execution_order
+            .iter()
             .filter(|layer| !has_incoming.contains(*layer))
             .cloned()
             .collect()
@@ -480,9 +547,10 @@ impl ModelParser {
     fn find_output_layers(
         &self,
         execution_order: &[String],
-        connections: &HashMap<String, Vec<String>>
+        connections: &HashMap<String, Vec<String>>,
     ) -> Vec<String> {
-        execution_order.iter()
+        execution_order
+            .iter()
             .filter(|layer| !connections.contains_key(*layer) || connections[*layer].is_empty())
             .cloned()
             .collect()
@@ -493,23 +561,25 @@ impl ModelParser {
     fn validate_graph(&self, graph: &ModelGraph) -> Result<(), ParsingError> {
         // Check for cycles
         self.check_cycles(graph)?;
-        
+
         // Check layer compatibility
         self.check_layer_compatibility(graph)?;
 
         // Ensure all referenced layers exist
         for (from_layer, to_layers) in &graph.connections {
             if !graph.layers.contains_key(from_layer) {
-                return Err(ParsingError::MissingConnection(
-                    format!("Source layer '{}' not found", from_layer)
-                ));
+                return Err(ParsingError::MissingConnection(format!(
+                    "Source layer '{}' not found",
+                    from_layer
+                )));
             }
-            
+
             for to_layer in to_layers {
                 if !graph.layers.contains_key(to_layer) {
-                    return Err(ParsingError::MissingConnection(
-                        format!("Target layer '{}' not found", to_layer)
-                    ));
+                    return Err(ParsingError::MissingConnection(format!(
+                        "Target layer '{}' not found",
+                        to_layer
+                    )));
                 }
             }
         }
@@ -548,7 +618,9 @@ impl ModelParser {
 
         for layer in graph.layers.keys() {
             if !visited.contains(layer) {
-                if let Err(cycle_info) = dfs_cycle_check(layer, &graph.connections, &mut visited, &mut rec_stack) {
+                if let Err(cycle_info) =
+                    dfs_cycle_check(layer, &graph.connections, &mut visited, &mut rec_stack)
+                {
                     return Err(ParsingError::CircularDependency(cycle_info));
                 }
             }
@@ -562,12 +634,14 @@ impl ModelParser {
     fn check_layer_compatibility(&self, graph: &ModelGraph) -> Result<(), ParsingError> {
         for (from_layer, to_layers) in &graph.connections {
             let from_info = &graph.layers[from_layer];
-            
+
             for to_layer in to_layers {
                 let to_info = &graph.layers[to_layer];
-                
+
                 // Check if output shape of from_layer matches input shape of to_layer
-                if let (Some(output_shape), Some(input_shape)) = (&from_info.output_shape, &to_info.input_shape) {
+                if let (Some(output_shape), Some(input_shape)) =
+                    (&from_info.output_shape, &to_info.input_shape)
+                {
                     if !self.shapes_compatible(output_shape, input_shape) {
                         return Err(ParsingError::IncompatibleDimensions {
                             layer1: from_layer.clone(),
@@ -586,7 +660,7 @@ impl ModelParser {
     fn shapes_compatible(&self, output_shape: &[usize], input_shape: &[usize]) -> bool {
         // Simple compatibility check - in practice, this would be more sophisticated
         // considering transformations like flatten, reshape, etc.
-        
+
         if output_shape.len() == 1 && input_shape.len() == 1 {
             // Both are 1D - must match exactly
             output_shape[0] == input_shape[0]
@@ -614,30 +688,42 @@ mod tests {
 
     fn create_test_model() -> PyTorchModel {
         let mut state_dict = StateDict::new();
-        
+
         // Conv layer
-        state_dict.tensors.insert("features.0.weight".to_string(), TensorData {
-            shape: vec![32, 3, 3, 3],
-            data: vec![0.1; 864],
-            dtype: "f32".to_string(),
-        });
-        state_dict.tensors.insert("features.0.bias".to_string(), TensorData {
-            shape: vec![32],
-            data: vec![0.1; 32],
-            dtype: "f32".to_string(),
-        });
+        state_dict.tensors.insert(
+            "features.0.weight".to_string(),
+            TensorData {
+                shape: vec![32, 3, 3, 3],
+                data: vec![0.1; 864],
+                dtype: "f32".to_string(),
+            },
+        );
+        state_dict.tensors.insert(
+            "features.0.bias".to_string(),
+            TensorData {
+                shape: vec![32],
+                data: vec![0.1; 32],
+                dtype: "f32".to_string(),
+            },
+        );
 
         // Linear layer - compatible dimension with conv output (32*32*32 = 32768)
-        state_dict.tensors.insert("classifier.weight".to_string(), TensorData {
-            shape: vec![10, 32768],
-            data: vec![0.1; 327680],
-            dtype: "f32".to_string(),
-        });
-        state_dict.tensors.insert("classifier.bias".to_string(), TensorData {
-            shape: vec![10],
-            data: vec![0.1; 10],
-            dtype: "f32".to_string(),
-        });
+        state_dict.tensors.insert(
+            "classifier.weight".to_string(),
+            TensorData {
+                shape: vec![10, 32768],
+                data: vec![0.1; 327680],
+                dtype: "f32".to_string(),
+            },
+        );
+        state_dict.tensors.insert(
+            "classifier.bias".to_string(),
+            TensorData {
+                shape: vec![10],
+                data: vec![0.1; 10],
+                dtype: "f32".to_string(),
+            },
+        );
 
         crate::formats::pytorch::PyTorchModel::from_state_dict(state_dict)
     }
@@ -646,17 +732,17 @@ mod tests {
     fn test_layer_extraction() {
         let parser = ModelParser::new();
         let model = create_test_model();
-        
+
         let layers = parser.extract_layers(&model.state_dict).unwrap();
-        
+
         assert_eq!(layers.len(), 2);
         assert!(layers.contains_key("features.0"));
         assert!(layers.contains_key("classifier"));
-        
+
         // Check conv layer
         let conv_layer = &layers["features.0"];
         assert!(matches!(conv_layer.layer_type, LayerType::Conv2d { .. }));
-        
+
         // Check linear layer
         let linear_layer = &layers["classifier"];
         assert!(matches!(linear_layer.layer_type, LayerType::Linear { .. }));
@@ -666,26 +752,32 @@ mod tests {
     fn test_model_parsing() {
         let parser = ModelParser::new();
         let model = create_test_model();
-        
+
         // Test that we can extract layers correctly
         let layers = parser.extract_layers(&model.state_dict).unwrap();
         assert_eq!(layers.len(), 2);
         assert!(layers.contains_key("features.0"));
         assert!(layers.contains_key("classifier"));
-        
+
         // Test layer types
-        assert!(matches!(layers["features.0"].layer_type, LayerType::Conv2d { .. }));
-        assert!(matches!(layers["classifier"].layer_type, LayerType::Linear { .. }));
+        assert!(matches!(
+            layers["features.0"].layer_type,
+            LayerType::Conv2d { .. }
+        ));
+        assert!(matches!(
+            layers["classifier"].layer_type,
+            LayerType::Linear { .. }
+        ));
     }
 
     #[test]
     fn test_parameter_name_parsing() {
         let parser = ModelParser::new();
-        
+
         let (layer_name, param_type) = parser.parse_parameter_name("features.0.weight").unwrap();
         assert_eq!(layer_name, "features.0");
         assert_eq!(param_type, "weight");
-        
+
         let (layer_name, param_type) = parser.parse_parameter_name("classifier.bias").unwrap();
         assert_eq!(layer_name, "classifier");
         assert_eq!(param_type, "bias");
@@ -695,7 +787,7 @@ mod tests {
     fn test_layer_type_inference() {
         let parser = ModelParser::new();
         let mut params: HashMap<String, &TensorData> = HashMap::new();
-        
+
         // Test Conv2d inference
         let conv_weight = TensorData {
             shape: vec![32, 3, 3, 3],
@@ -703,10 +795,10 @@ mod tests {
             dtype: "f32".to_string(),
         };
         params.insert("weight".to_string(), &conv_weight);
-        
+
         let layer_type = parser.infer_layer_type("conv1", &params).unwrap();
         assert!(matches!(layer_type, LayerType::Conv2d { .. }));
-        
+
         // Test Linear inference
         let linear_weight = TensorData {
             shape: vec![10, 512],
@@ -714,7 +806,7 @@ mod tests {
             dtype: "f32".to_string(),
         };
         params.insert("weight".to_string(), &linear_weight);
-        
+
         let layer_type = parser.infer_layer_type("fc", &params).unwrap();
         assert!(matches!(layer_type, LayerType::Linear { .. }));
     }

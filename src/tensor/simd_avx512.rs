@@ -64,7 +64,12 @@ impl Avx512F32Ops {
 
     /// Fused multiply-add - fallback to regular implementation
     /// 融合積和演算 - 通常の実装にフォールバック
-    pub unsafe fn fmadd_vectorized(a: &[f32], b: &[f32], c: &[f32], result: &mut [f32]) -> ParallelResult<()> {
+    pub unsafe fn fmadd_vectorized(
+        a: &[f32],
+        b: &[f32],
+        c: &[f32],
+        result: &mut [f32],
+    ) -> ParallelResult<()> {
         if a.len() != b.len() || a.len() != c.len() || a.len() != result.len() {
             return Err(RusTorchError::shape_mismatch(&[a.len()], &[b.len()]));
         }
@@ -92,15 +97,18 @@ impl Avx512F32Ops {
     /// Matrix multiplication - fallback to regular implementation
     /// 行列乗算 - 通常の実装にフォールバック
     pub unsafe fn matrix_multiply_vectorized<T: Float + Send + Sync>(
-        a: &[T], 
-        b: &[T], 
+        a: &[T],
+        b: &[T],
         c: &mut [T],
         rows_a: usize,
         cols_a: usize,
-        cols_b: usize
+        cols_b: usize,
     ) -> ParallelResult<()> {
         if a.len() != rows_a * cols_a {
-            return Err(RusTorchError::shape_mismatch(&[rows_a * cols_a], &[a.len()]));
+            return Err(RusTorchError::shape_mismatch(
+                &[rows_a * cols_a],
+                &[a.len()],
+            ));
         }
 
         for i in 0..rows_a {
@@ -112,7 +120,7 @@ impl Avx512F32Ops {
                 c[i * cols_b + j] = sum;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -155,10 +163,14 @@ impl Avx512F64Ops {
 pub trait Avx512TensorOps<T> {
     /// Element-wise addition using AVX-512 optimizations
     /// AVX-512最適化を使った要素ごとの加算
-    fn avx512_add(&self, other: &Self) -> ParallelResult<Self> where Self: Sized;
+    fn avx512_add(&self, other: &Self) -> ParallelResult<Self>
+    where
+        Self: Sized;
     /// Element-wise multiplication using AVX-512 optimizations  
     /// AVX-512最適化を使った要素ごとの乗算
-    fn avx512_mul(&self, other: &Self) -> ParallelResult<Self> where Self: Sized;
+    fn avx512_mul(&self, other: &Self) -> ParallelResult<Self>
+    where
+        Self: Sized;
     /// Dot product using AVX-512 optimizations
     /// AVX-512最適化を使ったドット積
     fn avx512_dot(&self, other: &Self) -> ParallelResult<T>;
@@ -167,46 +179,77 @@ pub trait Avx512TensorOps<T> {
 impl Avx512TensorOps<f32> for Tensor<f32> {
     fn avx512_add(&self, other: &Self) -> ParallelResult<Self> {
         if self.data.shape() != other.data.shape() {
-            return Err(RusTorchError::shape_mismatch(self.data.shape(), other.data.shape()));
+            return Err(RusTorchError::shape_mismatch(
+                self.data.shape(),
+                other.data.shape(),
+            ));
         }
 
         let mut result = Tensor::zeros(self.data.shape());
-        
+
         unsafe {
-            let self_slice = self.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let other_slice = other.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let result_slice = result.data.as_slice_mut().ok_or_else(|| RusTorchError::tensor_op("Failed to get mutable slice from tensor data"))?;
+            let self_slice = self
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let other_slice = other
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let result_slice = result.data.as_slice_mut().ok_or_else(|| {
+                RusTorchError::tensor_op("Failed to get mutable slice from tensor data")
+            })?;
             Avx512F32Ops::add_vectorized(self_slice, other_slice, result_slice)?;
         }
-        
+
         Ok(result)
     }
 
     fn avx512_mul(&self, other: &Self) -> ParallelResult<Self> {
         if self.data.shape() != other.data.shape() {
-            return Err(RusTorchError::shape_mismatch(self.data.shape(), other.data.shape()));
+            return Err(RusTorchError::shape_mismatch(
+                self.data.shape(),
+                other.data.shape(),
+            ));
         }
 
         let mut result = Tensor::zeros(self.data.shape());
-        
+
         unsafe {
-            let self_slice = self.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let other_slice = other.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let result_slice = result.data.as_slice_mut().ok_or_else(|| RusTorchError::tensor_op("Failed to get mutable slice from tensor data"))?;
+            let self_slice = self
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let other_slice = other
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let result_slice = result.data.as_slice_mut().ok_or_else(|| {
+                RusTorchError::tensor_op("Failed to get mutable slice from tensor data")
+            })?;
             Avx512F32Ops::mul_vectorized(self_slice, other_slice, result_slice)?;
         }
-        
+
         Ok(result)
     }
 
     fn avx512_dot(&self, other: &Self) -> ParallelResult<f32> {
         if self.data.len() != other.data.len() {
-            return Err(RusTorchError::shape_mismatch(&[self.data.len()], &[other.data.len()]));
+            return Err(RusTorchError::shape_mismatch(
+                &[self.data.len()],
+                &[other.data.len()],
+            ));
         }
 
         unsafe {
-            let self_slice = self.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let other_slice = other.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let self_slice = self
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let other_slice = other
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
             Avx512F32Ops::dot_product_vectorized(self_slice, other_slice)
         }
     }
@@ -215,18 +258,29 @@ impl Avx512TensorOps<f32> for Tensor<f32> {
 impl Avx512TensorOps<f64> for Tensor<f64> {
     fn avx512_add(&self, other: &Self) -> ParallelResult<Self> {
         if self.data.shape() != other.data.shape() {
-            return Err(RusTorchError::shape_mismatch(self.data.shape(), other.data.shape()));
+            return Err(RusTorchError::shape_mismatch(
+                self.data.shape(),
+                other.data.shape(),
+            ));
         }
 
         let mut result = Tensor::zeros(self.data.shape());
-        
+
         unsafe {
-            let self_slice = self.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let other_slice = other.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let result_slice = result.data.as_slice_mut().ok_or_else(|| RusTorchError::tensor_op("Failed to get mutable slice from tensor data"))?;
+            let self_slice = self
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let other_slice = other
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let result_slice = result.data.as_slice_mut().ok_or_else(|| {
+                RusTorchError::tensor_op("Failed to get mutable slice from tensor data")
+            })?;
             Avx512F64Ops::add_vectorized(self_slice, other_slice, result_slice)?;
         }
-        
+
         Ok(result)
     }
 
@@ -237,12 +291,21 @@ impl Avx512TensorOps<f64> for Tensor<f64> {
 
     fn avx512_dot(&self, other: &Self) -> ParallelResult<f64> {
         if self.data.len() != other.data.len() {
-            return Err(RusTorchError::shape_mismatch(&[self.data.len()], &[other.data.len()]));
+            return Err(RusTorchError::shape_mismatch(
+                &[self.data.len()],
+                &[other.data.len()],
+            ));
         }
 
         unsafe {
-            let self_slice = self.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
-            let other_slice = other.data.as_slice().ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let self_slice = self
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
+            let other_slice = other
+                .data
+                .as_slice()
+                .ok_or_else(|| RusTorchError::tensor_op("Failed to get slice from tensor data"))?;
             Avx512F64Ops::dot_product_vectorized(self_slice, other_slice)
         }
     }

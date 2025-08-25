@@ -1,95 +1,95 @@
 //! # Parallel Tensor Operations Traits
 //! 並列テンソル操作のトレイト定義
-//! 
+//!
 //! This module provides a unified trait-based system for parallel tensor operations,
 //! enabling high-performance computation across multiple threads with automatic
 //! SIMD acceleration and intelligent scheduling.
-//! 
+//!
 //! ## Overview
-//! 
+//!
 //! The parallel traits system is designed around five core traits:
-//! 
+//!
 //! - [`ParallelOp`]: Base trait for all parallel operations
 //! - [`BatchParallelOp`]: Batch processing operations
 //! - [`MatrixParallelOp`]: Matrix-specific parallel operations
 //! - [`ReductionParallelOp`]: Parallel reduction operations
 //! - [`SimdParallelOp`]: SIMD-optimized parallel operations (f32 specialized)
-//! 
+//!
 //! ## Key Features
-//! 
+//!
 //! - **Automatic Parallelization**: Operations automatically parallelize for large tensors
 //! - **SIMD Integration**: Specialized f32 operations with AVX2/SSE4.1 acceleration
 //! - **Configurable Strategies**: Choose between automatic, forced parallel, or sequential execution
 //! - **Memory Safety**: Arc-based shared ownership ensures thread safety
 //! - **Error Handling**: Structured error types with detailed context information
-//! 
+//!
 //! ## Usage Examples
-//! 
+//!
 //! ### Basic Parallel Operations
-//! 
+//!
 //! ```rust
 //! use rustorch::tensor::Tensor;
-//! 
+//!
 //! let tensor1 = Tensor::<f32>::ones(&[4, 4]);
 //! let tensor2 = Tensor::<f32>::ones(&[4, 4]);
-//! 
+//!
 //! // Basic tensor operations
 //! let result = &tensor1 + &tensor2;
 //! let matmul_result = tensor1.matmul(&tensor2);
-//! 
+//!
 //! # assert_eq!(result.shape(), &[4, 4]);
 //! # assert_eq!(matmul_result.unwrap().shape(), &[4, 4]);
 //! ```
-//! 
+//!
 //! ### SIMD-Optimized Operations
-//! 
+//!
 //! ```rust
 //! use rustorch::tensor::{Tensor, parallel_traits::*};
-//! 
+//!
 //! let tensor1 = Tensor::<f32>::ones(&[10000]);
 //! let tensor2 = Tensor::<f32>::ones(&[10000]);
-//! 
+//!
 //! // Basic parallel operations
 //! let result = &tensor1 + &tensor2; // Element-wise addition
-//! 
+//!
 //! // Matrix multiplication
 //! let matrix1 = Tensor::<f32>::ones(&[100, 100]);
 //! let matrix2 = Tensor::<f32>::ones(&[100, 100]);
 //! let matmul_result = matrix1.matmul(&matrix2);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-//! 
+//!
 //! ### Configurable Parallel Execution
-//! 
+//!
 //! ```rust
 //! use rustorch::tensor::parallel_traits::*;
-//! 
+//!
 //! // Configure parallel execution strategy
 //! let config = ParallelConfig {
 //!     strategy: ParallelStrategy::ForceParallel,
 //!     chunk_size: 2048,
 //!     num_threads: Some(4),
 //! };
-//! 
+//!
 //! let context = ParallelContext::new(config);
-//! 
+//!
 //! // Use context to determine execution strategy
 //! let should_parallelize = context.should_parallelize(1000);
 //! println!("Should parallelize: {}", should_parallelize);
 //! ```
-//! 
+//!
 //! ## Performance Characteristics
-//! 
+//!
 //! - **Threshold-based**: Operations automatically parallelize when tensor size exceeds 1000 elements
 //! - **SIMD Acceleration**: f32 operations benefit from AVX2/SSE4.1 vectorization
 //! - **Memory Efficient**: Zero-copy operations where possible, minimal memory allocation
 //! - **Thread Safety**: All operations are thread-safe with proper synchronization
-//! 
+//!
 //! ## Error Handling
-//! 
+//!
 //! All parallel operations return [`ParallelResult<T>`](Result)
 //! with detailed error information for debugging and error recovery.
-//! 
+//!
 //! See [`parallel_errors`](crate::tensor::parallel_errors) for complete error type documentation.
 
 use super::Tensor;
@@ -104,7 +104,7 @@ pub trait ParallelOp<T: Float + Send + Sync + Clone + 'static> {
     /// 並列実行の最小サイズ閾値
     /// Minimum size threshold for parallel execution
     const MIN_PARALLEL_SIZE: usize = 1000;
-    
+
     /// 並列実行が効率的かどうかを判定
     /// Determine if parallel execution is efficient
     fn should_parallelize(&self, size: usize) -> bool {
@@ -120,13 +120,13 @@ pub trait BatchParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<
     fn batch_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
         F: Fn(T, T) -> T + Send + Sync;
-    
+
     /// 並列バッチスカラー演算
     /// Parallel batch scalar operations
     fn batch_scalar_op<F>(&self, scalar: T, op: F) -> Tensor<T>
     where
         F: Fn(T, T) -> T + Send + Sync;
-    
+
     /// 並列バッチ正規化
     /// Parallel batch normalization
     fn batch_normalize(&self, epsilon: T) -> Tensor<T>;
@@ -138,10 +138,15 @@ pub trait MatrixParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp
     /// 並列バッチ行列乗算
     /// Parallel batch matrix multiplication
     fn batch_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>>;
-    
+
     /// 並列畳み込み演算
     /// Parallel convolution operation
-    fn batch_conv2d(&self, kernel: &Tensor<T>, stride: usize, padding: usize) -> ParallelResult<Tensor<T>>;
+    fn batch_conv2d(
+        &self,
+        kernel: &Tensor<T>,
+        stride: usize,
+        padding: usize,
+    ) -> ParallelResult<Tensor<T>>;
 }
 
 /// リダクション操作の並列化トレイト
@@ -153,13 +158,13 @@ pub trait ReductionParallelOp<T: Float + Send + Sync + Clone + 'static>: Paralle
     where
         F: Fn(R, T) -> R + Send + Sync + Clone,
         R: Send + Sync + Clone + Into<T>;
-    
+
     /// 並列合計
     /// Parallel sum
     fn parallel_sum(&self, dim: usize) -> ParallelResult<Tensor<T>> {
         self.parallel_reduce(dim, T::zero(), |acc, x| acc + x)
     }
-    
+
     /// 並列平均
     /// Parallel mean
     fn parallel_mean(&self, dim: usize) -> ParallelResult<Tensor<T>>;
@@ -171,11 +176,11 @@ pub trait SimdParallelOp: ParallelOp<f32> {
     /// SIMD最適化並列加算
     /// SIMD-optimized parallel addition
     fn simd_parallel_add(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>>;
-    
+
     /// SIMD最適化並列行列乗算
     /// SIMD-optimized parallel matrix multiplication
     fn simd_parallel_matmul(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>>;
-    
+
     /// SIMD最適化並列スカラー乗算
     /// SIMD-optimized parallel scalar multiplication
     fn simd_parallel_scalar_mul(&self, scalar: f32) -> Tensor<f32>;
@@ -235,13 +240,13 @@ impl ParallelContext {
     pub fn new(config: ParallelConfig) -> Self {
         Self { config }
     }
-    
+
     /// デフォルトコンテキストを作成
     /// Create a default context
     pub fn default() -> Self {
         Self::new(ParallelConfig::default())
     }
-    
+
     /// 並列実行すべきかを判定
     /// Determine if should execute in parallel
     pub fn should_parallelize(&self, size: usize) -> bool {
@@ -257,7 +262,7 @@ impl ParallelContext {
 /// Utility functions for parallel operations
 pub mod parallel_utils {
     use super::*;
-    
+
     /// 安全な並列インデックス計算
     /// Safe parallel index calculation
     pub fn safe_parallel_index(
@@ -269,14 +274,10 @@ pub mod parallel_utils {
         let end = std::cmp::min(start + chunk_size, total_size);
         (start, end)
     }
-    
+
     /// 並列チャンク処理
     /// Parallel chunk processing
-    pub fn parallel_chunks<T, F, R>(
-        data: &[T],
-        chunk_size: usize,
-        process_chunk: F,
-    ) -> Vec<R>
+    pub fn parallel_chunks<T, F, R>(data: &[T], chunk_size: usize, process_chunk: F) -> Vec<R>
     where
         T: Send + Sync,
         F: Fn(&[T]) -> R + Send + Sync,
@@ -286,48 +287,42 @@ pub mod parallel_utils {
             .map(|chunk| process_chunk(chunk))
             .collect()
     }
-    
+
     /// バッチ次元での並列処理
     /// Parallel processing over batch dimension
-    pub fn parallel_batch_process<T, F, R>(
-        batch_size: usize,
-        process_batch: F,
-    ) -> Vec<R>
+    pub fn parallel_batch_process<T, F, R>(batch_size: usize, process_batch: F) -> Vec<R>
     where
         F: Fn(usize) -> R + Send + Sync,
         R: Send,
     {
-        (0..batch_size)
-            .into_par_iter()
-            .map(process_batch)
-            .collect()
+        (0..batch_size).into_par_iter().map(process_batch).collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_parallel_config() {
         let config = ParallelConfig::default();
         assert_eq!(config.chunk_size, 1024);
         assert!(matches!(config.strategy, ParallelStrategy::Auto));
     }
-    
+
     #[test]
     fn test_parallel_context() {
         let ctx = ParallelContext::default();
         assert!(ctx.should_parallelize(2000));
         assert!(!ctx.should_parallelize(500));
     }
-    
+
     #[test]
     fn test_parallel_utils() {
         let (start, end) = parallel_utils::safe_parallel_index(1000, 100, 5);
         assert_eq!(start, 500);
         assert_eq!(end, 600);
-        
+
         let (start, end) = parallel_utils::safe_parallel_index(1000, 100, 9);
         assert_eq!(start, 900);
         assert_eq!(end, 1000);

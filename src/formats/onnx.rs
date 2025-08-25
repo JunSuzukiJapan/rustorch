@@ -4,16 +4,19 @@
 #[cfg(feature = "onnx")]
 use crate::tensor::Tensor;
 #[cfg(feature = "onnx")]
+use num_traits::Float;
+#[cfg(feature = "onnx")]
 use ort::environment::Environment;
 use ort::execution_providers::ExecutionProvider;
-use ort::session::{Session, builder::{SessionBuilder, GraphOptimizationLevel}};
+use ort::session::{
+    builder::{GraphOptimizationLevel, SessionBuilder},
+    Session,
+};
 use ort::value::Value;
 #[cfg(feature = "onnx")]
 use std::collections::HashMap;
 #[cfg(feature = "onnx")]
 use std::path::Path;
-#[cfg(feature = "onnx")]
-use num_traits::Float;
 
 #[cfg(feature = "onnx")]
 #[derive(Debug)]
@@ -65,18 +68,22 @@ impl OnnxModel {
     /// ファイルからONNXモデルを読み込み
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, OnnxError> {
         let environment = Environment::default();
-        
+
         let session = SessionBuilder::new()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(4)?
             .with_model_from_file(path)?;
 
         // Get input and output names
-        let input_names: Vec<String> = session.inputs.iter()
+        let input_names: Vec<String> = session
+            .inputs
+            .iter()
             .map(|input| input.name.clone())
             .collect();
-        
-        let output_names: Vec<String> = session.outputs.iter()
+
+        let output_names: Vec<String> = session
+            .outputs
+            .iter()
             .map(|output| output.name.clone())
             .collect();
 
@@ -107,20 +114,17 @@ impl OnnxModel {
     ) -> Result<HashMap<String, Tensor<T>>, OnnxError> {
         // Convert RusTorch tensors to ONNX values
         let mut onnx_inputs = Vec::new();
-        
+
         for input_name in &self.input_names {
-            let tensor = inputs.get(input_name)
-                .ok_or_else(|| OnnxError::ConversionError(
-                    format!("Missing input tensor: {}", input_name)
-                ))?;
+            let tensor = inputs.get(input_name).ok_or_else(|| {
+                OnnxError::ConversionError(format!("Missing input tensor: {}", input_name))
+            })?;
 
             // Convert to f32 data
-            let data: Vec<f32> = tensor.data.iter()
-                .map(|&x| x.to_f32().unwrap())
-                .collect();
+            let data: Vec<f32> = tensor.data.iter().map(|&x| x.to_f32().unwrap()).collect();
 
             let shape: Vec<usize> = tensor.shape().to_vec();
-            
+
             let onnx_value = Value::from_array((&data[..]).into())?;
             onnx_inputs.push(onnx_value);
         }
@@ -130,10 +134,10 @@ impl OnnxModel {
 
         // Convert ONNX outputs back to RusTorch tensors
         let mut result = HashMap::new();
-        
+
         for (i, output_name) in self.output_names.iter().enumerate() {
             let onnx_output = &outputs[i];
-            
+
             // Extract data and shape
             let output_tensor = self.extract_tensor_from_value::<T>(onnx_output)?;
             result.insert(output_name.clone(), output_tensor);
@@ -144,56 +148,54 @@ impl OnnxModel {
 
     /// Run inference with single input
     /// 単一入力で推論実行
-    pub fn run_single<T: Float + 'static>(
-        &self,
-        input: Tensor<T>,
-    ) -> Result<Tensor<T>, OnnxError> {
+    pub fn run_single<T: Float + 'static>(&self, input: Tensor<T>) -> Result<Tensor<T>, OnnxError> {
         if self.input_names.len() != 1 {
             return Err(OnnxError::ConversionError(
-                "Model has multiple inputs, use run() instead".to_string()
+                "Model has multiple inputs, use run() instead".to_string(),
             ));
         }
 
         let mut inputs = HashMap::new();
         inputs.insert(self.input_names[0].clone(), input);
-        
+
         let mut outputs = self.run(inputs)?;
-        
+
         if outputs.len() != 1 {
             return Err(OnnxError::ConversionError(
-                "Model has multiple outputs".to_string()
+                "Model has multiple outputs".to_string(),
             ));
         }
 
         let output_name = &self.output_names[0];
-        outputs.remove(output_name)
+        outputs
+            .remove(output_name)
             .ok_or_else(|| OnnxError::ConversionError("Output not found".to_string()))
     }
 
     fn extract_tensor_from_value<T: Float + 'static>(
-        &self, 
-        value: &Value
+        &self,
+        value: &Value,
     ) -> Result<Tensor<T>, OnnxError> {
         match value {
             Value::Tensor(tensor) => {
-                let shape = tensor.shape().ok_or_else(|| 
-                    OnnxError::ShapeError("Cannot get tensor shape".to_string())
-                )?;
-                
+                let shape = tensor
+                    .shape()
+                    .ok_or_else(|| OnnxError::ShapeError("Cannot get tensor shape".to_string()))?;
+
                 // Extract f32 data and convert to T
                 let data_f32 = tensor.try_extract::<f32>()?;
-                let data: Vec<T> = data_f32.view().iter()
+                let data: Vec<T> = data_f32
+                    .view()
+                    .iter()
                     .map(|&x| T::from(x).unwrap())
                     .collect();
 
-                let shape_vec: Vec<usize> = shape.iter()
-                    .map(|&dim| dim as usize)
-                    .collect();
+                let shape_vec: Vec<usize> = shape.iter().map(|&dim| dim as usize).collect();
 
                 Ok(Tensor::from_vec(data, shape_vec))
-            },
+            }
             _ => Err(OnnxError::ConversionError(
-                "Expected tensor output".to_string()
+                "Expected tensor output".to_string(),
             )),
         }
     }
@@ -215,10 +217,10 @@ impl OnnxExporter {
     ) -> Result<(), OnnxError> {
         // This is a placeholder for ONNX export functionality
         // Full implementation would require building ONNX graph from RusTorch operations
-        
+
         // For now, return an informative error
         Err(OnnxError::ConversionError(
-            "ONNX export not yet implemented. Use ONNX Runtime for inference only.".to_string()
+            "ONNX export not yet implemented. Use ONNX Runtime for inference only.".to_string(),
         ))
     }
 }
@@ -234,9 +236,7 @@ pub mod utils {
     pub fn get_available_providers() -> Vec<String> {
         // TODO: Update for ort 2.0 API - this function doesn't exist anymore
         // For now return a default list of common providers
-        vec![
-            "CPUExecutionProvider".to_string(),
-        ]
+        vec!["CPUExecutionProvider".to_string()]
     }
 
     /// Create ONNX session with specific execution provider
@@ -246,7 +246,7 @@ pub mod utils {
         provider: impl ExecutionProvider,
     ) -> Result<Session, OnnxError> {
         let environment = Environment::default();
-        
+
         let session = SessionBuilder::new()?
             .with_execution_providers([provider])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
@@ -266,14 +266,14 @@ pub mod utils {
 
         let start = Instant::now();
         let mut result = HashMap::new();
-        
+
         for _ in 0..iterations {
             result = model.run(inputs.clone())?;
         }
-        
+
         let duration = start.elapsed();
         let avg_time = duration.as_secs_f64() / iterations as f64;
-        
+
         Ok((avg_time, result))
     }
 }
@@ -294,7 +294,7 @@ mod tests {
 
     // Note: These tests require actual ONNX model files
     // In a real implementation, you would include test models
-    
+
     #[test]
     #[ignore] // Ignore by default as it requires an ONNX model file
     fn test_load_onnx_model() {
@@ -311,10 +311,10 @@ mod tests {
         let model_path = PathBuf::from("test_models/simple_model.onnx");
         if model_path.exists() {
             let model = OnnxModel::from_file(&model_path).unwrap();
-            
+
             // Create dummy input
             let input_tensor = Tensor::<f32>::ones(vec![1, 3, 224, 224]);
-            
+
             if model.input_names().len() == 1 {
                 let result = model.run_single(input_tensor);
                 assert!(result.is_ok());

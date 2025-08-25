@@ -19,37 +19,37 @@ fn bench_backward_propagation(c: &mut Criterion) {
         b.iter(|| {
             let a = Variable::new(
                 Tensor::from_vec((0..100).map(|i| i as f32).collect(), vec![10, 10]),
-                true
+                true,
             );
             let b = Variable::new(
                 Tensor::from_vec((0..100).map(|i| (i + 1) as f32).collect(), vec![10, 10]),
-                true
+                true,
             );
-            
+
             let c = &a + &b;
             let d = &c * &a;
             let loss = d.sum();
-            
+
             black_box(loss.backward());
         })
     });
-    
+
     c.bench_function("complex_backward_50x50", |b| {
         b.iter(|| {
             let a = Variable::new(
                 Tensor::from_vec((0..2500).map(|i| i as f32).collect(), vec![50, 50]),
-                true
+                true,
             );
             let b = Variable::new(
                 Tensor::from_vec((0..2500).map(|i| (i + 1) as f32).collect(), vec![50, 50]),
-                true
+                true,
             );
-            
+
             let c = a.matmul(&b);
             let d = &c + &a;
             let e = &d * &b;
             let loss = e.mean();
-            
+
             black_box(loss.backward());
         })
     });
@@ -60,16 +60,16 @@ fn bench_gradient_computation(c: &mut Criterion) {
         b.iter(|| {
             let a = Variable::new(
                 Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]),
-                true
+                true,
             );
             let b = Variable::new(
                 Tensor::from_vec((0..10000).map(|i| (i + 1) as f32).collect(), vec![100, 100]),
-                true
+                true,
             );
-            
+
             let c = a.matmul(&b);
             let loss = c.sum();
-            
+
             black_box(loss.backward());
         })
     });
@@ -80,16 +80,16 @@ fn bench_chain_operations(c: &mut Criterion) {
         b.iter(|| {
             let x = Variable::new(
                 Tensor::from_vec((0..1000).map(|i| i as f32 * 0.01).collect(), vec![10, 100]),
-                true
+                true,
             );
-            
+
             // Simulate a deep computation chain
             let mut result = x.clone();
             for _ in 0..10 {
                 let temp = &result + &x;
                 result = temp.mean_autograd();
             }
-            
+
             black_box(result.backward());
         })
     });

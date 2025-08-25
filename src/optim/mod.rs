@@ -1,13 +1,12 @@
 /// Optimization algorithms for neural networks
 /// ニューラルネットワーク用最適化アルゴリズム
-
 pub mod adamw;
 pub mod lr_scheduler;
 
 pub use adamw::AdamW;
 pub use lr_scheduler::{
-    LRScheduler, StepLR, ExponentialLR, CosineAnnealingLR, 
-    ReduceLROnPlateau, MultiStepLR, PlateauMode, ThresholdMode
+    CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, PlateauMode, ReduceLROnPlateau,
+    StepLR, ThresholdMode,
 };
 
 /// SGD (Stochastic Gradient Descent) optimizer module
@@ -23,19 +22,19 @@ use std::collections::HashMap;
 pub trait Optimizer {
     /// Update parameters with gradients
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>);
-    
+
     /// Zero gradients (if needed)
     fn zero_grad(&mut self) {}
-    
+
     /// Get learning rate
     fn learning_rate(&self) -> f32;
-    
+
     /// Set learning rate
     fn set_learning_rate(&mut self, lr: f32);
-    
+
     /// Get optimizer state
     fn state_dict(&self) -> HashMap<String, f32>;
-    
+
     /// Load optimizer state
     fn load_state_dict(&mut self, state: HashMap<String, f32>);
 }
@@ -56,7 +55,7 @@ impl SGD {
     pub fn new(learning_rate: f32) -> Self {
         Self::with_momentum(learning_rate, 0.0)
     }
-    
+
     /// Create new SGD optimizer with momentum
     pub fn with_momentum(learning_rate: f32, momentum: f32) -> Self {
         Self {
@@ -68,7 +67,7 @@ impl SGD {
             momentum_buffers: HashMap::new(),
         }
     }
-    
+
     /// Create SGD with weight decay
     pub fn with_weight_decay(learning_rate: f32, momentum: f32, weight_decay: f32) -> Self {
         Self {
@@ -80,7 +79,7 @@ impl SGD {
             momentum_buffers: HashMap::new(),
         }
     }
-    
+
     /// Create SGD with Nesterov momentum
     pub fn with_nesterov(learning_rate: f32, momentum: f32, nesterov: bool) -> Self {
         Self {
@@ -92,7 +91,7 @@ impl SGD {
             momentum_buffers: HashMap::new(),
         }
     }
-    
+
     /// Set dampening factor
     pub fn set_dampening(&mut self, dampening: f32) {
         self.dampening = dampening;
@@ -103,13 +102,13 @@ impl Optimizer for SGD {
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         let param_id = param.as_ptr() as usize;
         let mut d_p = grad.clone();
-        
+
         // Apply weight decay
         if self.weight_decay != 0.0 {
             let weight_decay_term = param * self.weight_decay;
             d_p = &d_p + &weight_decay_term;
         }
-        
+
         // Apply momentum
         if self.momentum != 0.0 {
             let buf = if let Some(momentum_buffer) = self.momentum_buffers.get(&param_id) {
@@ -119,9 +118,9 @@ impl Optimizer for SGD {
             } else {
                 d_p.clone()
             };
-            
+
             self.momentum_buffers.insert(param_id, buf.clone());
-            
+
             if self.nesterov {
                 let momentum_term = &buf * self.momentum;
                 d_p = &d_p + &momentum_term;
@@ -129,31 +128,34 @@ impl Optimizer for SGD {
                 d_p = buf;
             }
         }
-        
+
         // Update parameters
         let lr_term = &d_p * self.learning_rate;
         let update = param - &lr_term;
         param.copy_from(&update);
     }
-    
+
     fn learning_rate(&self) -> f32 {
         self.learning_rate
     }
-    
+
     fn set_learning_rate(&mut self, lr: f32) {
         self.learning_rate = lr;
     }
-    
+
     fn state_dict(&self) -> HashMap<String, f32> {
         let mut state = HashMap::new();
         state.insert("learning_rate".to_string(), self.learning_rate);
         state.insert("momentum".to_string(), self.momentum);
         state.insert("dampening".to_string(), self.dampening);
         state.insert("weight_decay".to_string(), self.weight_decay);
-        state.insert("nesterov".to_string(), if self.nesterov { 1.0 } else { 0.0 });
+        state.insert(
+            "nesterov".to_string(),
+            if self.nesterov { 1.0 } else { 0.0 },
+        );
         state
     }
-    
+
     fn load_state_dict(&mut self, state: HashMap<String, f32>) {
         if let Some(&lr) = state.get("learning_rate") {
             self.learning_rate = lr;
@@ -204,14 +206,20 @@ impl Adam {
             max_exp_avg_sq: HashMap::new(),
         }
     }
-    
+
     /// Create Adam with default parameters
     pub fn default_params(learning_rate: f32) -> Self {
         Self::new(learning_rate, 0.9, 0.999, 1e-8)
     }
-    
+
     /// Create Adam with weight decay (AdamW)
-    pub fn with_weight_decay(learning_rate: f32, beta1: f32, beta2: f32, epsilon: f32, weight_decay: f32) -> Self {
+    pub fn with_weight_decay(
+        learning_rate: f32,
+        beta1: f32,
+        beta2: f32,
+        epsilon: f32,
+        weight_decay: f32,
+    ) -> Self {
         Self {
             learning_rate,
             beta1,
@@ -225,9 +233,15 @@ impl Adam {
             max_exp_avg_sq: HashMap::new(),
         }
     }
-    
+
     /// Create Adam with AMSGrad
-    pub fn with_amsgrad(learning_rate: f32, beta1: f32, beta2: f32, epsilon: f32, amsgrad: bool) -> Self {
+    pub fn with_amsgrad(
+        learning_rate: f32,
+        beta1: f32,
+        beta2: f32,
+        epsilon: f32,
+        amsgrad: bool,
+    ) -> Self {
         Self {
             learning_rate,
             beta1,
@@ -247,15 +261,15 @@ impl Optimizer for Adam {
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         let param_id = param.as_ptr() as usize;
         self.step_count += 1;
-        
+
         let mut d_p = grad.clone();
-        
+
         // Apply weight decay
         if self.weight_decay != 0.0 {
             let weight_decay_term = param * self.weight_decay;
             d_p = &d_p + &weight_decay_term;
         }
-        
+
         // Get or initialize momentum buffers
         let exp_avg = if let Some(avg) = self.exp_avg.get(&param_id) {
             let beta1_term = avg * self.beta1;
@@ -264,7 +278,7 @@ impl Optimizer for Adam {
         } else {
             d_p.clone() * (1.0 - self.beta1)
         };
-        
+
         let exp_avg_sq = if let Some(avg_sq) = self.exp_avg_sq.get(&param_id) {
             let beta2_term = avg_sq * self.beta2;
             let d_p_squared = &d_p * &d_p;
@@ -274,21 +288,23 @@ impl Optimizer for Adam {
             let d_p_squared = &d_p * &d_p;
             d_p_squared * (1.0 - self.beta2)
         };
-        
+
         self.exp_avg.insert(param_id, exp_avg.clone());
         self.exp_avg_sq.insert(param_id, exp_avg_sq.clone());
-        
+
         // Bias correction
         let bias_correction1 = 1.0 - self.beta1.powi(self.step_count as i32);
         let bias_correction2 = 1.0 - self.beta2.powi(self.step_count as i32);
-        
+
         let corrected_exp_avg = &exp_avg / bias_correction1;
         let corrected_exp_avg_sq = &exp_avg_sq / bias_correction2;
-        
+
         // Compute update
         let denom = if self.amsgrad {
             let max_exp_avg_sq = if let Some(max_avg_sq) = self.max_exp_avg_sq.get(&param_id) {
-                max_avg_sq.maximum(&corrected_exp_avg_sq).unwrap_or_else(|_| corrected_exp_avg_sq.clone())
+                max_avg_sq
+                    .maximum(&corrected_exp_avg_sq)
+                    .unwrap_or_else(|_| corrected_exp_avg_sq.clone())
             } else {
                 corrected_exp_avg_sq.clone()
             };
@@ -297,21 +313,21 @@ impl Optimizer for Adam {
         } else {
             corrected_exp_avg_sq.sqrt() + self.epsilon
         };
-        
+
         let step_size = self.learning_rate;
         let update_term = (&corrected_exp_avg / &denom) * step_size;
         let update = param - &update_term;
         param.copy_from(&update);
     }
-    
+
     fn learning_rate(&self) -> f32 {
         self.learning_rate
     }
-    
+
     fn set_learning_rate(&mut self, lr: f32) {
         self.learning_rate = lr;
     }
-    
+
     fn state_dict(&self) -> HashMap<String, f32> {
         let mut state = HashMap::new();
         state.insert("learning_rate".to_string(), self.learning_rate);
@@ -323,7 +339,7 @@ impl Optimizer for Adam {
         state.insert("step_count".to_string(), self.step_count as f32);
         state
     }
-    
+
     fn load_state_dict(&mut self, state: HashMap<String, f32>) {
         if let Some(&lr) = state.get("learning_rate") {
             self.learning_rate = lr;
@@ -381,13 +397,13 @@ impl RMSprop {
             grad_avg: HashMap::new(),
         }
     }
-    
+
     /// Create RMSprop with default parameters
     /// デフォルトパラメータでRMSpropを作成
     pub fn default_params(learning_rate: f32) -> Self {
         Self::new(learning_rate, 0.99, 1e-8)
     }
-    
+
     /// Create RMSprop with momentum
     /// モーメンタム付きRMSpropを作成
     pub fn with_momentum(learning_rate: f32, alpha: f32, epsilon: f32, momentum: f32) -> Self {
@@ -404,7 +420,7 @@ impl RMSprop {
             grad_avg: HashMap::new(),
         }
     }
-    
+
     /// Create centered RMSprop
     /// センタード RMSpropを作成
     pub fn centered(learning_rate: f32, alpha: f32, epsilon: f32, centered: bool) -> Self {
@@ -421,10 +437,15 @@ impl RMSprop {
             grad_avg: HashMap::new(),
         }
     }
-    
+
     /// Create RMSprop with weight decay
     /// 重み減衰付きRMSpropを作成
-    pub fn with_weight_decay(learning_rate: f32, alpha: f32, epsilon: f32, weight_decay: f32) -> Self {
+    pub fn with_weight_decay(
+        learning_rate: f32,
+        alpha: f32,
+        epsilon: f32,
+        weight_decay: f32,
+    ) -> Self {
         Self {
             learning_rate,
             alpha,
@@ -444,15 +465,15 @@ impl Optimizer for RMSprop {
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         let param_id = param.as_ptr() as usize;
         self.step_count += 1;
-        
+
         let mut d_p = grad.clone();
-        
+
         // Apply weight decay
         if self.weight_decay != 0.0 {
             let weight_decay_term = param * self.weight_decay;
             d_p = &d_p + &weight_decay_term;
         }
-        
+
         // Update biased second raw moment estimate
         let square_avg = if let Some(sq_avg) = self.square_avg.get(&param_id) {
             let alpha_term = sq_avg * self.alpha;
@@ -463,9 +484,9 @@ impl Optimizer for RMSprop {
             let grad_squared = &d_p * &d_p;
             grad_squared * (1.0 - self.alpha)
         };
-        
+
         self.square_avg.insert(param_id, square_avg.clone());
-        
+
         let avg = if self.centered {
             // Centered variant: subtract the squared mean of gradients
             let grad_avg = if let Some(g_avg) = self.grad_avg.get(&param_id) {
@@ -475,19 +496,19 @@ impl Optimizer for RMSprop {
             } else {
                 d_p.clone() * (1.0 - self.alpha)
             };
-            
+
             self.grad_avg.insert(param_id, grad_avg.clone());
-            
+
             // avg = square_avg - grad_avg^2
             let grad_avg_squared = &grad_avg * &grad_avg;
             &square_avg - &grad_avg_squared
         } else {
             square_avg.clone()
         };
-        
+
         // Compute update
         let denom = avg.sqrt() + self.epsilon;
-        
+
         if self.momentum > 0.0 {
             // Apply momentum
             let buf = if let Some(momentum_buf) = self.momentum_buffer.get(&param_id) {
@@ -497,7 +518,7 @@ impl Optimizer for RMSprop {
             } else {
                 (&d_p / &denom) * self.learning_rate
             };
-            
+
             self.momentum_buffer.insert(param_id, buf.clone());
             let update = param - &buf;
             param.copy_from(&update);
@@ -508,15 +529,15 @@ impl Optimizer for RMSprop {
             param.copy_from(&update);
         }
     }
-    
+
     fn learning_rate(&self) -> f32 {
         self.learning_rate
     }
-    
+
     fn set_learning_rate(&mut self, lr: f32) {
         self.learning_rate = lr;
     }
-    
+
     fn state_dict(&self) -> HashMap<String, f32> {
         let mut state = HashMap::new();
         state.insert("learning_rate".to_string(), self.learning_rate);
@@ -524,11 +545,14 @@ impl Optimizer for RMSprop {
         state.insert("epsilon".to_string(), self.epsilon);
         state.insert("weight_decay".to_string(), self.weight_decay);
         state.insert("momentum".to_string(), self.momentum);
-        state.insert("centered".to_string(), if self.centered { 1.0 } else { 0.0 });
+        state.insert(
+            "centered".to_string(),
+            if self.centered { 1.0 } else { 0.0 },
+        );
         state.insert("step_count".to_string(), self.step_count as f32);
         state
     }
-    
+
     fn load_state_dict(&mut self, state: HashMap<String, f32>) {
         if let Some(&lr) = state.get("learning_rate") {
             self.learning_rate = lr;
@@ -578,13 +602,13 @@ impl AdaGrad {
             sum_of_squares: HashMap::new(),
         }
     }
-    
+
     /// Create AdaGrad with default parameters
     /// デフォルトパラメータでAdaGradを作成
     pub fn default_params(learning_rate: f32) -> Self {
         Self::new(learning_rate, 1e-10)
     }
-    
+
     /// Create AdaGrad with weight decay
     /// 重み減衰付きAdaGradを作成
     pub fn with_weight_decay(learning_rate: f32, epsilon: f32, weight_decay: f32) -> Self {
@@ -597,10 +621,14 @@ impl AdaGrad {
             sum_of_squares: HashMap::new(),
         }
     }
-    
+
     /// Create AdaGrad with initial accumulator value
     /// 初期アキュムレータ値付きAdaGradを作成
-    pub fn with_initial_accumulator(learning_rate: f32, epsilon: f32, initial_accumulator_value: f32) -> Self {
+    pub fn with_initial_accumulator(
+        learning_rate: f32,
+        epsilon: f32,
+        initial_accumulator_value: f32,
+    ) -> Self {
         Self {
             learning_rate,
             epsilon,
@@ -616,15 +644,15 @@ impl Optimizer for AdaGrad {
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         let param_id = param.as_ptr() as usize;
         self.step_count += 1;
-        
+
         let mut d_p = grad.clone();
-        
+
         // Apply weight decay
         if self.weight_decay != 0.0 {
             let weight_decay_term = param * self.weight_decay;
             d_p = &d_p + &weight_decay_term;
         }
-        
+
         // Update sum of squares of gradients
         let sum_of_squares = if let Some(sos) = self.sum_of_squares.get(&param_id) {
             let grad_squared = &d_p * &d_p;
@@ -638,34 +666,37 @@ impl Optimizer for AdaGrad {
                 grad_squared
             }
         };
-        
+
         self.sum_of_squares.insert(param_id, sum_of_squares.clone());
-        
+
         // Compute adaptive learning rate
         let std = sum_of_squares.sqrt() + self.epsilon;
         let update_term = (&d_p / &std) * self.learning_rate;
         let update = param - &update_term;
         param.copy_from(&update);
     }
-    
+
     fn learning_rate(&self) -> f32 {
         self.learning_rate
     }
-    
+
     fn set_learning_rate(&mut self, lr: f32) {
         self.learning_rate = lr;
     }
-    
+
     fn state_dict(&self) -> HashMap<String, f32> {
         let mut state = HashMap::new();
         state.insert("learning_rate".to_string(), self.learning_rate);
         state.insert("epsilon".to_string(), self.epsilon);
         state.insert("weight_decay".to_string(), self.weight_decay);
-        state.insert("initial_accumulator_value".to_string(), self.initial_accumulator_value);
+        state.insert(
+            "initial_accumulator_value".to_string(),
+            self.initial_accumulator_value,
+        );
         state.insert("step_count".to_string(), self.step_count as f32);
         state
     }
-    
+
     fn load_state_dict(&mut self, state: HashMap<String, f32>) {
         if let Some(&lr) = state.get("learning_rate") {
             self.learning_rate = lr;

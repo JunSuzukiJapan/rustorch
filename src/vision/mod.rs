@@ -7,15 +7,15 @@
 //! このモジュールはtorchvisionと同様のコンピュータビジョン機能を提供し、
 //! 画像変換、データ拡張、組み込みデータセットを含みます。
 
-pub mod transforms;
 pub mod datasets;
-pub mod utils;
 pub mod pipeline;
 pub mod presets;
+pub mod transforms;
+pub mod utils;
 
-pub use transforms::*;
 pub use datasets::*;
 pub use pipeline::*;
+pub use transforms::*;
 
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -48,7 +48,7 @@ pub enum ImageFormat {
     /// Channels first: (C, H, W)
     /// チャンネル最初: (C, H, W)
     CHW,
-    /// Channels last: (H, W, C) 
+    /// Channels last: (H, W, C)
     /// チャンネル最後: (H, W, C)
     HWC,
 }
@@ -58,38 +58,38 @@ impl<T: Float + 'static> Image<T> {
     /// テンソルデータから新しい画像を作成
     pub fn new(data: Tensor<T>, format: ImageFormat) -> crate::error::RusTorchResult<Self> {
         let shape = data.shape();
-        
+
         let (height, width, channels) = match (format, shape.len()) {
             (ImageFormat::CHW, 3) => (shape[1], shape[2], shape[0]),
             (ImageFormat::HWC, 3) => (shape[0], shape[1], shape[2]),
             (ImageFormat::CHW, 4) => (shape[2], shape[3], shape[1]), // Batch dimension included
             (ImageFormat::HWC, 4) => (shape[1], shape[2], shape[3]), // Batch dimension included
-            _ => return Err(crate::error::RusTorchError::invalid_image_shape(shape))
+            _ => return Err(crate::error::RusTorchError::invalid_image_shape(shape)),
         };
-        
+
         Ok(Image {
             data,
             height,
-            width, 
+            width,
             channels,
             format,
         })
     }
-    
+
     /// Convert image format (CHW <-> HWC)
     /// 画像形式を変換 (CHW <-> HWC)
     pub fn to_format(&self, target_format: ImageFormat) -> crate::error::RusTorchResult<Image<T>> {
         if self.format == target_format {
             return Ok(self.clone());
         }
-        
+
         // For now, return a simple clone - actual implementation would permute dimensions
         // 現在は簡単なクローンを返す - 実際の実装では次元を入れ替える
         let mut new_image = self.clone();
         new_image.format = target_format;
         Ok(new_image)
     }
-    
+
     /// Get image size as (height, width)
     /// 画像サイズを (高さ, 幅) として取得
     pub fn size(&self) -> (usize, usize) {

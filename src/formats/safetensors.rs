@@ -4,17 +4,17 @@
 #[cfg(feature = "safetensors")]
 use crate::tensor::Tensor;
 #[cfg(feature = "safetensors")]
-use safetensors::SafeTensors;
-#[cfg(feature = "safetensors")]
 use memmap2::Mmap;
+#[cfg(feature = "safetensors")]
+use num_traits::Float;
+#[cfg(feature = "safetensors")]
+use safetensors::SafeTensors;
 #[cfg(feature = "safetensors")]
 use std::collections::HashMap;
 #[cfg(feature = "safetensors")]
 use std::fs::File;
 #[cfg(feature = "safetensors")]
 use std::path::Path;
-#[cfg(feature = "safetensors")]
-use num_traits::Float;
 
 #[cfg(feature = "safetensors")]
 #[derive(Debug)]
@@ -71,10 +71,10 @@ impl SafetensorsLoader {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, SafetensorsError> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        
+
         // SAFETY: We keep the mmap alive for the lifetime of SafetensorsLoader
         let tensors = SafeTensors::deserialize(&mmap)?;
-        
+
         Ok(Self {
             tensors,
             _mmap: mmap,
@@ -89,35 +89,47 @@ impl SafetensorsLoader {
 
     /// Load a tensor by name
     /// 名前でテンソルを読み込み
-    pub fn load_tensor<T: Float + 'static>(&self, name: &str) -> Result<Tensor<T>, SafetensorsError> {
+    pub fn load_tensor<T: Float + 'static>(
+        &self,
+        name: &str,
+    ) -> Result<Tensor<T>, SafetensorsError> {
         let tensor = self.tensors.tensor(name)?;
         let shape = tensor.shape().to_vec();
-        
+
         // Convert data based on tensor dtype
         let data = match tensor.dtype() {
             safetensors::Dtype::F32 => {
                 let data_slice = tensor.data();
                 let f32_data: &[f32] = bytemuck::cast_slice(data_slice);
                 f32_data.iter().map(|&x| T::from(x).unwrap()).collect()
-            },
+            }
             safetensors::Dtype::F64 => {
                 let data_slice = tensor.data();
                 let f64_data: &[f64] = bytemuck::cast_slice(data_slice);
                 f64_data.iter().map(|&x| T::from(x).unwrap()).collect()
-            },
+            }
             safetensors::Dtype::I32 => {
                 let data_slice = tensor.data();
                 let i32_data: &[i32] = bytemuck::cast_slice(data_slice);
-                i32_data.iter().map(|&x| T::from(x as f64).unwrap()).collect()
-            },
+                i32_data
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
             safetensors::Dtype::I64 => {
                 let data_slice = tensor.data();
                 let i64_data: &[i64] = bytemuck::cast_slice(data_slice);
-                i64_data.iter().map(|&x| T::from(x as f64).unwrap()).collect()
-            },
-            _ => return Err(SafetensorsError::ConversionError(
-                format!("Unsupported dtype: {:?}", tensor.dtype())
-            )),
+                i64_data
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
+            _ => {
+                return Err(SafetensorsError::ConversionError(format!(
+                    "Unsupported dtype: {:?}",
+                    tensor.dtype()
+                )))
+            }
         };
 
         Ok(Tensor::from_vec(data, shape))
@@ -125,9 +137,11 @@ impl SafetensorsLoader {
 
     /// Load all tensors
     /// 全テンソルを読み込み
-    pub fn load_all_tensors<T: Float + 'static>(&self) -> Result<HashMap<String, Tensor<T>>, SafetensorsError> {
+    pub fn load_all_tensors<T: Float + 'static>(
+        &self,
+    ) -> Result<HashMap<String, Tensor<T>>, SafetensorsError> {
         let mut tensors = HashMap::new();
-        
+
         for name in self.tensor_names() {
             let tensor = self.load_tensor::<T>(name)?;
             tensors.insert(name.to_string(), tensor);
@@ -151,26 +165,24 @@ impl SafetensorsSaver {
         path: P,
     ) -> Result<(), SafetensorsError> {
         let mut data_map = HashMap::new();
-        
+
         for (name, tensor) in tensors {
             // Convert tensor data to bytes
             let shape = tensor.shape().to_vec();
-            let data_f32: Vec<f32> = tensor.data.iter()
-                .map(|&x| x.to_f32().unwrap())
-                .collect();
-            
+            let data_f32: Vec<f32> = tensor.data.iter().map(|&x| x.to_f32().unwrap()).collect();
+
             let dtype = safetensors::Dtype::F32;
             let bytes = bytemuck::cast_slice(&data_f32);
-            
+
             data_map.insert(name.clone(), (dtype, shape, bytes.to_vec()));
         }
 
         // Create safetensors data
         let safetensor_data = safetensors::serialize(&data_map, &None)?;
-        
+
         // Write to file
         std::fs::write(path, safetensor_data)?;
-        
+
         Ok(())
     }
 }
@@ -196,7 +208,7 @@ mod tests {
         // Load back
         let loader = SafetensorsLoader::from_file(temp_file.path()).unwrap();
         let loaded_tensor: Tensor<f32> = loader.load_tensor("test_tensor").unwrap();
-        
+
         assert_eq!(loaded_tensor.shape(), &[2, 2]);
         assert_eq!(loaded_tensor.data, vec![1.0, 2.0, 3.0, 4.0]);
     }
@@ -214,7 +226,7 @@ mod tests {
 
         let loader = SafetensorsLoader::from_file(temp_file.path()).unwrap();
         let loaded_tensors: HashMap<String, Tensor<f32>> = loader.load_all_tensors().unwrap();
-        
+
         assert_eq!(loaded_tensors.len(), 2);
         assert!(loaded_tensors.contains_key("tensor1"));
         assert!(loaded_tensors.contains_key("tensor2"));

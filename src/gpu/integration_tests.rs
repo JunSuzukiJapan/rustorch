@@ -10,10 +10,10 @@ mod tests {
         // 基本的なテンソル作成テスト
         let a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);
         let b = Tensor::from_vec(vec![4.0f32, 5.0, 6.0], vec![3]);
-        
+
         assert_eq!(a.shape(), &[3]);
         assert_eq!(b.shape(), &[3]);
-        
+
         println!("✓ GPU kernel basic test passed");
     }
 
@@ -22,9 +22,9 @@ mod tests {
         // 基本的なテンソル作成テスト
         let data = vec![1.0, 2.0, 3.0, 4.0];
         let tensor = Tensor::from_vec(data, vec![2, 2]);
-        
+
         assert_eq!(tensor.shape(), &[2, 2]);
-        
+
         println!("✓ Tensor creation test passed");
     }
 
@@ -33,10 +33,10 @@ mod tests {
         // f64テンソルの基本テスト
         let a = Tensor::from_vec(vec![1.0f64, 2.0, 3.0], vec![3]);
         let b = Tensor::from_vec(vec![4.0f64, 5.0, 6.0], vec![3]);
-        
+
         assert_eq!(a.shape(), &[3]);
         assert_eq!(b.shape(), &[3]);
-        
+
         println!("✓ F64 tensor test passed");
     }
 
@@ -45,9 +45,9 @@ mod tests {
         // 基本的な統合テスト
         let data = vec![1.0, 2.0, 3.0, 4.0];
         let tensor = Tensor::from_vec(data, vec![2, 2]);
-        
+
         assert_eq!(tensor.shape(), &[2, 2]);
-        
+
         println!("✓ Basic integration test passed");
         println!("✅ All GPU kernel tests completed successfully!");
     }

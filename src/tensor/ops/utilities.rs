@@ -19,7 +19,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let data: Vec<T> = (0..total_size)
             .map(|_| <T as From<f32>>::from(rng.sample::<f32, _>(StandardNormal)))
             .collect();
-            
+
         Tensor::from_vec(data, shape.to_vec())
     }
 
@@ -34,7 +34,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let data: Vec<T> = (0..total_size)
             .map(|_| <T as From<f32>>::from(rng.gen::<f32>()))
             .collect();
-            
+
         Tensor::from_vec(data, shape.to_vec())
     }
 
@@ -76,7 +76,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         let first_shape = tensors[0].shape();
-        
+
         // Verify all tensors have the same shape
         for tensor in tensors.iter().skip(1) {
             if tensor.shape() != first_shape {
@@ -109,11 +109,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         let first_shape = tensors[0].shape();
-        
+
         if axis >= first_shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "concatenate".to_string(),
-                message: format!("Axis {} is out of bounds for tensor with {} dimensions", axis, first_shape.len()),
+                message: format!(
+                    "Axis {} is out of bounds for tensor with {} dimensions",
+                    axis,
+                    first_shape.len()
+                ),
             });
         }
 
@@ -127,7 +131,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                     message: "All tensors must have the same number of dimensions".to_string(),
                 });
             }
-            
+
             for (i, (&dim1, &dim2)) in first_shape.iter().zip(shape.iter()).enumerate() {
                 if i != axis && dim1 != dim2 {
                     return Err(RusTorchError::InvalidOperation {
@@ -136,7 +140,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                     });
                 }
             }
-            
+
             total_axis_size += shape[axis];
         }
 
@@ -165,7 +169,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                     // Concatenate along columns - more complex
                     let _cols = first_shape[1];
                     let mut result_data = Vec::new();
-                    
+
                     for row in 0..first_shape[0] {
                         for tensor in tensors {
                             let start_idx = row * tensor.shape()[1];
@@ -174,13 +178,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                             result_data.extend_from_slice(&tensor_vec[start_idx..end_idx]);
                         }
                     }
-                    
+
                     Ok(Tensor::from_vec(result_data, result_shape))
                 }
             }
             _ => Err(RusTorchError::UnsupportedOperation(
-                "Concatenation for >2D tensors not yet implemented".to_string()
-            ))
+                "Concatenation for >2D tensors not yet implemented".to_string(),
+            )),
         }
     }
 
@@ -189,15 +193,21 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     pub fn reshape(&self, new_shape: &[usize]) -> RusTorchResult<Self> {
         let old_size: usize = self.shape().iter().product();
         let new_size: usize = new_shape.iter().product();
-        
+
         if old_size != new_size {
             return Err(RusTorchError::InvalidOperation {
                 operation: "reshape".to_string(),
-                message: format!("Cannot reshape tensor of size {} to size {}", old_size, new_size),
+                message: format!(
+                    "Cannot reshape tensor of size {} to size {}",
+                    old_size, new_size
+                ),
             });
         }
-        
-        Ok(Tensor::from_vec(self.data.iter().copied().collect(), new_shape.to_vec()))
+
+        Ok(Tensor::from_vec(
+            self.data.iter().copied().collect(),
+            new_shape.to_vec(),
+        ))
     }
 
     /// Flatten tensor to 1D (new implementation)
@@ -210,11 +220,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// Squeeze dimensions of size 1 (new implementation)
     /// サイズ1の次元を削除（新実装）
     pub fn squeeze_v2(&self) -> Self {
-        let new_shape: Vec<usize> = self.shape().iter()
+        let new_shape: Vec<usize> = self
+            .shape()
+            .iter()
             .filter(|&&dim| dim != 1)
             .copied()
             .collect();
-        
+
         if new_shape.is_empty() {
             // If all dimensions were 1, keep at least one dimension
             Tensor::from_vec(self.data.iter().copied().collect(), vec![1])
@@ -227,16 +239,19 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// 指定位置にサイズ1の次元を追加（新実装）
     pub fn unsqueeze_v2(&self, dim: usize) -> RusTorchResult<Self> {
         let mut new_shape = self.shape().to_vec();
-        
+
         if dim > new_shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "unsqueeze".to_string(),
                 message: format!("Dimension {} is out of bounds for unsqueeze", dim),
             });
         }
-        
+
         new_shape.insert(dim, 1);
-        Ok(Tensor::from_vec(self.data.iter().copied().collect(), new_shape))
+        Ok(Tensor::from_vec(
+            self.data.iter().copied().collect(),
+            new_shape,
+        ))
     }
 
     /// Clone tensor data (explicit for clarity)
@@ -262,7 +277,7 @@ mod tests {
         let a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let b = Tensor::from_vec(vec![3.0, 4.0], vec![2]);
         let result = Tensor::stack_v2(&[&a, &b]).unwrap();
-        
+
         assert_eq!(result.shape(), &[2, 2]);
         assert_eq!(result.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
     }
@@ -272,7 +287,7 @@ mod tests {
         let a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let b = Tensor::from_vec(vec![3.0, 4.0], vec![2]);
         let result = Tensor::concatenate_v2(&[&a, &b], 0).unwrap();
-        
+
         assert_eq!(result.shape(), &[4]);
         assert_eq!(result.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
     }
@@ -281,9 +296,12 @@ mod tests {
     fn test_reshape() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let reshaped = tensor.reshape_v2(&[3, 2]).unwrap();
-        
+
         assert_eq!(reshaped.shape(), &[3, 2]);
-        assert_eq!(reshaped.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+        assert_eq!(
+            reshaped.as_slice().unwrap(),
+            &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+        );
     }
 
     #[test]
@@ -291,7 +309,7 @@ mod tests {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
         let squeezed = tensor.squeeze_v2();
         assert_eq!(squeezed.shape(), &[3]);
-        
+
         let unsqueezed = squeezed.unsqueeze_v2(0).unwrap();
         assert_eq!(unsqueezed.shape(), &[1, 3]);
     }
@@ -300,7 +318,7 @@ mod tests {
     fn test_map() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
         let result = tensor.map(|x| x * 2.0);
-        
+
         assert_eq!(result.as_slice().unwrap(), &[2.0, 4.0, 6.0]);
     }
 }

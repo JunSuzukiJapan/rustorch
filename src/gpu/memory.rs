@@ -1,6 +1,5 @@
 /// GPU memory management
 /// GPUメモリ管理
-
 use super::DeviceType;
 use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
@@ -143,7 +142,9 @@ impl GpuMemoryPool {
     /// Deallocate memory back to the pool
     /// メモリをプールに戻す
     pub fn deallocate(&mut self, ptr: usize) -> RusTorchResult<()> {
-        let allocation = self.allocations.remove(&ptr)
+        let allocation = self
+            .allocations
+            .remove(&ptr)
             .ok_or_else(|| RusTorchError::tensor_op("Invalid pointer for deallocation"))?;
 
         let offset = ptr - self.base_ptr;
@@ -164,7 +165,12 @@ impl GpuMemoryPool {
     pub fn memory_stats(&self) -> (usize, usize, usize, f32) {
         let free_size = self.total_size - self.allocated_size;
         let usage_percent = (self.allocated_size as f32 / self.total_size as f32) * 100.0;
-        (self.total_size, self.allocated_size, free_size, usage_percent)
+        (
+            self.total_size,
+            self.allocated_size,
+            free_size,
+            usage_percent,
+        )
     }
 
     /// Get device
@@ -188,7 +194,7 @@ impl GpuMemoryPool {
 
         for &(offset, size) in &self.free_blocks[1..] {
             let (current_offset, current_size) = current_block;
-            
+
             // Check if blocks are adjacent
             if current_offset + current_size == offset {
                 // Merge blocks
@@ -271,7 +277,11 @@ impl GpuMemoryManager {
 
     /// Allocate memory on specific device
     /// 特定デバイスでメモリを割り当て
-    pub fn allocate(&mut self, device: DeviceType, size: usize) -> RusTorchResult<MemoryAllocation> {
+    pub fn allocate(
+        &mut self,
+        device: DeviceType,
+        size: usize,
+    ) -> RusTorchResult<MemoryAllocation> {
         let pool = self.get_pool(device)?;
         let mut pool_guard = pool.lock().unwrap();
         pool_guard.allocate(size)
@@ -451,7 +461,7 @@ mod tests {
     fn test_memory_pool_creation() {
         let pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
         assert_eq!(pool.device(), DeviceType::Cpu);
-        
+
         let (total, allocated, free, usage) = pool.memory_stats();
         assert_eq!(total, 1024 * 1024);
         assert_eq!(allocated, 0);
@@ -462,11 +472,11 @@ mod tests {
     #[test]
     fn test_memory_allocation() {
         let mut pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
-        
+
         let allocation = pool.allocate(1024).unwrap();
         assert_eq!(allocation.device, DeviceType::Cpu);
         assert_eq!(allocation.size, 1024); // Aligned to 256 bytes
-        
+
         let (_, allocated, _, usage) = pool.memory_stats();
         assert_eq!(allocated, 1024);
         assert!(usage > 0.0);
@@ -475,12 +485,12 @@ mod tests {
     #[test]
     fn test_memory_deallocation() {
         let mut pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
-        
+
         let allocation = pool.allocate(1024).unwrap();
         let ptr = allocation.ptr;
-        
+
         pool.deallocate(ptr).unwrap();
-        
+
         let (_, allocated, _, usage) = pool.memory_stats();
         assert_eq!(allocated, 0);
         assert_eq!(usage, 0.0);
@@ -489,12 +499,12 @@ mod tests {
     #[test]
     fn test_memory_manager() {
         let mut manager = GpuMemoryManager::new(1024 * 1024);
-        
+
         let allocation = manager.allocate(DeviceType::Cpu, 1024).unwrap();
         assert_eq!(allocation.device, DeviceType::Cpu);
-        
+
         manager.deallocate(&allocation).unwrap();
-        
+
         let stats = manager.memory_stats();
         assert!(stats.contains_key(&DeviceType::Cpu));
     }
@@ -503,30 +513,30 @@ mod tests {
     fn test_data_transfer() {
         let mut pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
         let allocation = pool.allocate(1024).unwrap();
-        
+
         let src_data = vec![1.0f32, 2.0, 3.0, 4.0];
         DataTransfer::host_to_device(&src_data, &allocation).unwrap();
-        
+
         let mut dst_data = vec![0.0f32; 4];
         DataTransfer::device_to_host(&allocation, &mut dst_data).unwrap();
-        
+
         assert_eq!(src_data, dst_data);
     }
 
     #[test]
     fn test_block_merging() {
         let mut pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
-        
+
         let alloc1 = pool.allocate(256).unwrap();
         let alloc2 = pool.allocate(256).unwrap();
         let alloc3 = pool.allocate(256).unwrap();
-        
+
         // Deallocate middle block first
         pool.deallocate(alloc2.ptr).unwrap();
         // Then deallocate adjacent blocks
         pool.deallocate(alloc1.ptr).unwrap();
         pool.deallocate(alloc3.ptr).unwrap();
-        
+
         // Should be able to allocate a large block again
         let large_alloc = pool.allocate(768).unwrap();
         assert!(large_alloc.size >= 768);

@@ -22,7 +22,7 @@ impl SimdAllocator {
     pub fn alloc_f32(len: usize) -> Result<NonNull<f32>, Box<dyn std::error::Error>> {
         let layout = Layout::from_size_align(len * std::mem::size_of::<f32>(), SIMD_ALIGNMENT)
             .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
-        
+
         unsafe {
             let ptr = alloc_zeroed(layout);
             if ptr.is_null() {
@@ -36,10 +36,8 @@ impl SimdAllocator {
     /// Deallocate SIMD-aligned memory
     /// SIMDアライメントメモリを解放
     pub unsafe fn dealloc_f32(ptr: NonNull<f32>, len: usize) {
-        let layout = Layout::from_size_align_unchecked(
-            len * std::mem::size_of::<f32>(), 
-            SIMD_ALIGNMENT
-        );
+        let layout =
+            Layout::from_size_align_unchecked(len * std::mem::size_of::<f32>(), SIMD_ALIGNMENT);
         dealloc(ptr.as_ptr() as *mut u8, layout);
     }
 
@@ -64,12 +62,12 @@ unsafe impl<T: Float + Sync> Sync for SimdTensor<T> {}
 impl<T: Float + Clone + 'static> SimdTensor<T> {
     /// Create new SIMD-aligned tensor (f32 only for now)
     /// 新しいSIMDアライメントテンソルを作成（現在はf32のみ）
-    pub fn zeros(shape: &[usize]) -> Result<Self, Box<dyn std::error::Error>> 
-    where 
-        T: 'static 
+    pub fn zeros(shape: &[usize]) -> Result<Self, Box<dyn std::error::Error>>
+    where
+        T: 'static,
     {
         let len: usize = shape.iter().product();
-        
+
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             let ptr = SimdAllocator::alloc_f32(len)?;
             Ok(SimdTensor {
@@ -135,10 +133,7 @@ impl<T: Float + Clone + 'static> SimdTensor<T> {
 impl<T: Float> Drop for SimdTensor<T> {
     fn drop(&mut self) {
         unsafe {
-            SimdAllocator::dealloc_f32(
-                std::mem::transmute(self.data), 
-                self.len
-            );
+            SimdAllocator::dealloc_f32(std::mem::transmute(self.data), self.len);
         }
     }
 }
@@ -150,7 +145,8 @@ impl SimdTensor<f32> {
     /// SIMD最適化要素ごと加算
     pub fn add_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape != other.shape {
-            return Err(RusTorchError::parallel("Shape mismatch"));        }
+            return Err(RusTorchError::parallel("Shape mismatch"));
+        }
 
         let mut result = SimdTensor::zeros(&self.shape)
             .map_err(|_| RusTorchError::parallel("SIMD allocation failed"))?;
@@ -167,7 +163,11 @@ impl SimdTensor<f32> {
         #[cfg(target_arch = "wasm32")]
         {
             // Fallback for WASM
-            for ((a_elem, b_elem), r_elem) in self_slice.iter().zip(other_slice.iter()).zip(result_slice.iter_mut()) {
+            for ((a_elem, b_elem), r_elem) in self_slice
+                .iter()
+                .zip(other_slice.iter())
+                .zip(result_slice.iter_mut())
+            {
                 *r_elem = *a_elem + *b_elem;
             }
         }
@@ -179,7 +179,8 @@ impl SimdTensor<f32> {
     /// SIMD最適化要素ごと乗算
     pub fn mul_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape != other.shape {
-            return Err(RusTorchError::parallel("Shape mismatch"));        }
+            return Err(RusTorchError::parallel("Shape mismatch"));
+        }
 
         let mut result = SimdTensor::zeros(&self.shape)
             .map_err(|_| RusTorchError::parallel("SIMD allocation failed"))?;
@@ -195,7 +196,11 @@ impl SimdTensor<f32> {
         #[cfg(target_arch = "wasm32")]
         {
             // Fallback for WASM
-            for ((a_elem, b_elem), r_elem) in self_slice.iter().zip(other_slice.iter()).zip(result_slice.iter_mut()) {
+            for ((a_elem, b_elem), r_elem) in self_slice
+                .iter()
+                .zip(other_slice.iter())
+                .zip(result_slice.iter_mut())
+            {
                 *r_elem = *a_elem * *b_elem;
             }
         }
@@ -206,8 +211,7 @@ impl SimdTensor<f32> {
     /// SIMD-optimized scalar multiplication
     /// SIMD最適化スカラー乗算
     pub fn mul_scalar_simd(&self, scalar: f32) -> SimdTensor<f32> {
-        let mut result = SimdTensor::zeros(&self.shape)
-            .expect("SIMD allocation should succeed");
+        let mut result = SimdTensor::zeros(&self.shape).expect("SIMD allocation should succeed");
 
         let self_slice = self.as_slice();
         let result_slice = result.as_mut_slice();
@@ -231,10 +235,12 @@ impl SimdTensor<f32> {
     /// SIMD最適化行列乗算
     pub fn matmul_simd(&self, other: &SimdTensor<f32>) -> ParallelResult<SimdTensor<f32>> {
         if self.shape.len() != 2 || other.shape.len() != 2 {
-            return Err(RusTorchError::parallel("Insufficient dimensions"));        }
+            return Err(RusTorchError::parallel("Insufficient dimensions"));
+        }
 
         if self.shape[1] != other.shape[0] {
-            return Err(RusTorchError::parallel("Matrix dimension mismatch"));        }
+            return Err(RusTorchError::parallel("Matrix dimension mismatch"));
+        }
 
         let result_shape = vec![self.shape[0], other.shape[1]];
         let mut result = SimdTensor::zeros(&result_shape)
@@ -245,7 +251,7 @@ impl SimdTensor<f32> {
         let self_cols = self.shape[1];
         let other_rows = other.shape[0];
         let other_cols = other.shape[1];
-        
+
         let self_slice = self.as_slice();
         let other_slice = other.as_slice();
         let result_slice = result.as_mut_slice();
@@ -254,9 +260,13 @@ impl SimdTensor<f32> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             crate::simd::vectorized::matmul_f32_simd(
-                self_slice, self_rows, self_cols,
-                other_slice, other_rows, other_cols,
-                result_slice
+                self_slice,
+                self_rows,
+                self_cols,
+                other_slice,
+                other_rows,
+                other_cols,
+                result_slice,
             );
         }
         #[cfg(target_arch = "wasm32")]
@@ -280,13 +290,15 @@ impl SimdTensor<f32> {
     /// 最大効率のためのインプレースSIMD演算
     pub fn add_assign_simd(&mut self, other: &SimdTensor<f32>) -> ParallelResult<()> {
         if self.shape != other.shape {
-            return Err(RusTorchError::parallel("Shape mismatch"));        }
+            return Err(RusTorchError::parallel("Shape mismatch"));
+        }
 
         let self_slice = self.as_mut_slice();
         let other_slice = other.as_slice();
 
         // In-place SIMD addition - need to handle borrowing correctly
-        let temp_result: Vec<f32> = self_slice.iter()
+        let temp_result: Vec<f32> = self_slice
+            .iter()
             .zip(other_slice.iter())
             .map(|(&a, &b)| a + b)
             .collect();
@@ -299,7 +311,7 @@ impl SimdTensor<f32> {
     /// SIMDを使用してテンソルを値で埋める
     pub fn fill_simd(&mut self, value: f32) {
         let slice = self.as_mut_slice();
-        
+
         // Use SIMD for filling large arrays
         if slice.len() >= 8 {
             // Create temporary array filled with value for SIMD operation
@@ -318,22 +330,21 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// SIMDアライメントテンソルに変換（f32のみ）
     pub fn to_simd_aligned(&self) -> Result<SimdTensor<T>, Box<dyn std::error::Error>> {
         let mut simd_tensor = SimdTensor::zeros(self.data.shape())?;
-        
-        if let (Some(self_slice), Some(simd_slice)) = (
-            self.data.as_slice(),
-            Some(simd_tensor.as_mut_slice())
-        ) {
+
+        if let (Some(self_slice), Some(simd_slice)) =
+            (self.data.as_slice(), Some(simd_tensor.as_mut_slice()))
+        {
             simd_slice.copy_from_slice(self_slice);
         }
-        
+
         Ok(simd_tensor)
     }
 
     /// Create tensor with SIMD-aligned allocation strategy
     /// SIMDアライメント割り当て戦略でテンソルを作成
-    pub fn zeros_simd_aligned(shape: &[usize]) -> Self 
-    where 
-        T: 'static 
+    pub fn zeros_simd_aligned(shape: &[usize]) -> Self
+    where
+        T: 'static,
     {
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             // Try to create SIMD-aligned tensor and convert back
@@ -341,7 +352,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 return simd_tensor.to_tensor();
             }
         }
-        
+
         // Fallback to regular allocation
         Self::zeros(shape)
     }
@@ -367,24 +378,33 @@ impl SimdMemoryPool {
     /// Get pool index based on tensor size
     /// テンソルサイズに基づいてプールインデックスを取得
     fn get_pool_index(&self, total_elements: usize) -> usize {
-        if total_elements <= 64 { 0 }
-        else if total_elements <= 256 { 1 }
-        else if total_elements <= 1024 { 2 }
-        else if total_elements <= 4096 { 3 }
-        else { 4 }
+        if total_elements <= 64 {
+            0
+        } else if total_elements <= 256 {
+            1
+        } else if total_elements <= 1024 {
+            2
+        } else if total_elements <= 4096 {
+            3
+        } else {
+            4
+        }
     }
 
     /// Allocate SIMD-aligned tensor from pool
     /// プールからSIMDアライメントテンソルを割り当て
-    pub fn allocate(&mut self, shape: &[usize]) -> Result<SimdTensor<f32>, Box<dyn std::error::Error>> {
+    pub fn allocate(
+        &mut self,
+        shape: &[usize],
+    ) -> Result<SimdTensor<f32>, Box<dyn std::error::Error>> {
         let total_elements: usize = shape.iter().product();
         let pool_index = self.get_pool_index(total_elements);
-        
+
         // Ensure pool exists
         while self.pools.len() <= pool_index {
             self.pools.push(Vec::new());
         }
-        
+
         // Try to reuse from pool
         if let Some(mut tensor) = self.pools[pool_index].pop() {
             if tensor.shape() == shape {
@@ -396,7 +416,7 @@ impl SimdMemoryPool {
                 self.pools[pool_index].push(tensor);
             }
         }
-        
+
         // Create new tensor if none available
         SimdTensor::zeros(shape)
     }
@@ -406,12 +426,12 @@ impl SimdMemoryPool {
     pub fn deallocate(&mut self, tensor: SimdTensor<f32>) {
         let total_elements = tensor.len();
         let pool_index = self.get_pool_index(total_elements);
-        
+
         // Ensure pool exists
         while self.pools.len() <= pool_index {
             self.pools.push(Vec::new());
         }
-        
+
         if self.pools[pool_index].len() < self.max_pool_size {
             self.pools[pool_index].push(tensor);
         }
@@ -427,7 +447,7 @@ mod tests {
     fn test_simd_tensor_creation() {
         let tensor = SimdTensor::<f32>::zeros(&[4, 4]);
         assert!(tensor.is_ok());
-        
+
         let tensor = tensor.unwrap();
         assert_eq!(tensor.shape(), &[4, 4]);
         assert_eq!(tensor.len(), 16);
@@ -438,13 +458,13 @@ mod tests {
     fn test_simd_operations() {
         let mut a = SimdTensor::<f32>::zeros(&[4, 4]).unwrap();
         let mut b = SimdTensor::<f32>::zeros(&[4, 4]).unwrap();
-        
+
         a.fill_simd(2.0);
         b.fill_simd(3.0);
-        
+
         let result = a.add_simd(&b);
         assert!(result.is_ok());
-        
+
         let result = result.unwrap();
         assert_eq!(result.as_slice()[0], 5.0);
     }
@@ -453,33 +473,33 @@ mod tests {
     fn test_simd_matrix_multiplication() {
         let mut a = SimdTensor::<f32>::zeros(&[2, 3]).unwrap();
         let mut b = SimdTensor::<f32>::zeros(&[3, 2]).unwrap();
-        
+
         a.fill_simd(1.0);
         b.fill_simd(2.0);
-        
+
         let result = a.matmul_simd(&b);
         assert!(result.is_ok());
-        
+
         let result = result.unwrap();
         assert_eq!(result.shape(), &[2, 2]);
-        
+
         // Debug: print actual values
         println!("Result values: {:?}", result.as_slice());
         println!("Expected: 6.0 (1*2 + 1*2 + 1*2)");
-        
+
         // Matrix A (2x3) filled with 1.0:
         // [1, 1, 1]
         // [1, 1, 1]
         //
         // Matrix B (3x2) filled with 2.0:
         // [2, 2]
-        // [2, 2] 
+        // [2, 2]
         // [2, 2]
         //
         // Result should be (2x2):
         // [6, 6]  // 1*2 + 1*2 + 1*2 = 6
         // [6, 6]  // 1*2 + 1*2 + 1*2 = 6
-        
+
         assert_eq!(result.as_slice()[0], 6.0); // 1*2 + 1*2 + 1*2 = 6
         assert_eq!(result.as_slice()[1], 6.0);
         assert_eq!(result.as_slice()[2], 6.0);
@@ -490,13 +510,13 @@ mod tests {
     fn test_inplace_operations() {
         let mut a = SimdTensor::<f32>::zeros(&[3, 3]).unwrap();
         let mut b = SimdTensor::<f32>::zeros(&[3, 3]).unwrap();
-        
+
         a.fill_simd(1.0);
         b.fill_simd(2.0);
-        
+
         let result = a.add_assign_simd(&b);
         assert!(result.is_ok());
-        
+
         assert_eq!(a.as_slice()[0], 3.0);
     }
 
@@ -504,11 +524,11 @@ mod tests {
     fn test_tensor_conversion() {
         let regular_tensor = Tensor::<f32>::ones(&[2, 2]);
         let simd_tensor = regular_tensor.to_simd_aligned();
-        
+
         assert!(simd_tensor.is_ok());
         let simd_tensor = simd_tensor.unwrap();
         assert!(simd_tensor.is_simd_aligned());
-        
+
         let back_to_regular = simd_tensor.to_tensor();
         assert_eq!(back_to_regular.size(), vec![2, 2]);
     }
@@ -516,13 +536,13 @@ mod tests {
     #[test]
     fn test_simd_memory_pool() {
         let mut pool = SimdMemoryPool::new(5);
-        
+
         let tensor1 = pool.allocate(&[4, 4]);
         assert!(tensor1.is_ok());
-        
+
         let tensor1 = tensor1.unwrap();
         pool.deallocate(tensor1);
-        
+
         // Should reuse from pool
         let tensor2 = pool.allocate(&[4, 4]);
         assert!(tensor2.is_ok());

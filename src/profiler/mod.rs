@@ -2,17 +2,17 @@
 //! RusTorch操作のパフォーマンスプロファイラー
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
-use std::thread;
 use std::fmt;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 
-pub mod memory_profiler;
 pub mod kernel_profiler;
+pub mod memory_profiler;
 pub mod timeline;
 
-use self::memory_profiler::MemoryProfiler;
 use self::kernel_profiler::KernelProfiler;
+use self::memory_profiler::MemoryProfiler;
 use self::timeline::Timeline;
 
 lazy_static::lazy_static! {
@@ -37,12 +37,12 @@ impl ProfileContext {
     pub fn new(name: impl Into<String>) -> Self {
         let name = name.into();
         let start_time = Instant::now();
-        
+
         // Register context start
         if let Ok(mut profiler) = PROFILER.lock() {
             profiler.start_operation(&name);
         }
-        
+
         Self {
             name,
             start_time,
@@ -54,7 +54,7 @@ impl ProfileContext {
 impl Drop for ProfileContext {
     fn drop(&mut self) {
         let duration = self.start_time.elapsed();
-        
+
         // Register context end
         if let Ok(mut profiler) = PROFILER.lock() {
             profiler.end_operation(&self.name, duration);
@@ -196,23 +196,24 @@ impl Profiler {
         }
 
         let thread_id = thread::current().id();
-        
+
         // Update call stack
         self.call_stack.push(name.to_string());
-        
+
         // Record in timeline
         self.timeline.add_event(name, Instant::now(), None);
-        
+
         // Initialize operation stats if needed
-        self.operations.entry(name.to_string())
-            .or_insert_with(|| {
-                let mut stats = OperationStats::default();
-                stats.name = name.to_string();
-                stats
-            });
-        
+        self.operations.entry(name.to_string()).or_insert_with(|| {
+            let mut stats = OperationStats::default();
+            stats.name = name.to_string();
+            stats
+        });
+
         // Update thread data
-        let thread_data = self.thread_data.entry(thread_id)
+        let thread_data = self
+            .thread_data
+            .entry(thread_id)
             .or_insert_with(|| ThreadProfileData {
                 _thread_id: thread_id,
                 call_stack: Vec::new(),
@@ -229,36 +230,35 @@ impl Profiler {
         }
 
         // Update operation stats - ensure operation exists
-        let stats = self.operations.entry(name.to_string())
-            .or_insert_with(|| {
-                let mut stats = OperationStats::default();
-                stats.name = name.to_string();
-                stats
-            });
-        
+        let stats = self.operations.entry(name.to_string()).or_insert_with(|| {
+            let mut stats = OperationStats::default();
+            stats.name = name.to_string();
+            stats
+        });
+
         stats.count += 1;
         stats.total_time += duration;
         stats.avg_time = stats.total_time / stats.count as u32;
         stats.min_time = stats.min_time.min(duration);
         stats.max_time = stats.max_time.max(duration);
-        
+
         // Update memory stats
         let mem_stats = self.memory_profiler.get_current_stats();
         stats.memory_allocated = mem_stats.allocated;
         stats.memory_freed = mem_stats.freed;
-        
+
         // Update CUDA time if applicable
         if let Some(cuda_time) = self.kernel_profiler.get_last_kernel_time() {
             stats.cuda_time = Some(cuda_time);
         }
-        
+
         // Update call stack
         if let Some(last) = self.call_stack.last() {
             if last == name {
                 self.call_stack.pop();
             }
         }
-        
+
         // Update timeline
         self.timeline.end_event(name, Instant::now());
     }
@@ -269,7 +269,7 @@ impl Profiler {
         if !self.enabled {
             return;
         }
-        
+
         self.memory_profiler.record_allocation(size, name);
     }
 
@@ -279,7 +279,7 @@ impl Profiler {
         if !self.enabled {
             return;
         }
-        
+
         self.memory_profiler.record_deallocation(size, name);
     }
 
@@ -288,14 +288,12 @@ impl Profiler {
     pub fn get_summary(&self) -> ProfileSummary {
         let mut operations: Vec<_> = self.operations.values().cloned().collect();
         operations.sort_by(|a, b| b.total_time.cmp(&a.total_time));
-        
-        let total_time: Duration = operations.iter()
-            .map(|op| op.total_time)
-            .sum();
-        
+
+        let total_time: Duration = operations.iter().map(|op| op.total_time).sum();
+
         let memory_stats = self.memory_profiler.get_summary();
         let kernel_stats = self.kernel_profiler.get_summary();
-        
+
         ProfileSummary {
             operations,
             total_time,
@@ -354,36 +352,50 @@ pub struct ProfileSummary {
 impl fmt::Display for ProfileSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "\n================== Profiler Report ==================")?;
-        writeln!(f, "Total Time: {:.3}ms", self.total_time.as_secs_f64() * 1000.0)?;
+        writeln!(
+            f,
+            "Total Time: {:.3}ms",
+            self.total_time.as_secs_f64() * 1000.0
+        )?;
         writeln!(f)?;
-        
+
         // Operation table
         writeln!(f, "Top Operations by Time:")?;
-        writeln!(f, "{:<30} {:>10} {:>12} {:>12} {:>12}", 
-            "Name", "Calls", "Total (ms)", "Avg (ms)", "Self (ms)")?;
+        writeln!(
+            f,
+            "{:<30} {:>10} {:>12} {:>12} {:>12}",
+            "Name", "Calls", "Total (ms)", "Avg (ms)", "Self (ms)"
+        )?;
         writeln!(f, "{}", "-".repeat(80))?;
-        
+
         for op in self.operations.iter().take(20) {
-            writeln!(f, "{:<30} {:>10} {:>12.3} {:>12.3} {:>12.3}",
-                if op.name.len() > 29 { &op.name[..29] } else { &op.name },
+            writeln!(
+                f,
+                "{:<30} {:>10} {:>12.3} {:>12.3} {:>12.3}",
+                if op.name.len() > 29 {
+                    &op.name[..29]
+                } else {
+                    &op.name
+                },
                 op.count,
                 op.total_time.as_secs_f64() * 1000.0,
                 op.avg_time.as_secs_f64() * 1000.0,
-                op.self_cpu_time.as_secs_f64() * 1000.0)?;
+                op.self_cpu_time.as_secs_f64() * 1000.0
+            )?;
         }
-        
+
         writeln!(f)?;
-        
+
         // Memory statistics
         writeln!(f, "Memory Statistics:")?;
         writeln!(f, "{}", self.memory_stats)?;
-        
+
         // Kernel statistics
         if !self.kernel_stats.kernels.is_empty() {
             writeln!(f, "\nGPU Kernel Statistics:")?;
             writeln!(f, "{}", self.kernel_stats)?;
         }
-        
+
         Ok(())
     }
 }
@@ -474,38 +486,47 @@ mod tests {
         // Simple single reset approach
         disable_profiler();
         force_reset_profiler();
-        
+
         // Verify profiler is really enabled
         enable_profiler();
-        
+
         // Check if profiler is enabled before testing
         let is_enabled = PROFILER.lock().map(|p| p.enabled).unwrap_or(false);
         if !is_enabled {
             enable_profiler();
         }
-        
+
         {
             let _ctx = ProfileContext::new("test_operation");
             thread::sleep(Duration::from_millis(20));
         }
-        
+
         // Small delay for recording
         thread::sleep(Duration::from_millis(10));
-        
+
         let summary_result = get_profiler_summary();
         assert!(summary_result.is_some(), "Failed to get profiler summary");
-        
+
         let summary = summary_result.unwrap();
         if summary.operations.is_empty() {
-            println!("Profiler enabled: {}", PROFILER.lock().map(|p| p.enabled).unwrap_or(false));
+            println!(
+                "Profiler enabled: {}",
+                PROFILER.lock().map(|p| p.enabled).unwrap_or(false)
+            );
             println!("Operations count: {}", summary.operations.len());
         }
         assert!(summary.operations.len() > 0, "No operations recorded");
-        
-        let test_op = summary.operations.iter().find(|op| op.name == "test_operation");
-        assert!(test_op.is_some(), "test_operation not found in profiler summary");
+
+        let test_op = summary
+            .operations
+            .iter()
+            .find(|op| op.name == "test_operation");
+        assert!(
+            test_op.is_some(),
+            "test_operation not found in profiler summary"
+        );
         assert_eq!(test_op.unwrap().count, 1);
-        
+
         disable_profiler();
         force_reset_profiler();
     }
@@ -517,13 +538,13 @@ mod tests {
         disable_profiler();
         force_reset_profiler();
         enable_profiler();
-        
+
         // Double-check enabled state
         let is_enabled = PROFILER.lock().map(|p| p.enabled).unwrap_or(false);
         if !is_enabled {
             enable_profiler();
         }
-        
+
         {
             let _ctx1 = ProfileContext::new("outer");
             thread::sleep(Duration::from_millis(15));
@@ -532,26 +553,45 @@ mod tests {
                 thread::sleep(Duration::from_millis(15));
             }
         }
-        
+
         // Ensure all operations are recorded
         thread::sleep(Duration::from_millis(10));
-        
+
         let summary_result = get_profiler_summary();
         assert!(summary_result.is_some(), "Failed to get profiler summary");
-        
+
         let summary = summary_result.unwrap();
         if summary.operations.is_empty() {
-            println!("Profiler enabled: {}", PROFILER.lock().map(|p| p.enabled).unwrap_or(false));
-            println!("Available operations: {:?}", summary.operations.iter().map(|op| &op.name).collect::<Vec<_>>());
+            println!(
+                "Profiler enabled: {}",
+                PROFILER.lock().map(|p| p.enabled).unwrap_or(false)
+            );
+            println!(
+                "Available operations: {:?}",
+                summary
+                    .operations
+                    .iter()
+                    .map(|op| &op.name)
+                    .collect::<Vec<_>>()
+            );
         }
-        assert!(summary.operations.len() > 0, "No operations recorded in profiler");
-        
+        assert!(
+            summary.operations.len() > 0,
+            "No operations recorded in profiler"
+        );
+
         let outer_op = summary.operations.iter().find(|op| op.name == "outer");
         let inner_op = summary.operations.iter().find(|op| op.name == "inner");
-        
-        assert!(outer_op.is_some(), "outer operation not found in profiler summary");
-        assert!(inner_op.is_some(), "inner operation not found in profiler summary");
-        
+
+        assert!(
+            outer_op.is_some(),
+            "outer operation not found in profiler summary"
+        );
+        assert!(
+            inner_op.is_some(),
+            "inner operation not found in profiler summary"
+        );
+
         disable_profiler();
         force_reset_profiler();
     }
@@ -564,19 +604,21 @@ mod tests {
             force_reset_profiler();
         }
         enable_profiler();
-        
+
         profile!("macro_test", {
-            thread::sleep(Duration::from_millis(15));  // Increased duration
+            thread::sleep(Duration::from_millis(15)); // Increased duration
         });
-        
+
         // Add delay to ensure recording
         thread::sleep(Duration::from_millis(5));
-        
+
         let summary = get_profiler_summary().unwrap();
         assert!(summary.operations.len() > 0, "No operations recorded");
-        assert!(summary.operations.iter().any(|op| op.name == "macro_test"), 
-               "macro_test operation not found");
-        
+        assert!(
+            summary.operations.iter().any(|op| op.name == "macro_test"),
+            "macro_test operation not found"
+        );
+
         disable_profiler();
         force_reset_profiler();
     }

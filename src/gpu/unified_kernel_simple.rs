@@ -2,8 +2,8 @@
 //! クロスプラットフォームGPU加速のための簡潔な統一カーネルインターフェース
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
 use crate::gpu::DeviceType;
+use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -113,7 +113,11 @@ impl UnifiedKernelExecutor {
     pub fn new(device: DeviceType) -> RusTorchResult<Self> {
         // Validate device availability
         if !device.is_available() {
-            return Err(RusTorchError::DeviceNotAvailable(format!("Device {} not available", device)).into());
+            return Err(RusTorchError::DeviceNotAvailable(format!(
+                "Device {} not available",
+                device
+            ))
+            .into());
         }
 
         Ok(Self {
@@ -124,67 +128,88 @@ impl UnifiedKernelExecutor {
 
     /// Execute kernel operation on f32 tensors
     /// f32テンソルでカーネル操作を実行
-    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], _params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
+    pub fn execute_f32(
+        &mut self,
+        op: KernelOp,
+        inputs: &[&Tensor<f32>],
+        _params: &KernelParams,
+    ) -> RusTorchResult<Tensor<f32>> {
         let start_time = std::time::Instant::now();
-        
+
         let result = match op {
             KernelOp::Add => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Add requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Add requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].add(inputs[1])
+                inputs[0]
+                    .add(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Mul requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Mul requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].mul(inputs[1])
+                inputs[0]
+                    .mul(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Sub requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Sub requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].sub(inputs[1])
+                inputs[0]
+                    .sub(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("MatMul requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "MatMul requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].matmul(inputs[1])
+                inputs[0]
+                    .matmul(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
-            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
+            }
+            _ => Err(RusTorchError::UnsupportedOperation(format!(
+                "Operation {:?} not implemented",
+                op
+            ))
+            .into()),
         };
 
         // Update metrics
         let execution_time = start_time.elapsed();
         self.metrics.execution_time = execution_time;
-        
+
         // Set device-specific performance characteristics
         match self.device {
             DeviceType::Cpu => {
                 self.metrics.memory_bandwidth = 50.0;
                 self.metrics.occupancy = 100.0;
                 self.metrics.flops = 100.0;
-            },
+            }
             DeviceType::Cuda(_) => {
                 self.metrics.memory_bandwidth = 500.0;
                 self.metrics.occupancy = 80.0;
                 self.metrics.flops = 1000.0;
-            },
+            }
             DeviceType::Metal(_) => {
                 self.metrics.memory_bandwidth = 300.0;
                 self.metrics.occupancy = 75.0;
                 self.metrics.flops = 800.0;
-            },
+            }
             DeviceType::OpenCL(_) => {
                 self.metrics.memory_bandwidth = 200.0;
                 self.metrics.occupancy = 60.0;
                 self.metrics.flops = 600.0;
-            },
+            }
         }
 
         result.map_err(|e| e.into())
@@ -192,67 +217,88 @@ impl UnifiedKernelExecutor {
 
     /// Execute kernel operation on f64 tensors
     /// f64テンソルでカーネル操作を実行
-    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], _params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
+    pub fn execute_f64(
+        &mut self,
+        op: KernelOp,
+        inputs: &[&Tensor<f64>],
+        _params: &KernelParams,
+    ) -> RusTorchResult<Tensor<f64>> {
         let start_time = std::time::Instant::now();
-        
+
         let result = match op {
             KernelOp::Add => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Add requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Add requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].add(inputs[1])
+                inputs[0]
+                    .add(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Mul requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Mul requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].mul(inputs[1])
+                inputs[0]
+                    .mul(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("Sub requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "Sub requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].sub(inputs[1])
+                inputs[0]
+                    .sub(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
+            }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
-                    return Err(RusTorchError::InvalidOperation("MatMul requires exactly 2 inputs"));
+                    return Err(RusTorchError::InvalidOperation(
+                        "MatMul requires exactly 2 inputs",
+                    ));
                 }
-                inputs[0].matmul(inputs[1])
+                inputs[0]
+                    .matmul(inputs[1])
                     .map_err(|e| RusTorchError::KernelExecutionError(e))
-            },
-            _ => Err(RusTorchError::UnsupportedOperation(format!("Operation {:?} not implemented", op)).into()),
+            }
+            _ => Err(RusTorchError::UnsupportedOperation(format!(
+                "Operation {:?} not implemented",
+                op
+            ))
+            .into()),
         };
 
         // Update metrics
         let execution_time = start_time.elapsed();
         self.metrics.execution_time = execution_time;
-        
+
         // Set device-specific performance characteristics (same as f32)
         match self.device {
             DeviceType::Cpu => {
                 self.metrics.memory_bandwidth = 50.0;
                 self.metrics.occupancy = 100.0;
                 self.metrics.flops = 100.0;
-            },
+            }
             DeviceType::Cuda(_) => {
                 self.metrics.memory_bandwidth = 500.0;
                 self.metrics.occupancy = 80.0;
                 self.metrics.flops = 1000.0;
-            },
+            }
             DeviceType::Metal(_) => {
                 self.metrics.memory_bandwidth = 300.0;
                 self.metrics.occupancy = 75.0;
                 self.metrics.flops = 800.0;
-            },
+            }
             DeviceType::OpenCL(_) => {
                 self.metrics.memory_bandwidth = 200.0;
                 self.metrics.occupancy = 60.0;
                 self.metrics.flops = 600.0;
-            },
+            }
         }
 
         result.map_err(|e| e.into())
@@ -318,21 +364,39 @@ impl KernelSelector {
 
     /// Execute operation with best executor
     /// 最適な実行者で操作を実行
-    pub fn execute_f32(&mut self, op: KernelOp, inputs: &[&Tensor<f32>], params: &KernelParams) -> RusTorchResult<Tensor<f32>> {
+    pub fn execute_f32(
+        &mut self,
+        op: KernelOp,
+        inputs: &[&Tensor<f32>],
+        params: &KernelParams,
+    ) -> RusTorchResult<Tensor<f32>> {
         if let Some(executor) = self.select_best(op) {
             executor.execute_f32(op, inputs, params)
         } else {
-            Err(RusTorchError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
+            Err(RusTorchError::UnsupportedOperation(format!(
+                "No executor supports operation {:?}",
+                op
+            ))
+            .into())
         }
     }
 
     /// Execute operation with best executor
     /// 最適な実行者で操作を実行
-    pub fn execute_f64(&mut self, op: KernelOp, inputs: &[&Tensor<f64>], params: &KernelParams) -> RusTorchResult<Tensor<f64>> {
+    pub fn execute_f64(
+        &mut self,
+        op: KernelOp,
+        inputs: &[&Tensor<f64>],
+        params: &KernelParams,
+    ) -> RusTorchResult<Tensor<f64>> {
         if let Some(executor) = self.select_best(op) {
             executor.execute_f64(op, inputs, params)
         } else {
-            Err(RusTorchError::UnsupportedOperation(format!("No executor supports operation {:?}", op)).into())
+            Err(RusTorchError::UnsupportedOperation(format!(
+                "No executor supports operation {:?}",
+                op
+            ))
+            .into())
         }
     }
 
@@ -356,7 +420,7 @@ mod tests {
     #[test]
     fn test_unified_kernel_executor() {
         let executor = UnifiedKernelExecutor::new(DeviceType::Cpu).unwrap();
-        
+
         assert_eq!(executor.device_type(), DeviceType::Cpu);
         assert!(executor.supports_operation(KernelOp::Add));
         assert!(executor.supports_operation(KernelOp::MatMul));
@@ -370,7 +434,9 @@ mod tests {
         let b = Tensor::from_vec(vec![4.0f32, 5.0, 6.0], vec![3]);
         let params = KernelParams::default();
 
-        let result = executor.execute_f32(KernelOp::Add, &[&a, &b], &params).unwrap();
+        let result = executor
+            .execute_f32(KernelOp::Add, &[&a, &b], &params)
+            .unwrap();
         let expected = vec![5.0f32, 7.0, 9.0];
         assert_eq!(result.as_slice().unwrap(), &expected);
 
@@ -388,7 +454,9 @@ mod tests {
         let b = Tensor::from_vec(vec![4.0f32, 5.0, 6.0], vec![3]);
         let params = KernelParams::default();
 
-        let result = selector.execute_f32(KernelOp::Add, &[&a, &b], &params).unwrap();
+        let result = selector
+            .execute_f32(KernelOp::Add, &[&a, &b], &params)
+            .unwrap();
         let expected = vec![5.0f32, 7.0, 9.0];
         assert_eq!(result.as_slice().unwrap(), &expected);
 
@@ -404,7 +472,9 @@ mod tests {
         let b = Tensor::from_vec(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2]);
         let params = KernelParams::default();
 
-        let result = executor.execute_f32(KernelOp::MatMul, &[&a, &b], &params).unwrap();
+        let result = executor
+            .execute_f32(KernelOp::MatMul, &[&a, &b], &params)
+            .unwrap();
         assert_eq!(result.shape(), &[2, 2]);
 
         // Verify metrics show MatMul operation
@@ -420,7 +490,9 @@ mod tests {
         let b = Tensor::from_vec(vec![4.0f64, 5.0, 6.0], vec![3]);
         let params = KernelParams::default();
 
-        let result = executor.execute_f64(KernelOp::Mul, &[&a, &b], &params).unwrap();
+        let result = executor
+            .execute_f64(KernelOp::Mul, &[&a, &b], &params)
+            .unwrap();
         let expected = vec![4.0f64, 10.0, 18.0];
         assert_eq!(result.as_slice().unwrap(), &expected);
     }

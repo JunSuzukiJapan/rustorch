@@ -81,10 +81,10 @@ pub mod utils;
 pub mod tests;
 
 // Re-export main visualization types
-pub use plotting::{TrainingPlotter, PlotConfig, PlotStyle, ChartType};
-pub use tensor_viz::{TensorVisualizer, TensorPlotConfig, ColorMap};
-pub use graph_viz::{GraphVisualizer, GraphNode, GraphEdge, GraphLayout};
-pub use utils::{save_plot, export_format, PlotFormat};
+pub use graph_viz::{GraphEdge, GraphLayout, GraphNode, GraphVisualizer};
+pub use plotting::{ChartType, PlotConfig, PlotStyle, TrainingPlotter};
+pub use tensor_viz::{ColorMap, TensorPlotConfig, TensorVisualizer};
+pub use utils::{export_format, save_plot, PlotFormat};
 
 use crate::error::RusTorchResult; // RusTorchError,
 use num_traits::Float;
@@ -108,7 +108,7 @@ pub trait Visualizable<T: Float> {
     /// データを可視化用フォーマットに変換
     /// Convert data to visualization format
     fn to_plot_data(&self) -> RusTorchResult<PlotData<T>>;
-    
+
     /// 可視化設定を検証
     /// Validate visualization configuration
     fn validate_config(&self, config: &PlotConfig) -> RusTorchResult<()>;
@@ -147,14 +147,14 @@ impl<T: Float> PlotData<T> {
             style: PlotStyle::Line,
         }
     }
-    
+
     /// 色を設定
     /// Set color
     pub fn with_color(mut self, color: String) -> Self {
         self.color = Some(color);
         self
     }
-    
+
     /// スタイルを設定
     /// Set style
     pub fn with_style(mut self, style: PlotStyle) -> Self {
@@ -193,14 +193,14 @@ impl PlotMetadata {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// タイトルを設定
     /// Set title
     pub fn with_title(mut self, title: String) -> Self {
         self.title = Some(title);
         self
     }
-    
+
     /// 軸ラベルを設定
     /// Set axis labels
     pub fn with_labels(mut self, xlabel: String, ylabel: String) -> Self {
@@ -208,7 +208,7 @@ impl PlotMetadata {
         self.ylabel = Some(ylabel);
         self
     }
-    
+
     /// 凡例とグリッドを有効化
     /// Enable legend and grid
     pub fn with_legend_and_grid(mut self) -> Self {

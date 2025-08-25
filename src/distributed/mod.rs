@@ -1,13 +1,13 @@
 //! Distributed training support for RusTorch
 //! RusTorchの分散学習サポート
-//! 
+//!
 //! This module provides comprehensive distributed training capabilities including:
 //! - Data parallel training across multiple GPUs
 //! - Model parallel training for large models
 //! - Multi-machine cluster support
 //! - Communication backends (NCCL, Gloo, MPI)
 //! - Gradient synchronization and aggregation
-//! 
+//!
 //! このモジュールは包括的な分散学習機能を提供します：
 //! - 複数GPU間でのデータ並列学習
 //! - 大規模モデル向けのモデル並列学習
@@ -15,16 +15,15 @@
 //! - 通信バックエンド（NCCL、Gloo、MPI）
 //! - 勾配同期と集約
 
+use crate::gpu::DeviceType;
+use crate::tensor::Tensor;
+use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::tensor::Tensor;
-use crate::gpu::DeviceType;
-use num_traits::Float;
 
 // Re-export multi-GPU validation components
 pub use multi_gpu_validation::{
-    MultiGpuValidator, GpuDeviceInfo, ValidationMetrics, 
-    BenchmarkResults, MemoryUsage
+    BenchmarkResults, GpuDeviceInfo, MemoryUsage, MultiGpuValidator, ValidationMetrics,
 };
 
 /// Distributed backend types
@@ -84,7 +83,7 @@ impl ProcessGroup {
             master_port,
         }
     }
-    
+
     /// Initialize the process group
     /// プロセスグループを初期化
     pub fn init(&self) -> crate::error::RusTorchResult<()> {
@@ -95,7 +94,7 @@ impl ProcessGroup {
             DistributedBackend::TCP => self.init_tcp(),
         }
     }
-    
+
     fn init_nccl(&self) -> crate::error::RusTorchResult<()> {
         // NCCL initialization implementation
         // NCCL初期化実装
@@ -107,16 +106,18 @@ impl ProcessGroup {
         }
         #[cfg(not(feature = "nccl"))]
         {
-            Err(crate::error::RusTorchError::distributed("NCCL not compiled"))
+            Err(crate::error::RusTorchError::distributed(
+                "NCCL not compiled",
+            ))
         }
     }
-    
+
     fn init_gloo(&self) -> crate::error::RusTorchResult<()> {
         // Gloo initialization implementation
         // Gloo初期化実装
         Ok(())
     }
-    
+
     fn init_mpi(&self) -> crate::error::RusTorchResult<()> {
         // MPI initialization implementation
         // MPI初期化実装
@@ -129,7 +130,7 @@ impl ProcessGroup {
             Err(crate::error::RusTorchError::distributed("MPI not compiled"))
         }
     }
-    
+
     fn init_tcp(&self) -> crate::error::RusTorchResult<()> {
         // TCP backend initialization
         // TCPバックエンド初期化
@@ -150,23 +151,23 @@ pub trait DistributedOps<T: Float> {
     /// All-reduce operation across all processes
     /// 全プロセス間でのall-reduce操作
     fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()>;
-    
+
     /// All-gather operation across all processes
     /// 全プロセス間でのall-gather操作
     fn all_gather(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>>;
-    
+
     /// Broadcast operation from root process
     /// ルートプロセスからのブロードキャスト操作
     fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()>;
-    
+
     /// Reduce operation to root process
     /// ルートプロセスへのreduce操作
     fn reduce(&self, tensor: &mut Tensor<T>, root: usize, op: ReduceOp) -> RusTorchResult<()>;
-    
+
     /// Scatter operation from root process
     /// ルートプロセスからのscatter操作
     fn scatter(&self, tensors: &[Tensor<T>], root: usize) -> RusTorchResult<Tensor<T>>;
-    
+
     /// Gather operation to root process
     /// ルートプロセスへのgather操作
     fn gather(&self, tensor: &Tensor<T>, root: usize) -> RusTorchResult<Vec<Tensor<T>>>;
@@ -223,25 +224,25 @@ impl DistributedState {
             device_map: HashMap::new(),
         }
     }
-    
+
     /// Set process group
     /// プロセスグループを設定
     pub fn set_process_group(&mut self, pg: ProcessGroup) {
         self.process_group = Some(pg);
     }
-    
+
     /// Get current rank
     /// 現在のランクを取得
     pub fn rank(&self) -> Option<usize> {
         self.process_group.as_ref().map(|pg| pg.rank)
     }
-    
+
     /// Get world size
     /// ワールドサイズを取得
     pub fn world_size(&self) -> Option<usize> {
         self.process_group.as_ref().map(|pg| pg.world_size)
     }
-    
+
     /// Check if distributed training is initialized
     /// 分散学習が初期化されているかチェック
     pub fn is_initialized(&self) -> bool {
@@ -272,11 +273,11 @@ pub fn init_distributed(
 ) -> RusTorchResult<()> {
     let process_group = ProcessGroup::new(rank, world_size, backend, master_addr, master_port);
     process_group.init()?;
-    
+
     let state = get_distributed_state();
     let mut state_guard = state.lock().unwrap();
     state_guard.set_process_group(process_group);
-    
+
     Ok(())
 }
 
@@ -312,25 +313,25 @@ pub fn finalize() -> RusTorchResult<()> {
     state_guard.process_group = None;
     state_guard.devices.clear();
     state_guard.device_map.clear();
-    
+
     Ok(())
 }
 
 /// Data parallel training module
 /// データ並列学習モジュール
 pub mod backends;
-pub mod data_parallel;
-pub mod model_parallel;
-pub mod optimizer;
 pub mod cluster;
 pub mod common;
-pub mod performance;
+pub mod data_parallel;
+pub mod model_parallel;
 pub mod multi_gpu_validation;
+pub mod optimizer;
+pub mod performance;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_process_group_creation() {
         let pg = ProcessGroup::new(
@@ -340,19 +341,19 @@ mod tests {
             "localhost".to_string(),
             12345,
         );
-        
+
         assert_eq!(pg.rank, 0);
         assert_eq!(pg.world_size, 4);
         assert_eq!(pg.backend, DistributedBackend::TCP);
         assert_eq!(pg.master_addr, "localhost");
         assert_eq!(pg.master_port, 12345);
     }
-    
+
     #[test]
     fn test_distributed_state() {
         let mut state = DistributedState::new();
         assert!(!state.is_initialized());
-        
+
         let pg = ProcessGroup::new(
             1,
             2,
@@ -360,13 +361,13 @@ mod tests {
             "127.0.0.1".to_string(),
             29500,
         );
-        
+
         state.set_process_group(pg);
         assert!(state.is_initialized());
         assert_eq!(state.rank(), Some(1));
         assert_eq!(state.world_size(), Some(2));
     }
-    
+
     #[test]
     fn test_reduce_op_variants() {
         let ops = [
@@ -376,9 +377,16 @@ mod tests {
             ReduceOp::Max,
             ReduceOp::Average,
         ];
-        
+
         for op in &ops {
-            assert!(matches!(op, ReduceOp::Sum | ReduceOp::Product | ReduceOp::Min | ReduceOp::Max | ReduceOp::Average));
+            assert!(matches!(
+                op,
+                ReduceOp::Sum
+                    | ReduceOp::Product
+                    | ReduceOp::Min
+                    | ReduceOp::Max
+                    | ReduceOp::Average
+            ));
         }
     }
 }

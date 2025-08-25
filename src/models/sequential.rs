@@ -32,19 +32,26 @@
 //! ```
 
 use crate::autograd::Variable;
+use crate::nn::loss::Loss;
 use crate::nn::Module;
 use crate::optim::Optimizer;
-use crate::nn::loss::Loss;
 use crate::training::TrainableModel;
+use anyhow::Result;
 use num_traits::Float;
 use std::fmt::Debug;
-use anyhow::Result;
 
 /// Sequential APIの中核となるモデルクラス
 /// Core model class for Sequential API
 pub struct Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// レイヤーのリスト
     layers: Vec<Box<dyn Module<T> + Send + Sync>>,
@@ -64,7 +71,14 @@ where
 
 impl<T> std::fmt::Debug for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Sequential")
@@ -79,7 +93,14 @@ where
 
 impl<T> Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// 新しいSequentialモデルを作成
     /// Create a new Sequential model
@@ -135,7 +156,11 @@ where
         M: Module<T> + Send + Sync + 'static,
     {
         if index > self.layers.len() {
-            return Err(anyhow::anyhow!("Index {} out of bounds for {} layers", index, self.layers.len()));
+            return Err(anyhow::anyhow!(
+                "Index {} out of bounds for {} layers",
+                index,
+                self.layers.len()
+            ));
         }
         self.layers.insert(index, Box::new(layer));
         Ok(())
@@ -145,7 +170,11 @@ where
     /// Remove a layer at specified position
     pub fn remove(&mut self, index: usize) -> Result<()> {
         if index >= self.layers.len() {
-            return Err(anyhow::anyhow!("Index {} out of bounds for {} layers", index, self.layers.len()));
+            return Err(anyhow::anyhow!(
+                "Index {} out of bounds for {} layers",
+                index,
+                self.layers.len()
+            ));
         }
         self.layers.remove(index);
         Ok(())
@@ -171,7 +200,9 @@ where
         L: Loss<T> + Send + Sync + 'static,
     {
         if self.layers.is_empty() {
-            return Err(anyhow::anyhow!("Cannot compile empty model. Add layers first."));
+            return Err(anyhow::anyhow!(
+                "Cannot compile empty model. Add layers first."
+            ));
         }
 
         self.optimizer = Some(Box::new(optimizer));
@@ -192,13 +223,13 @@ where
     /// Display model summary
     pub fn summary(&self) -> String {
         let mut summary = String::new();
-        
+
         if let Some(ref name) = self.name {
             summary.push_str(&format!("Model: \"{}\"\n", name));
         } else {
             summary.push_str("Sequential Model\n");
         }
-        
+
         summary.push_str("_________________________________________________________________\n");
         summary.push_str("Layer (type)                 Output Shape              Param #   \n");
         summary.push_str("=================================================================\n");
@@ -263,14 +294,17 @@ where
 
         // レイヤー間の次元整合性チェック（簡略化実装）
         // Layer dimension compatibility check (simplified implementation)
-        
+
         Ok(())
     }
 
     /// パラメータの総数を計算
     /// Calculate total number of parameters
     pub fn total_parameters(&self) -> usize {
-        self.layers.iter().map(|layer| layer.parameters().len()).sum()
+        self.layers
+            .iter()
+            .map(|layer| layer.parameters().len())
+            .sum()
     }
 
     /// 訓練可能なパラメータの総数を計算
@@ -283,7 +317,14 @@ where
 
 impl<T> Default for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn default() -> Self {
         Self::new()
@@ -292,17 +333,24 @@ where
 
 impl<T> Module<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// 順伝播
     /// Forward pass
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let mut output = input.clone();
-        
+
         for layer in &self.layers {
             output = layer.forward(&output);
         }
-        
+
         output
     }
 
@@ -344,7 +392,14 @@ where
 
 impl<T> TrainableModel<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// 順伝播
     /// Forward pass
@@ -388,14 +443,28 @@ where
 /// Sequential model builder
 pub struct SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     model: Sequential<T>,
 }
 
 impl<T> SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -432,7 +501,14 @@ where
 
 impl<T> Default for SequentialBuilder<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn default() -> Self {
         Self::new()
@@ -467,9 +543,8 @@ mod tests {
 
     #[test]
     fn test_sequential_builder() {
-        let model: Sequential<f32> = SequentialBuilder::new()
-            .build();
-        
+        let model: Sequential<f32> = SequentialBuilder::new().build();
+
         assert_eq!(model.len(), 0);
         assert!(!model.is_compiled());
     }
@@ -477,7 +552,7 @@ mod tests {
     #[test]
     fn test_sequential_validation() {
         let model: Sequential<f32> = Sequential::new();
-        
+
         // 空のモデルは検証に失敗
         assert!(model.validate().is_err());
     }
@@ -486,7 +561,7 @@ mod tests {
     fn test_sequential_clear() {
         let mut model: Sequential<f32> = Sequential::new();
         model.clear();
-        
+
         assert_eq!(model.len(), 0);
         assert!(!model.is_compiled());
     }

@@ -3,9 +3,9 @@
 
 pub mod cnn;
 pub mod rnn;
-pub mod transformer_models;
-pub mod training;
 pub mod serialization;
+pub mod training;
+pub mod transformer_models;
 
 /// Keras風のSequential API
 /// Keras-like Sequential API
@@ -45,26 +45,26 @@ pub enum ModelMode {
 
 /// 基本モデルトレイト
 /// Base model trait
-pub trait Model<T>: Module<T> 
+pub trait Model<T>: Module<T>
 where
     T: Float + 'static + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// モデルを訓練モードに設定
     /// Set model to training mode
     fn train(&mut self);
-    
+
     /// モデルを評価モードに設定
     /// Set model to evaluation mode
     fn eval(&mut self);
-    
+
     /// 現在のモードを取得
     /// Get current mode
     fn mode(&self) -> ModelMode;
-    
+
     /// モデルの設定を取得
     /// Get model configuration
     fn config(&self) -> HashMap<String, String>;
-    
+
     /// モデルの概要を表示
     /// Display model summary
     fn summary(&self) -> String;
@@ -72,30 +72,30 @@ where
 
 /// モデル構築のためのビルダーパターン
 /// Builder pattern for model construction
-pub trait ModelBuilder<T> 
+pub trait ModelBuilder<T>
 where
     T: Float + 'static + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     /// The model type that this builder creates
     /// このビルダーが作成するモデルの型
     type Model: Model<T>;
-    
+
     /// モデルを構築
     /// Build the model
     fn build(self) -> Self::Model;
 }
 
 // Re-export model architectures
-pub use cnn::{CNN, CNNBuilder, ResNet, ResNetBuilder};
-pub use rnn::{RNNModel, RNNModelBuilder, LSTMModel, LSTMModelBuilder};
-pub use transformer_models::{TransformerModel, TransformerModelBuilder, BERT, BERTBuilder};
+pub use cnn::{CNNBuilder, ResNet, ResNetBuilder, CNN};
+pub use rnn::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
+pub use serialization::{ModelLoader, ModelSaver, SerializationFormat};
 pub use training::{Trainer, TrainingConfig, TrainingResult};
-pub use serialization::{ModelSaver, ModelLoader, SerializationFormat};
+pub use transformer_models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
 
 // Re-export Sequential API
+pub use high_level::{FitConfig, HighLevelModel, TrainingHistory};
 pub use sequential::{Sequential, SequentialBuilder};
 pub use sequential_basic::{BasicSequential, BasicSequentialBuilder};
-pub use high_level::{HighLevelModel, TrainingHistory, FitConfig};
 // pub use examples::run_all_examples;  // 一時的にコメントアウト
 
 /// Inference engine for model evaluation
@@ -105,7 +105,9 @@ pub struct InferenceEngine<T: Float + Send + Sync + 'static> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> InferenceEngine<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    InferenceEngine<T>
+{
     /// Create a new inference engine
     /// 新しい推論エンジンを作成
     pub fn new() -> Self {
@@ -113,7 +115,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Perform prediction using the given model
     /// 指定されたモデルを使用して予測を実行
     pub fn predict<M: Model<T>>(&self, model: &M, input: &Variable<T>) -> Variable<T> {
@@ -154,10 +156,16 @@ impl Metrics {
             loss: 0.0,
         }
     }
-    
+
     /// Create metrics with specified values
     /// 指定された値でメトリクスを作成
-    pub fn with_values(accuracy: f64, precision: f64, recall: f64, f1_score: f64, loss: f64) -> Self {
+    pub fn with_values(
+        accuracy: f64,
+        precision: f64,
+        recall: f64,
+        f1_score: f64,
+        loss: f64,
+    ) -> Self {
         Self {
             accuracy,
             precision,

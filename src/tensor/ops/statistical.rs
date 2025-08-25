@@ -34,17 +34,21 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// 特定の軸に沿った合計（新実装）
     pub fn sum_axis_v2(&self, axis: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if axis >= shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "sum_axis".to_string(),
-                message: format!("Axis {} is out of bounds for tensor with {} dimensions", axis, shape.len()),
+                message: format!(
+                    "Axis {} is out of bounds for tensor with {} dimensions",
+                    axis,
+                    shape.len()
+                ),
             });
         }
 
         let mut new_shape = shape.to_vec();
         let _axis_size = new_shape.remove(axis);
-        
+
         if new_shape.is_empty() {
             // Result is a scalar
             return Ok(Tensor::from_vec(vec![self.sum_v2()], vec![1]));
@@ -90,7 +94,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                 // General N-dimensional case (simplified)
                 // This is a placeholder - real implementation would handle strided access
                 return Err(RusTorchError::UnsupportedOperation(
-                    "sum_axis for >2D tensors not yet implemented".to_string()
+                    "sum_axis for >2D tensors not yet implemented".to_string(),
                 ));
             }
         }
@@ -110,13 +114,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// 全要素の分散
     pub fn var(&self) -> T {
         let mean = self.mean_v2();
-        let squared_diffs: T = self.data.iter()
+        let squared_diffs: T = self
+            .data
+            .iter()
             .map(|&x| {
                 let diff = x - mean;
                 diff * diff
             })
             .fold(T::zero(), |acc, x| acc + x);
-        
+
         let count = T::from(self.data.len()).unwrap_or(T::one());
         squared_diffs / count
     }
@@ -130,21 +136,26 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// Minimum value
     /// 最小値
     pub fn min(&self) -> T {
-        self.data.iter().copied()
+        self.data
+            .iter()
+            .copied()
             .fold(T::infinity(), |acc, x| if x < acc { x } else { acc })
     }
 
     /// Maximum value
     /// 最大値
     pub fn max(&self) -> T {
-        self.data.iter().copied()
+        self.data
+            .iter()
+            .copied()
             .fold(T::neg_infinity(), |acc, x| if x > acc { x } else { acc })
     }
 
     /// Argmin - index of minimum value (flattened)
     /// 最小値のインデックス（平坦化）
     pub fn argmin(&self) -> usize {
-        self.data.iter()
+        self.data
+            .iter()
             .enumerate()
             .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
@@ -154,7 +165,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// Argmax - index of maximum value (flattened)
     /// 最大値のインデックス（平坦化）
     pub fn argmax(&self) -> usize {
-        self.data.iter()
+        self.data
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
@@ -166,7 +178,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     pub fn median(&self) -> T {
         let mut sorted_data: Vec<T> = self.data.iter().copied().collect();
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let len = sorted_data.len();
         if len % 2 == 1 {
             sorted_data[len / 2]
@@ -183,13 +195,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         if q < 0.0 || q > 1.0 {
             panic!("Quantile must be between 0.0 and 1.0");
         }
-        
+
         let mut sorted_data: Vec<T> = self.data.iter().copied().collect();
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let len = sorted_data.len();
         let idx = (q * (len - 1) as f64) as usize;
-        
+
         if idx >= len {
             sorted_data[len - 1]
         } else {
@@ -217,11 +229,11 @@ mod tests {
     #[test]
     fn test_sum_axis() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
-        
+
         // Sum along axis 0 (rows)
         let result = tensor.sum_axis_v2(0).unwrap();
         assert_eq!(result.as_slice().unwrap(), &[5.0, 7.0, 9.0]); // [1+4, 2+5, 3+6]
-        
+
         // Sum along axis 1 (columns)
         let result = tensor.sum_axis_v2(1).unwrap();
         assert_eq!(result.as_slice().unwrap(), &[6.0, 15.0]); // [1+2+3, 4+5+6]
@@ -232,7 +244,7 @@ mod tests {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
         let var = tensor.var();
         let std = tensor.std();
-        
+
         // Variance should be 1.25, std should be sqrt(1.25) ≈ 1.118
         assert!((var - 1.25).abs() < 0.001);
         assert!((std - 1.118).abs() < 0.01);
@@ -251,7 +263,7 @@ mod tests {
     fn test_median() {
         let tensor = Tensor::from_vec(vec![3.0, 1.0, 4.0, 2.0], vec![4]);
         assert_eq!(tensor.median(), 2.5); // (2.0 + 3.0) / 2
-        
+
         let tensor_odd = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
         assert_eq!(tensor_odd.median(), 2.0);
     }

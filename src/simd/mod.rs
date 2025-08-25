@@ -1,13 +1,12 @@
 /// SIMD-optimized operations for tensor computations
 /// テンソル計算のためのSIMD最適化演算
-
 pub mod ops;
-/// Vectorized SIMD operations (AVX2, SSE4.1)
-/// ベクトル化SIMD操作（AVX2、SSE4.1）
-pub mod vectorized;
 /// SIMD operation traits and auto-selection
 /// SIMD操作トレイトと自動選択
 pub mod traits;
+/// Vectorized SIMD operations (AVX2, SSE4.1)
+/// ベクトル化SIMD操作（AVX2、SSE4.1）
+pub mod vectorized;
 
 #[cfg(test)]
 mod tests {
@@ -50,7 +49,7 @@ mod tests {
         if vectorized::is_avx2_available() {
             let a = vec![1.0, 2.0, 3.0, 4.0];
             let b = vec![5.0, 6.0, 7.0, 8.0];
-            let expected = 1.0*5.0 + 2.0*6.0 + 3.0*7.0 + 4.0*8.0; // = 70.0
+            let expected = 1.0 * 5.0 + 2.0 * 6.0 + 3.0 * 7.0 + 4.0 * 8.0; // = 70.0
 
             let result = unsafe { vectorized::dot_product_f32_avx2(&a, &b) };
             assert!((result - expected).abs() < 1e-6);

@@ -12,11 +12,11 @@ pub trait Dimension: Clone + Debug + PartialEq {
     /// Number of dimensions
     /// 次元数
     const NDIM: usize;
-    
+
     /// Shape as array
     /// 形状を配列として取得
     fn shape(&self) -> Vec<usize>;
-    
+
     /// Total number of elements
     /// 要素の総数
     fn numel(&self) -> usize {
@@ -35,7 +35,7 @@ pub struct Dim1 {
 
 impl Dimension for Dim1 {
     const NDIM: usize = 1;
-    
+
     fn shape(&self) -> Vec<usize> {
         vec![self.size]
     }
@@ -55,7 +55,7 @@ pub struct Dim2 {
 
 impl Dimension for Dim2 {
     const NDIM: usize = 2;
-    
+
     fn shape(&self) -> Vec<usize> {
         vec![self.rows, self.cols]
     }
@@ -78,7 +78,7 @@ pub struct Dim3 {
 
 impl Dimension for Dim3 {
     const NDIM: usize = 3;
-    
+
     fn shape(&self) -> Vec<usize> {
         vec![self.depth, self.height, self.width]
     }
@@ -104,7 +104,7 @@ pub struct Dim4 {
 
 impl Dimension for Dim4 {
     const NDIM: usize = 4;
-    
+
     fn shape(&self) -> Vec<usize> {
         vec![self.batch, self.channels, self.height, self.width]
     }
@@ -126,14 +126,14 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
         if data.len() != shape.numel() {
             return Err(RusTorchError::type_error("Shape mismatch"));
         }
-        
+
         Ok(Self {
             data,
             shape,
             _phantom: PhantomData,
         })
     }
-    
+
     /// Create a zero tensor with specified shape
     /// 指定形状のゼロテンソルを作成
     pub fn zeros(shape: D) -> Self {
@@ -144,7 +144,7 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
             _phantom: PhantomData,
         }
     }
-    
+
     /// Create a tensor filled with ones
     /// 1で埋められたテンソルを作成
     pub fn ones(shape: D) -> Self {
@@ -155,31 +155,31 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
             _phantom: PhantomData,
         }
     }
-    
+
     /// Get tensor shape
     /// テンソル形状を取得
     pub fn shape(&self) -> &D {
         &self.shape
     }
-    
+
     /// Get tensor data
     /// テンソルデータを取得
     pub fn data(&self) -> &[T] {
         &self.data
     }
-    
+
     /// Get mutable tensor data
     /// 変更可能なテンソルデータを取得
     pub fn data_mut(&mut self) -> &mut [T] {
         &mut self.data
     }
-    
+
     /// Number of dimensions
     /// 次元数
     pub fn ndim(&self) -> usize {
         D::NDIM
     }
-    
+
     /// Total number of elements
     /// 要素の総数
     pub fn numel(&self) -> usize {
@@ -196,14 +196,14 @@ impl<T: Float> TypedTensor<T, Dim2> {
         if self.shape.cols != other.shape.rows {
             return Err(RusTorchError::type_error("Matrix dimension mismatch"));
         }
-        
+
         let result_shape = Dim2 {
             rows: self.shape.rows,
             cols: other.shape.cols,
         };
-        
+
         let mut result_data = vec![T::zero(); result_shape.numel()];
-        
+
         // Perform matrix multiplication
         for i in 0..self.shape.rows {
             for j in 0..other.shape.cols {
@@ -216,7 +216,7 @@ impl<T: Float> TypedTensor<T, Dim2> {
                 result_data[i * result_shape.cols + j] = sum;
             }
         }
-        
+
         Ok(TypedTensor {
             data: result_data,
             shape: result_shape,
@@ -238,7 +238,9 @@ pub trait TypeSafeReshape<T: Float, From: Dimension, To: Dimension> {
 impl<T: Float> TypeSafeReshape<T, Dim1, Dim2> for TypedTensor<T, Dim2> {
     fn reshape(_tensor: TypedTensor<T, Dim1>) -> RusTorchResult<TypedTensor<T, Dim2>> {
         // This would need specific shape parameters - for now, return error
-        Err(RusTorchError::type_error("Manual reshape parameters required"))
+        Err(RusTorchError::type_error(
+            "Manual reshape parameters required",
+        ))
     }
 }
 
@@ -251,75 +253,75 @@ impl<T: Float, D: Dimension> TypedTensor<T, D> {
         if self.shape != other.shape {
             return Err(RusTorchError::type_error("Shape incompatible"));
         }
-        
-        let result_data: Vec<T> = self.data.iter()
+
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| a + b)
             .collect();
-        
+
         Ok(TypedTensor {
             data: result_data,
             shape: self.shape.clone(),
             _phantom: PhantomData,
         })
     }
-    
+
     /// Element-wise multiplication
     /// 要素ごとの乗算
     pub fn mul(&self, other: &TypedTensor<T, D>) -> RusTorchResult<TypedTensor<T, D>> {
         if self.shape != other.shape {
             return Err(RusTorchError::type_error("Shape incompatible"));
         }
-        
-        let result_data: Vec<T> = self.data.iter()
+
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| a * b)
             .collect();
-        
+
         Ok(TypedTensor {
             data: result_data,
             shape: self.shape.clone(),
             _phantom: PhantomData,
         })
     }
-    
+
     /// Scalar multiplication
     /// スカラー乗算
     pub fn mul_scalar(&self, scalar: T) -> TypedTensor<T, D> {
-        let result_data: Vec<T> = self.data.iter()
-            .map(|&x| x * scalar)
-            .collect();
-        
+        let result_data: Vec<T> = self.data.iter().map(|&x| x * scalar).collect();
+
         TypedTensor {
             data: result_data,
             shape: self.shape.clone(),
             _phantom: PhantomData,
         }
     }
-    
+
     /// Apply function element-wise
     /// 要素ごとに関数を適用
     pub fn map<F>(&self, f: F) -> TypedTensor<T, D>
     where
         F: Fn(T) -> T,
     {
-        let result_data: Vec<T> = self.data.iter()
-            .map(|&x| f(x))
-            .collect();
-        
+        let result_data: Vec<T> = self.data.iter().map(|&x| f(x)).collect();
+
         TypedTensor {
             data: result_data,
             shape: self.shape.clone(),
             _phantom: PhantomData,
         }
     }
-    
+
     /// Sum all elements
     /// 全要素の合計
     pub fn sum(&self) -> T {
         self.data.iter().fold(T::zero(), |acc, &x| acc + x)
     }
-    
+
     /// Mean of all elements
     /// 全要素の平均
     pub fn mean(&self) -> T {
@@ -340,85 +342,85 @@ mod tests {
     fn test_typed_tensor_creation() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0];
         let shape = Dim2 { rows: 2, cols: 3 };
-        
+
         let tensor = TypedTensor::new(data, shape).unwrap();
         assert_eq!(tensor.ndim(), 2);
         assert_eq!(tensor.numel(), 6);
     }
-    
+
     #[test]
     fn test_shape_mismatch_error() {
         let data = vec![1.0f32, 2.0, 3.0]; // 3 elements
         let shape = Dim2 { rows: 2, cols: 3 }; // Expects 6 elements
-        
+
         let result = TypedTensor::new(data, shape);
         assert!(result.is_err());
-        
+
         if let Err(_) = result {
             // Error occurred as expected
         } else {
             panic!("Expected error");
         }
     }
-    
+
     #[test]
     fn test_matrix_multiplication() {
         let a_data = vec![1.0f32, 2.0, 3.0, 4.0];
         let a_shape = Dim2 { rows: 2, cols: 2 };
         let a = TypedTensor::new(a_data, a_shape).unwrap();
-        
+
         let b_data = vec![5.0f32, 6.0, 7.0, 8.0];
         let b_shape = Dim2 { rows: 2, cols: 2 };
         let b = TypedTensor::new(b_data, b_shape).unwrap();
-        
+
         let result = a.matmul(&b).unwrap();
         let expected = vec![19.0f32, 22.0, 43.0, 50.0]; // Manual calculation
-        
+
         assert_eq!(result.data(), &expected);
         assert_eq!(result.shape().rows, 2);
         assert_eq!(result.shape().cols, 2);
     }
-    
+
     #[test]
     fn test_element_wise_operations() {
         let a_data = vec![1.0f32, 2.0, 3.0];
         let a_shape = Dim1 { size: 3 };
         let a = TypedTensor::new(a_data, a_shape).unwrap();
-        
+
         let b_data = vec![4.0f32, 5.0, 6.0];
         let b_shape = Dim1 { size: 3 };
         let b = TypedTensor::new(b_data, b_shape).unwrap();
-        
+
         let sum = a.add(&b).unwrap();
         assert_eq!(sum.data(), &[5.0f32, 7.0, 9.0]);
-        
+
         let product = a.mul(&b).unwrap();
         assert_eq!(product.data(), &[4.0f32, 10.0, 18.0]);
     }
-    
+
     #[test]
     fn test_scalar_operations() {
         let data = vec![1.0f32, 2.0, 3.0];
         let shape = Dim1 { size: 3 };
         let tensor = TypedTensor::new(data, shape).unwrap();
-        
+
         let scaled = tensor.mul_scalar(2.0);
         assert_eq!(scaled.data(), &[2.0f32, 4.0, 6.0]);
-        
+
         let sum = tensor.sum();
         assert_eq!(sum, 6.0);
-        
+
         let mean = tensor.mean();
         assert_eq!(mean, 2.0);
     }
-    
+
     #[test]
     fn test_zeros_and_ones() {
         let shape = Dim2 { rows: 2, cols: 3 };
-        
+
         let zeros: TypedTensor<f32, Dim2> = TypedTensor::zeros(shape.clone());
         assert_eq!(zeros.data(), &[0.0f32; 6]);
-        
+
         let ones: TypedTensor<f32, Dim2> = TypedTensor::ones(shape);
         assert_eq!(ones.data(), &[1.0f32; 6]);
     }

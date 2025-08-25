@@ -1,8 +1,7 @@
 /// PyTorch model import implementation
 /// PyTorchモデルインポート実装
-
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelArchitecture, LayerInfo}; // ModelStructure,
+use crate::model_import::{ImportedModel, LayerInfo, ModelArchitecture, ModelMetadata, TensorSpec}; // ModelStructure,
 
 /// Layer description for model conversion
 /// モデル変換用レイヤー記述
@@ -27,10 +26,10 @@ pub struct LayerDescription {
     /// レイヤー固有の属性
     pub attributes: HashMap<String, String>,
 }
+use crate::dtype::DType;
+use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::tensor::Tensor;
-use crate::dtype::DType;
 // use std::io::{Read, Seek, SeekFrom}; // Unused in mock implementation
 
 /// PyTorch pickle format magic numbers
@@ -153,19 +152,18 @@ pub struct TorchLayerDescription {
 /// ファイルからPyTorchモデルをインポート
 pub fn import_pytorch_model<P: AsRef<Path>>(path: P) -> RusTorchResult<ImportedModel> {
     let path = path.as_ref();
-    
+
     // Read PyTorch file
-    let torch_data = std::fs::read(path)
-        .map_err(|e| RusTorchError::FileNotFound(e.to_string()))?;
-    
+    let torch_data = std::fs::read(path).map_err(|e| RusTorchError::FileNotFound(e.to_string()))?;
+
     // Parse PyTorch model
     let state_dict = parse_pytorch_data(&torch_data)?;
-    
+
     // Convert to RusTorch format
     let metadata = create_pytorch_metadata(&state_dict, path);
     let weights = extract_pytorch_weights(&state_dict)?;
     let architecture = infer_pytorch_architecture(&state_dict)?;
-    
+
     Ok(ImportedModel {
         metadata,
         weights,
@@ -179,12 +177,14 @@ fn parse_pytorch_data(data: &[u8]) -> RusTorchResult<TorchStateDict> {
     if data.len() < 2 {
         return Err(RusTorchError::InvalidModel("File too small"));
     }
-    
+
     // Check for pickle protocol marker
     if data[0] != PICKLE_PROTOCOL_2 {
-        return Err(RusTorchError::InvalidModel("Not a valid PyTorch pickle file"));
+        return Err(RusTorchError::InvalidModel(
+            "Not a valid PyTorch pickle file",
+        ));
     }
-    
+
     // Mock PyTorch parsing implementation
     // In a real implementation, this would use a pickle parser like serde_pickle
     parse_mock_pytorch_state_dict()
@@ -194,45 +194,57 @@ fn parse_pytorch_data(data: &[u8]) -> RusTorchResult<TorchStateDict> {
 /// デモンストレーション用のモックPyTorch状態辞書を解析
 fn parse_mock_pytorch_state_dict() -> RusTorchResult<TorchStateDict> {
     let mut tensors = HashMap::new();
-    
+
     // Mock some common layer weights
-    tensors.insert("features.0.weight".to_string(), TorchTensorInfo {
-        name: "features.0.weight".to_string(),
-        shape: vec![64, 3, 7, 7],
-        storage_type: TorchStorageType::FloatStorage,
-        data: vec![0u8; 64 * 3 * 7 * 7 * 4], // 4 bytes per float
-        requires_grad: false,
-    });
-    
-    tensors.insert("features.0.bias".to_string(), TorchTensorInfo {
-        name: "features.0.bias".to_string(),
-        shape: vec![64],
-        storage_type: TorchStorageType::FloatStorage,
-        data: vec![0u8; 64 * 4],
-        requires_grad: false,
-    });
-    
-    tensors.insert("classifier.weight".to_string(), TorchTensorInfo {
-        name: "classifier.weight".to_string(),
-        shape: vec![1000, 512],
-        storage_type: TorchStorageType::FloatStorage,
-        data: vec![0u8; 1000 * 512 * 4],
-        requires_grad: false,
-    });
-    
-    tensors.insert("classifier.bias".to_string(), TorchTensorInfo {
-        name: "classifier.bias".to_string(),
-        shape: vec![1000],
-        storage_type: TorchStorageType::FloatStorage,
-        data: vec![0u8; 1000 * 4],
-        requires_grad: false,
-    });
-    
+    tensors.insert(
+        "features.0.weight".to_string(),
+        TorchTensorInfo {
+            name: "features.0.weight".to_string(),
+            shape: vec![64, 3, 7, 7],
+            storage_type: TorchStorageType::FloatStorage,
+            data: vec![0u8; 64 * 3 * 7 * 7 * 4], // 4 bytes per float
+            requires_grad: false,
+        },
+    );
+
+    tensors.insert(
+        "features.0.bias".to_string(),
+        TorchTensorInfo {
+            name: "features.0.bias".to_string(),
+            shape: vec![64],
+            storage_type: TorchStorageType::FloatStorage,
+            data: vec![0u8; 64 * 4],
+            requires_grad: false,
+        },
+    );
+
+    tensors.insert(
+        "classifier.weight".to_string(),
+        TorchTensorInfo {
+            name: "classifier.weight".to_string(),
+            shape: vec![1000, 512],
+            storage_type: TorchStorageType::FloatStorage,
+            data: vec![0u8; 1000 * 512 * 4],
+            requires_grad: false,
+        },
+    );
+
+    tensors.insert(
+        "classifier.bias".to_string(),
+        TorchTensorInfo {
+            name: "classifier.bias".to_string(),
+            shape: vec![1000],
+            storage_type: TorchStorageType::FloatStorage,
+            data: vec![0u8; 1000 * 4],
+            requires_grad: false,
+        },
+    );
+
     let mut metadata = HashMap::new();
     metadata.insert("framework".to_string(), "PyTorch".to_string());
     metadata.insert("version".to_string(), "1.9.0".to_string());
     metadata.insert("format".to_string(), "state_dict".to_string());
-    
+
     Ok(TorchStateDict {
         tensors,
         metadata,
@@ -243,15 +255,18 @@ fn parse_mock_pytorch_state_dict() -> RusTorchResult<TorchStateDict> {
 /// Create metadata from PyTorch state dict
 /// PyTorch状態辞書からメタデータを作成
 fn create_pytorch_metadata(state_dict: &TorchStateDict, path: &Path) -> ModelMetadata {
-    let name = path.file_stem()
+    let name = path
+        .file_stem()
         .and_then(|stem| stem.to_str())
         .unwrap_or("pytorch_model")
         .to_string();
-    
+
     ModelMetadata {
         name,
         version: state_dict.version.clone(),
-        framework: state_dict.metadata.get("framework")
+        framework: state_dict
+            .metadata
+            .get("framework")
             .cloned()
             .unwrap_or_else(|| "PyTorch".to_string()),
         format: "PyTorch".to_string(),
@@ -265,14 +280,16 @@ fn create_pytorch_metadata(state_dict: &TorchStateDict, path: &Path) -> ModelMet
 
 /// Extract weights from PyTorch state dict
 /// PyTorch状態辞書から重みを抽出
-fn extract_pytorch_weights(state_dict: &TorchStateDict) -> RusTorchResult<HashMap<String, Tensor<f32>>> {
+fn extract_pytorch_weights(
+    state_dict: &TorchStateDict,
+) -> RusTorchResult<HashMap<String, Tensor<f32>>> {
     let mut weights = HashMap::new();
-    
+
     for (name, tensor_info) in &state_dict.tensors {
         let tensor = convert_torch_tensor_to_rustorch(tensor_info)?;
         weights.insert(name.clone(), tensor);
     }
-    
+
     Ok(weights)
 }
 
@@ -281,41 +298,43 @@ fn extract_pytorch_weights(state_dict: &TorchStateDict) -> RusTorchResult<HashMa
 fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> RusTorchResult<Tensor<f32>> {
     match torch_tensor.storage_type {
         TorchStorageType::FloatStorage => {
-            let float_data: Vec<f32> = torch_tensor.data
+            let float_data: Vec<f32> = torch_tensor
+                .data
                 .chunks_exact(4)
                 .map(|chunk| {
                     let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
                     f32::from_le_bytes(bytes)
                 })
                 .collect();
-            
+
             if float_data.is_empty() {
                 Ok(Tensor::zeros(&torch_tensor.shape))
             } else {
                 Ok(Tensor::from_vec(float_data, torch_tensor.shape.clone()))
             }
-        },
+        }
         TorchStorageType::DoubleStorage => {
             // Convert double to float
-            let double_data: Vec<f64> = torch_tensor.data
+            let double_data: Vec<f64> = torch_tensor
+                .data
                 .chunks_exact(8)
                 .map(|chunk| {
                     let bytes = [
-                        chunk[0], chunk[1], chunk[2], chunk[3],
-                        chunk[4], chunk[5], chunk[6], chunk[7],
+                        chunk[0], chunk[1], chunk[2], chunk[3], chunk[4], chunk[5], chunk[6],
+                        chunk[7],
                     ];
                     f64::from_le_bytes(bytes)
                 })
                 .collect();
-            
+
             let float_data: Vec<f32> = double_data.iter().map(|&x| x as f32).collect();
-            
+
             if float_data.is_empty() {
                 Ok(Tensor::zeros(&torch_tensor.shape))
             } else {
                 Ok(Tensor::from_vec(float_data, torch_tensor.shape.clone()))
             }
-        },
+        }
         _ => {
             // For other types, create zero tensor for now
             Ok(Tensor::zeros(&torch_tensor.shape))
@@ -327,30 +346,45 @@ fn convert_torch_tensor_to_rustorch(torch_tensor: &TorchTensorInfo) -> RusTorchR
 /// PyTorch状態辞書からモデルアーキテクチャを推論
 fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<ModelArchitecture> {
     let layers = infer_layers_from_state_dict(state_dict);
-    
+
     // Infer input/output shapes from layer structure
     let inputs = infer_input_specs(&layers);
     let outputs = infer_output_specs(&layers);
-    
-    let parameter_count = state_dict.tensors.values()
+
+    let parameter_count = state_dict
+        .tensors
+        .values()
         .map(|tensor| tensor.shape.iter().product::<usize>())
         .sum();
-    
-    let model_size = state_dict.tensors.values()
+
+    let model_size = state_dict
+        .tensors
+        .values()
         .map(|tensor| tensor.data.len())
         .sum();
-    
+
     Ok(ModelArchitecture {
         inputs,
         outputs,
-        layers: layers.into_iter().map(|desc| LayerInfo {
-            name: desc.name,
-            layer_type: desc.layer_type,
-            input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-            output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-            params: desc.params,
-            attributes: desc.attributes,
-        }).collect(),
+        layers: layers
+            .into_iter()
+            .map(|desc| LayerInfo {
+                name: desc.name,
+                layer_type: desc.layer_type,
+                input_shape: desc
+                    .input_shape
+                    .iter()
+                    .map(|&x| if x == 0 { None } else { Some(x) })
+                    .collect(),
+                output_shape: desc
+                    .output_shape
+                    .iter()
+                    .map(|&x| if x == 0 { None } else { Some(x) })
+                    .collect(),
+                params: desc.params,
+                attributes: desc.attributes,
+            })
+            .collect(),
         parameter_count,
         model_size,
     })
@@ -361,7 +395,7 @@ fn infer_pytorch_architecture(state_dict: &TorchStateDict) -> RusTorchResult<Mod
 fn infer_layers_from_state_dict(state_dict: &TorchStateDict) -> Vec<LayerDescription> {
     let mut layers = Vec::new();
     let mut processed_prefixes = std::collections::HashSet::new();
-    
+
     for tensor_name in state_dict.tensors.keys() {
         if let Some(layer_info) = infer_layer_from_tensor_name(tensor_name, state_dict) {
             let prefix = extract_layer_prefix(tensor_name);
@@ -371,7 +405,7 @@ fn infer_layers_from_state_dict(state_dict: &TorchStateDict) -> Vec<LayerDescrip
             }
         }
     }
-    
+
     layers
 }
 
@@ -387,26 +421,31 @@ fn extract_layer_prefix(tensor_name: &str) -> String {
 
 /// Infer layer information from tensor name
 /// テンソル名からレイヤー情報を推論
-fn infer_layer_from_tensor_name(tensor_name: &str, state_dict: &TorchStateDict) -> Option<LayerDescription> {
+fn infer_layer_from_tensor_name(
+    tensor_name: &str,
+    state_dict: &TorchStateDict,
+) -> Option<LayerDescription> {
     let layer_prefix = extract_layer_prefix(tensor_name);
-    
+
     // Look for weight tensor to determine layer type
     if !tensor_name.ends_with(".weight") {
         return None;
     }
-    
+
     let weight_tensor = state_dict.tensors.get(tensor_name)?;
     let layer_type = infer_layer_type_from_weight_shape(&weight_tensor.shape);
-    
+
     // Calculate parameter count for this layer
     let weight_params = weight_tensor.shape.iter().product::<usize>();
     let bias_key = format!("{}.bias", layer_prefix);
-    let bias_params = state_dict.tensors.get(&bias_key)
+    let bias_params = state_dict
+        .tensors
+        .get(&bias_key)
         .map(|bias| bias.shape.iter().product::<usize>())
         .unwrap_or(0);
-    
+
     let total_params = weight_params + bias_params;
-    
+
     Some(LayerDescription {
         name: layer_prefix.clone(),
         layer_type,
@@ -432,7 +471,7 @@ fn infer_layer_type_from_weight_shape(shape: &[usize]) -> String {
 /// 重み形状から入力形状を推論
 fn infer_input_shape(weight_shape: &[usize]) -> Vec<usize> {
     match weight_shape.len() {
-        2 => vec![0, weight_shape[1]], // [batch, input_features]
+        2 => vec![0, weight_shape[1]],       // [batch, input_features]
         4 => vec![0, weight_shape[1], 0, 0], // [batch, channels, height, width]
         _ => vec![0],
     }
@@ -442,7 +481,7 @@ fn infer_input_shape(weight_shape: &[usize]) -> Vec<usize> {
 /// 重み形状から出力形状を推論
 fn infer_output_shape(weight_shape: &[usize]) -> Vec<usize> {
     match weight_shape.len() {
-        2 => vec![0, weight_shape[0]], // [batch, output_features]
+        2 => vec![0, weight_shape[0]],       // [batch, output_features]
         4 => vec![0, weight_shape[0], 0, 0], // [batch, out_channels, height, width]
         _ => vec![0],
     }
@@ -454,7 +493,11 @@ fn infer_input_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(first_layer) = layers.first() {
         vec![TensorSpec {
             name: "input".to_string(),
-            shape: first_layer.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            shape: first_layer
+                .input_shape
+                .iter()
+                .map(|&x| if x == 0 { None } else { Some(x) })
+                .collect(),
             dtype: DType::Float32,
             description: Some("Model input".to_string()),
         }]
@@ -474,7 +517,11 @@ fn infer_output_specs(layers: &[LayerDescription]) -> Vec<TensorSpec> {
     if let Some(last_layer) = layers.last() {
         vec![TensorSpec {
             name: "output".to_string(),
-            shape: last_layer.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            shape: last_layer
+                .output_shape
+                .iter()
+                .map(|&x| if x == 0 { None } else { Some(x) })
+                .collect(),
             dtype: DType::Float32,
             description: Some("Model output".to_string()),
         }]
@@ -495,13 +542,13 @@ pub fn export_to_pytorch<P: AsRef<Path>>(
     path: P,
 ) -> RusTorchResult<()> {
     let path = path.as_ref();
-    
+
     // Create mock PyTorch export
     let mock_pytorch_data = create_mock_pytorch_export(model)?;
-    
+
     std::fs::write(path, mock_pytorch_data)
         .map_err(|e| RusTorchError::SerializationError(e.to_string()))?;
-    
+
     Ok(())
 }
 
@@ -522,9 +569,13 @@ pub fn load_pretrained_pytorch_model(model_name: &str) -> RusTorchResult<Importe
         "mobilenet_v2" => "https://download.pytorch.org/models/mobilenet_v2-b0353104.pth",
         "densenet121" => "https://download.pytorch.org/models/densenet121-a639ec97.pth",
         "vgg16" => "https://download.pytorch.org/models/vgg16-397923af.pth",
-        _ => return Err(RusTorchError::InvalidModel(format!("Unknown model: {}", model_name)).into()),
+        _ => {
+            return Err(
+                RusTorchError::InvalidModel(format!("Unknown model: {}", model_name)).into(),
+            )
+        }
     };
-    
+
     // In a real implementation, this would download and parse the actual model
     // For now, create a mock model based on the name
     create_mock_pretrained_model(model_name)
@@ -539,7 +590,7 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
         "mobilenet_v2" => (vec![0, 3, 224, 224], 1000, create_mobilenet_layers()),
         _ => (vec![0, 3, 224, 224], 1000, vec![]),
     };
-    
+
     let metadata = ModelMetadata {
         name: model_name.to_string(),
         version: "1.0".to_string(),
@@ -551,11 +602,14 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
         created: None,
         extra: HashMap::new(),
     };
-    
+
     let architecture = ModelArchitecture {
         inputs: vec![TensorSpec {
             name: "input".to_string(),
-            shape: input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
+            shape: input_shape
+                .iter()
+                .map(|&x| if x == 0 { None } else { Some(x) })
+                .collect(),
             dtype: DType::Float32,
             description: Some("RGB image input".to_string()),
         }],
@@ -565,25 +619,39 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
             dtype: DType::Float32,
             description: Some("Classification logits".to_string()),
         }],
-        layers: layers.into_iter().map(|desc| LayerInfo {
-            name: desc.name,
-            layer_type: desc.layer_type,
-            input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-            output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-            params: desc.params,
-            attributes: desc.attributes,
-        }).collect(),
+        layers: layers
+            .into_iter()
+            .map(|desc| LayerInfo {
+                name: desc.name,
+                layer_type: desc.layer_type,
+                input_shape: desc
+                    .input_shape
+                    .iter()
+                    .map(|&x| if x == 0 { None } else { Some(x) })
+                    .collect(),
+                output_shape: desc
+                    .output_shape
+                    .iter()
+                    .map(|&x| if x == 0 { None } else { Some(x) })
+                    .collect(),
+                params: desc.params,
+                attributes: desc.attributes,
+            })
+            .collect(),
         parameter_count: 11000000, // Mock parameter count
-        model_size: 44000000, // Mock model size
+        model_size: 44000000,      // Mock model size
     };
-    
+
     // Create mock weights
     let mut weights = HashMap::new();
     weights.insert("conv1.weight".to_string(), Tensor::randn(&[64, 3, 7, 7]));
     weights.insert("conv1.bias".to_string(), Tensor::zeros(&[64]));
-    weights.insert("fc.weight".to_string(), Tensor::randn(&[output_classes, 512]));
+    weights.insert(
+        "fc.weight".to_string(),
+        Tensor::randn(&[output_classes, 512]),
+    );
     weights.insert("fc.bias".to_string(), Tensor::zeros(&[output_classes]));
-    
+
     Ok(ImportedModel {
         metadata,
         weights,
@@ -672,7 +740,7 @@ fn create_mobilenet_layers() -> Vec<LayerDescription> {
 mod tests {
     use super::*;
     use std::io::Write;
-    
+
     #[test]
     fn test_torch_storage_type_conversion() {
         assert_eq!(TorchStorageType::FloatStorage.to_dtype(), DType::Float32);
@@ -680,52 +748,55 @@ mod tests {
         assert_eq!(TorchStorageType::IntStorage.to_dtype(), DType::Int32);
         assert_eq!(TorchStorageType::BoolStorage.to_dtype(), DType::Bool);
     }
-    
+
     #[test]
     fn test_layer_type_inference() {
         assert_eq!(infer_layer_type_from_weight_shape(&[100, 784]), "Linear");
         assert_eq!(infer_layer_type_from_weight_shape(&[64, 3, 7, 7]), "Conv2d");
         assert_eq!(infer_layer_type_from_weight_shape(&[128]), "BatchNorm1d");
-        assert_eq!(infer_layer_type_from_weight_shape(&[1, 2, 3, 4, 5]), "Unknown");
+        assert_eq!(
+            infer_layer_type_from_weight_shape(&[1, 2, 3, 4, 5]),
+            "Unknown"
+        );
     }
-    
+
     #[test]
     fn test_layer_prefix_extraction() {
         assert_eq!(extract_layer_prefix("features.0.weight"), "features.0");
         assert_eq!(extract_layer_prefix("classifier.bias"), "classifier");
         assert_eq!(extract_layer_prefix("simple_tensor"), "simple_tensor");
     }
-    
+
     #[test]
     fn test_pytorch_import_mock() {
         // Create a temporary mock PyTorch file
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_model.pth");
-        
+
         {
             let mut file = std::fs::File::create(&temp_file).unwrap();
             file.write_all(&[PICKLE_PROTOCOL_2, 0x02]).unwrap(); // Mock pickle header
             file.write_all(b"mock pytorch data for testing").unwrap();
         }
-        
+
         // Test import
         let result = import_pytorch_model(&temp_file);
         assert!(result.is_ok());
-        
+
         let model = result.unwrap();
         assert_eq!(model.metadata.format, "PyTorch");
         assert!(model.weights.contains_key("features.0.weight"));
         assert!(model.weights.contains_key("classifier.weight"));
-        
+
         // Cleanup
         std::fs::remove_file(temp_file).ok();
     }
-    
+
     #[test]
     fn test_pretrained_model_creation() {
         let result = load_pretrained_pytorch_model("resnet18");
         assert!(result.is_ok());
-        
+
         let model = result.unwrap();
         assert_eq!(model.metadata.name, "resnet18");
         assert_eq!(model.metadata.framework, "PyTorch");

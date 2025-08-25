@@ -1,12 +1,12 @@
 //! TensorBoard event file writer
 //! TensorBoardイベントファイルライター
 
+use super::summary::Summary;
+use crc32fast::Hasher;
 use std::fs::File;
-use std::io::{Write, BufWriter};
+use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
-use crc32fast::Hasher;
-use super::summary::Summary;
 
 /// Event writer for TensorBoard format
 /// TensorBoard形式のイベントライター
@@ -22,17 +22,17 @@ impl EventWriter {
     pub fn new(path: impl AsRef<Path>) -> std::io::Result<Self> {
         let file = File::create(path)?;
         let mut writer = BufWriter::new(file);
-        
+
         // Write TensorBoard file header
-        let header = b"";  // TensorBoard expects empty header for now
+        let header = b""; // TensorBoard expects empty header for now
         writer.write_all(header)?;
-        
+
         Ok(Self {
             writer,
             event_count: 0,
         })
     }
-    
+
     /// Write a summary to the event file
     pub fn write_summary(&mut self, summary: Summary) {
         let event = Event {
@@ -40,21 +40,21 @@ impl EventWriter {
             step: summary.step as i64,
             summary: Some(summary),
         };
-        
+
         self.write_event(event);
     }
-    
+
     /// Write an event to the file
     fn write_event(&mut self, event: Event) {
         // Serialize event to bytes (simplified - real implementation needs protobuf)
         let event_bytes = serialize_event(&event);
-        
+
         // Write TFRecord format
         self.write_record(&event_bytes);
-        
+
         self.event_count += 1;
     }
-    
+
     /// Write a record in TFRecord format
     fn write_record(&mut self, data: &[u8]) {
         // TFRecord format:
@@ -62,24 +62,24 @@ impl EventWriter {
         // uint32 masked_crc32 of length
         // byte data[length]
         // uint32 masked_crc32 of data
-        
+
         let length = data.len() as u64;
-        
+
         // Write length
         self.writer.write_all(&length.to_le_bytes()).unwrap();
-        
+
         // Write CRC of length
         let length_crc = masked_crc32(&length.to_le_bytes());
         self.writer.write_all(&length_crc.to_le_bytes()).unwrap();
-        
+
         // Write data
         self.writer.write_all(data).unwrap();
-        
+
         // Write CRC of data
         let data_crc = masked_crc32(data);
         self.writer.write_all(&data_crc.to_le_bytes()).unwrap();
     }
-    
+
     /// Flush the writer
     pub fn flush(&mut self) {
         self.writer.flush().unwrap();
@@ -107,7 +107,7 @@ fn masked_crc32(data: &[u8]) -> u32 {
     let mut hasher = Hasher::new();
     hasher.update(data);
     let crc = hasher.finalize();
-    
+
     // Mask the CRC as per TensorBoard format
     ((crc >> 15) | (crc << 17)).wrapping_add(0xa282ead8)
 }
@@ -132,7 +132,7 @@ fn serialize_event(event: &Event) -> Vec<u8> {
                         serde_json::json!({ "histogram": h })
                     },
                     super::summary::SummaryValue::Image(img) => {
-                        serde_json::json!({ 
+                        serde_json::json!({
                             "image": {
                                 "height": img.height,
                                 "width": img.width,
@@ -148,7 +148,7 @@ fn serialize_event(event: &Event) -> Vec<u8> {
             })
         })
     });
-    
+
     json.to_string().into_bytes()
 }
 

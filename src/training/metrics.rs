@@ -9,14 +9,18 @@ use std::time::Duration;
 
 /// 訓練メトリクスの収集器
 /// Training metrics collector
-pub struct MetricsCollector<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct MetricsCollector<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     /// カスタムメトリクス関数
     custom_metrics: HashMap<String, Box<dyn Fn(&Variable<T>, &Variable<T>) -> f64 + Send + Sync>>,
     /// メトリクス履歴
     history: Vec<EpochMetrics<T>>,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> MetricsCollector<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    MetricsCollector<T>
+{
     /// 新しいメトリクス収集器を作成
     /// Create a new metrics collector
     pub fn new() -> Self {
@@ -46,7 +50,10 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
         // 基本メトリクス
         metrics.insert("accuracy".to_string(), self.accuracy(predictions, targets));
-        metrics.insert("precision".to_string(), self.precision(predictions, targets));
+        metrics.insert(
+            "precision".to_string(),
+            self.precision(predictions, targets),
+        );
         metrics.insert("recall".to_string(), self.recall(predictions, targets));
         metrics.insert("f1_score".to_string(), self.f1_score(predictions, targets));
 
@@ -63,7 +70,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     pub fn accuracy(&self, _predictions: &Variable<T>, _targets: &Variable<T>) -> f64 {
         // 実装は簡略化 - 実際にはテンソルから正確な計算を行う
         // Implementation simplified - in practice, perform accurate calculation from tensors
-        
+
         // Variable からのデータアクセスは複雑なため、プレースホルダー値を返す
         // Data access from Variable is complex, so return placeholder value
         0.85
@@ -90,7 +97,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     pub fn f1_score(&self, predictions: &Variable<T>, targets: &Variable<T>) -> f64 {
         let precision = self.precision(predictions, targets);
         let recall = self.recall(predictions, targets);
-        
+
         if precision + recall == 0.0 {
             0.0
         } else {
@@ -107,7 +114,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
     /// 混同行列を計算
     /// Calculate confusion matrix
-    pub fn confusion_matrix(&self, _predictions: &Variable<T>, _targets: &Variable<T>) -> ConfusionMatrix {
+    pub fn confusion_matrix(
+        &self,
+        _predictions: &Variable<T>,
+        _targets: &Variable<T>,
+    ) -> ConfusionMatrix {
         // 実装は簡略化 - プレースホルダー値を返す
         // Implementation simplified - return placeholder value
         let mut confusion = ConfusionMatrix::new();
@@ -145,25 +156,26 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                 if let Some(ref train_metrics) = last_epoch.train_metrics {
                     final_metrics.insert(
                         "final_train_loss".to_string(),
-                        train_metrics.total_loss.to_f64().unwrap_or(0.0)
+                        train_metrics.total_loss.to_f64().unwrap_or(0.0),
                     );
                 }
-                
+
                 if let Some(ref val_metrics) = last_epoch.val_metrics {
                     final_metrics.insert(
                         "final_val_loss".to_string(),
-                        val_metrics.total_loss.to_f64().unwrap_or(0.0)
+                        val_metrics.total_loss.to_f64().unwrap_or(0.0),
                     );
                 }
             }
 
             // 最良の検証損失を計算
-            let best_val_loss = self.history
+            let best_val_loss = self
+                .history
                 .iter()
                 .filter_map(|epoch| epoch.val_metrics.as_ref())
                 .map(|metrics| metrics.avg_loss.to_f64().unwrap_or(f64::INFINITY))
                 .fold(f64::INFINITY, f64::min);
-            
+
             if best_val_loss != f64::INFINITY {
                 final_metrics.insert("best_val_loss".to_string(), best_val_loss);
             }
@@ -173,7 +185,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Default for MetricsCollector<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Default
+    for MetricsCollector<T>
+{
     fn default() -> Self {
         Self::new()
     }
@@ -231,7 +245,7 @@ impl<T: Float> TrainingMetrics<T> {
     /// Generate metrics summary
     pub fn summary(&self) -> String {
         let mut summary = self.training_state.summary();
-        
+
         summary.push_str("\nFinal Metrics:\n");
         for (name, value) in &self.final_metrics {
             summary.push_str(&format!(" - {}: {:.4}\n", name, value));
@@ -246,14 +260,14 @@ impl<T: Float> TrainingMetrics<T> {
                         epoch_metrics.epoch + 1,
                         train_metrics.avg_loss.to_f64().unwrap_or(0.0)
                     ));
-                    
+
                     if let Some(ref val_metrics) = epoch_metrics.val_metrics {
                         summary.push_str(&format!(
                             ", Val Loss = {:.4}",
                             val_metrics.avg_loss.to_f64().unwrap_or(0.0)
                         ));
                     }
-                    
+
                     summary.push('\n');
                 }
             }
@@ -269,27 +283,47 @@ impl<T: Float> TrainingMetrics<T> {
             .iter()
             .filter(|epoch| epoch.val_metrics.is_some())
             .min_by(|a, b| {
-                let a_loss = a.val_metrics.as_ref().unwrap().avg_loss.to_f64().unwrap_or(f64::INFINITY);
-                let b_loss = b.val_metrics.as_ref().unwrap().avg_loss.to_f64().unwrap_or(f64::INFINITY);
-                a_loss.partial_cmp(&b_loss).unwrap_or(std::cmp::Ordering::Equal)
+                let a_loss = a
+                    .val_metrics
+                    .as_ref()
+                    .unwrap()
+                    .avg_loss
+                    .to_f64()
+                    .unwrap_or(f64::INFINITY);
+                let b_loss = b
+                    .val_metrics
+                    .as_ref()
+                    .unwrap()
+                    .avg_loss
+                    .to_f64()
+                    .unwrap_or(f64::INFINITY);
+                a_loss
+                    .partial_cmp(&b_loss)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
     }
 
     /// 学習曲線データを取得
     /// Get learning curve data
     pub fn learning_curves(&self) -> (Vec<f64>, Vec<f64>) {
-        let train_losses: Vec<f64> = self.epoch_history
+        let train_losses: Vec<f64> = self
+            .epoch_history
             .iter()
             .filter_map(|epoch| {
-                epoch.train_metrics.as_ref()
+                epoch
+                    .train_metrics
+                    .as_ref()
                     .map(|m| m.avg_loss.to_f64().unwrap_or(0.0))
             })
             .collect();
 
-        let val_losses: Vec<f64> = self.epoch_history
+        let val_losses: Vec<f64> = self
+            .epoch_history
             .iter()
             .filter_map(|epoch| {
-                epoch.val_metrics.as_ref()
+                epoch
+                    .val_metrics
+                    .as_ref()
                     .map(|m| m.avg_loss.to_f64().unwrap_or(0.0))
             })
             .collect();
@@ -361,7 +395,7 @@ impl ConfusionMatrix {
     pub fn f1_score(&self) -> f64 {
         let precision = self.precision();
         let recall = self.recall();
-        
+
         if precision + recall == 0.0 {
             0.0
         } else {
@@ -430,7 +464,7 @@ mod tests {
         assert_eq!(matrix.accuracy(), 0.85);
         assert_eq!(matrix.precision(), 80.0 / 90.0);
         assert_eq!(matrix.recall(), 80.0 / 100.0);
-        
+
         let precision = matrix.precision();
         let recall = matrix.recall();
         let expected_f1 = 2.0 * precision * recall / (precision + recall);
@@ -449,20 +483,20 @@ mod tests {
     #[test]
     fn test_metrics_calculation() {
         let collector: MetricsCollector<f32> = MetricsCollector::new();
-        
+
         // テスト用のダミーデータ
         let predictions = Variable::new(Tensor::from_vec(vec![0.8, 0.3, 0.9, 0.1], vec![4]), false);
         let targets = Variable::new(Tensor::from_vec(vec![1.0, 0.0, 1.0, 0.0], vec![4]), false);
-        
+
         let accuracy = collector.accuracy(&predictions, &targets);
         assert!(accuracy >= 0.0 && accuracy <= 1.0);
-        
+
         let precision = collector.precision(&predictions, &targets);
         assert!(precision >= 0.0 && precision <= 1.0);
-        
+
         let recall = collector.recall(&predictions, &targets);
         assert!(recall >= 0.0 && recall <= 1.0);
-        
+
         let f1 = collector.f1_score(&predictions, &targets);
         assert!(f1 >= 0.0 && f1 <= 1.0);
     }
@@ -470,17 +504,14 @@ mod tests {
     #[test]
     fn test_custom_metrics() {
         let mut collector: MetricsCollector<f32> = MetricsCollector::new();
-        
+
         // カスタムメトリクスを追加
-        collector.add_metric(
-            "custom_accuracy".to_string(),
-            |_predictions, _targets| {
-                // 実装は簡略化 - 実際にはテンソルデータを解析
-                // Implementation simplified - in practice, analyze tensor data
-                0.90
-            }
-        );
-        
+        collector.add_metric("custom_accuracy".to_string(), |_predictions, _targets| {
+            // 実装は簡略化 - 実際にはテンソルデータを解析
+            // Implementation simplified - in practice, analyze tensor data
+            0.90
+        });
+
         assert_eq!(collector.custom_metrics.len(), 1);
         assert!(collector.custom_metrics.contains_key("custom_accuracy"));
     }

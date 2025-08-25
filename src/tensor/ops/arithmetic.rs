@@ -15,7 +15,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         // Direct element-wise addition
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| a + b)
             .collect();
@@ -29,11 +31,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| a - b)
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
     }
 
@@ -44,11 +48,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| a * b)
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
     }
 
@@ -59,7 +65,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| {
                 if b == T::zero() {
@@ -69,7 +77,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
                 }
             })
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
     }
 
@@ -115,11 +123,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| if a > b { a } else { b })
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
     }
 
@@ -130,11 +140,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
         }
 
-        let result_data: Vec<T> = self.data.iter()
+        let result_data: Vec<T> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(&a, &b)| if a < b { a } else { b })
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
     }
 }

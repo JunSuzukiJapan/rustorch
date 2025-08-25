@@ -1,17 +1,17 @@
 //! Performance optimizations for distributed learning
 //! 分散学習のパフォーマンス最適化
-//! 
+//!
 //! This module provides performance optimization utilities including:
 //! - Gradient compression algorithms
 //! - Memory pooling for tensor operations
 //! - Communication scheduling and batching
 //! - Zero-copy optimizations
 
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
+use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
-use num_traits::Float;
 
 /// Gradient compression algorithms
 /// 勾配圧縮アルゴリズム
@@ -22,24 +22,24 @@ pub enum CompressionAlgorithm {
     None,
     /// Top-K sparsification
     /// Top-K スパース化
-    TopK { 
+    TopK {
         /// Number of top elements to keep
         /// 保持する上位要素数
-        k: usize 
+        k: usize,
     },
     /// Random sparsification
     /// ランダムスパース化
-    Random { 
+    Random {
         /// Compression ratio (0.0 to 1.0)
         /// 圧縮率（0.0から1.0）
-        ratio: f32 
+        ratio: f32,
     },
     /// Quantization
     /// 量子化
-    Quantization { 
+    Quantization {
         /// Number of bits for quantization
         /// 量子化のビット数
-        bits: u8 
+        bits: u8,
     },
 }
 
@@ -59,30 +59,24 @@ impl<T: Float + 'static> GradientCompressor<T> {
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Compress gradient tensor
     /// 勾配テンソルを圧縮
     pub fn compress(&self, gradient: &Tensor<T>) -> RusTorchResult<CompressedGradient<T>> {
         match self.algorithm {
-            CompressionAlgorithm::None => {
-                Ok(CompressedGradient {
-                    data: gradient.clone(),
-                    algorithm: self.algorithm,
-                    original_shape: gradient.shape().to_vec(),
-                })
-            },
-            CompressionAlgorithm::TopK { k } => {
-                self.compress_top_k(gradient, k)
-            },
-            CompressionAlgorithm::Random { ratio } => {
-                self.compress_random(gradient, ratio)
-            },
+            CompressionAlgorithm::None => Ok(CompressedGradient {
+                data: gradient.clone(),
+                algorithm: self.algorithm,
+                original_shape: gradient.shape().to_vec(),
+            }),
+            CompressionAlgorithm::TopK { k } => self.compress_top_k(gradient, k),
+            CompressionAlgorithm::Random { ratio } => self.compress_random(gradient, ratio),
             CompressionAlgorithm::Quantization { bits } => {
                 self.compress_quantization(gradient, bits)
-            },
+            }
         }
     }
-    
+
     /// Decompress gradient tensor
     /// 勾配テンソルを展開
     pub fn decompress(&self, compressed: &CompressedGradient<T>) -> RusTorchResult<Tensor<T>> {
@@ -95,13 +89,17 @@ impl<T: Float + 'static> GradientCompressor<T> {
             }
         }
     }
-    
-    fn compress_top_k(&self, gradient: &Tensor<T>, k: usize) -> RusTorchResult<CompressedGradient<T>> {
+
+    fn compress_top_k(
+        &self,
+        gradient: &Tensor<T>,
+        k: usize,
+    ) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified top-k compression
         // 簡略化されたtop-k圧縮
         let total_elements = gradient.shape().iter().product::<usize>();
         let actual_k = k.min(total_elements);
-        
+
         // In practice, would select top-k elements by magnitude
         // 実際には、大きさでtop-k要素を選択
         Ok(CompressedGradient {
@@ -110,32 +108,44 @@ impl<T: Float + 'static> GradientCompressor<T> {
             original_shape: gradient.shape().to_vec(),
         })
     }
-    
-    fn compress_random(&self, gradient: &Tensor<T>, ratio: f32) -> RusTorchResult<CompressedGradient<T>> {
+
+    fn compress_random(
+        &self,
+        gradient: &Tensor<T>,
+        ratio: f32,
+    ) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified random sparsification
         // 簡略化されたランダムスパース化
         if ratio <= 0.0 || ratio > 1.0 {
-            return Err(RusTorchError::ConfigurationError(
-                format!("Invalid compression ratio: {}", ratio)
-            ).into());
+            return Err(RusTorchError::ConfigurationError(format!(
+                "Invalid compression ratio: {}",
+                ratio
+            ))
+            .into());
         }
-        
+
         Ok(CompressedGradient {
             data: gradient.clone(),
             algorithm: CompressionAlgorithm::Random { ratio },
             original_shape: gradient.shape().to_vec(),
         })
     }
-    
-    fn compress_quantization(&self, gradient: &Tensor<T>, bits: u8) -> RusTorchResult<CompressedGradient<T>> {
+
+    fn compress_quantization(
+        &self,
+        gradient: &Tensor<T>,
+        bits: u8,
+    ) -> RusTorchResult<CompressedGradient<T>> {
         // Simplified quantization
         // 簡略化された量子化
         if bits == 0 || bits > 32 {
-            return Err(RusTorchError::ConfigurationError(
-                format!("Invalid quantization bits: {}", bits)
-            ).into());
+            return Err(RusTorchError::ConfigurationError(format!(
+                "Invalid quantization bits: {}",
+                bits
+            ))
+            .into());
         }
-        
+
         Ok(CompressedGradient {
             data: gradient.clone(),
             algorithm: CompressionAlgorithm::Quantization { bits },
@@ -175,66 +185,66 @@ impl<T: Float + 'static> TensorMemoryPool<T> {
             max_pool_size,
         }
     }
-    
+
     /// Get tensor from pool or allocate new one
     /// プールからテンソルを取得または新規割り当て
     pub fn get_tensor(&self, shape: &[usize]) -> RusTorchResult<Tensor<T>> {
         let mut pools = self.pools.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
-        
+
         let shape_vec = shape.to_vec();
         if let Some(pool) = pools.get_mut(&shape_vec) {
             if let Some(tensor) = pool.pop() {
                 return Ok(tensor);
             }
         }
-        
+
         // Allocate new tensor if pool is empty
         // プールが空の場合は新しいテンソルを割り当て
         Ok(Tensor::zeros(shape))
     }
-    
+
     /// Return tensor to pool
     /// テンソルをプールに返却
     pub fn return_tensor(&self, tensor: Tensor<T>) -> RusTorchResult<()> {
         let mut pools = self.pools.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
-        
+
         let shape = tensor.shape().to_vec();
         let pool = pools.entry(shape).or_insert_with(Vec::new);
-        
+
         if pool.len() < self.max_pool_size {
             pool.push(tensor);
         }
         // If pool is full, tensor is dropped automatically
         // プールが満杯の場合、テンソルは自動的にドロップ
-        
+
         Ok(())
     }
-    
+
     /// Clear all pools
     /// 全プールをクリア
     pub fn clear(&self) -> RusTorchResult<()> {
         let mut pools = self.pools.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
-        
+
         pools.clear();
         Ok(())
     }
-    
+
     /// Get memory pool statistics
     /// メモリプール統計を取得
     pub fn get_stats(&self) -> RusTorchResult<MemoryPoolStats> {
         let pools = self.pools.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock memory pool".to_string())
         })?;
-        
+
         let total_tensors = pools.values().map(|pool| pool.len()).sum();
         let unique_shapes = pools.len();
-        
+
         Ok(MemoryPoolStats {
             total_tensors,
             unique_shapes,
@@ -274,39 +284,39 @@ impl<T: Float + 'static> CommunicationScheduler<T> {
             batch_size,
         }
     }
-    
+
     /// Schedule operation for batched execution
     /// バッチ実行用の操作をスケジュール
     pub fn schedule_operation(&self, operation: PendingOperation<T>) -> RusTorchResult<()> {
         let mut ops = self.pending_operations.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock scheduler".to_string())
         })?;
-        
+
         ops.push(operation);
-        
+
         // Execute batch if size threshold reached
         // サイズ閾値に達した場合はバッチを実行
         if ops.len() >= self.batch_size {
             self.execute_batch(&mut ops)?;
         }
-        
+
         Ok(())
     }
-    
+
     /// Force execution of pending operations
     /// 保留中の操作を強制実行
     pub fn flush(&self) -> RusTorchResult<()> {
         let mut ops = self.pending_operations.lock().map_err(|_| {
             RusTorchError::CommunicationError("Failed to lock scheduler".to_string())
         })?;
-        
+
         if !ops.is_empty() {
             self.execute_batch(&mut ops)?;
         }
-        
+
         Ok(())
     }
-    
+
     fn execute_batch(&self, operations: &mut Vec<PendingOperation<T>>) -> RusTorchResult<()> {
         // Simplified batch execution
         // 簡略化されたバッチ実行
@@ -375,37 +385,37 @@ pub struct OperationMetadata {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_gradient_compressor() {
         let compressor = GradientCompressor::<f32>::new(CompressionAlgorithm::None);
         let gradient: Tensor<f32> = Tensor::ones(&[2, 2]);
-        
+
         let compressed = compressor.compress(&gradient).unwrap();
         let decompressed = compressor.decompress(&compressed).unwrap();
-        
+
         assert_eq!(gradient.shape(), decompressed.shape());
     }
-    
+
     #[test]
     fn test_memory_pool() {
         let pool = TensorMemoryPool::<f32>::new(10);
         let shape = &[2, 2];
-        
+
         let tensor1 = pool.get_tensor(shape).unwrap();
         pool.return_tensor(tensor1).unwrap();
-        
+
         let tensor2 = pool.get_tensor(shape).unwrap();
         assert_eq!(tensor2.shape(), shape);
-        
+
         let stats = pool.get_stats().unwrap();
         assert_eq!(stats.max_pool_size, 10);
     }
-    
+
     #[test]
     fn test_communication_scheduler() {
         let scheduler = CommunicationScheduler::<f32>::new(5);
-        
+
         let operation = PendingOperation {
             operation_type: OperationType::AllReduce,
             tensor: Tensor::ones(&[2, 2]),
@@ -415,7 +425,7 @@ mod tests {
                 root_rank: None,
             },
         };
-        
+
         assert!(scheduler.schedule_operation(operation).is_ok());
         assert!(scheduler.flush().is_ok());
     }

@@ -1,13 +1,13 @@
 //! Multi-machine cluster support for distributed training
 //! 分散学習用マルチマシンクラスターサポート
 
-use std::sync::{Arc, Mutex};
+use crate::distributed::multi_gpu_validation::ProcessGroup;
+use crate::error::{RusTorchError, RusTorchResult};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
-use crate::error::{RusTorchError, RusTorchResult};
-use crate::distributed::multi_gpu_validation::ProcessGroup;
 
 /// Distributed backend types
 /// 分散バックエンドタイプ
@@ -114,20 +114,20 @@ pub enum ClusterTopology {
     Flat,
     /// Tree topology - hierarchical communication
     /// ツリートポロジー - 階層通信
-    Tree { 
+    Tree {
         /// Maximum depth of the tree
         /// ツリーの最大深度
-        depth: usize 
+        depth: usize,
     },
     /// Ring topology - ring-based communication
     /// リングトポロジー - リングベース通信
     Ring,
     /// Custom topology with explicit connections
     /// 明示的接続を持つカスタムトポロジー
-    Custom { 
+    Custom {
         /// Map from node ID to list of connected node IDs
         /// ノードIDから接続されたノードIDのリストへのマップ
-        connections: HashMap<usize, Vec<usize>> 
+        connections: HashMap<usize, Vec<usize>>,
     },
 }
 
@@ -243,8 +243,9 @@ impl ClusterManager {
     /// Create new cluster manager
     /// 新しいクラスターマネージャーを作成
     pub fn new(config: ClusterConfig) -> RusTorchResult<Self> {
-        let active_nodes: Arc<Mutex<HashMap<usize, NodeInfo>>> = Arc::new(Mutex::new(HashMap::new()));
-        
+        let active_nodes: Arc<Mutex<HashMap<usize, NodeInfo>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
         // Initialize active nodes from config
         // 設定からアクティブノードを初期化
         {
@@ -321,7 +322,8 @@ impl ClusterManager {
             backend: Default::default(),
         };
 
-        self.process_groups.insert(job_id, process_group.clone().into());
+        self.process_groups
+            .insert(job_id, process_group.clone().into());
 
         Ok(process_group)
     }
@@ -369,7 +371,7 @@ impl ClusterManager {
     /// フェイルオーバー用代替ノードを見つける
     fn find_replacement_node(&self) -> RusTorchResult<NodeInfo> {
         let nodes = self.active_nodes.lock().unwrap();
-        
+
         for node in nodes.values() {
             if node.status == NodeStatus::Available {
                 return Ok(node.clone().into());
@@ -381,7 +383,11 @@ impl ClusterManager {
 
     /// Migrate jobs from failed node to replacement
     /// 故障ノードから代替ノードへジョブを移行
-    fn migrate_jobs(&mut self, _failed_node: usize, _replacement_node: usize) -> RusTorchResult<()> {
+    fn migrate_jobs(
+        &mut self,
+        _failed_node: usize,
+        _replacement_node: usize,
+    ) -> RusTorchResult<()> {
         // Implementation would handle job migration
         // 実装ではジョブ移行を処理
         Ok(())
@@ -390,9 +396,9 @@ impl ClusterManager {
     /// Update process groups after failover
     /// フェイルオーバー後にプロセスグループを更新
     fn update_process_groups_after_failover(
-        &mut self, 
-        _failed_node: usize, 
-        _replacement_node: usize
+        &mut self,
+        _failed_node: usize,
+        _replacement_node: usize,
     ) -> RusTorchResult<()> {
         // Implementation would update process group configurations
         // 実装ではプロセスグループ設定を更新
@@ -419,19 +425,19 @@ impl ClusterManager {
             ClusterTopology::Flat => {
                 // All-to-all connections
                 // 全対全接続
-            },
+            }
             ClusterTopology::Tree { depth: _ } => {
                 // Tree-based connections
                 // ツリーベース接続
-            },
+            }
             ClusterTopology::Ring => {
                 // Ring connections
                 // リング接続
-            },
+            }
             ClusterTopology::Custom { connections: _ } => {
                 // Custom connections
                 // カスタム接続
-            },
+            }
         }
         Ok(())
     }
@@ -440,7 +446,7 @@ impl ClusterManager {
     /// クラスターステータスを取得
     pub fn get_cluster_status(&self) -> ClusterStatus {
         let nodes = self.active_nodes.lock().unwrap();
-        
+
         let mut available_nodes = 0;
         let mut busy_nodes = 0;
         let mut failed_nodes = 0;
@@ -451,7 +457,7 @@ impl ClusterManager {
                 NodeStatus::Available => available_nodes += 1,
                 NodeStatus::Busy => busy_nodes += 1,
                 NodeStatus::Failed => failed_nodes += 1,
-                NodeStatus::Offline => {},
+                NodeStatus::Offline => {}
             }
             total_gpus += node.gpu_count;
         }
@@ -499,7 +505,8 @@ impl HeartbeatMonitor {
         heartbeat_interval: u64,
         node_timeout: u64,
     ) -> RusTorchResult<Self> {
-        let last_heartbeat: Arc<Mutex<HashMap<usize, Instant>>> = Arc::new(Mutex::new(HashMap::new()));
+        let last_heartbeat: Arc<Mutex<HashMap<usize, Instant>>> =
+            Arc::new(Mutex::new(HashMap::new()));
         let shutdown: Arc<Mutex<bool>> = Arc::new(Mutex::new(false));
 
         // Initialize heartbeat timestamps
@@ -508,7 +515,7 @@ impl HeartbeatMonitor {
             let nodes_guard = nodes.lock().unwrap();
             let mut heartbeat_guard = last_heartbeat.lock().unwrap();
             let now = Instant::now();
-            
+
             for node_id in nodes_guard.keys() {
                 heartbeat_guard.insert(*node_id, now);
             }
@@ -527,7 +534,11 @@ impl HeartbeatMonitor {
 
     /// Start monitoring thread
     /// モニタリングスレッドを開始
-    fn start_monitoring(&mut self, heartbeat_interval: u64, node_timeout: u64) -> RusTorchResult<()> {
+    fn start_monitoring(
+        &mut self,
+        heartbeat_interval: u64,
+        node_timeout: u64,
+    ) -> RusTorchResult<()> {
         let nodes = self.nodes.clone();
         let last_heartbeat = self.last_heartbeat.clone();
         let shutdown = self.shutdown.clone();
@@ -635,22 +646,24 @@ impl ResourceScheduler {
     /// ファーストフィットスケジューリング
     fn schedule_first_fit(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         let mut selected_nodes = Vec::new();
-        
+
         for (node_id, _resources) in &self.node_resources {
             if selected_nodes.len() >= required_nodes {
                 break;
             }
-            
+
             if self.is_node_available(*node_id) {
                 selected_nodes.push(*node_id);
             }
         }
 
         if selected_nodes.len() < required_nodes {
-            return Err(RusTorchError::ClusterError(
-                format!("Not enough available nodes: need {}, found {}", 
-                       required_nodes, selected_nodes.len())
-            ).into());
+            return Err(RusTorchError::ClusterError(format!(
+                "Not enough available nodes: need {}, found {}",
+                required_nodes,
+                selected_nodes.len()
+            ))
+            .into());
         }
 
         Ok(selected_nodes)
@@ -748,22 +761,28 @@ mod tests {
     #[test]
     fn test_resource_scheduler() {
         let mut scheduler = ResourceScheduler::new(SchedulingStrategy::FirstFit);
-        
+
         // Add some mock resources
         // モックリソースを追加
-        scheduler.node_resources.insert(0, NodeCapabilities {
-            memory_gb: 64.0,
-            cpu_cores: 16,
-            gpu_memory_gb: 32.0,
-            network_bandwidth_gbps: 10.0,
-        });
+        scheduler.node_resources.insert(
+            0,
+            NodeCapabilities {
+                memory_gb: 64.0,
+                cpu_cores: 16,
+                gpu_memory_gb: 32.0,
+                network_bandwidth_gbps: 10.0,
+            },
+        );
 
-        scheduler.resource_usage.insert(0, ResourceUsage {
-            memory_used_gb: 0.0,
-            cpu_cores_used: 0,
-            gpu_memory_used_gb: 0.0,
-            active_jobs: 0,
-        });
+        scheduler.resource_usage.insert(
+            0,
+            ResourceUsage {
+                memory_used_gb: 0.0,
+                cpu_cores_used: 0,
+                gpu_memory_used_gb: 0.0,
+                active_jobs: 0,
+            },
+        );
 
         let result = scheduler.schedule_job(1);
         assert!(result.is_ok());

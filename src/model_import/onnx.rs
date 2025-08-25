@@ -1,12 +1,11 @@
+use crate::dtype::DType;
 /// ONNX model import implementation
 /// ONNXモデルインポート実装
-
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelArchitecture, LayerInfo}; // ModelStructure,
+use crate::model_import::{ImportedModel, LayerInfo, ModelArchitecture, ModelMetadata, TensorSpec}; // ModelStructure,
+use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
-use crate::tensor::Tensor;
-use crate::dtype::DType;
 
 /// Layer description for model conversion
 /// モデル変換用レイヤー記述
@@ -162,19 +161,18 @@ pub struct OnnxGraph {
 /// ファイルからONNXモデルをインポート
 pub fn import_onnx_model<P: AsRef<Path>>(path: P) -> RusTorchResult<ImportedModel> {
     let path = path.as_ref();
-    
+
     // Read ONNX file
-    let onnx_data = std::fs::read(path)
-        .map_err(|e| RusTorchError::FileNotFound(e.to_string()))?;
-    
+    let onnx_data = std::fs::read(path).map_err(|e| RusTorchError::FileNotFound(e.to_string()))?;
+
     // Parse ONNX model (mock implementation)
     let onnx_model = parse_onnx_data(&onnx_data)?;
-    
+
     // Convert to RusTorch format
     let metadata = create_metadata(&onnx_model);
     let weights = extract_weights(&onnx_model)?;
     let architecture = create_architecture(&onnx_model)?;
-    
+
     Ok(ImportedModel {
         metadata,
         weights,
@@ -187,11 +185,13 @@ pub fn import_onnx_model<P: AsRef<Path>>(path: P) -> RusTorchResult<ImportedMode
 fn parse_onnx_data(data: &[u8]) -> RusTorchResult<OnnxModel> {
     // Mock ONNX parsing implementation
     // In a real implementation, this would use protobuf to parse the ONNX format
-    
+
     if data.len() < 10 {
-        return Err(RusTorchError::InvalidModel("File too small to be valid ONNX"));
+        return Err(RusTorchError::InvalidModel(
+            "File too small to be valid ONNX",
+        ));
     }
-    
+
     // Create a mock ONNX model for demonstration
     let mock_model = OnnxModel {
         ir_version: 7,
@@ -232,27 +232,23 @@ fn parse_onnx_data(data: &[u8]) -> RusTorchResult<OnnxModel> {
                     data: vec![0u8; 128 * 4], // Mock bias data
                 },
             ],
-            inputs: vec![
-                OnnxTensorInfo {
-                    name: "input".to_string(),
-                    shape: vec![-1, 784], // -1 for dynamic batch size
-                    data_type: OnnxDataType::Float,
-                    data: vec![],
-                },
-            ],
-            outputs: vec![
-                OnnxTensorInfo {
-                    name: "output".to_string(),
-                    shape: vec![-1, 128],
-                    data_type: OnnxDataType::Float,
-                    data: vec![],
-                },
-            ],
+            inputs: vec![OnnxTensorInfo {
+                name: "input".to_string(),
+                shape: vec![-1, 784], // -1 for dynamic batch size
+                data_type: OnnxDataType::Float,
+                data: vec![],
+            }],
+            outputs: vec![OnnxTensorInfo {
+                name: "output".to_string(),
+                shape: vec![-1, 128],
+                data_type: OnnxDataType::Float,
+                data: vec![],
+            }],
             value_info: vec![],
         },
         metadata_props: HashMap::new(),
     };
-    
+
     Ok(mock_model)
 }
 
@@ -280,12 +276,12 @@ fn create_metadata(onnx_model: &OnnxModel) -> ModelMetadata {
 /// ONNXモデルから重みを抽出
 fn extract_weights(onnx_model: &OnnxModel) -> RusTorchResult<HashMap<String, Tensor<f32>>> {
     let mut weights = HashMap::new();
-    
+
     for initializer in &onnx_model.graph.initializers {
         let tensor = convert_onnx_tensor_to_rustorch(initializer)?;
         weights.insert(initializer.name.clone(), tensor);
     }
-    
+
     Ok(weights)
 }
 
@@ -293,28 +289,31 @@ fn extract_weights(onnx_model: &OnnxModel) -> RusTorchResult<HashMap<String, Ten
 /// ONNXテンソルをRusTorchテンソルに変換
 fn convert_onnx_tensor_to_rustorch(onnx_tensor: &OnnxTensorInfo) -> RusTorchResult<Tensor<f32>> {
     // Convert shape from i64 to usize, handling dynamic dimensions
-    let shape: Vec<usize> = onnx_tensor.shape.iter()
+    let shape: Vec<usize> = onnx_tensor
+        .shape
+        .iter()
         .map(|&dim| if dim < 0 { 1 } else { dim as usize })
         .collect();
-    
+
     match onnx_tensor.data_type {
         OnnxDataType::Float => {
             // Convert bytes to f32 values
-            let float_data: Vec<f32> = onnx_tensor.data
+            let float_data: Vec<f32> = onnx_tensor
+                .data
                 .chunks_exact(4)
                 .map(|chunk| {
                     let bytes = [chunk[0], chunk[1], chunk[2], chunk[3]];
                     f32::from_le_bytes(bytes)
                 })
                 .collect();
-            
+
             if float_data.is_empty() {
                 // Create zero tensor for empty data
                 Ok(Tensor::zeros(&shape))
             } else {
                 Ok(Tensor::from_vec(float_data, shape))
             }
-        },
+        }
         _ => {
             // For other data types, create zero tensor for now
             // In a real implementation, this would handle type conversion
@@ -326,35 +325,66 @@ fn convert_onnx_tensor_to_rustorch(onnx_tensor: &OnnxTensorInfo) -> RusTorchResu
 /// Create model architecture from ONNX model
 /// ONNXモデルからモデルアーキテクチャを作成
 fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelArchitecture> {
-    let inputs = onnx_model.graph.inputs.iter()
+    let inputs = onnx_model
+        .graph
+        .inputs
+        .iter()
         .map(|input| create_tensor_spec(input))
         .collect();
-    
-    let outputs = onnx_model.graph.outputs.iter()
+
+    let outputs = onnx_model
+        .graph
+        .outputs
+        .iter()
         .map(|output| create_tensor_spec(output))
         .collect();
-    
-    let layer_descs: Vec<LayerDescription> = onnx_model.graph.nodes.iter()
+
+    let layer_descs: Vec<LayerDescription> = onnx_model
+        .graph
+        .nodes
+        .iter()
         .map(|node| create_layer_info(node))
         .collect();
-    
-    let layers = layer_descs.into_iter().map(|desc| LayerInfo {
-        name: desc.name,
-        layer_type: desc.layer_type,
-        input_shape: desc.input_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-        output_shape: desc.output_shape.iter().map(|&x| if x == 0 { None } else { Some(x) }).collect(),
-        params: 0, // Would need to calculate from initializers
-        attributes: std::collections::HashMap::new(),
-    }).collect();
-    
-    let parameter_count = onnx_model.graph.initializers.iter()
-        .map(|init| init.shape.iter().map(|&dim| dim.max(1) as usize).product::<usize>())
+
+    let layers = layer_descs
+        .into_iter()
+        .map(|desc| LayerInfo {
+            name: desc.name,
+            layer_type: desc.layer_type,
+            input_shape: desc
+                .input_shape
+                .iter()
+                .map(|&x| if x == 0 { None } else { Some(x) })
+                .collect(),
+            output_shape: desc
+                .output_shape
+                .iter()
+                .map(|&x| if x == 0 { None } else { Some(x) })
+                .collect(),
+            params: 0, // Would need to calculate from initializers
+            attributes: std::collections::HashMap::new(),
+        })
+        .collect();
+
+    let parameter_count = onnx_model
+        .graph
+        .initializers
+        .iter()
+        .map(|init| {
+            init.shape
+                .iter()
+                .map(|&dim| dim.max(1) as usize)
+                .product::<usize>()
+        })
         .sum();
-    
-    let model_size = onnx_model.graph.initializers.iter()
+
+    let model_size = onnx_model
+        .graph
+        .initializers
+        .iter()
         .map(|init| init.data.len())
         .sum();
-    
+
     Ok(ModelArchitecture {
         inputs,
         outputs,
@@ -367,10 +397,12 @@ fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelArchitectu
 /// Create tensor specification from ONNX tensor info
 /// ONNXテンソル情報からテンソル仕様を作成
 fn create_tensor_spec(onnx_tensor: &OnnxTensorInfo) -> TensorSpec {
-    let shape = onnx_tensor.shape.iter()
+    let shape = onnx_tensor
+        .shape
+        .iter()
         .map(|&dim| if dim < 0 { None } else { Some(dim as usize) })
         .collect();
-    
+
     TensorSpec {
         name: onnx_tensor.name.clone(),
         shape,
@@ -385,7 +417,7 @@ fn create_layer_info(node: &OnnxNode) -> LayerDescription {
     LayerDescription {
         name: node.name.clone(),
         layer_type: map_onnx_op_to_layer_type(&node.op_type),
-        input_shape: vec![0], // Would need to infer from graph
+        input_shape: vec![0],  // Would need to infer from graph
         output_shape: vec![0], // Would need to infer from graph
     }
 }
@@ -419,15 +451,15 @@ pub fn export_to_onnx<P: AsRef<Path>>(
     input_shape: &[usize],
 ) -> RusTorchResult<()> {
     let path = path.as_ref();
-    
+
     // Create mock ONNX export
     // In a real implementation, this would serialize the model to ONNX format
-    
+
     let mock_onnx_data = create_mock_onnx_export(model, input_shape)?;
-    
+
     std::fs::write(path, mock_onnx_data)
         .map_err(|e| RusTorchError::SerializationError(e.to_string()))?;
-    
+
     Ok(())
 }
 
@@ -446,7 +478,7 @@ fn create_mock_onnx_export(
 mod tests {
     use super::*;
     use std::io::Write;
-    
+
     #[test]
     fn test_onnx_data_type_conversion() {
         assert_eq!(OnnxDataType::Float.to_dtype(), DType::Float32);
@@ -454,7 +486,7 @@ mod tests {
         assert_eq!(OnnxDataType::Int32.to_dtype(), DType::Int32);
         assert_eq!(OnnxDataType::Bool.to_dtype(), DType::Bool);
     }
-    
+
     #[test]
     fn test_op_type_mapping() {
         assert_eq!(map_onnx_op_to_layer_type("MatMul"), "Linear");
@@ -462,27 +494,27 @@ mod tests {
         assert_eq!(map_onnx_op_to_layer_type("Relu"), "ReLU");
         assert_eq!(map_onnx_op_to_layer_type("UnknownOp"), "UnknownOp");
     }
-    
+
     #[test]
     fn test_onnx_import_mock() {
         // Create a temporary mock ONNX file
         let temp_dir = std::env::temp_dir();
         let temp_file = temp_dir.join("test_model.onnx");
-        
+
         {
             let mut file = std::fs::File::create(&temp_file).unwrap();
             file.write_all(b"mock onnx data for testing").unwrap();
         }
-        
+
         // Test import
         let result = import_onnx_model(&temp_file);
         assert!(result.is_ok());
-        
+
         let model = result.unwrap();
         assert_eq!(model.metadata.format, "ONNX");
         assert!(model.weights.contains_key("linear1.weight"));
         assert!(model.weights.contains_key("linear1.bias"));
-        
+
         // Cleanup
         std::fs::remove_file(temp_file).ok();
     }

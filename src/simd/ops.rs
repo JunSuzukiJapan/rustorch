@@ -1,5 +1,5 @@
+use super::traits::{AutoSimd, SimdElementwise, SimdReduction};
 use super::vectorized;
-use super::traits::{SimdElementwise, SimdReduction, AutoSimd};
 
 /// High-level SIMD operations interface
 /// 高レベルSIMD演算インターフェース
@@ -28,19 +28,19 @@ pub fn mul_scalar_optimized(a: &[f32], scalar: f32, result: &mut [f32]) {
 pub fn get_optimization_info() -> String {
     let mut info = String::new();
     info.push_str("SIMD Optimization Status:\n");
-    
+
     if vectorized::is_avx2_available() {
         info.push_str("✅ AVX2: Available (8x f32, 4x f64 parallel processing)\n");
     } else {
         info.push_str("❌ AVX2: Not available\n");
     }
-    
+
     if vectorized::is_sse41_available() {
         info.push_str("✅ SSE4.1: Available (4x f32 parallel processing)\n");
     } else {
         info.push_str("❌ SSE4.1: Not available\n");
     }
-    
+
     info
 }
 
@@ -54,9 +54,13 @@ pub fn dot_product_optimized(a: &[f32], b: &[f32]) -> f32 {
 /// Optimized matrix multiplication
 /// 最適化された行列乗算
 pub fn matmul_optimized(
-    a: &[f32], a_rows: usize, a_cols: usize,
-    b: &[f32], b_rows: usize, b_cols: usize,
-    result: &mut [f32]
+    a: &[f32],
+    a_rows: usize,
+    a_cols: usize,
+    b: &[f32],
+    b_rows: usize,
+    b_cols: usize,
+    result: &mut [f32],
 ) {
     use super::traits::SimdMatrix;
     AutoSimd::simd_matmul(a, a_rows, a_cols, b, b_rows, b_cols, result);
@@ -121,7 +125,7 @@ mod tests {
     fn test_dot_product_optimized() {
         let a = vec![1.0, 2.0, 3.0, 4.0];
         let b = vec![5.0, 6.0, 7.0, 8.0];
-        let expected = 1.0*5.0 + 2.0*6.0 + 3.0*7.0 + 4.0*8.0; // = 70.0
+        let expected = 1.0 * 5.0 + 2.0 * 6.0 + 3.0 * 7.0 + 4.0 * 8.0; // = 70.0
 
         let result = dot_product_optimized(&a, &b);
         assert!((result - expected).abs() < 1e-6);

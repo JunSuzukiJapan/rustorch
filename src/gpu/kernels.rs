@@ -1,6 +1,5 @@
 /// GPU kernel operations and execution
 /// GPUカーネル操作と実行
-
 use super::DeviceType;
 use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
@@ -56,7 +55,7 @@ pub trait GpuKernel<T: Float> {
 pub trait ModernGpuKernel: Send + Sync {
     /// Get kernel name
     fn name(&self) -> &str;
-    
+
     /// Launch kernel with given parameters
     fn launch(
         &self,
@@ -65,10 +64,10 @@ pub trait ModernGpuKernel: Send + Sync {
         block_size: (u32, u32, u32),
         grid_size: (u32, u32, u32),
     ) -> RusTorchResult<()>;
-    
+
     /// Set kernel parameter
     fn set_parameter(&mut self, index: usize, data: &[u8]) -> RusTorchResult<()>;
-    
+
     /// Compile kernel from source
     fn compile(&mut self, source: &str) -> RusTorchResult<()>;
 }
@@ -86,7 +85,9 @@ impl<T: Float> GpuKernel<T> for AddKernel {
         outputs: &mut [&mut [T]],
     ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(RusTorchError::tensor_op("Add kernel requires 2 inputs and 1 output"));
+            return Err(RusTorchError::tensor_op(
+                "Add kernel requires 2 inputs and 1 output",
+            ));
         }
 
         let a = inputs[0];
@@ -109,9 +110,15 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::cuda_kernels::cuda_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
                         cuda_elementwise_add_f32(a_f32, b_f32, c_f32)
                             .map_err(|e| RusTorchError::gpu(format!("CUDA add failed: {:?}", e)))?;
                     } else {
@@ -128,11 +135,18 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::metal_kernels::metal_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        metal_elementwise_add_f32(a_f32, b_f32, c_f32)
-                            .map_err(|e| RusTorchError::gpu(format!("Metal add failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        metal_elementwise_add_f32(a_f32, b_f32, c_f32).map_err(|e| {
+                            RusTorchError::gpu(format!("Metal add failed: {:?}", e))
+                        })?;
                     } else {
                         return Err(RusTorchError::gpu("Metal only supports f32 currently"));
                     }
@@ -147,11 +161,18 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::opencl_kernels::opencl_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        opencl_elementwise_add_f32(a_f32, b_f32, c_f32)
-                            .map_err(|e| RusTorchError::gpu(format!("OpenCL add failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        opencl_elementwise_add_f32(a_f32, b_f32, c_f32).map_err(|e| {
+                            RusTorchError::gpu(format!("OpenCL add failed: {:?}", e))
+                        })?;
                     } else {
                         return Err(RusTorchError::gpu("OpenCL only supports f32 currently"));
                     }
@@ -191,7 +212,8 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             }
             DeviceType::OpenCL(_) => {
                 let work_group_size = 256;
-                let global_size = (problem_size + work_group_size - 1) / work_group_size * work_group_size;
+                let global_size =
+                    (problem_size + work_group_size - 1) / work_group_size * work_group_size;
                 KernelParams {
                     block_size: (work_group_size as u32, 1, 1),
                     grid_size: (global_size as u32, 1, 1),
@@ -218,7 +240,9 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
         outputs: &mut [&mut [T]],
     ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(RusTorchError::tensor_op("MatMul kernel requires 2 inputs and 1 output"));
+            return Err(RusTorchError::tensor_op(
+                "MatMul kernel requires 2 inputs and 1 output",
+            ));
         }
 
         // For simplicity, assume square matrices for now
@@ -249,11 +273,18 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::cuda_kernels::cuda_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| RusTorchError::gpu(format!("CUDA matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("CUDA matmul failed: {:?}", e))
+                        })?;
                     } else {
                         return Err(RusTorchError::gpu("CUDA only supports f32 currently"));
                     }
@@ -268,11 +299,18 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::metal_kernels::metal_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        metal_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| RusTorchError::gpu(format!("Metal matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        metal_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("Metal matmul failed: {:?}", e))
+                        })?;
                     } else {
                         return Err(RusTorchError::gpu("Metal only supports f32 currently"));
                     }
@@ -287,11 +325,18 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::opencl_kernels::opencl_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        opencl_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| RusTorchError::gpu(format!("OpenCL matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        opencl_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("OpenCL matmul failed: {:?}", e))
+                        })?;
                     } else {
                         return Err(RusTorchError::gpu("OpenCL only supports f32 currently"));
                     }
@@ -308,7 +353,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
 
     fn optimal_params(&self, problem_size: usize, device: DeviceType) -> KernelParams {
         let n = (problem_size as f64).sqrt() as usize;
-        
+
         match device {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
@@ -318,7 +363,8 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 KernelParams {
                     block_size: (block_size as u32, block_size as u32, 1),
                     grid_size: (grid_size as u32, grid_size as u32, 1),
-                    shared_memory: (2 * block_size * block_size * std::mem::size_of::<f32>()) as u32,
+                    shared_memory: (2 * block_size * block_size * std::mem::size_of::<f32>())
+                        as u32,
                     stream_id: 0,
                 }
             }
@@ -371,7 +417,9 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
         outputs: &mut [&mut [T]],
     ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(RusTorchError::tensor_op("Conv kernel requires 2 inputs and 1 output"));
+            return Err(RusTorchError::tensor_op(
+                "Conv kernel requires 2 inputs and 1 output",
+            ));
         }
 
         match device {
@@ -502,7 +550,11 @@ impl KernelExecutor {
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
     ) -> RusTorchResult<()> {
-        let problem_size = if !inputs.is_empty() { inputs[0].len() } else { 0 };
+        let problem_size = if !inputs.is_empty() {
+            inputs[0].len()
+        } else {
+            0
+        };
         let params = kernel.optimal_params(problem_size, self.device);
         kernel.execute(self.device, &params, inputs, outputs)
     }
@@ -550,7 +602,9 @@ mod tests {
         let mut outputs = [c.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
 
         assert_eq!(c, vec![6.0, 8.0, 10.0, 12.0]);
     }
@@ -566,7 +620,9 @@ mod tests {
         let mut outputs = [c.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
 
         // Expected result: [19, 22, 43, 50]
         assert_eq!(c, vec![19.0, 22.0, 43.0, 50.0]);
@@ -585,18 +641,22 @@ mod tests {
         let inputs = [a.as_slice(), b.as_slice()];
         let mut outputs = [c.as_mut_slice()];
 
-        executor.execute_kernel(&kernel, &inputs, &mut outputs).unwrap();
+        executor
+            .execute_kernel(&kernel, &inputs, &mut outputs)
+            .unwrap();
         assert_eq!(c, vec![5.0, 7.0, 9.0]);
     }
 
     #[test]
     fn test_optimal_params() {
         let kernel = AddKernel;
-        
-        let params_cpu = <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cpu);
+
+        let params_cpu =
+            <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cpu);
         assert_eq!(params_cpu.block_size, (256, 1, 1));
-        
-        let params_cuda = <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cuda(0));
+
+        let params_cuda =
+            <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cuda(0));
         assert!(params_cuda.grid_size.0 > 1);
     }
 
@@ -616,6 +676,8 @@ mod tests {
         let mut outputs = [output.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
     }
 }

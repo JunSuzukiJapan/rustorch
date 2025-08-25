@@ -3,7 +3,7 @@
 //!
 //! This module provides a unified interface for different compute backends,
 //! enabling seamless switching between CPU, CUDA, Metal, and OpenCL implementations.
-//! 
+//!
 //! このモジュールは異なる計算バックエンドの統一インターフェースを提供し、
 //! CPU、CUDA、Metal、OpenCLの実装間でのシームレスな切り替えを可能にします。
 //!
@@ -28,15 +28,9 @@ pub mod cpu_unified;
 
 // Re-export unified types with new names to avoid conflicts
 pub use compute_backend::{
-    ComputeBackend as UnifiedComputeBackend, 
-    DeviceManager, 
-    DeviceType as UnifiedDeviceType, 
-    Operation, 
-    PerformanceMetrics,
-    SelectionStrategy, 
-    TransferDirection, 
-    global_device_manager, 
-    initialize_backends
+    global_device_manager, initialize_backends, ComputeBackend as UnifiedComputeBackend,
+    DeviceManager, DeviceType as UnifiedDeviceType, Operation, PerformanceMetrics,
+    SelectionStrategy, TransferDirection,
 };
 pub use cpu_unified::CpuBackend as UnifiedCpuBackend;
 
@@ -54,15 +48,15 @@ pub trait DeviceBuffer: Send + Sync {
     /// Size of the buffer in bytes
     /// バッファのバイトサイズ
     fn size(&self) -> usize;
-    
+
     /// Copy data from host to device
     /// ホストからデバイスへデータをコピー
     fn copy_from_host(&mut self, data: &[u8]) -> BackendResult<()>;
-    
+
     /// Copy data from device to host
     /// デバイスからホストへデータをコピー
     fn copy_to_host(&self, data: &mut [u8]) -> BackendResult<()>;
-    
+
     /// Get raw pointer for device operations (unsafe)
     /// デバイス操作用の生ポインタを取得（unsafe）
     fn as_ptr(&self) -> *mut u8;
@@ -163,108 +157,110 @@ pub trait ComputeBackend: Send + Sync {
     /// Get device information
     /// デバイス情報を取得
     fn device_info(&self) -> &DeviceInfo;
-    
+
     /// Allocate memory on the device
     /// デバイスでメモリを割り当て
     fn allocate_memory(&self, size: usize) -> BackendResult<Box<dyn DeviceBuffer>>;
-    
+
     /// Synchronize device execution (wait for all operations to complete)
     /// デバイス実行を同期（全操作の完了を待機）
     fn synchronize(&self) -> BackendResult<()>;
-    
+
     /// Check if this backend is available on the current system
     /// このバックエンドが現在のシステムで利用可能かチェック
-    fn is_available() -> bool where Self: Sized;
-    
+    fn is_available() -> bool
+    where
+        Self: Sized;
+
     // === Core Tensor Operations ===
     // === コアテンソル操作 ===
-    
+
     /// Element-wise addition: a + b
     /// 要素ごと加算: a + b
     fn add<T>(&self, a: &Tensor<T>, b: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Element-wise subtraction: a - b
     /// 要素ごと減算: a - b
     fn sub<T>(&self, a: &Tensor<T>, b: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Element-wise multiplication: a * b
     /// 要素ごと乗算: a * b
     fn mul<T>(&self, a: &Tensor<T>, b: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Element-wise division: a / b
     /// 要素ごと除算: a / b
     fn div<T>(&self, a: &Tensor<T>, b: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Matrix multiplication: a @ b
     /// 行列乗算: a @ b
     fn matmul<T>(&self, a: &Tensor<T>, b: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     // === Reduction Operations ===
     // === リダクション操作 ===
-    
+
     /// Sum all elements
     /// 全要素の合計
     fn sum<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Mean of all elements
     /// 全要素の平均
     fn mean<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Maximum element
     /// 最大要素
     fn max<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Minimum element
     /// 最小要素
     fn min<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     // === Shape Operations ===
     // === 形状操作 ===
-    
+
     /// Reshape tensor to new shape
     /// テンソルを新しい形状に変形
     fn reshape<T>(&self, tensor: &Tensor<T>, new_shape: &[usize]) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Transpose tensor along specified axes
     /// 指定された軸でテンソルを転置
     fn transpose<T>(&self, tensor: &Tensor<T>, axes: &[usize]) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     // === Advanced Operations ===
     // === 高度な操作 ===
-    
+
     /// Convolution operation
     /// 畳み込み操作
     fn convolution<T>(
-        &self, 
-        input: &Tensor<T>, 
-        kernel: &Tensor<T>, 
-        params: &ConvolutionParams
+        &self,
+        input: &Tensor<T>,
+        kernel: &Tensor<T>,
+        params: &ConvolutionParams,
     ) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Batch normalization
     /// バッチ正規化
     fn batch_norm<T>(
@@ -280,39 +276,39 @@ pub trait ComputeBackend: Send + Sync {
     ) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Activation functions
     /// 活性化関数
     fn relu<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Apply sigmoid activation function
     /// シグモイド活性化関数を適用
     fn sigmoid<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     /// Apply hyperbolic tangent activation function
     /// ハイパボリックタンジェント活性化関数を適用
     fn tanh<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
-    
+
     // === Backend-specific Operations ===
     // === バックエンド固有の操作 ===
-    
+
     /// Get backend-specific context for advanced operations
     /// 高度な操作のためのバックエンド固有のコンテキストを取得
     fn backend_context(&self) -> &dyn Any;
-    
+
     /// Execute custom kernel/operation (backend-specific)
     /// カスタムカーネル/操作を実行（バックエンド固有）
     fn execute_custom_op(
-        &self, 
-        op_name: &str, 
-        inputs: &[&dyn Any], 
-        params: &dyn Any
+        &self,
+        op_name: &str,
+        inputs: &[&dyn Any],
+        params: &dyn Any,
     ) -> BackendResult<Box<dyn Any>>;
 }
 
@@ -325,29 +321,29 @@ impl BackendFactory {
     /// 現在のシステムで利用可能な全バックエンドを取得
     pub fn available_backends() -> Vec<DeviceType> {
         let mut backends = Vec::new();
-        
+
         // CPU is always available
         backends.push(DeviceType::Cpu);
-        
+
         // Additional backends would be checked here when implemented
         // #[cfg(feature = "cuda")]
         // if cuda::CudaBackend::is_available() {
         //     backends.push(DeviceType::Cuda);
         // }
-        
+
         // #[cfg(feature = "metal")]
         // if metal::MetalBackend::is_available() {
         //     backends.push(DeviceType::Metal);
         // }
-        
+
         // #[cfg(feature = "opencl")]
         // if opencl::OpenClBackend::is_available() {
         //     backends.push(DeviceType::OpenCL);
         // }
-        
+
         backends
     }
-    
+
     /// Create the best available CPU backend for the current system
     /// 現在のシステムで最適な利用可能CPUバックエンドを作成
     pub fn create_cpu_backend() -> BackendResult<cpu_unified::CpuBackend> {
@@ -361,7 +357,7 @@ impl BackendFactory {
 #[cfg(feature = "cuda")]
 pub use cuda::CudaBackend;
 
-#[cfg(feature = "metal")]  
+#[cfg(feature = "metal")]
 pub use metal::MetalBackend;
 
 // OpenCL backend not yet implemented

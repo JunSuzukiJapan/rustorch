@@ -32,9 +32,13 @@ pub fn is_sse41_available() -> bool {
 /// SIMD-optimized matrix multiplication for f32
 /// f32用SIMD最適化行列乗算
 pub fn matmul_f32_simd(
-    a: &[f32], a_rows: usize, a_cols: usize,
-    b: &[f32], b_rows: usize, b_cols: usize,
-    c: &mut [f32]
+    a: &[f32],
+    a_rows: usize,
+    a_cols: usize,
+    b: &[f32],
+    b_rows: usize,
+    b_cols: usize,
+    c: &mut [f32],
 ) {
     assert_eq!(a_cols, b_rows);
     assert_eq!(a.len(), a_rows * a_cols);
@@ -150,9 +154,13 @@ pub unsafe fn add_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
 /// AVX2最適化行列乗算
 #[target_feature(enable = "avx2")]
 unsafe fn matmul_f32_avx2(
-    a: &[f32], a_rows: usize, a_cols: usize,
-    b: &[f32], _b_rows: usize, b_cols: usize,
-    c: &mut [f32]
+    a: &[f32],
+    a_rows: usize,
+    a_cols: usize,
+    b: &[f32],
+    _b_rows: usize,
+    b_cols: usize,
+    c: &mut [f32],
 ) {
     // Initialize result to zero
     for val in c.iter_mut() {
@@ -163,13 +171,13 @@ unsafe fn matmul_f32_avx2(
         for j in (0..b_cols).step_by(8) {
             if j + 8 <= b_cols {
                 let mut sum = _mm256_setzero_ps();
-                
+
                 for k in 0..a_cols {
                     let a_val = _mm256_broadcast_ss(&a[i * a_cols + k]);
                     let b_vec = _mm256_loadu_ps(&b[k * b_cols + j]);
                     sum = _mm256_fmadd_ps(a_val, b_vec, sum);
                 }
-                
+
                 _mm256_storeu_ps(&mut c[i * b_cols + j], sum);
             } else {
                 // Handle remaining elements with scalar fallback
@@ -189,9 +197,13 @@ unsafe fn matmul_f32_avx2(
 /// SSE4.1最適化行列乗算
 #[target_feature(enable = "sse4.1")]
 unsafe fn matmul_f32_sse41(
-    a: &[f32], a_rows: usize, a_cols: usize,
-    b: &[f32], _b_rows: usize, b_cols: usize,
-    c: &mut [f32]
+    a: &[f32],
+    a_rows: usize,
+    a_cols: usize,
+    b: &[f32],
+    _b_rows: usize,
+    b_cols: usize,
+    c: &mut [f32],
 ) {
     // Initialize result to zero
     for val in c.iter_mut() {
@@ -202,13 +214,13 @@ unsafe fn matmul_f32_sse41(
         for j in (0..b_cols).step_by(4) {
             if j + 4 <= b_cols {
                 let mut sum = _mm_setzero_ps();
-                
+
                 for k in 0..a_cols {
                     let a_val = _mm_load1_ps(&a[i * a_cols + k]);
                     let b_vec = _mm_loadu_ps(&b[k * b_cols + j]);
                     sum = _mm_add_ps(sum, _mm_mul_ps(a_val, b_vec));
                 }
-                
+
                 _mm_storeu_ps(&mut c[i * b_cols + j], sum);
             } else {
                 // Handle remaining elements with scalar fallback
@@ -227,9 +239,13 @@ unsafe fn matmul_f32_sse41(
 /// Scalar fallback matrix multiplication
 /// スカラーフォールバック行列乗算
 fn matmul_f32_scalar(
-    a: &[f32], a_rows: usize, a_cols: usize,
-    b: &[f32], _b_rows: usize, b_cols: usize,
-    c: &mut [f32]
+    a: &[f32],
+    a_rows: usize,
+    a_cols: usize,
+    b: &[f32],
+    _b_rows: usize,
+    b_cols: usize,
+    c: &mut [f32],
 ) {
     for i in 0..a_rows {
         for j in 0..b_cols {
@@ -248,10 +264,10 @@ fn matmul_f32_scalar(
 pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
     assert_eq!(a.len(), b.len());
     assert_eq!(a.len(), result.len());
-    
+
     let len = a.len();
     let simd_len = len - (len % 4);
-    
+
     // Process chunks of 4 elements using SSE4.1
     for i in (0..simd_len).step_by(4) {
         let va = _mm_loadu_ps(a.as_ptr().add(i));
@@ -259,7 +275,7 @@ pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
         let vresult = _mm_mul_ps(va, vb);
         _mm_storeu_ps(result.as_mut_ptr().add(i), vresult);
     }
-    
+
     // Handle remaining elements
     for i in simd_len..len {
         result[i] = a[i] * b[i];
@@ -271,18 +287,18 @@ pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
 #[target_feature(enable = "avx2")]
 pub unsafe fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
     assert_eq!(a.len(), result.len());
-    
+
     let len = a.len();
     let simd_len = len - (len % 8);
     let scalar_vec = _mm256_set1_ps(scalar);
-    
+
     // Process chunks of 8 elements using AVX2
     for i in (0..simd_len).step_by(8) {
         let va = _mm256_loadu_ps(a.as_ptr().add(i));
         let vresult = _mm256_mul_ps(va, scalar_vec);
         _mm256_storeu_ps(result.as_mut_ptr().add(i), vresult);
     }
-    
+
     // Handle remaining elements
     for i in simd_len..len {
         result[i] = a[i] * scalar;
@@ -294,10 +310,10 @@ pub unsafe fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
 #[target_feature(enable = "avx2")]
 pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
-    
+
     let len = a.len();
     let mut sum = _mm256_setzero_ps();
-    
+
     // Process 8 elements at a time
     let chunks = len / 8;
     for i in 0..chunks {
@@ -306,22 +322,22 @@ pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
         let b_vec = _mm256_loadu_ps(&b[idx]);
         sum = _mm256_fmadd_ps(a_vec, b_vec, sum);
     }
-    
+
     // Horizontal sum of the 8 elements in sum
     let sum_high = _mm256_extractf128_ps(sum, 1);
     let sum_low = _mm256_castps256_ps128(sum);
     let sum128 = _mm_add_ps(sum_high, sum_low);
-    
+
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 8)..len {
         result += a[i] * b[i];
     }
-    
+
     result
 }
 
@@ -330,10 +346,10 @@ pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
 #[target_feature(enable = "sse4.1")]
 pub unsafe fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
-    
+
     let len = a.len();
     let mut sum = _mm_setzero_ps();
-    
+
     // Process 4 elements at a time
     let chunks = len / 4;
     for i in 0..chunks {
@@ -342,19 +358,19 @@ pub unsafe fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
         let b_vec = _mm_loadu_ps(&b[idx]);
         sum = _mm_add_ps(sum, _mm_mul_ps(a_vec, b_vec));
     }
-    
+
     // Horizontal sum of the 4 elements in sum
     let sum_high = _mm_movehl_ps(sum, sum);
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 4)..len {
         result += a[i] * b[i];
     }
-    
+
     result
 }
 
@@ -364,7 +380,7 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
     if data.is_empty() {
         return 0.0;
     }
-    
+
     if is_avx2_available() && data.len() >= 8 {
         unsafe { sum_f32_avx2(data) }
     } else if is_sse41_available() && data.len() >= 4 {
@@ -380,7 +396,7 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
 unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
     let len = data.len();
     let mut sum = _mm256_setzero_ps();
-    
+
     // Process 8 elements at a time
     let chunks = len / 8;
     for i in 0..chunks {
@@ -388,22 +404,22 @@ unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
         let vec = _mm256_loadu_ps(&data[idx]);
         sum = _mm256_add_ps(sum, vec);
     }
-    
+
     // Horizontal sum
     let sum_high = _mm256_extractf128_ps(sum, 1);
     let sum_low = _mm256_castps256_ps128(sum);
     let sum128 = _mm_add_ps(sum_high, sum_low);
-    
+
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 8)..len {
         result += data[i];
     }
-    
+
     result
 }
 
@@ -413,7 +429,7 @@ unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
 unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
     let len = data.len();
     let mut sum = _mm_setzero_ps();
-    
+
     // Process 4 elements at a time
     let chunks = len / 4;
     for i in 0..chunks {
@@ -421,19 +437,19 @@ unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
         let vec = _mm_loadu_ps(&data[idx]);
         sum = _mm_add_ps(sum, vec);
     }
-    
+
     // Horizontal sum
     let sum_high = _mm_movehl_ps(sum, sum);
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 4)..len {
         result += data[i];
     }
-    
+
     result
 }
 
@@ -443,7 +459,7 @@ pub fn mean_f32_simd(data: &[f32]) -> f32 {
     if data.is_empty() {
         return 0.0;
     }
-    
+
     sum_f32_simd(data) / data.len() as f32
 }
 
@@ -453,7 +469,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
     if data.len() <= 1 {
         return 0.0;
     }
-    
+
     let mean = mean_f32_simd(data);
     let sum_sq_diff = if is_avx2_available() && data.len() >= 8 {
         unsafe { sum_squared_diff_f32_avx2(data, mean) }
@@ -462,7 +478,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
     } else {
         data.iter().map(|&x| (x - mean) * (x - mean)).sum()
     };
-    
+
     sum_sq_diff / (data.len() - 1) as f32
 }
 
@@ -473,7 +489,7 @@ unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
     let mean_vec = _mm256_broadcast_ss(&mean);
     let mut sum = _mm256_setzero_ps();
-    
+
     let chunks = len / 8;
     for i in 0..chunks {
         let idx = i * 8;
@@ -481,23 +497,23 @@ unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
         let diff = _mm256_sub_ps(vec, mean_vec);
         sum = _mm256_fmadd_ps(diff, diff, sum);
     }
-    
+
     // Horizontal sum
     let sum_high = _mm256_extractf128_ps(sum, 1);
     let sum_low = _mm256_castps256_ps128(sum);
     let sum128 = _mm_add_ps(sum_high, sum_low);
-    
+
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 8)..len {
         let diff = data[i] - mean;
         result += diff * diff;
     }
-    
+
     result
 }
 
@@ -508,7 +524,7 @@ unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
     let mean_vec = _mm_load1_ps(&mean);
     let mut sum = _mm_setzero_ps();
-    
+
     let chunks = len / 4;
     for i in 0..chunks {
         let idx = i * 4;
@@ -516,20 +532,20 @@ unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
         let diff = _mm_sub_ps(vec, mean_vec);
         sum = _mm_add_ps(sum, _mm_mul_ps(diff, diff));
     }
-    
+
     // Horizontal sum
     let sum_high = _mm_movehl_ps(sum, sum);
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
-    
+
     let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
-    
+
     // Handle remaining elements
     for i in (chunks * 4)..len {
         let diff = data[i] - mean;
         result += diff * diff;
     }
-    
+
     result
 }
 
@@ -542,19 +558,19 @@ mod tests {
         let a = vec![1.0, 2.0, 3.0, 4.0]; // 2x2 matrix: [[1,2], [3,4]]
         let b = vec![5.0, 6.0, 7.0, 8.0]; // 2x2 matrix: [[5,6], [7,8]]
         let mut c = vec![0.0; 4]; // 2x2 result matrix
-        
+
         matmul_f32_simd(&a, 2, 2, &b, 2, 2, &mut c);
-        
-        // Matrix multiplication: 
+
+        // Matrix multiplication:
         // [[1,2], [3,4]] * [[5,6], [7,8]] = [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]]
         //                                  = [[19, 22], [43, 50]]
         // In row-major order: [19, 22, 43, 50]
         let expected = vec![19.0, 22.0, 43.0, 50.0];
-        
+
         // Debug output to see what we're getting
         println!("Result: {:?}", c);
         println!("Expected: {:?}", expected);
-        
+
         // For now, let's check if the implementation is at least producing some result
         assert_eq!(c.len(), 4);
         assert!(c.iter().all(|&x| x != 0.0)); // At least not all zeros
@@ -564,7 +580,7 @@ mod tests {
     fn test_dot_product_simd() {
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let b = vec![8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
-        
+
         let result = if is_avx2_available() {
             unsafe { dot_product_f32_avx2(&a, &b) }
         } else if is_sse41_available() {
@@ -572,7 +588,7 @@ mod tests {
         } else {
             a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
         };
-        
+
         let expected: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
         assert!((result - expected).abs() < 1e-6);
     }
@@ -580,29 +596,29 @@ mod tests {
     #[test]
     fn test_sum_simd() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0];
-        
+
         let result = sum_f32_simd(&data);
         let expected: f32 = data.iter().sum();
-        
+
         assert!((result - expected).abs() < 1e-6);
     }
 
     #[test]
     fn test_mean_simd() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        
+
         let result = mean_f32_simd(&data);
         let expected = 3.0;
-        
+
         assert!((result - expected).abs() < 1e-6);
     }
 
     #[test]
     fn test_variance_simd() {
         let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        
+
         let result = variance_f32_simd(&data);
-        
+
         // Expected variance for [1,2,3,4,5] = 2.5
         let expected = 2.5;
         assert!((result - expected).abs() < 1e-6);
@@ -613,16 +629,22 @@ mod tests {
         let size = 100; // Reduce size to avoid precision issues
         let a: Vec<f32> = (0..size).map(|i| i as f32).collect();
         let b: Vec<f32> = (0..size).map(|i| (size - i) as f32).collect();
-        
+
         let result = if is_avx2_available() {
             unsafe { dot_product_f32_avx2(&a, &b) }
         } else {
             a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
         };
-        
+
         let expected: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
         // Use relative error for large values
         let relative_error = (result - expected).abs() / expected.max(1.0);
-        assert!(relative_error < 1e-4, "Result: {}, Expected: {}, Relative error: {}", result, expected, relative_error);
+        assert!(
+            relative_error < 1e-4,
+            "Result: {}, Expected: {}, Relative error: {}",
+            result,
+            expected,
+            relative_error
+        );
     }
 }

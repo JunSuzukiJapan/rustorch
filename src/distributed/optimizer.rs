@@ -1,16 +1,16 @@
 //! Distributed optimizers for distributed training
 //! 分散学習用分散オプティマイザー
-//! 
+//!
 //! This module provides distributed versions of optimizers that handle
 //! gradient synchronization across multiple processes and devices.
 
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
-use crate::tensor::Tensor;
-use crate::optim::{Optimizer, SGD, Adam};
-use crate::error::{RusTorchError, RusTorchResult};
 use crate::distributed::DistributedOps;
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::optim::{Adam, Optimizer, SGD};
+use crate::tensor::Tensor;
 use num_traits::Float;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// Reduction operation types
 /// リダクション操作タイプ
@@ -68,17 +68,17 @@ pub enum GradientSyncStrategy {
     Asynchronous,
     /// Local SGD with periodic synchronization
     /// 定期同期を伴うローカルSGD
-    LocalSGD { 
+    LocalSGD {
         /// Frequency of synchronization in steps
         /// 同期の頻度（ステップ数）
-        sync_frequency: usize 
+        sync_frequency: usize,
     },
     /// Gradient compression for bandwidth efficiency
     /// 帯域幅効率のための勾配圧縮
-    Compressed { 
+    Compressed {
         /// Compression ratio (0.0 to 1.0)
         /// 圧縮率（0.0から1.0）
-        compression_ratio: f32 
+        compression_ratio: f32,
     },
     /// Hierarchical all-reduce for large clusters
     /// 大規模クラスター用階層all-reduce
@@ -172,7 +172,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     /// 効率的な通信のための勾配バケットを初期化
     pub fn init_gradient_buckets(&mut self, max_bucket_size: usize) -> RusTorchResult<()> {
         self.gradient_buckets.clear();
-        
+
         // Create initial bucket
         // 初期バケットを作成
         let bucket = GradientBucket {
@@ -182,7 +182,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
             max_size: max_bucket_size,
             ready: false,
         };
-        
+
         self.gradient_buckets.push(bucket);
         Ok(())
     }
@@ -198,11 +198,11 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         // Find suitable bucket or create new one
         // 適切なバケットを見つけるか新しいものを作成
         let bucket_idx = self.find_or_create_bucket(tensor_size)?;
-        
+
         let bucket = &mut self.gradient_buckets[bucket_idx];
         bucket.tensors.push(tensor);
         bucket.total_size += tensor_size;
-        
+
         // Mark bucket as ready if it's full
         // バケットが満杯の場合、準備完了としてマーク
         if bucket.total_size >= bucket.max_size {
@@ -241,21 +241,15 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     /// 全プロセス間で勾配を同期
     pub fn sync_gradients(&mut self) -> RusTorchResult<()> {
         match self.sync_strategy {
-            GradientSyncStrategy::Synchronous => {
-                self.sync_gradients_synchronous()
-            },
-            GradientSyncStrategy::Asynchronous => {
-                self.sync_gradients_asynchronous()
-            },
+            GradientSyncStrategy::Synchronous => self.sync_gradients_synchronous(),
+            GradientSyncStrategy::Asynchronous => self.sync_gradients_asynchronous(),
             GradientSyncStrategy::LocalSGD { sync_frequency } => {
                 self.sync_gradients_local_sgd(sync_frequency)
-            },
+            }
             GradientSyncStrategy::Compressed { compression_ratio } => {
                 self.sync_gradients_compressed(compression_ratio)
-            },
-            GradientSyncStrategy::Hierarchical => {
-                self.sync_gradients_hierarchical()
-            },
+            }
+            GradientSyncStrategy::Hierarchical => self.sync_gradients_hierarchical(),
         }
     }
 
@@ -309,7 +303,8 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
             // Synchronize accumulated local gradients
             // 蓄積されたローカル勾配を同期
             for (_name, gradient) in &mut self.local_gradients {
-                self.backend.all_reduce(gradient, crate::distributed::ReduceOp::Average)?;
+                self.backend
+                    .all_reduce(gradient, crate::distributed::ReduceOp::Average)?;
             }
             self.local_gradients.clear();
         } else {
@@ -319,7 +314,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
                 for tensor_ref in &bucket.tensors {
                     let tensor = tensor_ref.lock().unwrap();
                     let key = format!("tensor_{}", bucket.id);
-                    
+
                     if let Some(_accumulated) = self.local_gradients.get_mut(&key) {
                         // Add to accumulated gradient
                         // 蓄積勾配に追加
@@ -365,7 +360,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     /// 単一勾配バケットを同期
     fn sync_bucket_with_backend(
         backend: &Arc<dyn DistributedOps<T> + Send + Sync>,
-        bucket: &mut GradientBucket<T>
+        bucket: &mut GradientBucket<T>,
     ) -> RusTorchResult<()> {
         for tensor_ref in &bucket.tensors {
             let mut tensor = tensor_ref.lock().unwrap();
@@ -378,22 +373,22 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
     /// 勾配バケットを圧縮して同期
     fn compress_and_sync_bucket_with_backend(
         backend: &Arc<dyn DistributedOps<T> + Send + Sync>,
-        bucket: &mut GradientBucket<T>, 
-        _compression_ratio: f32
+        bucket: &mut GradientBucket<T>,
+        _compression_ratio: f32,
     ) -> RusTorchResult<()> {
         // Implement gradient compression (e.g., top-k, quantization)
         // 勾配圧縮を実装（例：top-k、量子化）
         for tensor_ref in &bucket.tensors {
             let mut tensor = tensor_ref.lock().unwrap();
-            
+
             // Apply compression
             // 圧縮を適用
             // let compressed = compress_tensor(&tensor, compression_ratio);
-            
+
             // Synchronize compressed tensor
             // 圧縮テンソルを同期
             backend.all_reduce(&mut tensor, crate::distributed::ReduceOp::Average)?;
-            
+
             // Decompress if needed
             // 必要に応じて展開
             // tensor = decompress_tensor(&compressed);
@@ -433,7 +428,7 @@ impl<T: Float + Send + Sync + 'static> Optimizer for DistributedOptimizer<T> {
         // Apply base optimizer step
         // ベースオプティマイザーステップを適用
         self.base_optimizer.step(param, grad);
-        
+
         self.step_count += 1;
     }
 
@@ -447,15 +442,15 @@ impl<T: Float + Send + Sync + 'static> Optimizer for DistributedOptimizer<T> {
     fn learning_rate(&self) -> f32 {
         self.base_optimizer.learning_rate()
     }
-    
+
     fn set_learning_rate(&mut self, lr: f32) {
         self.base_optimizer.set_learning_rate(lr);
     }
-    
+
     fn state_dict(&self) -> std::collections::HashMap<String, f32> {
         self.base_optimizer.state_dict()
     }
-    
+
     fn load_state_dict(&mut self, state: std::collections::HashMap<String, f32>) {
         self.base_optimizer.load_state_dict(state);
     }
@@ -475,35 +470,35 @@ pub struct DistributedOptimizerBuilder<T: Float + Send + Sync + 'static> {
 pub enum OptimizerType<T: Float> {
     /// Stochastic Gradient Descent optimizer
     /// 確率的勾配降下法オプティマイザー
-    SGD { 
+    SGD {
         /// Learning rate for optimization
         /// 最適化の学習率
-        learning_rate: T, 
+        learning_rate: T,
         /// Momentum factor
         /// モメンタム係数
-        momentum: T, 
+        momentum: T,
         /// Weight decay for L2 regularization
         /// L2正則化の重み減衰
-        weight_decay: T 
+        weight_decay: T,
     },
     /// Adam optimizer
     /// Adamオプティマイザー
-    Adam { 
+    Adam {
         /// Learning rate for optimization
         /// 最適化の学習率
-        learning_rate: T, 
+        learning_rate: T,
         /// Beta1 parameter
         /// Beta1パラメータ
-        beta1: T, 
+        beta1: T,
         /// Beta2 parameter  
         /// Beta2パラメータ
-        beta2: T, 
+        beta2: T,
         /// Epsilon for numerical stability
         /// 数値安定性のためのイプシロン
-        epsilon: T, 
+        epsilon: T,
         /// Weight decay for L2 regularization
         /// L2正則化の重み減衰
-        weight_decay: T 
+        weight_decay: T,
     },
 }
 
@@ -512,7 +507,11 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
     /// SGDで新しいビルダーを作成
     pub fn sgd(learning_rate: T, momentum: T, weight_decay: T) -> Self {
         Self {
-            optimizer_type: OptimizerType::SGD { learning_rate, momentum, weight_decay },
+            optimizer_type: OptimizerType::SGD {
+                learning_rate,
+                momentum,
+                weight_decay,
+            },
             backend: None,
             sync_strategy: GradientSyncStrategy::Synchronous,
             bucket_size: 25 * 1024 * 1024, // 25MB default
@@ -523,7 +522,13 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
     /// Adamで新しいビルダーを作成
     pub fn adam(learning_rate: T, beta1: T, beta2: T, epsilon: T, weight_decay: T) -> Self {
         Self {
-            optimizer_type: OptimizerType::Adam { learning_rate, beta1, beta2, epsilon, weight_decay },
+            optimizer_type: OptimizerType::Adam {
+                learning_rate,
+                beta1,
+                beta2,
+                epsilon,
+                weight_decay,
+            },
             backend: None,
             sync_strategy: GradientSyncStrategy::Synchronous,
             bucket_size: 25 * 1024 * 1024, // 25MB default
@@ -559,7 +564,11 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
         })?;
 
         let base_optimizer: Box<dyn Optimizer + Send + Sync> = match self.optimizer_type {
-            OptimizerType::SGD { learning_rate, momentum, weight_decay } => {
+            OptimizerType::SGD {
+                learning_rate,
+                momentum,
+                weight_decay,
+            } => {
                 let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
                 let momentum_f32 = momentum.to_f32().unwrap_or(0.9);
                 let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
@@ -568,19 +577,27 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
                 } else {
                     Box::new(SGD::with_momentum(lr_f32, momentum_f32))
                 }
-            },
-            OptimizerType::Adam { learning_rate, beta1, beta2, epsilon, weight_decay } => {
+            }
+            OptimizerType::Adam {
+                learning_rate,
+                beta1,
+                beta2,
+                epsilon,
+                weight_decay,
+            } => {
                 let lr_f32 = learning_rate.to_f32().unwrap_or(0.001);
                 let beta1_f32 = beta1.to_f32().unwrap_or(0.9);
                 let beta2_f32 = beta2.to_f32().unwrap_or(0.999);
                 let eps_f32 = epsilon.to_f32().unwrap_or(1e-8);
                 let wd_f32 = weight_decay.to_f32().unwrap_or(0.0);
                 if wd_f32 > 0.0 {
-                    Box::new(Adam::with_weight_decay(lr_f32, beta1_f32, beta2_f32, eps_f32, wd_f32))
+                    Box::new(Adam::with_weight_decay(
+                        lr_f32, beta1_f32, beta2_f32, eps_f32, wd_f32,
+                    ))
                 } else {
                     Box::new(Adam::new(lr_f32, beta1_f32, beta2_f32, eps_f32))
                 }
-            },
+            }
         };
 
         let mut optimizer = DistributedOptimizer::new(base_optimizer, backend, self.sync_strategy);
@@ -601,7 +618,7 @@ mod tests {
         // 基本的な同期戦略の作成テスト
         let sync = GradientSyncStrategy::Synchronous;
         let async_strategy = GradientSyncStrategy::Asynchronous;
-        
+
         // 戦略が正しく作成されることを確認
         assert!(matches!(sync, GradientSyncStrategy::Synchronous));
         assert!(matches!(async_strategy, GradientSyncStrategy::Asynchronous));
@@ -613,18 +630,23 @@ mod tests {
             GradientSyncStrategy::Synchronous,
             GradientSyncStrategy::Asynchronous,
             GradientSyncStrategy::LocalSGD { sync_frequency: 10 },
-            GradientSyncStrategy::Compressed { compression_ratio: 0.1 },
+            GradientSyncStrategy::Compressed {
+                compression_ratio: 0.1,
+            },
             GradientSyncStrategy::Hierarchical,
         ];
 
         for strategy in &strategies {
             // Test strategy creation
             // 戦略作成をテスト
-            assert!(matches!(strategy, GradientSyncStrategy::Synchronous | 
-                                     GradientSyncStrategy::Asynchronous |
-                                     GradientSyncStrategy::LocalSGD { .. } |
-                                     GradientSyncStrategy::Compressed { .. } |
-                                     GradientSyncStrategy::Hierarchical));
+            assert!(matches!(
+                strategy,
+                GradientSyncStrategy::Synchronous
+                    | GradientSyncStrategy::Asynchronous
+                    | GradientSyncStrategy::LocalSGD { .. }
+                    | GradientSyncStrategy::Compressed { .. }
+                    | GradientSyncStrategy::Hierarchical
+            ));
         }
     }
 }

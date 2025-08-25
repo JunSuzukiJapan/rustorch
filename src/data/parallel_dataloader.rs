@@ -2,18 +2,21 @@
 //! 高性能バッチ処理のための並列DataLoader実装
 
 use crate::data::Dataset;
-use crate::tensor::Tensor;
 use crate::tensor::parallel_traits::MatrixParallelOp;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use rayon::prelude::*;
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::sync::mpsc;
 use std::time::Duration;
 
 /// Parallel DataLoader for concurrent batch processing
 /// 並行バッチ処理のための並列DataLoader
-pub struct ParallelDataLoader<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> {
+pub struct ParallelDataLoader<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    D: Dataset<T> + Send + Sync,
+> {
     dataset: Arc<D>,
     batch_size: usize,
     num_workers: usize,
@@ -22,7 +25,11 @@ pub struct ParallelDataLoader<T: Float + Send + Sync + 'static + ndarray::Scalar
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync + 'static> ParallelDataLoader<T, D> {
+impl<
+        T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        D: Dataset<T> + Send + Sync + 'static,
+    > ParallelDataLoader<T, D>
+{
     /// Creates a new parallel DataLoader
     /// 新しい並列DataLoaderを作成
     pub fn new(
@@ -62,10 +69,8 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         R: Send + 'static,
     {
         let batches: Vec<_> = self.iter().collect();
-        
-        batches.into_par_iter()
-            .map(processor)
-            .collect()
+
+        batches.into_par_iter().map(processor).collect()
     }
 
     /// Parallel batch preprocessing
@@ -75,22 +80,27 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         F: Fn((Tensor<T>, Tensor<T>)) -> (Tensor<T>, Tensor<T>) + Send + Sync,
     {
         let batches: Vec<_> = self.iter().collect();
-        
-        batches.into_par_iter()
-            .map(preprocessor)
-            .collect()
+
+        batches.into_par_iter().map(preprocessor).collect()
     }
 }
 
 /// Parallel batch iterator with prefetching
 /// プリフェッチ機能付き並列バッチイテレータ
-pub struct ParallelBatchIterator<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> {
+pub struct ParallelBatchIterator<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    D: Dataset<T> + Send + Sync,
+> {
     receiver: mpsc::Receiver<Option<(Tensor<T>, Tensor<T>)>>,
     _handles: Vec<thread::JoinHandle<()>>,
     _phantom: std::marker::PhantomData<D>,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync + 'static> ParallelBatchIterator<T, D> {
+impl<
+        T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        D: Dataset<T> + Send + Sync + 'static,
+    > ParallelBatchIterator<T, D>
+{
     fn new(
         dataset: Arc<D>,
         batch_size: usize,
@@ -104,7 +114,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         // Create indices for batching
         let total_samples = dataset.len();
         let _num_batches = (total_samples + batch_size - 1) / batch_size;
-        
+
         let indices = Arc::new(Mutex::new({
             let mut idx: Vec<usize> = (0..total_samples).collect();
             if shuffle {
@@ -119,21 +129,21 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             let dataset = dataset.clone();
             let indices = indices.clone();
             let sender = sender.clone();
-            
+
             let handle = thread::spawn(move || {
                 let mut batch_count = 0;
-                
+
                 loop {
                     // Get next batch indices
                     let batch_indices = {
                         let indices_guard = indices.lock().unwrap();
                         let start_idx = batch_count * batch_size;
                         let end_idx = std::cmp::min(start_idx + batch_size, indices_guard.len());
-                        
+
                         if start_idx >= indices_guard.len() {
                             break;
                         }
-                        
+
                         let batch_indices: Vec<usize> = indices_guard[start_idx..end_idx].to_vec();
                         batch_count += num_workers; // Each worker processes every num_workers-th batch
                         batch_indices
@@ -144,7 +154,8 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                     }
 
                     // Load batch data in parallel
-                    let batch_data: Vec<_> = batch_indices.into_par_iter()
+                    let batch_data: Vec<_> = batch_indices
+                        .into_par_iter()
                         .filter_map(|idx| dataset.get(idx))
                         .collect();
 
@@ -153,10 +164,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                         let features: Vec<&Tensor<T>> = batch_data.iter().map(|(f, _)| f).collect();
                         let targets: Vec<&Tensor<T>> = batch_data.iter().map(|(_, t)| t).collect();
 
-                        if let (Ok(batch_features), Ok(batch_targets)) = (
-                            Tensor::stack(&features),
-                            Tensor::stack(&targets)
-                        ) {
+                        if let (Ok(batch_features), Ok(batch_targets)) =
+                            (Tensor::stack(&features), Tensor::stack(&targets))
+                        {
                             if sender.send(Some((batch_features, batch_targets))).is_err() {
                                 break;
                             }
@@ -164,7 +174,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                     }
                 }
             });
-            
+
             handles.push(handle);
         }
 
@@ -179,7 +189,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, D: Dataset<T> + Send + Sync> Iterator for ParallelBatchIterator<T, D> {
+impl<
+        T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        D: Dataset<T> + Send + Sync,
+    > Iterator for ParallelBatchIterator<T, D>
+{
     type Item = (Tensor<T>, Tensor<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -192,11 +206,16 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
 /// Parallel batch operations for training
 /// 訓練用並列バッチ演算
-pub struct ParallelBatchProcessor<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct ParallelBatchProcessor<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ParallelBatchProcessor<T> {
+impl<
+        T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > ParallelBatchProcessor<T>
+{
     /// Parallel gradient computation across batches
     /// バッチ間並列勾配計算
     pub fn compute_gradients_parallel(
@@ -204,7 +223,8 @@ impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_tra
         model_fn: impl Fn(&Tensor<T>) -> Tensor<T> + Send + Sync,
         loss_fn: impl Fn(&Tensor<T>, &Tensor<T>) -> T + Send + Sync,
     ) -> Vec<T> {
-        batches.par_iter()
+        batches
+            .par_iter()
             .map(|(features, targets)| {
                 let predictions = model_fn(features);
                 loss_fn(&predictions, targets)
@@ -218,7 +238,8 @@ impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_tra
         batches: &[(Tensor<T>, Tensor<T>)],
         augment_fn: impl Fn(&Tensor<T>) -> Tensor<T> + Send + Sync,
     ) -> Vec<(Tensor<T>, Tensor<T>)> {
-        batches.par_iter()
+        batches
+            .par_iter()
             .map(|(features, targets)| {
                 let augmented_features = augment_fn(features);
                 (augmented_features, targets.clone())
@@ -228,10 +249,9 @@ impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_tra
 
     /// Parallel batch normalization statistics
     /// 並列バッチ正規化統計
-    pub fn compute_batch_stats_parallel(
-        batches: &[(Tensor<T>, Tensor<T>)],
-    ) -> (T, T) {
-        let stats: Vec<_> = batches.par_iter()
+    pub fn compute_batch_stats_parallel(batches: &[(Tensor<T>, Tensor<T>)]) -> (T, T) {
+        let stats: Vec<_> = batches
+            .par_iter()
             .map(|(features, _)| {
                 if let Some(slice) = features.as_slice() {
                     let sum = slice.iter().fold(T::zero(), |acc, &x| acc + x);
@@ -244,10 +264,10 @@ impl<T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_tra
             })
             .collect();
 
-        let (total_sum, total_sum_sq, total_count) = stats.iter()
-            .fold((T::zero(), T::zero(), T::zero()), |(s, sq, c), &(s_i, sq_i, c_i)| {
-                (s + s_i, sq + sq_i, c + c_i)
-            });
+        let (total_sum, total_sum_sq, total_count) = stats.iter().fold(
+            (T::zero(), T::zero(), T::zero()),
+            |(s, sq, c), &(s_i, sq_i, c_i)| (s + s_i, sq + sq_i, c + c_i),
+        );
 
         if total_count > T::zero() {
             let mean = total_sum / total_count;
@@ -268,7 +288,8 @@ impl ParallelBatchProcessor<f32> {
         batches: &[(Tensor<f32>, Tensor<f32>)],
         weights: &Tensor<f32>,
     ) -> Vec<Tensor<f32>> {
-        batches.par_iter()
+        batches
+            .par_iter()
             .map(|(features, _)| {
                 // Use SIMD-optimized matrix multiplication
                 if let Ok(result) = features.batch_simd_matmul_parallel(weights) {
@@ -288,7 +309,8 @@ impl ParallelBatchProcessor<f32> {
         stride: usize,
         padding: usize,
     ) -> Vec<Tensor<f32>> {
-        batches.par_iter()
+        batches
+            .par_iter()
             .map(|(features, _)| {
                 if let Ok(result) = features.batch_conv2d(kernel, stride, padding) {
                     result
@@ -332,9 +354,8 @@ mod tests {
         assert!(!batches.is_empty());
 
         // Test parallel processing
-        let results = parallel_loader.process_parallel(|(features, targets)| {
-            (features.size(), targets.size())
-        });
+        let results = parallel_loader
+            .process_parallel(|(features, targets)| (features.size(), targets.size()));
 
         assert!(!results.is_empty());
     }
@@ -358,9 +379,12 @@ mod tests {
             |pred, target| {
                 // Simple MSE loss
                 if let (Some(p_slice), Some(t_slice)) = (pred.as_slice(), target.as_slice()) {
-                    p_slice.iter().zip(t_slice.iter())
+                    p_slice
+                        .iter()
+                        .zip(t_slice.iter())
                         .map(|(p, t)| (p - t) * (p - t))
-                        .sum::<f32>() / p_slice.len() as f32
+                        .sum::<f32>()
+                        / p_slice.len() as f32
                 } else {
                     0.0
                 }
@@ -384,25 +408,23 @@ mod tests {
         ];
 
         let (mean, variance) = ParallelBatchProcessor::compute_batch_stats_parallel(&batches);
-        
+
         // Mean of [1,2,3,4,5,6,7,8] = 4.5
         assert!((mean - 4.5).abs() < 1e-6);
-        
+
         // Variance should be > 0
         assert!(variance > 0.0);
     }
 
     #[test]
     fn test_simd_batch_operations() {
-        let batches = vec![
-            (
-                Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]),
-                Tensor::<f32>::from_vec(vec![0.0], vec![1]),
-            ),
-        ];
+        let batches = vec![(
+            Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]),
+            Tensor::<f32>::from_vec(vec![0.0], vec![1]),
+        )];
 
         let weights = Tensor::<f32>::from_vec(vec![1.0, 0.0, 0.0, 1.0], vec![2, 2]);
-        
+
         let results = ParallelBatchProcessor::simd_batch_operations(&batches, &weights);
         assert_eq!(results.len(), 1);
     }
@@ -416,13 +438,12 @@ mod tests {
         let mut batches = Vec::new();
         for i in 0..batch_count {
             let features = Tensor::<f32>::from_vec(
-                (0..batch_size * feature_size).map(|j| (i * 1000 + j) as f32).collect(),
-                vec![batch_size, feature_size]
+                (0..batch_size * feature_size)
+                    .map(|j| (i * 1000 + j) as f32)
+                    .collect(),
+                vec![batch_size, feature_size],
             );
-            let targets = Tensor::<f32>::from_vec(
-                vec![i as f32; batch_size],
-                vec![batch_size]
-            );
+            let targets = Tensor::<f32>::from_vec(vec![i as f32; batch_size], vec![batch_size]);
             batches.push((features, targets));
         }
 

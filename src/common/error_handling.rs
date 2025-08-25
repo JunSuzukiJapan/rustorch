@@ -14,35 +14,35 @@ pub enum RusTorchError {
     /// Tensor operation errors
     /// テンソル操作エラー
     TensorError(TensorError),
-    
+
     /// GPU operation errors
     /// GPU操作エラー
     GpuError(GpuError),
-    
+
     /// Distributed operation errors
     /// 分散操作エラー
     DistributedError(DistributedError),
-    
+
     /// Neural network operation errors
     /// ニューラルネットワーク操作エラー
     NeuralNetworkError(NeuralNetworkError),
-    
+
     /// Optimization errors
     /// 最適化エラー
     OptimizationError(OptimizationError),
-    
+
     /// Data loading errors
     /// データローディングエラー
     DataError(DataError),
-    
+
     /// Memory management errors
     /// メモリ管理エラー
     MemoryError(MemoryError),
-    
+
     /// I/O errors
     /// I/Oエラー
     IoError(std::io::Error),
-    
+
     /// Generic errors
     /// 汎用エラー
     Generic(String),
@@ -54,33 +54,33 @@ pub enum RusTorchError {
 pub enum TensorError {
     /// Tensor shape mismatch error
     /// テンソル形状不一致エラー
-    ShapeMismatch { 
+    ShapeMismatch {
         /// Expected shape
         /// 期待される形状
-        expected: Vec<usize>, 
+        expected: Vec<usize>,
         /// Actual shape
         /// 実際の形状
-        actual: Vec<usize> 
+        actual: Vec<usize>,
     },
     /// Tensor dimension mismatch error
     /// テンソル次元不一致エラー
-    DimensionMismatch { 
+    DimensionMismatch {
         /// Left tensor shape
         /// 左テンソルの形状
-        lhs: Vec<usize>, 
+        lhs: Vec<usize>,
         /// Right tensor shape
         /// 右テンソルの形状
-        rhs: Vec<usize> 
+        rhs: Vec<usize>,
     },
     /// Insufficient tensor dimensions error
     /// テンソル次元不足エラー
-    InsufficientDimensions { 
+    InsufficientDimensions {
         /// Required dimensions
         /// 必要な次元数
-        required: usize, 
+        required: usize,
         /// Actual dimensions
         /// 実際の次元数
-        actual: usize 
+        actual: usize,
     },
     /// Invalid tensor shape
     /// 無効なテンソル形状
@@ -281,13 +281,21 @@ impl fmt::Display for TensorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             TensorError::ShapeMismatch { expected, actual } => {
-                write!(f, "Shape mismatch: expected {:?}, got {:?}", expected, actual)
+                write!(
+                    f,
+                    "Shape mismatch: expected {:?}, got {:?}",
+                    expected, actual
+                )
             }
             TensorError::DimensionMismatch { lhs, rhs } => {
                 write!(f, "Dimension mismatch: {:?} vs {:?}", lhs, rhs)
             }
             TensorError::InsufficientDimensions { required, actual } => {
-                write!(f, "Insufficient dimensions: required {}, got {}", required, actual)
+                write!(
+                    f,
+                    "Insufficient dimensions: required {}, got {}",
+                    required, actual
+                )
             }
             TensorError::InvalidShape(shape) => write!(f, "Invalid shape: {:?}", shape),
             TensorError::InvalidIndex(index) => write!(f, "Invalid index: {:?}", index),
@@ -302,12 +310,22 @@ impl fmt::Display for GpuError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             GpuError::DeviceNotFound(id) => write!(f, "GPU device {} not found", id),
-            GpuError::DeviceNotSupported(device) => write!(f, "GPU device not supported: {}", device),
-            GpuError::MemoryAllocationFailed(size) => write!(f, "GPU memory allocation failed: {} bytes", size),
+            GpuError::DeviceNotSupported(device) => {
+                write!(f, "GPU device not supported: {}", device)
+            }
+            GpuError::MemoryAllocationFailed(size) => {
+                write!(f, "GPU memory allocation failed: {} bytes", size)
+            }
             GpuError::MemoryTransferFailed(msg) => write!(f, "GPU memory transfer failed: {}", msg),
-            GpuError::KernelCompilationFailed(msg) => write!(f, "GPU kernel compilation failed: {}", msg),
-            GpuError::KernelExecutionFailed(msg) => write!(f, "GPU kernel execution failed: {}", msg),
-            GpuError::ContextCreationFailed(msg) => write!(f, "GPU context creation failed: {}", msg),
+            GpuError::KernelCompilationFailed(msg) => {
+                write!(f, "GPU kernel compilation failed: {}", msg)
+            }
+            GpuError::KernelExecutionFailed(msg) => {
+                write!(f, "GPU kernel execution failed: {}", msg)
+            }
+            GpuError::ContextCreationFailed(msg) => {
+                write!(f, "GPU context creation failed: {}", msg)
+            }
             GpuError::InvalidDevice(device) => write!(f, "Invalid GPU device: {}", device),
             GpuError::OutOfMemory => write!(f, "GPU out of memory"),
             GpuError::DriverError(msg) => write!(f, "GPU driver error: {}", msg),
@@ -382,9 +400,15 @@ impl fmt::Display for DataError {
 impl fmt::Display for MemoryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            MemoryError::AllocationFailed(size) => write!(f, "Memory allocation failed: {} bytes", size),
-            MemoryError::DeallocationFailed(msg) => write!(f, "Memory deallocation failed: {}", msg),
-            MemoryError::AlignmentError(alignment) => write!(f, "Memory alignment error: {} bytes", alignment),
+            MemoryError::AllocationFailed(size) => {
+                write!(f, "Memory allocation failed: {} bytes", size)
+            }
+            MemoryError::DeallocationFailed(msg) => {
+                write!(f, "Memory deallocation failed: {}", msg)
+            }
+            MemoryError::AlignmentError(alignment) => {
+                write!(f, "Memory alignment error: {} bytes", alignment)
+            }
             MemoryError::PoolExhausted => write!(f, "Memory pool exhausted"),
             MemoryError::InvalidPointer => write!(f, "Invalid memory pointer"),
             MemoryError::MemoryLeak(msg) => write!(f, "Memory leak detected: {}", msg),
