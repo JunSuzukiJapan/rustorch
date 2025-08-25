@@ -129,7 +129,11 @@
       "Bash(bash:*)",
       "Bash(timeout 60s cargo check --lib --no-default-features)",
       "Bash(npm run test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(yamllint:*)",
+      "Bash(timeout 60s cargo check --features \"linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx\" --verbose)",
+      "Bash(timeout 60s cargo check --features \"linalg-netlib\" --lib)",
+      "Bash(timeout 60s cargo test visualization::tests --lib)"
     ],
     "deny": [],
     "ask": [],
