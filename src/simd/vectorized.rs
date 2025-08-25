@@ -110,6 +110,17 @@ pub unsafe fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
     }
 }
 
+/// Fallback element-wise addition for non-x86 platforms
+/// 非x86プラットフォーム用要素ごと加算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
+        result[i] = a[i] + b[i];
+    }
+}
+
 /// SIMD-optimized element-wise multiplication for f32 arrays
 /// f32配列の要素ごと乗算のSIMD最適化
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -129,6 +140,17 @@ pub unsafe fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
     }
 
     for i in simd_len..len {
+        result[i] = a[i] * b[i];
+    }
+}
+
+/// Fallback element-wise multiplication for non-x86 platforms
+/// 非x86プラットフォーム用要素ごと乗算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
         result[i] = a[i] * b[i];
     }
 }
@@ -155,8 +177,19 @@ pub unsafe fn mul_scalar_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
     }
 }
 
+/// Fallback scalar multiplication for non-x86 platforms
+/// 非x86プラットフォーム用スカラー乗算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn mul_scalar_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
+        result[i] = a[i] * scalar;
+    }
+}
+
 /// SSE4.1 fallback for older CPUs
 /// 古いCPU向けのSSE4.1フォールバック
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 pub unsafe fn add_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
     assert_eq!(a.len(), b.len());
@@ -173,6 +206,17 @@ pub unsafe fn add_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
     }
 
     for i in simd_len..len {
+        result[i] = a[i] + b[i];
+    }
+}
+
+/// Fallback addition for non-x86 platforms
+/// 非x86プラットフォーム用加算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn add_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
         result[i] = a[i] + b[i];
     }
 }
@@ -289,6 +333,7 @@ fn matmul_f32_scalar(
 
 /// SSE4.1-optimized multiplication for f32
 /// f32用SSE4.1最適化乗算
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
     assert_eq!(a.len(), b.len());
@@ -307,6 +352,17 @@ pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
 
     // Handle remaining elements
     for i in simd_len..len {
+        result[i] = a[i] * b[i];
+    }
+}
+
+/// Fallback multiplication for non-x86 platforms
+/// 非x86プラットフォーム用乗算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
+    assert_eq!(a.len(), b.len());
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
         result[i] = a[i] * b[i];
     }
 }
@@ -331,6 +387,16 @@ pub unsafe fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
 
     // Handle remaining elements
     for i in simd_len..len {
+        result[i] = a[i] * scalar;
+    }
+}
+
+/// Fallback scalar multiplication for non-x86 platforms
+/// 非x86プラットフォーム用スカラー乗算フォールバック
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
+    assert_eq!(a.len(), result.len());
+    for i in 0..a.len() {
         result[i] = a[i] * scalar;
     }
 }
@@ -372,6 +438,14 @@ pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
     result
 }
 
+/// Fallback dot product for non-x86 platforms
+/// 非x86プラットフォーム用フォールバック内積
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
+}
+
 /// SSE4.1-optimized dot product for f32
 /// f32用SSE4.1最適化内積
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -404,6 +478,14 @@ pub unsafe fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
     }
 
     result
+}
+
+/// Fallback dot product for non-x86 platforms
+/// 非x86プラットフォーム用フォールバック内積
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
+    assert_eq!(a.len(), b.len());
+    a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
 }
 
 /// Vectorized reduction sum for f32 arrays
