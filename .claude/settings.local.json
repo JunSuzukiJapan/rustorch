@@ -138,7 +138,8 @@
       "Bash(timeout 60s cargo test tensor::ops::reduction::tests --lib)",
       "Bash(timeout 60s cargo test tensor::core::tests --lib)",
       "Bash(timeout 60s cargo test autograd::tests::test_basic_operations --lib)",
-      "Bash(timeout 60s cargo test --lib -- --nocapture)"
+      "Bash(timeout 60s cargo test --lib -- --nocapture)",
+      "Bash(timeout 30s yamllint:*)"
     ],
     "deny": [],
     "ask": [],
