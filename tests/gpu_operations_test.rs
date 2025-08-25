@@ -74,7 +74,8 @@ mod matrix_operations_tests {
 #[cfg(test)]
 mod convolution_tests {
     use super::*;
-    use rustorch::gpu::conv_ops::{ConvolutionParams, GpuConvolution};
+    use rustorch::backends::ConvolutionParams;
+    use rustorch::gpu::conv_ops::GpuConvolution;
 
     #[test]
     fn test_gpu_conv2d() -> RusTorchResult<()> {
@@ -85,9 +86,10 @@ mod convolution_tests {
         let kernel = Tensor::<f32>::ones(&[1, 1, 3, 3]);
 
         let params = ConvolutionParams {
-            stride: [1, 1],
-            padding: [0, 0],
-            dilation: [1, 1],
+            kernel_size: vec![3, 3],
+            stride: vec![1, 1],
+            padding: vec![0, 0],
+            dilation: vec![1, 1],
             groups: 1,
         };
 
