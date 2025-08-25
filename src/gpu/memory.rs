@@ -112,7 +112,7 @@ impl GpuMemoryPool {
                 if waste_ratio < best_waste_ratio {
                     best_block_idx = Some(idx);
                     best_waste_ratio = waste_ratio;
-                    
+
                     // Perfect fit - no need to continue searching
                     if waste_ratio < 0.1 {
                         break;
@@ -121,11 +121,12 @@ impl GpuMemoryPool {
             }
         }
 
-        let block_idx = best_block_idx
-            .ok_or_else(|| RusTorchError::tensor_op(&format!(
-                "No suitable free block found for size {} (aligned: {})", 
+        let block_idx = best_block_idx.ok_or_else(|| {
+            RusTorchError::tensor_op(&format!(
+                "No suitable free block found for size {} (aligned: {})",
                 size, aligned_size
-            )))?;
+            ))
+        })?;
 
         let (offset, block_size) = self.free_blocks[block_idx];
         self.free_blocks.remove(block_idx);

@@ -35,9 +35,8 @@ impl CudaMatrixExecutor {
             ))
         })?;
 
-        let cublas = CudaBlas::new(device.clone()).map_err(|e| {
-            RusTorchError::tensor_op(format!("Failed to initialize cuBLAS: {}", e))
-        })?;
+        let cublas = CudaBlas::new(device.clone())
+            .map_err(|e| RusTorchError::tensor_op(format!("Failed to initialize cuBLAS: {}", e)))?;
 
         // Create multiple streams for concurrent execution
         let mut streams = Vec::new();
@@ -162,9 +161,7 @@ impl CudaMatrixExecutor {
                     c,        // matrix C (result)
                     n as i32, // leading dimension of C
                 )
-                .map_err(|e| {
-                    RusTorchError::tensor_op(format!("cuBLAS SGEMM failed: {}", e))
-                })?;
+                .map_err(|e| RusTorchError::tensor_op(format!("cuBLAS SGEMM failed: {}", e)))?;
         }
 
         Ok(())
@@ -217,9 +214,10 @@ impl CudaMatrixExecutor {
     /// Get device memory information
     /// デバイスメモリ情報を取得
     pub fn get_memory_info(&self) -> RusTorchResult<(usize, usize)> {
-        let total = self.device.total_memory().map_err(|e| {
-            RusTorchError::tensor_op(format!("Failed to get total memory: {}", e))
-        })?;
+        let total = self
+            .device
+            .total_memory()
+            .map_err(|e| RusTorchError::tensor_op(format!("Failed to get total memory: {}", e)))?;
 
         // Free memory calculation (simplified)
         let free = total; // In practice, we'd calculate actual free memory

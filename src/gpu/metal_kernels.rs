@@ -8,9 +8,12 @@ use std::ffi::c_void;
 use std::marker::PhantomData;
 
 #[cfg(feature = "metal")]
-use metal::{CompileOptions, CommandQueue, ComputePipelineState, Device, Library, MTLResourceOptions, MTLSize};
-#[cfg(feature = "metal")]
 use metal::foreign_types::ForeignType;
+#[cfg(feature = "metal")]
+use metal::{
+    CommandQueue, CompileOptions, ComputePipelineState, Device, Library, MTLResourceOptions,
+    MTLSize,
+};
 
 /// Metal kernel types
 /// Metalカーネルタイプ
@@ -152,9 +155,8 @@ impl MetalKernelExecutor {
     /// Create a new Metal kernel executor
     /// 新しいMetalカーネル実行器を作成
     pub fn new() -> RusTorchResult<Self> {
-        let device = Device::system_default().ok_or_else(|| {
-            RusTorchError::tensor_op("No Metal device available")
-        })?;
+        let device = Device::system_default()
+            .ok_or_else(|| RusTorchError::tensor_op("No Metal device available"))?;
 
         let command_queue = device.new_command_queue();
 
@@ -288,10 +290,7 @@ impl MetalKernelExecutor {
         let library = device
             .new_library_with_source(shader_source, &CompileOptions::new())
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to compile Metal shaders: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to compile Metal shaders: {:?}", e))
             })?;
 
         let mut pipeline_states = HashMap::new();
@@ -300,46 +299,31 @@ impl MetalKernelExecutor {
         let add_function = library
             .get_function("elementwise_add_f32", None)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to get add function: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to get add function: {:?}", e))
             })?;
         let add_pipeline = device
             .new_compute_pipeline_state_with_function(&add_function)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to create add pipeline: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to create add pipeline: {:?}", e))
             })?;
         pipeline_states.insert(MetalKernelType::ElementWise, add_pipeline);
 
         let matmul_function = library
             .get_function("matrix_multiply_f32", None)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to get matmul function: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to get matmul function: {:?}", e))
             })?;
         let matmul_pipeline = device
             .new_compute_pipeline_state_with_function(&matmul_function)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to create matmul pipeline: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to create matmul pipeline: {:?}", e))
             })?;
         pipeline_states.insert(MetalKernelType::MatMul, matmul_pipeline);
 
         let tiled_matmul_function = library
             .get_function("tiled_matrix_multiply_f32", None)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to get tiled matmul function: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to get tiled matmul function: {:?}", e))
             })?;
         let tiled_matmul_pipeline = device
             .new_compute_pipeline_state_with_function(&tiled_matmul_function)
@@ -357,10 +341,7 @@ impl MetalKernelExecutor {
         let reduce_pipeline = device
             .new_compute_pipeline_state_with_function(&reduce_function)
             .map_err(|e| {
-                RusTorchError::KernelError(format!(
-                    "Failed to create reduce pipeline: {:?}",
-                    e
-                ))
+                RusTorchError::KernelError(format!("Failed to create reduce pipeline: {:?}", e))
             })?;
         pipeline_states.insert(MetalKernelType::Reduction, reduce_pipeline);
 
@@ -448,7 +429,7 @@ impl MetalKernelExecutor {
         k: usize,
     ) -> RusTorchResult<()> {
         const TILE_SIZE: usize = 16; // Optimized for Vega 56
-        
+
         // Create Metal buffers
         let a_buffer = self.device.new_buffer_with_data(
             a.as_ptr() as *const c_void,
@@ -592,9 +573,7 @@ impl MetalKernelExecutor {
         let pipeline_state = self
             .pipeline_states
             .get(&MetalKernelType::MatMul)
-            .ok_or_else(|| {
-                RusTorchError::KernelError("MatMul pipeline not found".to_string())
-            })?;
+            .ok_or_else(|| RusTorchError::KernelError("MatMul pipeline not found".to_string()))?;
 
         // Create command buffer and encoder
         let command_buffer = self.command_queue.new_command_buffer();

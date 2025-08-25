@@ -75,28 +75,30 @@ impl OpenClMatrixExecutor {
 
         // Find best GPU device across all platforms
         let (device, platform) = Self::select_best_device(&platforms)?;
-        
+
         // Create context
         let context = Context::from_device(&device).map_err(|e| {
             RusTorchError::tensor_op(format!("Failed to create OpenCL context: {:?}", e))
         })?;
 
         // Create command queue with profiling
-        let command_queue = CommandQueue::create_default_with_properties(
-            &context,
-            CL_QUEUE_PROFILING_ENABLE,
-            0,
-        )
-        .map_err(|e| {
-            RusTorchError::tensor_op(format!("Failed to create command queue: {:?}", e))
-        })?;
+        let command_queue =
+            CommandQueue::create_default_with_properties(&context, CL_QUEUE_PROFILING_ENABLE, 0)
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to create command queue: {:?}", e))
+                })?;
 
         // Get device information
         let device_info = Self::get_device_info(&device)?;
-        
-        println!("Selected OpenCL device: {} by {}", device_info.name, device_info.vendor);
-        println!("Compute units: {}, Max work group size: {}", 
-                 device_info.compute_units, device_info.max_work_group_size);
+
+        println!(
+            "Selected OpenCL device: {} by {}",
+            device_info.name, device_info.vendor
+        );
+        println!(
+            "Compute units: {}, Max work group size: {}",
+            device_info.compute_units, device_info.max_work_group_size
+        );
 
         Ok(Self {
             context,
@@ -119,16 +121,14 @@ impl OpenClMatrixExecutor {
             let devices = platform
                 .get_devices(CL_DEVICE_TYPE_GPU)
                 .or_else(|_| platform.get_devices(CL_DEVICE_TYPE_ALL))
-                .map_err(|e| {
-                    RusTorchError::tensor_op(format!("Failed to get devices: {:?}", e))
-                })?;
+                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get devices: {:?}", e)))?;
 
             for device in devices {
                 let info = Self::get_device_info(&device)?;
-                
+
                 // Score devices based on compute capability
                 let score = Self::score_device(&info);
-                
+
                 if score > best_score {
                     best_score = score;
                     best_device = Some(device);
@@ -150,25 +150,39 @@ impl OpenClMatrixExecutor {
     fn get_device_info(device: &Device) -> RusTorchResult<OpenClDeviceInfo> {
         Ok(OpenClDeviceInfo {
             name: get_device_info(device, DeviceInfo::CL_DEVICE_NAME)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get device name: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get device name: {:?}", e))
+                })?
                 .to_string(),
             vendor: get_device_info(device, DeviceInfo::CL_DEVICE_VENDOR)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get device vendor: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get device vendor: {:?}", e))
+                })?
                 .to_string(),
             compute_units: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_COMPUTE_UNITS)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get compute units: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get compute units: {:?}", e))
+                })?
                 .to_uint(),
             max_work_group_size: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_WORK_GROUP_SIZE)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get max work group size: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get max work group size: {:?}", e))
+                })?
                 .to_size(),
             global_mem_size: get_device_info(device, DeviceInfo::CL_DEVICE_GLOBAL_MEM_SIZE)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get global memory size: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get global memory size: {:?}", e))
+                })?
                 .to_ulong(),
             local_mem_size: get_device_info(device, DeviceInfo::CL_DEVICE_LOCAL_MEM_SIZE)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get local memory size: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get local memory size: {:?}", e))
+                })?
                 .to_ulong(),
             max_clock_frequency: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_CLOCK_FREQUENCY)
-                .map_err(|e| RusTorchError::tensor_op(format!("Failed to get max clock frequency: {:?}", e)))?
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to get max clock frequency: {:?}", e))
+                })?
                 .to_uint(),
             device_type: "GPU".to_string(), // Simplified for now
         })
@@ -230,18 +244,25 @@ impl OpenClMatrixExecutor {
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to create buffer B: {:?}", e)))?;
 
         let buffer_c = unsafe {
-            Buffer::<f32>::create(&self.context, CL_MEM_WRITE_ONLY, m * n, std::ptr::null_mut())
+            Buffer::<f32>::create(
+                &self.context,
+                CL_MEM_WRITE_ONLY,
+                m * n,
+                std::ptr::null_mut(),
+            )
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to create buffer C: {:?}", e)))?;
 
         // Copy data to device
         let write_a_event = unsafe {
-            self.command_queue.enqueue_write_buffer(&buffer_a, false, 0, a, &[])
+            self.command_queue
+                .enqueue_write_buffer(&buffer_a, false, 0, a, &[])
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to write buffer A: {:?}", e)))?;
 
         let write_b_event = unsafe {
-            self.command_queue.enqueue_write_buffer(&buffer_b, false, 0, b, &[])
+            self.command_queue
+                .enqueue_write_buffer(&buffer_b, false, 0, b, &[])
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to write buffer B: {:?}", e)))?;
 
@@ -264,7 +285,8 @@ impl OpenClMatrixExecutor {
 
         // Read result back
         let _read_event = unsafe {
-            self.command_queue.enqueue_read_buffer(&buffer_c, true, 0, c, &[kernel_event])
+            self.command_queue
+                .enqueue_read_buffer(&buffer_c, true, 0, c, &[kernel_event])
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to read result: {:?}", e)))?;
 
@@ -275,7 +297,7 @@ impl OpenClMatrixExecutor {
     /// デバイスとサイズに基づく最適化行列乗算カーネルの生成
     fn generate_matmul_kernel(&self, m: usize, n: usize, k: usize) -> RusTorchResult<String> {
         let tile_size = self.calculate_optimal_tile_size(m, n, k);
-        
+
         // Vendor-specific optimizations
         let kernel_source = if self.device_info.vendor.contains("AMD") {
             self.generate_amd_optimized_kernel(tile_size)
@@ -295,16 +317,16 @@ impl OpenClMatrixExecutor {
     fn calculate_optimal_tile_size(&self, m: usize, n: usize, k: usize) -> usize {
         let max_work_group = self.device_info.max_work_group_size;
         let local_mem_size = self.device_info.local_mem_size as usize;
-        
+
         // Calculate tile size based on local memory constraints
         let max_tile_from_memory = ((local_mem_size / 2) / (2 * std::mem::size_of::<f32>())).sqrt();
         let max_tile_from_workgroup = (max_work_group as f64).sqrt() as usize;
-        
+
         let optimal_tile = max_tile_from_memory.min(max_tile_from_workgroup).min(32);
-        
+
         // Ensure tile size is a power of 2 and at least 8
         let tile_size = (optimal_tile.next_power_of_two().max(8)).min(32);
-        
+
         tile_size
     }
 
@@ -568,7 +590,7 @@ __kernel void matmul_f32(
         {
             let mut programs = self.programs.lock().unwrap();
             programs.insert(name.to_string(), program);
-            
+
             let mut kernels = self.kernels.lock().unwrap();
             kernels.insert(name.to_string(), kernel.clone());
         }
@@ -580,14 +602,14 @@ __kernel void matmul_f32(
     /// 最適ワークグループサイズの計算
     fn calculate_work_sizes(&self, m: usize, n: usize) -> RusTorchResult<([usize; 2], [usize; 2])> {
         let tile_size = self.calculate_optimal_tile_size(m, n, m.max(n));
-        
+
         let global_work_size = [
             ((n + tile_size - 1) / tile_size) * tile_size,
             ((m + tile_size - 1) / tile_size) * tile_size,
         ];
-        
+
         let local_work_size = [tile_size, tile_size];
-        
+
         Ok((global_work_size, local_work_size))
     }
 

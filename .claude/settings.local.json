@@ -166,7 +166,8 @@
       "Bash(RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" timeout 60s cargo run --release --example optimized_benchmark --features \"blas-optimized\")",
       "Bash(pgrep:*)",
       "Bash(env RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" timeout 30s cargo test --features \"blas-optimized\" --lib test_optimized_matmul_f32 -- --nocapture)",
-      "Bash(env RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" timeout 30s rustc --edition 2021 -L target/release/deps --extern rustorch=target/release/librustorch.rlib test_blas.rs -o test_blas)"
+      "Bash(env RUSTFLAGS=\"-L /usr/local/Cellar/openblas/0.3.30/lib -l openblas\" timeout 30s rustc --edition 2021 -L target/release/deps --extern rustorch=target/release/librustorch.rlib test_blas.rs -o test_blas)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": [],

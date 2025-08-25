@@ -4,4 +4,6 @@
 pub mod optimized_blas;
 
 // Re-export high-performance functions
-pub use optimized_blas::{optimized_matmul, multithreaded_matmul, benchmark_matmul_implementations};
+pub use optimized_blas::{
+    benchmark_matmul_implementations, multithreaded_matmul, optimized_matmul,
+};

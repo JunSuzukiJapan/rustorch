@@ -90,9 +90,13 @@ impl SimdElementwise<f32> for AutoSimd {
                 result[i] = a[i] + b[i];
             }
         } else if vectorized::is_avx2_available() {
-            unsafe { vectorized::add_f32_avx2(a, b, result); }
+            unsafe {
+                vectorized::add_f32_avx2(a, b, result);
+            }
         } else if vectorized::is_sse41_available() {
-            unsafe { vectorized::add_f32_sse41(a, b, result); }
+            unsafe {
+                vectorized::add_f32_sse41(a, b, result);
+            }
         } else {
             for i in 0..a.len() {
                 result[i] = a[i] + b[i];
@@ -107,9 +111,13 @@ impl SimdElementwise<f32> for AutoSimd {
                 result[i] = a[i] * b[i];
             }
         } else if vectorized::is_avx2_available() {
-            unsafe { vectorized::mul_f32_avx2(a, b, result); }
+            unsafe {
+                vectorized::mul_f32_avx2(a, b, result);
+            }
         } else if vectorized::is_sse41_available() {
-            unsafe { vectorized::mul_f32_sse41(a, b, result); }
+            unsafe {
+                vectorized::mul_f32_sse41(a, b, result);
+            }
         } else {
             for i in 0..a.len() {
                 result[i] = a[i] * b[i];
@@ -124,7 +132,9 @@ impl SimdElementwise<f32> for AutoSimd {
                 result[i] = a[i] * scalar;
             }
         } else if vectorized::is_avx2_available() {
-            unsafe { vectorized::scalar_mul_f32_avx2(a, scalar, result); }
+            unsafe {
+                vectorized::scalar_mul_f32_avx2(a, scalar, result);
+            }
         } else {
             for i in 0..a.len() {
                 result[i] = a[i] * scalar;

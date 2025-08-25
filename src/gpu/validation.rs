@@ -278,15 +278,19 @@ impl GpuValidator {
             // Test buffer creation
             #[cfg(feature = "metal")]
             let device = metal::Device::system_default().ok_or_else(|| {
-                crate::error::RusTorchError::UnsupportedDevice("No Metal device available".to_string())
+                crate::error::RusTorchError::UnsupportedDevice(
+                    "No Metal device available".to_string(),
+                )
             })?;
             #[cfg(feature = "metal")]
             let mut buffer = MetalBuffer::new(size, &device)?;
             #[cfg(feature = "metal")]
             buffer.copy_from_host(&test_data)?;
-            
+
             #[cfg(not(feature = "metal"))]
-            return Err(crate::error::RusTorchError::UnsupportedDevice("Metal not available".to_string()));
+            return Err(crate::error::RusTorchError::UnsupportedDevice(
+                "Metal not available".to_string(),
+            ));
 
             // Test device-to-host copy
             let mut result_data = vec![0.0f32; size];

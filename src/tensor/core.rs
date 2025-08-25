@@ -151,7 +151,6 @@ impl<T: Float + 'static> Tensor<T> {
         ))
     }
 
-
     /// Creates a view into the tensor.
     /// テンソルのビューを作成します。
     pub fn view(&self, shape: &[usize]) -> Result<Self, String> {

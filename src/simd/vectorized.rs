@@ -2,29 +2,59 @@
 // Explicitly importing all required functions to avoid "not found in scope" errors
 #[cfg(target_arch = "x86")]
 use std::arch::x86::{
-    // Basic SSE operations
-    _mm_add_ps, _mm_add_ss, _mm_sub_ps, _mm_mul_ps,
-    _mm_loadu_ps, _mm_storeu_ps, _mm_setzero_ps, _mm_load1_ps,
-    _mm_movehl_ps, _mm_shuffle_ps,
-    // AVX2 operations
-    _mm256_add_ps, _mm256_broadcast_ss, _mm256_castps256_ps128, _mm256_extractf128_ps,
-    _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_set1_ps, _mm256_setzero_ps,
-    _mm256_storeu_ps, _mm256_sub_ps,
     // Types
     __m128,
+    // AVX2 operations
+    _mm256_add_ps,
+    _mm256_broadcast_ss,
+    _mm256_castps256_ps128,
+    _mm256_extractf128_ps,
+    _mm256_fmadd_ps,
+    _mm256_loadu_ps,
+    _mm256_mul_ps,
+    _mm256_set1_ps,
+    _mm256_setzero_ps,
+    _mm256_storeu_ps,
+    _mm256_sub_ps,
+    // Basic SSE operations
+    _mm_add_ps,
+    _mm_add_ss,
+    _mm_load1_ps,
+    _mm_loadu_ps,
+    _mm_movehl_ps,
+    _mm_mul_ps,
+    _mm_setzero_ps,
+    _mm_shuffle_ps,
+    _mm_storeu_ps,
+    _mm_sub_ps,
 };
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::{
-    // Basic SSE operations  
-    _mm_add_ps, _mm_add_ss, _mm_sub_ps, _mm_mul_ps,
-    _mm_loadu_ps, _mm_storeu_ps, _mm_setzero_ps, _mm_load1_ps,
-    _mm_movehl_ps, _mm_shuffle_ps,
-    // AVX2 operations
-    _mm256_add_ps, _mm256_broadcast_ss, _mm256_castps256_ps128, _mm256_extractf128_ps,
-    _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_set1_ps, _mm256_setzero_ps,
-    _mm256_storeu_ps, _mm256_sub_ps,
     // Types
     __m128,
+    // AVX2 operations
+    _mm256_add_ps,
+    _mm256_broadcast_ss,
+    _mm256_castps256_ps128,
+    _mm256_extractf128_ps,
+    _mm256_fmadd_ps,
+    _mm256_loadu_ps,
+    _mm256_mul_ps,
+    _mm256_set1_ps,
+    _mm256_setzero_ps,
+    _mm256_storeu_ps,
+    _mm256_sub_ps,
+    // Basic SSE operations
+    _mm_add_ps,
+    _mm_add_ss,
+    _mm_load1_ps,
+    _mm_loadu_ps,
+    _mm_movehl_ps,
+    _mm_mul_ps,
+    _mm_setzero_ps,
+    _mm_shuffle_ps,
+    _mm_storeu_ps,
+    _mm_sub_ps,
 };
 
 /// Check if AVX2 is available on the current CPU
@@ -505,7 +535,7 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
             data.iter().sum()
         }
     }
-    
+
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
     {
         data.iter().sum()
@@ -595,7 +625,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
     }
 
     let mean = mean_f32_simd(data);
-    
+
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     let sum_sq_diff = {
         if is_avx2_available() && data.len() >= 8 {
@@ -606,7 +636,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
             data.iter().map(|&x| (x - mean) * (x - mean)).sum::<f32>()
         }
     };
-    
+
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
     let sum_sq_diff: f32 = data.iter().map(|&x| (x - mean) * (x - mean)).sum();
 

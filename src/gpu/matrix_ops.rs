@@ -6,8 +6,8 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use num_traits::{Float, FromPrimitive};
 use ndarray::ScalarOperand;
+use num_traits::{Float, FromPrimitive};
 
 #[cfg(feature = "cuda")]
 use cudarc::cublas::{CudaBlas, Gemm};
@@ -25,7 +25,7 @@ pub struct GpuMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + 'static>
     _phantom: std::marker::PhantomData<T>,
 }
 
-// Temporarily disabled to resolve struct issues  
+// Temporarily disabled to resolve struct issues
 /*
 impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
     /// Create new GPU matrix executor
@@ -63,23 +63,23 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
                 // CPU fallback using existing implementation
                 self.cpu_matmul(a, b)
             }
-            
+
             #[cfg(feature = "cuda")]
             super::DeviceType::Cuda(device_id) => {
                 self.cuda_matmul(a, b, device_id)
             }
-            
+
             #[cfg(feature = "metal")]
             super::DeviceType::Metal(_) => {
                 self.metal_matmul(a, b)
             }
-            
+
             #[cfg(feature = "opencl")]
             super::DeviceType::OpenCL(_) => {
                 // For now, fall back to CPU
                 self.cpu_matmul(a, b)
             }
-            
+
             #[allow(unreachable_patterns)]
             _ => Err(RusTorchError::gpu("Unsupported device for matrix multiplication")),
         }
@@ -119,35 +119,35 @@ where
         device_id: usize,
     ) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
-        
+
         // Validate matrix dimensions
         let a_shape = a.shape();
         let b_shape = b.shape();
-        
+
         if a_shape.len() != 2 || b_shape.len() != 2 {
             return Err(RusTorchError::gpu("Only 2D matrices supported for GPU matmul"));
         }
-        
+
         if a_shape[1] != b_shape[0] {
             return Err(RusTorchError::gpu("Matrix dimension mismatch"));
         }
-        
+
         // Initialize CUDA device and cuBLAS
         let device = CudaDevice::new(device_id)
             .map_err(|e| RusTorchError::gpu(&format!("CUDA device init failed: {}", e)))?;
-        
+
         let blas = CudaBlas::new(device.clone())
             .map_err(|e| RusTorchError::gpu(&format!("cuBLAS init failed: {}", e)))?;
-        
+
         // Transfer tensors to GPU
         let device_type = super::DeviceType::Cuda(device_id);
         let gpu_a = GpuMemoryManager::to_device(a, &device_type)?;
         let gpu_b = GpuMemoryManager::to_device(b, &device_type)?;
-        
+
         // Extract CUDA slices (simplified - in real implementation we'd maintain GPU buffers)
         // For now, we'll fall back to CPU until we implement proper GPU buffer management
         let result = self.cpu_matmul(a, b)?;
-        
+
         Ok(result)
     }
 }
@@ -158,35 +158,39 @@ where
 impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
     fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
-        
+
         // Validate matrix dimensions
         let a_shape = a.shape();
         let b_shape = b.shape();
-        
+
         if a_shape.len() != 2 || b_shape.len() != 2 {
-            return Err(RusTorchError::gpu("Only 2D matrices supported for GPU matmul"));
+            return Err(RusTorchError::gpu(
+                "Only 2D matrices supported for GPU matmul",
+            ));
         }
-        
+
         if a_shape[1] != b_shape[0] {
             return Err(RusTorchError::gpu("Matrix dimension mismatch"));
         }
-        
+
         // Get Metal device
         let device = MetalDevice::system_default()
             .ok_or_else(|| RusTorchError::gpu("No Metal device found"))?;
-        
+
         // Create command queue
         let command_queue = device.new_command_queue();
         let command_buffer = command_queue.new_command_buffer();
-        
+
         // Transfer tensors to GPU
         let device_type = super::DeviceType::Metal(0);
         let gpu_a = GpuMemoryManager::to_device(a, &device_type)?;
         let gpu_b = GpuMemoryManager::to_device(b, &device_type)?;
-        
+
         // For now, fall back to CPU until we implement proper MPS integration
-        let result = a.matmul(b).map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))?;
-        
+        let result = a
+            .matmul(b)
+            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))?;
+
         Ok(result)
     }
 }
@@ -209,8 +213,8 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
                 None
             }
         };
-        
-        Ok(Self { 
+
+        Ok(Self {
             device_type,
             context,
             _phantom: std::marker::PhantomData,
@@ -228,26 +232,22 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
     }
 
     /// Perform batch matrix multiplication with GPU acceleration when available
-    pub fn batch_matmul(
-        &self,
-        a: &Tensor<T>,
-        b: &Tensor<T>,
-    ) -> RusTorchResult<Tensor<T>> {
+    pub fn batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         if let Some(_ctx) = &self.context {
             // GPU context available - perform GPU-accelerated matrix multiplication
             match &self.device_type {
                 super::DeviceType::Cuda(_) => {
                     // Delegate to CUDA implementation
                     self.cuda_batch_matmul(a, b)
-                },
+                }
                 super::DeviceType::Metal(_) => {
-                    // Delegate to Metal implementation  
+                    // Delegate to Metal implementation
                     self.metal_batch_matmul(a, b)
-                },
+                }
                 super::DeviceType::OpenCL(_) => {
                     // Delegate to OpenCL implementation
                     self.opencl_batch_matmul(a, b)
-                },
+                }
                 super::DeviceType::Cpu => {
                     // CPU fallback
                     a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
@@ -275,7 +275,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
 
     fn metal_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Metal batch matrix multiplication
-        // For now, fallback to CPU until Metal kernels are fully implemented  
+        // For now, fallback to CPU until Metal kernels are fully implemented
         a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
     }
 
@@ -290,10 +290,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
 pub trait GpuLinearAlgebra<T: Float + FromPrimitive + ScalarOperand + 'static> {
     /// GPU matrix multiplication
     fn gpu_matmul(&self, other: &Self) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU batch matrix multiplication
     fn gpu_batch_matmul(&self, other: &Self) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU matrix-vector multiplication
     fn gpu_matvec(&self, vector: &Self) -> RusTorchResult<Tensor<T>>;
 }
@@ -308,12 +308,12 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuLinearAlgebra<T> for
         } else {
             super::DeviceType::Cpu
         };
-        
+
         // Use the selected device type for GPU-accelerated matrix multiplication
         let executor = GpuBatchMatrixExecutor::<T>::new(device_type)?;
         executor.batch_matmul(self, other)
     }
-    
+
     fn gpu_batch_matmul(&self, other: &Self) -> RusTorchResult<Tensor<T>> {
         // Auto-select best available GPU device
         let device_type = if super::DeviceManager::is_cuda_available() {
@@ -323,11 +323,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuLinearAlgebra<T> for
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuBatchMatrixExecutor::<T>::new(device_type)?;
         executor.batch_matmul(self, other)
     }
-    
+
     fn gpu_matvec(&self, vector: &Self) -> RusTorchResult<Tensor<T>> {
         // Matrix-vector multiplication is just a special case of matmul
         self.gpu_matmul(vector)
@@ -338,19 +338,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuLinearAlgebra<T> for
 mod tests {
     use super::*;
     use crate::tensor::Tensor;
-    
+
     #[test]
     fn test_gpu_matmul_cpu_fallback() {
         let a = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let b = Tensor::<f32>::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
-        
+
         let result = a.gpu_matmul(&b).unwrap();
-        
+
         // Expected result: [[1*5+2*7, 1*6+2*8], [3*5+4*7, 3*6+4*8]]
         //                 = [[19, 22], [43, 50]]
         assert_eq!(result.shape(), &[2, 2]);
     }
-    
+
     #[test]
     fn test_gpu_matrix_executor_creation() {
         // Temporarily disabled due to struct issues
@@ -358,14 +358,14 @@ mod tests {
         // assert!(executor.is_ok());
         println!("Matrix executor test skipped - see simple_metal_test for GPU testing");
     }
-    
+
     #[test]
     fn test_batch_matrix_executor() {
         let executor = GpuBatchMatrixExecutor::<f32>::new(super::super::DeviceType::Cpu).unwrap();
-        
+
         let a = Tensor::<f32>::from_vec(vec![1.0, 2.0], vec![1, 2]);
         let b = Tensor::<f32>::from_vec(vec![3.0, 4.0], vec![2, 1]);
-        
+
         let result = executor.batch_matmul(&a, &b).unwrap();
         assert_eq!(result.shape(), &[1, 1]);
     }

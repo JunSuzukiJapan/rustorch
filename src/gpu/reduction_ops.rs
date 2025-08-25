@@ -6,8 +6,8 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use num_traits::{Float, FromPrimitive};
 use ndarray::ScalarOperand;
+use num_traits::{Float, FromPrimitive};
 
 #[cfg(feature = "cuda")]
 use cudarc::driver::CudaDevice;
@@ -73,26 +73,20 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
         dim: Option<usize>,
     ) -> RusTorchResult<Tensor<T>> {
         match self.device_type {
-            super::DeviceType::Cpu => {
-                self.cpu_reduce(input, op, dim)
-            }
-            
+            super::DeviceType::Cpu => self.cpu_reduce(input, op, dim),
+
             #[cfg(feature = "cuda")]
-            super::DeviceType::Cuda(device_id) => {
-                self.cuda_reduce(input, op, dim, device_id)
-            }
-            
+            super::DeviceType::Cuda(device_id) => self.cuda_reduce(input, op, dim, device_id),
+
             #[cfg(feature = "metal")]
-            super::DeviceType::Metal(_) => {
-                self.metal_reduce(input, op, dim)
-            }
-            
+            super::DeviceType::Metal(_) => self.metal_reduce(input, op, dim),
+
             #[cfg(feature = "opencl")]
             super::DeviceType::OpenCL(_) => {
                 // For now, fall back to CPU
                 self.cpu_reduce(input, op, dim)
             }
-            
+
             #[allow(unreachable_patterns)]
             _ => Err(RusTorchError::gpu("Unsupported device for reduction")),
         }
@@ -130,18 +124,18 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
                 if axis >= input_shape.len() {
                     return Err(RusTorchError::gpu("Reduction axis out of bounds"));
                 }
-                
+
                 // Calculate output shape
                 let mut output_shape = input_shape.to_vec();
                 output_shape[axis] = 1;
-                
+
                 let mut output_data = vec![T::zero(); output_shape.iter().product()];
-                
+
                 // Perform reduction along axis (simplified implementation)
                 let axis_size = input_shape[axis];
                 let outer_size: usize = input_shape[..axis].iter().product();
-                let inner_size: usize = input_shape[axis+1..].iter().product();
-                
+                let inner_size: usize = input_shape[axis + 1..].iter().product();
+
                 for outer in 0..outer_size {
                     for inner in 0..inner_size {
                         let mut sum = T::zero();
@@ -155,7 +149,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
                         output_data[output_idx] = sum;
                     }
                 }
-                
+
                 Ok(Tensor::from_vec(output_data, output_shape))
             }
         }
@@ -168,7 +162,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
             None => T::from(input.data.len()).unwrap_or(T::one()),
             Some(axis) => T::from(input.shape()[axis]).unwrap_or(T::one()),
         };
-        
+
         let mean_data: Vec<T> = sum_result.data.iter().map(|&x| x / count).collect();
         Ok(Tensor::from_vec(mean_data, sum_result.shape().to_vec()))
     }
@@ -177,9 +171,17 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     fn cpu_max(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         match dim {
             None => {
-                let max_val = input.data.iter().fold(T::neg_infinity(), |acc, &x| {
-                    if x > acc { x } else { acc }
-                });
+                let max_val =
+                    input.data.iter().fold(
+                        T::neg_infinity(),
+                        |acc, &x| {
+                            if x > acc {
+                                x
+                            } else {
+                                acc
+                            }
+                        },
+                    );
                 Ok(Tensor::from_vec(vec![max_val], vec![1]))
             }
             Some(_) => {
@@ -193,9 +195,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     fn cpu_min(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         match dim {
             None => {
-                let min_val = input.data.iter().fold(T::infinity(), |acc, &x| {
-                    if x < acc { x } else { acc }
-                });
+                let min_val = input
+                    .data
+                    .iter()
+                    .fold(T::infinity(), |acc, &x| if x < acc { x } else { acc });
                 Ok(Tensor::from_vec(vec![min_val], vec![1]))
             }
             Some(_) => {
@@ -230,15 +233,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     fn cpu_var(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let mean_result = self.cpu_mean(input, dim)?;
         let mean_val = mean_result.data[0]; // Simplified for global variance
-        
-        let var = input.data.iter().map(|&x| {
-            let diff = x - mean_val;
-            diff * diff
-        }).fold(T::zero(), |acc, x| acc + x);
-        
+
+        let var = input
+            .data
+            .iter()
+            .map(|&x| {
+                let diff = x - mean_val;
+                diff * diff
+            })
+            .fold(T::zero(), |acc, x| acc + x);
+
         let count = T::from(input.data.len()).unwrap_or(T::one());
         let variance = var / count;
-        
+
         Ok(Tensor::from_vec(vec![variance], vec![1]))
     }
 }
@@ -257,11 +264,11 @@ where
         device_id: usize,
     ) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
-        
+
         // Initialize CUDA device
         let _device = CudaDevice::new(device_id)
             .map_err(|e| RusTorchError::gpu(&format!("CUDA device init failed: {}", e)))?;
-        
+
         // For now, fall back to CPU until we implement CUDA kernels
         self.cpu_reduce(input, op, dim)
     }
@@ -277,11 +284,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
         dim: Option<usize>,
     ) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
-        
+
         // Get Metal device
         let _device = MetalDevice::system_default()
             .ok_or_else(|| RusTorchError::gpu("No Metal device found"))?;
-        
+
         // For now, fall back to CPU until we implement Metal shaders
         self.cpu_reduce(input, op, dim)
     }
@@ -291,19 +298,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
 pub trait GpuReduction<T: Float + FromPrimitive + ScalarOperand + 'static> {
     /// GPU sum reduction
     fn gpu_sum(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU mean reduction  
     fn gpu_mean(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU max reduction
     fn gpu_max(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU min reduction
     fn gpu_min(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU standard deviation
     fn gpu_std(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
-    
+
     /// GPU variance
     fn gpu_var(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>>;
 }
@@ -317,11 +324,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Sum, dim)
     }
-    
+
     fn gpu_mean(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let device = if super::DeviceManager::is_cuda_available() {
             super::DeviceType::Cuda(0)
@@ -330,11 +337,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Mean, dim)
     }
-    
+
     fn gpu_max(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let device = if super::DeviceManager::is_cuda_available() {
             super::DeviceType::Cuda(0)
@@ -343,11 +350,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Max, dim)
     }
-    
+
     fn gpu_min(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let device = if super::DeviceManager::is_cuda_available() {
             super::DeviceType::Cuda(0)
@@ -356,11 +363,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Min, dim)
     }
-    
+
     fn gpu_std(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let device = if super::DeviceManager::is_cuda_available() {
             super::DeviceType::Cuda(0)
@@ -369,11 +376,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Std, dim)
     }
-    
+
     fn gpu_var(&self, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         let device = if super::DeviceManager::is_cuda_available() {
             super::DeviceType::Cuda(0)
@@ -382,7 +389,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
         } else {
             super::DeviceType::Cpu
         };
-        
+
         let executor = GpuReductionExecutor::new(device)?;
         executor.reduce(self, ReductionOp::Var, dim)
     }
@@ -392,40 +399,40 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReduction<T> for Ten
 mod tests {
     use super::*;
     use crate::tensor::Tensor;
-    
+
     #[test]
     fn test_reduction_op_types() {
         assert_eq!(ReductionOp::Sum, ReductionOp::Sum);
         assert_ne!(ReductionOp::Sum, ReductionOp::Mean);
     }
-    
+
     #[test]
     fn test_gpu_reduction_executor_creation() {
         let executor = GpuReductionExecutor::<f32>::new(super::super::DeviceType::Cpu);
         assert!(executor.is_ok());
     }
-    
+
     #[test]
     fn test_cpu_sum_reduction() {
         let input = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let executor = GpuReductionExecutor::<f32>::new(super::super::DeviceType::Cpu).unwrap();
-        
+
         let result = executor.reduce(&input, ReductionOp::Sum, None).unwrap();
         assert_eq!(result.data[0], 10.0);
     }
-    
+
     #[test]
     fn test_gpu_sum_trait() {
         let input = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         let result = input.gpu_sum(None).unwrap();
         assert_eq!(result.data[0], 10.0);
     }
-    
+
     #[test]
     fn test_gpu_mean_trait() {
         let input = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         let result = input.gpu_mean(None).unwrap();
         assert_eq!(result.data[0], 2.5);
     }

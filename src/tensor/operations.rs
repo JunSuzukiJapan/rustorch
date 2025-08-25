@@ -26,8 +26,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         Tensor::from_vec(data, shape.to_vec())
     }
 
-
-
     /// Element-wise maximum with another tensor
     /// 別のテンソルとの要素ごとの最大値
     pub fn maximum(&self, other: &Tensor<T>) -> Result<Self, String> {
@@ -432,7 +430,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
     }
 
-
     /// Transpose the tensor (swap last two dimensions).
     /// テンソルの転置（最後の2次元を入れ替え）
     pub fn transpose(&self) -> Result<Self, String> {
@@ -464,7 +461,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let count = T::from(self.numel()).unwrap_or(T::one());
         sum / count
     }
-
 
     /// Singular Value Decomposition (SVD)
     /// 特異値分解 - torch.svd compatible
@@ -1287,7 +1283,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     pub fn pow(&self, exponent: T) -> Self {
         self.map(|x| x.powf(exponent))
     }
-
 }
 
 // Operator overloading for tensors
