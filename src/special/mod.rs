@@ -8,7 +8,7 @@
 //! - Other special functions (zeta, exponential integral, etc.)
 
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
+// use crate::error::{RusTorchError, RusTorchResult}; // Unused in current implementation
 use num_traits::Float;
 use std::fmt::Debug;
 

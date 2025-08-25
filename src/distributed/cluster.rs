@@ -13,8 +13,14 @@ use crate::distributed::multi_gpu_validation::ProcessGroup;
 /// 分散バックエンドタイプ
 #[derive(Debug, Clone)]
 pub enum DistributedBackend {
+    /// NVIDIA Collective Communications Library
+    /// NVIDIA集合通信ライブラリ
     Nccl,
+    /// Facebook Gloo collective communications
+    /// Facebook Gloo集合通信
     Gloo,
+    /// Message Passing Interface
+    /// メッセージパッシングインターフェース
     Mpi,
 }
 
@@ -301,7 +307,7 @@ impl ClusterManager {
         &mut self,
         job_id: String,
         world_size: usize,
-        backend: DistributedBackend,
+        _backend: DistributedBackend,
     ) -> RusTorchResult<ProcessGroup> {
         // Schedule nodes for this job
         // このジョブ用のノードをスケジュール

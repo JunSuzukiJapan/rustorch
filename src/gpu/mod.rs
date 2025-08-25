@@ -138,7 +138,7 @@ pub mod unified_kernel_simple;
 pub mod integration_tests;
 
 use std::fmt;
-use crate::error::{RusTorchError, RusTorchResult};
+// use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
 
 /// GPU device types
 /// GPU デバイスタイプ

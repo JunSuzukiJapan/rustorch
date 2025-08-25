@@ -13,7 +13,11 @@ pub enum RusTorchError {
     /// テンソル操作失敗
     #[error("Tensor operation failed: {message}")]
     TensorOp { 
+        /// Error message describing the tensor operation failure
+        /// テンソル操作失敗を説明するエラーメッセージ
         message: String, 
+        /// Optional underlying error cause
+        /// オプションの根本的なエラー原因
         #[source] 
         source: Option<Box<dyn Error + Send + Sync>> 
     },
@@ -22,7 +26,11 @@ pub enum RusTorchError {
     /// テンソル間の形状不一致
     #[error("Shape mismatch: expected {expected:?}, got {actual:?}")]
     ShapeMismatch { 
+        /// Expected tensor shape
+        /// 期待されるテンソル形状
         expected: Vec<usize>, 
+        /// Actual tensor shape that was provided
+        /// 提供された実際のテンソル形状
         actual: Vec<usize> 
     },
     
@@ -30,7 +38,11 @@ pub enum RusTorchError {
     /// デバイス操作失敗
     #[error("Device error on {device}: {message}")]
     Device { 
+        /// Device identifier where the error occurred
+        /// エラーが発生したデバイス識別子
         device: String, 
+        /// Error message describing the device issue
+        /// デバイスの問題を説明するエラーメッセージ
         message: String 
     },
     
@@ -38,6 +50,8 @@ pub enum RusTorchError {
     /// バックエンドが利用不可
     #[error("Backend not available: {backend}")]
     BackendUnavailable { 
+        /// Name of the unavailable backend
+        /// 利用不可なバックエンド名
         backend: String 
     },
     
@@ -45,7 +59,11 @@ pub enum RusTorchError {
     /// メモリ割り当て失敗
     #[error("Memory allocation failed: {size} bytes on {device}")]
     MemoryAllocation { 
+        /// Size of the failed allocation in bytes
+        /// 失敗したアロケーションのサイズ（バイト）
         size: usize, 
+        /// Device where allocation failed
+        /// アロケーションが失敗したデバイス
         device: String 
     },
     
@@ -53,15 +71,35 @@ pub enum RusTorchError {
     /// 無効な操作パラメータ
     #[error("Invalid parameters for {operation}: {message}")]
     InvalidParameters { 
+        /// Name of the operation with invalid parameters
+        /// 無効なパラメータを持つ操作名
         operation: String, 
+        /// Description of the parameter issue
+        /// パラメータの問題の説明
         message: String 
+    },
+    
+    /// Invalid operation
+    /// 無効な操作
+    #[error("{operation}: {message}")]
+    InvalidOperation {
+        /// Name of the invalid operation
+        /// 無効な操作名
+        operation: String,
+        /// Detailed error message
+        /// 詳細なエラーメッセージ
+        message: String
     },
     
     /// Neural network layer error
     /// ニューラルネットワークレイヤーエラー
     #[error("Neural network error in {layer}: {message}")]
     NeuralNetwork { 
+        /// Name of the neural network layer
+        /// ニューラルネットワークレイヤー名
         layer: String, 
+        /// Error message from the layer
+        /// レイヤーからのエラーメッセージ
         message: String 
     },
     
@@ -69,6 +107,8 @@ pub enum RusTorchError {
     /// 自動微分エラー
     #[error("Autograd error: {message}")]
     Autograd { 
+        /// Autograd error description
+        /// 自動微分エラーの説明
         message: String 
     },
     
@@ -76,7 +116,11 @@ pub enum RusTorchError {
     /// モデルインポート/エクスポートエラー
     #[error("Model I/O error: {message}")]
     ModelIo { 
+        /// Model I/O error description
+        /// モデルI/Oエラーの説明
         message: String,
+        /// Optional underlying I/O error
+        /// オプションの根本的なI/Oエラー
         #[source] 
         source: Option<Box<dyn Error + Send + Sync>> 
     },
@@ -85,7 +129,11 @@ pub enum RusTorchError {
     /// インポート固有エラー
     #[error("Import error: {message}")]
     Import {
+        /// Import operation error message
+        /// インポート操作エラーメッセージ
         message: String,
+        /// Optional underlying import error
+        /// オプションの根本的なインポートエラー
         #[source]
         source: Option<Box<dyn Error + Send + Sync>>
     },
@@ -94,7 +142,11 @@ pub enum RusTorchError {
     /// データ読み込みエラー
     #[error("Data loading error: {message}")]
     DataLoading { 
+        /// Data loading error description
+        /// データ読み込みエラーの説明
         message: String,
+        /// Optional underlying data loading error
+        /// オプションの根本的なデータ読み込みエラー
         #[source] 
         source: Option<Box<dyn Error + Send + Sync>> 
     },
@@ -104,7 +156,11 @@ pub enum RusTorchError {
     /// GPU固有エラー
     #[error("GPU error: {message}")]
     Gpu {
+        /// GPU operation error description
+        /// GPU操作エラーの説明
         message: String,
+        /// Optional underlying GPU error
+        /// オプションの根本的なGPUエラー
         #[source]
         source: Option<Box<dyn Error + Send + Sync>>
     },
@@ -113,7 +169,11 @@ pub enum RusTorchError {
     /// 視覚処理エラー
     #[error("Vision processing error: {message}")]
     Vision {
+        /// Vision processing error description
+        /// 視覚処理エラーの説明
         message: String,
+        /// Optional underlying vision error
+        /// オプションの根本的な視覚エラー
         #[source]
         source: Option<Box<dyn Error + Send + Sync>>
     },
@@ -122,7 +182,11 @@ pub enum RusTorchError {
     /// 分散コンピューティングエラー
     #[error("Distributed computing error: {message}")]
     Distributed {
+        /// Distributed computing error description
+        /// 分散コンピューティングエラーの説明
         message: String,
+        /// Optional underlying distributed error
+        /// オプションの根本的な分散エラー
         #[source]
         source: Option<Box<dyn Error + Send + Sync>>
     },
@@ -131,7 +195,11 @@ pub enum RusTorchError {
     /// 可視化エラー
     #[error("Visualization error: {message}")]
     Visualization {
+        /// Visualization error description
+        /// 可視化エラーの説明
         message: String,
+        /// Optional underlying visualization error
+        /// オプションの根本的な可視化エラー
         #[source]
         source: Option<Box<dyn Error + Send + Sync>>
     },
@@ -155,6 +223,7 @@ pub type RusTorchResult<T> = Result<T, RusTorchError>;
 
 
 // Comprehensive convenience constructors for unified error handling
+#[allow(non_snake_case)] // Allow PascalCase for error constructor methods
 impl RusTorchError {
     // === Tensor Operations ===
     /// Create a tensor operation error
@@ -483,7 +552,7 @@ impl RusTorchError {
     
     // === Broadcasting and Shape Operations ===
     /// Create incompatible shapes error
-    pub fn IncompatibleShapes(message: impl Into<String>) -> Self {
+    pub fn IncompatibleShapes(_message: impl Into<String>) -> Self {
         RusTorchError::shape_mismatch(&[], &[])
     }
     
@@ -519,7 +588,7 @@ impl RusTorchError {
     }
     
     /// Create invalid image shape error
-    pub fn InvalidImageShape(message: impl Into<String>) -> Self {
+    pub fn InvalidImageShape(_message: impl Into<String>) -> Self {
         RusTorchError::invalid_image_shape(&[])
     }
     

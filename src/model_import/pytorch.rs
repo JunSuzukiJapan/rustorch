@@ -2,43 +2,64 @@
 /// PyTorchモデルインポート実装
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelStructure, ModelArchitecture, LayerInfo};
+use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelArchitecture, LayerInfo}; // ModelStructure,
 
 /// Layer description for model conversion
 /// モデル変換用レイヤー記述
 #[derive(Debug, Clone)]
 pub struct LayerDescription {
+    /// Layer name
+    /// レイヤー名
     pub name: String,
+    /// Layer type (Linear, Conv2d, etc.)
+    /// レイヤータイプ（Linear、Conv2d等）
     pub layer_type: String,
+    /// Input shape
+    /// 入力形状
     pub input_shape: Vec<usize>,
+    /// Output shape
+    /// 出力形状
     pub output_shape: Vec<usize>,
+    /// Number of parameters
+    /// パラメータ数
     pub params: usize,
+    /// Layer-specific attributes
+    /// レイヤー固有の属性
     pub attributes: HashMap<String, String>,
 }
 use std::collections::HashMap;
 use std::path::Path;
 use crate::tensor::Tensor;
 use crate::dtype::DType;
-use std::io::{Read, Seek, SeekFrom};
+// use std::io::{Read, Seek, SeekFrom}; // Unused in mock implementation
 
 /// PyTorch pickle format magic numbers
 /// PyTorchピクル形式のマジックナンバー
 const PICKLE_PROTOCOL_2: u8 = 0x80;
-const PICKLE_PROTOCOL_3: u8 = 0x80;
-const PICKLE_PROTOCOL_4: u8 = 0x80;
-const PICKLE_PROTOCOL_5: u8 = 0x80;
+// Future protocol support
+// const PICKLE_PROTOCOL_3: u8 = 0x80;
+// const PICKLE_PROTOCOL_4: u8 = 0x80;
+// const PICKLE_PROTOCOL_5: u8 = 0x80;
 
 /// PyTorch tensor storage types
 /// PyTorchテンソルストレージタイプ
 #[derive(Debug, Clone, Copy)]
 pub enum TorchStorageType {
+    /// 32-bit floating point storage
     FloatStorage,
+    /// 64-bit floating point storage
     DoubleStorage,
+    /// 16-bit half precision storage
     HalfStorage,
+    /// 8-bit character storage
     CharStorage,
+    /// 16-bit short integer storage
     ShortStorage,
+    /// 32-bit integer storage
     IntStorage,
+    /// 64-bit long integer storage
     LongStorage,
+    /// Boolean storage
     BoolStorage,
 }
 
@@ -63,10 +84,20 @@ impl TorchStorageType {
 /// PyTorchテンソルメタデータ
 #[derive(Debug, Clone)]
 pub struct TorchTensorInfo {
+    /// Tensor name
+    /// テンソル名
     pub name: String,
+    /// Tensor shape
+    /// テンソル形状
     pub shape: Vec<usize>,
+    /// Storage type
+    /// ストレージタイプ
     pub storage_type: TorchStorageType,
+    /// Raw binary data
+    /// 生バイナリデータ
     pub data: Vec<u8>,
+    /// Whether gradient is required
+    /// 勾配が必要か
     pub requires_grad: bool,
 }
 
@@ -74,8 +105,14 @@ pub struct TorchTensorInfo {
 /// PyTorchモデル状態辞書表現
 #[derive(Debug, Clone)]
 pub struct TorchStateDict {
+    /// Model tensors
+    /// モデルテンソル
     pub tensors: HashMap<String, TorchTensorInfo>,
+    /// Model metadata
+    /// モデルメタデータ
     pub metadata: HashMap<String, String>,
+    /// PyTorch version
+    /// PyTorchバージョン
     pub version: String,
 }
 
@@ -83,8 +120,14 @@ pub struct TorchStateDict {
 /// PyTorchモデルアーキテクチャ情報
 #[derive(Debug, Clone)]
 pub struct TorchModelInfo {
+    /// Model class name
+    /// モデルクラス名
     pub model_class: String,
+    /// Layer descriptions
+    /// レイヤー記述
     pub layers: Vec<TorchLayerDescription>,
+    /// Total parameter count
+    /// 総パラメータ数
     pub total_params: usize,
 }
 
@@ -92,9 +135,17 @@ pub struct TorchModelInfo {
 /// PyTorchレイヤー情報
 #[derive(Debug, Clone)]
 pub struct TorchLayerDescription {
+    /// Layer name
+    /// レイヤー名
     pub name: String,
+    /// Module type
+    /// モジュールタイプ
     pub module_type: String,
+    /// Parameter names
+    /// パラメータ名
     pub parameters: Vec<String>,
+    /// Configuration settings
+    /// 設定配置
     pub config: HashMap<String, String>,
 }
 
@@ -465,7 +516,7 @@ fn create_mock_pytorch_export(_model: &dyn crate::nn::Module<f32>) -> RusTorchRe
 /// Load pretrained PyTorch model from URL
 /// URLから事前学習済みPyTorchモデルを読み込み
 pub fn load_pretrained_pytorch_model(model_name: &str) -> RusTorchResult<ImportedModel> {
-    let url = match model_name {
+    let _url = match model_name {
         "resnet18" => "https://download.pytorch.org/models/resnet18-5c106cde.pth",
         "resnet50" => "https://download.pytorch.org/models/resnet50-19c8e357.pth",
         "mobilenet_v2" => "https://download.pytorch.org/models/mobilenet_v2-b0353104.pth",

@@ -78,6 +78,14 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn from_scalar(value: T) -> Self {
         Self::from_vec(vec![value], vec![1])
     }
+    
+    /// Create tensor from ndarray
+    /// ndarrayからテンソルを作成
+    pub fn from_ndarray(array: ndarray::ArrayD<T>) -> Self {
+        let shape = array.shape().to_vec();
+        let (data, _offset) = array.into_raw_vec_and_offset();
+        Self::from_vec(data, shape)
+    }
 
     /// Creates a tensor filled with a specific value.
     /// 指定された値で満たされたテンソルを作成します。
@@ -117,9 +125,28 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.is_empty()
     }
 
-    /// Reshapes the tensor to the given shape.
-    /// テンソルを指定された形状に変形します。
-    pub fn reshape(&self, shape: &[usize]) -> Result<Self, String> {
+    /// Reshapes the tensor to the given shape (new v2 implementation).
+    /// テンソルを指定された形状に変形します。（新v2実装）
+    pub fn reshape_v2(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
+    where
+        T: ndarray::ScalarOperand + num_traits::FromPrimitive,
+    {
+        let old_size: usize = self.shape().iter().product();
+        let new_size: usize = new_shape.iter().product();
+        
+        if old_size != new_size {
+            return Err(crate::error::RusTorchError::InvalidOperation {
+                operation: "reshape_v2".to_string(),
+                message: format!("Cannot reshape tensor of size {} to size {}", old_size, new_size),
+            });
+        }
+        
+        Ok(Tensor::from_vec(self.data.iter().copied().collect(), new_shape.to_vec()))
+    }
+    
+    /// Reshapes the tensor to the given shape (legacy).
+    /// テンソルを指定された形状に変形します。（旧実装）
+    pub fn reshape_legacy(&self, shape: &[usize]) -> Result<Self, String> {
         let total_elements = self.data.len();
         let new_total_elements: usize = shape.iter().product();
         
@@ -139,7 +166,7 @@ impl<T: Float + 'static> Tensor<T> {
     /// Creates a view into the tensor.
     /// テンソルのビューを作成します。
     pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
-        self.reshape(shape)
+        self.reshape_legacy(shape)
     }
 
     /// Flattens the tensor to 1D.

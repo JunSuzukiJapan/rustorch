@@ -1,15 +1,21 @@
 /// Model import functionality for PyTorch and ONNX models
 /// PyTorchとONNXモデルのインポート機能
 
+/// ONNX model import functionality
+/// ONNXモデルインポート機能
 pub mod onnx;
+/// PyTorch model import functionality
+/// PyTorchモデルインポート機能
 pub mod pytorch;
+/// Model format definitions and utilities
+/// モデルフォーマット定義とユーティリティ
 pub mod formats;
 
 use std::collections::HashMap;
 use std::path::Path;
 use crate::tensor::Tensor;
 use crate::nn::Module;
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchError; // RusTorchResult,
 
 // ImportError enum removed - now using unified RusTorchError system
 // ImportErrorエナム削除 - 統一RusTorchErrorシステムを使用
@@ -58,8 +64,14 @@ pub struct ModelMetadata {
 /// モデル構造情報
 #[derive(Debug, Clone)]
 pub struct ModelStructure {
+    /// Model input shape
+    /// モデル入力形状
     pub input_shape: Vec<usize>,
+    /// Model output shape
+    /// モデル出力形状
     pub output_shape: Vec<usize>,
+    /// Total number of parameters
+    /// 総パラメータ数
     pub num_parameters: usize,
 }
 

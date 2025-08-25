@@ -16,9 +16,17 @@ use num_traits::Float;
 /// リダクション操作タイプ
 #[derive(Debug, Clone, Copy)]
 pub enum ReduceOp {
+    /// Sum all values across processes
+    /// プロセス間で値を合計
     Sum,
+    /// Average all values across processes
+    /// プロセス間で値を平均
     Average,
+    /// Take maximum value across processes
+    /// プロセス間で最大値を取得
     Max,
+    /// Take minimum value across processes
+    /// プロセス間で最小値を取得
     Min,
 }
 
@@ -585,8 +593,8 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizerBuilder<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::distributed::backends::GlooBackend;
-    use crate::distributed::{ProcessGroup, DistributedBackend};
+    // use crate::distributed::backends::GlooBackend; // Unused in current tests
+    // use crate::distributed::{ProcessGroup, DistributedBackend}; // Unused in current tests
 
     #[test]
     fn test_gradient_sync_strategy_creation() {

@@ -4,7 +4,7 @@
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::autograd::Variable;
-use crate::visualization::{PlotData, Visualizable, PlotConfig, PlotStyle};
+use crate::visualization::{PlotData, Visualizable}; // PlotConfig, PlotStyle};
 use num_traits::Float;
 use std::collections::HashMap;
 

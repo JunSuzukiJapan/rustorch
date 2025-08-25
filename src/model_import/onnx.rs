@@ -2,7 +2,7 @@
 /// ONNXモデルインポート実装
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelStructure, ModelArchitecture, LayerInfo};
+use crate::model_import::{TensorSpec, ImportedModel, ModelMetadata, ModelArchitecture, LayerInfo}; // ModelStructure,
 use std::collections::HashMap;
 use std::path::Path;
 use crate::tensor::Tensor;
@@ -12,9 +12,17 @@ use crate::dtype::DType;
 /// モデル変換用レイヤー記述
 #[derive(Debug, Clone)]
 pub struct LayerDescription {
+    /// Layer name
+    /// レイヤー名
     pub name: String,
+    /// Layer type
+    /// レイヤータイプ
     pub layer_type: String,
+    /// Input shape
+    /// 入力形状
     pub input_shape: Vec<usize>,
+    /// Output shape
+    /// 出力形状
     pub output_shape: Vec<usize>,
 }
 
@@ -22,21 +30,37 @@ pub struct LayerDescription {
 /// ONNXデータ型マッピング
 #[derive(Debug, Clone, Copy)]
 pub enum OnnxDataType {
+    /// Undefined data type
     Undefined = 0,
+    /// 32-bit floating point
     Float = 1,
+    /// 8-bit unsigned integer
     Uint8 = 2,
+    /// 8-bit signed integer
     Int8 = 3,
+    /// 16-bit unsigned integer
     Uint16 = 4,
+    /// 16-bit signed integer
     Int16 = 5,
+    /// 32-bit signed integer
     Int32 = 6,
+    /// 64-bit signed integer
     Int64 = 7,
+    /// String data type
     String = 8,
+    /// Boolean data type
     Bool = 9,
+    /// 16-bit floating point
     Float16 = 10,
+    /// 64-bit floating point
     Double = 11,
+    /// 32-bit unsigned integer
     Uint32 = 12,
+    /// 64-bit unsigned integer
     Uint64 = 13,
+    /// 64-bit complex number
     Complex64 = 14,
+    /// 128-bit complex number
     Complex128 = 15,
 }
 
@@ -68,9 +92,13 @@ impl OnnxDataType {
 /// ONNXテンソル情報
 #[derive(Debug, Clone)]
 pub struct OnnxTensorInfo {
+    /// Tensor name identifier
     pub name: String,
+    /// Tensor dimensions
     pub shape: Vec<i64>,
+    /// ONNX data type
     pub data_type: OnnxDataType,
+    /// Raw tensor data
     pub data: Vec<u8>,
 }
 
@@ -78,10 +106,15 @@ pub struct OnnxTensorInfo {
 /// ONNXノード/操作情報
 #[derive(Debug, Clone)]
 pub struct OnnxNode {
+    /// Node name
     pub name: String,
+    /// Operation type
     pub op_type: String,
+    /// Input tensor names
     pub inputs: Vec<String>,
+    /// Output tensor names
     pub outputs: Vec<String>,
+    /// Node attributes
     pub attributes: HashMap<String, String>,
 }
 
@@ -89,13 +122,21 @@ pub struct OnnxNode {
 /// ONNXモデル表現
 #[derive(Debug, Clone)]
 pub struct OnnxModel {
+    /// ONNX IR version
     pub ir_version: i64,
+    /// Model producer name
     pub producer_name: String,
+    /// Producer version
     pub producer_version: String,
+    /// Model domain
     pub domain: String,
+    /// Model version number
     pub model_version: i64,
+    /// Documentation string
     pub doc_string: String,
+    /// Model graph
     pub graph: OnnxGraph,
+    /// Additional metadata properties
     pub metadata_props: HashMap<String, String>,
 }
 
@@ -103,11 +144,17 @@ pub struct OnnxModel {
 /// ONNXグラフ表現
 #[derive(Debug, Clone)]
 pub struct OnnxGraph {
+    /// Graph name
     pub name: String,
+    /// Computation nodes
     pub nodes: Vec<OnnxNode>,
+    /// Weight initializers
     pub initializers: Vec<OnnxTensorInfo>,
+    /// Input tensors
     pub inputs: Vec<OnnxTensorInfo>,
+    /// Output tensors
     pub outputs: Vec<OnnxTensorInfo>,
+    /// Intermediate value information
     pub value_info: Vec<OnnxTensorInfo>,
 }
 

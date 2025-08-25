@@ -7,13 +7,15 @@
 //! このモジュールはCPUのみのシステムでの最大パフォーマンスを得るため、
 //! SIMD最適化を含むCPUバックエンドを実装します。
 
-use super::{ComputeBackend, DeviceBuffer, DeviceInfo, DeviceType, ConvolutionParams, BackendResult};
+use super::{DeviceType, DeviceInfo, DeviceBuffer, ConvolutionParams, BackendResult, ComputeBackend};
 use crate::tensor::Tensor;
-use crate::error::RusTorchError;
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::ArrayD;
 use num_traits::Float;
 use std::any::Any;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 /// CPU memory buffer implementation
 /// CPUメモリバッファ実装

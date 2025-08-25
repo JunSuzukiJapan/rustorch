@@ -3,7 +3,7 @@
 
 use crate::formats::pytorch::{PyTorchModel, StateDict};
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
+// use crate::error::{RusTorchError, RusTorchResult}; // Currently unused in simplified version
 // use num_traits::Float; // Unused import
 use std::collections::HashMap;
 use std::error::Error;
@@ -13,9 +13,13 @@ use std::fmt;
 /// モデル変換用レイヤー記述
 #[derive(Debug, Clone)]
 pub struct LayerDescription {
+    /// Layer name
     pub name: String,
+    /// Type of layer
     pub layer_type: String,
+    /// Input tensor shape
     pub input_shape: Vec<usize>,
+    /// Output tensor shape
     pub output_shape: Vec<usize>,
 }
 

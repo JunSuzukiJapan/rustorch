@@ -236,7 +236,7 @@ pub trait TypeSafeReshape<T: Float, From: Dimension, To: Dimension> {
 /// Reshape 1D to 2D
 /// 1Dから2Dへのリシェイプ
 impl<T: Float> TypeSafeReshape<T, Dim1, Dim2> for TypedTensor<T, Dim2> {
-    fn reshape(tensor: TypedTensor<T, Dim1>) -> RusTorchResult<TypedTensor<T, Dim2>> {
+    fn reshape(_tensor: TypedTensor<T, Dim1>) -> RusTorchResult<TypedTensor<T, Dim2>> {
         // This would need specific shape parameters - for now, return error
         Err(RusTorchError::type_error("Manual reshape parameters required"))
     }

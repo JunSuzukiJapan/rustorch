@@ -1,7 +1,7 @@
 //! 可視化ユーティリティ
 //! Visualization utilities
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchResult; // RusTorchError,
 use std::fs;
 use std::path::Path;
 

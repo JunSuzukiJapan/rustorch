@@ -1,7 +1,7 @@
 //! Bessel functions implementation
 //! ベッセル関数の実装
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchError; // RusTorchResult,
 use num_traits::Float;
 use std::f64::consts::PI;
 

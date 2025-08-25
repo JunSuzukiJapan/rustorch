@@ -1,7 +1,8 @@
 /// GPU kernel validation and correctness testing
 /// GPUカーネル検証と正確性テスト
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchResult;
+// use crate::error::RusTorchError; // Currently unused
 use crate::gpu::DeviceType;
 use crate::gpu::kernels::{KernelExecutor, AddKernel, MatMulKernel, GpuKernel};
 

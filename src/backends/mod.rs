@@ -1,11 +1,44 @@
-//! Unified compute backend abstraction for RusTorch
-//! RusTorchの統一計算バックエンド抽象化
+//! Unified compute backend abstraction for RusTorch v0.4.0
+//! RusTorch v0.4.0の統一計算バックエンド抽象化
 //!
 //! This module provides a unified interface for different compute backends,
 //! enabling seamless switching between CPU, CUDA, Metal, and OpenCL implementations.
 //! 
 //! このモジュールは異なる計算バックエンドの統一インターフェースを提供し、
 //! CPU、CUDA、Metal、OpenCLの実装間でのシームレスな切り替えを可能にします。
+//!
+//! ## Unified Backend Architecture / 統一バックエンドアーキテクチャ
+//!
+//! The new architecture provides:
+//! 新しいアーキテクチャは以下を提供:
+//! - Unified ComputeBackend trait for all device types
+//!   全デバイス種別用の統一ComputeBackendトレイト
+//! - Automatic device selection with performance tracking
+//!   パフォーマンス追跡付き自動デバイス選択
+//! - Operation abstraction with type-safe execution
+//!   型安全実行付き操作抽象化
+
+// New unified backend system
+pub mod compute_backend;
+pub mod cpu_unified;
+
+// Legacy backend modules (temporarily disabled during refactoring)
+// #[allow(dead_code)]
+// pub mod cpu;
+
+// Re-export unified types with new names to avoid conflicts
+pub use compute_backend::{
+    ComputeBackend as UnifiedComputeBackend, 
+    DeviceManager, 
+    DeviceType as UnifiedDeviceType, 
+    Operation, 
+    PerformanceMetrics,
+    SelectionStrategy, 
+    TransferDirection, 
+    global_device_manager, 
+    initialize_backends
+};
+pub use cpu_unified::CpuBackend as UnifiedCpuBackend;
 
 use crate::tensor::Tensor;
 use std::any::Any;
@@ -254,10 +287,14 @@ pub trait ComputeBackend: Send + Sync {
     where
         T: num_traits::Float + 'static;
     
+    /// Apply sigmoid activation function
+    /// シグモイド活性化関数を適用
     fn sigmoid<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
     
+    /// Apply hyperbolic tangent activation function
+    /// ハイパボリックタンジェント活性化関数を適用
     fn tanh<T>(&self, tensor: &Tensor<T>) -> BackendResult<Tensor<T>>
     where
         T: num_traits::Float + 'static;
@@ -292,45 +329,34 @@ impl BackendFactory {
         // CPU is always available
         backends.push(DeviceType::Cpu);
         
-        #[cfg(feature = "cuda")]
-        if cpu::CpuBackend::is_available() {
-            backends.push(DeviceType::Cuda);
-        }
+        // Additional backends would be checked here when implemented
+        // #[cfg(feature = "cuda")]
+        // if cuda::CudaBackend::is_available() {
+        //     backends.push(DeviceType::Cuda);
+        // }
         
-        #[cfg(feature = "metal")]
-        if metal::MetalBackend::is_available() {
-            backends.push(DeviceType::Metal);
-        }
+        // #[cfg(feature = "metal")]
+        // if metal::MetalBackend::is_available() {
+        //     backends.push(DeviceType::Metal);
+        // }
         
-        #[cfg(feature = "opencl")]
-        if opencl::OpenClBackend::is_available() {
-            backends.push(DeviceType::OpenCL);
-        }
+        // #[cfg(feature = "opencl")]
+        // if opencl::OpenClBackend::is_available() {
+        //     backends.push(DeviceType::OpenCL);
+        // }
         
         backends
     }
     
     /// Create the best available CPU backend for the current system
     /// 現在のシステムで最適な利用可能CPUバックエンドを作成
-    pub fn create_cpu_backend() -> BackendResult<cpu::CpuBackend> {
-        cpu::CpuBackend::new()
+    pub fn create_cpu_backend() -> BackendResult<cpu_unified::CpuBackend> {
+        cpu_unified::CpuBackend::new()
     }
 }
 
-// Backend implementations
-pub mod cpu;
-
-#[cfg(feature = "cuda")]
-pub mod cuda;
-
-#[cfg(feature = "metal")]
-pub mod metal;
-
-#[cfg(feature = "opencl")]
-pub mod opencl;
-
-// Re-exports for convenience
-pub use cpu::CpuBackend;
+// Legacy re-exports temporarily disabled
+// pub use cpu::CpuBackend;
 
 #[cfg(feature = "cuda")]
 pub use cuda::CudaBackend;

@@ -28,13 +28,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     
     /// Get the batch size (first dimension)
     /// バッチサイズを取得（最初の次元）
-    pub fn batch_size(&self) -> usize {
+    pub fn batch_size_legacy(&self) -> usize {
         self.shape().get(0).copied().unwrap_or(1)
     }
     
     /// Apply function to each element
     /// 各要素に関数を適用
-    pub fn map<F>(&self, f: F) -> Tensor<T>
+    pub fn map_legacy<F>(&self, f: F) -> Tensor<T>
     where
         F: Fn(T) -> T,
     {
@@ -396,7 +396,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Transpose the tensor's last two dimensions.
     /// テンソルの最後の2次元を転置
-    pub fn transpose_last_two(&self) -> Result<Self, String> {
+    pub fn transpose_last_two_legacy(&self) -> Result<Self, String> {
         if self.ndim() < 2 {
             return Err("transpose_last_two requires at least 2D tensor".to_string());
         }
@@ -470,7 +470,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     
     /// Get a single scalar value from a tensor (must contain exactly one element)
     /// テンソルから単一のスカラー値を取得（テンソルは正確に1つの要素を含む必要がある）
-    pub fn item(&self) -> T {
+    pub fn item_legacy(&self) -> T {
         if self.numel() != 1 {
             panic!("Tensor must contain exactly one element to call item(), but it contains {}", self.numel());
         }
@@ -1177,13 +1177,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Maximum value of the tensor.
     /// テンソルの最大値
-    pub fn max(&self) -> Option<T> {
+    pub fn max_legacy(&self) -> Option<T> {
         self.as_slice()?.iter().max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).copied()
     }
 
     /// Minimum value of the tensor.
     /// テンソルの最小値
-    pub fn min(&self) -> Option<T> {
+    pub fn min_legacy(&self) -> Option<T> {
         self.as_slice()?.iter().min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal)).copied()
     }
 }

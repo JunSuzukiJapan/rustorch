@@ -11,16 +11,38 @@ use std::time::Duration;
 /// 統一カーネル操作タイプ
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KernelOp {
+    /// Element-wise addition
+    /// 要素ごとの加算
     Add,
+    /// Element-wise multiplication
+    /// 要素ごとの乗算
     Mul,
+    /// Element-wise subtraction
+    /// 要素ごとの減算
     Sub,
+    /// Element-wise division
+    /// 要素ごとの除算
     Div,
+    /// Matrix multiplication
+    /// 行列乗算
     MatMul,
+    /// 2D convolution
+    /// 2D畳み込み
     Conv2D,
+    /// Batch normalization
+    /// バッチ正規化
     BatchNorm,
+    /// Reduction sum
+    /// リダクション合計
     ReduceSum,
+    /// Reduction mean
+    /// リダクション平均
     ReduceMean,
+    /// ReLU activation
+    /// ReLU活性化
     ReLU,
+    /// Softmax activation
+    /// Softmax活性化
     Softmax,
 }
 
@@ -28,8 +50,14 @@ pub enum KernelOp {
 /// カーネル実行パラメータ
 #[derive(Debug, Clone)]
 pub struct KernelParams {
+    /// Input tensor shapes for the kernel
+    /// カーネルの入力テンソル形状
     pub input_shapes: Vec<Vec<usize>>,
+    /// Output tensor shape
+    /// 出力テンソル形状
     pub output_shape: Vec<usize>,
+    /// Additional kernel parameters
+    /// 追加カーネルパラメータ
     pub extra_params: HashMap<String, f64>,
 }
 
@@ -47,9 +75,17 @@ impl Default for KernelParams {
 /// カーネル性能メトリクス
 #[derive(Debug, Clone)]
 pub struct KernelMetrics {
+    /// Kernel execution time
+    /// カーネル実行時間
     pub execution_time: Duration,
+    /// Memory bandwidth utilization (GB/s)
+    /// メモリ帯域利用率 (GB/s)
     pub memory_bandwidth: f64,
+    /// GPU occupancy percentage
+    /// GPU占有率パーセント
     pub occupancy: f64,
+    /// Floating point operations per second
+    /// 毎秒浮動小数点演算数
     pub flops: f64,
 }
 
@@ -72,6 +108,8 @@ pub struct UnifiedKernelExecutor {
 }
 
 impl UnifiedKernelExecutor {
+    /// Create new unified kernel executor
+    /// 新しい統一カーネルエグゼキューターを作成
     pub fn new(device: DeviceType) -> RusTorchResult<Self> {
         // Validate device availability
         if !device.is_available() {
@@ -250,6 +288,8 @@ pub struct KernelSelector {
 }
 
 impl KernelSelector {
+    /// Create new kernel selector
+    /// 新しいカーネルセレクターを作成
     pub fn new() -> Self {
         Self {
             executors: Vec::new(),
@@ -315,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_unified_kernel_executor() {
-        let mut executor = UnifiedKernelExecutor::new(DeviceType::Cpu).unwrap();
+        let executor = UnifiedKernelExecutor::new(DeviceType::Cpu).unwrap();
         
         assert_eq!(executor.device_type(), DeviceType::Cpu);
         assert!(executor.supports_operation(KernelOp::Add));

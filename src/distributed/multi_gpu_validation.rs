@@ -27,8 +27,14 @@ use num_traits::{Float, FromPrimitive};
 /// 分散操作用プロセスグループ
 #[derive(Debug, Clone)]
 pub struct ProcessGroup {
+    /// Process rank in the distributed group
+    /// 分散グループ内のプロセスランク
     pub rank: usize,
+    /// Total number of processes in the group
+    /// グループ内の総プロセス数
     pub world_size: usize,
+    /// Backend type for distributed communication
+    /// 分散通信用バックエンドタイプ
     pub backend: String,
 }
 

@@ -86,7 +86,7 @@ pub use tensor_viz::{TensorVisualizer, TensorPlotConfig, ColorMap};
 pub use graph_viz::{GraphVisualizer, GraphNode, GraphEdge, GraphLayout};
 pub use utils::{save_plot, export_format, PlotFormat};
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchResult; // RusTorchError,
 use num_traits::Float;
 use std::collections::HashMap;
 

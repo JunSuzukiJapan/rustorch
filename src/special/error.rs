@@ -1,7 +1,7 @@
 //! Error functions and related special functions
 //! 誤差関数と関連特殊関数
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchError; // RusTorchResult,
 use num_traits::Float;
 use std::f64::consts::PI;
 

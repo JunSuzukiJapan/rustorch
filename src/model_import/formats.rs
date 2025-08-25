@@ -29,6 +29,8 @@ pub enum ModelFormat {
 /// 名前付きカスタムモデルフォーマット
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CustomFormat {
+    /// Custom format name
+    /// カスタムフォーマット名
     pub name: String,
 }
 
@@ -186,6 +188,8 @@ pub enum DeploymentTarget {
 /// Format compatibility matrix
 /// フォーマット互換性マトリックス
 pub struct FormatCompatibility {
+    /// Compatibility scores between format pairs
+    /// フォーマットペア間の互換性スコア
     compatibility_map: HashMap<(ModelFormat, ModelFormat), f32>,
 }
 
@@ -263,13 +267,27 @@ impl Default for FormatCompatibility {
 /// 異なるデプロイメントシナリオ用の最適化プロファイル
 #[derive(Debug, Clone)]
 pub struct OptimizationProfile {
+    /// Profile name
+    /// プロファイル名
     pub name: String,
+    /// Deployment target
+    /// デプロイメントターゲット
     pub target: DeploymentTarget,
+    /// Compression type
+    /// 圧縮タイプ
     pub compression: CompressionType,
+    /// Maximum model size in bytes
+    /// モデルの最大サイズ（バイト）
     pub max_model_size: Option<usize>,
+    /// Target inference latency in milliseconds
+    /// 目標推論レイテンシ（ミリ秒）
     pub target_latency_ms: Option<f32>,
+    /// Memory limit in megabytes
+    /// メモリ制限（MB）
     pub memory_limit_mb: Option<usize>,
-    pub preserve_accuracy: f32, // Minimum accuracy to preserve (0.0-1.0)
+    /// Minimum accuracy to preserve (0.0-1.0)
+    /// 保持する最小精度（0.0-1.0）
+    pub preserve_accuracy: f32,
 }
 
 impl OptimizationProfile {

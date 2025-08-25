@@ -79,9 +79,9 @@ pub mod core;
 /// テンソルの数学演算（レガシー - opsに置換）
 pub mod operations;
 
-/// Organized tensor operations by category (temporarily disabled during migration)
-/// カテゴリ別に整理されたテンソル操作（移行期間中は一時無効）
-// pub mod ops;
+/// Organized tensor operations by category (new modular system)
+/// カテゴリ別に整理されたテンソル操作（新しいモジュールシステム）
+pub mod ops;
 /// Type-safe tensor operations with compile-time verification
 /// コンパイル時検証付きの型安全テンソル操作
 pub mod type_safe;
