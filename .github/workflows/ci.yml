@@ -63,12 +63,14 @@ jobs:
           sudo xcode-select --install 2>/dev/null || echo "Command Line Tools already installed"
           brew install pkg-config
           brew install openblas
+        shell: bash
           
       - name: Install MPI (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libopenmpi-dev openmpi-bin
+        shell: bash
 
       - name: Run tests
         run: |
@@ -82,6 +84,7 @@ jobs:
             # WindowsではMPI以外の機能でテスト (安定したlinalg使用)
             cargo test --verbose --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
+        shell: bash
 
       - name: Run doctests
         run: |
@@ -95,6 +98,7 @@ jobs:
             # WindowsではMPI以外でdoctest
             cargo test --doc --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
+        shell: bash
 
       - name: Test examples
         run: |
@@ -103,6 +107,7 @@ jobs:
             echo "Testing example: $example_name"
             timeout 30s cargo run --example "$example_name" || echo "Example $example_name completed or timed out"
           done
+        shell: bash
 
   # Code quality checks
   quality:
@@ -127,19 +132,20 @@ jobs:
           cargo install cargo-license --locked
           cargo install cargo-outdated --locked
           cargo install cargo-audit --locked
-          
+        shell: bash
       - name: Check licenses
         run: |
           cargo deny check licenses
           cargo license --json > licenses.json
-          
+        shell: bash
       - name: Audit dependencies
         run: |
           cargo audit --deny warnings
-          
+        shell: bash
       - name: Check for outdated dependencies
         run: |
           cargo outdated || echo "Some dependencies are outdated - this is acceptable"
+        shell: bash
 
   # Benchmark performance
   # Add a new job for license compliance
@@ -157,12 +163,12 @@ jobs:
         run: |
           cargo install cargo-license --locked
           cargo install cargo-deny --locked
-        
+        shell: bash
       - name: Generate license report
         run: |
           cargo license --json > licenses.json
           cat licenses.json
-          
+        shell: bash
       - name: Verify license compatibility
         run: |
           # Create deny.toml if it doesn't exist
@@ -195,7 +201,7 @@ jobs:
           
           # Run cargo-deny check
           cargo deny check
-          
+        shell: bash
   benchmark:
     name: Performance Benchmarks
     runs-on: ubuntu-latest
@@ -244,6 +250,7 @@ jobs:
         run: |
           docker build -t rustorch:test .
           docker run --rm rustorch:test echo "Docker build successful"
+        shell: bash
 
       - name: Build and push Docker image
         if: github.event_name == 'release'
@@ -293,6 +300,7 @@ jobs:
         run: |
           cargo doc --no-deps --all-features
           echo '<meta http-equiv="refresh" content="0; url=rustorch">' > target/doc/index.html
+        shell: bash
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -338,8 +346,10 @@ jobs:
       - name: Copy WASM package to examples
         run: |
           cp -r pkg/ examples/
+        shell: bash
 
       - name: Test WASM in Node.js
         run: |
           cd examples
           npm test
+        shell: bash
