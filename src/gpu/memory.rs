@@ -598,11 +598,11 @@ mod tests {
         let pool = GpuMemoryPool::new(DeviceType::Cpu, 1024 * 1024).unwrap();
         assert_eq!(pool.device(), DeviceType::Cpu);
 
-        let (total, allocated, free, usage) = pool.memory_stats();
-        assert_eq!(total, 1024 * 1024);
-        assert_eq!(allocated, 0);
-        assert_eq!(free, 1024 * 1024);
-        assert_eq!(usage, 0.0);
+        let stats = pool.memory_stats();
+        assert_eq!(stats.total_size, 1024 * 1024);
+        assert_eq!(stats.allocated_size, 0);
+        assert_eq!(stats.free_size, 1024 * 1024);
+        assert_eq!(stats.utilization_ratio, 0.0);
     }
 
     #[test]
@@ -613,9 +613,9 @@ mod tests {
         assert_eq!(allocation.device, DeviceType::Cpu);
         assert_eq!(allocation.size, 1024); // Aligned to 256 bytes
 
-        let (_, allocated, _, usage) = pool.memory_stats();
-        assert_eq!(allocated, 1024);
-        assert!(usage > 0.0);
+        let stats = pool.memory_stats();
+        assert_eq!(stats.allocated_size, 1024);
+        assert!(stats.utilization_ratio > 0.0);
     }
 
     #[test]
@@ -627,9 +627,9 @@ mod tests {
 
         pool.deallocate(ptr).unwrap();
 
-        let (_, allocated, _, usage) = pool.memory_stats();
-        assert_eq!(allocated, 0);
-        assert_eq!(usage, 0.0);
+        let stats = pool.memory_stats();
+        assert_eq!(stats.allocated_size, 0);
+        assert_eq!(stats.utilization_ratio, 0.0);
     }
 
     #[test]
