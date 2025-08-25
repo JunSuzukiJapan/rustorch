@@ -603,12 +603,12 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
         } else if is_sse41_available() && data.len() >= 4 {
             unsafe { sum_squared_diff_f32_sse41(data, mean) }
         } else {
-            data.iter().map(|&x| (x - mean) * (x - mean)).sum()
+            data.iter().map(|&x| (x - mean) * (x - mean)).sum::<f32>()
         }
     };
     
     #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-    let sum_sq_diff = data.iter().map(|&x| (x - mean) * (x - mean)).sum();
+    let sum_sq_diff: f32 = data.iter().map(|&x| (x - mean) * (x - mean)).sum();
 
     sum_sq_diff / (data.len() - 1) as f32
 }

@@ -194,6 +194,10 @@ pub mod formats;
 /// GPU加速サポート（CUDA、Metal、OpenCL）
 #[cfg(not(target_arch = "wasm32"))]
 pub mod gpu;
+/// High-performance linear algebra with BLAS integration
+/// BLAS統合による高性能線形代数
+#[cfg(not(target_arch = "wasm32"))]
+pub mod linalg;
 /// Memory management and pooling utilities
 /// メモリ管理とプーリングユーティリティ
 #[cfg(not(target_arch = "wasm32"))]

@@ -200,7 +200,7 @@ pub trait GpuParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T>
     /// Parallel element-wise operations on GPU
     fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
-        F: Fn(T, T) -> T + Send + Sync;
+        F: Fn(T, T) -> T + Send + Sync + Clone;
 
     /// GPU上での並列行列乗算
     /// Parallel matrix multiplication on GPU
@@ -339,11 +339,11 @@ impl GpuParallelContext {
 /// Implementation of GPU-integrated parallel tensor operations
 impl<T> GpuParallelOp<T> for Tensor<T>
 where
-    T: Float + Send + Sync + Clone + 'static + std::fmt::Debug,
+    T: Float + Send + Sync + Clone + 'static + std::fmt::Debug + num_traits::FromPrimitive + ndarray::ScalarOperand,
 {
     fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
-        F: Fn(T, T) -> T + Send + Sync,
+        F: Fn(T, T) -> T + Send + Sync + Clone,
     {
         // 形状チェック
         if self.shape() != other.shape() {
@@ -359,9 +359,14 @@ where
                 self.batch_elementwise_op(other, op)
             }
             GpuParallelStrategy::GpuPreferred => {
-                // GPU実行（現在はCPU並列にフォールバック）
-                // TODO: 実際のGPUカーネル実行を実装
-                self.batch_elementwise_op(other, op)
+                // 実際のGPU実行を試行
+                match self.try_gpu_elementwise_op(other, op.clone()) {
+                    Ok(result) => Ok(result),
+                    Err(_) => {
+                        // GPU実行失敗時はCPU並列にフォールバック
+                        self.batch_elementwise_op(other, op)
+                    }
+                }
             }
             GpuParallelStrategy::Hybrid => {
                 // ハイブリッド実行（現在はCPU並列にフォールバック）
@@ -372,21 +377,33 @@ where
     }
 
     fn gpu_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::matrix_ops::GpuLinearAlgebra;
+        
         let ctx = GpuParallelContext::default();
         let strategy = ctx.determine_strategy(self.data.len() * other.data.len());
 
         match strategy {
             GpuParallelStrategy::CpuParallel => self.batch_matmul(other),
             GpuParallelStrategy::GpuPreferred => {
-                // GPU行列乗算（現在はCPU並列にフォールバック）
-                // TODO: cuBLAS/Metal Performance Shaders統合
-                self.batch_matmul(other)
+                // GPU行列乗算 - 新しい実装を使用
+                GpuLinearAlgebra::gpu_matmul(self, other).or_else(|_| {
+                    // GPU失敗時はCPUにフォールバック
+                    self.batch_matmul(other)
+                })
             }
             GpuParallelStrategy::Hybrid => {
                 // 大きな行列を分割してCPU+GPU並列実行
-                self.batch_matmul(other)
+                // 現在はGPU実装にフォールバック
+                GpuLinearAlgebra::gpu_matmul(self, other).or_else(|_| {
+                    self.batch_matmul(other)
+                })
             }
-            GpuParallelStrategy::Auto => self.batch_matmul(other),
+            GpuParallelStrategy::Auto => {
+                // 自動選択: まずGPUを試行、失敗時はCPU
+                GpuLinearAlgebra::gpu_matmul(self, other).or_else(|_| {
+                    self.batch_matmul(other)
+                })
+            }
         }
     }
 
@@ -401,12 +418,21 @@ where
         match strategy {
             GpuParallelStrategy::CpuParallel => self.parallel_reduce(dim, init, op),
             GpuParallelStrategy::GpuPreferred => {
-                // GPU リダクション（現在はCPU並列にフォールバック）
-                // TODO: GPU最適化リダクションカーネル
-                self.parallel_reduce(dim, init, op)
+                // GPU リダクション - 新しい実装を使用
+                use crate::gpu::reduction_ops::GpuReduction;
+                GpuReduction::gpu_sum(self, Some(dim)).or_else(|_| {
+                    // GPU失敗時はCPUにフォールバック
+                    self.parallel_reduce(dim, init, op)
+                })
             }
             GpuParallelStrategy::Hybrid => self.parallel_reduce(dim, init, op),
-            GpuParallelStrategy::Auto => self.parallel_reduce(dim, init, op),
+            GpuParallelStrategy::Auto => {
+                // 自動選択: まずGPUを試行、失敗時はCPU
+                use crate::gpu::reduction_ops::GpuReduction;
+                GpuReduction::gpu_sum(self, Some(dim)).or_else(|_| {
+                    self.parallel_reduce(dim, init, op)
+                })
+            }
         }
     }
 
@@ -460,7 +486,7 @@ pub trait GpuBatchParallelOp<T: Float + Send + Sync + Clone + 'static>: GpuParal
 
 impl<T> GpuBatchParallelOp<T> for Tensor<T>
 where
-    T: Float + Send + Sync + Clone + 'static + std::fmt::Debug,
+    T: Float + Send + Sync + Clone + 'static + std::fmt::Debug + num_traits::FromPrimitive + ndarray::ScalarOperand,
 {
     fn gpu_batch_normalize(&self, epsilon: T) -> ParallelResult<Tensor<T>> {
         let ctx = GpuParallelContext::default();
@@ -468,9 +494,11 @@ where
 
         match strategy {
             GpuParallelStrategy::GpuPreferred => {
-                // GPU バッチ正規化（現在はCPU実装にフォールバック）
-                // TODO: GPU最適化バッチ正規化カーネル
-                Ok(self.batch_normalize(epsilon))
+                // GPU バッチ正規化を試行
+                Ok(self.try_gpu_batch_normalize(epsilon).unwrap_or_else(|_| {
+                    // GPU失敗時はCPUにフォールバック
+                    self.batch_normalize(epsilon)
+                }))
             }
             _ => Ok(self.batch_normalize(epsilon)),
         }
@@ -482,26 +510,181 @@ where
         stride: usize,
         padding: usize,
     ) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::conv_ops::GpuConvolution;
+        use crate::backends::ConvolutionParams;
+        
         let ctx = GpuParallelContext::default();
         let strategy = ctx.determine_strategy(self.data.len() * kernel.data.len());
 
+        // Convert stride/padding to ConvolutionParams
+        let params = ConvolutionParams {
+            kernel_size: vec![3, 3], // Default kernel size
+            stride: vec![stride, stride],
+            padding: vec![padding, padding],
+            dilation: vec![1, 1],
+            groups: 1,
+        };
+
         match strategy {
             GpuParallelStrategy::GpuPreferred => {
-                // GPU 畳み込み（現在はCPU実装にフォールバック）
-                // TODO: cuDNN/Metal Performance Shaders統合
-                self.batch_conv2d(kernel, stride, padding)
+                // GPU 畳み込み - 新しい実装を使用
+                GpuConvolution::gpu_batch_conv2d(self, kernel, &params).or_else(|_| {
+                    // GPU失敗時はCPUにフォールバック
+                    self.batch_conv2d(kernel, stride, padding)
+                })
+            }
+            GpuParallelStrategy::Auto => {
+                // 自動選択: まずGPUを試行、失敗時はCPU
+                GpuConvolution::gpu_batch_conv2d(self, kernel, &params).or_else(|_| {
+                    self.batch_conv2d(kernel, stride, padding)
+                })
             }
             _ => self.batch_conv2d(kernel, stride, padding),
         }
     }
 
     fn gpu_batch_attention(&self, key: &Tensor<T>, value: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // アテンション機構の実装
-        // TODO: GPU最適化アテンション実装
-        // 現在は基本的な実装
-        let scores = self.gpu_matmul(key)?;
-        let attention_weights = scores; // TODO: softmax実装
-        attention_weights.gpu_matmul(value)
+        // GPU最適化アテンション実装を試行
+        match self.try_gpu_batch_attention(key, value) {
+            Ok(result) => Ok(result),
+            Err(_) => {
+                // GPU失敗時は基本的なCPU実装にフォールバック
+                let scores = self.gpu_matmul(key)?;
+                let attention_weights = self.apply_softmax(&scores)?; // softmax適用
+                attention_weights.gpu_matmul(value)
+            }
+        }
+    }
+}
+
+// Helper function for GPU element-wise operations
+impl<T> Tensor<T> 
+where
+    T: Float + Send + Sync + Clone + 'static + std::fmt::Debug + num_traits::FromPrimitive + ndarray::ScalarOperand,
+{
+    /// GPU element-wise operation implementation (internal helper)
+    fn try_gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> Result<Tensor<T>, crate::error::RusTorchError>
+    where
+        F: Fn(T, T) -> T + Send + Sync,
+    {
+        use crate::gpu::{DeviceManager, memory_transfer::GpuMemoryManager};
+        let manager = DeviceManager::new();
+        let devices = manager.available_devices();
+        
+        if devices.is_empty() {
+            return Err(crate::error::RusTorchError::gpu("GPU unavailable"));
+        }
+        
+        // GPU memory managerを作成
+        let gpu_manager = GpuMemoryManager::new();
+        
+        // デフォルトデバイス選択
+        let device = devices.first().unwrap();
+        
+        // CPU -> GPU転送
+        let gpu_self = GpuMemoryManager::to_device(self, device)?;
+        let gpu_other = GpuMemoryManager::to_device(other, device)?;
+        
+        // GPU上で element-wise operation を実行
+        let gpu_result = gpu_manager.execute_elementwise(&gpu_self, &gpu_other, op)?;
+        
+        // GPU -> CPU転送  
+        let result = GpuMemoryManager::to_cpu(&gpu_result, self.data.shape())?;
+        
+        Ok(result)
+    }
+    
+    /// GPU batch normalization implementation (internal helper)
+    fn try_gpu_batch_normalize(&self, epsilon: T) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        use crate::gpu::{DeviceManager, memory_transfer::GpuMemoryManager};
+        
+        let manager = DeviceManager::new();
+        let devices = manager.available_devices();
+        
+        if devices.is_empty() {
+            return Err(crate::error::RusTorchError::gpu("GPU unavailable"));
+        }
+        
+        // GPU memory managerを作成
+        let gpu_manager = GpuMemoryManager::new();
+        let device = devices.first().unwrap();
+        
+        // CPU -> GPU転送
+        let gpu_tensor = GpuMemoryManager::to_device(self, device)?;
+        
+        // GPU上でバッチ正規化を実行
+        let gpu_result = gpu_manager.execute_batch_normalize(&gpu_tensor, epsilon)?;
+        
+        // GPU -> CPU転送
+        let result = GpuMemoryManager::to_cpu(&gpu_result, self.data.shape())?;
+        
+        Ok(result)
+    }
+    
+    /// GPU batch attention implementation (internal helper)
+    fn try_gpu_batch_attention(
+        &self, 
+        key: &Tensor<T>, 
+        value: &Tensor<T>
+    ) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        use crate::gpu::{DeviceManager, memory_transfer::GpuMemoryManager};
+        
+        let manager = DeviceManager::new();
+        let devices = manager.available_devices();
+        
+        if devices.is_empty() {
+            return Err(crate::error::RusTorchError::gpu("GPU unavailable"));
+        }
+        
+        // GPU memory managerを作成
+        let gpu_manager = GpuMemoryManager::new();
+        let device = devices.first().unwrap();
+        
+        // CPU -> GPU転送
+        let gpu_query = GpuMemoryManager::to_device(self, device)?;
+        let gpu_key = GpuMemoryManager::to_device(key, device)?;
+        let gpu_value = GpuMemoryManager::to_device(value, device)?;
+        
+        // GPU上でアテンション処理を実行
+        let gpu_result = gpu_manager.execute_attention(&gpu_query, &gpu_key, &gpu_value)?;
+        
+        // GPU -> CPU転送
+        let result = GpuMemoryManager::to_cpu(&gpu_result, self.data.shape())?;
+        
+        Ok(result)
+    }
+    
+    /// Apply softmax function (CPU implementation)
+    fn apply_softmax(&self, tensor: &Tensor<T>) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        let data = tensor.data.as_slice().ok_or_else(|| {
+            crate::error::RusTorchError::tensor_op("Non-contiguous tensor not supported for softmax")
+        })?;
+        
+        // 最大値を計算して数値安定性を確保
+        let max_val = data.iter().fold(T::neg_infinity(), |max, &x| {
+            if x > max { x } else { max }
+        });
+        
+        // exp(x - max)を計算
+        let exp_data: Vec<T> = data.iter()
+            .map(|&x| (x - max_val).exp())
+            .collect();
+        
+        // 合計を計算
+        let sum = exp_data.iter().fold(T::zero(), |acc, &x| acc + x);
+        
+        // 正規化
+        let softmax_data: Vec<T> = exp_data.iter()
+            .map(|&x| x / sum)
+            .collect();
+        
+        // 新しいTensorを作成
+        let array = ndarray::ArrayD::from_shape_vec(
+            ndarray::IxDyn(tensor.shape()),
+            softmax_data,
+        ).map_err(|e| crate::error::RusTorchError::tensor_op(&format!("Shape error: {}", e)))?;
+        
+        Ok(Tensor::from_ndarray(array))
     }
 }
 
@@ -626,22 +809,42 @@ impl<
     > Tensor<T>
 {
     /// GPU sum operation
-    pub fn gpu_sum(&self, _dim: usize) -> ParallelResult<Tensor<T>> {
-        // Fallback to CPU implementation
-        let sum_value = self.sum();
-        let sum_tensor = Tensor::from_vec(vec![sum_value], vec![1]);
-        Ok(sum_tensor)
+    pub fn gpu_sum(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_sum(self, dim)
     }
 
     /// GPU mean operation
-    pub fn gpu_mean(&self, _dim: usize) -> ParallelResult<Tensor<T>>
+    pub fn gpu_mean(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>>
     where
         T: num_traits::FromPrimitive,
     {
-        // Fallback to CPU implementation
-        let mean_value = self.mean();
-        let mean_tensor = Tensor::from_vec(vec![mean_value], vec![1]);
-        Ok(mean_tensor)
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_mean(self, dim)
+    }
+
+    /// GPU max operation
+    pub fn gpu_max(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_max(self, dim)
+    }
+
+    /// GPU min operation
+    pub fn gpu_min(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_min(self, dim)
+    }
+
+    /// GPU standard deviation operation
+    pub fn gpu_std(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_std(self, dim)
+    }
+
+    /// GPU variance operation
+    pub fn gpu_var(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_var(self, dim)
     }
 
     /// GPU batch matrix multiplication

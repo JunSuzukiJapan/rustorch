@@ -84,7 +84,7 @@ js-sys = { version = "0.3", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
 # GPU dependencies
-cudarc = { version = "0.11", optional = true, features = ["cuda-11080"] }
+cudarc = { version = "0.11", optional = true, features = ["f16", "cublas"] }
 metal = { version = "0.27", optional = true }
 objc = { version = "0.2", optional = true }
 # objc_exception は macOS 専用の依存関係として後で追加します
@@ -94,11 +94,13 @@ opencl3 = { version = "0.9", optional = true }
 mpi = { version = "0.6", optional = true }
 nccl = { version = "0.6", optional = true }
 
-# BLAS dependencies - not compatible with WASM
+# BLAS dependencies - High Performance Linear Algebra
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
 cblas-sys = { version = "0.1", optional = true }
 netlib-src = { version = "0.8", optional = true, features = ["system"] }
+blas = { version = "0.22", optional = true }
+lapack = { version = "0.19", optional = true }
 hostname = "0.4"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
@@ -119,9 +121,10 @@ tempfile = "3.8"
 [features]
 # Default features - WASM-compatible
 default = []
-# BLAS-dependent features - not available for WASM
+# BLAS-dependent features - High Performance Linear Algebra
 linalg = ["dep:ndarray-linalg", "dep:openblas-src", "dep:cblas-sys"]
 linalg-netlib = ["dep:ndarray-linalg", "dep:netlib-src"]
+blas-optimized = ["dep:blas", "dep:lapack", "dep:openblas-src", "dep:cblas-sys"]
 # WASM-safe default with core tensor operations
 wasm-safe = []
 cuda = ["dep:cudarc"]
@@ -162,9 +165,6 @@ path = "examples/transformer_demo.rs"
 name = "vision_pipeline_demo"
 path = "examples/vision_pipeline_demo.rs"
 
-[[example]]
-name = "backend_demo"
-path = "examples/backend_demo.rs"
 
 [[example]]
 name = "svd_demo"
@@ -180,6 +180,22 @@ required-features = ["linalg"]
 name = "matrix_decomposition_demo"
 path = "examples/matrix_decomposition_demo.rs"
 required-features = ["linalg"]
+
+[[example]]
+name = "metal_performance_demo"
+required-features = ["metal"]
+
+[[example]]
+name = "cuda_performance_demo"
+required-features = ["cuda"]
+
+[[example]]
+name = "opencl_performance_demo"
+required-features = ["opencl"]
+
+[[example]]
+name = "comprehensive_gpu_benchmark"
+required-features = []  # Runs with any available features
 
 [[bench]]
 name = "quick_benchmark"
@@ -231,5 +247,9 @@ harness = false
 
 [[bench]]
 name = "special_functions_benchmark"
+harness = false
+
+[[bench]]
+name = "simple_gpu_bench"
 harness = false
 

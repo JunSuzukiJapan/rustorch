@@ -195,68 +195,8 @@ impl OpenClKernelExecutor {
             RusTorchError::gpu(format!("Failed to create OpenCL command queue: {:?}", e))
         })?;
 
-        // OpenCL kernel source code
-        let kernel_source = r#"
-        __kernel void elementwise_add_f32(
-            __global const float* a,
-            __global const float* b,
-            __global float* result,
-            const unsigned int n
-        ) {
-            int gid = get_global_id(0);
-            if (gid < n) {
-                result[gid] = a[gid] + b[gid];
-            }
-        }
-        
-        __kernel void matrix_multiply_f32(
-            __global const float* a,
-            __global const float* b,
-            __global float* c,
-            const unsigned int M,
-            const unsigned int N,
-            const unsigned int K
-        ) {
-            int row = get_global_id(1);
-            int col = get_global_id(0);
-            
-            if (row < M && col < N) {
-                float sum = 0.0f;
-                for (int k = 0; k < K; k++) {
-                    sum += a[row * K + k] * b[k * N + col];
-                }
-                c[row * N + col] = sum;
-            }
-        }
-        
-        __kernel void reduce_sum_f32(
-            __global const float* input,
-            __global float* output,
-            __local float* shared_data,
-            const unsigned int n
-        ) {
-            int gid = get_global_id(0);
-            int lid = get_local_id(0);
-            int group_size = get_local_size(0);
-            
-            // Load data into local memory
-            shared_data[lid] = (gid < n) ? input[gid] : 0.0f;
-            barrier(CLK_LOCAL_MEM_FENCE);
-            
-            // Reduction in local memory
-            for (int s = group_size / 2; s > 0; s >>= 1) {
-                if (lid < s) {
-                    shared_data[lid] += shared_data[lid + s];
-                }
-                barrier(CLK_LOCAL_MEM_FENCE);
-            }
-            
-            // Write result for this work group
-            if (lid == 0) {
-                output[get_group_id(0)] = shared_data[0];
-            }
-        }
-        "#;
+        // Load OpenCL kernel source from external file
+        let kernel_source = include_str!("opencl_kernels.cl");
 
         // Create and build program
         let program =

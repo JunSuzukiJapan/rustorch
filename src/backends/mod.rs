@@ -354,11 +354,11 @@ impl BackendFactory {
 // Legacy re-exports temporarily disabled
 // pub use cpu::CpuBackend;
 
-#[cfg(feature = "cuda")]
-pub use cuda::CudaBackend;
+// #[cfg(feature = "cuda")]
+// pub use cuda::CudaBackend; // TODO: Implement CudaBackend
 
-#[cfg(feature = "metal")]
-pub use metal::MetalBackend;
+// #[cfg(feature = "metal")]
+// pub use metal::MetalBackend; // TODO: Implement MetalBackend
 
 // OpenCL backend not yet implemented
 // #[cfg(feature = "opencl")]

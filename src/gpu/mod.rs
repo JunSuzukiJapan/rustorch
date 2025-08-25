@@ -114,6 +114,7 @@
 /// CUDA kernel implementations
 /// CUDAカーネル実装
 pub mod cuda_kernels;
+pub mod cuda_enhanced;
 pub mod custom_kernels;
 /// Device management module for GPU operations
 /// GPU操作のためのデバイス管理モジュール
@@ -131,14 +132,33 @@ pub mod memory;
 /// GPU memory transfer operations
 /// GPUメモリ転送操作
 pub mod memory_transfer;
+/// GPU matrix operations and BLAS integration
+/// GPU行列演算とBLAS統合
+pub mod matrix_ops;
+/// GPU convolution operations and cuDNN/MPS integration
+/// GPU畳み込み演算とcuDNN/MPS統合
+pub mod conv_ops;
+/// GPU reduction operations and optimizations
+/// GPUリダクション演算と最適化
+pub mod reduction_ops;
 pub mod metal_kernels;
 pub mod opencl_kernels;
+pub mod opencl_optimized;
 /// Unified kernel interface for cross-platform GPU acceleration (simplified)
 /// クロスプラットフォームGPU加速のための統一カーネルインターフェース（簡潔版）
 pub mod unified_kernel_simple;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;
+/// Performance benchmark suite for GPU operations
+/// GPU演算用パフォーマンスベンチマークスイート
+pub mod performance_benchmark;
+/// GPU vs CPU verification tests
+/// GPU vs CPU検証テスト
+pub mod verification_tests;
+/// Simple Metal GPU testing and benchmarking
+/// シンプルなMetal GPUテストとベンチマーク
+pub mod simple_metal_test;
 
 use std::fmt;
 // use crate::error::{RusTorchError, RusTorchResult}; // Currently unused

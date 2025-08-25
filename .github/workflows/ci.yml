@@ -129,8 +129,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-        with:
-          toolchain: stable
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -185,35 +183,7 @@ jobs:
         shell: bash
       - name: Verify license compatibility
         run: |
-          # Create deny.toml if it doesn't exist
-          if [[ ! -f deny.toml ]]; then
-            cat > deny.toml << 'EOL'
-          [bans]
-          deny = [
-              { name = "ring" },  # よくある問題のある依存関係の例
-          ]
-          
-          [licenses]
-          unlicensed = "deny"
-          copyleft = "deny"
-          allow = [
-              "MIT",
-              "Apache-2.0",
-              "BSD-3-Clause",
-              "ISC",
-              "Zlib",
-              "Unlicense",
-              "OpenSSL",
-              "0BSD",
-              "MPL-2.0",
-          ]
-          
-          [sources]
-          git = ["https://github.com/rust-lang/crates.io-index"]
-          EOL
-          fi
-          
-          # Run cargo-deny check
+          # リポジトリ内のdeny.tomlを使用してcargo-denyを実行
           cargo deny check
         shell: bash
   benchmark:
@@ -356,7 +326,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-        with:
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack

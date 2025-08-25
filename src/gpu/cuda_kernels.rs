@@ -83,21 +83,21 @@ impl<T> CudaBuffer<T> {
         {
             use cudarc::driver::CudaDevice;
 
-            let device = CudaDevice::new(device_id).map_err(|e| {
-                RusTorchError::InitializationError(format!(
+            let device = CudaDevice::new(_device_id).map_err(|e| {
+                RusTorchError::tensor_op(format!(
                     "Failed to initialize CUDA device {}: {}",
-                    device_id, e
+                    _device_id, e
                 ))
             })?;
 
-            let ptr = device.alloc_zeros::<T>(size).map_err(|e| {
-                RusTorchError::AllocationError(format!("Failed to allocate CUDA memory: {}", e))
+            let ptr = device.alloc_zeros::<T>(_size).map_err(|e| {
+                RusTorchError::tensor_op(format!("Failed to allocate CUDA memory: {}", e))
             })?;
 
             Ok(Self {
                 ptr: ptr.device_ptr() as *mut T,
-                size,
-                device_id,
+                size: _size,
+                device_id: _device_id,
             })
         }
         #[cfg(not(feature = "cuda"))]

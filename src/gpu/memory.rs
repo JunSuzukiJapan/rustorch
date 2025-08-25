@@ -95,25 +95,37 @@ impl GpuMemoryPool {
         })
     }
 
-    /// Allocate memory from the pool
-    /// プールからメモリを割り当て
+    /// Allocate memory from the pool with optimized alignment strategy
+    /// 最適化されたアライメント戦略でプールからメモリを割り当て
     pub fn allocate(&mut self, size: usize) -> RusTorchResult<MemoryAllocation> {
-        // Align size to 256 bytes for GPU efficiency
-        let aligned_size = (size + 255) & !255;
+        // Advanced alignment strategy based on device type
+        let aligned_size = self.get_optimal_alignment(size);
 
-        // Find a suitable free block
+        // Improved best-fit allocation with coalescing prevention
         let mut best_block_idx = None;
-        let mut best_block_size = usize::MAX;
+        let mut best_waste_ratio = f64::INFINITY;
 
         for (idx, &(_offset, block_size)) in self.free_blocks.iter().enumerate() {
-            if block_size >= aligned_size && block_size < best_block_size {
-                best_block_idx = Some(idx);
-                best_block_size = block_size;
+            if block_size >= aligned_size {
+                // Calculate waste ratio to minimize fragmentation
+                let waste_ratio = (block_size - aligned_size) as f64 / block_size as f64;
+                if waste_ratio < best_waste_ratio {
+                    best_block_idx = Some(idx);
+                    best_waste_ratio = waste_ratio;
+                    
+                    // Perfect fit - no need to continue searching
+                    if waste_ratio < 0.1 {
+                        break;
+                    }
+                }
             }
         }
 
         let block_idx = best_block_idx
-            .ok_or_else(|| RusTorchError::tensor_op("No suitable free block found"))?;
+            .ok_or_else(|| RusTorchError::tensor_op(&format!(
+                "No suitable free block found for size {} (aligned: {})", 
+                size, aligned_size
+            )))?;
 
         let (offset, block_size) = self.free_blocks[block_idx];
         self.free_blocks.remove(block_idx);
@@ -160,9 +172,9 @@ impl GpuMemoryPool {
         Ok(())
     }
 
-    /// Get memory usage statistics
-    /// メモリ使用量統計を取得
-    pub fn memory_stats(&self) -> (usize, usize, usize, f32) {
+    /// Get basic memory usage statistics (legacy interface)
+    /// 基本的なメモリ使用量統計を取得（レガシーインターフェース）
+    pub fn basic_memory_stats(&self) -> (usize, usize, usize, f32) {
         let free_size = self.total_size - self.allocated_size;
         let usage_percent = (self.allocated_size as f32 / self.total_size as f32) * 100.0;
         (
@@ -209,6 +221,118 @@ impl GpuMemoryPool {
         merged_blocks.push(current_block);
         self.free_blocks = merged_blocks;
     }
+
+    /// Get optimal alignment for different device types and data sizes
+    /// 異なるデバイス種別とデータサイズに対する最適なアライメントを取得
+    fn get_optimal_alignment(&self, size: usize) -> usize {
+        let alignment = match &self.device {
+            DeviceType::Cpu => {
+                // CPU optimizations: AVX-512 requires 64-byte alignment, AVX2 requires 32-byte
+                if size >= 1024 * 1024 {
+                    // Large allocations: 4KB alignment for page efficiency
+                    Self::align_to(size, 4096)
+                } else if size >= 64 * 1024 {
+                    // Medium allocations: 1KB alignment for cache line efficiency
+                    Self::align_to(size, 1024)
+                } else {
+                    // Small allocations: 64-byte alignment for SIMD operations
+                    Self::align_to(size, 64)
+                }
+            }
+            DeviceType::Cuda(_) => {
+                // CUDA optimizations: warp size (32 threads) and memory coalescing
+                if size >= 1024 * 1024 {
+                    // Large CUDA allocations: 512-byte alignment for optimal memory coalescing
+                    Self::align_to(size, 512)
+                } else if size >= 32 * 1024 {
+                    // Medium CUDA allocations: 256-byte alignment for L2 cache efficiency
+                    Self::align_to(size, 256)
+                } else {
+                    // Small CUDA allocations: 128-byte alignment for warp-level efficiency
+                    Self::align_to(size, 128)
+                }
+            }
+            DeviceType::Metal(_) => {
+                // Metal optimizations: SIMD group size (32) and tile memory
+                if size >= 1024 * 1024 {
+                    // Large Metal allocations: 1KB alignment for tile memory efficiency
+                    Self::align_to(size, 1024)
+                } else if size >= 16 * 1024 {
+                    // Medium Metal allocations: 256-byte alignment for memory bandwidth
+                    Self::align_to(size, 256)
+                } else {
+                    // Small Metal allocations: 128-byte alignment for SIMD groups
+                    Self::align_to(size, 128)
+                }
+            }
+            DeviceType::OpenCL(_) => {
+                // OpenCL optimizations: work group and memory coalescing considerations
+                if size >= 1024 * 1024 {
+                    // Large OpenCL allocations: 512-byte alignment for memory bandwidth
+                    Self::align_to(size, 512)
+                } else {
+                    // Smaller OpenCL allocations: 256-byte alignment for work group efficiency
+                    Self::align_to(size, 256)
+                }
+            }
+        };
+
+        // Ensure minimum alignment for the platform
+        std::cmp::max(alignment, Self::get_minimum_alignment())
+    }
+
+    /// Align size to the specified boundary
+    /// 指定された境界にサイズを揃える
+    fn align_to(size: usize, alignment: usize) -> usize {
+        (size + alignment - 1) & !(alignment - 1)
+    }
+
+    /// Get minimum platform-specific alignment
+    /// プラットフォーム固有の最小アライメントを取得
+    fn get_minimum_alignment() -> usize {
+        // Use 32 bytes as minimum for modern CPUs and GPUs
+        32
+    }
+
+    /// Get current memory utilization statistics
+    /// 現在のメモリ使用統計を取得
+    pub fn memory_stats(&self) -> MemoryStats {
+        let fragmentation_ratio = if self.total_size > 0 {
+            (self.free_blocks.len() as f64) / (self.total_size as f64 / 1024.0)
+        } else {
+            0.0
+        };
+
+        MemoryStats {
+            total_size: self.total_size,
+            allocated_size: self.allocated_size,
+            free_size: self.total_size - self.allocated_size,
+            utilization_ratio: self.allocated_size as f64 / self.total_size as f64,
+            fragmentation_ratio,
+            num_allocations: self.allocations.len(),
+            num_free_blocks: self.free_blocks.len(),
+        }
+    }
+}
+
+/// Memory utilization statistics
+/// メモリ使用統計
+#[derive(Debug, Clone)]
+pub struct MemoryStats {
+    /// Total pool size in bytes
+    pub total_size: usize,
+    /// Currently allocated size in bytes
+    pub allocated_size: usize,
+    /// Free memory size in bytes
+    pub free_size: usize,
+    /// Utilization ratio (0.0 to 1.0)
+    pub utilization_ratio: f64,
+    /// Fragmentation ratio (lower is better)
+    pub fragmentation_ratio: f64,
+    /// Number of active allocations
+    pub num_allocations: usize,
+    /// Number of free blocks
+    pub num_free_blocks: usize,
 }
 
 impl Drop for GpuMemoryPool {
@@ -298,9 +422,21 @@ impl GpuMemoryManager {
         }
     }
 
-    /// Get memory statistics for all devices
-    /// 全デバイスのメモリ統計を取得
-    pub fn memory_stats(&self) -> HashMap<DeviceType, (usize, usize, usize, f32)> {
+    /// Get memory statistics for all devices (legacy format)
+    /// 全デバイスのメモリ統計を取得（レガシー形式）
+    pub fn basic_memory_stats(&self) -> HashMap<DeviceType, (usize, usize, usize, f32)> {
+        let mut stats = HashMap::new();
+        for (device, pool) in &self.pools {
+            if let Ok(pool_guard) = pool.lock() {
+                stats.insert(*device, pool_guard.basic_memory_stats());
+            }
+        }
+        stats
+    }
+
+    /// Get detailed memory statistics for all devices
+    /// 全デバイスの詳細メモリ統計を取得
+    pub fn memory_stats(&self) -> HashMap<DeviceType, MemoryStats> {
         let mut stats = HashMap::new();
         for (device, pool) in &self.pools {
             if let Ok(pool_guard) = pool.lock() {
