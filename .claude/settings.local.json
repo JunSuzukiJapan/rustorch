@@ -110,7 +110,8 @@
       "Bash(gtimeout:*)",
       "Bash(if rustc --crate-type lib --edition 2021 -L /Users/suzukijun/Program/Rust/rustorch/target/debug/deps --extern rustorch=/Users/suzukijun/Program/Rust/rustorch/target/debug/deps/librustorch.rlib /Users/suzukijun/Program/Rust/rustorch/src/convert/$file)",
       "Bash(else)",
-      "Bash(timeout 60s cargo check --lib)"
+      "Bash(timeout 60s cargo check --lib)",
+      "Bash(./target/release/deps/manual_quick_bench-*)"
     ],
     "deny": [],
     "ask": [],

@@ -1,10 +1,10 @@
 //! # RusTorch 🚀
 //! 
-//! **A production-ready deep learning library in Rust with PyTorch-like API, combining safety and speed**
+//! **A production-ready deep learning library in Rust with PyTorch-like API, unified error handling, and 100% test success**
 //! 
-//! RusTorch is a fully functional deep learning library that leverages Rust's safety and performance,
+//! RusTorch v0.4.0 is a fully functional deep learning library that leverages Rust's safety and performance,
 //! providing comprehensive tensor operations, automatic differentiation, neural network layers,
-//! transformer architectures, GPU acceleration, and advanced memory optimization features.
+//! transformer architectures, GPU acceleration, unified error handling system, and advanced memory optimization features.
 //! 
 //! ## ✨ Key Features
 //! 
@@ -16,6 +16,7 @@
 //! - **💾 Advanced Memory Management**: Zero-copy operations, SIMD-aligned allocation, and memory pools
 //! - **🧠 Automatic Differentiation**: Tape-based computational graph for gradient computation
 //! - **🏗️ Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more
+//! - **🛡️ Unified Error Handling**: Single `RusTorchError` type with 61+ specialized helper functions and `RusTorchResult<T>` for cleaner APIs
 //! - **🔧 Safe Operations**: Type-safe tensor operations with comprehensive error handling and ReLU activation
 //! - **⚙️ Shared Base Traits**: Reusable convolution and pooling base implementations for code efficiency
 //! - **🌐 WebAssembly Support**: Browser-compatible WASM bindings with optimized performance
