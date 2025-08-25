@@ -87,6 +87,7 @@ pub fn matmul_f32_simd(
 
 /// AVX2-optimized element-wise addition for f32 arrays
 /// f32配列の要素ごと加算のSIMD最適化
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
     assert_eq!(a.len(), b.len());
@@ -111,6 +112,7 @@ pub unsafe fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
 
 /// SIMD-optimized element-wise multiplication for f32 arrays
 /// f32配列の要素ごと乗算のSIMD最適化
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
     assert_eq!(a.len(), b.len());
@@ -133,6 +135,7 @@ pub unsafe fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
 
 /// SIMD-optimized scalar multiplication for f32 arrays
 /// f32配列のスカラー乗算のSIMD最適化
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn mul_scalar_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
     assert_eq!(a.len(), result.len());
@@ -176,6 +179,7 @@ pub unsafe fn add_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
 
 /// AVX2-optimized matrix multiplication
 /// AVX2最適化行列乗算
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 unsafe fn matmul_f32_avx2(
     a: &[f32],
@@ -219,6 +223,7 @@ unsafe fn matmul_f32_avx2(
 
 /// SSE4.1-optimized matrix multiplication
 /// SSE4.1最適化行列乗算
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 unsafe fn matmul_f32_sse41(
     a: &[f32],
@@ -308,6 +313,7 @@ pub unsafe fn mul_f32_sse41(a: &[f32], b: &[f32], result: &mut [f32]) {
 
 /// AVX2-optimized scalar multiplication for f32
 /// f32用AVX2最適化スカラー乗算
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
     assert_eq!(a.len(), result.len());
@@ -331,6 +337,7 @@ pub unsafe fn scalar_mul_f32_avx2(a: &[f32], scalar: f32, result: &mut [f32]) {
 
 /// AVX2-optimized dot product for f32
 /// f32用AVX2最適化内積
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
@@ -367,6 +374,7 @@ pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
 
 /// SSE4.1-optimized dot product for f32
 /// f32用SSE4.1最適化内積
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 pub unsafe fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
     assert_eq!(a.len(), b.len());
@@ -416,6 +424,7 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
 
 /// AVX2-optimized sum for f32
 /// f32用AVX2最適化合計
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
     let len = data.len();
@@ -449,6 +458,7 @@ unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
 
 /// SSE4.1-optimized sum for f32
 /// f32用SSE4.1最適化合計
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
     let len = data.len();
@@ -508,6 +518,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
 
 /// AVX2-optimized sum of squared differences
 /// AVX2最適化二乗差の合計
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
 unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
@@ -543,6 +554,7 @@ unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
 
 /// SSE4.1-optimized sum of squared differences
 /// SSE4.1最適化二乗差の合計
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
 unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
