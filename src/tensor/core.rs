@@ -47,6 +47,7 @@ impl<T: Float + 'static> Tensor<T> {
     
     /// Convert tensor to different device (mock implementation)
     /// テンソルを別のデバイスに変換（モック実装）
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn to_device(&self, _device: std::sync::Arc<dyn crate::gpu::device::GpuDevice>) -> Self {
         self.clone()
     }

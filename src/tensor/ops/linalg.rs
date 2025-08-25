@@ -180,6 +180,7 @@ where
 {
     /// Singular Value Decomposition
     /// 特異値分解
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     pub fn svd(&self, some: bool) -> Result<(Self, Self, Self), String> {
         use ndarray_linalg::SVD;
         
@@ -213,6 +214,7 @@ where
 
     /// QR Decomposition
     /// QR分解
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     pub fn qr(&self) -> Result<(Self, Self), String> {
         use ndarray_linalg::QR;
         
@@ -250,6 +252,7 @@ where
 
     /// Eigenvalue decomposition
     /// 固有値分解
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     pub fn eig(&self, eigenvectors: bool) -> Result<(Self, Option<Self>), String> {
         use ndarray_linalg::Eig;
         
@@ -285,6 +288,7 @@ where
 
     /// Symmetric eigenvalue decomposition
     /// 対称固有値分解
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     pub fn symeig(&self, eigenvectors: bool, _upper: bool) -> Result<(Self, Option<Self>), String> {
         use ndarray_linalg::Eigh;
         

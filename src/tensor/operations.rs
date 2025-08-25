@@ -513,7 +513,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         // Implementation using power iteration method for educational purposes
         // In production, use LAPACK bindings for optimal performance
         
-        #[cfg(feature = "linalg")]
+        #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
             self.svd_with_linalg(m, n, min_mn, some)
         }
@@ -595,7 +595,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// SVD implementation with ndarray-linalg (more accurate)
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn svd_with_linalg(&self, m: usize, n: usize, min_mn: usize, some: bool) -> Result<(Self, Self, Self), String> {
         use ndarray_linalg::SVD;
         
@@ -669,7 +669,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         let n = shape[0];
         
-        #[cfg(feature = "linalg")]
+        #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
             self.eig_with_linalg(n, eigenvectors)
         }
@@ -698,7 +698,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         let n = shape[0];
         
-        #[cfg(feature = "linalg")]
+        #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
             self.symeig_with_linalg(n, eigenvectors, upper)
         }
@@ -779,7 +779,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// Eigenvalue decomposition using ndarray-linalg
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn eig_with_linalg(&self, n: usize, eigenvectors: bool) -> Result<(Self, Option<Self>), String> {
         use ndarray_linalg::Eig;
         
@@ -826,7 +826,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// Symmetric eigenvalue decomposition using ndarray-linalg
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn symeig_with_linalg(&self, n: usize, eigenvectors: bool, upper: bool) -> Result<(Self, Option<Self>), String> {
         use ndarray_linalg::Eigh;
         use ndarray_linalg::UPLO;
@@ -883,7 +883,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let n = shape[1]; // cols
         let min_mn = m.min(n);
         
-        #[cfg(feature = "linalg")]
+        #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
             self.qr_with_linalg(m, n, min_mn)
         }
@@ -911,7 +911,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let n = shape[1]; // cols
         let min_mn = m.min(n);
         
-        #[cfg(feature = "linalg")]
+        #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
             self.lu_with_linalg(m, n, min_mn)
         }
@@ -1069,7 +1069,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// QR decomposition using ndarray-linalg
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn qr_with_linalg(&self, _m: usize, _n: usize, _min_mn: usize) -> Result<(Self, Self), String> {
         use ndarray_linalg::QR;
         
@@ -1096,7 +1096,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
     
     /// LU decomposition using ndarray-linalg
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn lu_with_linalg(&self, m: usize, n: usize, min_mn: usize) -> Result<(Self, Self, Self), String> {
         // ndarray-linalg doesn't provide LU decomposition directly
         // Fall back to basic implementation
@@ -1729,8 +1729,8 @@ mod tests {
     use approx::assert_abs_diff_eq;
 
     #[test]
-    #[cfg(feature = "linalg")]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_square_matrix() {
         // Test SVD on a simple 2x2 matrix
         let matrix = Tensor::from_vec(
@@ -1759,7 +1759,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_rectangular_matrix() {
         // Test SVD on a 3x2 rectangular matrix
         let matrix = Tensor::from_vec(
@@ -1788,7 +1788,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_orthogonality() {
         // Test that U and V are approximately orthogonal matrices
         // Note: Basic SVD implementation may not provide perfect orthogonality
@@ -1820,7 +1820,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_rank_deficient() {
         // Test SVD on a rank-deficient matrix (rank 1)
         let matrix = Tensor::from_vec(
@@ -1842,7 +1842,7 @@ mod tests {
     }
 
     #[test] 
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_identity_matrix() {
         // Test SVD on identity matrix
         let matrix = Tensor::from_vec(
@@ -1862,7 +1862,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_zero_matrix() {
         // Test SVD on zero matrix
         let matrix = Tensor::from_vec(
@@ -1882,7 +1882,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_some_false() {
         // Test SVD with some=false (reduced SVD)
         let matrix = Tensor::from_vec(
@@ -1903,7 +1903,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_tall_thin_matrix() {
         // Test SVD on a tall, thin matrix (4x2)
         let matrix = Tensor::from_vec(
@@ -1929,7 +1929,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_svd_wide_matrix() {
         // Test SVD on a wide matrix (2x4)  
         let matrix = Tensor::from_vec(
@@ -1955,7 +1955,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_eig_general_matrix() {
         // Test general eigenvalue decomposition
         let matrix = Tensor::from_vec(
@@ -1980,7 +1980,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_eig_with_eigenvectors() {
         // Test general eigenvalue decomposition with eigenvectors
         let matrix = Tensor::from_vec(
@@ -2072,7 +2072,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_eig_error_cases() {
         // Test with non-square matrix
         let matrix = Tensor::from_vec(
@@ -2147,7 +2147,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_qr_decomposition() {
         // Test QR decomposition on a simple matrix
         let matrix = Tensor::from_vec(
@@ -2181,7 +2181,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_qr_rectangular_matrix() {
         // Test QR decomposition on rectangular matrix
         let matrix = Tensor::from_vec(
@@ -2208,7 +2208,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_lu_decomposition() {
         // Test LU decomposition on a simple matrix
         let matrix = Tensor::from_vec(
@@ -2247,7 +2247,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_lu_rectangular_matrix() {
         // Test LU decomposition on rectangular matrix
         let matrix = Tensor::from_vec(
@@ -2276,7 +2276,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_qr_identity_matrix() {
         // Test QR decomposition on identity matrix
         let identity = Tensor::from_vec(
@@ -2307,7 +2307,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_lu_identity_matrix() {
         // Test LU decomposition on identity matrix
         let identity = Tensor::from_vec(
@@ -2345,7 +2345,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_qr_error_cases() {
         // Test with 1D tensor
         let vector = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);
@@ -2354,7 +2354,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "linalg")]
+    #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
     fn test_lu_error_cases() {
         // Test with 1D tensor
         let vector = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);

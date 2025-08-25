@@ -307,6 +307,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b94f61472cee1439c0b966b47e3aca9ae07e45d070759512cd390ea2bebc6675"
 
 [[package]]
+name = "cmake"
+version = "0.1.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "console_error_panic_hook"
 version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1114,6 +1123,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "netlib-src"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39f41f36bb4d46906d5a72da5b73a804d9de1a7282eb7c89617201acda7b8212"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1713,6 +1731,7 @@ dependencies = [
  "base64 0.21.7",
  "bytemuck",
  "bytes",
+ "cblas-sys",
  "chrono",
  "console_error_panic_hook",
  "crc32fast",
@@ -1731,6 +1750,7 @@ dependencies = [
  "ndarray",
  "ndarray-linalg",
  "ndarray-rand",
+ "netlib-src",
  "num-complex",
  "num-traits",
  "num_cpus",

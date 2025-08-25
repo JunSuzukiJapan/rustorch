@@ -49,10 +49,14 @@ impl SummaryWriter {
             .unwrap()
             .as_secs();
         
+        #[cfg(not(target_arch = "wasm32"))]
         let hostname = hostname::get()
             .unwrap_or_else(|_| std::ffi::OsString::from("unknown"))
             .to_string_lossy()
             .to_string();
+        
+        #[cfg(target_arch = "wasm32")]
+        let hostname = "wasm-browser".to_string();
         
         let filename = format!(
             "events.out.tfevents.{}.{}",

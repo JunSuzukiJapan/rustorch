@@ -346,19 +346,19 @@ impl ComputeBackend for CpuBackend {
         info.insert("device_name".to_string(), Box::new("CPU".to_string()) as Box<dyn Any + Send + Sync>);
         
         // Get SIMD capabilities
-        let simd_features = if cfg!(target_arch = "x86_64") {
-            if std::arch::is_x86_feature_detected!("avx2") {
-                "AVX2"
-            } else if std::arch::is_x86_feature_detected!("avx") {
-                "AVX"
-            } else if std::arch::is_x86_feature_detected!("sse4.1") {
-                "SSE4.1"
+        #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+        let simd_features = if std::arch::is_x86_feature_detected!("avx2") {
+            "AVX2"
+        } else if std::arch::is_x86_feature_detected!("avx") {
+            "AVX"
+        } else if std::arch::is_x86_feature_detected!("sse4.1") {
+            "SSE4.1"
             } else {
                 "None"
-            }
-        } else {
-            "Unknown"
-        };
+            };
+        
+        #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+        let simd_features = "WASM";
         
         info.insert("simd_features".to_string(), Box::new(simd_features.to_string()) as Box<dyn Any + Send + Sync>);
         info.insert("cores".to_string(), Box::new(num_cpus::get()) as Box<dyn Any + Send + Sync>);
