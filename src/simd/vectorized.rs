@@ -1,4 +1,6 @@
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(target_arch = "x86")]
+use std::arch::x86::*;
+#[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
 
 /// Check if AVX2 is available on the current CPU
@@ -313,7 +315,7 @@ pub unsafe fn dot_product_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
     
-    let mut result = _mm_cvtss_f32(sum32);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
     
     // Handle remaining elements
     for i in (chunks * 8)..len {
@@ -346,7 +348,7 @@ pub unsafe fn dot_product_f32_sse41(a: &[f32], b: &[f32]) -> f32 {
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
     
-    let mut result = _mm_cvtss_f32(sum_final);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
     
     // Handle remaining elements
     for i in (chunks * 4)..len {
@@ -395,7 +397,7 @@ unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
     
-    let mut result = _mm_cvtss_f32(sum32);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
     
     // Handle remaining elements
     for i in (chunks * 8)..len {
@@ -425,7 +427,7 @@ unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
     
-    let mut result = _mm_cvtss_f32(sum_final);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
     
     // Handle remaining elements
     for i in (chunks * 4)..len {
@@ -488,7 +490,7 @@ unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
     let sum64 = _mm_add_ps(sum128, _mm_movehl_ps(sum128, sum128));
     let sum32 = _mm_add_ss(sum64, _mm_shuffle_ps(sum64, sum64, 1));
     
-    let mut result = _mm_cvtss_f32(sum32);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum32)[0];
     
     // Handle remaining elements
     for i in (chunks * 8)..len {
@@ -520,7 +522,7 @@ unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
     let sum_low = _mm_add_ps(sum, sum_high);
     let sum_final = _mm_add_ss(sum_low, _mm_shuffle_ps(sum_low, sum_low, 1));
     
-    let mut result = _mm_cvtss_f32(sum_final);
+    let mut result: f32 = std::mem::transmute::<__m128, [f32; 4]>(sum_final)[0];
     
     // Handle remaining elements
     for i in (chunks * 4)..len {
