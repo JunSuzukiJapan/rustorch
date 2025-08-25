@@ -45,18 +45,54 @@ jobs:
           name: security-audit
           path: audit-report.json
 
-  dependency-review:
-    name: Dependency Review
+  # dependency-review:
+  #   name: Dependency Review
+  #   runs-on: macos-latest
+  #   if: github.event_name == 'pull_request'
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+
+  #     - name: Dependency Review
+  #       uses: actions/dependency-review-action@v3
+  #       with:
+  #         fail-on-severity: moderate
+  
+  # Alternative dependency checking using cargo-audit and cargo-deny
+  enhanced-dependency-check:
+    name: Enhanced Dependency Security Check
     runs-on: macos-latest
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v3
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install security tools
+        run: |
+          cargo install cargo-audit --locked
+          cargo install cargo-deny --locked
+          cargo install cargo-outdated --locked
+
+      - name: Run comprehensive dependency audit
+        run: |
+          echo "=== Running cargo audit ==="
+          cargo audit --json > pr-audit-report.json
+          cargo audit
+          
+          echo "=== Running cargo deny ==="
+          cargo deny check
+          
+          echo "=== Checking for outdated dependencies ==="
+          cargo outdated || echo "Some dependencies are outdated - this is acceptable"
+          
+      - name: Upload PR audit results
+        uses: actions/upload-artifact@v4
         with:
-          fail-on-severity: moderate
+          name: pr-security-audit
+          path: pr-audit-report.json
 
   codeql:
     name: CodeQL Analysis
