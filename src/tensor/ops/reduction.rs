@@ -108,17 +108,26 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         for i in 0..stride_before {
             for k in 0..stride_after {
-                let mut max_val = T::neg_infinity();
+                let mut max_val: Option<T> = None;
                 for j in 0..axis_size {
                     let idx = i * (axis_size * stride_after) + j * stride_after + k;
                     if let Some(slice) = self.as_slice() {
                         if idx < slice.len() {
-                            max_val = max_val.max(slice[idx]);
+                            match max_val {
+                                None => max_val = Some(slice[idx]),
+                                Some(current) => {
+                                    if slice[idx] > current {
+                                        max_val = Some(slice[idx]);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-                result_data.push(max_val);
-            }
+                    result_data.push(val);
+                } else {
+                    result_data.push(T::zero()); // Default value if no data found
+                }
         }
         
         Ok(Tensor::from_vec(result_data, new_shape))

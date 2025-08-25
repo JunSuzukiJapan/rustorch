@@ -233,12 +233,13 @@ impl CpuBackend {
                 Tensor::from_vec(vec![mean_value], vec![1])
             }
             ReduceOp::Max => {
-                let max_value =
-                    input
-                        .as_slice()
-                        .unwrap()
-                        .iter()
-                        .fold(T::neg_infinity(), |acc, &x| if x > acc { x } else { acc });
+                let max_value = input
+                    .as_slice()
+                    .unwrap()
+                    .iter()
+                    .copied()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(T::zero());
                 Tensor::from_vec(vec![max_value], vec![1])
             }
             ReduceOp::Min => {
@@ -246,7 +247,9 @@ impl CpuBackend {
                     .as_slice()
                     .unwrap()
                     .iter()
-                    .fold(T::infinity(), |acc, &x| if x < acc { x } else { acc });
+                    .copied()
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(T::zero());
                 Tensor::from_vec(vec![min_value], vec![1])
             }
             ReduceOp::Product => {

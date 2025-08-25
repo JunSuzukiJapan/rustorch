@@ -178,7 +178,11 @@ fn apply_softmax<T: Float + 'static>(tensor: &Tensor<T>) -> Tensor<T> {
     let data = tensor.as_array();
 
     // For numerical stability, subtract the maximum value
-    let max_val = data.iter().fold(T::neg_infinity(), |a, &b| a.max(b));
+    let max_val = data
+        .iter()
+        .copied()
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .unwrap_or(T::zero());
 
     // Compute exp(x - max) for each element
     let exp_values: Vec<T> = data.iter().map(|&x| (x - max_val).exp()).collect();

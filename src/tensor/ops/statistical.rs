@@ -139,7 +139,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         self.data
             .iter()
             .copied()
-            .fold(T::infinity(), |acc, x| if x < acc { x } else { acc })
+            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(T::zero())
     }
 
     /// Maximum value
@@ -148,7 +149,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         self.data
             .iter()
             .copied()
-            .fold(T::neg_infinity(), |acc, x| if x > acc { x } else { acc })
+            .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .unwrap_or(T::zero())
     }
 
     /// Argmin - index of minimum value (flattened)
