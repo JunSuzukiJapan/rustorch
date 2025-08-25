@@ -36,7 +36,7 @@ fn bench_optimized_matmul(c: &mut Criterion) {
 fn bench_inplace_operations(c: &mut Criterion) {
     c.bench_function("inplace_add_vs_regular", |bencher| {
         bencher.iter(|| {
-            let mut a = Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
+            let a = Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
             let b = Tensor::from_vec((0..10000).map(|i| (i + 1) as f32).collect(), vec![100, 100]);
 
             let _result = &a + &b;
@@ -55,7 +55,7 @@ fn bench_inplace_operations(c: &mut Criterion) {
 
     c.bench_function("inplace_mul_scalar", |bencher| {
         bencher.iter(|| {
-            let mut tensor =
+            let tensor =
                 Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
             let _result = tensor.mul_scalar(2.0);
             black_box(tensor)
@@ -96,7 +96,7 @@ fn bench_batch_operations(c: &mut Criterion) {
 fn bench_memory_efficiency(c: &mut Criterion) {
     c.bench_function("memory_efficient_chain", |bencher| {
         bencher.iter(|| {
-            let mut result = Tensor::from_vec(
+            let result = Tensor::from_vec(
                 (0..10000).map(|i| i as f32 * 0.01).collect(),
                 vec![100, 100],
             );

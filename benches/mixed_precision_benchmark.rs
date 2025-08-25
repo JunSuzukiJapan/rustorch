@@ -131,7 +131,7 @@ fn bench_amp_optimizer(c: &mut Criterion) {
         Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]),
     ];
 
-    let mut grads = vec![
+    let grads = vec![
         Tensor::from_vec(vec![0.1, 0.2, 0.3, 0.4], vec![2, 2]),
         Tensor::from_vec(vec![0.5, 0.6, 0.7, 0.8], vec![2, 2]),
     ];

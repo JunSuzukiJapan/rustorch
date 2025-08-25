@@ -253,7 +253,7 @@ fn bench_batch_distributions(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("batch_normal_sampling", batch_size),
             batch_size,
-            |b, &batch_size| {
+            |b, &_batch_size| {
                 b.iter(|| {
                     let samples = batch_normal.sample(Some(&[100])).unwrap();
                     black_box(samples)
@@ -271,7 +271,7 @@ fn bench_batch_distributions(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("batch_bernoulli_sampling", batch_size),
             batch_size,
-            |b, &batch_size| {
+            |b, &_batch_size| {
                 b.iter(|| {
                     let samples = batch_bernoulli.sample(Some(&[100])).unwrap();
                     black_box(samples)
