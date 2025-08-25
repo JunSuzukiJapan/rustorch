@@ -44,7 +44,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ matrix.rust }}
+          toolchain: ${{ github.event.inputs.toolchain || matrix.rust }}
           components: rustfmt, clippy
 
       - name: Cache dependencies
