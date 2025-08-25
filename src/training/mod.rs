@@ -12,11 +12,11 @@
 //! - [`EarlyStopping`]: 早期停止の実装
 //! - [`Checkpoint`]: モデルの保存と復元
 
-pub mod trainer;
-pub mod state;
-pub mod metrics;
 pub mod callbacks;
 pub mod checkpoint;
+pub mod metrics;
+pub mod state;
+pub mod trainer;
 
 // #[cfg(test)]
 // pub mod tests;  // 一時的にコメントアウト - SGDインポート問題のため
@@ -24,8 +24,8 @@ pub mod checkpoint;
 #[cfg(test)]
 pub mod simple_tests;
 
-pub use trainer::{Trainer, TrainerConfig, TrainerBuilder, TrainableModel};
-pub use state::{TrainingState, EpochState, BatchState};
-pub use metrics::{MetricsCollector, TrainingMetrics};
 pub use callbacks::{Callback, EarlyStopping, LearningRateScheduler, ProgressBar};
 pub use checkpoint::{CheckpointManager, SaveConfig};
+pub use metrics::{MetricsCollector, TrainingMetrics};
+pub use state::{BatchState, EpochState, TrainingState};
+pub use trainer::{TrainableModel, Trainer, TrainerBuilder, TrainerConfig};

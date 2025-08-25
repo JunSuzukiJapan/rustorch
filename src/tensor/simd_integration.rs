@@ -19,7 +19,7 @@ mod tests {
     fn test_simd_suitability() {
         let small = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
         let large = Tensor::<f32>::from_vec(vec![1.0; 100], vec![100]);
-        
+
         assert!(!small.check_simd_suitability());
         assert!(large.check_simd_suitability());
     }

@@ -27,7 +27,9 @@ pub struct GraphNode<T: Float + Send + Sync + 'static> {
     pub requires_grad: bool,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GraphNode<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    GraphNode<T>
+{
     /// Create a new leaf node (no function, no inputs)
     /// 新しい葉ノードを作成（関数なし、入力なし）
     pub fn new_leaf(requires_grad: bool) -> Arc<Self> {
@@ -39,7 +41,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             requires_grad,
         })
     }
-    
+
     /// Create a new function node
     /// 新しい関数ノードを作成
     pub fn new_function(
@@ -56,7 +58,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             requires_grad,
         })
     }
-    
+
     /// Accumulate gradient for this node
     /// このノードの勾配を蓄積
     pub fn accumulate_grad(&mut self, grad: Tensor<T>) {
@@ -69,7 +71,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             }
         }
     }
-    
+
     /// Clear gradient for this node
     /// このノードの勾配をクリア
     pub fn zero_grad(&mut self) {
@@ -89,7 +91,9 @@ pub struct ComputationGraph<T: Float + Send + Sync + 'static> {
     next_id: usize,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ComputationGraph<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    ComputationGraph<T>
+{
     /// Create a new computation graph
     /// 新しい計算グラフを作成
     pub fn new() -> Self {
@@ -98,7 +102,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             next_id: 0,
         }
     }
-    
+
     /// Add a leaf node to the graph
     /// 葉ノードをグラフに追加
     pub fn add_leaf(&mut self, requires_grad: bool) -> usize {
@@ -108,7 +112,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         self.nodes.insert(id, node);
         id
     }
-    
+
     /// Add a function node to the graph
     /// 関数ノードをグラフに追加
     pub fn add_function(
@@ -120,31 +124,29 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     ) -> usize {
         let id = self.next_id;
         self.next_id += 1;
-        
+
         let input_nodes: Vec<Weak<GraphNode<T>>> = input_ids
             .iter()
-            .filter_map(|&input_id| {
-                self.nodes.get(&input_id).map(|node| Arc::downgrade(node))
-            })
+            .filter_map(|&input_id| self.nodes.get(&input_id).map(|node| Arc::downgrade(node)))
             .collect();
-        
+
         let node = GraphNode::new_function(function, input_nodes, input_tensors, requires_grad);
         self.nodes.insert(id, node);
         id
     }
-    
+
     /// Get a node by ID
     /// IDによってノードを取得
     pub fn get_node(&self, id: usize) -> Option<&Arc<GraphNode<T>>> {
         self.nodes.get(&id)
     }
-    
+
     /// Get a mutable node by ID
     /// IDによって可変ノードを取得
     pub fn get_node_mut(&mut self, id: usize) -> Option<&mut Arc<GraphNode<T>>> {
         self.nodes.get_mut(&id)
     }
-    
+
     /// Perform backward pass from the given node
     /// 指定されたノードから逆伝播を実行
     pub fn backward(&mut self, root_id: usize, grad_output: Option<Tensor<T>>) {
@@ -152,26 +154,27 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         if let Some(_root_node_arc) = self.nodes.get(&root_id) {
             // We need to work with the node safely
             let initial_grad = grad_output.unwrap_or_else(|| Tensor::ones(&[]));
-            
+
             // Use topological sort to traverse the graph in reverse order
             let mut visited = std::collections::HashSet::new();
             let mut stack = Vec::new();
             self.topological_sort(root_id, &mut visited, &mut stack);
-            
+
             // Initialize root gradient
             if let Some(root_node_arc) = self.nodes.get_mut(&root_id) {
                 if let Some(root_node) = Arc::get_mut(root_node_arc) {
                     root_node.accumulate_grad(initial_grad);
                 }
             }
-            
+
             // Process nodes in reverse topological order
             for &node_id in stack.iter().rev() {
                 if let Some(node_arc) = self.nodes.get(&node_id).cloned() {
                     if let Some(function) = &node_arc.function {
                         if let Some(grad) = &node_arc.grad {
-                            let grad_inputs = function.backward(grad, &node_arc.input_tensors.iter().collect::<Vec<_>>());
-                            
+                            let grad_inputs = function
+                                .backward(grad, &node_arc.input_tensors.iter().collect::<Vec<_>>());
+
                             // Propagate gradients to input nodes
                             for (i, input_weak) in node_arc.inputs.iter().enumerate() {
                                 if let Some(input_arc) = input_weak.upgrade() {
@@ -179,10 +182,16 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                                         // Find the input node ID
                                         for (&input_id, input_node_arc) in &self.nodes {
                                             if Arc::ptr_eq(input_node_arc, &input_arc) {
-                                                if let Some(input_node_arc_mut) = self.nodes.get_mut(&input_id) {
-                                                    if let Some(input_node) = Arc::get_mut(input_node_arc_mut) {
+                                                if let Some(input_node_arc_mut) =
+                                                    self.nodes.get_mut(&input_id)
+                                                {
+                                                    if let Some(input_node) =
+                                                        Arc::get_mut(input_node_arc_mut)
+                                                    {
                                                         if input_node.requires_grad {
-                                                            input_node.accumulate_grad(grad_input.clone());
+                                                            input_node.accumulate_grad(
+                                                                grad_input.clone(),
+                                                            );
                                                         }
                                                     }
                                                 }
@@ -198,16 +207,21 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             }
         }
     }
-    
+
     /// Perform topological sort of the computation graph
     /// 計算グラフのトポロジカルソート
-    fn topological_sort(&self, node_id: usize, visited: &mut std::collections::HashSet<usize>, stack: &mut Vec<usize>) {
+    fn topological_sort(
+        &self,
+        node_id: usize,
+        visited: &mut std::collections::HashSet<usize>,
+        stack: &mut Vec<usize>,
+    ) {
         if visited.contains(&node_id) {
             return;
         }
-        
+
         visited.insert(node_id);
-        
+
         if let Some(node_arc) = self.nodes.get(&node_id) {
             for input_weak in &node_arc.inputs {
                 if let Some(input_arc) = input_weak.upgrade() {
@@ -221,7 +235,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                 }
             }
         }
-        
+
         stack.push(node_id);
     }
 }

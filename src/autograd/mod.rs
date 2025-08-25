@@ -1,13 +1,15 @@
+use crate::autograd::grad_fn::{
+    AddBackward, MatMulBackward, MulBackward, SubBackward, SumBackward,
+};
 use crate::tensor::Tensor;
-use crate::autograd::grad_fn::{SumBackward, AddBackward, MulBackward, SubBackward, MatMulBackward};
 use num_traits::Float;
-use std::sync::{Arc, RwLock};
 use std::marker::PhantomData;
 use std::ops;
+use std::sync::{Arc, RwLock};
 
 pub mod function;
-pub mod graph;
 pub mod grad_fn;
+pub mod graph;
 pub mod linear_grad_fn;
 pub mod visualization;
 
@@ -32,7 +34,9 @@ pub struct Variable<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits
     _marker: PhantomData<T>,
 }
 
-impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> std::fmt::Debug for Variable<T> {
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> std::fmt::Debug
+    for Variable<T>
+{
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Variable")
             .field("requires_grad", &self.requires_grad)
@@ -40,7 +44,9 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Clone for Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Clone
+    for Variable<T>
+{
     fn clone(&self) -> Self {
         Variable {
             data: self.data.clone(),
@@ -52,7 +58,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    Variable<T>
+{
     /// Creates a new variable with the given tensor.
     /// 与えられたテンソルで新しい変数を作成します。
     pub fn new(data: Tensor<T>, requires_grad: bool) -> Self {
@@ -64,10 +72,14 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             _marker: PhantomData,
         }
     }
-    
+
     /// Creates a new variable with gradient function
     /// 勾配関数付きの新しい変数を作成します
-    pub fn new_with_grad_fn(data: Tensor<T>, requires_grad: bool, grad_fn: Option<Arc<dyn GradFn<T>>>) -> Self {
+    pub fn new_with_grad_fn(
+        data: Tensor<T>,
+        requires_grad: bool,
+        grad_fn: Option<Arc<dyn GradFn<T>>>,
+    ) -> Self {
         Variable {
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
@@ -178,7 +190,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     pub fn transpose_last_two(&self) -> Variable<T> {
         let input_data = self.data.read().unwrap();
         let result_data = input_data.transpose().expect("Transpose failed");
-        
+
         // For now, no gradient support for transpose
         // 現在のところ、転置の勾配サポートはなし
         Variable::new(result_data, false)
@@ -191,7 +203,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         let input_shape = input_data.shape().to_vec();
         let sum_value = input_data.sum();
         let result_data = Tensor::from_vec(vec![sum_value], vec![1]);
-        
+
         if self.requires_grad {
             let grad_fn = Arc::new(SumBackward {
                 input_shape,
@@ -203,14 +215,16 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             Variable::new(result_data, false)
         }
     }
-    
+
     /// Power function with automatic differentiation support
     /// 自動微分をサポートするべき乗関数
     pub fn pow(&self, exponent: T) -> Variable<T> {
         let input_data = self.data.read().unwrap().clone();
         let mut result_data = input_data.clone();
-        result_data.as_array_mut().mapv_inplace(|x| x.powf(exponent));
-        
+        result_data
+            .as_array_mut()
+            .mapv_inplace(|x| x.powf(exponent));
+
         if self.requires_grad {
             // For now, return without proper gradient function
             Variable::new(result_data, true)
@@ -218,18 +232,18 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             Variable::new(result_data, false)
         }
     }
-    
+
     /// Mean of all elements with automatic differentiation support
     /// 自動微分をサポートする全要素の平均
     pub fn mean_autograd(&self) -> Variable<T> {
         let sum_var = self.sum();
         let input_data = self.data.read().unwrap();
         let numel = T::from(input_data.numel()).unwrap();
-        
+
         let sum_data = sum_var.data.read().unwrap().clone();
         let mut mean_data = sum_data;
         mean_data.as_array_mut().mapv_inplace(|x| x / numel);
-        
+
         if self.requires_grad {
             let grad_fn = std::sync::Arc::new(crate::autograd::grad_fn::MeanBackward {
                 input_var: Some(self.clone()),
@@ -243,7 +257,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 }
 
 // Implement arithmetic operators for Variables
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add
+    for &Variable<T>
+{
     type Output = Variable<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
@@ -265,7 +281,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul
+    for &Variable<T>
+{
     type Output = Variable<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
@@ -287,7 +305,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub for &Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub
+    for &Variable<T>
+{
     type Output = Variable<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
@@ -309,7 +329,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub<&Variable<T>> for Variable<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    ops::Sub<&Variable<T>> for Variable<T>
+{
     type Output = Variable<T>;
 
     fn sub(self, rhs: &Variable<T>) -> Self::Output {

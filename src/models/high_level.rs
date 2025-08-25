@@ -4,20 +4,27 @@
 //! Keras風の高レベルインターフェース（fit, evaluate, predict）を提供
 
 use crate::autograd::Variable;
-use crate::training::TrainerConfig;
 use crate::data::{DataLoader, Dataset};
 use crate::models::sequential::Sequential;
 use crate::nn::Module;
-use num_traits::Float;
-use std::fmt::Debug;
+use crate::training::TrainerConfig;
 use anyhow::Result;
+use num_traits::Float;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// 高レベルモデルトレイト
 /// High-level model trait
 pub trait HighLevelModel<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// モデルを訓練
     /// Train the model
@@ -91,12 +98,17 @@ impl<T: Float> TrainingHistory<T> {
 
     /// エポックデータを追加
     /// Add epoch data
-    pub fn add_epoch(&mut self, train_loss: T, val_loss: Option<T>, epoch_metrics: HashMap<String, f64>) {
+    pub fn add_epoch(
+        &mut self,
+        train_loss: T,
+        val_loss: Option<T>,
+        epoch_metrics: HashMap<String, f64>,
+    ) {
         self.train_loss.push(train_loss);
-        
+
         if let Some(val_loss) = val_loss {
             self.val_loss.push(val_loss);
-            
+
             // 最良の検証損失を更新
             if self.best_val_loss.is_none() || val_loss < self.best_val_loss.unwrap() {
                 self.best_val_loss = Some(val_loss);
@@ -106,7 +118,10 @@ impl<T: Float> TrainingHistory<T> {
 
         // メトリクスを追加
         for (name, value) in epoch_metrics {
-            self.metrics.entry(name).or_insert_with(Vec::new).push(value);
+            self.metrics
+                .entry(name)
+                .or_insert_with(Vec::new)
+                .push(value);
         }
     }
 
@@ -116,21 +131,33 @@ impl<T: Float> TrainingHistory<T> {
         let mut summary = String::new();
         summary.push_str("Training History Summary\n");
         summary.push_str("========================\n");
-        
+
         summary.push_str(&format!("Total epochs: {}\n", self.train_loss.len()));
-        summary.push_str(&format!("Training time: {:.2} seconds\n", self.training_time));
-        
+        summary.push_str(&format!(
+            "Training time: {:.2} seconds\n",
+            self.training_time
+        ));
+
         if let Some(final_loss) = self.train_loss.last() {
-            summary.push_str(&format!("Final training loss: {:.4}\n", final_loss.to_f64().unwrap_or(0.0)));
+            summary.push_str(&format!(
+                "Final training loss: {:.4}\n",
+                final_loss.to_f64().unwrap_or(0.0)
+            ));
         }
-        
+
         if let Some(final_val_loss) = self.val_loss.last() {
-            summary.push_str(&format!("Final validation loss: {:.4}\n", final_val_loss.to_f64().unwrap_or(0.0)));
+            summary.push_str(&format!(
+                "Final validation loss: {:.4}\n",
+                final_val_loss.to_f64().unwrap_or(0.0)
+            ));
         }
-        
+
         if let (Some(best_loss), Some(best_epoch)) = (self.best_val_loss, self.best_epoch) {
-            summary.push_str(&format!("Best validation loss: {:.4} at epoch {}\n", 
-                best_loss.to_f64().unwrap_or(0.0), best_epoch + 1));
+            summary.push_str(&format!(
+                "Best validation loss: {:.4} at epoch {}\n",
+                best_loss.to_f64().unwrap_or(0.0),
+                best_epoch + 1
+            ));
         }
 
         // メトリクスの最終値を表示
@@ -150,13 +177,17 @@ impl<T: Float> TrainingHistory<T> {
     /// Get plot data (for external plotting libraries)
     pub fn plot_data(&self) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let epochs: Vec<f64> = (1..=self.train_loss.len()).map(|i| i as f64).collect();
-        let train_losses: Vec<f64> = self.train_loss.iter()
+        let train_losses: Vec<f64> = self
+            .train_loss
+            .iter()
             .map(|loss| loss.to_f64().unwrap_or(0.0))
             .collect();
-        let val_losses: Vec<f64> = self.val_loss.iter()
+        let val_losses: Vec<f64> = self
+            .val_loss
+            .iter()
             .map(|loss| loss.to_f64().unwrap_or(0.0))
             .collect();
-        
+
         (epochs, train_losses, val_losses)
     }
 }
@@ -169,7 +200,14 @@ impl<T: Float> Default for TrainingHistory<T> {
 
 impl<T> HighLevelModel<T> for Sequential<T>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     /// モデルを訓練
     /// Train the model
@@ -202,7 +240,7 @@ where
         // 実際の訓練実装は簡略化
         // 実際にはSequentialモデルのオプティマイザーと損失関数を使用してTrainerを構築
         let mut history = TrainingHistory::new();
-        
+
         let start_time = std::time::Instant::now();
 
         for epoch in 0..epochs {
@@ -259,8 +297,12 @@ where
             batch_count += 1;
         }
 
-        let avg_loss = if batch_count > 0 { total_loss / batch_count as f64 } else { 0.0 };
-        
+        let avg_loss = if batch_count > 0 {
+            total_loss / batch_count as f64
+        } else {
+            0.0
+        };
+
         metrics.insert("loss".to_string(), avg_loss);
         metrics.insert("accuracy".to_string(), 0.85); // プレースホルダー
 
@@ -282,7 +324,7 @@ where
         D: Dataset<T>,
     {
         let mut predictions = Vec::new();
-        
+
         data.reset();
         while let Some((inputs, _)) = data.next_batch() {
             let input_var = Variable::new(inputs, false);

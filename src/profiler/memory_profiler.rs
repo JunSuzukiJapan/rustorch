@@ -2,9 +2,9 @@
 //! テンソル操作のメモリプロファイリング
 
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::fmt;
 
 /// Memory profiler for tracking allocations
 /// 割り当て追跡用メモリプロファイラー
@@ -112,7 +112,7 @@ impl MemoryProfiler {
         // Update global counters
         let current = self.current_allocated.fetch_add(size, Ordering::SeqCst) + size;
         self.total_allocations.fetch_add(1, Ordering::SeqCst);
-        
+
         // Update peak if necessary
         let mut peak = self.peak_allocated.load(Ordering::SeqCst);
         while current > peak {
@@ -129,17 +129,18 @@ impl MemoryProfiler {
 
         // Update operation-specific stats
         let mut history = self.allocation_history.write();
-        let stats = history.entry(operation.to_string())
-            .or_insert_with(|| {
-                let mut s = AllocationStats::default();
-                s.name = operation.to_string();
-                s
-            });
-        
+        let stats = history.entry(operation.to_string()).or_insert_with(|| {
+            let mut s = AllocationStats::default();
+            s.name = operation.to_string();
+            s
+        });
+
         stats.allocation_count += 1;
         stats.bytes_allocated += size;
         stats.live_allocations += 1;
-        stats.peak_memory = stats.peak_memory.max(stats.bytes_allocated - stats.bytes_deallocated);
+        stats.peak_memory = stats
+            .peak_memory
+            .max(stats.bytes_allocated - stats.bytes_deallocated);
     }
 
     /// Record memory deallocation
@@ -165,10 +166,14 @@ impl MemoryProfiler {
     pub fn get_current_stats(&self) -> CurrentMemoryStats {
         let allocated = self.current_allocated.load(Ordering::SeqCst);
         let total_dealloc = self.total_deallocations.load(Ordering::SeqCst);
-        
+
         CurrentMemoryStats {
             allocated,
-            freed: if total_dealloc > 0 { allocated / total_dealloc } else { 0 },
+            freed: if total_dealloc > 0 {
+                allocated / total_dealloc
+            } else {
+                0
+            },
             net_usage: allocated as isize,
         }
     }
@@ -182,7 +187,7 @@ impl MemoryProfiler {
 
         let current = self.current_allocated.load(Ordering::SeqCst);
         let peak = self.peak_allocated.load(Ordering::SeqCst);
-        
+
         // Estimate fragmentation
         let fragmentation_ratio = if peak > 0 {
             current as f64 / peak as f64
@@ -217,27 +222,49 @@ impl MemoryProfiler {
 
 impl fmt::Display for MemorySummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "  Current Allocated: {} MB", self.current_allocated / 1_048_576)?;
-        writeln!(f, "  Peak Allocated: {} MB", self.peak_allocated / 1_048_576)?;
+        writeln!(
+            f,
+            "  Current Allocated: {} MB",
+            self.current_allocated / 1_048_576
+        )?;
+        writeln!(
+            f,
+            "  Peak Allocated: {} MB",
+            self.peak_allocated / 1_048_576
+        )?;
         writeln!(f, "  Total Allocations: {}", self.total_allocations)?;
         writeln!(f, "  Total Deallocations: {}", self.total_deallocations)?;
-        writeln!(f, "  Fragmentation Ratio: {:.2}%", self.fragmentation_ratio * 100.0)?;
-        
+        writeln!(
+            f,
+            "  Fragmentation Ratio: {:.2}%",
+            self.fragmentation_ratio * 100.0
+        )?;
+
         if !self.top_consumers.is_empty() {
             writeln!(f, "\n  Top Memory Consumers:")?;
-            writeln!(f, "  {:<30} {:>15} {:>15} {:>10}", 
-                "Operation", "Allocated (MB)", "Deallocated (MB)", "Live")?;
+            writeln!(
+                f,
+                "  {:<30} {:>15} {:>15} {:>10}",
+                "Operation", "Allocated (MB)", "Deallocated (MB)", "Live"
+            )?;
             writeln!(f, "  {}", "-".repeat(75))?;
-            
+
             for consumer in &self.top_consumers {
-                writeln!(f, "  {:<30} {:>15.2} {:>15.2} {:>10}",
-                    if consumer.name.len() > 29 { &consumer.name[..29] } else { &consumer.name },
+                writeln!(
+                    f,
+                    "  {:<30} {:>15.2} {:>15.2} {:>10}",
+                    if consumer.name.len() > 29 {
+                        &consumer.name[..29]
+                    } else {
+                        &consumer.name
+                    },
                     consumer.bytes_allocated as f64 / 1_048_576.0,
                     consumer.bytes_deallocated as f64 / 1_048_576.0,
-                    consumer.live_allocations)?;
+                    consumer.live_allocations
+                )?;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -276,29 +303,29 @@ mod tests {
     fn test_memory_profiler() {
         let profiler = MemoryProfiler::new();
         profiler.start();
-        
+
         // Simulate allocations
         profiler.record_allocation(1024, "tensor_create");
         profiler.record_allocation(2048, "tensor_create");
         profiler.record_allocation(4096, "matmul");
-        
+
         // Check current stats
         let stats = profiler.get_current_stats();
         assert_eq!(stats.allocated, 7168);
-        
+
         // Simulate deallocation
         profiler.record_deallocation(1024, "tensor_create");
-        
+
         let stats = profiler.get_current_stats();
         assert_eq!(stats.allocated, 6144);
-        
+
         // Check summary
         let summary = profiler.get_summary();
         assert_eq!(summary.peak_allocated, 7168);
         assert_eq!(summary.current_allocated, 6144);
         assert_eq!(summary.total_allocations, 3);
         assert_eq!(summary.total_deallocations, 1);
-        
+
         profiler.stop();
     }
 
@@ -306,18 +333,18 @@ mod tests {
     fn test_operation_tracking() {
         let profiler = MemoryProfiler::new();
         profiler.start();
-        
+
         profiler.record_allocation(1024, "conv2d");
         profiler.record_allocation(2048, "conv2d");
         profiler.record_deallocation(1024, "conv2d");
-        
+
         let stats = profiler.get_operation_memory("conv2d").unwrap();
         assert_eq!(stats.allocation_count, 2);
         assert_eq!(stats.bytes_allocated, 3072);
         assert_eq!(stats.deallocation_count, 1);
         assert_eq!(stats.bytes_deallocated, 1024);
         assert_eq!(stats.live_allocations, 1);
-        
+
         profiler.stop();
     }
 }

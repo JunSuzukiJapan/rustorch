@@ -1,11 +1,11 @@
 //! 学習ループのコールバック
 //! Training loop callbacks
 
-use crate::training::state::{TrainingState, EpochState, BatchState};
+use crate::training::state::{BatchState, EpochState, TrainingState};
 use crate::training::trainer::CallbackSignal;
 use num_traits::Float;
-use std::time::Instant;
 use std::fmt::Debug;
+use std::time::Instant;
 
 /// コールバックトレイト
 /// Callback trait
@@ -131,7 +131,10 @@ impl<T: Float + Debug> Callback<T> for EarlyStopping<T> {
         self.best_score = None;
         self.wait_count = 0;
         self.stopped = false;
-        println!("Early stopping monitoring '{}' with patience {}", self.monitor, self.patience);
+        println!(
+            "Early stopping monitoring '{}' with patience {}",
+            self.monitor, self.patience
+        );
         Ok(())
     }
 
@@ -142,8 +145,7 @@ impl<T: Float + Debug> Callback<T> for EarlyStopping<T> {
     ) -> anyhow::Result<Option<CallbackSignal>> {
         // 監視するメトリクスを取得
         let current_score = if self.monitor == "val_loss" {
-            epoch_state.val_metrics.as_ref()
-                .map(|m| m.avg_loss)
+            epoch_state.val_metrics.as_ref().map(|m| m.avg_loss)
         } else {
             // その他のメトリクス（実装簡略化）
             None
@@ -226,7 +228,10 @@ impl LearningRateScheduler {
 impl<T: Float> Callback<T> for LearningRateScheduler {
     fn on_train_begin(&mut self, _state: &mut TrainingState<T>) -> anyhow::Result<()> {
         self.current_lr = self.initial_lr;
-        println!("Learning rate scheduler initialized with lr = {:.2e}", self.current_lr);
+        println!(
+            "Learning rate scheduler initialized with lr = {:.2e}",
+            self.current_lr
+        );
         Ok(())
     }
 
@@ -366,7 +371,10 @@ impl<T: Float> Callback<T> for ProgressBar {
             ));
         }
 
-        suffix.push_str(&format!(" | Time: {:.2}s", epoch_state.duration.as_secs_f64()));
+        suffix.push_str(&format!(
+            " | Time: {:.2}s",
+            epoch_state.duration.as_secs_f64()
+        ));
 
         if !self.verbose {
             self.draw_progress(epoch_state.epoch + 1, state.total_epochs, &suffix);
@@ -444,7 +452,9 @@ impl<T: Float> Callback<T> for ModelCheckpoint {
         } else {
             // 監視するメトリクスをチェック
             let current_score = if self.monitor == "val_loss" {
-                epoch_state.val_metrics.as_ref()
+                epoch_state
+                    .val_metrics
+                    .as_ref()
                     .map(|m| m.avg_loss.to_f64().unwrap_or(0.0))
             } else {
                 None
@@ -494,9 +504,8 @@ mod tests {
 
     #[test]
     fn test_early_stopping_creation() {
-        let early_stopping: EarlyStopping<f32> = 
-            EarlyStopping::monitor_val_loss(5, 0.01);
-        
+        let early_stopping: EarlyStopping<f32> = EarlyStopping::monitor_val_loss(5, 0.01);
+
         assert_eq!(early_stopping.monitor, "val_loss");
         assert_eq!(early_stopping.patience, 5);
         assert_eq!(early_stopping.min_delta, 0.01);
@@ -506,7 +515,7 @@ mod tests {
     #[test]
     fn test_lr_scheduler_creation() {
         let scheduler = LearningRateScheduler::exponential_decay(0.001, 0.95);
-        
+
         assert_eq!(scheduler.initial_lr, 0.001);
         assert_eq!(scheduler.decay_rate, 0.95);
         assert_eq!(scheduler.frequency, 1);
@@ -515,7 +524,7 @@ mod tests {
     #[test]
     fn test_progress_bar_creation() {
         let progress = ProgressBar::simple();
-        
+
         assert_eq!(progress.width, 50);
         assert!(!progress.verbose);
         assert_eq!(progress.batch_frequency, 100);
@@ -524,7 +533,7 @@ mod tests {
     #[test]
     fn test_model_checkpoint_creation() {
         let checkpoint = ModelCheckpoint::best_val_loss("model.pt".to_string());
-        
+
         assert_eq!(checkpoint.filepath, "model.pt");
         assert_eq!(checkpoint.monitor, "val_loss");
         assert!(!checkpoint.mode_max);
@@ -533,17 +542,16 @@ mod tests {
 
     #[test]
     fn test_early_stopping_improvement() {
-        let early_stopping: EarlyStopping<f32> = 
-            EarlyStopping::monitor_val_loss(3, 0.01);
-        
+        let early_stopping: EarlyStopping<f32> = EarlyStopping::monitor_val_loss(3, 0.01);
+
         // 最初は改善とみなされる
         assert!(early_stopping.is_improvement(0.5));
-        
+
         let early_stopping_with_best = EarlyStopping {
             best_score: Some(0.5),
             ..early_stopping
         };
-        
+
         // より小さい値は改善
         assert!(early_stopping_with_best.is_improvement(0.4));
         // より大きい値は改善ではない

@@ -2,16 +2,15 @@
 //! 自動混合精度学習のサポート
 
 mod autocast;
-mod grad_scaler;
 mod dtype_utils;
+mod grad_scaler;
 mod optimizer_wrapper;
 
-pub use autocast::{autocast, AutocastContext, AutocastMode, maybe_autocast_f32};
-pub use grad_scaler::{GradScaler, ScalerState, StepResult, ScalerStats};
+pub use autocast::{autocast, maybe_autocast_f32, AutocastContext, AutocastMode};
 pub use dtype_utils::{
-    cast_to_fp16, cast_to_fp32, cast_to_bf16, cast_bf16_to_fp32,
-    MixedPrecisionTensor, cast_tensor
+    cast_bf16_to_fp32, cast_tensor, cast_to_bf16, cast_to_fp16, cast_to_fp32, MixedPrecisionTensor,
 };
+pub use grad_scaler::{GradScaler, ScalerState, ScalerStats, StepResult};
 pub use optimizer_wrapper::{AMPOptimizer, ParamGroup, TrainingStats};
 
 use crate::dtype::DType;
@@ -41,7 +40,7 @@ impl Default for AMPConfig {
         Self {
             enabled: true,
             dtype: DType::Float16,
-            init_scale: 65536.0,  // 2^16
+            init_scale: 65536.0, // 2^16
             growth_factor: 2.0,
             backoff_factor: 0.5,
             growth_interval: 2000,
@@ -61,7 +60,7 @@ impl AMPConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create config for FP16 with static scaling
     pub fn fp16_static(scale: f32) -> Self {
         Self {
@@ -129,7 +128,7 @@ pub fn get_amp_config() -> AMPConfig {
 /// Mixed precision training utilities
 pub mod utils {
     use super::*;
-    
+
     /// Check if operation should use reduced precision
     pub fn should_use_reduced_precision(op_name: &str) -> bool {
         // List of operations that should stay in FP32
@@ -141,10 +140,10 @@ pub mod utils {
             "batch_norm",
             "layer_norm",
         ];
-        
+
         !FP32_OPS.contains(&op_name)
     }
-    
+
     /// Get optimal dtype for current hardware
     pub fn get_optimal_dtype() -> DType {
         // Check hardware capabilities
@@ -156,14 +155,14 @@ pub mod utils {
             DType::Float32
         }
     }
-    
+
     /// Check if hardware supports FP16
     pub fn has_fp16_support() -> bool {
         // Check for CUDA compute capability >= 7.0 or similar
         // For now, assume support exists
         true
     }
-    
+
     /// Check if hardware supports BF16
     pub fn has_bf16_support() -> bool {
         // Check for CUDA compute capability >= 8.0, or
@@ -177,7 +176,7 @@ pub mod utils {
         #[cfg(not(target_arch = "aarch64"))]
         {
             // Check for AVX512_BF16 on x86_64
-            false  // Conservative default
+            false // Conservative default
         }
     }
 }
@@ -185,7 +184,7 @@ pub mod utils {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_amp_config_default() {
         let config = AMPConfig::default();
@@ -193,7 +192,7 @@ mod tests {
         assert_eq!(config.init_scale, 65536.0);
         assert!(config.dynamic_loss_scaling);
     }
-    
+
     #[test]
     fn test_amp_config_bf16() {
         let config = AMPConfig::bf16();
@@ -201,19 +200,19 @@ mod tests {
         assert_eq!(config.init_scale, 1.0);
         assert!(!config.dynamic_loss_scaling);
     }
-    
+
     #[test]
     fn test_amp_state() {
         disable_amp();
         assert!(!is_amp_enabled());
-        
+
         enable_amp(AMPConfig::default());
         assert!(is_amp_enabled());
-        
+
         disable_amp();
         assert!(!is_amp_enabled());
     }
-    
+
     #[test]
     fn test_should_use_reduced_precision() {
         assert!(utils::should_use_reduced_precision("matmul"));

@@ -27,13 +27,13 @@ impl<T: Float + 'static> Tensor<T> {
         let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
         Tensor::new(array)
     }
-    
+
     /// Get pointer address for unique identification
     /// ユニーク識別用のポインターアドレスを取得
     pub fn as_ptr(&self) -> *const T {
         self.data.as_ptr()
     }
-    
+
     /// Copy data from another tensor (unsafe internal implementation)
     /// 別のテンソルからデータをコピー（unsafe内部実装）
     pub fn copy_from(&self, other: &Tensor<T>) {
@@ -44,13 +44,14 @@ impl<T: Float + 'static> Tensor<T> {
             std::ptr::copy_nonoverlapping(other_ptr, self_ptr, len);
         }
     }
-    
+
     /// Convert tensor to different device (mock implementation)
     /// テンソルを別のデバイスに変換（モック実装）
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn to_device(&self, _device: std::sync::Arc<dyn crate::gpu::device::GpuDevice>) -> Self {
         self.clone()
     }
-    
+
     /// Convert tensor to CPU
     /// テンソルをCPUに変換
     pub fn to_cpu(&self) -> Self {
@@ -72,11 +73,19 @@ impl<T: Float + 'static> Tensor<T> {
         let data = vec![T::one(); total_size];
         Tensor::from_vec(data, shape.to_vec())
     }
-    
+
     /// Create a scalar tensor from a single value
     /// 単一の値からスカラーテンソルを作成
     pub fn from_scalar(value: T) -> Self {
         Self::from_vec(vec![value], vec![1])
+    }
+
+    /// Create tensor from ndarray
+    /// ndarrayからテンソルを作成
+    pub fn from_ndarray(array: ndarray::ArrayD<T>) -> Self {
+        let shape = array.shape().to_vec();
+        let (data, _offset) = array.into_raw_vec_and_offset();
+        Self::from_vec(data, shape)
     }
 
     /// Creates a tensor filled with a specific value.
@@ -117,39 +126,61 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.is_empty()
     }
 
-    /// Reshapes the tensor to the given shape.
-    /// テンソルを指定された形状に変形します。
-    pub fn reshape(&self, shape: &[usize]) -> Result<Self, String> {
+    /// Reshapes the tensor to the given shape (new v2 implementation).
+    /// テンソルを指定された形状に変形します。（新v2実装）
+    pub fn reshape_v2(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
+    where
+        T: ndarray::ScalarOperand + num_traits::FromPrimitive,
+    {
+        let old_size: usize = self.shape().iter().product();
+        let new_size: usize = new_shape.iter().product();
+
+        if old_size != new_size {
+            return Err(crate::error::RusTorchError::InvalidOperation {
+                operation: "reshape_v2".to_string(),
+                message: format!(
+                    "Cannot reshape tensor of size {} to size {}",
+                    old_size, new_size
+                ),
+            });
+        }
+
+        Ok(Tensor::from_vec(
+            self.data.iter().copied().collect(),
+            new_shape.to_vec(),
+        ))
+    }
+
+    /// Creates a view into the tensor.
+    /// テンソルのビューを作成します。
+    pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
         let total_elements = self.data.len();
         let new_total_elements: usize = shape.iter().product();
-        
+
         if total_elements != new_total_elements {
             return Err(format!(
                 "Cannot reshape tensor of {} elements to shape {:?} (requires {} elements)",
                 total_elements, shape, new_total_elements
             ));
         }
-        
+
         match self.data.clone().into_shape_with_order(IxDyn(shape)) {
             Ok(reshaped) => Ok(Tensor::new(reshaped)),
-            Err(e) => Err(format!("Reshape failed: {}", e)),
+            Err(e) => Err(format!("View failed: {}", e)),
         }
-    }
-
-    /// Creates a view into the tensor.
-    /// テンソルのビューを作成します。
-    pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
-        self.reshape(shape)
     }
 
     /// Flattens the tensor to 1D.
     /// テンソルを1次元に平坦化します。
     pub fn flatten(&self) -> Self {
         let total_elements = self.data.len();
-        let flattened = self.data.clone().into_shape_with_order(IxDyn(&[total_elements])).unwrap();
+        let flattened = self
+            .data
+            .clone()
+            .into_shape_with_order(IxDyn(&[total_elements]))
+            .unwrap();
         Tensor::new(flattened)
     }
-
 
     /// Returns a reference to the underlying data as a slice.
     /// 基になるデータへのスライス参照を返します。
@@ -189,7 +220,11 @@ impl<T: Float + 'static> Tensor<T> {
                 *elem = value;
                 Ok(())
             }
-            None => Err(format!("Index {:?} is out of bounds for tensor with shape {:?}", index, self.shape())),
+            None => Err(format!(
+                "Index {:?} is out of bounds for tensor with shape {:?}",
+                index,
+                self.shape()
+            )),
         }
     }
 }

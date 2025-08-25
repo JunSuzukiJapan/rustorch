@@ -31,9 +31,8 @@ Thumbs.db
 **/*.rs.bk
 *.orig
 
-# Generated visualization files (examples output)
+# Generated visualization files (examples output - but keep WASM files!)
 *.svg
-*.html
 *.dot
 
 # Claude Code settings
@@ -43,3 +42,19 @@ Thumbs.db
 matrix_bench
 simple_bench
 test_linalg
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Node modules (if any)
+node_modules/
+
+# Keep specific files we need
+!examples/test.js
+!examples/wasm_*.js
+!examples/wasm_*.html
+!examples/*.json
+!examples/*.wasm
+!examples/*.d.ts

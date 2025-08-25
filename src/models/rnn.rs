@@ -2,8 +2,8 @@
 //! RNN/LSTM model implementations
 
 use crate::autograd::Variable;
-use crate::nn::{Module, Linear, LSTM, RNN, Dropout, Embedding};
-use crate::models::{Model, ModelMode, ModelBuilder};
+use crate::models::{Model, ModelBuilder, ModelMode};
+use crate::nn::{Dropout, Embedding, Linear, Module, LSTM, RNN};
 use num_traits::Float;
 use std::any::Any;
 use std::collections::HashMap;
@@ -12,9 +12,23 @@ use std::fmt::Debug;
 /// 基本的な RNN モデル
 /// Basic RNN model
 #[derive(Debug)]
-pub struct RNNModel<T> 
+pub struct RNNModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     embedding: Option<Embedding<T>>,
     rnn: RNN<T>,
@@ -26,9 +40,23 @@ where
     num_classes: usize,
 }
 
-impl<T> RNNModel<T> 
+impl<T> RNNModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 新しい RNN モデルを作成
     /// Create a new RNN model
@@ -46,14 +74,26 @@ where
         } else {
             None
         };
-        
+
         let input_size = embedding_dim.unwrap_or(hidden_size);
-        let rnn = RNN::new(input_size, hidden_size, Some(num_layers), Some(true), Some(true), Some(<T as From<f32>>::from(dropout_rate as f32)), Some(bidirectional));
+        let rnn = RNN::new(
+            input_size,
+            hidden_size,
+            Some(num_layers),
+            Some(true),
+            Some(true),
+            Some(<T as From<f32>>::from(dropout_rate as f32)),
+            Some(bidirectional),
+        );
         let dropout = Dropout::new(<T as From<f32>>::from(dropout_rate as f32), false);
-        
-        let classifier_input_size = if bidirectional { hidden_size * 2 } else { hidden_size };
+
+        let classifier_input_size = if bidirectional {
+            hidden_size * 2
+        } else {
+            hidden_size
+        };
         let classifier = Linear::new(classifier_input_size, num_classes);
-        
+
         RNNModel {
             embedding,
             rnn,
@@ -67,65 +107,93 @@ where
     }
 }
 
-impl<T> Module<T> for RNNModel<T> 
+impl<T> Module<T> for RNNModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let mut x = input.clone();
-        
+
         // 埋め込み層（オプション）
         if let Some(ref embedding) = self.embedding {
             x = embedding.forward(&x);
         }
-        
+
         // RNN 層
         let output = self.rnn.forward(&x);
-        
+
         // 最後の時刻の出力を使用（分類タスクの場合）
         let last_output = self.extract_last_output(&output);
-        
+
         // ドロップアウト
         let dropped = self.dropout.forward(&last_output);
-        
+
         // 分類器
         self.classifier.forward(&dropped)
     }
-    
+
     fn parameters(&self) -> Vec<Variable<T>> {
         let mut params = Vec::new();
-        
+
         if let Some(ref embedding) = self.embedding {
             params.extend(embedding.parameters());
         }
-        
+
         params.extend(self.rnn.parameters());
         params.extend(self.classifier.parameters());
-        
+
         params
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl<T> Model<T> for RNNModel<T> 
+impl<T> Model<T> for RNNModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn train(&mut self) {
         self.mode = ModelMode::Train;
     }
-    
+
     fn eval(&mut self) {
         self.mode = ModelMode::Eval;
     }
-    
+
     fn mode(&self) -> ModelMode {
         self.mode
     }
-    
+
     fn config(&self) -> HashMap<String, String> {
         let mut config = HashMap::new();
         config.insert("model_type".to_string(), "RNN".to_string());
@@ -136,7 +204,7 @@ where
         }
         config
     }
-    
+
     fn summary(&self) -> String {
         format!(
             "RNN Model:\n  - Hidden size: {}\n  - Classes: {}\n  - Vocab size: {:?}\n  - Mode: {:?}",
@@ -148,9 +216,23 @@ where
     }
 }
 
-impl<T> RNNModel<T> 
+impl<T> RNNModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 最後の時刻の出力を抽出
     /// Extract last timestep output
@@ -163,9 +245,23 @@ where
 /// LSTM モデル
 /// LSTM model
 #[derive(Debug)]
-pub struct LSTMModel<T> 
+pub struct LSTMModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     embedding: Option<Embedding<T>>,
     lstm: LSTM<T>,
@@ -177,9 +273,23 @@ where
     num_classes: usize,
 }
 
-impl<T> LSTMModel<T> 
+impl<T> LSTMModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 新しい LSTM モデルを作成
     /// Create a new LSTM model
@@ -197,14 +307,26 @@ where
         } else {
             None
         };
-        
+
         let input_size = embedding_dim.unwrap_or(hidden_size);
-        let lstm = LSTM::new(input_size, hidden_size, num_layers, true, true, <T as From<f32>>::from(dropout_rate as f32), bidirectional);
+        let lstm = LSTM::new(
+            input_size,
+            hidden_size,
+            num_layers,
+            true,
+            true,
+            <T as From<f32>>::from(dropout_rate as f32),
+            bidirectional,
+        );
         let dropout = Dropout::new(<T as From<f32>>::from(dropout_rate as f32), false);
-        
-        let classifier_input_size = if bidirectional { hidden_size * 2 } else { hidden_size };
+
+        let classifier_input_size = if bidirectional {
+            hidden_size * 2
+        } else {
+            hidden_size
+        };
         let classifier = Linear::new(classifier_input_size, num_classes);
-        
+
         LSTMModel {
             embedding,
             lstm,
@@ -218,65 +340,93 @@ where
     }
 }
 
-impl<T> Module<T> for LSTMModel<T> 
+impl<T> Module<T> for LSTMModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         let mut x = input.clone();
-        
+
         // 埋め込み層（オプション）
         if let Some(ref embedding) = self.embedding {
             x = embedding.forward(&x);
         }
-        
+
         // LSTM 層
         let (output, _hidden) = self.lstm.forward(&x, None);
-        
+
         // 最後の時刻の出力を使用
         let last_output = self.extract_last_output(&output);
-        
+
         // ドロップアウト
         let dropped = self.dropout.forward(&last_output);
-        
+
         // 分類器
         self.classifier.forward(&dropped)
     }
-    
+
     fn parameters(&self) -> Vec<Variable<T>> {
         let mut params = Vec::new();
-        
+
         if let Some(ref embedding) = self.embedding {
             params.extend(embedding.parameters());
         }
-        
+
         params.extend(self.lstm.parameters());
         params.extend(self.classifier.parameters());
-        
+
         params
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl<T> Model<T> for LSTMModel<T> 
+impl<T> Model<T> for LSTMModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn train(&mut self) {
         self.mode = ModelMode::Train;
     }
-    
+
     fn eval(&mut self) {
         self.mode = ModelMode::Eval;
     }
-    
+
     fn mode(&self) -> ModelMode {
         self.mode
     }
-    
+
     fn config(&self) -> HashMap<String, String> {
         let mut config = HashMap::new();
         config.insert("model_type".to_string(), "LSTM".to_string());
@@ -287,7 +437,7 @@ where
         }
         config
     }
-    
+
     fn summary(&self) -> String {
         format!(
             "LSTM Model:\n  - Hidden size: {}\n  - Classes: {}\n  - Vocab size: {:?}\n  - Mode: {:?}",
@@ -299,9 +449,23 @@ where
     }
 }
 
-impl<T> LSTMModel<T> 
+impl<T> LSTMModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 最後の時刻の出力を抽出
     /// Extract last timestep output
@@ -314,18 +478,46 @@ where
 /// Seq2Seq モデル（エンコーダー・デコーダー）
 /// Seq2Seq model (encoder-decoder)
 #[derive(Debug)]
-pub struct Seq2SeqModel<T> 
+pub struct Seq2SeqModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     encoder: LSTMModel<T>,
     decoder: LSTMModel<T>,
     mode: ModelMode,
 }
 
-impl<T> Seq2SeqModel<T> 
+impl<T> Seq2SeqModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 新しい Seq2Seq モデルを作成
     /// Create a new Seq2Seq model
@@ -346,7 +538,7 @@ where
             dropout_rate,
             false,
         );
-        
+
         let decoder = LSTMModel::new(
             Some(output_vocab_size),
             Some(embedding_dim),
@@ -356,7 +548,7 @@ where
             dropout_rate,
             false,
         );
-        
+
         Seq2SeqModel {
             encoder,
             decoder,
@@ -365,49 +557,77 @@ where
     }
 }
 
-impl<T> Module<T> for Seq2SeqModel<T> 
+impl<T> Module<T> for Seq2SeqModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // エンコーダーで入力をエンコード
         let encoded = self.encoder.forward(input);
-        
+
         // デコーダーで出力を生成（簡略化実装）
         self.decoder.forward(&encoded)
     }
-    
+
     fn parameters(&self) -> Vec<Variable<T>> {
         let mut params = self.encoder.parameters();
         params.extend(self.decoder.parameters());
         params
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl<T> Model<T> for Seq2SeqModel<T> 
+impl<T> Model<T> for Seq2SeqModel<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     fn train(&mut self) {
         self.mode = ModelMode::Train;
         Model::train(&mut self.encoder);
         Model::train(&mut self.decoder);
     }
-    
+
     fn eval(&mut self) {
         self.mode = ModelMode::Eval;
         Model::eval(&mut self.encoder);
         Model::eval(&mut self.decoder);
     }
-    
+
     fn mode(&self) -> ModelMode {
         self.mode
     }
-    
+
     fn config(&self) -> HashMap<String, String> {
         let mut config = HashMap::new();
         config.insert("model_type".to_string(), "Seq2Seq".to_string());
@@ -415,7 +635,7 @@ where
         config.extend(self.decoder.config());
         config
     }
-    
+
     fn summary(&self) -> String {
         format!(
             "Seq2Seq Model:\n  - Encoder: {}\n  - Decoder: {}\n  - Mode: {:?}",
@@ -429,9 +649,23 @@ where
 /// RNN モデルビルダー
 /// RNN model builder
 #[derive(Debug, Default)]
-pub struct RNNModelBuilder<T> 
+pub struct RNNModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     vocab_size: Option<usize>,
     embedding_dim: Option<usize>,
@@ -443,9 +677,23 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> RNNModelBuilder<T> 
+impl<T> RNNModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -461,49 +709,49 @@ where
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// 語彙サイズを設定
     /// Set vocabulary size
     pub fn vocab_size(mut self, size: usize) -> Self {
         self.vocab_size = Some(size);
         self
     }
-    
+
     /// 埋め込み次元を設定
     /// Set embedding dimension
     pub fn embedding_dim(mut self, dim: usize) -> Self {
         self.embedding_dim = Some(dim);
         self
     }
-    
+
     /// 隠れ層サイズを設定
     /// Set hidden size
     pub fn hidden_size(mut self, size: usize) -> Self {
         self.hidden_size = size;
         self
     }
-    
+
     /// レイヤー数を設定
     /// Set number of layers
     pub fn num_layers(mut self, layers: usize) -> Self {
         self.num_layers = layers;
         self
     }
-    
+
     /// クラス数を設定
     /// Set number of classes
     pub fn num_classes(mut self, classes: usize) -> Self {
         self.num_classes = Some(classes);
         self
     }
-    
+
     /// ドロップアウト率を設定
     /// Set dropout rate
     pub fn dropout_rate(mut self, rate: f64) -> Self {
         self.dropout_rate = rate;
         self
     }
-    
+
     /// 双方向を設定
     /// Set bidirectional
     pub fn bidirectional(mut self, bidirectional: bool) -> Self {
@@ -512,15 +760,31 @@ where
     }
 }
 
-impl<T> ModelBuilder<T> for RNNModelBuilder<T> 
+impl<T> ModelBuilder<T> for RNNModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     type Model = RNNModel<T>;
-    
+
     fn build(self) -> Self::Model {
-        let num_classes = self.num_classes.expect("Number of classes must be specified");
-        
+        let num_classes = self
+            .num_classes
+            .expect("Number of classes must be specified");
+
         RNNModel::new(
             self.vocab_size,
             self.embedding_dim,
@@ -536,9 +800,23 @@ where
 /// LSTM モデルビルダー
 /// LSTM model builder
 #[derive(Debug, Default)]
-pub struct LSTMModelBuilder<T> 
+pub struct LSTMModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     vocab_size: Option<usize>,
     embedding_dim: Option<usize>,
@@ -550,9 +828,23 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> LSTMModelBuilder<T> 
+impl<T> LSTMModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     /// 新しいビルダーを作成
     /// Create a new builder
@@ -568,49 +860,49 @@ where
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// 語彙サイズを設定
     /// Set vocabulary size
     pub fn vocab_size(mut self, size: usize) -> Self {
         self.vocab_size = Some(size);
         self
     }
-    
+
     /// 埋め込み次元を設定
     /// Set embedding dimension
     pub fn embedding_dim(mut self, dim: usize) -> Self {
         self.embedding_dim = Some(dim);
         self
     }
-    
+
     /// 隠れ層サイズを設定
     /// Set hidden size
     pub fn hidden_size(mut self, size: usize) -> Self {
         self.hidden_size = size;
         self
     }
-    
+
     /// レイヤー数を設定
     /// Set number of layers
     pub fn num_layers(mut self, layers: usize) -> Self {
         self.num_layers = layers;
         self
     }
-    
+
     /// クラス数を設定
     /// Set number of classes
     pub fn num_classes(mut self, classes: usize) -> Self {
         self.num_classes = Some(classes);
         self
     }
-    
+
     /// ドロップアウト率を設定
     /// Set dropout rate
     pub fn dropout_rate(mut self, rate: f64) -> Self {
         self.dropout_rate = rate;
         self
     }
-    
+
     /// 双方向を設定
     /// Set bidirectional
     pub fn bidirectional(mut self, bidirectional: bool) -> Self {
@@ -619,15 +911,31 @@ where
     }
 }
 
-impl<T> ModelBuilder<T> for LSTMModelBuilder<T> 
+impl<T> ModelBuilder<T> for LSTMModelBuilder<T>
 where
-    T: Float + 'static + Send + Sync + Debug + Default + Copy + From<f32> + ndarray::ScalarOperand + num_traits::FromPrimitive + num_traits::ToPrimitive + num_traits::Zero + num_traits::One + std::iter::Sum + std::fmt::Display,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Default
+        + Copy
+        + From<f32>
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + num_traits::ToPrimitive
+        + num_traits::Zero
+        + num_traits::One
+        + std::iter::Sum
+        + std::fmt::Display,
 {
     type Model = LSTMModel<T>;
-    
+
     fn build(self) -> Self::Model {
-        let num_classes = self.num_classes.expect("Number of classes must be specified");
-        
+        let num_classes = self
+            .num_classes
+            .expect("Number of classes must be specified");
+
         LSTMModel::new(
             self.vocab_size,
             self.embedding_dim,

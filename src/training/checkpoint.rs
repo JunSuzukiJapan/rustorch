@@ -1,11 +1,11 @@
 //! チェックポイント管理
 //! Checkpoint management
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Serialize, Deserialize};
 
 /// チェックポイント保存設定
 /// Checkpoint save configuration
@@ -171,7 +171,11 @@ impl CheckpointManager {
         let current_score = match self.config.monitor.as_str() {
             "train_loss" => metadata.train_loss,
             "val_loss" => metadata.val_loss.unwrap_or(f64::INFINITY),
-            _ => metadata.metrics.get(&self.config.monitor).copied().unwrap_or(0.0),
+            _ => metadata
+                .metrics
+                .get(&self.config.monitor)
+                .copied()
+                .unwrap_or(0.0),
         };
 
         match self.best_score {
@@ -268,20 +272,32 @@ impl CheckpointManager {
             return None;
         }
 
-        self.checkpoints
-            .iter()
-            .min_by(|a, b| {
-                let a_val = a.get_monitored_value(&self.config.monitor)
-                    .unwrap_or(if self.config.mode_max { f64::NEG_INFINITY } else { f64::INFINITY });
-                let b_val = b.get_monitored_value(&self.config.monitor)
-                    .unwrap_or(if self.config.mode_max { f64::NEG_INFINITY } else { f64::INFINITY });
+        self.checkpoints.iter().min_by(|a, b| {
+            let a_val =
+                a.get_monitored_value(&self.config.monitor)
+                    .unwrap_or(if self.config.mode_max {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    });
+            let b_val =
+                b.get_monitored_value(&self.config.monitor)
+                    .unwrap_or(if self.config.mode_max {
+                        f64::NEG_INFINITY
+                    } else {
+                        f64::INFINITY
+                    });
 
-                if self.config.mode_max {
-                    b_val.partial_cmp(&a_val).unwrap_or(std::cmp::Ordering::Equal)
-                } else {
-                    a_val.partial_cmp(&b_val).unwrap_or(std::cmp::Ordering::Equal)
-                }
-            })
+            if self.config.mode_max {
+                b_val
+                    .partial_cmp(&a_val)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            } else {
+                a_val
+                    .partial_cmp(&b_val)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            }
+        })
     }
 
     /// すべてのチェックポイントを取得
@@ -370,9 +386,7 @@ impl CheckpointManager {
     fn generate_filename(&self, metadata: &CheckpointMetadata) -> String {
         format!(
             "{}_epoch_{:04}_loss_{:.4}",
-            self.config.prefix,
-            metadata.epoch,
-            metadata.train_loss
+            self.config.prefix, metadata.epoch, metadata.train_loss
         )
     }
 
@@ -425,8 +439,10 @@ impl CheckpointStatistics {
             self.total_checkpoints,
             self.total_size_bytes as f64 / 1024.0 / 1024.0,
             self.average_size_bytes as f64 / 1024.0 / 1024.0,
-            self.oldest_epoch.map_or("N/A".to_string(), |e| e.to_string()),
-            self.newest_epoch.map_or("N/A".to_string(), |e| e.to_string())
+            self.oldest_epoch
+                .map_or("N/A".to_string(), |e| e.to_string()),
+            self.newest_epoch
+                .map_or("N/A".to_string(), |e| e.to_string())
         )
     }
 }

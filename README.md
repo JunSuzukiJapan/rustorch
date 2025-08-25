@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-625%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 [![Matrix](https://img.shields.io/badge/matrix%20decomposition-SVD%2FQIR%2FLU%2FEig-blueviolet.svg)](#matrix-decomposition) 
 [![GPU](https://img.shields.io/badge/GPU-CUDA%2FMetal%2FOpenCL-blue.svg)](#gpu-acceleration)
@@ -67,8 +67,8 @@ RusTorchは、Rustの安全性とパフォーマンスを活かした完全機�
   **行列分解**: PyTorch互換の完全なSVD、QR、LU分解と固有値求解
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility  
   **モデル形式サポート**: Safetensors、ONNX推論、PyTorchステートディクト互換
-- ✅ **Production Ready**: 629 tests passing (99.2% success rate), fully functional library with broadcasting support  
-  **本番環境対応**: 629個テスト合格(99.2%成功率)、ブロードキャスト対応完全機能ライブラリ
+- ✅ **Production Ready**: 682 tests passing (100% success rate), unified error handling system  
+  **本番環境対応**: 682個テスト合格(100%成功率)、統一エラーハンドリングシステム
 
 ## Installation
 
@@ -76,7 +76,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.3.23"
+rustorch = "0.4.0"
 
 # Optional features
 [features]
@@ -91,7 +91,7 @@ all-gpu = ["cuda", "metal", "opencl"]
 all-formats = ["safetensors", "onnx"]
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.3.21", default-features = false }
+rustorch = { version = "0.4.0", default-features = false }
 ```
 
 ## 📊 Performance / パフォーマンス
@@ -132,8 +132,9 @@ rustorch = { version = "0.3.21", default-features = false }
 | 512×512 | 0.71 GFLOPS | - | - |
 
 ### 🚀 System Status / システム状態
-- ✅ **519 Tests Passing** / 519個全テスト通過
+- ✅ **682 Tests Passing** / 682個全テスト通過
 - ✅ **Zero Compilation Errors** / コンパイルエラーゼロ  
+- ✅ **Unified Error Handling** / 統一エラーハンドリング
 - ✅ **Broadcasting Support** / ブロードキャスト対応
 - ✅ **Matrix Decomposition** / 行列分解対応
 - ✅ **Production Ready** / 本番環境対応
@@ -235,7 +236,7 @@ Matrix decomposition features require the `linalg` feature (enabled by default).
 行列分解機能は `linalg` フィーチャーが必要です（デフォルト有効）。一部のシステムでは、OpenBLAS/LAPACKライブラリのインストールが必要な場合があります。これらの依存関係を避けるには：
 
 ```toml
-rustorch = { version = "0.3.21", default-features = false }
+rustorch = { version = "0.4.0", default-features = false }
 ```
 
 ### SVD, QR, LU Decomposition and Eigenvalue Decomposition / SVD、QR、LU分解と固有値分解
@@ -808,8 +809,8 @@ cargo run --example advanced_features_demo --release
 
 ## 🧪 Testing / テスト
 
-**All 519 tests passing** - Production-ready quality assurance with complete functionality validation  
-**519個全テスト合格** - 完全機能検証付き本番環境対応の品質保証
+**All 682 tests passing** - Production-ready quality assurance with unified error handling system  
+**682個全テスト合格** - 統一エラーハンドリングシステム付き本番環境対応の品質保証
 
 ### 🧮 Matrix Decomposition Tests / 行列分解テスト
 

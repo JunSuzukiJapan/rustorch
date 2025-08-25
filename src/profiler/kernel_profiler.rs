@@ -2,9 +2,9 @@
 //! GPUカーネルプロファイリングサポート
 
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use std::fmt;
 
 /// GPU kernel profiler
 /// GPUカーネルプロファイラー
@@ -118,7 +118,8 @@ impl KernelProfiler {
 
     /// Stop kernel profiling
     pub fn stop(&self) {
-        self.active.store(false, std::sync::atomic::Ordering::SeqCst);
+        self.active
+            .store(false, std::sync::atomic::Ordering::SeqCst);
     }
 
     /// Record kernel execution
@@ -132,32 +133,29 @@ impl KernelProfiler {
 
         // Update statistics
         let mut stats_map = self.kernel_stats.write();
-        let stats = stats_map.entry(record.name.clone())
-            .or_insert_with(|| {
-                let mut s = KernelStats::default();
-                s.name = record.name.clone();
-                s
-            });
+        let stats = stats_map.entry(record.name.clone()).or_insert_with(|| {
+            let mut s = KernelStats::default();
+            s.name = record.name.clone();
+            s
+        });
 
         stats.launch_count += 1;
         stats.total_time += record.duration;
         stats.avg_time = stats.total_time / stats.launch_count as u32;
         stats.min_time = stats.min_time.min(record.duration);
         stats.max_time = stats.max_time.max(record.duration);
-        
+
         // Update throughput and utilization
         let alpha = 1.0 / stats.launch_count as f64;
-        stats.avg_memory_throughput = 
+        stats.avg_memory_throughput =
             stats.avg_memory_throughput * (1.0 - alpha) + record.memory_throughput * alpha;
-        stats.avg_compute_utilization = 
+        stats.avg_compute_utilization =
             stats.avg_compute_utilization * (1.0 - alpha) + record.compute_utilization * alpha;
     }
 
     /// Get last kernel execution time
     pub fn get_last_kernel_time(&self) -> Option<Duration> {
-        self.kernel_records.read()
-            .last()
-            .map(|r| r.duration)
+        self.kernel_records.read().last().map(|r| r.duration)
     }
 
     /// Get kernel profiling summary
@@ -166,27 +164,28 @@ impl KernelProfiler {
         let mut kernels: Vec<_> = stats_map.values().cloned().collect();
         kernels.sort_by_key(|k| std::cmp::Reverse(k.total_time));
 
-        let total_kernel_time: Duration = kernels.iter()
-            .map(|k| k.total_time)
-            .sum();
-        
-        let total_launches: usize = kernels.iter()
-            .map(|k| k.launch_count)
-            .sum();
+        let total_kernel_time: Duration = kernels.iter().map(|k| k.total_time).sum();
+
+        let total_launches: usize = kernels.iter().map(|k| k.launch_count).sum();
 
         // Calculate utilization
         let gpu_utilization = if !kernels.is_empty() {
-            kernels.iter()
+            kernels
+                .iter()
                 .map(|k| k.avg_compute_utilization * k.launch_count as f64)
-                .sum::<f64>() / total_launches as f64
+                .sum::<f64>()
+                / total_launches as f64
         } else {
             0.0
         };
 
         let memory_bandwidth_utilization = if !kernels.is_empty() {
-            kernels.iter()
+            kernels
+                .iter()
                 .map(|k| k.avg_memory_throughput * k.launch_count as f64)
-                .sum::<f64>() / total_launches as f64 / 1000.0 // Normalize to percentage
+                .sum::<f64>()
+                / total_launches as f64
+                / 1000.0 // Normalize to percentage
         } else {
             0.0
         };
@@ -222,40 +221,56 @@ impl KernelProfiler {
             block_size,
             shared_memory: 4096,
             registers: 32,
-            memory_throughput: 250.0, // GB/s
+            memory_throughput: 250.0,  // GB/s
             compute_utilization: 85.0, // %
         };
-        
+
         self.record_kernel(record);
     }
 }
 
 impl fmt::Display for KernelSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "  Total Kernel Time: {:.3}ms", 
-            self.total_kernel_time.as_secs_f64() * 1000.0)?;
+        writeln!(
+            f,
+            "  Total Kernel Time: {:.3}ms",
+            self.total_kernel_time.as_secs_f64() * 1000.0
+        )?;
         writeln!(f, "  Total Kernel Launches: {}", self.total_launches)?;
         writeln!(f, "  GPU Utilization: {:.1}%", self.gpu_utilization)?;
-        writeln!(f, "  Memory Bandwidth Utilization: {:.1}%", 
-            self.memory_bandwidth_utilization)?;
-        
+        writeln!(
+            f,
+            "  Memory Bandwidth Utilization: {:.1}%",
+            self.memory_bandwidth_utilization
+        )?;
+
         if !self.kernels.is_empty() {
             writeln!(f, "\n  Top GPU Kernels:")?;
-            writeln!(f, "  {:<30} {:>10} {:>12} {:>12} {:>10} {:>10}", 
-                "Kernel", "Launches", "Total (ms)", "Avg (ms)", "Mem (GB/s)", "Compute %")?;
+            writeln!(
+                f,
+                "  {:<30} {:>10} {:>12} {:>12} {:>10} {:>10}",
+                "Kernel", "Launches", "Total (ms)", "Avg (ms)", "Mem (GB/s)", "Compute %"
+            )?;
             writeln!(f, "  {}", "-".repeat(90))?;
-            
+
             for kernel in self.kernels.iter().take(10) {
-                writeln!(f, "  {:<30} {:>10} {:>12.3} {:>12.3} {:>10.1} {:>10.1}",
-                    if kernel.name.len() > 29 { &kernel.name[..29] } else { &kernel.name },
+                writeln!(
+                    f,
+                    "  {:<30} {:>10} {:>12.3} {:>12.3} {:>10.1} {:>10.1}",
+                    if kernel.name.len() > 29 {
+                        &kernel.name[..29]
+                    } else {
+                        &kernel.name
+                    },
                     kernel.launch_count,
                     kernel.total_time.as_secs_f64() * 1000.0,
                     kernel.avg_time.as_secs_f64() * 1000.0,
                     kernel.avg_memory_throughput,
-                    kernel.avg_compute_utilization)?;
+                    kernel.avg_compute_utilization
+                )?;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -297,22 +312,20 @@ mod tests {
     fn test_kernel_profiler() {
         let profiler = KernelProfiler::new();
         profiler.start();
-        
+
         // Simulate kernel executions
         profiler.simulate_kernel_execution("matmul", 10, (256, 1, 1), (16, 16, 1));
         profiler.simulate_kernel_execution("matmul", 12, (256, 1, 1), (16, 16, 1));
         profiler.simulate_kernel_execution("conv2d", 15, (128, 128, 1), (8, 8, 1));
-        
+
         let summary = profiler.get_summary();
         assert_eq!(summary.total_launches, 3);
         assert!(summary.kernels.len() > 0);
-        
+
         // Check matmul stats
-        let matmul_stats = summary.kernels.iter()
-            .find(|k| k.name == "matmul")
-            .unwrap();
+        let matmul_stats = summary.kernels.iter().find(|k| k.name == "matmul").unwrap();
         assert_eq!(matmul_stats.launch_count, 2);
-        
+
         profiler.stop();
     }
 
@@ -320,12 +333,12 @@ mod tests {
     fn test_cuda_events() {
         let mut start_event = CudaEvent::new();
         start_event.record();
-        
+
         std::thread::sleep(Duration::from_millis(10));
-        
+
         let mut end_event = CudaEvent::new();
         end_event.record();
-        
+
         let elapsed = end_event.elapsed_time(&start_event);
         assert!(elapsed >= Duration::from_millis(10));
     }

@@ -1,8 +1,8 @@
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use lazy_static::lazy_static;
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
-use lazy_static::lazy_static;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 /// Memory pool for efficient tensor allocation and reuse
 /// テンソルの効率的な割り当てと再利用のためのメモリプール
@@ -26,13 +26,21 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
     fn get_pool_index(&self, total_elements: usize) -> usize {
         // Use log2 bucketing for different sizes
         // サイズ別にlog2バケッティングを使用
-        if total_elements <= 64 { 0 }
-        else if total_elements <= 256 { 1 }
-        else if total_elements <= 1024 { 2 }
-        else if total_elements <= 4096 { 3 }
-        else if total_elements <= 16384 { 4 }
-        else if total_elements <= 65536 { 5 }
-        else { 6 }
+        if total_elements <= 64 {
+            0
+        } else if total_elements <= 256 {
+            1
+        } else if total_elements <= 1024 {
+            2
+        } else if total_elements <= 4096 {
+            3
+        } else if total_elements <= 16384 {
+            4
+        } else if total_elements <= 65536 {
+            5
+        } else {
+            6
+        }
     }
 
     /// Ensure pool exists for given index
@@ -48,9 +56,9 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
     pub fn allocate(&mut self, shape: &[usize]) -> ArrayD<T> {
         let total_elements: usize = shape.iter().product();
         let pool_index = self.get_pool_index(total_elements);
-        
+
         self.ensure_pool(pool_index);
-        
+
         if let Ok(mut pool) = self.pools[pool_index].lock() {
             if let Some(mut array) = pool.pop_front() {
                 // Reuse existing array if shape matches
@@ -80,7 +88,7 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
                 }
             }
         }
-        
+
         // Create new array if no suitable one in pool
         // プールに適切なものがない場合は新しい配列を作成
         ArrayD::zeros(IxDyn(shape))
@@ -91,9 +99,9 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
     pub fn deallocate(&mut self, array: ArrayD<T>) {
         let total_elements = array.len();
         let pool_index = self.get_pool_index(total_elements);
-        
+
         self.ensure_pool(pool_index);
-        
+
         if let Ok(mut pool) = self.pools[pool_index].lock() {
             if pool.len() < self.max_pool_size {
                 pool.push_back(array);
@@ -108,7 +116,7 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
     pub fn stats(&self) -> PoolStats {
         let mut total_cached = 0;
         let mut pool_sizes = Vec::new();
-        
+
         for pool in &self.pools {
             if let Ok(pool) = pool.lock() {
                 let size = pool.len();
@@ -116,7 +124,7 @@ impl<T: Float + Clone + 'static> MemoryPool<T> {
                 total_cached += size;
             }
         }
-        
+
         PoolStats {
             total_pools: self.pools.len(),
             total_cached_arrays: total_cached,
@@ -166,9 +174,9 @@ impl std::fmt::Display for PoolStats {
 }
 
 lazy_static! {
-    static ref GLOBAL_POOL_F32: Arc<Mutex<MemoryPool<f32>>> = 
+    static ref GLOBAL_POOL_F32: Arc<Mutex<MemoryPool<f32>>> =
         Arc::new(Mutex::new(MemoryPool::new(100)));
-    static ref GLOBAL_POOL_F64: Arc<Mutex<MemoryPool<f64>>> = 
+    static ref GLOBAL_POOL_F64: Arc<Mutex<MemoryPool<f64>>> =
         Arc::new(Mutex::new(MemoryPool::new(100)));
 }
 
@@ -199,14 +207,14 @@ mod tests {
     #[test]
     fn test_allocate_and_deallocate() {
         let mut pool: MemoryPool<f32> = MemoryPool::new(10);
-        
+
         // Allocate
         let array1 = pool.allocate(&[2, 3]);
         assert_eq!(array1.shape(), &[2, 3]);
-        
+
         // Deallocate
         pool.deallocate(array1);
-        
+
         let stats = pool.stats();
         assert_eq!(stats.total_cached_arrays, 1);
     }
@@ -214,15 +222,15 @@ mod tests {
     #[test]
     fn test_reuse_from_pool() {
         let mut pool: MemoryPool<f32> = MemoryPool::new(10);
-        
+
         // Allocate and deallocate
         let array1 = pool.allocate(&[2, 3]);
         pool.deallocate(array1);
-        
+
         // Allocate same size - should reuse
         let array2 = pool.allocate(&[2, 3]);
         assert_eq!(array2.shape(), &[2, 3]);
-        
+
         let stats = pool.stats();
         assert_eq!(stats.total_cached_arrays, 0); // Should be taken from pool
     }
@@ -230,13 +238,13 @@ mod tests {
     #[test]
     fn test_pool_size_limit() {
         let mut pool: MemoryPool<f32> = MemoryPool::new(2);
-        
+
         // Add more arrays than pool size
         for _ in 0..5 {
             let array = pool.allocate(&[2, 2]);
             pool.deallocate(array);
         }
-        
+
         let stats = pool.stats();
         assert!(stats.total_cached_arrays <= 2);
     }
@@ -245,7 +253,7 @@ mod tests {
     fn test_global_pools() {
         let pool_f32 = get_f32_pool();
         let pool_f64 = get_f64_pool();
-        
+
         assert!(pool_f32.lock().is_ok());
         assert!(pool_f64.lock().is_ok());
     }
