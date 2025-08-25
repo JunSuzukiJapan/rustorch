@@ -64,10 +64,10 @@ impl OnnxModel {
     /// Load ONNX model from file
     /// ファイルからONNXモデルを読み込み
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, OnnxError> {
-        let environment = Environment::builder().build()?;
+        let environment = Environment::default();
         
-        let session = SessionBuilder::new(&environment)?
-            .with_optimization_level(GraphOptimizationLevel::All)?
+        let session = SessionBuilder::new()?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(4)?
             .with_model_from_file(path)?;
 
@@ -243,13 +243,13 @@ pub mod utils {
     /// 特定の実行プロバイダーでONNXセッションを作成
     pub fn create_session_with_provider<P: AsRef<Path>>(
         model_path: P,
-        provider: ExecutionProvider,
+        provider: impl ExecutionProvider,
     ) -> Result<Session, OnnxError> {
-        let environment = Environment::builder().build()?;
+        let environment = Environment::default();
         
-        let session = SessionBuilder::new(&environment)?
+        let session = SessionBuilder::new()?
             .with_execution_providers([provider])?
-            .with_optimization_level(GraphOptimizationLevel::All)?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_model_from_file(model_path)?;
 
         Ok(session)

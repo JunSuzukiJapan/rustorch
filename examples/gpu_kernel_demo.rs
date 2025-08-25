@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "metal")]
         DeviceType::Metal(0),
         #[cfg(feature = "opencl")]
-        DeviceType::OpenCl(0),
+        DeviceType::OpenCL(0),
     ];
 
     for device in &devices {

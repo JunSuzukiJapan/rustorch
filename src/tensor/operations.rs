@@ -515,7 +515,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
-            self.svd_with_linalg(m, n, min_mn, some)
+            return self.svd_with_linalg(m, n, min_mn, some);
         }
         
         #[cfg(not(feature = "linalg"))]
@@ -671,7 +671,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
-            self.eig_with_linalg(n, eigenvectors)
+            return self.eig_with_linalg(n, eigenvectors);
         }
         
         #[cfg(not(feature = "linalg"))]
@@ -700,7 +700,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
-            self.symeig_with_linalg(n, eigenvectors, upper)
+            return self.symeig_with_linalg(n, eigenvectors, upper);
         }
         
         #[cfg(not(feature = "linalg"))]
@@ -885,7 +885,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
-            self.qr_with_linalg(m, n, min_mn)
+            return self.qr_with_linalg(m, n, min_mn);
         }
         
         #[cfg(not(feature = "linalg"))]
@@ -913,7 +913,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         
         #[cfg(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32")))]
         {
-            self.lu_with_linalg(m, n, min_mn)
+            return self.lu_with_linalg(m, n, min_mn);
         }
         
         #[cfg(not(feature = "linalg"))]

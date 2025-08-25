@@ -49,7 +49,7 @@ impl GpuValidator {
             #[cfg(feature = "metal")]
             DeviceType::Metal(0),
             #[cfg(feature = "opencl")]
-            DeviceType::OpenCl(0),
+            DeviceType::OpenCL(0),
         ];
 
         for device in devices {
@@ -192,7 +192,7 @@ impl GpuValidator {
                 results.push(self.validate_metal_memory());
             }
             #[cfg(feature = "opencl")]
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 results.push(self.validate_opencl_memory());
             }
             _ => {}
@@ -338,7 +338,7 @@ impl GpuValidator {
 
         match result {
             Ok(max_error) => ValidationResult {
-                device: DeviceType::OpenCl(0),
+                device: DeviceType::OpenCL(0),
                 operation: "OpenClMemoryOperations".to_string(),
                 passed: max_error <= self.tolerance,
                 error_message: None,
@@ -346,7 +346,7 @@ impl GpuValidator {
                 max_error,
             },
             Err(e) => ValidationResult {
-                device: DeviceType::OpenCl(0),
+                device: DeviceType::OpenCL(0),
                 operation: "OpenClMemoryOperations".to_string(),
                 passed: false,
                 error_message: Some(format!("{:?}", e)),

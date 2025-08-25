@@ -67,7 +67,10 @@ impl Default for OpenClKernelParams {
 /// OpenCL buffer wrapper
 /// OpenCLバッファラッパー
 pub struct OpenClBuffer<T> {
-    _buffer: *mut c_void,
+    #[cfg(feature = "opencl")]
+    _buffer: Buffer<T>,
+    #[cfg(not(feature = "opencl"))]
+    _buffer: (),
     size: usize,
     _phantom: PhantomData<T>,
 }
@@ -78,15 +81,17 @@ impl<T> OpenClBuffer<T> {
     #[cfg(feature = "opencl")]
     pub fn new(size: usize, context: &Context) -> RusTorchResult<Self> {
         let buffer_size = size * std::mem::size_of::<T>();
-        let buffer = Buffer::<T>::create(
-            context,
-            CL_MEM_READ_WRITE,
-            buffer_size,
-            std::ptr::null_mut(),
-        ).map_err(|e| RusTorchError::MemoryAllocationError(format!("OpenCL buffer creation failed: {:?}", e)))?;
+        let buffer = unsafe {
+            Buffer::<T>::create(
+                context,
+                CL_MEM_READ_WRITE,
+                buffer_size,
+                std::ptr::null_mut(),
+            )
+        }.map_err(|e| RusTorchError::gpu(format!("OpenCL buffer creation failed: {:?}", e)))?;
         
         Ok(Self {
-            _buffer: buffer.as_ptr() as *mut c_void,
+            _buffer: buffer,
             size,
             _phantom: PhantomData,
         })
@@ -96,7 +101,7 @@ impl<T> OpenClBuffer<T> {
     /// Create a new OpenCL buffer (fallback when OpenCL not available)
     /// 新しいOpenCLバッファを作成（OpenCL利用不可時のフォールバック）
     pub fn new(_size: usize, _context: &()) -> RusTorchResult<Self> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Create buffer from host data
@@ -105,14 +110,14 @@ impl<T> OpenClBuffer<T> {
     pub fn from_host_data(data: &[T]) -> RusTorchResult<Self> {
         // This would require a proper OpenCL context
         // For now, return an error
-        Err(RusTorchError::UnsupportedDevice("OpenCL context required".to_string()))
+        Err(RusTorchError::gpu("OpenCL context required"))
     }
     
     #[cfg(not(feature = "opencl"))]
     /// Create buffer from host data (fallback when OpenCL not available)
     /// ホストデータからバッファを作成（OpenCL利用不可時のフォールバック）
     pub fn from_host_data(_data: &[T]) -> RusTorchResult<Self> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Copy data to host
@@ -120,14 +125,14 @@ impl<T> OpenClBuffer<T> {
     #[cfg(feature = "opencl")]
     pub fn copy_to_host(&self, _host_data: &mut [T]) -> RusTorchResult<()> {
         // This would require proper OpenCL queue operations
-        Err(RusTorchError::UnsupportedDevice("OpenCL queue required".to_string()))
+        Err(RusTorchError::gpu("OpenCL queue required"))
     }
     
     #[cfg(not(feature = "opencl"))]
     /// Copy buffer data to host memory (fallback when OpenCL not available)
     /// バッファデータをホストメモリにコピー（OpenCL利用不可時のフォールバック）
     pub fn copy_to_host(&self, _host_data: &mut [T]) -> RusTorchResult<()> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Get buffer size
@@ -155,28 +160,28 @@ impl OpenClKernelExecutor {
     pub fn new(device_id: usize) -> RusTorchResult<Self> {
         // Get OpenCL platforms and devices
         let platforms = get_platforms()
-            .map_err(|e| RusTorchError::InitializationError(format!("Failed to get OpenCL platforms: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to get OpenCL platforms: {:?}", e)))?;
         
         if platforms.is_empty() {
-            return Err(RusTorchError::InitializationError("No OpenCL platforms found".to_string()));
+            return Err(RusTorchError::gpu("No OpenCL platforms found".to_string()));
         }
         
         let devices = platforms[0].get_devices(opencl3::device::CL_DEVICE_TYPE_GPU)
-            .map_err(|e| RusTorchError::InitializationError(format!("Failed to get OpenCL devices: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to get OpenCL devices: {:?}", e)))?;
         
         if devices.is_empty() || device_id >= devices.len() {
-            return Err(RusTorchError::InitializationError(format!("OpenCL device {} not found", device_id)));
+            return Err(RusTorchError::gpu(format!("OpenCL device {} not found", device_id)));
         }
         
         let device = devices[device_id];
         
         // Create OpenCL context
         let context = opencl3::context::Context::from_device(&device)
-            .map_err(|e| RusTorchError::InitializationError(format!("Failed to create OpenCL context: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create OpenCL context: {:?}", e)))?;
         
         // Create command queue
         let queue = opencl3::command_queue::CommandQueue::create_default(&context, opencl3::command_queue::CL_QUEUE_PROFILING_ENABLE)
-            .map_err(|e| RusTorchError::InitializationError(format!("Failed to create OpenCL command queue: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create OpenCL command queue: {:?}", e)))?;
         
         // OpenCL kernel source code
         let kernel_source = r#"
@@ -243,21 +248,21 @@ impl OpenClKernelExecutor {
         
         // Create and build program
         let program = opencl3::program::Program::create_and_build_from_source(&context, kernel_source, "")
-            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to compile OpenCL kernels: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to compile OpenCL kernels: {:?}", e)))?;
         
         let mut kernels = HashMap::new();
         
         // Create kernels
         let add_kernel = opencl3::kernel::Kernel::create(&program, "elementwise_add_f32")
-            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create add kernel: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create add kernel: {:?}", e)))?;
         kernels.insert(OpenClKernelType::ElementWise, add_kernel);
         
         let matmul_kernel = opencl3::kernel::Kernel::create(&program, "matrix_multiply_f32")
-            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create matmul kernel: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create matmul kernel: {:?}", e)))?;
         kernels.insert(OpenClKernelType::MatMul, matmul_kernel);
         
         let reduce_kernel = opencl3::kernel::Kernel::create(&program, "reduce_sum_f32")
-            .map_err(|e| RusTorchError::KernelCompilationError(format!("Failed to create reduce kernel: {:?}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create reduce kernel: {:?}", e)))?;
         kernels.insert(OpenClKernelType::Reduction, reduce_kernel);
         
         Ok(Self {
@@ -279,7 +284,7 @@ impl OpenClKernelExecutor {
     ) -> RusTorchResult<()> {
         let size = a.len();
         if b.len() != size || c.len() != size {
-            return Err(RusTorchError::InvalidOperation(
+            return Err(RusTorchError::invalid_params("matmul", 
                 "Array size mismatch in element-wise addition".to_string()
             ));
         }
@@ -290,21 +295,21 @@ impl OpenClKernelExecutor {
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             size,
             a.as_ptr() as *mut f32,
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer A: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer A: {:?}", e)))?;
         
         let b_buffer = opencl3::memory::Buffer::<f32>::create(
             &self.context,
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             size,
             b.as_ptr() as *mut f32,
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer B: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer B: {:?}", e)))?;
         
         let c_buffer = opencl3::memory::Buffer::<f32>::create(
             &self.context,
             opencl3::memory::CL_MEM_WRITE_ONLY,
             size,
             std::ptr::null_mut(),
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer C: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer C: {:?}", e)))?;
         
         // Get kernel
         let kernel = self.kernels.get(&OpenClKernelType::ElementWise)
@@ -329,7 +334,7 @@ impl OpenClKernelExecutor {
         
         // Read result back
         self.queue.enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
-            .map_err(|e| RusTorchError::InvalidOperation(format!("Failed to read result: {:?}", e)))?;
+            .map_err(|e| RusTorchError::invalid_params("matmul", format!("Failed to read result: {:?}", e)))?;
         
         Ok(())
     }
@@ -351,21 +356,21 @@ impl OpenClKernelExecutor {
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             m * k,
             a.as_ptr() as *mut f32,
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer A: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer A: {:?}", e)))?;
         
         let b_buffer = opencl3::memory::Buffer::<f32>::create(
             &self.context,
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             k * n,
             b.as_ptr() as *mut f32,
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer B: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer B: {:?}", e)))?;
         
         let c_buffer = opencl3::memory::Buffer::<f32>::create(
             &self.context,
             opencl3::memory::CL_MEM_WRITE_ONLY,
             m * n,
             std::ptr::null_mut(),
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create buffer C: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create buffer C: {:?}", e)))?;
         
         // Get kernel
         let kernel = self.kernels.get(&OpenClKernelType::MatMul)
@@ -394,7 +399,7 @@ impl OpenClKernelExecutor {
         
         // Read result back
         self.queue.enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
-            .map_err(|e| RusTorchError::InvalidOperation(format!("Failed to read result: {:?}", e)))?;
+            .map_err(|e| RusTorchError::invalid_params("matmul", format!("Failed to read result: {:?}", e)))?;
         
         Ok(())
     }
@@ -413,14 +418,14 @@ impl OpenClKernelExecutor {
             opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
             size,
             input.as_ptr() as *mut f32,
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create input buffer: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create input buffer: {:?}", e)))?;
         
         let output_buffer = opencl3::memory::Buffer::<f32>::create(
             &self.context,
             opencl3::memory::CL_MEM_WRITE_ONLY,
             num_groups,
             std::ptr::null_mut(),
-        ).map_err(|e| RusTorchError::AllocationError(format!("Failed to create output buffer: {:?}", e)))?;
+        ).map_err(|e| RusTorchError::gpu(format!("Failed to create output buffer: {:?}", e)))?;
         
         // Get kernel
         let kernel = self.kernels.get(&OpenClKernelType::Reduction)
@@ -446,7 +451,7 @@ impl OpenClKernelExecutor {
         // Read partial results back
         let mut partial_results = vec![0.0f32; num_groups];
         self.queue.enqueue_read_buffer(&output_buffer, opencl3::types::CL_TRUE, 0, &mut partial_results, &[])
-            .map_err(|e| RusTorchError::InvalidOperation(format!("Failed to read partial results: {:?}", e)))?;
+            .map_err(|e| RusTorchError::invalid_params("matmul", format!("Failed to read partial results: {:?}", e)))?;
         
         Ok(partial_results.iter().sum())
     }
@@ -462,7 +467,7 @@ impl OpenClKernelExecutor {
     /// Create a new OpenCL kernel executor (fallback when OpenCL not available)
     /// 新しいOpenCLカーネル実行器を作成（OpenCL利用不可時のフォールバック）
     pub fn new(_device_id: usize) -> RusTorchResult<Self> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Perform elementwise addition on f32 arrays (fallback)
@@ -473,7 +478,7 @@ impl OpenClKernelExecutor {
         _b: &[f32],
         _c: &mut [f32],
     ) -> RusTorchResult<()> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Perform matrix multiplication on f32 arrays (fallback)
@@ -487,13 +492,13 @@ impl OpenClKernelExecutor {
         _n: usize,
         _k: usize,
     ) -> RusTorchResult<()> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
     
     /// Perform reduction sum on f32 array (fallback)
     /// f32配列のリダクション合計を実行（フォールバック）
     pub fn reduce_sum_f32(&self, _input: &[f32]) -> RusTorchResult<f32> {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
 }
 
@@ -517,7 +522,7 @@ pub fn opencl_matmul_f32(
     }
     #[cfg(not(feature = "opencl"))]
     {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
 }
 
@@ -535,7 +540,7 @@ pub fn opencl_elementwise_add_f32(
     }
     #[cfg(not(feature = "opencl"))]
     {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
 }
 
@@ -549,7 +554,7 @@ pub fn opencl_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     }
     #[cfg(not(feature = "opencl"))]
     {
-        Err(RusTorchError::UnsupportedDevice("OpenCL not available".to_string()))
+        Err(RusTorchError::backend_unavailable("OpenCL"))
     }
 }
 
