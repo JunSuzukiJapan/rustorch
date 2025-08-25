@@ -3,7 +3,7 @@
 
 use rustorch::backends::{
     UnifiedComputeBackend, DeviceManager, UnifiedDeviceType as DeviceType, 
-    Operation, PerformanceMetrics, SelectionStrategy, UnifiedCpuBackend, initialize_backends
+    Operation, SelectionStrategy, UnifiedCpuBackend, initialize_backends
 };
 use rustorch::backends::compute_backend::ComputeBackendGeneric;
 use rustorch::tensor::Tensor;
@@ -199,7 +199,8 @@ fn test_memory_transfer_operations() -> RusTorchResult<()> {
     assert_eq!(transferred_data, data);
     
     // Test device to host transfer
-    let transferred_back = backend.memory_transfer(&transferred_data, TransferDirection::DeviceToHost)?;
+    let transferred_back = backend
+        .memory_transfer(&transferred_data, TransferDirection::DeviceToHost)?;
     assert_eq!(transferred_back, data);
     
     Ok(())

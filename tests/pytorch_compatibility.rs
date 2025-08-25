@@ -406,11 +406,17 @@ fn test_end_to_end_pytorch_workflow() {
     let activated = relu.forward(&hidden);
     let output = linear2.forward(&activated);
     
+    let input_shape = input.data().read().unwrap().shape()
+        .iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×");
+    let hidden_shape = hidden.data().read().unwrap().shape()
+        .iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×");
+    let activated_shape = activated.data().read().unwrap().shape()
+        .iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×");
+    let output_shape = output.data().read().unwrap().shape()
+        .iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×");
+    
     println!("  ✓ Forward pass completed: {} -> {} -> {} -> {}", 
-            input.data().read().unwrap().shape().iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×"),
-            hidden.data().read().unwrap().shape().iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×"),
-            activated.data().read().unwrap().shape().iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×"),
-            output.data().read().unwrap().shape().iter().map(|x| x.to_string()).collect::<Vec<_>>().join("×"));
+        input_shape, hidden_shape, activated_shape, output_shape);
     
     // 4. Compute loss (MSE)
     let diff = &output - &target;

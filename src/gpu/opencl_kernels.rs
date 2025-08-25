@@ -3,7 +3,9 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 // OpenCL GPU kernel implementations
+#[cfg(feature = "opencl")]
 use std::collections::HashMap;
+#[cfg(feature = "opencl")]
 use std::ffi::c_void;
 use std::marker::PhantomData;
 
