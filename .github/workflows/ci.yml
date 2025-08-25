@@ -7,6 +7,17 @@ on:
     branches: [ main, develop ]
   release:
     types: [ published ]
+  workflow_dispatch:
+    inputs:
+      toolchain:
+        description: 'Rust toolchain version'
+        required: false
+        default: 'stable'
+        type: choice
+        options:
+        - stable
+        - beta
+        - nightly
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,7 +42,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@1
         with:
           toolchain: ${{ matrix.rust }}
           components: rustfmt, clippy
@@ -63,26 +74,26 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             # macOSではObjective-C依存を避けて基本機能のみでテスト
-            cargo test --verbose --no-default-features --features "linalg"
+            cargo test --verbose --no-default-features --features "linalg-netlib"
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
-            # LinuxではMPI機能を含む包括的テスト
-            cargo test --verbose --features "linalg,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
+            # LinuxではMPI機能を含む包括的テスト (安定したlinalg使用)
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
-            # WindowsではMPI以外の機能でテスト
-            cargo test --verbose --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx"
+            # WindowsではMPI以外の機能でテスト (安定したlinalg使用)
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
 
       - name: Run doctests
         run: |
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             # macOSではObjective-C依存を避けてdoctest実行
-            cargo test --doc --no-default-features --features "linalg"
+            cargo test --doc --no-default-features --features "linalg-netlib"
           elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             # LinuxではMPI機能を含むdoctest
-            cargo test --doc --features "linalg,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
+            cargo test --doc --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
             # WindowsではMPI以外でdoctest
-            cargo test --doc --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx"
+            cargo test --doc --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
 
       - name: Test examples
@@ -110,7 +121,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx" --all-targets -- -D warnings
+        run: cargo clippy --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx" --all-targets -- -D warnings
 
       - name: Install audit tools
         run: |

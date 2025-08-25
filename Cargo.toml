@@ -38,6 +38,8 @@ ndarray = { version = "0.16.1", features = ["rayon", "approx"] }
 ndarray-rand = "0.15.0"
 ndarray-linalg = { version = "0.17.0", optional = true }
 openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
+cblas-sys = { version = "0.1", optional = true }
+netlib-src = { version = "0.8", optional = true, features = ["system"] }
 num-traits = "0.2"
 num-complex = "0.4"
 num_cpus = "1.16"
@@ -106,7 +108,8 @@ tempfile = "3.8"
 
 [features]
 default = ["linalg"]
-linalg = ["dep:ndarray-linalg", "dep:openblas-src"]
+linalg = ["dep:ndarray-linalg", "dep:openblas-src", "dep:cblas-sys"]
+linalg-netlib = ["dep:ndarray-linalg", "dep:netlib-src"]
 cuda = ["dep:cudarc"]
 opencl = ["dep:opencl3"]
 metal = ["dep:metal", "dep:objc", "dep:objc_exception"]
