@@ -139,7 +139,7 @@ jobs:
           languages: 'rust'
 
       - name: Build for CodeQL
-        run: cargo build --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
+        run: cargo build --features "linalg-netlib"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

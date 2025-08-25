@@ -139,7 +139,11 @@
       "Bash(timeout 60s cargo test tensor::core::tests --lib)",
       "Bash(timeout 60s cargo test autograd::tests::test_basic_operations --lib)",
       "Bash(timeout 60s cargo test --lib -- --nocapture)",
-      "Bash(timeout 30s yamllint:*)"
+      "Bash(timeout 30s yamllint:*)",
+      "Bash(timeout 60s cargo check --features \"linalg-netlib,cuda\" --lib)",
+      "Bash(timeout 60s cargo check --features \"linalg-netlib,opencl,mpi,wasm,model-import,safetensors,onnx\" --lib)",
+      "Bash(timeout 60s cargo check --features \"linalg-netlib,opencl,wasm,model-import,safetensors,onnx\" --lib)",
+      "Bash(timeout 60s cargo test --features \"linalg-netlib\" --lib)"
     ],
     "deny": [],
     "ask": [],

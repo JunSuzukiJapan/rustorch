@@ -83,7 +83,7 @@ js-sys = { version = "0.3", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
 # GPU dependencies
-cudarc = { version = "0.11", optional = true }
+cudarc = { version = "0.11", optional = true, features = ["cuda-11080"] }
 metal = { version = "0.27", optional = true }
 objc = { version = "0.2", optional = true }
 # objc_exception は macOS 専用の依存関係として後で追加します
