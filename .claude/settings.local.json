@@ -123,7 +123,13 @@
       "Bash(RUSTFLAGS=\"-L /usr/local/opt/openblas/lib -l openblas\" cargo test --lib --no-default-features)",
       "Bash(RUSTFLAGS=\"-L /usr/local/opt/openblas/lib -l openblas\" cargo test --lib --no-default-features tensor::ops::matrix::tests::test_trace)",
       "Bash(gh workflow:*)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(npm run build-wasm:*)",
+      "Bash(bash:*)",
+      "Bash(timeout 60s cargo check --lib --no-default-features)",
+      "Bash(npm run test:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],
