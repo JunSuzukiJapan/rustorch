@@ -1,20 +1,30 @@
-// Explicit imports for SIMD intrinsics to ensure availability in CI environments
-// Using core::arch instead of std::arch for better CI compatibility
+// Comprehensive SIMD intrinsic imports for maximum CI environment compatibility
+// Explicitly importing all required functions to avoid "not found in scope" errors
 #[cfg(target_arch = "x86")]
-use core::arch::x86::{
-    _mm_shuffle_ps, _mm_movehl_ps, _mm_add_ss, _mm_add_ps, _mm_sub_ps, _mm_mul_ps,
+use std::arch::x86::{
+    // Basic SSE operations
+    _mm_add_ps, _mm_add_ss, _mm_sub_ps, _mm_mul_ps,
     _mm_loadu_ps, _mm_storeu_ps, _mm_setzero_ps, _mm_load1_ps,
+    _mm_movehl_ps, _mm_shuffle_ps,
+    // AVX2 operations
     _mm256_add_ps, _mm256_broadcast_ss, _mm256_castps256_ps128, _mm256_extractf128_ps,
     _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_set1_ps, _mm256_setzero_ps,
-    _mm256_storeu_ps, _mm256_sub_ps, __m128,
+    _mm256_storeu_ps, _mm256_sub_ps,
+    // Types
+    __m128,
 };
 #[cfg(target_arch = "x86_64")]
-use core::arch::x86_64::{
-    _mm_shuffle_ps, _mm_movehl_ps, _mm_add_ss, _mm_add_ps, _mm_sub_ps, _mm_mul_ps,
+use std::arch::x86_64::{
+    // Basic SSE operations  
+    _mm_add_ps, _mm_add_ss, _mm_sub_ps, _mm_mul_ps,
     _mm_loadu_ps, _mm_storeu_ps, _mm_setzero_ps, _mm_load1_ps,
+    _mm_movehl_ps, _mm_shuffle_ps,
+    // AVX2 operations
     _mm256_add_ps, _mm256_broadcast_ss, _mm256_castps256_ps128, _mm256_extractf128_ps,
     _mm256_fmadd_ps, _mm256_loadu_ps, _mm256_mul_ps, _mm256_set1_ps, _mm256_setzero_ps,
-    _mm256_storeu_ps, _mm256_sub_ps, __m128,
+    _mm256_storeu_ps, _mm256_sub_ps,
+    // Types
+    __m128,
 };
 
 /// Check if AVX2 is available on the current CPU
