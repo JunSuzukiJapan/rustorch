@@ -356,7 +356,7 @@ impl GraphVisualizer {
             
             let tensor_data = _variable.data();
             let tensor_guard = tensor_data.read().map_err(|e| {
-                RusTorchError::PlottingError(format!("Failed to read variable data: {}", e))
+                RusTorchError::plotting_error(format!("Failed to read variable data: {}", e))
             })?;
             
             let shape = tensor_guard.shape().to_vec();
@@ -580,9 +580,9 @@ impl GraphVisualizer {
     
     fn render_edge(&self, edge: &GraphEdge) -> RusTorchResult<String> {
         let from_node = self.nodes.iter().find(|n| n.id == edge.from)
-            .ok_or_else(|| RusTorchError::PlottingError("Source node not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::plotting_error("Source node not found"))?;
         let to_node = self.nodes.iter().find(|n| n.id == edge.to)
-            .ok_or_else(|| RusTorchError::PlottingError("Target node not found".to_string()))?;
+            .ok_or_else(|| RusTorchError::plotting_error("Target node not found"))?;
         
         let (x1, y1) = from_node.position;
         let (x2, y2) = to_node.position;

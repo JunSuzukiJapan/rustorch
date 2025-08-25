@@ -250,7 +250,7 @@ impl TensorVisualizer {
     {
         let tensor = variable.data();
         let tensor_guard = tensor.read().map_err(|e| {
-            RusTorchError::PlottingError(format!("Failed to read tensor data: {}", e))
+            RusTorchError::plotting_error(format!("Failed to read tensor data: {}", e))
         })?;
         
         let mut svg = self.plot_heatmap(&tensor_guard)?;
