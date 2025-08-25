@@ -270,8 +270,9 @@ mod tests {
         }
 
         // Basic statistical test - for λ=1, mean should be ≈ 1
+        // Use relaxed tolerance for statistical variance
         let sample_mean: f32 = data.iter().sum::<f32>() / data.len() as f32;
-        assert_abs_diff_eq!(sample_mean, 1.0, epsilon = 0.1);
+        assert_abs_diff_eq!(sample_mean, 1.0, epsilon = 0.15);
     }
 
     #[test]

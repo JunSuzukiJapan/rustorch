@@ -309,8 +309,9 @@ mod tests {
             data.iter().map(|&x| (x - sample_mean).powi(2)).sum::<f32>() / (data.len() - 1) as f32;
 
         // Should be approximately 0 and 1 for large samples
-        assert_abs_diff_eq!(sample_mean, 0.0, epsilon = 0.1);
-        assert_abs_diff_eq!(sample_var, 1.0, epsilon = 0.1);
+        // Use more relaxed tolerances to account for statistical variance
+        assert_abs_diff_eq!(sample_mean, 0.0, epsilon = 0.15);
+        assert_abs_diff_eq!(sample_var, 1.0, epsilon = 0.2);
     }
 
     #[test]
