@@ -518,9 +518,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return self.svd_with_linalg(m, n, min_mn, some);
         }
         
-        #[cfg(not(feature = "linalg"))]
+        #[cfg(not(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32"))))]
         {
-            self.svd_basic(m, n, min_mn, some)
+            return self.svd_basic(m, n, min_mn, some);
         }
     }
     
@@ -674,9 +674,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return self.eig_with_linalg(n, eigenvectors);
         }
         
-        #[cfg(not(feature = "linalg"))]
+        #[cfg(not(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32"))))]
         {
-            self.eig_basic(n, eigenvectors)
+            return self.eig_basic(n, eigenvectors);
         }
     }
     
@@ -703,9 +703,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return self.symeig_with_linalg(n, eigenvectors, upper);
         }
         
-        #[cfg(not(feature = "linalg"))]
+        #[cfg(not(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32"))))]
         {
-            self.symeig_basic(n, eigenvectors, upper)
+            return self.symeig_basic(n, eigenvectors, upper);
         }
     }
     
@@ -888,9 +888,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return self.qr_with_linalg(m, n, min_mn);
         }
         
-        #[cfg(not(feature = "linalg"))]
+        #[cfg(not(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32"))))]
         {
-            self.qr_basic(m, n, min_mn)
+            return self.qr_basic(m, n, min_mn);
         }
     }
     
@@ -916,9 +916,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return self.lu_with_linalg(m, n, min_mn);
         }
         
-        #[cfg(not(feature = "linalg"))]
+        #[cfg(not(all(any(feature = "linalg", feature = "linalg-netlib"), not(target_arch = "wasm32"))))]
         {
-            self.lu_basic(m, n, min_mn)
+            return self.lu_basic(m, n, min_mn);
         }
     }
     
