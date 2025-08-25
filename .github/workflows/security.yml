@@ -97,8 +97,8 @@ jobs:
           cargo outdated || echo "Some dependencies are outdated - this is acceptable"
           
           echo "=== Running lightweight build check ==="
-          # Test basic compilation without full features to avoid metal/objc issues
-          cargo check --no-default-features --verbose
+          # Test basic compilation without MPI/metal/objc issues
+          cargo check --features "linalg" --verbose
           
       - name: Upload PR audit results
         uses: actions/upload-artifact@v4

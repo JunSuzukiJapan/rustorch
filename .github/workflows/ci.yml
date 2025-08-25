@@ -64,9 +64,12 @@ jobs:
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             # macOSではObjective-C依存を避けて基本機能のみでテスト
             cargo test --verbose --no-default-features --features "linalg"
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            # LinuxではMPI機能を含む包括的テスト
+            cargo test --verbose --features "linalg,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
-            # その他のOSでは全ての機能を有効に
-            cargo test --verbose --all-features
+            # WindowsではMPI以外の機能でテスト
+            cargo test --verbose --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
 
       - name: Run doctests
@@ -74,9 +77,12 @@ jobs:
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             # macOSではObjective-C依存を避けてdoctest実行
             cargo test --doc --no-default-features --features "linalg"
+          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            # LinuxではMPI機能を含むdoctest
+            cargo test --doc --features "linalg,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
-            # その他のOSでは全機能でdoctest実行
-            cargo test --doc --all-features
+            # WindowsではMPI以外でdoctest
+            cargo test --doc --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx"
           fi
 
       - name: Test examples
@@ -104,7 +110,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --all-features --all-targets -- -D warnings
+        run: cargo clippy --features "linalg,cuda,opencl,wasm,model-import,safetensors,onnx" --all-targets -- -D warnings
 
       - name: Install audit tools
         run: |
