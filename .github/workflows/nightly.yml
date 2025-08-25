@@ -29,6 +29,13 @@ jobs:
           brew install openblas
         shell: bash
 
+      - name: Install MPI (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenmpi-dev openmpi-bin pkg-config
+        shell: bash
+
       - name: Run extended tests
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
