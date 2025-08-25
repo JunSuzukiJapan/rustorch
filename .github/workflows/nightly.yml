@@ -35,10 +35,14 @@ jobs:
             # On macOS, enable metal feature
             cargo test --verbose --features "metal" --release
             cargo test --verbose --features "metal" --release --examples
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # On Linux, enable all features except macOS-specific ones
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx" --release
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx" --release --examples
           else
-            # On other platforms, enable all features
-            cargo test --all-features --release
-            cargo test --all-features --release --examples
+            # On Windows, enable all features except platform-specific ones
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx" --release
+            cargo test --verbose --features "linalg-netlib,cuda,opencl,wasm,model-import,safetensors,onnx" --release --examples
           fi
         shell: bash
 
@@ -75,7 +79,7 @@ jobs:
 
       - name: Run performance benchmarks
         run: |
-          cargo bench --all-features -- --output-format json > benchmark-results.json
+          cargo bench --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx" -- --output-format json > benchmark-results.json
         shell: bash
 
       - name: Compare with baseline
