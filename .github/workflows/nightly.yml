@@ -30,7 +30,7 @@ jobs:
 
       - name: Run extended tests
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             # On macOS, enable metal feature
             cargo test --verbose --features "metal" --release
             cargo test --verbose --features "metal" --release --examples

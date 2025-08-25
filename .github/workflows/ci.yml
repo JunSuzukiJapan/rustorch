@@ -72,10 +72,10 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             # macOSではObjective-C依存を避けて基本機能のみでテスト
             cargo test --verbose --no-default-features --features "linalg-netlib"
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # LinuxではMPI機能を含む包括的テスト (安定したlinalg使用)
             cargo test --verbose --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
@@ -85,10 +85,10 @@ jobs:
 
       - name: Run doctests
         run: |
-          if [ "${{ matrix.os }}" = "macos-latest" ]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             # macOSではObjective-C依存を避けてdoctest実行
             cargo test --doc --no-default-features --features "linalg-netlib"
-          elif [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # LinuxではMPI機能を含むdoctest
             cargo test --doc --features "linalg-netlib,cuda,opencl,mpi,wasm,model-import,safetensors,onnx"
           else
@@ -166,7 +166,7 @@ jobs:
       - name: Verify license compatibility
         run: |
           # Create deny.toml if it doesn't exist
-          if [ ! -f deny.toml ]; then
+          if [[ ! -f deny.toml ]]; then
             cat > deny.toml << 'EOL'
           [bans]
           deny = [
