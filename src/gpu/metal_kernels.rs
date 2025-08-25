@@ -3,7 +3,7 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 // Metal GPU kernel implementations
-use std::collections::HashMap;
+// Note: HashMap may be needed for future Metal device management
 use std::ffi::c_void;
 use std::marker::PhantomData;
 

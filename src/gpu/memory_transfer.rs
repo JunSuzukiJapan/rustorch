@@ -660,7 +660,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         &self,
         lhs: &Arc<Buffer>,
         rhs: &Arc<Buffer>,
-        device: &Arc<MetalDeviceType>,
+        _device: &Arc<MetalDeviceType>,
         op: &F,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
@@ -685,7 +685,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
     fn execute_metal_batch_normalize(
         &self,
         buffer: &Arc<Buffer>,
-        device: &Arc<MetalDeviceType>,
+        _device: &Arc<MetalDeviceType>,
         epsilon: T,
     ) -> RusTorchResult<GpuBuffer<T>> {
         // For now, fall back to CPU implementation
@@ -714,7 +714,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         query: &Arc<Buffer>,
         key: &Arc<Buffer>,
         value: &Arc<Buffer>,
-        device: &Arc<MetalDeviceType>,
+        _device: &Arc<MetalDeviceType>,
     ) -> RusTorchResult<GpuBuffer<T>> {
         // For now, fall back to CPU implementation
         // TODO: Implement actual Metal compute shader for attention

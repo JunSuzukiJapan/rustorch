@@ -3,7 +3,7 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+// Note: Arc and Mutex may be needed for future CUDA memory pool implementation
 
 #[cfg(feature = "cuda")]
 use cudarc::{
@@ -247,12 +247,14 @@ impl CudaMatrixExecutor {
     }
 }
 
-/// CUDA memory pool for efficient memory management
-/// 効率的なメモリ管理のためのCUDAメモリプール
+/// CUDA memory pool for efficient memory management (future implementation)
+/// 効率的なメモリ管理のためのCUDAメモリプール（将来実装）
+#[allow(dead_code)]
 struct CudaMemoryPool {
     buffers: HashMap<usize, Vec<*mut u8>>,
 }
 
+#[allow(dead_code)]
 impl CudaMemoryPool {
     fn new() -> Self {
         Self {
@@ -276,12 +278,16 @@ pub struct CudaMatrixExecutor;
 
 #[cfg(not(feature = "cuda"))]
 impl CudaMatrixExecutor {
+    /// Create a new CUDA matrix executor for the specified device
+    /// 指定されたデバイス用の新しいCUDA行列実行器を作成
     pub fn new(_device_id: usize) -> RusTorchResult<Self> {
         Err(RusTorchError::UnsupportedDevice(
             "CUDA not available".to_string(),
         ))
     }
 
+    /// Perform matrix multiplication using CUDA cuBLAS
+    /// CUDA cuBLASを使用して行列乗算を実行
     pub fn matmul_f32(
         &self,
         _a: &[f32],
@@ -297,6 +303,8 @@ impl CudaMatrixExecutor {
         ))
     }
 
+    /// Perform batch matrix multiplication using CUDA cuBLAS
+    /// CUDA cuBLASを使用してバッチ行列乗算を実行
     pub fn batch_matmul_f32(
         &self,
         _a_batch: &[Vec<f32>],
@@ -311,12 +319,16 @@ impl CudaMatrixExecutor {
         ))
     }
 
+    /// Get CUDA device memory information (free, total)
+    /// CUDAデバイスメモリ情報を取得（空き容量、総容量）
     pub fn get_memory_info(&self) -> RusTorchResult<(usize, usize)> {
         Err(RusTorchError::UnsupportedDevice(
             "CUDA not available".to_string(),
         ))
     }
 
+    /// Get CUDA compute capability (major, minor)
+    /// CUDAコンピュート能力を取得（メジャー、マイナー）
     pub fn get_compute_capability(&self) -> RusTorchResult<(i32, i32)> {
         Err(RusTorchError::UnsupportedDevice(
             "CUDA not available".to_string(),

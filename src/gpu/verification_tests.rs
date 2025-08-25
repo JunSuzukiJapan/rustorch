@@ -1,16 +1,19 @@
 //! GPU vs CPU Verification Tests for RusTorch
 //! RusTorch用GPU vs CPU検証テスト
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchResult;
 
 /// Test tolerance for floating point comparisons
 /// 浮動小数点比較のテスト許容値
 pub const FLOAT_TOLERANCE: f32 = 1e-5;
+/// Test tolerance for double precision floating point comparisons
+/// 倍精度浮動小数点比較のテスト許容値
 pub const DOUBLE_TOLERANCE: f64 = 1e-10;
 
 /// Test result structure
 /// テスト結果構造体
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct VerificationResult {
     pub test_name: String,
     pub passed: bool,
@@ -23,6 +26,8 @@ pub struct VerificationResult {
 }
 
 impl VerificationResult {
+    /// Create a new verification result
+    /// 新しい検証結果を作成
     pub fn new(test_name: String) -> Self {
         Self {
             test_name,
@@ -36,6 +41,8 @@ impl VerificationResult {
         }
     }
 
+    /// Add timing information to the verification result
+    /// 検証結果にタイミング情報を追加
     pub fn with_timing(mut self, cpu_time: f64, gpu_time: f64) -> Self {
         self.cpu_time_ms = Some(cpu_time);
         self.gpu_time_ms = Some(gpu_time);
@@ -43,6 +50,8 @@ impl VerificationResult {
         self
     }
 
+    /// Add error metrics to the verification result
+    /// 検証結果にエラーメトリクスを追加
     pub fn with_error_metrics(mut self, max_error: f32, mean_error: f32) -> Self {
         self.max_error = max_error;
         self.mean_error = mean_error;
@@ -50,6 +59,8 @@ impl VerificationResult {
         self
     }
 
+    /// Mark the verification as failed with error message
+    /// エラーメッセージと共に検証を失敗とマーク
     pub fn with_failure(mut self, error: String) -> Self {
         self.passed = false;
         self.error_message = Some(error);
@@ -64,6 +75,8 @@ pub struct VerificationTestSuite {
 }
 
 impl VerificationTestSuite {
+    /// Create a new verification test suite
+    /// 新しい検証テストスイートを作成
     pub fn new() -> Self {
         Self {
             results: Vec::new(),
@@ -122,7 +135,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] + b[i];
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         // GPU implementation
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
@@ -161,7 +174,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] - b[i];
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -199,7 +212,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] * b[i];
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -237,7 +250,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] / b[i];
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -274,8 +287,8 @@ impl VerificationTestSuite {
         
         // CPU reference
         let start = std::time::Instant::now();
-        let cpu_result = self.cpu_matmul(&a, &b, m, n, k);
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_result = self.cpu_matmul(&a, &b, m, n, k);
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -312,8 +325,8 @@ impl VerificationTestSuite {
         
         // CPU reference (subset for performance)
         let start = std::time::Instant::now();
-        let cpu_result = self.cpu_matmul(&a, &b, m.min(256), n.min(256), k.min(256));
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_result = self.cpu_matmul(&a, &b, m.min(256), n.min(256), k.min(256));
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -349,8 +362,8 @@ impl VerificationTestSuite {
         
         // CPU reference
         let start = std::time::Instant::now();
-        let cpu_sum = input.iter().sum::<f32>();
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_sum = input.iter().sum::<f32>();
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -383,8 +396,8 @@ impl VerificationTestSuite {
         
         // CPU reference
         let start = std::time::Instant::now();
-        let cpu_mean = input.iter().sum::<f32>() / size as f32;
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_mean = input.iter().sum::<f32>() / size as f32;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -422,7 +435,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = input[i].max(0.0);
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -462,7 +475,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = (input[i] - mean) / (variance + epsilon).sqrt();
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -501,7 +514,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = (input[i] - max_val).exp() / exp_sum;
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -533,16 +546,16 @@ impl VerificationTestSuite {
         let input_w = 32;
         let kernel_h = 3;
         let kernel_w = 3;
-        let output_h = input_h - kernel_h + 1;
-        let output_w = input_w - kernel_w + 1;
+        let _output_h = input_h - kernel_h + 1;
+        let _output_w = input_w - kernel_w + 1;
         
         let input = (0..input_h*input_w).map(|i| (i as f32) * 0.01).collect::<Vec<f32>>();
         let kernel = vec![1.0f32, 0.0, -1.0, 1.0, 0.0, -1.0, 1.0, 0.0, -1.0]; // Edge detection
         
         // CPU reference
         let start = std::time::Instant::now();
-        let cpu_result = self.cpu_conv2d(&input, &kernel, input_h, input_w, kernel_h, kernel_w);
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_result = self.cpu_conv2d(&input, &kernel, input_h, input_w, kernel_h, kernel_w);
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -576,15 +589,15 @@ impl VerificationTestSuite {
         let pool_w = 2;
         let stride_h = 2;
         let stride_w = 2;
-        let output_h = input_h / stride_h;
-        let output_w = input_w / stride_w;
+        let _output_h = input_h / stride_h;
+        let _output_w = input_w / stride_w;
         
         let input = (0..input_h*input_w).map(|i| (i as f32) * 0.1).collect::<Vec<f32>>();
         
         // CPU reference
         let start = std::time::Instant::now();
-        let cpu_result = self.cpu_max_pool2d(&input, input_h, input_w, pool_h, pool_w, stride_h, stride_w);
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_result = self.cpu_max_pool2d(&input, input_h, input_w, pool_h, pool_w, stride_h, stride_w);
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -624,7 +637,7 @@ impl VerificationTestSuite {
                 cpu_result[c * rows + r] = input[r * cols + c];
             }
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -663,7 +676,7 @@ impl VerificationTestSuite {
             let erf_term = (x / 2.0_f32.sqrt()).tanh(); // Approximation
             cpu_result[i] = 0.5 * x * (1.0 + erf_term);
         }
-        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -813,6 +826,7 @@ impl VerificationTestSuite {
 
     /// Compute error metrics between CPU and GPU results
     /// CPU と GPU 結果間の誤差メトリクスを計算
+    #[allow(dead_code)]
     fn compute_error_metrics(&self, cpu_result: &[f32], gpu_result: &[f32]) -> (f32, f32) {
         let len = cpu_result.len().min(gpu_result.len());
         let mut max_error = 0.0f32;

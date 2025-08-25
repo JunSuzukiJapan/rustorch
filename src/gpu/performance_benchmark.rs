@@ -1,7 +1,7 @@
 //! Performance Benchmark Suite for GPU Kernels
 //! GPUカーネル用パフォーマンスベンチマークスイート
 
-use crate::error::{RusTorchError, RusTorchResult};
+use crate::error::RusTorchResult;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -45,6 +45,7 @@ impl Default for BenchmarkConfig {
 /// Benchmark result for a single operation
 /// 単一演算のベンチマーク結果
 #[derive(Debug, Clone)]
+#[allow(missing_docs)]
 pub struct BenchmarkResult {
     pub operation_name: String,
     pub device_name: String,
@@ -62,6 +63,8 @@ pub struct BenchmarkResult {
 }
 
 impl BenchmarkResult {
+    /// Create a new benchmark result
+    /// 新しいベンチマーク結果を作成
     pub fn new(operation_name: String, device_name: String, problem_size: String) -> Self {
         Self {
             operation_name,
@@ -80,6 +83,8 @@ impl BenchmarkResult {
         }
     }
 
+    /// Add CPU timing information to the benchmark result
+    /// ベンチマーク結果にCPUタイミング情報を追加
     pub fn with_cpu_timing(mut self, time_ms: f64, iterations: usize) -> Self {
         self.cpu_time_ms = Some(time_ms);
         self.iterations = iterations;
@@ -89,6 +94,8 @@ impl BenchmarkResult {
         self
     }
 
+    /// Add GPU timing information to the benchmark result
+    /// ベンチマーク結果にGPUタイミング情報を追加
     pub fn with_gpu_timing(mut self, time_ms: f64, iterations: usize) -> Self {
         self.gpu_time_ms = Some(time_ms);
         self.iterations = iterations;
@@ -104,16 +111,22 @@ impl BenchmarkResult {
         self
     }
 
+    /// Add FLOPS count to the benchmark result
+    /// ベンチマーク結果にFLOPS数を追加
     pub fn with_flops(mut self, flops: u64) -> Self {
         self.total_flops = Some(flops);
         self
     }
 
+    /// Add memory bytes to the benchmark result
+    /// ベンチマーク結果にメモリバイト数を追加
     pub fn with_memory_bytes(mut self, bytes: u64) -> Self {
         self.total_memory_bytes = Some(bytes);
         self
     }
 
+    /// Add error information to the benchmark result
+    /// ベンチマーク結果にエラー情報を追加
     pub fn with_error(mut self, error: String) -> Self {
         self.error_message = Some(error);
         self
@@ -128,6 +141,8 @@ pub struct PerformanceBenchmark {
 }
 
 impl PerformanceBenchmark {
+    /// Create a new performance benchmark
+    /// 新しいパフォーマンスベンチマークを作成
     pub fn new(config: BenchmarkConfig) -> Self {
         Self {
             config,

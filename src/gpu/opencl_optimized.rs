@@ -2,8 +2,7 @@
 //! クロスプラットフォームGPU加速のための最適化OpenCL実装
 
 use crate::error::{RusTorchError, RusTorchResult};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+// Note: HashMap, Arc, Mutex may be needed for future OpenCL device management
 
 #[cfg(feature = "opencl")]
 use opencl3::{
@@ -606,12 +605,16 @@ pub struct OpenClMatrixExecutor;
 
 #[cfg(not(feature = "opencl"))]
 impl OpenClMatrixExecutor {
+    /// Create a new OpenCL matrix executor with automatic device selection
+    /// 自動デバイス選択による新しいOpenCL行列実行器を作成
     pub fn new() -> RusTorchResult<Self> {
         Err(RusTorchError::UnsupportedDevice(
             "OpenCL not available".to_string(),
         ))
     }
 
+    /// Perform matrix multiplication using OpenCL with vendor-specific optimizations
+    /// ベンダー固有最適化を使用してOpenCLで行列乗算を実行
     pub fn matmul_f32(
         &mut self,
         _a: &[f32],
