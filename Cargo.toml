@@ -66,6 +66,12 @@ prost-build = { version = "0.12", optional = true }
 bytes = { version = "1.5", optional = true }
 base64 = { version = "0.21", optional = true }
 
+# Safetensors and ONNX dependencies
+safetensors = { version = "0.4", optional = true }
+memmap2 = { version = "0.9", optional = true }
+bytemuck = { version = "1.14", optional = true }
+ort = { version = "2.0.0-rc.10", optional = true }
+
 # WebAssembly dependencies
 wasm-bindgen = { version = "0.2", optional = true }
 wasm-bindgen-futures = { version = "0.4", optional = true }
@@ -100,11 +106,6 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
-safetensors = { version = "0.4", optional = true }
-memmap2 = { version = "0.9", optional = true }
-bytemuck = { version = "1.14", optional = true }
-ort = { version = "2.0.0-rc.10", optional = true }
-ndarray = { version = "0.16", optional = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc_exception = { version = "0.1", optional = true }
@@ -130,7 +131,7 @@ nccl = ["dep:nccl"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
-onnx = ["dep:ort", "dep:ndarray"]
+onnx = ["dep:ort"]
 
 [profile.release]
 opt-level = 3

@@ -4,7 +4,10 @@
 #[cfg(feature = "onnx")]
 use crate::tensor::Tensor;
 #[cfg(feature = "onnx")]
-use ort::{Environment, ExecutionProvider, Session, SessionBuilder, Value};
+use ort::environment::Environment;
+use ort::execution_providers::ExecutionProvider;
+use ort::session::{Session, builder::{SessionBuilder, GraphOptimizationLevel}};
+use ort::value::Value;
 #[cfg(feature = "onnx")]
 use std::collections::HashMap;
 #[cfg(feature = "onnx")]
@@ -15,14 +18,14 @@ use num_traits::Float;
 #[cfg(feature = "onnx")]
 #[derive(Debug)]
 pub enum OnnxError {
-    OrtError(ort::OrtError),
+    OrtError(ort::Error),
     ConversionError(String),
     ShapeError(String),
 }
 
 #[cfg(feature = "onnx")]
-impl From<ort::OrtError> for OnnxError {
-    fn from(error: ort::OrtError) -> Self {
+impl From<ort::Error> for OnnxError {
+    fn from(error: ort::Error) -> Self {
         OnnxError::OrtError(error)
     }
 }
@@ -64,7 +67,7 @@ impl OnnxModel {
         let environment = Environment::builder().build()?;
         
         let session = SessionBuilder::new(&environment)?
-            .with_optimization_level(ort::GraphOptimizationLevel::All)?
+            .with_optimization_level(GraphOptimizationLevel::All)?
             .with_intra_threads(4)?
             .with_model_from_file(path)?;
 
@@ -229,11 +232,11 @@ pub mod utils {
     /// Get available ONNX execution providers
     /// 利用可能なONNX実行プロバイダーを取得
     pub fn get_available_providers() -> Vec<String> {
-        ort::get_available_providers()
-            .unwrap_or_default()
-            .into_iter()
-            .map(|p| format!("{:?}", p))
-            .collect()
+        // TODO: Update for ort 2.0 API - this function doesn't exist anymore
+        // For now return a default list of common providers
+        vec![
+            "CPUExecutionProvider".to_string(),
+        ]
     }
 
     /// Create ONNX session with specific execution provider
@@ -246,7 +249,7 @@ pub mod utils {
         
         let session = SessionBuilder::new(&environment)?
             .with_execution_providers([provider])?
-            .with_optimization_level(ort::GraphOptimizationLevel::All)?
+            .with_optimization_level(GraphOptimizationLevel::All)?
             .with_model_from_file(model_path)?;
 
         Ok(session)

@@ -364,5 +364,6 @@ pub use cuda::CudaBackend;
 #[cfg(feature = "metal")]  
 pub use metal::MetalBackend;
 
-#[cfg(feature = "opencl")]
-pub use opencl::OpenClBackend;
+// OpenCL backend not yet implemented
+// #[cfg(feature = "opencl")]
+// pub use opencl::OpenClBackend;

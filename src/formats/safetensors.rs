@@ -175,9 +175,7 @@ impl SafetensorsSaver {
     }
 }
 
-// Add bytemuck dependency
-#[cfg(feature = "safetensors")]
-extern crate bytemuck;
+// bytemuck is available via Cargo.toml dependency
 
 #[cfg(test)]
 #[cfg(feature = "safetensors")]
