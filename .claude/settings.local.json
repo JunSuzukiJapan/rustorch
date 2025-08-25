@@ -148,7 +148,9 @@
       "Bash(timeout 60s cargo test tensor::core::tests --lib --no-default-features)",
       "Bash(timeout 60s cargo test --lib --no-default-features -- --list)",
       "Bash(timeout 60s cargo test --lib --no-default-features autograd::tests::test_basic_operations)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "mcp__serena__*",
+      "mcp__morphllm-fast-apply__list_allowed_directories"
     ],
     "deny": [],
     "ask": [],
@@ -156,7 +158,8 @@
       "/usr/local/Cellar/python@3.9/3.9.19/Frameworks/Python.framework/Versions/3.9/lib",
       "/Users/suzukijun/Program/Rust",
       "/Users/suzukijun/Program",
-      "/usr/local/Cellar/openblas/0.3.30/lib"
+      "/usr/local/Cellar/openblas/0.3.30/lib",
+      "/Users/suzukijun/.claude"
     ]
   }
 }

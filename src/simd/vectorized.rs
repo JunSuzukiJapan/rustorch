@@ -495,11 +495,19 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
         return 0.0;
     }
 
-    if is_avx2_available() && data.len() >= 8 {
-        unsafe { sum_f32_avx2(data) }
-    } else if is_sse41_available() && data.len() >= 4 {
-        unsafe { sum_f32_sse41(data) }
-    } else {
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    {
+        if is_avx2_available() && data.len() >= 8 {
+            unsafe { sum_f32_avx2(data) }
+        } else if is_sse41_available() && data.len() >= 4 {
+            unsafe { sum_f32_sse41(data) }
+        } else {
+            data.iter().sum()
+        }
+    }
+    
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    {
         data.iter().sum()
     }
 }
@@ -508,7 +516,7 @@ pub fn sum_f32_simd(data: &[f32]) -> f32 {
 /// f32用AVX2最適化合計
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
-unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
+pub unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
     let len = data.len();
     let mut sum = _mm256_setzero_ps();
 
@@ -542,7 +550,7 @@ unsafe fn sum_f32_avx2(data: &[f32]) -> f32 {
 /// f32用SSE4.1最適化合計
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
-unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
+pub unsafe fn sum_f32_sse41(data: &[f32]) -> f32 {
     let len = data.len();
     let mut sum = _mm_setzero_ps();
 
@@ -587,13 +595,20 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
     }
 
     let mean = mean_f32_simd(data);
-    let sum_sq_diff = if is_avx2_available() && data.len() >= 8 {
-        unsafe { sum_squared_diff_f32_avx2(data, mean) }
-    } else if is_sse41_available() && data.len() >= 4 {
-        unsafe { sum_squared_diff_f32_sse41(data, mean) }
-    } else {
-        data.iter().map(|&x| (x - mean) * (x - mean)).sum()
+    
+    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    let sum_sq_diff = {
+        if is_avx2_available() && data.len() >= 8 {
+            unsafe { sum_squared_diff_f32_avx2(data, mean) }
+        } else if is_sse41_available() && data.len() >= 4 {
+            unsafe { sum_squared_diff_f32_sse41(data, mean) }
+        } else {
+            data.iter().map(|&x| (x - mean) * (x - mean)).sum()
+        }
     };
+    
+    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    let sum_sq_diff = data.iter().map(|&x| (x - mean) * (x - mean)).sum();
 
     sum_sq_diff / (data.len() - 1) as f32
 }
@@ -602,7 +617,7 @@ pub fn variance_f32_simd(data: &[f32]) -> f32 {
 /// AVX2最適化二乗差の合計
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "avx2")]
-unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
+pub unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
     let mean_vec = _mm256_broadcast_ss(&mean);
     let mut sum = _mm256_setzero_ps();
@@ -638,7 +653,7 @@ unsafe fn sum_squared_diff_f32_avx2(data: &[f32], mean: f32) -> f32 {
 /// SSE4.1最適化二乗差の合計
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[target_feature(enable = "sse4.1")]
-unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
+pub unsafe fn sum_squared_diff_f32_sse41(data: &[f32], mean: f32) -> f32 {
     let len = data.len();
     let mean_vec = _mm_load1_ps(&mean);
     let mut sum = _mm_setzero_ps();
