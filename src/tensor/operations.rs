@@ -505,7 +505,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         // In production, use LAPACK bindings for optimal performance
 
         #[cfg(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         ))]
         {
@@ -513,7 +513,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         #[cfg(not(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         )))]
         {
@@ -599,7 +599,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// SVD implementation with ndarray-linalg (more accurate)
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn svd_with_linalg(
@@ -693,7 +693,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let n = shape[0];
 
         #[cfg(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         ))]
         {
@@ -701,7 +701,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         #[cfg(not(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         )))]
         {
@@ -728,7 +728,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let n = shape[0];
 
         #[cfg(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         ))]
         {
@@ -736,7 +736,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         #[cfg(not(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         )))]
         {
@@ -820,7 +820,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Eigenvalue decomposition using ndarray-linalg
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn eig_with_linalg(
@@ -881,7 +881,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Symmetric eigenvalue decomposition using ndarray-linalg
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn symeig_with_linalg(
@@ -959,7 +959,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let min_mn = m.min(n);
 
         #[cfg(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         ))]
         {
@@ -967,7 +967,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         #[cfg(not(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         )))]
         {
@@ -993,7 +993,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let min_mn = m.min(n);
 
         #[cfg(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         ))]
         {
@@ -1001,7 +1001,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         #[cfg(not(all(
-            any(feature = "linalg", feature = "linalg-netlib"),
+            any(feature = "linalg", feature = "linalg-system"),
             not(target_arch = "wasm32")
         )))]
         {
@@ -1158,7 +1158,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// QR decomposition using ndarray-linalg
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn qr_with_linalg(&self, _m: usize, _n: usize, _min_mn: usize) -> Result<(Self, Self), String> {
@@ -1190,7 +1190,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// LU decomposition using ndarray-linalg
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn lu_with_linalg(
@@ -1921,11 +1921,11 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_square_matrix() {
@@ -1954,7 +1954,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_rectangular_matrix() {
@@ -1983,7 +1983,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_orthogonality() {
@@ -2015,7 +2015,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_rank_deficient() {
@@ -2037,7 +2037,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_identity_matrix() {
@@ -2057,7 +2057,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_zero_matrix() {
@@ -2077,7 +2077,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_some_false() {
@@ -2098,7 +2098,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_tall_thin_matrix() {
@@ -2124,7 +2124,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_svd_wide_matrix() {
@@ -2150,7 +2150,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_eig_general_matrix() {
@@ -2181,7 +2181,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_eig_with_eigenvectors() {
@@ -2288,7 +2288,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_eig_error_cases() {
@@ -2354,7 +2354,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_qr_decomposition() {
@@ -2388,7 +2388,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_qr_rectangular_matrix() {
@@ -2418,7 +2418,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_lu_decomposition() {
@@ -2457,7 +2457,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_lu_rectangular_matrix() {
@@ -2489,7 +2489,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_qr_identity_matrix() {
@@ -2523,7 +2523,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_lu_identity_matrix() {
@@ -2564,7 +2564,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_qr_error_cases() {
@@ -2576,7 +2576,7 @@ mod tests {
 
     #[test]
     #[cfg(all(
-        any(feature = "linalg", feature = "linalg-netlib"),
+        any(feature = "linalg", feature = "linalg-system"),
         not(target_arch = "wasm32")
     ))]
     fn test_lu_error_cases() {

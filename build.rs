@@ -10,16 +10,17 @@ fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
     // Check if we're building with any LAPACK/BLAS feature
-    let has_linalg_netlib = env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok();
     let has_linalg = env::var("CARGO_FEATURE_LINALG").is_ok();
+    let has_linalg_system = env::var("CARGO_FEATURE_LINALG_SYSTEM").is_ok();
     let has_blas_optimized = env::var("CARGO_FEATURE_BLAS_OPTIMIZED").is_ok();
 
-    if has_linalg_netlib || has_linalg || has_blas_optimized {
+    if has_linalg || has_linalg_system || has_blas_optimized {
         // Windows requires special handling for LAPACK/BLAS
         if cfg!(target_os = "windows") {
-            // On Windows, we rely on netlib-src crate's build system
-            // No explicit linking needed as netlib-src handles it
-            println!("cargo:rustc-cfg=windows_netlib");
+            // On Windows, use system libraries or disable linalg features
+            println!(
+                "cargo:warning=Windows LAPACK/BLAS support limited - use --no-default-features"
+            );
         } else {
             // Unix systems (Linux, macOS) - explicit linking
 
@@ -28,7 +29,7 @@ fn main() {
                 println!("cargo:rustc-link-search=native=/usr/lib");
                 println!("cargo:rustc-link-search=native=/usr/local/lib");
 
-                // Multi-architecture support
+                // Multi-architecture support with Ubuntu-specific paths
                 if cfg!(target_arch = "x86_64") {
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
                     println!(
@@ -36,19 +37,21 @@ fn main() {
                     );
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/blas");
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/lapack");
+                    // Additional Ubuntu library paths for CI/CD environments
+                    println!("cargo:rustc-link-search=native=/usr/lib64");
+                    println!("cargo:rustc-link-search=native=/lib/x86_64-linux-gnu");
                 } else if cfg!(target_arch = "aarch64") {
                     println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu");
                     println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu/openblas-pthread");
                     println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu/blas");
                     println!("cargo:rustc-link-search=native=/usr/lib/aarch64-linux-gnu/lapack");
+                    println!("cargo:rustc-link-search=native=/usr/lib64");
+                    println!("cargo:rustc-link-search=native=/lib/aarch64-linux-gnu");
                 }
             }
 
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
-            if cfg!(target_os = "linux") && has_linalg_netlib {
-                // For linalg-netlib, netlib-src handles all linking
-                println!("cargo:warning=Using netlib-src for LAPACK/BLAS, skipping system library linking");
-            } else if cfg!(target_os = "linux") {
+            if cfg!(target_os = "linux") {
                 // Only link system libraries if NOT using linalg-netlib
                 // Check for explicit BLAS/LAPACK library preferences
                 let _blas_lib = env::var("BLAS_LIB")
@@ -120,48 +123,12 @@ fn main() {
                     }
                 }
 
-                // Ubuntu LAPACK linking strategy - comprehensive approach
-                // Use environment variable override if set
-                if let Ok(custom_libs) = env::var("RUSTORCH_LINK_LIBS") {
-                    for lib in custom_libs.split(',') {
-                        println!("cargo:rustc-link-lib={}", lib.trim());
-                    }
+                // Simple Ubuntu LAPACK/BLAS linking - use system libraries
+                if openblas_available {
+                    println!("cargo:rustc-link-lib=openblas");
                 } else {
-                    // Default Ubuntu strategy: link complete LAPACK stack
-                    // Many Ubuntu OpenBLAS packages lack Fortran LAPACK symbols
-                    let mut needs_gfortran = true;
-
-                    if separate_lapack_available {
-                        // Always prioritize system LAPACK for Fortran compatibility
-                        println!("cargo:rustc-link-lib=lapack");
-
-                        if openblas_available {
-                            // Use OpenBLAS for BLAS operations
-                            println!("cargo:rustc-link-lib=openblas");
-                        } else if separate_blas_available {
-                            // Fallback to reference BLAS
-                            println!("cargo:rustc-link-lib=blas");
-                        }
-                    } else if openblas_available {
-                        // OpenBLAS only - may lack some Fortran LAPACK functions
-                        println!("cargo:rustc-link-lib=openblas");
-                        // Ensure Fortran runtime for any missing symbols
-                        println!("cargo:warning=No separate LAPACK found, relying on OpenBLAS - some Fortran functions may be missing");
-                    } else if has_linalg_netlib {
-                        // Use netlib-src for complete implementation
-                        println!("cargo:warning=No system LAPACK/BLAS found, using netlib-src");
-                        needs_gfortran = false;
-                    } else {
-                        // Last resort: try standard library names
-                        println!("cargo:rustc-link-lib=lapack");
-                        println!("cargo:rustc-link-lib=blas");
-                        println!("cargo:warning=Using fallback LAPACK/BLAS linking");
-                    }
-
-                    // Always add Fortran runtime for system libraries
-                    if needs_gfortran {
-                        println!("cargo:rustc-link-lib=gfortran");
-                    }
+                    println!("cargo:rustc-link-lib=lapack");
+                    println!("cargo:rustc-link-lib=blas");
                 }
             } else if cfg!(target_os = "macos") {
                 // macOS with intelligent BLAS/LAPACK detection

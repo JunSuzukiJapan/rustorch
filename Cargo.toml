@@ -98,7 +98,6 @@ nccl = { version = "0.6", optional = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 openblas-src = { version = "0.10", optional = true, features = ["cblas", "system"] }
 cblas-sys = { version = "0.1", optional = true }
-netlib-src = { version = "0.8", optional = true, features = ["static"] }
 blas = { version = "0.22", optional = true }
 lapack = { version = "0.19", optional = true }
 hostname = "0.4"
@@ -124,7 +123,7 @@ tempfile = "3.8"
 default = []
 # BLAS-dependent features - High Performance Linear Algebra
 linalg = ["dep:ndarray-linalg", "dep:openblas-src", "dep:cblas-sys"]
-linalg-netlib = ["dep:ndarray-linalg", "dep:netlib-src"]
+linalg-system = ["dep:ndarray-linalg", "dep:blas", "dep:lapack"]
 blas-optimized = ["dep:blas", "dep:lapack", "dep:openblas-src", "dep:cblas-sys"]
 # WASM-safe default with core tensor operations
 wasm-safe = []

@@ -7,7 +7,7 @@
 use rustorch::tensor::Tensor;
 use std::time::Instant;
 
-#[cfg(feature = "linalg-netlib")]
+#[cfg(feature = "linalg-system")]
 use rustorch::linalg::optimized_matmul;
 
 #[cfg(feature = "metal")]
@@ -161,7 +161,7 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
     let b = Tensor::from_vec(b_data, vec![k, n]);
 
     let start = Instant::now();
-    #[cfg(feature = "linalg-netlib")]
+    #[cfg(feature = "linalg-system")]
     {
         match optimized_matmul(&a, &b) {
             Ok(_result) => {
@@ -200,7 +200,7 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
         }
     }
 
-    #[cfg(not(feature = "linalg-netlib"))]
+    #[cfg(not(feature = "linalg-system"))]
     {
         Ok(BenchmarkResult {
             backend: "CPU (no BLAS)".to_string(),
@@ -210,7 +210,7 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
             memory_bandwidth_gb_s: 0.0,
             efficiency_percent: 0.0,
             success: false,
-            error_message: Some("linalg-netlib feature not enabled".to_string()),
+            error_message: Some("linalg-system feature not enabled".to_string()),
         })
     }
 }
@@ -660,9 +660,9 @@ fn analyze_and_recommend(results: &[BenchmarkResult], system_info: &SystemInfo) 
 
     let available_gpus = &system_info.gpu_available;
     if available_gpus.is_empty() {
-        println!("  cargo run --features \"linalg-netlib\" # CPU-only optimization");
+        println!("  cargo run --features \"linalg-system\" # CPU-only optimization");
     } else {
-        let mut features = vec!["linalg-netlib"];
+        let mut features = vec!["linalg-system"];
 
         if available_gpus.contains(&"Metal".to_string()) {
             features.push("metal");
