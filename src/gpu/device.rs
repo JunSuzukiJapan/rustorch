@@ -55,6 +55,7 @@ pub struct GpuBackend {
 impl GpuBackend {
     /// Create new GPU backend
     pub fn new() -> Self {
+        #[allow(unused_mut)]
         let mut devices: Vec<Arc<dyn GpuDevice>> = vec![Arc::new(CpuDevice::new())];
 
         #[cfg(feature = "cuda")]

@@ -47,7 +47,8 @@ pub enum KernelOp {
 }
 
 /// Kernel execution parameters
-/// カーネル実行パラメータ#[derive(Debug, Clone, Default)]
+/// カーネル実行パラメータ
+#[derive(Debug, Clone, Default)]
 pub struct KernelParams {
     /// Input tensor shapes for the kernel
     /// カーネルの入力テンソル形状
@@ -61,7 +62,8 @@ pub struct KernelParams {
 }
 
 /// Kernel performance metrics
-/// カーネル性能メトリクス#[derive(Debug, Clone)]
+/// カーネル性能メトリクス
+#[derive(Debug, Clone)]
 pub struct KernelMetrics {
     /// Kernel execution time
     /// カーネル実行時間
