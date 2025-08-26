@@ -16,7 +16,7 @@ fn main() {
             println!("cargo:rustc-link-search=native=/usr/lib");
             println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
         }
-        
+
         // Common library path for Unix systems
         if cfg!(unix) {
             println!("cargo:rustc-link-search=native=/usr/local/lib");
@@ -25,7 +25,7 @@ fn main() {
         // Link LAPACK and BLAS libraries
         println!("cargo:rustc-link-lib=lapack");
         println!("cargo:rustc-link-lib=blas");
-        
+
         // gfortran is typically needed on Linux, but may not be available on all systems
         if cfg!(target_os = "linux") {
             println!("cargo:rustc-link-lib=gfortran");
