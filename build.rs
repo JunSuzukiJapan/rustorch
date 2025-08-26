@@ -39,25 +39,28 @@ fn main() {
             if cfg!(target_os = "linux") {
                 // Check for explicit BLAS/LAPACK library preferences
                 let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
-                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                let _lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
                 
-                // Link explicitly specified libraries
-                println!("cargo:rustc-link-lib={}", blas_lib);
-                if blas_lib != lapack_lib {
-                    println!("cargo:rustc-link-lib={}", lapack_lib);
+                // Check if OpenBLAS is actually available before linking
+                let openblas_available = std::path::Path::new("/usr/lib/x86_64-linux-gnu/libopenblas.so.0").exists() ||
+                                         std::path::Path::new("/usr/lib/libopenblas.so").exists() ||
+                                         std::path::Path::new("/usr/local/lib/libopenblas.so").exists();
+                
+                if blas_lib == "openblas" && openblas_available {
+                    // Link OpenBLAS (includes both BLAS and LAPACK)
+                    println!("cargo:rustc-link-lib=openblas");
+                } else {
+                    // Fallback to separate BLAS/LAPACK libraries
+                    println!("cargo:rustc-link-lib=blas");
+                    println!("cargo:rustc-link-lib=lapack");
                 }
                 
                 // Always link gfortran for Fortran runtime
                 println!("cargo:rustc-link-lib=gfortran");
-                
-                // Add explicit dylib linking for better symbol resolution
-                if blas_lib == "openblas" || lapack_lib == "openblas" {
-                    println!("cargo:rustc-link-lib=dylib=openblas");
-                }
             } else if cfg!(target_os = "macos") {
                 // macOS with intelligent BLAS/LAPACK detection
                 let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "framework".to_string());
-                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "framework".to_string());
+                let _lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "framework".to_string());
                 
                 // Check for Homebrew OpenBLAS (both ARM64 and x86_64)
                 let mut openblas_found = false;
