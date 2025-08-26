@@ -117,33 +117,48 @@ fn main() {
                     }
                 }
 
-                // Ubuntu's OpenBLAS often doesn't include complete LAPACK
-                // Always link both libraries for maximum compatibility
-                let mut needs_gfortran = true;
-                if openblas_available && separate_lapack_available {
-                    // Link LAPACK first to ensure all symbols are available
-                    println!("cargo:rustc-link-lib=lapack");
-                    println!("cargo:rustc-link-lib=openblas");
-                } else if openblas_available {
-                    // Try OpenBLAS only if no separate LAPACK is available
-                    println!("cargo:rustc-link-lib=openblas");
-                } else if separate_blas_available && separate_lapack_available {
-                    // Fallback to separate BLAS/LAPACK libraries - link in correct order
-                    println!("cargo:rustc-link-lib=lapack");
-                    println!("cargo:rustc-link-lib=blas");
-                } else if has_linalg_netlib {
-                    // For linalg-netlib feature, we expect netlib-src to provide the libraries
-                    println!("cargo:warning=OpenBLAS/BLAS/LAPACK libraries not found on system, relying on netlib-src");
-                    needs_gfortran = false;
+                // Ubuntu LAPACK linking strategy - comprehensive approach
+                // Use environment variable override if set
+                if let Ok(custom_libs) = env::var("RUSTORCH_LINK_LIBS") {
+                    for lib in custom_libs.split(',') {
+                        println!("cargo:rustc-link-lib={}", lib.trim());
+                    }
                 } else {
-                    // For regular linalg feature, force both libraries
-                    println!("cargo:rustc-link-lib=lapack");
-                    println!("cargo:rustc-link-lib=openblas");
-                }
-
-                // Always link gfortran for Fortran runtime when needed
-                if needs_gfortran {
-                    println!("cargo:rustc-link-lib=gfortran");
+                    // Default Ubuntu strategy: link complete LAPACK stack
+                    // Many Ubuntu OpenBLAS packages lack Fortran LAPACK symbols
+                    let mut needs_gfortran = true;
+                    
+                    if separate_lapack_available {
+                        // Always prioritize system LAPACK for Fortran compatibility
+                        println!("cargo:rustc-link-lib=lapack");
+                        
+                        if openblas_available {
+                            // Use OpenBLAS for BLAS operations
+                            println!("cargo:rustc-link-lib=openblas");
+                        } else if separate_blas_available {
+                            // Fallback to reference BLAS
+                            println!("cargo:rustc-link-lib=blas");
+                        }
+                    } else if openblas_available {
+                        // OpenBLAS only - may lack some Fortran LAPACK functions
+                        println!("cargo:rustc-link-lib=openblas");
+                        // Ensure Fortran runtime for any missing symbols
+                        println!("cargo:warning=No separate LAPACK found, relying on OpenBLAS - some Fortran functions may be missing");
+                    } else if has_linalg_netlib {
+                        // Use netlib-src for complete implementation
+                        println!("cargo:warning=No system LAPACK/BLAS found, using netlib-src");
+                        needs_gfortran = false;
+                    } else {
+                        // Last resort: try standard library names
+                        println!("cargo:rustc-link-lib=lapack");
+                        println!("cargo:rustc-link-lib=blas");
+                        println!("cargo:warning=Using fallback LAPACK/BLAS linking");
+                    }
+                    
+                    // Always add Fortran runtime for system libraries
+                    if needs_gfortran {
+                        println!("cargo:rustc-link-lib=gfortran");
+                    }
                 }
             } else if cfg!(target_os = "linux") && has_linalg_netlib {
                 // For linalg-netlib on Linux, netlib-src will handle all linking

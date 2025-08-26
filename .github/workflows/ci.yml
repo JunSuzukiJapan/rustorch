@@ -132,6 +132,8 @@ jobs:
           echo "LAPACK_LIB=lapack" >> $GITHUB_ENV
           echo "RUSTORCH_BLAS_LIB=openblas" >> $GITHUB_ENV  
           echo "RUSTORCH_LAPACK_LIB=lapack" >> $GITHUB_ENV
+          # Force explicit library linking for Ubuntu LAPACK issues
+          echo "RUSTORCH_LINK_LIBS=lapack,openblas,gfortran" >> $GITHUB_ENV
         shell: bash
         
       - name: Verify Linux environment
