@@ -494,8 +494,8 @@ mod tests {
 
         for strategy in &strategies {
             match strategy {
-                GradientSyncStrategy::Synchronous => {}, // Synchronous strategy valid
-                GradientSyncStrategy::Asynchronous => {}, // Asynchronous strategy valid
+                GradientSyncStrategy::Synchronous => {} // Synchronous strategy valid
+                GradientSyncStrategy::Asynchronous => {} // Asynchronous strategy valid
                 GradientSyncStrategy::LocalSGD { sync_frequency } => assert!(*sync_frequency > 0),
             }
         }

@@ -566,7 +566,7 @@ mod tests {
     fn test_callback_signal() {
         let signal = CallbackSignal::Continue;
         match signal {
-            CallbackSignal::Continue => {}, // Continue execution
+            CallbackSignal::Continue => {} // Continue execution
             CallbackSignal::Stop => assert!(false),
         }
     }

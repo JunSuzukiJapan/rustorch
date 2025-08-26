@@ -55,8 +55,7 @@ fn bench_inplace_operations(c: &mut Criterion) {
 
     c.bench_function("inplace_mul_scalar", |bencher| {
         bencher.iter(|| {
-            let tensor =
-                Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
+            let tensor = Tensor::from_vec((0..10000).map(|i| i as f32).collect(), vec![100, 100]);
             let _result = tensor.mul_scalar(2.0);
             black_box(tensor)
         })
