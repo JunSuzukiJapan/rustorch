@@ -109,7 +109,7 @@ jobs:
             echo "=== Ubuntu: Using system LAPACK/BLAS libraries ==="
             cargo test --verbose --features "linalg-system"
           else
-            # Windowsでは基本機能のみでテスト (linalg-netlibを無効化)
+            # Windowsでは基本機能のみでテスト (linalg-systemを無効化)
             cargo test --verbose --no-default-features
           fi
         shell: bash
@@ -123,7 +123,7 @@ jobs:
             # Linuxではシステムライブラリ使用（Fortranコンパイラ不要）
             cargo test --doc --features "linalg-system"
           else
-            # Windowsでは基本機能のみでdoctest (linalg-netlibを無効化)
+            # Windowsでは基本機能のみでdoctest (linalg-systemを無効化)
             cargo test --doc --no-default-features
           fi
         shell: bash
@@ -178,7 +178,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --features "linalg-netlib" --all-targets
+        run: cargo clippy --features "linalg-system" --all-targets
 
       - name: Install audit tools
         run: |
@@ -254,7 +254,7 @@ jobs:
           toolchain: stable
 
       - name: Run benchmarks
-        run: cargo bench --features "linalg-netlib"
+        run: cargo bench --features "linalg-system"
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1

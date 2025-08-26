@@ -107,7 +107,7 @@ jobs:
           
           echo "=== Running lightweight build check ==="
           # Test basic compilation without MPI/metal/objc issues
-          cargo check --features "linalg-netlib" --verbose
+          cargo check --features "linalg-system" --verbose
         shell: bash
           
       - name: Upload PR audit results
@@ -139,7 +139,7 @@ jobs:
           languages: 'rust'
 
       - name: Build for CodeQL
-        run: cargo build --features "linalg-netlib"
+        run: cargo build --features "linalg-system"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

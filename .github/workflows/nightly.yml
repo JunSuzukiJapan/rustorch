@@ -44,12 +44,12 @@ jobs:
             cargo test --verbose --features "metal" --release --examples
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # On Linux, enable all features except macOS-specific ones
-            cargo test --verbose --features "linalg-netlib,mpi" --release
-            cargo test --verbose --features "linalg-netlib,mpi" --release --examples
+            cargo test --verbose --features "linalg-system,mpi" --release
+            cargo test --verbose --features "linalg-system,mpi" --release --examples
           else
             # On Windows, enable all features except platform-specific ones
-            cargo test --verbose --features "linalg-netlib" --release
-            cargo test --verbose --features "linalg-netlib" --release --examples
+            cargo test --verbose --features "linalg-system" --release
+            cargo test --verbose --features "linalg-system" --release --examples
           fi
         shell: bash
 
@@ -86,7 +86,7 @@ jobs:
 
       - name: Run performance benchmarks
         run: |
-          cargo bench --features "linalg-netlib" -- --output-format json > benchmark-results.json
+          cargo bench --features "linalg-system" -- --output-format json > benchmark-results.json
         shell: bash
 
       - name: Compare with baseline

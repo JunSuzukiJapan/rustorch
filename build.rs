@@ -2,7 +2,7 @@
 //! RusTorch用ビルドスクリプト
 //!
 //! This build script ensures proper linking of LAPACK/BLAS libraries
-//! when using the linalg-netlib feature.
+//! when using the linalg-system feature.
 
 use std::env;
 
@@ -52,7 +52,7 @@ fn main() {
 
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
             if cfg!(target_os = "linux") {
-                // Only link system libraries if NOT using linalg-netlib
+                // Only link system libraries if NOT using linalg-system
                 // Check for explicit BLAS/LAPACK library preferences
                 let _blas_lib = env::var("BLAS_LIB")
                     .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
