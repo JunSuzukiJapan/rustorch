@@ -300,7 +300,7 @@ impl ColorPalette {
     /// Get sequential color by value
     pub fn get_sequential_color(value: f32) -> String {
         let colors = Self::sequential_blues();
-        let clamped_value = value.max(0.0).min(1.0);
+        let clamped_value = value.clamp(0.0, 1.0);
         let index = (clamped_value * (colors.len() - 1) as f32).round() as usize;
         colors[index].clone()
     }

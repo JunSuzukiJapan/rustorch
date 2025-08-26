@@ -399,12 +399,13 @@ impl TensorVisualizer {
                 } else {
                     "#000"
                 };
+                let formatted_value = format!("{:.precision$}", value, precision = self.config.precision);
                 cells.push_str(&format!(
                     r#"<text x="{}" y="{}" fill="{}" class="value-text">{}</text>"#,
                     x + 10,
                     y + 15,
                     text_color,
-                    format!("{:.precision$}", value, precision = self.config.precision)
+                    formatted_value
                 ));
             }
         }
@@ -597,7 +598,7 @@ impl TensorVisualizer {
     }
 
     fn value_to_color(&self, value: f32) -> String {
-        let clamped_value = value.max(0.0).min(1.0);
+        let clamped_value = value.clamp(0.0, 1.0);
 
         match self.config.colormap {
             ColorMap::Grayscale => {
@@ -679,7 +680,7 @@ impl TensorVisualizer {
 
         if end_idx > data.len() {
             return Err(
-                RusTorchError::InvalidDataFormat("Slice index out of bounds".to_string()).into(),
+                RusTorchError::InvalidDataFormat("Slice index out of bounds".to_string()),
             );
         }
 
@@ -734,8 +735,7 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
         if shape.len() != 1 {
             return Err(RusTorchError::InvalidDataFormat(
                 "Can only convert 1D tensor to plot data".to_string(),
-            )
-            .into());
+            ));
         }
 
         let indices: Vec<T> = (0..shape[0]).map(|i| T::from(i).unwrap()).collect();
@@ -753,9 +753,9 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
 
     fn validate_config(&self, _config: &super::plotting::PlotConfig) -> RusTorchResult<()> {
         let shape = self.shape();
-        if shape.is_empty() || shape.iter().any(|&dim| dim == 0) {
+        if shape.is_empty() || shape.contains(&0) {
             return Err(
-                RusTorchError::ConfigError("Cannot visualize empty tensor".to_string()).into(),
+                RusTorchError::ConfigError("Cannot visualize empty tensor".to_string()),
             );
         }
         Ok(())

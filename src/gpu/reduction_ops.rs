@@ -168,6 +168,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     }
 
     /// CPU max reduction
+    #[allow(clippy::only_used_in_recursion)]
     fn cpu_max(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         match dim {
             None => {
@@ -192,6 +193,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     }
 
     /// CPU min reduction
+    #[allow(clippy::only_used_in_recursion)]
     fn cpu_min(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         match dim {
             None => {
@@ -209,6 +211,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
     }
 
     /// CPU product reduction
+    #[allow(clippy::only_used_in_recursion)]
     fn cpu_prod(&self, input: &Tensor<T>, dim: Option<usize>) -> RusTorchResult<Tensor<T>> {
         match dim {
             None => {

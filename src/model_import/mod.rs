@@ -217,16 +217,14 @@ impl ModelImporter {
         // For now, return a simple linear model as example
         let input_size = model
             .architecture
-            .inputs
-            .get(0)
+            .inputs.first()
             .and_then(|spec| spec.shape.last())
             .and_then(|&size| size)
             .unwrap_or(784);
 
         let output_size = model
             .architecture
-            .outputs
-            .get(0)
+            .outputs.first()
             .and_then(|spec| spec.shape.last())
             .and_then(|&size| size)
             .unwrap_or(10);
@@ -260,7 +258,7 @@ impl ModelImporter {
         // Extract filename from URL
         let filename = url
             .split('/')
-            .last()
+            .next_back()
             .ok_or_else(|| RusTorchError::model_io("Invalid URL"))?;
 
         let local_path = cache_dir.join(filename);

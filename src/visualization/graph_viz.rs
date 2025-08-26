@@ -297,7 +297,7 @@ impl GraphVisualizer {
             ));
         }
 
-        dot.push_str("\n");
+        dot.push('\n');
 
         // エッジの定義
         for edge in &self.edges {
