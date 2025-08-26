@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             history
                 .metrics
                 .entry(key)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .extend(value);
         }
     }

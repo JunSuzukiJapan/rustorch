@@ -33,8 +33,14 @@ pub enum GpuBuffer<T> {
     },
 
     #[cfg(feature = "metal")]
+    /// Metal GPU buffer with device reference
+    /// デバイス参照付きMetal GPUバッファ
     Metal {
+        /// Metal buffer for GPU memory
+        /// GPU メモリ用のMetalバッファ
         buffer: Arc<Buffer>,
+        /// Metal device reference
+        /// Metalデバイスの参照
         device: Arc<MetalDeviceType>,
     },
 

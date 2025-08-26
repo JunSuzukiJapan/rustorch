@@ -297,6 +297,8 @@ impl GpuStream for CudaStream {
 }
 
 #[cfg(feature = "metal")]
+/// Metal GPU device representation for Apple Silicon Macs
+/// Apple Silicon Mac用のMetal GPUデバイス表現
 #[derive(Debug)]
 pub struct MetalDevice {
     name: String,
@@ -305,6 +307,8 @@ pub struct MetalDevice {
 
 #[cfg(feature = "metal")]
 impl MetalDevice {
+    /// Create a new MetalDevice instance
+    /// 新しいMetalDeviceインスタンスを作成
     pub fn new() -> RusTorchResult<Self> {
         Ok(Self {
             name: "Apple M-Series GPU".to_string(),
@@ -358,11 +362,15 @@ impl GpuDevice for MetalDevice {
 }
 
 #[cfg(feature = "metal")]
+/// Metal compute stream for synchronizing GPU operations
+/// GPU操作の同期用Metalコンピュートストリーム
 #[derive(Debug)]
 pub struct MetalStream;
 
 #[cfg(feature = "metal")]
 impl MetalStream {
+    /// Create a new MetalStream instance
+    /// 新しいMetalStreamインスタンスを作成
     pub fn new() -> Self {
         Self
     }

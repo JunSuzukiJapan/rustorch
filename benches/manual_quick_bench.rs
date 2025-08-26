@@ -123,7 +123,7 @@ fn benchmark_decomposition_comparison(iterations: usize) {
 
     let mut times = Vec::new();
 
-    for (name, test_matrix, is_symeig) in &methods {
+    for (name, test_matrix, _is_symeig) in &methods {
         let start = Instant::now();
         for _ in 0..iterations {
             match *name {

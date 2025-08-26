@@ -4,7 +4,6 @@
 //! Tests all GPU backends (Metal, CUDA, OpenCL) against OpenBLAS CPU baseline
 //! to provide performance comparison and automatic backend selection guidance.
 
-use rustorch::linalg::optimized_blas::optimized_matmul;
 use rustorch::tensor::Tensor;
 use std::time::Instant;
 
@@ -120,6 +119,10 @@ fn collect_system_info() -> SystemInfo {
     #[cfg(feature = "opencl")]
     gpu_available.push("OpenCL".to_string());
 
+    // Suppress unused_mut warning if no GPU features are enabled
+    #[cfg(not(any(feature = "metal", feature = "cuda", feature = "opencl")))]
+    let _ = &mut gpu_available;
+
     SystemInfo {
         os: std::env::consts::OS.to_string(),
         total_memory_gb: 16.0, // Default estimate
@@ -151,10 +154,10 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
         .map(|i| ((i * 2) as f32) / (k * n) as f32)
         .collect();
 
-    let a = Tensor::from_vec(a_data, vec![m, k]);
-    let b = Tensor::from_vec(b_data, vec![k, n]);
+    let _a = Tensor::from_vec(a_data, vec![m, k]);
+    let _b = Tensor::from_vec(b_data, vec![k, n]);
 
-    let start = Instant::now();
+    let _start = Instant::now();
     #[cfg(feature = "linalg-netlib")]
     {
         match optimized_matmul(&a, &b) {
@@ -274,6 +277,7 @@ fn benchmark_metal(size: usize) -> BenchmarkResult {
 }
 
 #[cfg(not(feature = "metal"))]
+#[allow(dead_code)]
 fn benchmark_metal(_size: usize) -> BenchmarkResult {
     BenchmarkResult {
         backend: "Metal".to_string(),
@@ -352,6 +356,7 @@ fn benchmark_cuda(size: usize) -> BenchmarkResult {
 }
 
 #[cfg(not(feature = "cuda"))]
+#[allow(dead_code)]
 fn benchmark_cuda(_size: usize) -> BenchmarkResult {
     BenchmarkResult {
         backend: "CUDA".to_string(),
@@ -430,6 +435,7 @@ fn benchmark_opencl(size: usize) -> BenchmarkResult {
 }
 
 #[cfg(not(feature = "opencl"))]
+#[allow(dead_code)]
 fn benchmark_opencl(_size: usize) -> BenchmarkResult {
     BenchmarkResult {
         backend: "OpenCL".to_string(),
