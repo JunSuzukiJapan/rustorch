@@ -623,12 +623,12 @@ where
         let data_len = self.data.len();
 
         // Get the data as a flat vector, ensuring it's contiguous
-        let self_data = self.data.view().to_owned().into_raw_vec();
-        let other_data = other.data.view().to_owned().into_raw_vec();
+        let self_data = self.data.view().to_owned().into_raw_vec_and_offset().0;
+        let other_data = other.data.view().to_owned().into_raw_vec_and_offset().0;
 
         // Create flat tensors with the correct shape [total_elements]
-        let flat_self = Tensor::from_raw_vec(self_data, &[data_len]);
-        let flat_other = Tensor::from_raw_vec(other_data, &[data_len]);
+        let flat_self = Tensor::from_vec(self_data, vec![data_len]);
+        let flat_other = Tensor::from_vec(other_data, vec![data_len]);
 
         // Initialize GPU memory manager
         let gpu_manager = GpuMemoryManager::new();
@@ -649,7 +649,7 @@ where
         })?;
 
         // Convert the flat result back to the original shape
-        let result_data = flat_result.data.into_raw_vec();
+        let result_data = flat_result.data.into_raw_vec_and_offset().0;
 
         // Ensure the total number of elements matches
         let total_elements: usize = original_shape.iter().product();
