@@ -121,6 +121,7 @@ jobs:
             libblas-dev \
             liblapack3 \
             liblapacke-dev \
+            liblapack64-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \
@@ -143,13 +144,17 @@ jobs:
           find /usr/lib* -name "liblapack*" -o -name "libblas*" -o -name "libopenblas*" 2>/dev/null || true
           echo "=== LAPACK symbols check ==="
           echo "Checking LAPACK symbols in system libraries..."
-          if [ -f /usr/lib/x86_64-linux-gnu/liblapack.so.3 ]; then
-            nm -D /usr/lib/x86_64-linux-gnu/liblapack.so.3 | grep -E "(dsyev_|dgeev_|dgeqrf_|dgelqf_|dorgqr_|dgesvd_)" | head -5 || echo "No LAPACK symbols in liblapack.so.3"
-          fi
-          echo "Checking LAPACK symbols in OpenBLAS..."
-          if [ -f /usr/lib/x86_64-linux-gnu/libopenblas.so.0 ]; then
-            nm -D /usr/lib/x86_64-linux-gnu/libopenblas.so.0 | grep -E "(dsyev_|dgeev_|dgeqrf_|dgelqf_|dorgqr_|dgesvd_)" | head -5 || echo "No LAPACK symbols in OpenBLAS"
-          fi
+          for lib in /usr/lib/x86_64-linux-gnu/liblapack.so* /usr/lib/x86_64-linux-gnu/libopenblas.so*; do
+            if [ -f "$lib" ]; then
+              echo "Checking symbols in: $lib"
+              nm -D "$lib" 2>/dev/null | grep -E "(dsyev_|dgeev_|dgeqrf_|dgelqf_|dorgqr_|dgesvd_)" | head -3 || echo "No LAPACK symbols found"
+              echo "File info: $(file "$lib")"
+              echo "---"
+            fi
+          done
+          echo "=== Linker test ==="
+          echo 'extern "C" { fn dgesvd_(); } fn main() { unsafe { dgesvd_(); } }' > /tmp/test_lapack.c
+          gcc -o /tmp/test_lapack /tmp/test_lapack.c -llapack -lopenblas -lgfortran 2>&1 || echo "Linker test failed - missing symbols"
           echo "=== pkg-config ==="
           pkg-config --list-all | grep -i blas || true
           pkg-config --list-all | grep -i lapack || true

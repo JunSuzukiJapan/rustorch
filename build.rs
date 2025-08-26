@@ -117,29 +117,32 @@ fn main() {
                     }
                 }
 
-                if openblas_available && (blas_lib == "openblas" || !separate_blas_available) {
-                    // OpenBLAS includes both BLAS and LAPACK, but ensure proper linking order
+                // Ubuntu's OpenBLAS often doesn't include complete LAPACK
+                // Always link both libraries for maximum compatibility
+                let mut needs_gfortran = true;
+                if openblas_available && separate_lapack_available {
+                    // Link LAPACK first to ensure all symbols are available
+                    println!("cargo:rustc-link-lib=lapack");
                     println!("cargo:rustc-link-lib=openblas");
-                    // On Ubuntu, sometimes we need to explicitly link lapack even with OpenBLAS
-                    if separate_lapack_available {
-                        println!("cargo:rustc-link-lib=lapack");
-                    }
+                } else if openblas_available {
+                    // Try OpenBLAS only if no separate LAPACK is available
+                    println!("cargo:rustc-link-lib=openblas");
                 } else if separate_blas_available && separate_lapack_available {
                     // Fallback to separate BLAS/LAPACK libraries - link in correct order
                     println!("cargo:rustc-link-lib=lapack");
                     println!("cargo:rustc-link-lib=blas");
                 } else if has_linalg_netlib {
                     // For linalg-netlib feature, we expect netlib-src to provide the libraries
-                    // Don't attempt to link system libraries that might not exist
                     println!("cargo:warning=OpenBLAS/BLAS/LAPACK libraries not found on system, relying on netlib-src");
+                    needs_gfortran = false;
                 } else {
-                    // For regular linalg feature, try both OpenBLAS and LAPACK as last resort
-                    println!("cargo:rustc-link-lib=openblas");
+                    // For regular linalg feature, force both libraries
                     println!("cargo:rustc-link-lib=lapack");
+                    println!("cargo:rustc-link-lib=openblas");
                 }
 
-                // Always link gfortran for Fortran runtime (except for linalg-netlib)
-                if !has_linalg_netlib {
+                // Always link gfortran for Fortran runtime when needed
+                if needs_gfortran {
                     println!("cargo:rustc-link-lib=gfortran");
                 }
             } else if cfg!(target_os = "linux") && has_linalg_netlib {
