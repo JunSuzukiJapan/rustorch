@@ -1,7 +1,7 @@
 //! GPU vs CPU Verification Tests for RusTorch
 //! RusTorch用GPU vs CPU検証テスト
 
-use crate::error::RusTorchResult;
+use crate::error::{RusTorchError, RusTorchResult};
 
 /// Test tolerance for floating point comparisons
 /// 浮動小数点比較のテスト許容値
@@ -135,7 +135,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] + b[i];
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         // GPU implementation
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
@@ -174,7 +174,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] - b[i];
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -212,7 +212,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] * b[i];
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -250,7 +250,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = a[i] / b[i];
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -287,8 +287,8 @@ impl VerificationTestSuite {
 
         // CPU reference
         let start = std::time::Instant::now();
-        let _cpu_result = self.cpu_matmul(&a, &b, m, n, k);
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_result = self.cpu_matmul(&a, &b, m, n, k);
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -329,8 +329,8 @@ impl VerificationTestSuite {
 
         // CPU reference (subset for performance)
         let start = std::time::Instant::now();
-        let _cpu_result = self.cpu_matmul(&a, &b, m.min(256), n.min(256), k.min(256));
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_result = self.cpu_matmul(&a, &b, m.min(256), n.min(256), k.min(256));
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -368,8 +368,8 @@ impl VerificationTestSuite {
 
         // CPU reference
         let start = std::time::Instant::now();
-        let _cpu_sum = input.iter().sum::<f32>();
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_sum = input.iter().sum::<f32>();
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -404,8 +404,8 @@ impl VerificationTestSuite {
 
         // CPU reference
         let start = std::time::Instant::now();
-        let _cpu_mean = input.iter().sum::<f32>() / size as f32;
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_mean = input.iter().sum::<f32>() / size as f32;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -445,7 +445,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = input[i].max(0.0);
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -485,7 +485,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = (input[i] - mean) / (variance + epsilon).sqrt();
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -526,7 +526,7 @@ impl VerificationTestSuite {
         for i in 0..size {
             cpu_result[i] = (input[i] - max_val).exp() / exp_sum;
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -568,8 +568,8 @@ impl VerificationTestSuite {
 
         // CPU reference
         let start = std::time::Instant::now();
-        let _cpu_result = self.cpu_conv2d(&input, &kernel, input_h, input_w, kernel_h, kernel_w);
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_result = self.cpu_conv2d(&input, &kernel, input_h, input_w, kernel_h, kernel_w);
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -614,9 +614,9 @@ impl VerificationTestSuite {
 
         // CPU reference
         let start = std::time::Instant::now();
-        let _cpu_result =
+        let cpu_result =
             self.cpu_max_pool2d(&input, input_h, input_w, pool_h, pool_w, stride_h, stride_w);
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -660,7 +660,7 @@ impl VerificationTestSuite {
                 cpu_result[c * rows + r] = input[r * cols + c];
             }
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {
@@ -701,7 +701,7 @@ impl VerificationTestSuite {
             let erf_term = (x / 2.0_f32.sqrt()).tanh(); // Approximation
             cpu_result[i] = 0.5 * x * (1.0 + erf_term);
         }
-        let _cpu_time = start.elapsed().as_secs_f64() * 1000.0;
+        let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
 
         #[cfg(any(feature = "cuda", feature = "opencl", feature = "metal"))]
         {

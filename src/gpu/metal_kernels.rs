@@ -2,8 +2,8 @@
 //! GPU加速のためのMetal Performance Shadersカーネル実装
 
 use crate::error::{RusTorchError, RusTorchResult};
+use std::collections::HashMap;
 // Metal GPU kernel implementations
-// Note: HashMap may be needed for future Metal device management
 use std::ffi::c_void;
 use std::marker::PhantomData;
 

@@ -1,7 +1,7 @@
 //! Performance Benchmark Suite for GPU Kernels
 //! GPUカーネル用パフォーマンスベンチマークスイート
 
-use crate::error::RusTorchResult;
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::time::Instant;
 
