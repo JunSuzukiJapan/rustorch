@@ -59,17 +59,27 @@ fn main() {
                 let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
                 let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
                 
-                // Check for Homebrew paths (both ARM64 and x86_64)
-                if std::path::Path::new("/opt/homebrew/lib").exists() {
+                // Check for Homebrew paths (both ARM64 and x86_64) and add them
+                let mut homebrew_found = false;
+                if std::path::Path::new("/opt/homebrew/lib/libopenblas.dylib").exists() {
                     println!("cargo:rustc-link-search=native=/opt/homebrew/lib");
+                    homebrew_found = true;
                 }
-                if std::path::Path::new("/usr/local/lib").exists() {
+                if std::path::Path::new("/usr/local/lib/libopenblas.dylib").exists() {
                     println!("cargo:rustc-link-search=native=/usr/local/lib");
+                    homebrew_found = true;
                 }
                 
-                // Link specified libraries or fallback to standard
-                if blas_lib == "openblas" || lapack_lib == "openblas" {
+                // Add standard macOS library paths as fallback
+                println!("cargo:rustc-link-search=native=/usr/lib");
+                println!("cargo:rustc-link-search=native=/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A");
+                
+                // Link specified libraries or fallback to Accelerate framework
+                if (blas_lib == "openblas" || lapack_lib == "openblas") && homebrew_found {
                     println!("cargo:rustc-link-lib=openblas");
+                } else if blas_lib == "openblas" || lapack_lib == "openblas" {
+                    // If OpenBLAS requested but not found, fallback to Accelerate
+                    println!("cargo:rustc-link-lib=framework=Accelerate");
                 } else {
                     println!("cargo:rustc-link-lib=lapack");
                     println!("cargo:rustc-link-lib=blas");

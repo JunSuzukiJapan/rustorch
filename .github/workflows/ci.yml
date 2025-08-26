@@ -69,6 +69,20 @@ jobs:
           brew install openblas
           # Add x86_64 target for SIMD compatibility on Apple Silicon
           rustup target add x86_64-apple-darwin
+          # Set OpenBLAS environment variables for macOS
+          echo "BLAS_LIB=openblas" >> $GITHUB_ENV
+          echo "LAPACK_LIB=openblas" >> $GITHUB_ENV
+          echo "RUSTORCH_BLAS_LIB=openblas" >> $GITHUB_ENV
+          echo "RUSTORCH_LAPACK_LIB=openblas" >> $GITHUB_ENV
+          # Add library paths to environment
+          if [[ -d "/opt/homebrew/lib" ]]; then
+            echo "LIBRARY_PATH=/opt/homebrew/lib:${LIBRARY_PATH:-}" >> $GITHUB_ENV
+            echo "LD_LIBRARY_PATH=/opt/homebrew/lib:${LD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+          fi
+          if [[ -d "/usr/local/lib" ]]; then
+            echo "LIBRARY_PATH=/usr/local/lib:${LIBRARY_PATH:-}" >> $GITHUB_ENV  
+            echo "LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+          fi
         shell: bash
         
       - name: Verify macOS environment
@@ -88,6 +102,10 @@ jobs:
           fi
           echo "=== Environment ==="
           echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH:-unset}"
+          echo "LIBRARY_PATH: ${LIBRARY_PATH:-unset}"
+          echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH:-unset}"
+          echo "BLAS_LIB: ${BLAS_LIB:-unset}"
+          echo "LAPACK_LIB: ${LAPACK_LIB:-unset}"
         shell: bash
           
       - name: Install system dependencies (Linux)
