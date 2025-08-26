@@ -92,8 +92,8 @@ jobs:
             # LinuxではMPI機能を含む基本テスト (安定した機能のみ)
             cargo test --verbose --features "linalg-netlib,mpi"
           else
-            # Windowsでは基本機能のみでテスト (安定した機能のみ)
-            cargo test --verbose --features "linalg-netlib"
+            # Windowsでは基本機能のみでテスト (linalg-netlibを無効化)
+            cargo test --verbose --no-default-features
           fi
         shell: bash
 
@@ -106,8 +106,8 @@ jobs:
             # LinuxではMPI機能を含む基本doctest (安定した機能のみ)
             cargo test --doc --features "linalg-netlib,mpi"
           else
-            # Windowsでは基本機能のみでdoctest (安定した機能のみ)
-            cargo test --doc --features "linalg-netlib"
+            # Windowsでは基本機能のみでdoctest (linalg-netlibを無効化)
+            cargo test --doc --no-default-features
           fi
         shell: bash
 

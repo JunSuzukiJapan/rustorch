@@ -11,24 +11,33 @@ fn main() {
 
     // Check if we're building with linalg-netlib feature
     if env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok() {
-        // OS-specific library paths
-        if cfg!(target_os = "linux") {
-            println!("cargo:rustc-link-search=native=/usr/lib");
-            println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
-        }
+        // Windows requires special handling for LAPACK/BLAS
+        if cfg!(target_os = "windows") {
+            // On Windows, we rely on netlib-src crate's build system
+            // No explicit linking needed as netlib-src handles it
+            println!("cargo:rustc-cfg=windows_netlib");
+        } else {
+            // Unix systems (Linux, macOS) - explicit linking
 
-        // Common library path for Unix systems
-        if cfg!(unix) {
-            println!("cargo:rustc-link-search=native=/usr/local/lib");
-        }
+            // OS-specific library paths for Linux
+            if cfg!(target_os = "linux") {
+                println!("cargo:rustc-link-search=native=/usr/lib");
+                println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+            }
 
-        // Link LAPACK and BLAS libraries
-        println!("cargo:rustc-link-lib=lapack");
-        println!("cargo:rustc-link-lib=blas");
+            // Common library path for Unix systems
+            if cfg!(unix) {
+                println!("cargo:rustc-link-search=native=/usr/local/lib");
+            }
 
-        // gfortran is typically needed on Linux, but may not be available on all systems
-        if cfg!(target_os = "linux") {
-            println!("cargo:rustc-link-lib=gfortran");
+            // Link LAPACK and BLAS libraries
+            println!("cargo:rustc-link-lib=lapack");
+            println!("cargo:rustc-link-lib=blas");
+
+            // gfortran is typically needed on Linux, but may not be available on all systems
+            if cfg!(target_os = "linux") {
+                println!("cargo:rustc-link-lib=gfortran");
+            }
         }
 
         // For systems with different LAPACK/BLAS implementations
