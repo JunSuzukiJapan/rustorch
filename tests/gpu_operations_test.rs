@@ -16,6 +16,8 @@ mod matrix_operations_tests {
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_matrix_multiplication() -> RusTorchResult<()> {
         let a = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::<f32>::from_vec(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], vec![3, 2]);
@@ -43,6 +45,7 @@ mod matrix_operations_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_batch_matrix_multiplication() -> RusTorchResult<()> {
         let batch_a = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]);
         let batch_b = Tensor::<f32>::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![1, 2, 2]);
@@ -56,6 +59,7 @@ mod matrix_operations_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_matrix_vector_multiplication() -> RusTorchResult<()> {
         let matrix = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let vector = Tensor::<f32>::from_vec(vec![1.0, 2.0], vec![2, 1]);
@@ -78,6 +82,7 @@ mod convolution_tests {
     use rustorch::gpu::conv_ops::GpuConvolution;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_conv2d() -> RusTorchResult<()> {
         // Input: batch=1, channels=1, height=4, width=4
         let input = Tensor::<f32>::from_vec((0..16).map(|i| i as f32).collect(), vec![1, 1, 4, 4]);
@@ -110,6 +115,7 @@ mod reduction_tests {
     use super::*;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_sum_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
 
@@ -123,6 +129,7 @@ mod reduction_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_mean_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
 
@@ -135,6 +142,7 @@ mod reduction_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_max_min_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0], vec![2, 3]);
 
@@ -153,6 +161,7 @@ mod reduction_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_statistical_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0], vec![5]);
 
@@ -182,6 +191,7 @@ mod parallel_operations_tests {
     use rustorch::tensor::gpu_parallel::GpuParallelOp;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_gpu_elementwise_operations() -> RusTorchResult<()> {
         let tensor1 = Tensor::<f32>::ones(&[100, 100]);
         let tensor2 = Tensor::<f32>::ones(&[100, 100]);
@@ -206,6 +216,7 @@ mod performance_tests {
     use std::time::Instant;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_large_matrix_multiplication_performance() -> RusTorchResult<()> {
         let size = 200; // Smaller for CI stability
         let a = Tensor::<f32>::ones(&[size, size]);
@@ -233,6 +244,7 @@ mod performance_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_memory_usage_patterns() -> RusTorchResult<()> {
         // Test various tensor sizes to check memory handling
         let sizes = vec![(10, 10), (50, 50), (100, 100)];
@@ -267,6 +279,7 @@ mod error_handling_tests {
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_dimension_mismatch_errors() {
         let a = Tensor::<f32>::ones(&[2, 3]);
         let b = Tensor::<f32>::ones(&[4, 2]); // Incompatible dimensions
@@ -278,6 +291,7 @@ mod error_handling_tests {
     }
 
     #[test]
+    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
     fn test_empty_tensor_handling() -> RusTorchResult<()> {
         let empty_tensor = Tensor::<f32>::from_vec(vec![], vec![0]);
 
