@@ -69,11 +69,25 @@ jobs:
           brew install openblas
           # Install gfortran for netlib-src compilation
           brew install gcc
-          # Add x86_64 target for SIMD compatibility on Apple Silicon
+          # Add targets for cross-compilation compatibility
           rustup target add x86_64-apple-darwin
-          # Set Fortran compiler for netlib-src
-          echo "FC=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
-          echo "CMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+          rustup target add aarch64-apple-darwin
+          # Detect architecture and set appropriate Fortran compiler
+          if [[ "$(uname -m)" == "arm64" ]]; then
+            # On Apple Silicon, we need to handle cross-compilation
+            # Use native ARM64 build instead of cross-compiling to x86_64
+            echo "CARGO_BUILD_TARGET=aarch64-apple-darwin" >> $GITHUB_ENV
+            echo "FC=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+            echo "CMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+            # Ensure CMAKE uses the correct architecture
+            echo "CMAKE_OSX_ARCHITECTURES=arm64" >> $GITHUB_ENV
+          else
+            # On Intel Macs, use x86_64
+            echo "CARGO_BUILD_TARGET=x86_64-apple-darwin" >> $GITHUB_ENV
+            echo "FC=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+            echo "CMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+            echo "CMAKE_OSX_ARCHITECTURES=x86_64" >> $GITHUB_ENV
+          fi
           # Set BLAS/LAPACK environment variables for macOS
           # Default to Accelerate framework, allow OpenBLAS override
           echo "BLAS_LIB=framework" >> $GITHUB_ENV
@@ -94,9 +108,14 @@ jobs:
       - name: Verify macOS environment
         if: matrix.os == 'macos-latest'
         run: |
+          echo "=== Architecture information ==="
+          uname -m
+          echo "CARGO_BUILD_TARGET: ${CARGO_BUILD_TARGET:-unset}"
+          echo "CMAKE_OSX_ARCHITECTURES: ${CMAKE_OSX_ARCHITECTURES:-unset}"
           echo "=== Fortran compiler verification ==="
           which gfortran || echo "gfortran not in PATH"
           gfortran --version || echo "gfortran not available"
+          gfortran -dumpmachine || echo "Cannot detect gfortran target"
           echo "FC: ${FC:-unset}"
           echo "CMAKE_Fortran_COMPILER: ${CMAKE_Fortran_COMPILER:-unset}"
           echo "=== macOS OpenBLAS verification ==="
@@ -180,8 +199,12 @@ jobs:
       - name: Run tests
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            # macOSではApple Silicon互換性のため明示的にx86_64ターゲットでテスト
-            cargo test --verbose --no-default-features --features "linalg-netlib" --target x86_64-apple-darwin
+            # macOSでは検出されたアーキテクチャに応じてテスト
+            if [[ -n "${CARGO_BUILD_TARGET}" ]]; then
+              cargo test --verbose --no-default-features --features "linalg-netlib" --target ${CARGO_BUILD_TARGET}
+            else
+              cargo test --verbose --no-default-features --features "linalg-netlib"
+            fi
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # LinuxではLAPACK/BLAS機能を含むテスト (netlib-srcを使用してリンク問題を回避)
             echo "=== Ubuntu: Using linalg-netlib to avoid system LAPACK linking issues ==="
@@ -195,8 +218,12 @@ jobs:
       - name: Run doctests
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            # macOSではApple Silicon互換性のため明示的にx86_64ターゲットでdoctest実行
-            cargo test --doc --no-default-features --features "linalg-netlib" --target x86_64-apple-darwin
+            # macOSでは検出されたアーキテクチャに応じてdoctest実行
+            if [[ -n "${CARGO_BUILD_TARGET}" ]]; then
+              cargo test --doc --no-default-features --features "linalg-netlib" --target ${CARGO_BUILD_TARGET}
+            else
+              cargo test --doc --no-default-features --features "linalg-netlib"
+            fi
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # LinuxではLAPACK/BLAS機能を含むdoctest (netlib-srcを使用)
             cargo test --doc --features "linalg-netlib"
@@ -213,8 +240,12 @@ jobs:
             
             echo "Testing example: $example_name"
             if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-              # macOSではApple Silicon互換性のため明示的にx86_64ターゲットで実行
-              timeout 30s cargo run --example "$example_name" --target x86_64-apple-darwin --features "linalg-netlib" || echo "Example $example_name completed or timed out"
+              # macOSでは検出されたアーキテクチャに応じて実行
+              if [[ -n "${CARGO_BUILD_TARGET}" ]]; then
+                timeout 30s cargo run --example "$example_name" --target ${CARGO_BUILD_TARGET} --features "linalg-netlib" || echo "Example $example_name completed or timed out"
+              else
+                timeout 30s cargo run --example "$example_name" --features "linalg-netlib" || echo "Example $example_name completed or timed out"
+              fi
             elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
               # UbuntuではLAPACK問題を回避するためnetlib-srcを使用
               timeout 30s cargo run --example "$example_name" --features "linalg-netlib" || echo "Example $example_name completed or timed out"
