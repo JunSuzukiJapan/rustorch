@@ -4,23 +4,25 @@
 //! This module provides comprehensive tests for all GPU operations
 //! including memory transfer, matrix operations, convolution, and reduction.
 
-#[cfg(not(target_os = "macos"))]
+// GPU tests are disabled on CI environments
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 use rustorch::error::RusTorchResult;
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 use rustorch::gpu::DeviceManager;
-#[cfg(not(target_os = "macos"))]
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
 use rustorch::tensor::Tensor;
 
 // GPU matrix operations tests
 // GPU行列演算テスト
 #[cfg(test)]
 mod matrix_operations_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_matrix_multiplication() -> RusTorchResult<()> {
         let a = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let b = Tensor::<f32>::from_vec(vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0], vec![3, 2]);
@@ -48,7 +50,7 @@ mod matrix_operations_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_batch_matrix_multiplication() -> RusTorchResult<()> {
         let batch_a = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2]);
         let batch_b = Tensor::<f32>::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![1, 2, 2]);
@@ -62,7 +64,7 @@ mod matrix_operations_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_matrix_vector_multiplication() -> RusTorchResult<()> {
         let matrix = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let vector = Tensor::<f32>::from_vec(vec![1.0, 2.0], vec![2, 1]);
@@ -80,15 +82,15 @@ mod matrix_operations_tests {
 // GPU畳み込み演算テスト
 #[cfg(test)]
 mod convolution_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::backends::ConvolutionParams;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::gpu::conv_ops::GpuConvolution;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_conv2d() -> RusTorchResult<()> {
         // Input: batch=1, channels=1, height=4, width=4
         let input = Tensor::<f32>::from_vec((0..16).map(|i| i as f32).collect(), vec![1, 1, 4, 4]);
@@ -118,11 +120,11 @@ mod convolution_tests {
 // GPUリダクション演算テスト
 #[cfg(test)]
 mod reduction_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_sum_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
 
@@ -136,7 +138,7 @@ mod reduction_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_mean_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
 
@@ -149,7 +151,7 @@ mod reduction_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_max_min_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![3.0, 1.0, 4.0, 1.0, 5.0, 9.0], vec![2, 3]);
 
@@ -168,7 +170,7 @@ mod reduction_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_statistical_operations() -> RusTorchResult<()> {
         let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0], vec![5]);
 
@@ -194,13 +196,13 @@ mod reduction_tests {
 // GPU並列演算テスト
 #[cfg(test)]
 mod parallel_operations_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::tensor::gpu_parallel::GpuParallelOp;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_gpu_elementwise_operations() -> RusTorchResult<()> {
         let tensor1 = Tensor::<f32>::ones(&[100, 100]);
         let tensor2 = Tensor::<f32>::ones(&[100, 100]);
@@ -220,15 +222,15 @@ mod parallel_operations_tests {
 // パフォーマンスとストレステスト
 #[cfg(test)]
 mod performance_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use std::time::Instant;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_large_matrix_multiplication_performance() -> RusTorchResult<()> {
         let size = 200; // Smaller for CI stability
         let a = Tensor::<f32>::ones(&[size, size]);
@@ -256,7 +258,7 @@ mod performance_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_memory_usage_patterns() -> RusTorchResult<()> {
         // Test various tensor sizes to check memory handling
         let sizes = vec![(10, 10), (50, 50), (100, 100)];
@@ -287,13 +289,13 @@ mod performance_tests {
 // エラー処理とエッジケース
 #[cfg(test)]
 mod error_handling_tests {
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use super::*;
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))]
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_dimension_mismatch_errors() {
         let a = Tensor::<f32>::ones(&[2, 3]);
         let b = Tensor::<f32>::ones(&[4, 2]); // Incompatible dimensions
@@ -305,7 +307,7 @@ mod error_handling_tests {
     }
 
     #[test]
-    #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
+    #[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
     fn test_empty_tensor_handling() -> RusTorchResult<()> {
         let empty_tensor = Tensor::<f32>::from_vec(vec![], vec![0]);
 
@@ -328,6 +330,7 @@ mod error_handling_tests {
 
 // Main test runner function
 #[test]
+#[cfg(all(not(target_os = "macos"), not(target_os = "linux")))] // Skip on CI environments due to no GPU access
 fn run_all_gpu_tests() {
     println!("=== GPU Operations Test Suite ===");
 
