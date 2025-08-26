@@ -43,7 +43,8 @@ fn main() {
             }
 
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
-            if cfg!(target_os = "linux") {
+            if cfg!(target_os = "linux") && !has_linalg_netlib {
+                // Skip system library linking for linalg-netlib as netlib-src provides them
                 // Check for explicit BLAS/LAPACK library preferences
                 let blas_lib = env::var("BLAS_LIB")
                     .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
@@ -118,13 +119,22 @@ fn main() {
                     // Fallback to separate BLAS/LAPACK libraries
                     println!("cargo:rustc-link-lib=blas");
                     println!("cargo:rustc-link-lib=lapack");
+                } else if has_linalg_netlib {
+                    // For linalg-netlib feature, we expect netlib-src to provide the libraries
+                    // Don't attempt to link system libraries that might not exist
+                    println!("cargo:warning=OpenBLAS/BLAS/LAPACK libraries not found on system, relying on netlib-src");
                 } else {
-                    // Final fallback - try OpenBLAS even if not explicitly requested
+                    // For regular linalg feature, try OpenBLAS as last resort
                     println!("cargo:rustc-link-lib=openblas");
                 }
 
-                // Always link gfortran for Fortran runtime
-                println!("cargo:rustc-link-lib=gfortran");
+                // Always link gfortran for Fortran runtime (except for linalg-netlib)
+                if !has_linalg_netlib {
+                    println!("cargo:rustc-link-lib=gfortran");
+                }
+            } else if cfg!(target_os = "linux") && has_linalg_netlib {
+                // For linalg-netlib on Linux, netlib-src will handle all linking
+                println!("cargo:warning=Using netlib-src for LAPACK/BLAS, skipping system library linking");
             } else if cfg!(target_os = "macos") {
                 // macOS with intelligent BLAS/LAPACK detection
                 let blas_lib = env::var("BLAS_LIB")
