@@ -34,11 +34,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         history.train_loss.push(train_loss);
         history.val_loss.push(val_loss);
         for (key, value) in metrics {
-            history
-                .metrics
-                .entry(key)
-                .or_default()
-                .extend(value);
+            history.metrics.entry(key).or_default().extend(value);
         }
     }
 
