@@ -399,7 +399,8 @@ impl TensorVisualizer {
                 } else {
                     "#000"
                 };
-                let formatted_value = format!("{:.precision$}", value, precision = self.config.precision);
+                let formatted_value =
+                    format!("{:.precision$}", value, precision = self.config.precision);
                 cells.push_str(&format!(
                     r#"<text x="{}" y="{}" fill="{}" class="value-text">{}</text>"#,
                     x + 10,
@@ -679,9 +680,9 @@ impl TensorVisualizer {
         let end_idx = start_idx + height * width;
 
         if end_idx > data.len() {
-            return Err(
-                RusTorchError::InvalidDataFormat("Slice index out of bounds".to_string()),
-            );
+            return Err(RusTorchError::InvalidDataFormat(
+                "Slice index out of bounds".to_string(),
+            ));
         }
 
         Ok(data[start_idx..end_idx].to_vec())
@@ -754,9 +755,9 @@ impl<T: Float + std::fmt::Display + std::fmt::Debug + 'static> Visualizable<T> f
     fn validate_config(&self, _config: &super::plotting::PlotConfig) -> RusTorchResult<()> {
         let shape = self.shape();
         if shape.is_empty() || shape.contains(&0) {
-            return Err(
-                RusTorchError::ConfigError("Cannot visualize empty tensor".to_string()),
-            );
+            return Err(RusTorchError::ConfigError(
+                "Cannot visualize empty tensor".to_string(),
+            ));
         }
         Ok(())
     }

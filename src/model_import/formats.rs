@@ -247,7 +247,8 @@ impl FormatCompatibility {
         }
 
         // Via ONNX (most common intermediate format)
-        if from != ModelFormat::Onnx && to != ModelFormat::Onnx
+        if from != ModelFormat::Onnx
+            && to != ModelFormat::Onnx
             && self.get_compatibility(from, ModelFormat::Onnx) > 0.5
             && self.get_compatibility(ModelFormat::Onnx, to) > 0.5
         {

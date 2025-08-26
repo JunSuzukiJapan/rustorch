@@ -217,14 +217,16 @@ impl ModelImporter {
         // For now, return a simple linear model as example
         let input_size = model
             .architecture
-            .inputs.first()
+            .inputs
+            .first()
             .and_then(|spec| spec.shape.last())
             .and_then(|&size| size)
             .unwrap_or(784);
 
         let output_size = model
             .architecture
-            .outputs.first()
+            .outputs
+            .first()
             .and_then(|spec| spec.shape.last())
             .and_then(|&size| size)
             .unwrap_or(10);
