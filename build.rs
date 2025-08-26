@@ -55,34 +55,28 @@ fn main() {
                     println!("cargo:rustc-link-lib=dylib=openblas");
                 }
             } else if cfg!(target_os = "macos") {
-                // macOS with Homebrew OpenBLAS
-                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
-                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                // macOS with intelligent OpenBLAS detection
+                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "accelerate".to_string());
+                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "accelerate".to_string());
                 
-                // Check for Homebrew paths (both ARM64 and x86_64) and add them
-                let mut homebrew_found = false;
+                // Check for Homebrew OpenBLAS (both ARM64 and x86_64)
+                let mut openblas_found = false;
                 if std::path::Path::new("/opt/homebrew/lib/libopenblas.dylib").exists() {
                     println!("cargo:rustc-link-search=native=/opt/homebrew/lib");
-                    homebrew_found = true;
+                    openblas_found = true;
                 }
                 if std::path::Path::new("/usr/local/lib/libopenblas.dylib").exists() {
                     println!("cargo:rustc-link-search=native=/usr/local/lib");
-                    homebrew_found = true;
+                    openblas_found = true;
                 }
                 
-                // Add standard macOS library paths as fallback
-                println!("cargo:rustc-link-search=native=/usr/lib");
-                println!("cargo:rustc-link-search=native=/System/Library/Frameworks/Accelerate.framework/Versions/A/Frameworks/vecLib.framework/Versions/A");
-                
-                // Link specified libraries or fallback to Accelerate framework
-                if (blas_lib == "openblas" || lapack_lib == "openblas") && homebrew_found {
+                // Link strategy: prefer Accelerate framework for stability
+                if (blas_lib == "openblas" || lapack_lib == "openblas") && openblas_found {
+                    // Only link OpenBLAS if explicitly requested AND found
                     println!("cargo:rustc-link-lib=openblas");
-                } else if blas_lib == "openblas" || lapack_lib == "openblas" {
-                    // If OpenBLAS requested but not found, fallback to Accelerate
-                    println!("cargo:rustc-link-lib=framework=Accelerate");
                 } else {
-                    println!("cargo:rustc-link-lib=lapack");
-                    println!("cargo:rustc-link-lib=blas");
+                    // Default to Accelerate framework (always available on macOS)
+                    println!("cargo:rustc-link-lib=framework=Accelerate");
                 }
             } else {
                 // Other Unix systems

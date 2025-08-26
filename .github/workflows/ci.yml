@@ -69,11 +69,12 @@ jobs:
           brew install openblas
           # Add x86_64 target for SIMD compatibility on Apple Silicon
           rustup target add x86_64-apple-darwin
-          # Set OpenBLAS environment variables for macOS
-          echo "BLAS_LIB=openblas" >> $GITHUB_ENV
-          echo "LAPACK_LIB=openblas" >> $GITHUB_ENV
-          echo "RUSTORCH_BLAS_LIB=openblas" >> $GITHUB_ENV
-          echo "RUSTORCH_LAPACK_LIB=openblas" >> $GITHUB_ENV
+          # Set BLAS/LAPACK environment variables for macOS
+          # Default to Accelerate framework for stability, allow OpenBLAS override
+          echo "BLAS_LIB=accelerate" >> $GITHUB_ENV
+          echo "LAPACK_LIB=accelerate" >> $GITHUB_ENV
+          echo "RUSTORCH_BLAS_LIB=accelerate" >> $GITHUB_ENV
+          echo "RUSTORCH_LAPACK_LIB=accelerate" >> $GITHUB_ENV
           # Add library paths to environment
           if [[ -d "/opt/homebrew/lib" ]]; then
             echo "LIBRARY_PATH=/opt/homebrew/lib:${LIBRARY_PATH:-}" >> $GITHUB_ENV
