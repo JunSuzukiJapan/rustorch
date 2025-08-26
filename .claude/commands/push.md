@@ -1,10 +1,10 @@
-# Push ³ŞóÉ
+# Push ã‚³ãƒãƒ³ãƒ‰
 
-## ú,„j×Ã·åÕíü
+## åŸºæœ¬çš„ãªä½¿ç”¨æ–¹æ³•
 
-### 1. ¯¤Ã¯×Ã·åclippy + format + push	
+### 1. è‡ªå‹•ä¿®æ­£ï¼ˆclippy + format + pushï¼‰
 ```bash
-# YyfnfJ’îcWfÕ©üŞÃÈWf×Ã·å
+# ã™ã¹ã¦ã®ä¿®æ­£ã¨æ•´å½¢ã‚’è‡ªå‹•ã§å®Ÿè¡Œ
 cargo clippy --all-targets --features "linalg-netlib" --fix --allow-dirty --allow-staged && \
 cargo fmt --all && \
 git add -A && \
@@ -12,19 +12,19 @@ git commit -m "style: Apply clippy fixes and formatting" && \
 git push origin $(git branch --show-current)
 ```
 
-### 2. µ„×Ã·åºWjL‰	
+### 2. æ‰‹å‹•ã§ã®æ®µéšçš„å®Ÿè¡Œ
 ```bash
-# Step 1: Clippy Á§Ã¯hêÕîc
+# Step 1: Clippy ã«ã‚ˆã‚‹ä¿®æ­£
 cargo clippy --all-targets --features "linalg-netlib" --fix --allow-dirty --allow-staged
 
-# Step 2: Õ©üŞÃÈ
+# Step 2: ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆ
 cargo fmt --all
 
-# Step 3: 	ôº
+# Step 3: ç¢ºèª
 git diff
 git status
 
-# Step 4: ³ßÃÈ
+# Step 4: ã‚³ãƒŸãƒƒãƒˆ
 git add -A
 git commit -m "style: Apply clippy fixes and formatting
 
@@ -32,15 +32,15 @@ git commit -m "style: Apply clippy fixes and formatting
 - Apply rustfmt formatting
 - Ensure code quality standards
 
-> Generated with [Claude Code](https://claude.ai/code)
+ğŸ¤– Generated with [Claude Code](https://claude.ai/code)
 
 Co-Authored-By: Claude <noreply@anthropic.com>"
 
-# Step 5: ×Ã·å
+# Step 5: ãƒ—ãƒƒã‚·ãƒ¥
 git push origin $(git branch --show-current)
 ```
 
-## ×éÃÈÕ©üà%Õ£üÁãü-š
+## ãƒ—ãƒ©ãƒƒãƒˆãƒ•ã‚©ãƒ¼ãƒ åˆ¥ã®å®Ÿè¡Œæ–¹æ³•
 
 ### Ubuntu/Linux
 ```bash
@@ -60,10 +60,10 @@ cargo clippy --all-targets --no-default-features --fix --allow-dirty --allow-sta
 cargo fmt --all
 ```
 
-## ŒhÁ§Ã¯Œn×Ã·å
+## ãƒ†ã‚¹ãƒˆã‚’å«ã‚€ãƒ—ãƒƒã‚·ãƒ¥
 
 ```bash
-# YyfnÁ§Ã¯’ŸLWfK‰×Ã·å
+# ã™ã¹ã¦ã®æ¤œè¨¼ã‚’å®Ÿè¡Œã—ã¦ã‹ã‚‰ãƒ—ãƒƒã‚·ãƒ¥
 cargo clippy --all-targets --features "linalg-netlib" -- -D warnings && \
 cargo fmt --all --check && \
 cargo test --features "linalg-netlib" && \
@@ -72,42 +72,42 @@ git commit -m "chore: Code quality improvements" && \
 git push origin $(git branch --show-current)
 ```
 
-## ¨¤ê¢¹-šª×·çó	
+## ã‚¨ã‚¤ãƒªã‚¢ã‚¹ã®è¨­å®š
 
-`.bashrc` ~_o `.zshrc` kı :
+`.bashrc` ã¾ãŸã¯ `.zshrc` ã«è¿½åŠ :
 
 ```bash
 alias rustpush='cargo clippy --all-targets --features "linalg-netlib" --fix --allow-dirty --allow-staged && cargo fmt --all && git add -A && git commit -m "style: Apply clippy fixes and formatting" && git push origin $(git branch --show-current)'
 ```
 
-(¹Õ:
+ä½¿ç”¨ä¾‹:
 ```bash
 rustpush
 ```
 
-## ÈéÖë·åüÆ£ó°
+## ãƒˆãƒ©ãƒ–ãƒ«ã‚·ãƒ¥ãƒ¼ãƒ†ã‚£ãƒ³ã‚°
 
-### Clippy ¨éüLêÕîcgMjD4
+### Clippy ã®è­¦å‘Šã‚’ç¢ºèªã—ãŸã„å ´åˆ
 ```bash
-# fJ’º
+# ä¿®æ­£å‰ã«ç¢ºèª
 cargo clippy --all-targets --features "linalg-netlib"
 
-# KÕîcŒk¦ŸL
+# è­¦å‘Šã‚’ã‚¨ãƒ©ãƒ¼ã¨ã—ã¦æ‰±ã†
 cargo clippy --all-targets --features "linalg-netlib" --fix --allow-dirty --allow-staged
 ```
 
-### Õ©üŞÃÈÁ§Ã¯n
+### ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã®ã¿ç¢ºèª
 ```bash
-# Á§Ã¯n	ôjW	
+# ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã®å·®åˆ†ç¢ºèª
 cargo fmt --all --check
 ```
 
-### yšÕ¡¤ënæ
+### ç‰¹å®šã®ãƒ•ã‚¡ã‚¤ãƒ«ã®ã¿å‡¦ç†
 ```bash
-# yšÕ¡¤ënÕ©üŞÃÈ
+# ç‰¹å®šãƒ•ã‚¡ã‚¤ãƒ«ã®ã¿ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆ
 cargo fmt -- src/lib.rs src/tensor/mod.rs
 
-# yšÕ¡¤ënı Wf³ßÃÈ
+# ç‰¹å®šãƒ•ã‚¡ã‚¤ãƒ«ã®ã¿ã‚³ãƒŸãƒƒãƒˆ
 git add src/lib.rs src/tensor/mod.rs
 git commit -m "style: Format specific modules"
 git push origin $(git branch --show-current)

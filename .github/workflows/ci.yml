@@ -67,8 +67,13 @@ jobs:
           sudo xcode-select --install 2>/dev/null || echo "Command Line Tools already installed"
           brew install pkg-config
           brew install openblas
+          # Install gfortran for netlib-src compilation
+          brew install gcc
           # Add x86_64 target for SIMD compatibility on Apple Silicon
           rustup target add x86_64-apple-darwin
+          # Set Fortran compiler for netlib-src
+          echo "FC=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
+          echo "CMAKE_Fortran_COMPILER=$(brew --prefix gcc)/bin/gfortran" >> $GITHUB_ENV
           # Set BLAS/LAPACK environment variables for macOS
           # Default to Accelerate framework, allow OpenBLAS override
           echo "BLAS_LIB=framework" >> $GITHUB_ENV
@@ -89,6 +94,11 @@ jobs:
       - name: Verify macOS environment
         if: matrix.os == 'macos-latest'
         run: |
+          echo "=== Fortran compiler verification ==="
+          which gfortran || echo "gfortran not in PATH"
+          gfortran --version || echo "gfortran not available"
+          echo "FC: ${FC:-unset}"
+          echo "CMAKE_Fortran_COMPILER: ${CMAKE_Fortran_COMPILER:-unset}"
           echo "=== macOS OpenBLAS verification ==="
           brew list openblas
           echo "=== OpenBLAS library location ==="
