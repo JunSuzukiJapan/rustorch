@@ -123,10 +123,19 @@ fn main() {
                     }
                 }
 
-                // Simple Ubuntu LAPACK/BLAS linking - use system libraries
+                // Ubuntu LAPACK/BLAS linking - ensure both libraries are available
+                // Ubuntu's OpenBLAS may not include complete LAPACK, so link both explicitly
                 if openblas_available {
+                    // Link both OpenBLAS and LAPACK to ensure all functions are available
                     println!("cargo:rustc-link-lib=openblas");
+                    if separate_lapack_available {
+                        println!("cargo:rustc-link-lib=lapack");
+                    }
+                } else if separate_blas_available && separate_lapack_available {
+                    println!("cargo:rustc-link-lib=lapack");
+                    println!("cargo:rustc-link-lib=blas");
                 } else {
+                    // Fallback: try standard library names
                     println!("cargo:rustc-link-lib=lapack");
                     println!("cargo:rustc-link-lib=blas");
                 }
