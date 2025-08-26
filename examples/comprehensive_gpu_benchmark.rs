@@ -7,6 +7,9 @@
 use rustorch::tensor::Tensor;
 use std::time::Instant;
 
+#[cfg(feature = "linalg-netlib")]
+use rustorch::linalg::optimized_matmul;
+
 #[cfg(feature = "metal")]
 use rustorch::gpu::metal_kernels::MetalKernelExecutor;
 
@@ -154,10 +157,10 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
         .map(|i| ((i * 2) as f32) / (k * n) as f32)
         .collect();
 
-    let _a = Tensor::from_vec(a_data, vec![m, k]);
-    let _b = Tensor::from_vec(b_data, vec![k, n]);
+    let a = Tensor::from_vec(a_data, vec![m, k]);
+    let b = Tensor::from_vec(b_data, vec![k, n]);
 
-    let _start = Instant::now();
+    let start = Instant::now();
     #[cfg(feature = "linalg-netlib")]
     {
         match optimized_matmul(&a, &b) {
