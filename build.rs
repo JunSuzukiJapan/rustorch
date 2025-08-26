@@ -11,14 +11,25 @@ fn main() {
 
     // Check if we're building with linalg-netlib feature
     if env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok() {
-        println!("cargo:rustc-link-search=native=/usr/lib");
-        println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
-        println!("cargo:rustc-link-search=native=/usr/local/lib");
+        // OS-specific library paths
+        if cfg!(target_os = "linux") {
+            println!("cargo:rustc-link-search=native=/usr/lib");
+            println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+        }
+        
+        // Common library path for Unix systems
+        if cfg!(unix) {
+            println!("cargo:rustc-link-search=native=/usr/local/lib");
+        }
 
         // Link LAPACK and BLAS libraries
         println!("cargo:rustc-link-lib=lapack");
         println!("cargo:rustc-link-lib=blas");
-        println!("cargo:rustc-link-lib=gfortran");
+        
+        // gfortran is typically needed on Linux, but may not be available on all systems
+        if cfg!(target_os = "linux") {
+            println!("cargo:rustc-link-lib=gfortran");
+        }
 
         // For systems with different LAPACK/BLAS implementations
         if let Ok(lapack_lib) = env::var("RUSTORCH_LAPACK_LIB") {
