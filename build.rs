@@ -55,9 +55,9 @@ fn main() {
                     println!("cargo:rustc-link-lib=dylib=openblas");
                 }
             } else if cfg!(target_os = "macos") {
-                // macOS with intelligent OpenBLAS detection
-                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "accelerate".to_string());
-                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "accelerate".to_string());
+                // macOS with intelligent BLAS/LAPACK detection
+                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "framework".to_string());
+                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "framework".to_string());
                 
                 // Check for Homebrew OpenBLAS (both ARM64 and x86_64)
                 let mut openblas_found = false;
@@ -70,12 +70,12 @@ fn main() {
                     openblas_found = true;
                 }
                 
-                // Link strategy: prefer Accelerate framework for stability
-                if (blas_lib == "openblas" || lapack_lib == "openblas") && openblas_found {
-                    // Only link OpenBLAS if explicitly requested AND found
+                // macOS linking strategy: avoid duplicate libraries
+                if blas_lib == "openblas" && openblas_found {
+                    // Link OpenBLAS only if explicitly requested AND found
                     println!("cargo:rustc-link-lib=openblas");
                 } else {
-                    // Default to Accelerate framework (always available on macOS)
+                    // Default: Use Accelerate framework (system BLAS/LAPACK on macOS)
                     println!("cargo:rustc-link-lib=framework=Accelerate");
                 }
             } else {
