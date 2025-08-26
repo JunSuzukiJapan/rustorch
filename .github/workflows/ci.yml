@@ -70,6 +70,25 @@ jobs:
           # Add x86_64 target for SIMD compatibility on Apple Silicon
           rustup target add x86_64-apple-darwin
         shell: bash
+        
+      - name: Verify macOS environment
+        if: matrix.os == 'macos-latest'
+        run: |
+          echo "=== macOS OpenBLAS verification ==="
+          brew list openblas
+          echo "=== OpenBLAS library location ==="
+          find /usr/local /opt/homebrew -name "libopenblas*" 2>/dev/null || true
+          echo "=== OpenBLAS symbols check ==="
+          # Check for LAPACK symbols in OpenBLAS
+          if [[ -f /opt/homebrew/lib/libopenblas.dylib ]]; then
+            nm -gU /opt/homebrew/lib/libopenblas.dylib | grep -E "(dsyev_|dgeev_)" || echo "LAPACK symbols not found in ARM64 OpenBLAS"
+          fi
+          if [[ -f /usr/local/lib/libopenblas.dylib ]]; then
+            nm -gU /usr/local/lib/libopenblas.dylib | grep -E "(dsyev_|dgeev_)" || echo "LAPACK symbols not found in x86_64 OpenBLAS"
+          fi
+          echo "=== Environment ==="
+          echo "PKG_CONFIG_PATH: ${PKG_CONFIG_PATH:-unset}"
+        shell: bash
           
       - name: Install system dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -147,11 +166,11 @@ jobs:
           for example in examples/*.rs; do
             example_name=$(basename "$example" .rs)
             
-            # Skip LAPACK-dependent examples on nightly Ubuntu builds to avoid linking issues
-            if [[ "${{ matrix.rust }}" == "nightly" && "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # Skip LAPACK-dependent examples on Ubuntu builds to avoid potential linking issues
+            if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
               case "$example_name" in
                 *matrix*|*linalg*|*decomposition*|*eigen*|*svd*)
-                  echo "Skipping LAPACK-dependent example $example_name on Ubuntu nightly"
+                  echo "Skipping LAPACK-dependent example $example_name on Ubuntu (${{ matrix.rust }})"
                   continue
                   ;;
               esac

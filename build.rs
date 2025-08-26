@@ -54,8 +54,28 @@ fn main() {
                 if blas_lib == "openblas" || lapack_lib == "openblas" {
                     println!("cargo:rustc-link-lib=dylib=openblas");
                 }
+            } else if cfg!(target_os = "macos") {
+                // macOS with Homebrew OpenBLAS
+                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                
+                // Check for Homebrew paths (both ARM64 and x86_64)
+                if std::path::Path::new("/opt/homebrew/lib").exists() {
+                    println!("cargo:rustc-link-search=native=/opt/homebrew/lib");
+                }
+                if std::path::Path::new("/usr/local/lib").exists() {
+                    println!("cargo:rustc-link-search=native=/usr/local/lib");
+                }
+                
+                // Link specified libraries or fallback to standard
+                if blas_lib == "openblas" || lapack_lib == "openblas" {
+                    println!("cargo:rustc-link-lib=openblas");
+                } else {
+                    println!("cargo:rustc-link-lib=lapack");
+                    println!("cargo:rustc-link-lib=blas");
+                }
             } else {
-                // Other Unix systems (macOS, etc.)
+                // Other Unix systems
                 println!("cargo:rustc-link-lib=lapack");
                 println!("cargo:rustc-link-lib=blas");
             }
