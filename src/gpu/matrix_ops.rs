@@ -206,13 +206,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
     /// Create new batch matrix executor with device validation
     pub fn new(device_type: super::DeviceType) -> RusTorchResult<Self> {
         // Try to create GPU context for validation
-        let context = match super::GpuContext::new(device_type.clone()) {
-            Ok(ctx) => Some(ctx),
-            Err(_) => {
-                // GPU context failed, will use CPU fallback
-                None
-            }
-        };
+        let context = super::GpuContext::new(device_type).ok();
 
         Ok(Self {
             device_type,

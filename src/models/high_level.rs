@@ -118,10 +118,7 @@ impl<T: Float> TrainingHistory<T> {
 
         // メトリクスを追加
         for (name, value) in epoch_metrics {
-            self.metrics
-                .entry(name)
-                .or_insert_with(Vec::new)
-                .push(value);
+            self.metrics.entry(name).or_default().push(value);
         }
     }
 

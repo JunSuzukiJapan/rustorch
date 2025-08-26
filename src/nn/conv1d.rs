@@ -184,6 +184,7 @@ where
 
     /// Create a new Conv1d layer (panicking version for backward compatibility)
     /// 後方互換性のためのパニック版
+    #[allow(clippy::too_many_arguments)]
     pub fn create(
         in_channels: usize,
         out_channels: usize,

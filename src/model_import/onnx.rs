@@ -329,21 +329,21 @@ fn create_architecture(onnx_model: &OnnxModel) -> RusTorchResult<ModelArchitectu
         .graph
         .inputs
         .iter()
-        .map(|input| create_tensor_spec(input))
+        .map(create_tensor_spec)
         .collect();
 
     let outputs = onnx_model
         .graph
         .outputs
         .iter()
-        .map(|output| create_tensor_spec(output))
+        .map(create_tensor_spec)
         .collect();
 
     let layer_descs: Vec<LayerDescription> = onnx_model
         .graph
         .nodes
         .iter()
-        .map(|node| create_layer_info(node))
+        .map(create_layer_info)
         .collect();
 
     let layers = layer_descs

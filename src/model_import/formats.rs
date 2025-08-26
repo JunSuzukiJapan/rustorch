@@ -78,16 +78,16 @@ impl ModelFormat {
     /// Check if format supports certain features
     /// フォーマットが特定の機能をサポートしているかチェック
     pub fn supports_feature(&self, feature: FormatFeature) -> bool {
-        match (self, feature) {
-            (ModelFormat::Onnx, FormatFeature::GraphStructure) => true,
-            (ModelFormat::Onnx, FormatFeature::Metadata) => true,
-            (ModelFormat::Onnx, FormatFeature::Quantization) => true,
-            (ModelFormat::PyTorch, FormatFeature::DynamicShapes) => true,
-            (ModelFormat::PyTorch, FormatFeature::StateDict) => true,
-            (ModelFormat::TensorFlowLite, FormatFeature::Quantization) => true,
-            (ModelFormat::TensorFlowLite, FormatFeature::MobileOptimized) => true,
-            _ => false,
-        }
+        matches!(
+            (self, feature),
+            (ModelFormat::Onnx, FormatFeature::GraphStructure)
+                | (ModelFormat::Onnx, FormatFeature::Metadata)
+                | (ModelFormat::Onnx, FormatFeature::Quantization)
+                | (ModelFormat::PyTorch, FormatFeature::DynamicShapes)
+                | (ModelFormat::PyTorch, FormatFeature::StateDict)
+                | (ModelFormat::TensorFlowLite, FormatFeature::Quantization)
+                | (ModelFormat::TensorFlowLite, FormatFeature::MobileOptimized)
+        )
     }
 
     /// Get format description

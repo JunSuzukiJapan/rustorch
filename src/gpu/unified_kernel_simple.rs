@@ -47,7 +47,7 @@ pub enum KernelOp {
 }
 
 /// Kernel execution parameters
-/// カーネル実行パラメータ#[derive(Debug, Clone)]
+/// カーネル実行パラメータ#[derive(Debug, Clone, Default)]
 pub struct KernelParams {
     /// Input tensor shapes for the kernel
     /// カーネルの入力テンソル形状
@@ -58,16 +58,6 @@ pub struct KernelParams {
     /// Additional kernel parameters
     /// 追加カーネルパラメータ
     pub extra_params: HashMap<String, f64>,
-}
-
-impl Default for KernelParams {
-    fn default() -> Self {
-        Self {
-            input_shapes: Vec::new(),
-            output_shape: Vec::new(),
-            extra_params: HashMap::new(),
-        }
-    }
 }
 
 /// Kernel performance metrics
@@ -142,7 +132,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .add(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -152,7 +142,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .mul(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -162,7 +152,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .sub(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -172,7 +162,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
@@ -230,7 +220,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .add(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -240,7 +230,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .mul(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -250,7 +240,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .sub(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -260,7 +250,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(|e| RusTorchError::KernelExecutionError(e))
+                    .map_err(RusTorchError::KernelExecutionError)
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
@@ -302,10 +292,10 @@ impl UnifiedKernelExecutor {
     /// Check if operation is supported
     /// 操作がサポートされているかチェック
     pub fn supports_operation(&self, op: KernelOp) -> bool {
-        match op {
-            KernelOp::Add | KernelOp::Mul | KernelOp::Sub | KernelOp::MatMul => true,
-            _ => false,
-        }
+        matches!(
+            op,
+            KernelOp::Add | KernelOp::Mul | KernelOp::Sub | KernelOp::MatMul
+        )
     }
 
     /// Get device type

@@ -100,7 +100,7 @@ where
         };
 
         // Compute gate values
-        let gi = RecurrentOps::linear_transform(&input, &self.weight_ih, self.bias_ih.as_ref());
+        let gi = RecurrentOps::linear_transform(input, &self.weight_ih, self.bias_ih.as_ref());
         let gh = RecurrentOps::linear_transform(&h_prev, &self.weight_hh, self.bias_hh.as_ref());
 
         let gates = RecurrentOps::add_variables(&gi, &gh);

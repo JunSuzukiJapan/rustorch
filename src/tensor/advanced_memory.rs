@@ -103,7 +103,7 @@ struct MemoryBlock {
 impl MemoryBlock {
     fn new(size: usize, alignment: usize, is_huge_page: bool) -> ParallelResult<Self> {
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
+            .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
 
         let ptr = unsafe {
             let raw_ptr = if is_huge_page {
@@ -157,7 +157,7 @@ impl MemoryBlock {
                 // Fallback to regular allocation
                 // 通常の割り当てにフォールバック
                 let layout = Layout::from_size_align(size, alignment)
-                    .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
+                    .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
                 Ok(alloc_zeroed(layout))
             } else {
                 Ok(ptr as *mut u8)
@@ -170,7 +170,7 @@ impl MemoryBlock {
         // Fallback to regular allocation on non-Linux systems
         // Linux以外のシステムでは通常の割り当てにフォールバック
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| RusTorchError::memory(&format!("Invalid layout: {}", e)))?;
+            .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
         Ok(unsafe { alloc_zeroed(layout) })
     }
 
@@ -322,10 +322,7 @@ impl AdvancedMemoryPool {
         // 保持する価値がある場合はフリープールに返却
         if self.should_keep_block(&block) {
             let mut free_blocks = self.free_blocks.write().unwrap();
-            free_blocks
-                .entry(size)
-                .or_insert_with(VecDeque::new)
-                .push_back(block);
+            free_blocks.entry(size).or_default().push_back(block);
         }
         // Otherwise, block will be dropped and memory freed
         // そうでなければ、ブロックはドロップされメモリが解放される

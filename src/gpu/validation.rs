@@ -397,7 +397,7 @@ impl GpuValidator {
         for result in results {
             device_results
                 .entry(result.device)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(result);
         }
 

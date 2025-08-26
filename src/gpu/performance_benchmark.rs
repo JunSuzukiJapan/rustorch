@@ -1082,6 +1082,7 @@ impl PerformanceBenchmark {
         output
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn cpu_max_pool2d(
         &self,
         input: &[f32],
@@ -1318,7 +1319,7 @@ impl PerformanceBenchmark {
         for result in &self.results {
             operation_groups
                 .entry(result.operation_name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(result);
         }
 

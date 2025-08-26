@@ -165,10 +165,11 @@ use std::fmt;
 
 /// GPU device types
 /// GPU デバイスタイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum DeviceType {
     /// CPU device
     /// CPUデバイス
+    #[default]
     Cpu,
     /// CUDA GPU device
     /// CUDA GPUデバイス
@@ -179,12 +180,6 @@ pub enum DeviceType {
     /// OpenCL GPU device
     /// OpenCL GPUデバイス
     OpenCL(usize),
-}
-
-impl Default for DeviceType {
-    fn default() -> Self {
-        DeviceType::Cpu
-    }
 }
 
 impl fmt::Display for DeviceType {

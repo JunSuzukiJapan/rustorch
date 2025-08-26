@@ -55,10 +55,7 @@ pub struct GpuBackend {
 impl GpuBackend {
     /// Create new GPU backend
     pub fn new() -> Self {
-        let mut devices: Vec<Arc<dyn GpuDevice>> = Vec::new();
-
-        // Always add CPU device
-        devices.push(Arc::new(CpuDevice::new()));
+        let mut devices: Vec<Arc<dyn GpuDevice>> = vec![Arc::new(CpuDevice::new())];
 
         #[cfg(feature = "cuda")]
         {

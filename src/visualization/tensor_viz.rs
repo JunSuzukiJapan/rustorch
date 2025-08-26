@@ -125,7 +125,7 @@ impl TensorVisualizer {
 
         // データの正規化
         let normalized_data = if self.config.normalize {
-            self.normalize_data(&data)?
+            self.normalize_data(data)?
         } else {
             data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect()
         };
@@ -171,7 +171,7 @@ impl TensorVisualizer {
         let mut svg = self.generate_bar_chart_header(length);
 
         // 棒グラフの描画
-        svg.push_str(&self.render_bar_chart(&data, length)?);
+        svg.push_str(&self.render_bar_chart(data, length)?);
 
         // タイトルの追加
         if let Some(ref title) = self.config.title {
@@ -209,7 +209,7 @@ impl TensorVisualizer {
 
         // 各スライスを描画
         for d in 0..depth {
-            let slice_data = self.extract_slice(&data, d, height, width)?;
+            let slice_data = self.extract_slice(data, d, height, width)?;
             let normalized_slice = if self.config.normalize {
                 self.normalize_data(&slice_data)?
             } else {
@@ -240,7 +240,7 @@ impl TensorVisualizer {
         let data = tensor.as_slice().ok_or_else(|| {
             RusTorchError::InvalidDataFormat("Tensor data not accessible as slice")
         })?;
-        let stats = self.compute_statistics(&data)?;
+        let stats = self.compute_statistics(data)?;
 
         let mut svg = self.generate_statistics_header();
 

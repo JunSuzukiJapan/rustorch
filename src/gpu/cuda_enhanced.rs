@@ -286,6 +286,7 @@ impl CudaMatrixExecutor {
 
     /// Perform matrix multiplication using CUDA cuBLAS
     /// CUDA cuBLASを使用して行列乗算を実行
+    #[allow(clippy::too_many_arguments)]
     pub fn matmul_f32(
         &self,
         _a: &[f32],
@@ -339,6 +340,7 @@ impl CudaMatrixExecutor {
 ///
 /// Execute CUDA matrix multiplication with cuBLAS
 /// cuBLASを使用したCUDA行列乗算を実行
+#[allow(clippy::too_many_arguments)]
 pub fn cuda_matmul_f32(
     a: &[f32],
     b: &[f32],

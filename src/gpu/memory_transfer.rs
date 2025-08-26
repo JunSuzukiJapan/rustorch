@@ -111,7 +111,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         // Validate shape matches data length
         let expected_len: usize = shape.iter().product();
         if data.len() != expected_len {
-            return Err(RusTorchError::gpu(&format!(
+            return Err(RusTorchError::gpu(format!(
                 "Shape mismatch: expected {} elements for shape {:?}, but got {}",
                 expected_len,
                 shape,
@@ -121,7 +121,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
 
         // Convert Vec to ArrayD
         let array = ArrayD::from_shape_vec(IxDyn(shape), data)
-            .map_err(|e| RusTorchError::gpu(&format!("Failed to create array: {}", e)))?;
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create array: {}", e)))?;
 
         Ok(Tensor::from_ndarray(array))
     }

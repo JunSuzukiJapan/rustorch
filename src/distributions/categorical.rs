@@ -399,23 +399,22 @@ where
         let batch_size: usize = self.base.batch_shape.iter().product();
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
 
-        let mut result_data = Vec::with_capacity(batch_size);
+        let result_data: Vec<_> = (0..batch_size)
+            .map(|batch| {
+                let batch_start = batch * self.num_categories;
+                let batch_probs = &probs_data[batch_start..batch_start + self.num_categories];
+                let mean_val = mean_data[batch];
 
-        for batch in 0..batch_size {
-            let batch_start = batch * self.num_categories;
-            let batch_probs = &probs_data[batch_start..batch_start + self.num_categories];
-            let mean_val = mean_data[batch];
+                // E[X²] = Σ(k² * p_k)
+                let mut second_moment = T::zero();
+                for (k, &p) in batch_probs.iter().enumerate() {
+                    let k_float = T::from(k).unwrap();
+                    second_moment = second_moment + k_float * k_float * p;
+                }
 
-            // E[X²] = Σ(k² * p_k)
-            let mut second_moment = T::zero();
-            for (k, &p) in batch_probs.iter().enumerate() {
-                let k_float = T::from(k).unwrap();
-                second_moment = second_moment + k_float * k_float * p;
-            }
-
-            let variance = second_moment - mean_val * mean_val;
-            result_data.push(variance);
-        }
+                second_moment - mean_val * mean_val
+            })
+            .collect();
 
         let result_shape = if self.base.batch_shape.is_empty() {
             vec![1]

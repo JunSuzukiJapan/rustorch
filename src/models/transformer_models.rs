@@ -62,6 +62,7 @@ where
 {
     /// 新しい Transformer モデルを作成
     /// Create a new Transformer model
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         vocab_size: usize,
         d_model: usize,

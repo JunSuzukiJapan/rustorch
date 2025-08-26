@@ -122,7 +122,7 @@ impl GpuMemoryPool {
         }
 
         let block_idx = best_block_idx.ok_or_else(|| {
-            RusTorchError::tensor_op(&format!(
+            RusTorchError::tensor_op(format!(
                 "No suitable free block found for size {} (aligned: {})",
                 size, aligned_size
             ))
@@ -464,7 +464,7 @@ impl DataTransfer {
         src: &[T],
         dst_allocation: &MemoryAllocation,
     ) -> RusTorchResult<()> {
-        let src_size = src.len() * std::mem::size_of::<T>();
+        let src_size = std::mem::size_of_val(src);
         if src_size > dst_allocation.size {
             return Err(RusTorchError::tensor_op("Source data too large"));
         }
@@ -519,7 +519,7 @@ impl DataTransfer {
         src_allocation: &MemoryAllocation,
         dst: &mut [T],
     ) -> RusTorchResult<()> {
-        let dst_size = dst.len() * std::mem::size_of::<T>();
+        let dst_size = std::mem::size_of_val(dst);
         if dst_size > src_allocation.size {
             return Err(RusTorchError::tensor_op("Destination buffer too small"));
         }

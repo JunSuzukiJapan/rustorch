@@ -606,7 +606,7 @@ where
         // For CPU, just perform the operation directly without GPU
         if *device == DeviceType::Cpu {
             return self.batch_elementwise_op(other, op).map_err(|e| {
-                crate::error::RusTorchError::gpu(&format!("CPU fallback failed: {}", e))
+                crate::error::RusTorchError::gpu(format!("CPU fallback failed: {}", e))
             });
         }
 
@@ -642,7 +642,7 @@ where
 
         // Transfer result back to CPU as a flat vector
         let flat_result = GpuMemoryManager::to_cpu(&gpu_result, &[data_len]).map_err(|e| {
-            crate::error::RusTorchError::gpu(&format!(
+            crate::error::RusTorchError::gpu(format!(
                 "Failed to transfer result from device: {}",
                 e
             ))
@@ -654,7 +654,7 @@ where
         // Ensure the total number of elements matches
         let total_elements: usize = original_shape.iter().product();
         if result_data.len() != total_elements {
-            return Err(crate::error::RusTorchError::gpu(&format!(
+            return Err(crate::error::RusTorchError::gpu(format!(
                 "Mismatched element count: expected {} but got {}",
                 total_elements,
                 result_data.len()
@@ -663,7 +663,7 @@ where
 
         // Create the result tensor with the original shape
         let array = ArrayD::from_shape_vec(original_shape.clone(), result_data).map_err(|e| {
-            crate::error::RusTorchError::gpu(&format!("Failed to reshape result: {}", e))
+            crate::error::RusTorchError::gpu(format!("Failed to reshape result: {}", e))
         })?;
         let result = Tensor::from_ndarray(array);
 
@@ -758,7 +758,7 @@ where
         // 新しいTensorを作成
         let array = ndarray::ArrayD::from_shape_vec(ndarray::IxDyn(tensor.shape()), softmax_data)
             .map_err(|e| {
-            crate::error::RusTorchError::tensor_op(&format!("Shape error: {}", e))
+            crate::error::RusTorchError::tensor_op(format!("Shape error: {}", e))
         })?;
 
         Ok(Tensor::from_ndarray(array))

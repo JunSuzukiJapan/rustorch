@@ -424,7 +424,7 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
         match device {
             DeviceType::Cpu => {
                 // CPU convolution implementation (simplified)
-                self.execute_cpu_conv(inputs[0], inputs[1], &mut outputs[0])?;
+                self.execute_cpu_conv(inputs[0], inputs[1], outputs[0])?;
             }
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]

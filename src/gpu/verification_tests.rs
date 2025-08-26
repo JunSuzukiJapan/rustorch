@@ -768,6 +768,7 @@ impl VerificationTestSuite {
         output
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn cpu_max_pool2d(
         &self,
         input: &[f32],

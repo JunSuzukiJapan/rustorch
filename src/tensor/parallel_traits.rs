@@ -283,9 +283,7 @@ pub mod parallel_utils {
         F: Fn(&[T]) -> R + Send + Sync,
         R: Send,
     {
-        data.par_chunks(chunk_size)
-            .map(|chunk| process_chunk(chunk))
-            .collect()
+        data.par_chunks(chunk_size).map(process_chunk).collect()
     }
 
     /// バッチ次元での並列処理

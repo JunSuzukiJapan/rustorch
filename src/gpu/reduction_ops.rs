@@ -56,7 +56,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
                         _phantom: std::marker::PhantomData,
                     })
                 } else {
-                    Err(RusTorchError::gpu(&format!(
+                    Err(RusTorchError::gpu(format!(
                         "GPU device {:?} not available",
                         device_type
                     )))

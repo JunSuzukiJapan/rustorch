@@ -77,6 +77,7 @@ where
 {
     /// Create a new ConvTranspose2d layer
     /// 新しいConvTranspose2d層を作成
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         in_channels: usize,
         out_channels: usize,
