@@ -21,7 +21,8 @@ use opencl3::{
 };
 
 /// OpenCL kernel types
-/// OpenCLカーネルタイプ#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// OpenCLカーネルタイプ
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OpenClKernelType {
     /// Element-wise operations (add, mul, etc.)
     /// 要素ごとの演算（加算、乗算など）

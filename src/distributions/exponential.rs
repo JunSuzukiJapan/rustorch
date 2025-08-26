@@ -231,7 +231,7 @@ mod tests {
 
         let exp_dist = Exponential::new(rate, true).unwrap();
         assert_eq!(exp_dist.base.batch_shape, vec![1]);
-        assert_eq!(exp_dist.base.event_shape, [] as Vec<usize>);
+        assert_eq!(exp_dist.base.event_shape, Vec::<usize>::new());
     }
 
     #[test]

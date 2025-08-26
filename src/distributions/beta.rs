@@ -402,7 +402,7 @@ mod tests {
 
         let distribution = Beta::new(alpha, beta, true).unwrap();
         assert_eq!(distribution.base.batch_shape, vec![1]);
-        assert_eq!(distribution.base.event_shape, [] as Vec<usize>);
+        assert_eq!(distribution.base.event_shape, Vec::<usize>::new());
     }
 
     #[test]

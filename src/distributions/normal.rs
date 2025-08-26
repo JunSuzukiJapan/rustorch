@@ -282,7 +282,7 @@ mod tests {
 
         let normal = Normal::new(loc, scale, true).unwrap();
         assert_eq!(normal.base.batch_shape, vec![1]);
-        assert_eq!(normal.base.event_shape, [] as Vec<usize>);
+        assert_eq!(normal.base.event_shape, Vec::<usize>::new());
     }
 
     #[test]

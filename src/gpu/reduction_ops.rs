@@ -15,7 +15,8 @@ use cudarc::driver::CudaDevice;
 #[cfg(feature = "metal")]
 use metal::{Buffer, CommandBuffer, CommandQueue, Device as MetalDevice};
 
-/// Reduction operation types#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Reduction operation types
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReductionOp {
     /// Sum reduction
     Sum,
