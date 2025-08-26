@@ -2,8 +2,8 @@
 //! Training state management
 
 use num_traits::Float;
-use std::time::Duration;
 use std::collections::HashMap;
+use std::time::Duration;
 
 /// 訓練全体の状態
 /// Overall training state
@@ -49,7 +49,7 @@ impl<T: Float> TrainingState<T> {
         // 最良メトリクスの更新
         if let Some(ref val_metrics) = epoch_state.val_metrics {
             let val_loss = val_metrics.avg_loss;
-            
+
             if self.best_val_loss.is_none() || val_loss < self.best_val_loss.unwrap() {
                 self.best_val_loss = Some(val_loss);
                 self.last_improvement_epoch = Some(epoch_state.epoch);
@@ -187,10 +187,7 @@ impl<T: Float> EpochState<T> {
         if self.batch_history.is_empty() {
             Duration::new(0, 0)
         } else {
-            let total_time: Duration = self.batch_history
-                .iter()
-                .map(|b| b.duration)
-                .sum();
+            let total_time: Duration = self.batch_history.iter().map(|b| b.duration).sum();
             total_time / self.batch_history.len() as u32
         }
     }
@@ -303,7 +300,8 @@ impl BatchState {
 
         if !self.metrics.is_empty() {
             summary.push_str(" | ");
-            let metric_strings: Vec<String> = self.metrics
+            let metric_strings: Vec<String> = self
+                .metrics
                 .iter()
                 .map(|(k, v)| format!("{} = {:.4}", k, v))
                 .collect();
@@ -367,10 +365,10 @@ mod tests {
     #[test]
     fn test_batch_state_metrics() {
         let mut batch_state = BatchState::new(0);
-        
+
         batch_state.set_metric("accuracy".to_string(), 0.85);
         batch_state.set_metric("precision".to_string(), 0.82);
-        
+
         assert_eq!(batch_state.get_metric("accuracy"), Some(0.85));
         assert_eq!(batch_state.get_metric("precision"), Some(0.82));
         assert_eq!(batch_state.get_metric("recall"), None);
@@ -379,12 +377,18 @@ mod tests {
     #[test]
     fn test_epoch_state_metadata() {
         let mut epoch_state: EpochState<f32> = EpochState::new(0);
-        
+
         epoch_state.set_metadata("optimizer".to_string(), "adam".to_string());
         epoch_state.set_metadata("lr_schedule".to_string(), "cosine".to_string());
-        
-        assert_eq!(epoch_state.metadata.get("optimizer"), Some(&"adam".to_string()));
-        assert_eq!(epoch_state.metadata.get("lr_schedule"), Some(&"cosine".to_string()));
+
+        assert_eq!(
+            epoch_state.metadata.get("optimizer"),
+            Some(&"adam".to_string())
+        );
+        assert_eq!(
+            epoch_state.metadata.get("lr_schedule"),
+            Some(&"cosine".to_string())
+        );
     }
 
     #[test]
@@ -397,7 +401,7 @@ mod tests {
             let epoch_state = EpochState::new(i);
             state.add_epoch(epoch_state);
         }
-        
+
         assert!(state.is_completed());
         assert_eq!(state.progress(), 100.0);
     }

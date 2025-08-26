@@ -303,7 +303,7 @@ impl ModelValidator {
 
         let (shape_valid, output_shape) = match simulated_output {
             Ok(output) => (output == expected_output_shape, output),
-            Err(_) => (false, vec![]),
+            Err(_) => (false, []),
         };
 
         // For now, assume numerical accuracy is valid if shapes match

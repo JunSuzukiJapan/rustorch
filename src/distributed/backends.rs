@@ -1,9 +1,10 @@
 //! Communication backends for distributed training
 //! 分散学習用通信バックエンド
 
+use super::common::{BackendOptimizations, CommonOps};
+use super::{DistributedOps, ProcessGroup, ReduceOp};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use super::{DistributedError, DistributedResult, DistributedOps, ReduceOp, ProcessGroup};
-use super::common::{CommonOps, BackendOptimizations};
 use num_traits::Float;
 
 /// NCCL backend for NVIDIA GPU communication
@@ -16,7 +17,7 @@ pub struct NCCLBackend {
 
 #[cfg(feature = "nccl")]
 impl NCCLBackend {
-    pub fn new(process_group: ProcessGroup) -> DistributedResult<Self> {
+    pub fn new(process_group: ProcessGroup) -> RusTorchResult<Self> {
         Ok(Self {
             process_group,
             comm: std::ptr::null_mut(),
@@ -26,36 +27,36 @@ impl NCCLBackend {
 
 #[cfg(feature = "nccl")]
 impl<T: Float + Send + Sync + 'static> DistributedOps<T> for NCCLBackend {
-    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> DistributedResult<()> {
+    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_reduce(tensor, op)
     }
 
-    fn all_gather(&self, tensor: &Tensor<T>) -> DistributedResult<Vec<Tensor<T>>> {
+    fn all_gather(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_gather(tensor, self.process_group.world_size)
     }
 
-    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> DistributedResult<()> {
+    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_broadcast(tensor, root)
     }
 
-    fn gather(&self, tensor: &Tensor<T>, root: usize) -> DistributedResult<Vec<Tensor<T>>> {
+    fn gather(&self, tensor: &Tensor<T>, root: usize) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_gather(tensor, self.process_group.world_size, root)
     }
 
-    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> DistributedResult<Tensor<T>> {
+    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> RusTorchResult<Tensor<T>> {
         if tensors.is_empty() {
-            return Err(DistributedError::CommunicationError(
-                "Empty tensor array for scatter operation".to_string()
+            return Err(RusTorchError::tensor_op(
+                "Empty tensor array for scatter operation",
             ));
         }
         Ok(tensors[0].clone())
     }
 
-    fn reduce(&self, _tensor: &mut Tensor<T>, _root: usize, _op: ReduceOp) -> DistributedResult<()> {
+    fn reduce(&self, _tensor: &mut Tensor<T>, _root: usize, _op: ReduceOp) -> RusTorchResult<()> {
         Ok(())
     }
 }
@@ -86,53 +87,49 @@ pub enum GlooTransport {
 
 /// Gloo communication context
 /// Gloo通信コンテキスト
-pub struct GlooContext {
-}
+pub struct GlooContext {}
 
 impl GlooBackend {
     /// Create new Gloo backend instance
     /// 新しいGlooバックエンドインスタンスを作成
-    pub fn new(process_group: ProcessGroup) -> DistributedResult<Self> {
-        let _context = GlooContext {
-        };
-        
-        Ok(Self {
-            process_group,
-        })
+    pub fn new(process_group: ProcessGroup) -> RusTorchResult<Self> {
+        let _context = GlooContext {};
+
+        Ok(Self { process_group })
     }
 }
 
 impl<T: Float + Send + Sync + 'static> DistributedOps<T> for GlooBackend {
-    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> DistributedResult<()> {
+    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_reduce(tensor, op)
     }
 
-    fn all_gather(&self, tensor: &Tensor<T>) -> DistributedResult<Vec<Tensor<T>>> {
+    fn all_gather(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_gather(tensor, self.process_group.world_size)
     }
 
-    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> DistributedResult<()> {
+    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_broadcast(tensor, root)
     }
 
-    fn gather(&self, tensor: &Tensor<T>, root: usize) -> DistributedResult<Vec<Tensor<T>>> {
+    fn gather(&self, tensor: &Tensor<T>, root: usize) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_gather(tensor, self.process_group.world_size, root)
     }
 
-    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> DistributedResult<Tensor<T>> {
+    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> RusTorchResult<Tensor<T>> {
         if tensors.is_empty() {
-            return Err(DistributedError::CommunicationError(
-                "Empty tensor array for scatter operation".to_string()
+            return Err(RusTorchError::tensor_op(
+                "Empty tensor array for scatter operation",
             ));
         }
         Ok(tensors[0].clone())
     }
 
-    fn reduce(&self, tensor: &mut Tensor<T>, root: usize, op: ReduceOp) -> DistributedResult<()> {
+    fn reduce(&self, tensor: &mut Tensor<T>, root: usize, op: ReduceOp) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_reduce(tensor, op)?;
         let _ = root; // Suppress unused parameter warning
@@ -150,52 +147,49 @@ pub struct TCPBackend {
 
 /// TCP connection to remote process
 /// リモートプロセスへのTCP接続
-pub struct TCPConnection {
-}
+pub struct TCPConnection {}
 
 impl TCPBackend {
     /// Create new TCP backend instance
     /// 新しいTCPバックエンドインスタンスを作成
-    pub fn new(process_group: ProcessGroup) -> DistributedResult<Self> {
-        Ok(Self {
-            process_group,
-        })
+    pub fn new(process_group: ProcessGroup) -> RusTorchResult<Self> {
+        Ok(Self { process_group })
     }
 }
 
 impl<T: Float + Send + Sync + 'static> DistributedOps<T> for TCPBackend {
-    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> DistributedResult<()> {
+    fn all_reduce(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_reduce(tensor, op)
     }
-    
-    fn all_gather(&self, tensor: &Tensor<T>) -> DistributedResult<Vec<Tensor<T>>> {
+
+    fn all_gather(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_gather(tensor, self.process_group.world_size)
     }
-    
-    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> DistributedResult<()> {
+
+    fn broadcast(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_broadcast(tensor, root)
     }
-    
-    fn reduce(&self, tensor: &mut Tensor<T>, root: usize, op: ReduceOp) -> DistributedResult<()> {
+
+    fn reduce(&self, tensor: &mut Tensor<T>, root: usize, op: ReduceOp) -> RusTorchResult<()> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_all_reduce(tensor, op)?;
         let _ = root; // Suppress unused parameter warning
         Ok(())
     }
-    
-    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> DistributedResult<Tensor<T>> {
+
+    fn scatter(&self, tensors: &[Tensor<T>], _root: usize) -> RusTorchResult<Tensor<T>> {
         if tensors.is_empty() {
-            return Err(DistributedError::CommunicationError(
-                "Empty tensor array for scatter operation".to_string()
+            return Err(RusTorchError::tensor_op(
+                "Empty tensor array for scatter operation",
             ));
         }
         Ok(tensors[0].clone())
     }
-    
-    fn gather(&self, tensor: &Tensor<T>, root: usize) -> DistributedResult<Vec<Tensor<T>>> {
+
+    fn gather(&self, tensor: &Tensor<T>, root: usize) -> RusTorchResult<Vec<Tensor<T>>> {
         CommonOps::validate_tensor(tensor)?;
         CommonOps::default_gather(tensor, self.process_group.world_size, root)
     }
@@ -212,44 +206,47 @@ impl BackendFactory {
     /// プロセスグループ設定に基づいてバックエンドインスタンスを作成
     pub fn create_backend<T: Float + Send + Sync + 'static>(
         process_group: ProcessGroup,
-    ) -> DistributedResult<Box<dyn DistributedOps<T> + Send + Sync>> {
+    ) -> RusTorchResult<Box<dyn DistributedOps<T> + Send + Sync>> {
         match process_group.backend {
             #[cfg(feature = "nccl")]
             super::DistributedBackend::NCCL => {
                 let backend = NCCLBackend::new(process_group)?;
                 Ok(Box::new(backend))
-            },
+            }
             super::DistributedBackend::Gloo => {
                 let backend = GlooBackend::new(process_group)?;
                 Ok(Box::new(backend))
-            },
+            }
             super::DistributedBackend::TCP => {
                 let backend = TCPBackend::new(process_group)?;
                 Ok(Box::new(backend))
-            },
+            }
             #[cfg(not(feature = "nccl"))]
             super::DistributedBackend::NCCL => {
-                Err(DistributedError::BackendNotAvailable("NCCL not compiled".to_string()))
-            },
+                Err(RusTorchError::backend_unavailable("NCCL not compiled"))
+            }
             super::DistributedBackend::MPI => {
-                Err(DistributedError::BackendNotAvailable("MPI not implemented".to_string()))
-            },
+                Err(RusTorchError::backend_unavailable("MPI not implemented"))
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::DistributedBackend;
-    
+    use super::*;
+
     #[test]
     fn test_gloo_backend_creation() {
         let pg = ProcessGroup::new(
-            0, 4, DistributedBackend::Gloo,
-            "localhost".to_string(), 12345
+            0,
+            4,
+            DistributedBackend::Gloo,
+            "localhost".to_string(),
+            12345,
         );
-        
+
         let backend = GlooBackend::new(pg);
         assert!(backend.is_ok());
     }

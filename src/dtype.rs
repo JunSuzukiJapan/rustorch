@@ -1,10 +1,9 @@
 /// Data type enumeration for tensors
 /// テンソル用データ型列挙
-
 use std::fmt;
 
 /// Data type enumeration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum DType {
     /// 8-bit signed integer
     Int8,
@@ -27,6 +26,7 @@ pub enum DType {
     /// 16-bit brain floating point (bfloat16)
     BFloat16,
     /// 32-bit floating point (single precision)
+    #[default]
     Float32,
     /// 64-bit floating point (double precision)
     Float64,
@@ -49,42 +49,56 @@ impl DType {
             DType::Complex128 => 16,
         }
     }
-    
+
     /// Check if this is a floating point type
     pub fn is_float(&self) -> bool {
-        matches!(self, DType::Float16 | DType::BFloat16 | DType::Float32 | DType::Float64)
-    }
-    
-    /// Check if this is an integer type
-    pub fn is_int(&self) -> bool {
-        matches!(self, 
-            DType::Int8 | DType::UInt8 | 
-            DType::Int16 | DType::UInt16 |
-            DType::Int32 | DType::UInt32 |
-            DType::Int64 | DType::UInt64
+        matches!(
+            self,
+            DType::Float16 | DType::BFloat16 | DType::Float32 | DType::Float64
         )
     }
-    
+
+    /// Check if this is an integer type
+    pub fn is_int(&self) -> bool {
+        matches!(
+            self,
+            DType::Int8
+                | DType::UInt8
+                | DType::Int16
+                | DType::UInt16
+                | DType::Int32
+                | DType::UInt32
+                | DType::Int64
+                | DType::UInt64
+        )
+    }
+
     /// Check if this is a signed integer type
     pub fn is_signed_int(&self) -> bool {
-        matches!(self, DType::Int8 | DType::Int16 | DType::Int32 | DType::Int64)
+        matches!(
+            self,
+            DType::Int8 | DType::Int16 | DType::Int32 | DType::Int64
+        )
     }
-    
+
     /// Check if this is an unsigned integer type
     pub fn is_unsigned_int(&self) -> bool {
-        matches!(self, DType::UInt8 | DType::UInt16 | DType::UInt32 | DType::UInt64)
+        matches!(
+            self,
+            DType::UInt8 | DType::UInt16 | DType::UInt32 | DType::UInt64
+        )
     }
-    
+
     /// Check if this is a complex type
     pub fn is_complex(&self) -> bool {
         matches!(self, DType::Complex64 | DType::Complex128)
     }
-    
+
     /// Check if this is a boolean type
     pub fn is_bool(&self) -> bool {
         matches!(self, DType::Bool)
     }
-    
+
     /// Get the corresponding floating point type for this dtype
     pub fn to_float(&self) -> DType {
         match self {
@@ -96,7 +110,7 @@ impl DType {
             DType::Complex128 => DType::Complex128,
         }
     }
-    
+
     /// Get the corresponding integer type for this dtype
     pub fn to_int(&self) -> DType {
         match self {
@@ -107,7 +121,7 @@ impl DType {
             DType::Complex64 | DType::Complex128 => DType::Int64,
         }
     }
-    
+
     /// Get the minimum value for this data type (if applicable)
     pub fn min_value(&self) -> Option<f64> {
         match self {
@@ -127,7 +141,7 @@ impl DType {
             DType::Complex64 | DType::Complex128 => None,
         }
     }
-    
+
     /// Get the maximum value for this data type (if applicable)
     pub fn max_value(&self) -> Option<f64> {
         match self {
@@ -147,14 +161,14 @@ impl DType {
             DType::Complex64 | DType::Complex128 => None,
         }
     }
-    
+
     /// Check if two dtypes are compatible for operations
     pub fn is_compatible_with(&self, other: &DType) -> bool {
         // Same types are always compatible
         if self == other {
             return true;
         }
-        
+
         // Check compatibility groups
         match (self, other) {
             // All numeric types are compatible with each other
@@ -162,36 +176,36 @@ impl DType {
             (a, b) if a.is_float() && b.is_float() => true,
             (a, b) if a.is_int() && b.is_float() => true,
             (a, b) if a.is_float() && b.is_int() => true,
-            
+
             // Bool is compatible with numeric types
             (DType::Bool, b) if b.is_int() || b.is_float() => true,
             (a, DType::Bool) if a.is_int() || a.is_float() => true,
-            
+
             // Complex types are only compatible with each other
             (a, b) if a.is_complex() && b.is_complex() => true,
-            
+
             _ => false,
         }
     }
-    
+
     /// Get the common dtype for two dtypes (promotion)
     pub fn common_dtype(&self, other: &DType) -> DType {
         if self == other {
             return *self;
         }
-        
+
         // Promotion rules
         match (self, other) {
             // Complex types take priority
             (DType::Complex128, _) | (_, DType::Complex128) => DType::Complex128,
             (DType::Complex64, _) | (_, DType::Complex64) => DType::Complex64,
-            
+
             // Float64 takes priority over other floats
             (DType::Float64, _) | (_, DType::Float64) => DType::Float64,
             (DType::Float32, _) | (_, DType::Float32) => DType::Float32,
             (DType::BFloat16, _) | (_, DType::BFloat16) => DType::BFloat16,
             (DType::Float16, _) | (_, DType::Float16) => DType::Float16,
-            
+
             // Integer promotion
             (DType::Int64, _) | (_, DType::Int64) => DType::Int64,
             (DType::UInt64, _) | (_, DType::UInt64) => DType::UInt64,
@@ -201,14 +215,14 @@ impl DType {
             (DType::UInt16, _) | (_, DType::UInt16) => DType::UInt16,
             (DType::Int8, _) | (_, DType::Int8) => DType::Int8,
             (DType::UInt8, _) | (_, DType::UInt8) => DType::UInt8,
-            
+
             // Any remaining combinations default to the first type
             (first, _) => *first,
         }
     }
-    
+
     /// Parse dtype from string
-    pub fn from_str(s: &str) -> Result<DType, String> {
+    pub fn parse_dtype(s: &str) -> Result<DType, String> {
         match s.to_lowercase().as_str() {
             "int8" | "i8" => Ok(DType::Int8),
             "uint8" | "u8" => Ok(DType::UInt8),
@@ -235,7 +249,7 @@ impl fmt::Display for DType {
         let name = match self {
             DType::Int8 => "int8",
             DType::UInt8 => "uint8",
-            DType::Int16 => "int16", 
+            DType::Int16 => "int16",
             DType::UInt16 => "uint16",
             DType::Int32 => "int32",
             DType::UInt32 => "uint32",
@@ -253,16 +267,10 @@ impl fmt::Display for DType {
     }
 }
 
-impl Default for DType {
-    fn default() -> Self {
-        DType::Float32
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_dtype_size() {
         assert_eq!(DType::Int8.size(), 1);
@@ -277,41 +285,41 @@ mod tests {
         assert_eq!(DType::Complex64.size(), 8);
         assert_eq!(DType::Complex128.size(), 16);
     }
-    
+
     #[test]
     fn test_dtype_properties() {
         assert!(DType::Float32.is_float());
         assert!(DType::Float64.is_float());
         assert!(!DType::Int32.is_float());
-        
+
         assert!(DType::Int32.is_int());
         assert!(DType::UInt32.is_int());
         assert!(!DType::Float32.is_int());
-        
+
         assert!(DType::Int32.is_signed_int());
         assert!(!DType::UInt32.is_signed_int());
-        
+
         assert!(DType::UInt32.is_unsigned_int());
         assert!(!DType::Int32.is_unsigned_int());
-        
+
         assert!(DType::Complex64.is_complex());
         assert!(!DType::Float32.is_complex());
-        
+
         assert!(DType::Bool.is_bool());
         assert!(!DType::Int32.is_bool());
     }
-    
+
     #[test]
     fn test_dtype_conversion() {
         assert_eq!(DType::Int32.to_float(), DType::Float32);
         assert_eq!(DType::Int64.to_float(), DType::Float64);
         assert_eq!(DType::Float32.to_float(), DType::Float32);
-        
+
         assert_eq!(DType::Float32.to_int(), DType::Int32);
         assert_eq!(DType::Float64.to_int(), DType::Int64);
         assert_eq!(DType::Int32.to_int(), DType::Int32);
     }
-    
+
     #[test]
     fn test_dtype_min_max() {
         assert_eq!(DType::Int8.min_value(), Some(i8::MIN as f64));
@@ -323,7 +331,7 @@ mod tests {
         assert_eq!(DType::Complex64.min_value(), None);
         assert_eq!(DType::Complex64.max_value(), None);
     }
-    
+
     #[test]
     fn test_dtype_compatibility() {
         assert!(DType::Int32.is_compatible_with(&DType::Int32));
@@ -333,26 +341,29 @@ mod tests {
         assert!(DType::Complex64.is_compatible_with(&DType::Complex128));
         assert!(!DType::Complex64.is_compatible_with(&DType::Float32));
     }
-    
+
     #[test]
     fn test_dtype_promotion() {
         assert_eq!(DType::Int32.common_dtype(&DType::Int32), DType::Int32);
         assert_eq!(DType::Int32.common_dtype(&DType::Float32), DType::Float32);
         assert_eq!(DType::Float32.common_dtype(&DType::Float64), DType::Float64);
-        assert_eq!(DType::Int32.common_dtype(&DType::Complex64), DType::Complex64);
+        assert_eq!(
+            DType::Int32.common_dtype(&DType::Complex64),
+            DType::Complex64
+        );
         assert_eq!(DType::Bool.common_dtype(&DType::Int32), DType::Int32);
     }
-    
+
     #[test]
     fn test_dtype_from_string() {
-        assert_eq!(DType::from_str("int32").unwrap(), DType::Int32);
-        assert_eq!(DType::from_str("float32").unwrap(), DType::Float32);
-        assert_eq!(DType::from_str("bool").unwrap(), DType::Bool);
-        assert_eq!(DType::from_str("f32").unwrap(), DType::Float32);
-        assert_eq!(DType::from_str("i32").unwrap(), DType::Int32);
-        assert!(DType::from_str("invalid").is_err());
+        assert_eq!(DType::parse_dtype("int32").unwrap(), DType::Int32);
+        assert_eq!(DType::parse_dtype("float32").unwrap(), DType::Float32);
+        assert_eq!(DType::parse_dtype("bool").unwrap(), DType::Bool);
+        assert_eq!(DType::parse_dtype("f32").unwrap(), DType::Float32);
+        assert_eq!(DType::parse_dtype("i32").unwrap(), DType::Int32);
+        assert!(DType::parse_dtype("invalid").is_err());
     }
-    
+
     #[test]
     fn test_dtype_display() {
         assert_eq!(DType::Int32.to_string(), "int32");
@@ -360,7 +371,7 @@ mod tests {
         assert_eq!(DType::Bool.to_string(), "bool");
         assert_eq!(DType::Complex64.to_string(), "complex64");
     }
-    
+
     #[test]
     fn test_dtype_default() {
         assert_eq!(DType::default(), DType::Float32);

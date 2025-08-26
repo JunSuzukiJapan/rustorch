@@ -38,8 +38,8 @@ impl<T: Float + Send + Sync + 'static> Adam<T> {
         let eps = eps.unwrap_or_else(|| T::from(1e-8).unwrap());
         let weight_decay = weight_decay.unwrap_or_else(T::zero);
         
-        let exp_avg = vec![None; params.len()];
-        let exp_avg_sq = vec![None; params.len()];
+        let exp_avg = [None; params.len()];
+        let exp_avg_sq = [None; params.len()];
         
         Adam {
             params,

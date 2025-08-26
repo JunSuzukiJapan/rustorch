@@ -4,8 +4,6 @@
 pub mod error_handling;
 
 pub use error_handling::{
-    RusTorchError, RusTorchResult,
-    TensorError, GpuError, DistributedError, 
-    NeuralNetworkError, OptimizationError, 
-    DataError, MemoryError
+    DataError, DistributedError, GpuError, MemoryError, NeuralNetworkError, OptimizationError,
+    RusTorchError, RusTorchResult, TensorError,
 };

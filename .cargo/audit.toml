@@ -1,0 +1,9 @@
+# Cargo audit configuration
+# cargo audit設定
+
+[advisories]
+# Ignore specific advisories by ID
+# 特定のアドバイザリをIDで無視
+ignore = [
+    "RUSTSEC-2024-0436",  # paste crate unmaintained - required by metal dependency
+]

@@ -1,18 +1,12 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use rustorch::tensor::Tensor;
 use rustorch::tensor::parallel_traits::*;
+use rustorch::tensor::Tensor;
 
 /// Benchmark basic tensor operations
 fn bench_tensor_operations(c: &mut Criterion) {
     let size = 10000;
-    let tensor_a = Tensor::<f32>::from_vec(
-        (0..size).map(|i| i as f32).collect(),
-        vec![size],
-    );
-    let tensor_b = Tensor::<f32>::from_vec(
-        (0..size).map(|i| (i + 1) as f32).collect(),
-        vec![size],
-    );
+    let tensor_a = Tensor::<f32>::from_vec((0..size).map(|i| i as f32).collect(), vec![size]);
+    let tensor_b = Tensor::<f32>::from_vec((0..size).map(|i| (i + 1) as f32).collect(), vec![size]);
 
     c.bench_function("tensor_addition", |b| {
         b.iter(|| {
@@ -28,7 +22,8 @@ fn bench_tensor_operations(c: &mut Criterion) {
 
     c.bench_function("parallel_elementwise", |b| {
         b.iter(|| {
-            let _result = black_box(&tensor_a).batch_elementwise_op(black_box(&tensor_b), |x, y| x + y)
+            let _result = black_box(&tensor_a)
+                .batch_elementwise_op(black_box(&tensor_b), |x, y| x + y)
                 .unwrap_or_else(|_| black_box(&tensor_a) + black_box(&tensor_b));
         })
     });
@@ -61,10 +56,7 @@ fn bench_memory_operations(c: &mut Criterion) {
         })
     });
 
-    let tensor = Tensor::<f32>::from_vec(
-        (0..1000).map(|i| i as f32).collect(),
-        vec![1000],
-    );
+    let tensor = Tensor::<f32>::from_vec((0..1000).map(|i| i as f32).collect(), vec![1000]);
 
     c.bench_function("tensor_clone", |b| {
         b.iter(|| {

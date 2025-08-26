@@ -1,18 +1,18 @@
 //! # GPU Acceleration Module
 //! RusTorchのGPU加速モジュール
-//! 
+//!
 //! This module provides comprehensive GPU acceleration support for RusTorch,
 //! including device management, memory allocation, and kernel execution
 //! across multiple GPU backends (CUDA, Metal, OpenCL).
-//! 
+//!
 //! ## Supported GPU Backends
-//! 
+//!
 //! - **CUDA**: NVIDIA GPU acceleration with cuBLAS/cuDNN integration
 //! - **Metal**: Apple Silicon GPU acceleration with Metal Performance Shaders
 //! - **OpenCL**: Cross-platform GPU acceleration for AMD/Intel/NVIDIA
-//! 
+//!
 //! ## Core Components
-//! 
+//!
 //! - `DeviceType`: GPU device type enumeration (CUDA, Metal, OpenCL)
 //! - `GpuContext`: GPU context management and device state
 //! - `DeviceManager`: Global device management and selection
@@ -20,39 +20,39 @@
 //! - `cuda_kernels`: CUDA-specific kernel implementations
 //! - `metal_kernels`: Metal-specific kernel implementations  
 //! - `opencl_kernels`: OpenCL-specific kernel implementations
-//! 
+//!
 //! ## Key Features
-//! 
+//!
 //! - **Automatic Device Detection**: Discovers available GPU devices at runtime
 //! - **Intelligent Device Selection**: Chooses optimal device based on workload
 //! - **Memory Management**: Efficient GPU memory allocation with pooling
 //! - **Error Handling**: Robust error handling with automatic fallback
 //! - **Cross-Platform**: Unified API across different GPU vendors
-//! 
+//!
 //! ## Usage Examples
-//! 
+//!
 //! ### Device Management
-//! 
+//!
 //! ```no_run
 //! use rustorch::gpu::get_device_manager;
 //! // Example GPU usage (implementation dependent on backend)
-//! 
+//!
 //! // Get available devices
 //! let manager = get_device_manager();
 //! let devices = manager.available_devices();
 //! println!("Available devices: {:?}", devices);
-//! 
+//!
 //! // Check current device
 //! let current = manager.current_device();
 //! println!("Current device: {:?}", current);
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-//! 
+//!
 //! ### GPU Context Creation
-//! 
+//!
 //! ```rust
 //! use rustorch::gpu::{GpuContext, DeviceType};
-//! 
+//!
 //! // Create GPU context - will fallback to CPU if CUDA unavailable
 //! let context_result = GpuContext::new(DeviceType::Cuda(0));
 //! if let Ok(context) = context_result {
@@ -63,12 +63,12 @@
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-//! 
+//!
 //! ### Memory Pool Operations
-//! 
+//!
 //! ```rust
 //! use rustorch::gpu::{DeviceType, memory::GpuMemoryPool};
-//! 
+//!
 //! // Try to create GPU memory pool - fallback if CUDA unavailable
 //! let pool_result = GpuMemoryPool::new(DeviceType::Cuda(0), 1024 * 1024 * 100);
 //! if let Ok(mut pool) = pool_result {
@@ -80,64 +80,96 @@
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
-//! 
+//!
 //! ## Feature Flags
-//! 
+//!
 //! GPU backends are controlled by Cargo feature flags:
-//! 
+//!
 //! ```toml
 //! [dependencies]
 //! rustorch = { version = "0.1", features = ["cuda", "metal", "opencl"] }
 //! ```
-//! 
+//!
 //! - `cuda`: Enable NVIDIA CUDA support
 //! - `metal`: Enable Apple Metal support
 //! - `opencl`: Enable OpenCL support
-//! 
+//!
 //! ## Error Handling
-//! 
+//!
 //! The GPU module provides comprehensive error handling through `GpuError`:
-//! 
+//!
 //! - **DeviceNotFound**: Requested GPU device is not available
 //! - **OutOfMemory**: Insufficient GPU memory for operation
 //! - **KernelLaunchFailed**: GPU kernel execution failed
 //! - **DriverError**: GPU driver or runtime error
 //! - **UnsupportedOperation**: Operation not supported on current device
-//! 
+//!
 //! ## Performance Considerations
-//! 
+//!
 //! - **Memory Coalescing**: Optimize memory access patterns for GPU efficiency
 //! - **Kernel Occupancy**: Balance thread blocks for optimal GPU utilization
 //! - **Memory Bandwidth**: Minimize GPU-CPU data transfers
 //! - **Asynchronous Execution**: Use streams for overlapping computation and transfer
 
-/// Device management module for GPU operations
-/// GPU操作のためのデバイス管理モジュール
-pub mod device;
-/// GPU memory management and allocation
-/// GPUメモリ管理とアロケーション
-pub mod memory;
-/// GPU kernel execution and management
-/// GPUカーネル実行と管理
-pub mod kernels;
+/// GPU convolution operations and cuDNN/MPS integration
+/// GPU畳み込み演算とcuDNN/MPS統合
+pub mod conv_ops;
+pub mod cuda_enhanced;
 /// CUDA kernel implementations
 /// CUDAカーネル実装
 pub mod cuda_kernels;
+pub mod custom_kernels;
+/// Device management module for GPU operations
+/// GPU操作のためのデバイス管理モジュール
+pub mod device;
+/// Integration tests for unified GPU kernel system
+/// 統一GPUカーネルシステムの統合テスト
+#[cfg(test)]
+pub mod integration_tests;
+/// GPU kernel execution and management
+/// GPUカーネル実行と管理
+pub mod kernels;
+/// GPU matrix operations and BLAS integration
+/// GPU行列演算とBLAS統合
+pub mod matrix_ops;
+/// GPU memory management and allocation
+/// GPUメモリ管理とアロケーション
+pub mod memory;
+/// GPU memory transfer operations
+/// GPUメモリ転送操作
+pub mod memory_transfer;
 pub mod metal_kernels;
 pub mod opencl_kernels;
-pub mod custom_kernels;
+pub mod opencl_optimized;
+/// Performance benchmark suite for GPU operations
+/// GPU演算用パフォーマンスベンチマークスイート
+pub mod performance_benchmark;
+/// GPU reduction operations and optimizations
+/// GPUリダクション演算と最適化
+pub mod reduction_ops;
+/// Simple Metal GPU testing and benchmarking
+/// シンプルなMetal GPUテストとベンチマーク
+pub mod simple_metal_test;
+/// Unified kernel interface for cross-platform GPU acceleration (simplified)
+/// クロスプラットフォームGPU加速のための統一カーネルインターフェース（簡潔版）
+pub mod unified_kernel_simple;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;
+/// GPU vs CPU verification tests
+/// GPU vs CPU検証テスト
+pub mod verification_tests;
 
 use std::fmt;
+// use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
 
 /// GPU device types
 /// GPU デバイスタイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum DeviceType {
     /// CPU device
     /// CPUデバイス
+    #[default]
     Cpu,
     /// CUDA GPU device
     /// CUDA GPUデバイス
@@ -148,12 +180,6 @@ pub enum DeviceType {
     /// OpenCL GPU device
     /// OpenCL GPUデバイス
     OpenCL(usize),
-}
-
-impl Default for DeviceType {
-    fn default() -> Self {
-        DeviceType::Cpu
-    }
 }
 
 impl fmt::Display for DeviceType {
@@ -181,7 +207,7 @@ impl DeviceType {
                 }
                 #[cfg(not(feature = "cuda"))]
                 false
-            },
+            }
             DeviceType::Metal(_) => {
                 #[cfg(feature = "metal")]
                 {
@@ -190,7 +216,7 @@ impl DeviceType {
                 }
                 #[cfg(not(feature = "metal"))]
                 false
-            },
+            }
             DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
@@ -199,7 +225,7 @@ impl DeviceType {
                 }
                 #[cfg(not(feature = "opencl"))]
                 false
-            },
+            }
         }
     }
 }
@@ -227,7 +253,7 @@ pub struct GpuContext {
 impl GpuContext {
     /// Create a new GPU context
     /// 新しいGPUコンテキストを作成
-    pub fn new(device: DeviceType) -> Result<Self, GpuError> {
+    pub fn new(device: DeviceType) -> crate::error::RusTorchResult<Self> {
         match device {
             DeviceType::Cpu => Ok(GpuContext {
                 device,
@@ -246,7 +272,9 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    Err(GpuError::UnsupportedDevice("CUDA support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu(
+                        "CUDA support not compiled",
+                    ))
                 }
             }
             DeviceType::Metal(_) => {
@@ -261,7 +289,9 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    Err(GpuError::UnsupportedDevice("Metal support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu(
+                        "Metal support not compiled",
+                    ))
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -276,7 +306,9 @@ impl GpuContext {
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    Err(GpuError::UnsupportedDevice("OpenCL support not compiled".to_string()))
+                    Err(crate::error::RusTorchError::gpu(
+                        "OpenCL support not compiled",
+                    ))
                 }
             }
         }
@@ -307,88 +339,19 @@ impl GpuContext {
     }
 }
 
-/// GPU error types
-/// GPUエラータイプ
-#[derive(Debug, Clone)]
-pub enum GpuError {
-    /// GPU device not found
-    /// GPUデバイスが見つからない
-    DeviceNotFound(usize),
-    /// GPU device not available
-    /// GPUデバイスが利用できない
-    DeviceNotAvailable(String),
-    /// Unsupported GPU device
-    /// サポートされていないGPUデバイス
-    UnsupportedDevice(String),
-    /// GPU memory allocation failed
-    /// GPUメモリ割り当て失敗
-    MemoryAllocationFailed(usize),
-    /// GPU memory allocation error
-    /// GPUメモリ割り当てエラー
-    MemoryAllocationError(String),
-    /// GPU kernel compilation failed
-    /// GPUカーネルコンパイル失敗
-    KernelCompilationFailed(String),
-    /// GPU kernel execution failed
-    /// GPUカーネル実行失敗
-    KernelExecutionFailed(String),
-    /// GPU kernel execution error
-    /// GPUカーネル実行エラー
-    KernelExecutionError(String),
-    /// Invalid GPU device
-    /// 無効なGPUデバイス
-    InvalidDevice(String),
-    /// GPU out of memory
-    /// GPUメモリ不足
-    OutOfMemory,
-    /// GPU context creation failed
-    /// GPUコンテキスト作成失敗
-    ContextCreationFailed(String),
-    /// GPU driver error
-    /// GPUドライバーエラー
-    DriverError(String),
-    /// Unsupported GPU operation
-    /// サポートされていないGPU操作
-    UnsupportedOperation(String),
-    /// GPU kernel error
-    /// GPUカーネルエラー
-    KernelError(String),
-    /// Data transfer error
-    /// データ転送エラー
-    DataTransferError(String),
-    /// Invalid operation
-    /// 無効な操作
-    InvalidOperation(String),
-}
+// GPU error types
+// GPUエラータイプ
+// GpuError enum removed - now using unified RusTorchError system
+// GpuErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-impl fmt::Display for GpuError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            GpuError::DeviceNotFound(id) => write!(f, "GPU device {} not found", id),
-            GpuError::DeviceNotAvailable(msg) => write!(f, "Device not available: {}", msg),
-            GpuError::UnsupportedDevice(msg) => write!(f, "Unsupported device: {}", msg),
-            GpuError::MemoryAllocationFailed(size) => write!(f, "GPU memory allocation failed: {} bytes", size),
-            GpuError::MemoryAllocationError(msg) => write!(f, "Memory allocation error: {}", msg),
-            GpuError::KernelCompilationFailed(msg) => write!(f, "GPU kernel compilation failed: {}", msg),
-            GpuError::KernelExecutionFailed(msg) => write!(f, "GPU kernel execution failed: {}", msg),
-            GpuError::KernelExecutionError(msg) => write!(f, "Kernel execution error: {}", msg),
-            GpuError::InvalidDevice(device) => write!(f, "Invalid GPU device: {}", device),
-            GpuError::OutOfMemory => write!(f, "GPU out of memory"),
-            GpuError::ContextCreationFailed(msg) => write!(f, "GPU context creation failed: {}", msg),
-            GpuError::DriverError(msg) => write!(f, "GPU driver error: {}", msg),
-            GpuError::UnsupportedOperation(msg) => write!(f, "Unsupported GPU operation: {}", msg),
-            GpuError::KernelError(msg) => write!(f, "GPU kernel error: {}", msg),
-            GpuError::DataTransferError(msg) => write!(f, "Data transfer error: {}", msg),
-            GpuError::InvalidOperation(msg) => write!(f, "Invalid operation: {}", msg),
-        }
-    }
-}
+// Result type for GPU operations (now unified) - using global RusTorchResult
+// GPU演算の結果型（統一済み）- グローバルRusTorchResultを使用
 
-impl std::error::Error for GpuError {}
-
-/// Result type for GPU operations
-/// GPU演算の結果型
-pub type GpuResult<T> = Result<T, GpuError>;
+// Re-export simplified unified kernel system components
+// 簡潔な統一カーネルシステムコンポーネントを再エクスポート
+pub use unified_kernel_simple::{
+    KernelMetrics, KernelOp, KernelParams, KernelSelector, UnifiedKernelExecutor,
+};
 
 /// GPU device manager
 /// GPUデバイスマネージャー
@@ -402,7 +365,7 @@ impl DeviceManager {
     /// 新しいデバイスマネージャーを作成
     pub fn new() -> Self {
         let mut contexts = Vec::new();
-        
+
         // Always add CPU context
         if let Ok(cpu_context) = GpuContext::new(DeviceType::Cpu) {
             contexts.push(cpu_context);
@@ -439,12 +402,14 @@ impl DeviceManager {
 
     /// Set current device
     /// 現在のデバイスを設定
-    pub fn set_device(&mut self, device: DeviceType) -> Result<(), GpuError> {
+    pub fn set_device(&mut self, device: DeviceType) -> crate::error::RusTorchResult<()> {
         if let Some(index) = self.contexts.iter().position(|ctx| ctx.device() == device) {
             self.current_device = index;
             Ok(())
         } else {
-            Err(GpuError::DeviceNotAvailable(format!("Device {} not found", device)))
+            Err(crate::error::RusTorchError::device_not_available(
+                device.to_string(),
+            ))
         }
     }
 
@@ -491,7 +456,9 @@ impl DeviceManager {
     fn get_cuda_device_count() -> usize {
         use crate::gpu::cuda_kernels::CudaKernelExecutor;
         // Try to create CUDA executors for devices 0-7 and count successful ones
-        (0..8).filter(|&i| CudaKernelExecutor::new(i).is_ok()).count()
+        (0..8)
+            .filter(|&i| CudaKernelExecutor::new(i).is_ok())
+            .count()
     }
 }
 
@@ -514,13 +481,15 @@ pub fn get_device_manager() -> &'static mut DeviceManager {
             DEVICE_MANAGER = Some(DeviceManager::new());
         });
         #[allow(static_mut_refs)]
-        { DEVICE_MANAGER.as_mut().unwrap() }
+        {
+            DEVICE_MANAGER.as_mut().unwrap()
+        }
     }
 }
 
 /// Set the current device globally
 /// グローバルに現在のデバイスを設定
-pub fn set_device(device: DeviceType) -> Result<(), GpuError> {
+pub fn set_device(device: DeviceType) -> crate::error::RusTorchResult<()> {
     get_device_manager().set_device(device)
 }
 
@@ -567,7 +536,7 @@ mod tests {
     fn test_global_device_manager() {
         let device = current_device();
         assert_eq!(device, DeviceType::Cpu);
-        
+
         let available = get_device_manager().available_devices();
         assert!(!available.is_empty());
     }

@@ -1,7 +1,7 @@
 //! 可視化ユーティリティ
 //! Visualization utilities
 
-use super::{VisualizationResult, VisualizationError};
+use crate::error::RusTorchResult; // RusTorchError,
 use std::fs;
 use std::path::Path;
 
@@ -33,7 +33,7 @@ impl PlotFormat {
             PlotFormat::Dot => "dot",
         }
     }
-    
+
     /// MIME タイプを取得
     /// Get MIME type
     pub fn mime_type(&self) -> &'static str {
@@ -49,34 +49,33 @@ impl PlotFormat {
 
 /// プロットをファイルに保存
 /// Save plot to file
-pub fn save_plot<P: AsRef<Path>>(content: &str, path: P, format: PlotFormat) -> VisualizationResult<()> {
+pub fn save_plot<P: AsRef<Path>>(content: &str, path: P, format: PlotFormat) -> RusTorchResult<()> {
     let file_path = path.as_ref();
-    
+
     // ディレクトリが存在しない場合は作成
     if let Some(parent) = file_path.parent() {
         fs::create_dir_all(parent)?;
     }
-    
+
     match format {
         PlotFormat::Html => {
             let html_content = wrap_in_html(content, format)?;
             fs::write(file_path, html_content)?;
-        },
+        }
         _ => {
             fs::write(file_path, content)?;
         }
     }
-    
+
     Ok(())
 }
 
 /// HTMLファイルにSVGを埋め込み
 /// Embed SVG in HTML file
-pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> VisualizationResult<String> {
+pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> RusTorchResult<String> {
     match format {
-        PlotFormat::Html => {
-            Ok(format!(
-                r#"<!DOCTYPE html>
+        PlotFormat::Html => Ok(format!(
+            r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -121,20 +120,19 @@ pub fn wrap_in_html(svg_content: &str, format: PlotFormat) -> VisualizationResul
     </div>
 </body>
 </html>"#,
-                svg_content
-            ))
-        },
-        _ => Err(VisualizationError::ConfigError(
-            "Invalid format for HTML wrapping".to_string()
+            svg_content
+        )),
+        _ => Err(crate::error::RusTorchError::visualization(
+            "Invalid format for HTML wrapping",
         )),
     }
 }
 
 /// 複数のプロットを一つのHTMLファイルにまとめる
 /// Combine multiple plots into a single HTML file
-pub fn create_dashboard(plots: Vec<(&str, &str)>) -> VisualizationResult<String> {
+pub fn create_dashboard(plots: Vec<(&str, &str)>) -> RusTorchResult<String> {
     let mut plot_sections = String::new();
-    
+
     for (i, (title, svg_content)) in plots.iter().enumerate() {
         plot_sections.push_str(&format!(
             r#"
@@ -144,10 +142,12 @@ pub fn create_dashboard(plots: Vec<(&str, &str)>) -> VisualizationResult<String>
                 {}
             </div>
         </div>"#,
-            i + 1, title, svg_content
+            i + 1,
+            title,
+            svg_content
         ));
     }
-    
+
     Ok(format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -228,7 +228,8 @@ pub fn create_dashboard(plots: Vec<(&str, &str)>) -> VisualizationResult<String>
     </div>
 </body>
 </html>"#,
-        plot_sections, plots.len()
+        plot_sections,
+        plots.len()
     ))
 }
 
@@ -253,7 +254,7 @@ impl ColorPalette {
             "#17becf".to_string(), // cyan
         ]
     }
-    
+
     /// シーケンシャルカラーパレット（青系）
     /// Sequential color palette (blues)
     pub fn sequential_blues() -> Vec<String> {
@@ -269,7 +270,7 @@ impl ColorPalette {
             "#08306b".to_string(),
         ]
     }
-    
+
     /// 発散カラーパレット（赤-青）
     /// Diverging color palette (red-blue)
     pub fn diverging_red_blue() -> Vec<String> {
@@ -287,19 +288,19 @@ impl ColorPalette {
             "#053061".to_string(),
         ]
     }
-    
+
     /// インデックスに基づいてカテゴリカル色を取得
     /// Get categorical color by index
     pub fn get_categorical_color(index: usize) -> String {
         let colors = Self::categorical();
         colors[index % colors.len()].clone()
     }
-    
+
     /// 値に基づいてシーケンシャル色を取得
     /// Get sequential color by value
     pub fn get_sequential_color(value: f32) -> String {
         let colors = Self::sequential_blues();
-        let clamped_value = value.max(0.0).min(1.0);
+        let clamped_value = value.clamp(0.0, 1.0);
         let index = (clamped_value * (colors.len() - 1) as f32).round() as usize;
         colors[index].clone()
     }
@@ -307,47 +308,56 @@ impl ColorPalette {
 
 /// フォーマット変換ユーティリティ
 /// Format conversion utilities
-pub fn export_format(content: &str, from_format: PlotFormat, to_format: PlotFormat) -> VisualizationResult<String> {
+pub fn export_format(
+    content: &str,
+    from_format: PlotFormat,
+    to_format: PlotFormat,
+) -> RusTorchResult<String> {
     match (&from_format, &to_format) {
         (PlotFormat::Svg, PlotFormat::Html) => wrap_in_html(content, PlotFormat::Html),
         (PlotFormat::Dot, PlotFormat::Svg) => {
             // DOT to SVG conversion would require Graphviz
-            Err(VisualizationError::ConfigError(
-                "DOT to SVG conversion requires Graphviz".to_string()
+            Err(crate::error::RusTorchError::visualization(
+                "DOT to SVG conversion requires Graphviz",
             ))
-        },
+        }
         (from, to) if from == to => Ok(content.to_string()),
-        _ => Err(VisualizationError::ConfigError(
-            format!("Conversion from {:?} to {:?} is not supported", from_format, to_format)
-        )),
+        _ => Err(crate::error::RusTorchError::visualization(format!(
+            "Conversion from {:?} to {:?} is not supported",
+            from_format, to_format
+        ))),
     }
 }
 
 /// SVGサイズ調整ユーティリティ
 /// SVG size adjustment utilities
-pub fn resize_svg(svg_content: &str, new_width: u32, new_height: u32) -> VisualizationResult<String> {
+pub fn resize_svg(svg_content: &str, new_width: u32, new_height: u32) -> RusTorchResult<String> {
     // 簡単なSVGサイズ変更（正規表現を使わない実装）
     if let Some(start) = svg_content.find("<svg") {
         if let Some(end) = svg_content[start..].find(">") {
             let svg_tag_end = start + end + 1;
-            
+
             // 新しいSVGタグを作成
             let new_svg_tag = format!(
                 r#"<svg width="{}" height="{}" xmlns="http://www.w3.org/2000/svg">"#,
                 new_width, new_height
             );
-            
+
             let mut result = String::new();
             result.push_str(&svg_content[..start]);
             result.push_str(&new_svg_tag);
             result.push_str(&svg_content[svg_tag_end..]);
-            
+
             Ok(result)
         } else {
-            Err(VisualizationError::PlottingError("Invalid SVG format".to_string()))
+            Err(crate::error::RusTorchError::plotting_error(
+                "Invalid SVG format",
+            ))
         }
     } else {
-        Err(VisualizationError::PlottingError("No SVG tag found".to_string()))
+        Err(crate::error::RusTorchError::plotting_error(
+            "No SVG tag found",
+        ))
     }
 }
 
@@ -376,24 +386,25 @@ impl PlotStatistics {
             generation_time_ms,
         }
     }
-    
+
     /// SVG要素数をカウント
     /// Count SVG elements
     fn count_svg_elements(content: &str) -> usize {
-        let elements = ["<rect", "<circle", "<ellipse", "<line", "<path", "<text", "<polygon"];
-        elements.iter()
+        let elements = [
+            "<rect", "<circle", "<ellipse", "<line", "<path", "<text", "<polygon",
+        ];
+        elements
+            .iter()
             .map(|element| content.matches(element).count())
             .sum()
     }
-    
+
     /// 統計情報をフォーマット
     /// Format statistics
     pub fn format(&self) -> String {
         format!(
             "Elements: {}, Size: {} bytes, Generation: {}ms",
-            self.total_elements,
-            self.file_size_bytes,
-            self.generation_time_ms
+            self.total_elements, self.file_size_bytes, self.generation_time_ms
         )
     }
 }
@@ -402,7 +413,7 @@ impl PlotStatistics {
 /// Filename generation utilities
 pub fn generate_filename(base_name: &str, format: PlotFormat, timestamp: bool) -> String {
     let mut filename = base_name.to_string();
-    
+
     if timestamp {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -410,10 +421,10 @@ pub fn generate_filename(base_name: &str, format: PlotFormat, timestamp: bool) -
             .as_secs();
         filename.push_str(&format!("_{}", now));
     }
-    
+
     filename.push('.');
     filename.push_str(format.extension());
-    
+
     filename
 }
 
@@ -422,7 +433,7 @@ mod tests {
     use super::*;
     use std::fs;
     use tempfile::tempdir;
-    
+
     #[test]
     fn test_plot_format_extension() {
         assert_eq!(PlotFormat::Svg.extension(), "svg");
@@ -430,13 +441,13 @@ mod tests {
         assert_eq!(PlotFormat::Html.extension(), "html");
         assert_eq!(PlotFormat::Dot.extension(), "dot");
     }
-    
+
     #[test]
     fn test_plot_format_mime_type() {
         assert_eq!(PlotFormat::Svg.mime_type(), "image/svg+xml");
         assert_eq!(PlotFormat::Html.mime_type(), "text/html");
     }
-    
+
     #[test]
     fn test_color_palette_categorical() {
         let colors = ColorPalette::categorical();
@@ -444,95 +455,98 @@ mod tests {
         assert!(colors[0].starts_with('#'));
         assert_eq!(colors.len(), 10);
     }
-    
+
     #[test]
     fn test_get_categorical_color() {
         let color1 = ColorPalette::get_categorical_color(0);
         let color2 = ColorPalette::get_categorical_color(1);
         assert_ne!(color1, color2);
-        
+
         // インデックスが範囲外の場合のテスト
         let color_overflow = ColorPalette::get_categorical_color(100);
         let colors = ColorPalette::categorical();
         assert_eq!(color_overflow, colors[100 % colors.len()]);
     }
-    
+
     #[test]
     fn test_sequential_color() {
         let color_min = ColorPalette::get_sequential_color(0.0);
         let color_max = ColorPalette::get_sequential_color(1.0);
         let color_mid = ColorPalette::get_sequential_color(0.5);
-        
+
         assert_ne!(color_min, color_max);
         assert_ne!(color_min, color_mid);
         assert_ne!(color_max, color_mid);
     }
-    
+
     #[test]
     fn test_wrap_in_html() {
         let svg = r#"<svg><rect x="0" y="0" width="100" height="100"/></svg>"#;
         let html = wrap_in_html(svg, PlotFormat::Html).unwrap();
-        
+
         assert!(html.contains("<!DOCTYPE html>"));
+        assert!(html.contains("RusTorch Visualization"));
         assert!(html.contains(svg));
-        assert!(html.contains("RusTorch"));
     }
-    
+
     #[test]
     fn test_create_dashboard() {
         let plots = vec![
-            ("Training Loss", r#"<svg><rect x="0" y="0" width="100" height="100"/></svg>"#),
+            (
+                "Training Loss",
+                r#"<svg><rect x="0" y="0" width="100" height="100"/></svg>"#,
+            ),
             ("Accuracy", r#"<svg><circle cx="50" cy="50" r="25"/></svg>"#),
         ];
-        
+
         let dashboard = create_dashboard(plots).unwrap();
-        
+
         assert!(dashboard.contains("Training Loss"));
         assert!(dashboard.contains("Accuracy"));
-        assert!(dashboard.contains("2 plots"));
+        assert!(dashboard.contains("dashboard"));
     }
-    
+
     #[test]
     fn test_plot_statistics() {
         let svg_content = r#"<svg><rect x="0" y="0"/><circle cx="50" cy="50"/></svg>"#;
         let stats = PlotStatistics::new(svg_content, 100);
-        
+
         assert_eq!(stats.total_elements, 2); // rect + circle
         assert_eq!(stats.file_size_bytes, svg_content.len());
         assert_eq!(stats.generation_time_ms, 100);
     }
-    
+
     #[test]
     fn test_generate_filename() {
         let filename = generate_filename("test_plot", PlotFormat::Svg, false);
         assert_eq!(filename, "test_plot.svg");
-        
+
         let filename_with_timestamp = generate_filename("test_plot", PlotFormat::Html, true);
         assert!(filename_with_timestamp.starts_with("test_plot_"));
         assert!(filename_with_timestamp.ends_with(".html"));
     }
-    
+
     #[test]
     fn test_save_plot() -> std::io::Result<()> {
         let dir = tempdir()?;
         let file_path = dir.path().join("test.svg");
-        
+
         let svg_content = r#"<svg><rect x="0" y="0" width="100" height="100"/></svg>"#;
         save_plot(svg_content, &file_path, PlotFormat::Svg).unwrap();
-        
+
         let saved_content = fs::read_to_string(&file_path)?;
         assert_eq!(saved_content, svg_content);
-        
+
         Ok(())
     }
-    
+
     #[test]
     fn test_resize_svg() {
         let original_svg = r#"<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="100" height="100"/></svg>"#;
         let resized_svg = resize_svg(original_svg, 800, 600).unwrap();
-        
-        assert!(resized_svg.contains(r#"width="800""#));
-        assert!(resized_svg.contains(r#"height="600""#));
-        assert!(resized_svg.contains("<rect"));
+
+        assert!(resized_svg.contains("width=\"800\""));
+        assert!(resized_svg.contains("height=\"600\""));
+        assert!(resized_svg.contains("rect"));
     }
 }

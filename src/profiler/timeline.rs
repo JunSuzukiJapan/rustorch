@@ -1,9 +1,9 @@
 //! Timeline visualization for profiling events
 //! プロファイリングイベントのタイムライン可視化
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use serde::{Serialize, Deserialize};
 
 /// Timeline for tracking profiling events
 /// プロファイリングイベント追跡用タイムライン
@@ -79,7 +79,7 @@ impl Timeline {
         }
 
         let parent_idx = self.event_stack.last().cloned();
-        
+
         let event = TimelineEvent {
             name: name.to_string(),
             category: category.unwrap_or(EventCategory::Cpu),
@@ -99,9 +99,11 @@ impl Timeline {
     /// End an event
     pub fn end_event(&mut self, name: &str, end_time: Instant) {
         // Find the most recent matching event in the stack
-        if let Some(idx) = self.event_stack.iter().rposition(|&i| {
-            self.events.get(i).map_or(false, |e| e.name == name)
-        }) {
+        if let Some(idx) = self
+            .event_stack
+            .iter()
+            .rposition(|&i| self.events.get(i).map_or(false, |e| e.name == name))
+        {
             let event_idx = self.event_stack.remove(idx);
             if let Some(event) = self.events.get_mut(event_idx) {
                 event.end_time = Some(end_time);
@@ -131,9 +133,7 @@ impl Timeline {
 
         for event in &self.events {
             let start_us = event.start_time.duration_since(base_time).as_micros() as f64;
-            let duration_us = event.duration
-                .map(|d| d.as_micros() as f64)
-                .unwrap_or(0.0);
+            let duration_us = event.duration.map(|d| d.as_micros() as f64).unwrap_or(0.0);
 
             let trace_event = ChromeTraceEvent {
                 name: event.name.clone(),
@@ -160,24 +160,22 @@ impl Timeline {
     /// Get timeline summary
     pub fn get_summary(&self) -> TimelineSummary {
         let total_events = self.events.len();
-        let completed_events = self.events.iter()
-            .filter(|e| e.end_time.is_some())
-            .count();
-        
-        let total_duration = if let (Some(start), Some(last_event)) = 
-            (self.start_time, self.events.last()) {
-            last_event.end_time
-                .or(Some(Instant::now()))
-                .map(|end| end.duration_since(start))
-        } else {
-            None
-        };
+        let completed_events = self.events.iter().filter(|e| e.end_time.is_some()).count();
 
-        let events_by_category = self.events.iter()
-            .fold(HashMap::new(), |mut acc, event| {
-                *acc.entry(format!("{:?}", event.category)).or_insert(0) += 1;
-                acc
-            });
+        let total_duration =
+            if let (Some(start), Some(last_event)) = (self.start_time, self.events.last()) {
+                last_event
+                    .end_time
+                    .or(Some(Instant::now()))
+                    .map(|end| end.duration_since(start))
+            } else {
+                None
+            };
+
+        let events_by_category = self.events.iter().fold(HashMap::new(), |mut acc, event| {
+            *acc.entry(format!("{:?}", event.category)).or_insert(0) += 1;
+            acc
+        });
 
         TimelineSummary {
             total_events,
@@ -265,7 +263,9 @@ impl Timeline {
         };
 
         // Find root events (no parent)
-        let root_events: Vec<_> = self.events.iter()
+        let root_events: Vec<_> = self
+            .events
+            .iter()
             .enumerate()
             .filter(|(_, e)| e.parent_idx.is_none())
             .collect();
@@ -279,10 +279,7 @@ impl Timeline {
         }
 
         let total_time = root.total_time;
-        Some(FlameGraphData {
-            root,
-            total_time,
-        })
+        Some(FlameGraphData { root, total_time })
     }
 
     fn build_flame_graph_node(&self, event_idx: usize, events: &[TimelineEvent]) -> FlameGraphNode {
@@ -315,14 +312,14 @@ mod tests {
     #[test]
     fn test_timeline_basic() {
         let mut timeline = Timeline::new();
-        
+
         let start = Instant::now();
         timeline.add_event("operation1", start, Some(EventCategory::Cpu));
-        
+
         thread::sleep(Duration::from_millis(10));
         let end = Instant::now();
         timeline.end_event("operation1", end);
-        
+
         assert_eq!(timeline.events.len(), 1);
         assert!(timeline.events[0].duration.is_some());
     }
@@ -330,16 +327,16 @@ mod tests {
     #[test]
     fn test_nested_events() {
         let mut timeline = Timeline::new();
-        
+
         let start1 = Instant::now();
         timeline.add_event("outer", start1, Some(EventCategory::Cpu));
-        
+
         let start2 = Instant::now();
         timeline.add_event("inner", start2, Some(EventCategory::Cpu));
-        
+
         timeline.end_event("inner", Instant::now());
         timeline.end_event("outer", Instant::now());
-        
+
         assert_eq!(timeline.events.len(), 2);
         assert_eq!(timeline.events[1].parent_idx, Some(0));
     }
@@ -347,11 +344,11 @@ mod tests {
     #[test]
     fn test_chrome_trace_export() {
         let mut timeline = Timeline::new();
-        
+
         timeline.add_event("test_op", Instant::now(), Some(EventCategory::Cpu));
         thread::sleep(Duration::from_millis(5));
         timeline.end_event("test_op", Instant::now());
-        
+
         let trace = timeline.export_chrome_trace();
         assert!(trace.contains("test_op"));
         assert!(trace.contains("traceEvents"));
@@ -360,15 +357,19 @@ mod tests {
     #[test]
     fn test_flame_graph() {
         let mut timeline = Timeline::new();
-        
+
         let start = Instant::now();
         timeline.add_event("parent", start, Some(EventCategory::Cpu));
         timeline.add_event("child1", start, Some(EventCategory::Cpu));
         timeline.end_event("child1", start + Duration::from_millis(5));
-        timeline.add_event("child2", start + Duration::from_millis(5), Some(EventCategory::Cpu));
+        timeline.add_event(
+            "child2",
+            start + Duration::from_millis(5),
+            Some(EventCategory::Cpu),
+        );
         timeline.end_event("child2", start + Duration::from_millis(10));
         timeline.end_event("parent", start + Duration::from_millis(10));
-        
+
         let flame_graph = timeline.generate_flame_graph().unwrap();
         assert_eq!(flame_graph.root.children.len(), 1);
         assert_eq!(flame_graph.root.children[0].children.len(), 2);

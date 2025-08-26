@@ -22,20 +22,48 @@ jobs:
         with:
           components: rustfmt, clippy, miri
 
+      - name: Install system dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install pkg-config
+          brew install openblas
+        shell: bash
+
+      - name: Install MPI (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopenmpi-dev openmpi-bin pkg-config
+        shell: bash
+
       - name: Run extended tests
         run: |
-          cargo test --all-features --release
-          cargo test --all-features --release --examples
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            # On macOS, enable metal feature
+            cargo test --verbose --features "metal" --release
+            cargo test --verbose --features "metal" --release --examples
+          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            # On Linux, enable all features except macOS-specific ones
+            cargo test --verbose --features "linalg-system,mpi" --release
+            cargo test --verbose --features "linalg-system,mpi" --release --examples
+          else
+            # On Windows, enable all features except platform-specific ones
+            cargo test --verbose --features "linalg-system" --release
+            cargo test --verbose --features "linalg-system" --release --examples
+          fi
+        shell: bash
 
       - name: Run Miri tests (unsafe code validation)
         if: runner.os == 'Linux'
         run: |
           cargo miri setup
           cargo miri test --lib
+        shell: bash
 
       - name: Stress test with high iterations
         run: |
           RUST_LOG=debug cargo test --release stress_test -- --ignored --test-threads=1
+        shell: bash
 
       - name: Memory leak detection
         if: runner.os == 'Linux'
@@ -44,6 +72,7 @@ jobs:
           cargo build --release --examples
           valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all \
             ./target/release/examples/neural_network_demo || true
+        shell: bash
 
   performance-regression:
     name: Performance Regression Testing
@@ -57,13 +86,15 @@ jobs:
 
       - name: Run performance benchmarks
         run: |
-          cargo bench --all-features -- --output-format json > benchmark-results.json
+          cargo bench --features "linalg-system" -- --output-format json > benchmark-results.json
+        shell: bash
 
       - name: Compare with baseline
         run: |
           # Store results for trend analysis
           echo "Benchmark results stored for regression analysis"
           cat benchmark-results.json
+        shell: bash
 
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4

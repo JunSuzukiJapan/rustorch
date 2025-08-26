@@ -130,7 +130,7 @@
 //! - **Memory Pools**: Views work with pooled memory allocation
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::{ArrayD, ArrayViewD, ArrayViewMutD};
 use num_traits::Float;
 use std::sync::Arc;
@@ -182,12 +182,7 @@ impl<'a, T: Float + 'static> TensorView<'a, T> {
         T: Send + Sync,
     {
         if self.view.shape() != other.view.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.view.shape(),
-                other.view.shape(),
-                "zero-copy element-wise operation"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         let mut result = Tensor::zeros(self.view.shape());
         
@@ -238,12 +233,7 @@ impl<'a, T: Float> TensorViewMut<'a, T> {
         T: Send + Sync,
     {
         if self.view.shape() != other.view.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.view.shape(),
-                other.view.shape(),
-                "zero-copy in-place operation"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         if let (Some(self_slice), Some(other_slice)) = (
             self.view.as_slice_mut(),
@@ -298,22 +288,12 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
     /// データをコピーせずにテンソルをスライス
     pub fn slice_view(&self, ranges: &[std::ops::Range<usize>]) -> ParallelResult<Tensor<T>> {
         if ranges.len() != self.data.ndim() {
-            return Err(ParallelError::dimension_error(
-                self.data.ndim(),
-                ranges.len(),
-                "tensor slicing"
-            ));
-        }
+            return Err(RusTorchError::parallel("Dimension error"));        }
 
         // Validate ranges
         for (i, range) in ranges.iter().enumerate() {
             if range.end > self.data.shape()[i] {
-                return Err(ParallelError::dimension_error(
-                    self.data.shape()[i],
-                    range.end,
-                    "slice range"
-                ));
-            }
+            return Err(RusTorchError::parallel("Dimension error"));            }
         }
 
         // Create actual sliced tensor by extracting data manually
@@ -356,7 +336,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         
         // Create new tensor from extracted data
         let sliced_array = ndarray::Array::from_shape_vec(result_shape, result_data)
-            .map_err(|_| ParallelError::shape_mismatch(&[], &[], "slice creation"))?;
+            .map_err(|_| RusTorchError::parallel("Shape mismatch")?;
         Ok(Tensor::new(sliced_array.into_dyn()))
     }
 
@@ -365,66 +345,21 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
     pub fn reshape_view(&self, new_shape: &[usize]) -> ParallelResult<Tensor<T>> {
         let total_elements: usize = new_shape.iter().product();
         if total_elements != self.data.len() {
-            return Err(ParallelError::shape_mismatch(
-                &[self.data.len()],
-                &[total_elements],
-                "reshape view"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         // Create reshaped tensor using ndarray reshape
         let reshaped_array = self.data.view()
             .into_shape(new_shape)
-            .map_err(|_| ParallelError::shape_mismatch(
-                self.data.shape(),
-                new_shape,
-                "reshape view"
-            ))?
-            .to_owned();
-        
-        Ok(Tensor::new(reshaped_array))
-    }
-
-    /// Transpose tensor view without copying data
-    /// データをコピーせずにテンソルビューを転置
-    pub fn transpose_view(&self) -> TensorView<T> {
-        TensorView::new(self.data.view().reversed_axes())
-    }
-
-    /// Zero-copy concatenation along axis (when possible)
-    /// 軸に沿ったゼロコピー連結（可能な場合）
-    pub fn concat_views(views: &[TensorView<T>], axis: usize) -> ParallelResult<Tensor<T>> {
-        if views.is_empty() {
-            return Err(ParallelError::empty_tensor_list("concatenation"));
-        }
-
-        let first_shape = views[0].shape();
-        if axis >= first_shape.len() {
-            return Err(ParallelError::dimension_error(
-                first_shape.len(),
-                axis,
-                "concatenation axis"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         // Check shape compatibility
         for view in &views[1..] {
             let shape = view.shape();
             if shape.len() != first_shape.len() {
-                return Err(ParallelError::shape_mismatch(
-                    first_shape,
-                    shape,
-                    "concatenation shapes"
-                ));
-            }
+            return Err(RusTorchError::parallel("Shape mismatch"));            }
             for (i, (&dim1, &dim2)) in first_shape.iter().zip(shape.iter()).enumerate() {
                 if i != axis && dim1 != dim2 {
-                    return Err(ParallelError::shape_mismatch(
-                        first_shape,
-                        shape,
-                        "concatenation dimensions"
-                    ));
-                }
+            return Err(RusTorchError::parallel("Shape mismatch"));                }
             }
         }
 
@@ -461,9 +396,9 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
     pub fn from_memory_map(_file_path: &str) -> ParallelResult<Self> {
         // Placeholder for memory-mapped tensor creation
         // 実際の実装では、ファイルをメモリマップしてテンソルを作成
-        Err(ParallelError::parallel_execution_error(
+        Err(RusTorchError::parallel(parallel_execution_error(
             "Memory mapping not yet implemented"
-        ))
+        ).into())
     }
 }
 
@@ -625,7 +560,7 @@ mod tests {
         assert!(result.is_err());
         
         match result.unwrap_err() {
-            ParallelError::ShapeMismatch { .. } => {},
+            RusTorchError::parallel(ShapeMismatch { .. } => {},
             _ => panic!("Expected ShapeMismatch error"),
         }
     }

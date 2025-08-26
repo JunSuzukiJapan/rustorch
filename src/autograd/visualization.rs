@@ -86,6 +86,12 @@ pub enum NodeType {
     Output,
 }
 
+impl Default for GradientFlowVisualizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GradientFlowVisualizer {
     /// Create a new gradient flow visualizer
     /// 新しい勾配フロービジュアライザーを作成
@@ -100,9 +106,15 @@ impl GradientFlowVisualizer {
 
     /// Trace gradient flow from a variable
     /// 変数から勾配フローをトレース
-    pub fn trace_from_variable<T>(&mut self, var: &Variable<T>, label: &str) -> usize 
+    pub fn trace_from_variable<T>(&mut self, var: &Variable<T>, label: &str) -> usize
     where
-        T: num_traits::Float + std::fmt::Debug + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: num_traits::Float
+            + std::fmt::Debug
+            + Send
+            + Sync
+            + 'static
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // Create node for this variable
         let node_id = self.node_counter;
@@ -118,7 +130,9 @@ impl GradientFlowVisualizer {
         let shape = var.data.read().unwrap().shape().to_vec();
         let gradient_norm = if let Ok(grad_lock) = var.grad.read() {
             grad_lock.as_ref().map(|g| {
-                let sum: f32 = g.data.iter()
+                let sum: f32 = g
+                    .data
+                    .iter()
                     .map(|&x| x.to_f32().unwrap_or(0.0).powi(2))
                     .sum();
                 sum.sqrt()
@@ -204,14 +218,20 @@ impl GradientFlowVisualizer {
             };
 
             let label = if let Some(grad_norm) = node.gradient_norm {
-                format!("{}\\nshape: {:?}\\ngrad_norm: {:.4}", 
-                    node.label, node.shape, grad_norm)
+                format!(
+                    "{}\\nshape: {:?}\\ngrad_norm: {:.4}",
+                    node.label, node.shape, grad_norm
+                )
             } else {
                 format!("{}\\nshape: {:?}", node.label, node.shape)
             };
 
-            writeln!(&mut dot, "  n{} [label=\"{}\", fillcolor=\"{}\"];",
-                node.id, label, color).unwrap();
+            writeln!(
+                &mut dot,
+                "  n{} [label=\"{}\", fillcolor=\"{}\"];",
+                node.id, label, color
+            )
+            .unwrap();
         }
 
         writeln!(&mut dot).unwrap();
@@ -220,14 +240,18 @@ impl GradientFlowVisualizer {
         for edge in &self.edges {
             let style = if edge.gradient_magnitude.is_some() {
                 let magnitude = edge.gradient_magnitude.unwrap();
-                let width = (magnitude.log10() + 2.0).max(0.5).min(3.0);
+                let width = (magnitude.log10() + 2.0).clamp(0.5, 3.0);
                 format!("penwidth={:.1}", width)
             } else {
                 "".to_string()
             };
 
-            writeln!(&mut dot, "  n{} -> n{} [label=\"{}\", {}];",
-                edge.from, edge.to, edge.label, style).unwrap();
+            writeln!(
+                &mut dot,
+                "  n{} -> n{} [label=\"{}\", {}];",
+                edge.from, edge.to, edge.label, style
+            )
+            .unwrap();
         }
 
         writeln!(&mut dot, "}}").unwrap();
@@ -247,17 +271,19 @@ impl GradientFlowVisualizer {
     /// 勾配フロー統計のサマリーを生成
     pub fn gradient_flow_summary(&self) -> GradientFlowSummary {
         let total_nodes = self.nodes.len();
-        let parameter_nodes = self.nodes.iter()
+        let parameter_nodes = self
+            .nodes
+            .iter()
             .filter(|n| matches!(n.node_type, NodeType::Parameter))
             .count();
-        
-        let nodes_with_gradients = self.nodes.iter()
+
+        let nodes_with_gradients = self
+            .nodes
+            .iter()
             .filter(|n| n.gradient_norm.is_some())
             .count();
 
-        let gradient_norms: Vec<f32> = self.nodes.iter()
-            .filter_map(|n| n.gradient_norm)
-            .collect();
+        let gradient_norms: Vec<f32> = self.nodes.iter().filter_map(|n| n.gradient_norm).collect();
 
         let avg_gradient_norm = if !gradient_norms.is_empty() {
             gradient_norms.iter().sum::<f32>() / gradient_norms.len() as f32
@@ -274,7 +300,11 @@ impl GradientFlowVisualizer {
             nodes_with_gradients,
             avg_gradient_norm,
             max_gradient_norm,
-            min_gradient_norm: if min_gradient_norm.is_finite() { min_gradient_norm } else { 0.0 },
+            min_gradient_norm: if min_gradient_norm.is_finite() {
+                min_gradient_norm
+            } else {
+                0.0
+            },
             total_edges: self.edges.len(),
         }
     }
@@ -293,7 +323,7 @@ impl GradientFlowVisualizer {
                         gradient_norm: grad_norm,
                     });
                 }
-                
+
                 // Check for exploding gradients
                 if grad_norm > 1e3 {
                     issues.push(GradientFlowIssue::ExplodingGradient {
@@ -398,14 +428,32 @@ pub enum GradientFlowIssue {
 impl std::fmt::Display for GradientFlowIssue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GradientFlowIssue::VanishingGradient { node_label, gradient_norm } => {
-                write!(f, "Vanishing gradient in '{}': norm = {:.2e}", node_label, gradient_norm)
+            GradientFlowIssue::VanishingGradient {
+                node_label,
+                gradient_norm,
+            } => {
+                write!(
+                    f,
+                    "Vanishing gradient in '{}': norm = {:.2e}",
+                    node_label, gradient_norm
+                )
             }
-            GradientFlowIssue::ExplodingGradient { node_label, gradient_norm } => {
-                write!(f, "Exploding gradient in '{}': norm = {:.2e}", node_label, gradient_norm)
+            GradientFlowIssue::ExplodingGradient {
+                node_label,
+                gradient_norm,
+            } => {
+                write!(
+                    f,
+                    "Exploding gradient in '{}': norm = {:.2e}",
+                    node_label, gradient_norm
+                )
             }
             GradientFlowIssue::DisconnectedParameter { node_label } => {
-                write!(f, "Disconnected parameter '{}': no gradient computed", node_label)
+                write!(
+                    f,
+                    "Disconnected parameter '{}': no gradient computed",
+                    node_label
+                )
             }
         }
     }
@@ -438,14 +486,16 @@ impl GradientFlowAnalyzer {
     where
         T: num_traits::Float,
     {
-        let norm = tensor.data.iter()
+        let norm = tensor
+            .data
+            .iter()
             .map(|&x| x.to_f32().unwrap_or(0.0).powi(2))
             .sum::<f32>()
             .sqrt();
 
-        let history = self.gradient_history.entry(name.to_string()).or_insert_with(Vec::new);
+        let history = self.gradient_history.entry(name.to_string()).or_default();
         history.push(norm);
-        
+
         // Maintain maximum history length
         if history.len() > self.max_history_length {
             history.remove(0);
@@ -470,7 +520,8 @@ impl GradientFlowAnalyzer {
 
             let recent_avg = history[history.len().saturating_sub(10)..]
                 .iter()
-                .sum::<f32>() / history[history.len().saturating_sub(10)..].len() as f32;
+                .sum::<f32>()
+                / history[history.len().saturating_sub(10)..].len() as f32;
 
             let overall_avg = history.iter().sum::<f32>() / history.len() as f32;
 
@@ -522,7 +573,7 @@ mod tests {
     #[test]
     fn test_gradient_flow_visualizer() {
         let mut visualizer = GradientFlowVisualizer::new();
-        
+
         // Add some nodes
         let input_id = visualizer.node_counter;
         visualizer.node_counter += 1;
@@ -559,7 +610,7 @@ mod tests {
     #[test]
     fn test_gradient_flow_summary() {
         let mut visualizer = GradientFlowVisualizer::new();
-        
+
         // Add nodes with different gradient norms
         for i in 0..5 {
             visualizer.nodes.push(NodeInfo {
@@ -582,7 +633,7 @@ mod tests {
     #[test]
     fn test_issue_detection() {
         let mut visualizer = GradientFlowVisualizer::new();
-        
+
         // Add node with vanishing gradient
         visualizer.nodes.push(NodeInfo {
             id: 0,
@@ -610,14 +661,18 @@ mod tests {
     #[test]
     fn test_gradient_analyzer() {
         let mut analyzer = GradientFlowAnalyzer::new(100);
-        
+
         // Simulate gradient recording
         let _tensor = Tensor::from_vec(vec![0.1, 0.2, 0.3], vec![3]);
-        
+
         for i in 0..20 {
             let scaled = Tensor::from_vec(
-                vec![0.1 * (i as f32 + 1.0), 0.2 * (i as f32 + 1.0), 0.3 * (i as f32 + 1.0)],
-                vec![3]
+                vec![
+                    0.1 * (i as f32 + 1.0),
+                    0.2 * (i as f32 + 1.0),
+                    0.3 * (i as f32 + 1.0),
+                ],
+                vec![3],
             );
             analyzer.record_gradient("weight", &scaled);
         }

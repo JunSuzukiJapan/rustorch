@@ -1,7 +1,7 @@
 /// GPU kernel operations and execution
 /// GPUカーネル操作と実行
-
-use super::{DeviceType, GpuError};
+use super::DeviceType;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 /// GPU kernel execution parameters
@@ -44,7 +44,7 @@ pub trait GpuKernel<T: Float> {
         _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError>;
+    ) -> RusTorchResult<()>;
 
     /// Get optimal parameters for given problem size
     /// 指定された問題サイズに対する最適パラメータを取得
@@ -55,7 +55,7 @@ pub trait GpuKernel<T: Float> {
 pub trait ModernGpuKernel: Send + Sync {
     /// Get kernel name
     fn name(&self) -> &str;
-    
+
     /// Launch kernel with given parameters
     fn launch(
         &self,
@@ -63,13 +63,13 @@ pub trait ModernGpuKernel: Send + Sync {
         global_size: &[usize],
         block_size: (u32, u32, u32),
         grid_size: (u32, u32, u32),
-    ) -> Result<(), GpuError>;
-    
+    ) -> RusTorchResult<()>;
+
     /// Set kernel parameter
-    fn set_parameter(&mut self, index: usize, data: &[u8]) -> Result<(), GpuError>;
-    
+    fn set_parameter(&mut self, index: usize, data: &[u8]) -> RusTorchResult<()>;
+
     /// Compile kernel from source
-    fn compile(&mut self, source: &str) -> Result<(), GpuError>;
+    fn compile(&mut self, source: &str) -> RusTorchResult<()>;
 }
 
 /// Element-wise addition kernel
@@ -83,9 +83,11 @@ impl<T: Float> GpuKernel<T> for AddKernel {
         _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(GpuError::InvalidOperation("Add kernel requires 2 inputs and 1 output".to_string()));
+            return Err(RusTorchError::tensor_op(
+                "Add kernel requires 2 inputs and 1 output",
+            ));
         }
 
         let a = inputs[0];
@@ -93,7 +95,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
         let c = &mut outputs[0];
 
         if a.len() != b.len() || a.len() != c.len() {
-            return Err(GpuError::InvalidOperation("Input/output size mismatch".to_string()));
+            return Err(RusTorchError::shape_mismatch(&[a.len()], &[b.len()]));
         }
 
         match device {
@@ -108,18 +110,24 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::cuda_kernels::cuda_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
                         cuda_elementwise_add_f32(a_f32, b_f32, c_f32)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("CUDA add failed: {:?}", e)))?;
+                            .map_err(|e| RusTorchError::gpu(format!("CUDA add failed: {:?}", e)))?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("CUDA only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("CUDA only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
@@ -127,18 +135,25 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::metal_kernels::metal_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        metal_elementwise_add_f32(a_f32, b_f32, c_f32)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("Metal add failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        metal_elementwise_add_f32(a_f32, b_f32, c_f32).map_err(|e| {
+                            RusTorchError::gpu(format!("Metal add failed: {:?}", e))
+                        })?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("Metal only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("Metal only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -146,18 +161,25 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 {
                     use crate::gpu::opencl_kernels::opencl_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        opencl_elementwise_add_f32(a_f32, b_f32, c_f32)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("OpenCL add failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        opencl_elementwise_add_f32(a_f32, b_f32, c_f32).map_err(|e| {
+                            RusTorchError::gpu(format!("OpenCL add failed: {:?}", e))
+                        })?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("OpenCL only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("OpenCL only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         }
@@ -170,7 +192,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
                 let threads_per_block = 256;
-                let num_blocks = (problem_size + threads_per_block - 1) / threads_per_block;
+                let num_blocks = problem_size.div_ceil(threads_per_block);
                 KernelParams {
                     block_size: (threads_per_block as u32, 1, 1),
                     grid_size: (num_blocks as u32, 1, 1),
@@ -180,7 +202,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             }
             DeviceType::Metal(_) => {
                 let threads_per_group = 256;
-                let num_groups = (problem_size + threads_per_group - 1) / threads_per_group;
+                let num_groups = problem_size.div_ceil(threads_per_group);
                 KernelParams {
                     block_size: (threads_per_group as u32, 1, 1),
                     grid_size: (num_groups as u32, 1, 1),
@@ -190,7 +212,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             }
             DeviceType::OpenCL(_) => {
                 let work_group_size = 256;
-                let global_size = (problem_size + work_group_size - 1) / work_group_size * work_group_size;
+                let global_size = problem_size.div_ceil(work_group_size) * work_group_size;
                 KernelParams {
                     block_size: (work_group_size as u32, 1, 1),
                     grid_size: (global_size as u32, 1, 1),
@@ -215,9 +237,11 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
         _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(GpuError::InvalidOperation("MatMul kernel requires 2 inputs and 1 output".to_string()));
+            return Err(RusTorchError::tensor_op(
+                "MatMul kernel requires 2 inputs and 1 output",
+            ));
         }
 
         // For simplicity, assume square matrices for now
@@ -227,7 +251,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
 
         let n = (a.len() as f64).sqrt() as usize;
         if n * n != a.len() || b.len() != a.len() || c.len() != a.len() {
-            return Err(GpuError::InvalidOperation("Matrix size mismatch".to_string()));
+            return Err(RusTorchError::tensor_op("Matrix size mismatch"));
         }
 
         match device {
@@ -248,18 +272,25 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::cuda_kernels::cuda_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("CUDA matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("CUDA matmul failed: {:?}", e))
+                        })?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("CUDA only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("CUDA only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
@@ -267,18 +298,25 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::metal_kernels::metal_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        metal_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("Metal matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        metal_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("Metal matmul failed: {:?}", e))
+                        })?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("Metal only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("Metal only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
@@ -286,18 +324,25 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                 {
                     use crate::gpu::opencl_kernels::opencl_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
-                        let a_f32 = unsafe { std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len()) };
-                        let b_f32 = unsafe { std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len()) };
-                        let c_f32 = unsafe { std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len()) };
-                        opencl_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
-                            .map_err(|e| GpuError::KernelExecutionError(format!("OpenCL matmul failed: {:?}", e)))?;
+                        let a_f32 = unsafe {
+                            std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
+                        };
+                        let b_f32 = unsafe {
+                            std::slice::from_raw_parts(b.as_ptr() as *const f32, b.len())
+                        };
+                        let c_f32 = unsafe {
+                            std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
+                        };
+                        opencl_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
+                            RusTorchError::gpu(format!("OpenCL matmul failed: {:?}", e))
+                        })?;
                     } else {
-                        return Err(GpuError::UnsupportedDevice("OpenCL only supports f32 currently".to_string()));
+                        return Err(RusTorchError::gpu("OpenCL only supports f32 currently"));
                     }
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         }
@@ -307,23 +352,24 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
 
     fn optimal_params(&self, problem_size: usize, device: DeviceType) -> KernelParams {
         let n = (problem_size as f64).sqrt() as usize;
-        
+
         match device {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
                 // Use 2D block for matrix multiplication
                 let block_size = 16; // 16x16 block
-                let grid_size = (n + block_size - 1) / block_size;
+                let grid_size = n.div_ceil(block_size);
                 KernelParams {
                     block_size: (block_size as u32, block_size as u32, 1),
                     grid_size: (grid_size as u32, grid_size as u32, 1),
-                    shared_memory: (2 * block_size * block_size * std::mem::size_of::<f32>()) as u32,
+                    shared_memory: (2 * block_size * block_size * std::mem::size_of::<f32>())
+                        as u32,
                     stream_id: 0,
                 }
             }
             DeviceType::Metal(_) => {
                 let threads_per_group = 16;
-                let num_groups = (n + threads_per_group - 1) / threads_per_group;
+                let num_groups = n.div_ceil(threads_per_group);
                 KernelParams {
                     block_size: (threads_per_group as u32, threads_per_group as u32, 1),
                     grid_size: (num_groups as u32, num_groups as u32, 1),
@@ -333,7 +379,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             }
             DeviceType::OpenCL(_) => {
                 let work_group_size = 16;
-                let global_size = (n + work_group_size - 1) / work_group_size * work_group_size;
+                let global_size = n.div_ceil(work_group_size) * work_group_size;
                 KernelParams {
                     block_size: (work_group_size as u32, work_group_size as u32, 1),
                     grid_size: (global_size as u32, global_size as u32, 1),
@@ -368,44 +414,46 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
         _params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         if inputs.len() != 2 || outputs.len() != 1 {
-            return Err(GpuError::InvalidOperation("Conv kernel requires 2 inputs and 1 output".to_string()));
+            return Err(RusTorchError::tensor_op(
+                "Conv kernel requires 2 inputs and 1 output",
+            ));
         }
 
         match device {
             DeviceType::Cpu => {
                 // CPU convolution implementation (simplified)
-                self.execute_cpu_conv(inputs[0], inputs[1], &mut outputs[0])?;
+                self.execute_cpu_conv(inputs[0], inputs[1], outputs[0])?;
             }
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    self.execute_cuda_conv(params, inputs[0], inputs[1], &mut outputs[0])?;
+                    self.execute_cuda_conv(_params, inputs[0], inputs[1], &mut outputs[0])?;
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("CUDA not supported".to_string()));
+                    return Err(RusTorchError::gpu("CUDA not supported"));
                 }
             }
             DeviceType::Metal(_) => {
                 #[cfg(feature = "metal")]
                 {
-                    self.execute_metal_conv(params, inputs[0], inputs[1], &mut outputs[0])?;
+                    self.execute_metal_conv(_params, inputs[0], inputs[1], &mut outputs[0])?;
                 }
                 #[cfg(not(feature = "metal"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("Metal not supported".to_string()));
+                    return Err(RusTorchError::gpu("Metal not supported"));
                 }
             }
             DeviceType::OpenCL(_) => {
                 #[cfg(feature = "opencl")]
                 {
-                    self.execute_opencl_conv(params, inputs[0], inputs[1], &mut outputs[0])?;
+                    self.execute_opencl_conv(_params, inputs[0], inputs[1], &mut outputs[0])?;
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
-                    return Err(GpuError::UnsupportedDevice("OpenCL not supported".to_string()));
+                    return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
         }
@@ -418,7 +466,7 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
                 let block_size = 16;
-                let grid_size = (problem_size + block_size - 1) / block_size;
+                let grid_size = problem_size.div_ceil(block_size);
                 KernelParams {
                     block_size: (block_size as u32, block_size as u32, 1),
                     grid_size: (grid_size as u32, 1, 1),
@@ -437,7 +485,7 @@ impl ConvKernel {
         _input: &[T],
         _kernel: &[T],
         _output: &mut [T],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // Simplified CPU convolution
         // In practice, this would implement proper 2D convolution
         Ok(())
@@ -450,7 +498,7 @@ impl ConvKernel {
         _input: &[T],
         _kernel: &[T],
         _output: &mut [T],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // CUDA convolution kernel would go here
         Ok(())
     }
@@ -462,7 +510,7 @@ impl ConvKernel {
         _input: &[T],
         _kernel: &[T],
         _output: &mut [T],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // Metal convolution shader would go here
         Ok(())
     }
@@ -474,7 +522,7 @@ impl ConvKernel {
         _input: &[T],
         _kernel: &[T],
         _output: &mut [T],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         // OpenCL convolution kernel would go here
         Ok(())
     }
@@ -500,8 +548,12 @@ impl KernelExecutor {
         kernel: &K,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError> {
-        let problem_size = if !inputs.is_empty() { inputs[0].len() } else { 0 };
+    ) -> RusTorchResult<()> {
+        let problem_size = if !inputs.is_empty() {
+            inputs[0].len()
+        } else {
+            0
+        };
         let params = kernel.optimal_params(problem_size, self.device);
         kernel.execute(self.device, &params, inputs, outputs)
     }
@@ -514,7 +566,7 @@ impl KernelExecutor {
         params: &KernelParams,
         inputs: &[&[T]],
         outputs: &mut [&mut [T]],
-    ) -> Result<(), GpuError> {
+    ) -> RusTorchResult<()> {
         kernel.execute(self.device, params, inputs, outputs)
     }
 
@@ -549,7 +601,9 @@ mod tests {
         let mut outputs = [c.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
 
         assert_eq!(c, vec![6.0, 8.0, 10.0, 12.0]);
     }
@@ -565,7 +619,9 @@ mod tests {
         let mut outputs = [c.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
 
         // Expected result: [19, 22, 43, 50]
         assert_eq!(c, vec![19.0, 22.0, 43.0, 50.0]);
@@ -584,18 +640,22 @@ mod tests {
         let inputs = [a.as_slice(), b.as_slice()];
         let mut outputs = [c.as_mut_slice()];
 
-        executor.execute_kernel(&kernel, &inputs, &mut outputs).unwrap();
+        executor
+            .execute_kernel(&kernel, &inputs, &mut outputs)
+            .unwrap();
         assert_eq!(c, vec![5.0, 7.0, 9.0]);
     }
 
     #[test]
     fn test_optimal_params() {
         let kernel = AddKernel;
-        
-        let params_cpu = <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cpu);
+
+        let params_cpu =
+            <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cpu);
         assert_eq!(params_cpu.block_size, (256, 1, 1));
-        
-        let params_cuda = <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cuda(0));
+
+        let params_cuda =
+            <AddKernel as GpuKernel<f32>>::optimal_params(&kernel, 1000, DeviceType::Cuda(0));
         assert!(params_cuda.grid_size.0 > 1);
     }
 
@@ -615,6 +675,8 @@ mod tests {
         let mut outputs = [output.as_mut_slice()];
 
         let params = KernelParams::default();
-        kernel.execute(DeviceType::Cpu, &params, &inputs, &mut outputs).unwrap();
+        kernel
+            .execute(DeviceType::Cpu, &params, &inputs, &mut outputs)
+            .unwrap();
     }
 }

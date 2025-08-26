@@ -2,7 +2,8 @@
 //! 高性能テンソル演算のための高度なメモリ管理
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
+type ParallelResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::collections::{HashMap, VecDeque};
@@ -102,9 +103,7 @@ struct MemoryBlock {
 impl MemoryBlock {
     fn new(size: usize, alignment: usize, is_huge_page: bool) -> ParallelResult<Self> {
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
 
         let ptr = unsafe {
             let raw_ptr = if is_huge_page {
@@ -114,9 +113,7 @@ impl MemoryBlock {
             };
 
             if raw_ptr.is_null() {
-                return Err(ParallelError::ParallelExecutionError {
-                    message: "Allocation failed".to_string(),
-                });
+                return Err(RusTorchError::memory("Allocation failed"));
             }
 
             NonNull::new_unchecked(raw_ptr)
@@ -135,8 +132,8 @@ impl MemoryBlock {
 
     #[cfg(target_os = "linux")]
     fn alloc_huge_page(size: usize, alignment: usize) -> ParallelResult<*mut u8> {
-        use std::os::unix::io::AsRawFd;
         use std::fs::OpenOptions;
+        use std::os::unix::io::AsRawFd;
 
         // Try to allocate using mmap with MAP_HUGETLB
         // MAP_HUGETLBを使用してmmapで割り当てを試行
@@ -144,9 +141,7 @@ impl MemoryBlock {
             .read(true)
             .write(true)
             .open("/dev/zero")
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Failed to open /dev/zero: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::IO(e))?;
 
         unsafe {
             let ptr = libc::mmap(
@@ -162,9 +157,7 @@ impl MemoryBlock {
                 // Fallback to regular allocation
                 // 通常の割り当てにフォールバック
                 let layout = Layout::from_size_align(size, alignment)
-                    .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+                    .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
                 Ok(alloc_zeroed(layout))
             } else {
                 Ok(ptr as *mut u8)
@@ -177,9 +170,7 @@ impl MemoryBlock {
         // Fallback to regular allocation on non-Linux systems
         // Linux以外のシステムでは通常の割り当てにフォールバック
         let layout = Layout::from_size_align(size, alignment)
-            .map_err(|e| ParallelError::ParallelExecutionError {
-                message: format!("Invalid layout: {}", e),
-            })?;
+            .map_err(|e| RusTorchError::memory(format!("Invalid layout: {}", e)))?;
         Ok(unsafe { alloc_zeroed(layout) })
     }
 
@@ -187,7 +178,6 @@ impl MemoryBlock {
         self.last_accessed = Instant::now();
         self.access_count += 1;
     }
-
 
     fn idle_time(&self) -> Duration {
         self.last_accessed.elapsed()
@@ -290,11 +280,11 @@ impl AdvancedMemoryPool {
 
         // Allocate new block
         // 新しいブロックを割り当て
-        let use_huge_pages = strategy == AllocationStrategy::HugePage || 
-                           (actual_size >= HUGE_PAGE_SIZE && self.config.enable_huge_pages);
+        let use_huge_pages = strategy == AllocationStrategy::HugePage
+            || (actual_size >= HUGE_PAGE_SIZE && self.config.enable_huge_pages);
 
         let mut block = MemoryBlock::new(actual_size, alignment, use_huge_pages)?;
-        
+
         // Prefault pages if enabled
         // 有効な場合はページをプリフォルト
         if self.config.enable_prefaulting {
@@ -321,11 +311,9 @@ impl AdvancedMemoryPool {
 
         let block = {
             let mut allocated = self.allocated_blocks.write().unwrap();
-            allocated.remove(&raw_ptr).ok_or_else(|| {
-                ParallelError::ParallelExecutionError {
-                    message: "Pointer not found in allocated blocks".to_string(),
-                }
-            })?
+            allocated
+                .remove(&raw_ptr)
+                .ok_or_else(|| RusTorchError::memory("Pointer not found in allocated blocks"))?
         };
 
         let size = block.size;
@@ -334,7 +322,7 @@ impl AdvancedMemoryPool {
         // 保持する価値がある場合はフリープールに返却
         if self.should_keep_block(&block) {
             let mut free_blocks = self.free_blocks.write().unwrap();
-            free_blocks.entry(size).or_insert_with(VecDeque::new).push_back(block);
+            free_blocks.entry(size).or_default().push_back(block);
         }
         // Otherwise, block will be dropped and memory freed
         // そうでなければ、ブロックはドロップされメモリが解放される
@@ -358,7 +346,7 @@ impl AdvancedMemoryPool {
         let max_idle_time = Duration::from_secs(300); // 5 minutes
 
         let mut free_blocks = self.free_blocks.write().unwrap();
-        
+
         for (size, blocks) in free_blocks.iter_mut() {
             blocks.retain(|block| {
                 if block.idle_time() > max_idle_time {
@@ -380,12 +368,16 @@ impl AdvancedMemoryPool {
     /// Optimize memory layout for NUMA
     /// NUMA用のメモリレイアウト最適化
     pub fn optimize_for_numa(&self) -> ParallelResult<()> {
-        if let Some(_node) = self.numa_node {
+        if let Some(node) = self.numa_node {
             // Bind memory allocations to specific NUMA node
             // メモリ割り当てを特定のNUMAノードにバインド
             #[cfg(target_os = "linux")]
             {
                 self.set_numa_policy(node)?;
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                let _ = node; // Suppress unused variable warning on non-Linux platforms
             }
         }
         Ok(())
@@ -409,9 +401,13 @@ impl AdvancedMemoryPool {
         (size + alignment - 1) & !(alignment - 1)
     }
 
-    fn try_reuse_block(&self, size: usize, alignment: usize) -> ParallelResult<Option<MemoryBlock>> {
+    fn try_reuse_block(
+        &self,
+        size: usize,
+        alignment: usize,
+    ) -> ParallelResult<Option<MemoryBlock>> {
         let mut free_blocks = self.free_blocks.write().unwrap();
-        
+
         // Look for exact size match first
         // まず正確なサイズマッチを探す
         if let Some(blocks) = free_blocks.get_mut(&size) {
@@ -446,7 +442,7 @@ impl AdvancedMemoryPool {
     fn should_keep_block(&self, block: &MemoryBlock) -> bool {
         let current_total = *self.total_allocated.lock().unwrap();
         let would_exceed_max = current_total + block.size > self.config.max_size;
-        
+
         !would_exceed_max && block.access_count > 1
     }
 
@@ -454,7 +450,7 @@ impl AdvancedMemoryPool {
         unsafe {
             let ptr = block.ptr.as_ptr();
             let size = block.size;
-            
+
             // Touch each page to prefault
             // 各ページにタッチしてプリフォルト
             for offset in (0..size).step_by(PAGE_SIZE) {
@@ -468,15 +464,15 @@ impl AdvancedMemoryPool {
     fn update_stats_on_allocation(&self, size: usize, cache_hit: bool) {
         let mut stats = self.allocation_stats.lock().unwrap();
         let mut total = self.total_allocated.lock().unwrap();
-        
+
         stats.total_allocations += 1;
         *total += size;
         stats.current_memory_usage = *total;
-        
+
         if *total > stats.peak_memory_usage {
             stats.peak_memory_usage = *total;
         }
-        
+
         if cache_hit {
             stats.cache_hits += 1;
         } else {
@@ -487,7 +483,7 @@ impl AdvancedMemoryPool {
     fn update_stats_on_deallocation(&self, size: usize) {
         let mut stats = self.allocation_stats.lock().unwrap();
         let mut total = self.total_allocated.lock().unwrap();
-        
+
         stats.total_deallocations += 1;
         *total -= size;
         stats.current_memory_usage = *total;
@@ -509,7 +505,7 @@ impl AdvancedMemoryPool {
     }
 
     #[cfg(target_os = "linux")]
-    fn set_numa_policy(&self, node: u32) -> ParallelResult<()> {
+    fn set_numa_policy(&self, _node: u32) -> ParallelResult<()> {
         // Simplified NUMA policy setting
         // 簡略化されたNUMAポリシー設定
         Ok(())
@@ -540,7 +536,7 @@ impl OptimizedTensorOps {
     ) -> ParallelResult<Tensor<T>> {
         let total_elements: usize = shape.iter().product();
         let ptr = self.memory_pool.allocate(total_elements, strategy)?;
-        
+
         // Create tensor with custom memory
         // カスタムメモリでテンソルを作成
         unsafe {
@@ -558,11 +554,7 @@ impl OptimizedTensorOps {
         b: &Tensor<T>,
     ) -> ParallelResult<()> {
         if a.shape() != b.shape() {
-            return Err(ParallelError::ShapeMismatch {
-                expected: a.shape().to_vec(),
-                actual: b.shape().to_vec(),
-                operation: "inplace_add".to_string(),
-            });
+            return Err(RusTorchError::shape_mismatch(a.shape(), b.shape()));
         }
 
         // Vectorized in-place addition
@@ -627,10 +619,12 @@ mod tests {
     fn test_advanced_memory_pool() {
         let config = PoolConfig::default();
         let pool = AdvancedMemoryPool::new(config);
-        
-        let ptr: NonNull<f32> = pool.allocate(1000, AllocationStrategy::CacheAligned).unwrap();
+
+        let ptr: NonNull<f32> = pool
+            .allocate(1000, AllocationStrategy::CacheAligned)
+            .unwrap();
         assert!(pool.deallocate(ptr).is_ok());
-        
+
         let stats = pool.get_stats();
         assert_eq!(stats.total_allocations, 1);
         assert_eq!(stats.total_deallocations, 1);
@@ -640,10 +634,12 @@ mod tests {
     fn test_optimized_tensor_ops() {
         let config = PoolConfig::default();
         let ops = OptimizedTensorOps::new(config);
-        
-        let tensor: Tensor<f32> = ops.create_tensor(&[100, 100], AllocationStrategy::CacheAligned).unwrap();
+
+        let tensor: Tensor<f32> = ops
+            .create_tensor(&[100, 100], AllocationStrategy::CacheAligned)
+            .unwrap();
         assert_eq!(tensor.shape(), &[100, 100]);
-        
+
         let stats = ops.get_memory_stats();
         assert!(stats.total_allocations > 0);
     }
@@ -658,14 +654,14 @@ mod tests {
     fn test_garbage_collection() {
         let config = PoolConfig::default();
         let pool = AdvancedMemoryPool::new(config);
-        
+
         // Allocate and deallocate several blocks
         // 複数のブロックを割り当てて解放
         for _ in 0..10 {
             let ptr: NonNull<f32> = pool.allocate(1000, AllocationStrategy::Standard).unwrap();
             pool.deallocate(ptr).unwrap();
         }
-        
+
         let freed = pool.garbage_collect().unwrap();
         // Some memory should be freed during GC
         // GC中にいくらかのメモリが解放されるはず

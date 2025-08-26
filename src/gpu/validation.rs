@@ -1,7 +1,8 @@
 /// GPU kernel validation and correctness testing
 /// GPUカーネル検証と正確性テスト
-
-use super::{DeviceType, GpuError, kernels::{AddKernel, MatMulKernel, KernelExecutor, GpuKernel}};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::gpu::kernels::{AddKernel, GpuKernel, KernelExecutor, MatMulKernel};
+use crate::gpu::DeviceType;
 
 /// Validation results for GPU operations
 /// GPU操作の検証結果
@@ -38,7 +39,7 @@ impl GpuValidator {
     /// 利用可能なすべてのGPUデバイスを検証
     pub fn validate_all_devices(&self) -> Vec<ValidationResult> {
         let mut results = Vec::new();
-        
+
         let devices = vec![
             DeviceType::Cpu,
             #[cfg(feature = "cuda")]
@@ -46,7 +47,7 @@ impl GpuValidator {
             #[cfg(feature = "metal")]
             DeviceType::Metal(0),
             #[cfg(feature = "opencl")]
-            DeviceType::OpenCl(0),
+            DeviceType::OpenCL(0),
         ];
 
         for device in devices {
@@ -56,10 +57,10 @@ impl GpuValidator {
 
             // Validate element-wise addition
             results.push(self.validate_elementwise_add(device));
-            
+
             // Validate matrix multiplication
             results.push(self.validate_matrix_multiplication(device));
-            
+
             // Validate memory operations
             results.extend(self.validate_memory_operations(device));
         }
@@ -71,7 +72,7 @@ impl GpuValidator {
     /// 要素ごと加算操作を検証
     pub fn validate_elementwise_add(&self, device: DeviceType) -> ValidationResult {
         let start_time = std::time::Instant::now();
-        
+
         let size = 1024;
         let a = vec![1.0f32; size];
         let b = vec![2.0f32; size];
@@ -113,11 +114,11 @@ impl GpuValidator {
     /// 行列乗算操作を検証
     pub fn validate_matrix_multiplication(&self, device: DeviceType) -> ValidationResult {
         let start_time = std::time::Instant::now();
-        
+
         // Test with 4x4 matrices for simplicity
         let n = 4;
         let size = n * n;
-        
+
         // Create test matrices: A = [[1,2,3,4], [5,6,7,8], [9,10,11,12], [13,14,15,16]]
         // B = [[1,0,0,0], [0,1,0,0], [0,0,1,0], [0,0,0,1]] (identity matrix)
         let mut a = vec![0.0f32; size];
@@ -128,7 +129,7 @@ impl GpuValidator {
                 b[i * n + j] = if i == j { 1.0 } else { 0.0 };
             }
         }
-        
+
         let mut c = vec![0.0f32; size];
         let expected = a.clone(); // A * I = A
 
@@ -167,7 +168,7 @@ impl GpuValidator {
     /// メモリ操作を検証（割り当て、コピー、解放）
     pub fn validate_memory_operations(&self, device: DeviceType) -> Vec<ValidationResult> {
         let mut results = Vec::new();
-        
+
         match device {
             DeviceType::Cpu => {
                 // CPU doesn't need special memory validation
@@ -189,7 +190,7 @@ impl GpuValidator {
                 results.push(self.validate_metal_memory());
             }
             #[cfg(feature = "opencl")]
-            DeviceType::OpenCl(_) => {
+            DeviceType::OpenCL(_) => {
                 results.push(self.validate_opencl_memory());
             }
             _ => {}
@@ -207,39 +208,41 @@ impl GpuValidator {
         inputs: &[&[f32]],
         outputs: &mut [&mut [f32]],
         expected: &[f32],
-    ) -> Result<f32, GpuError> {
+    ) -> RusTorchResult<f32> {
         executor.execute_kernel(kernel, inputs, outputs)?;
-        
-        let max_error = outputs[0].iter()
+
+        let max_error = outputs[0]
+            .iter()
             .zip(expected.iter())
             .map(|(a, b)| (a - b).abs())
             .fold(0.0f32, f32::max);
-        
+
         Ok(max_error)
     }
 
     #[cfg(feature = "cuda")]
     fn validate_cuda_memory(&self) -> ValidationResult {
         use crate::gpu::cuda_kernels::CudaBuffer;
-        
+
         let start_time = std::time::Instant::now();
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
             let buffer = CudaBuffer::from_host_data(&test_data)?;
-            
+
             // Test device-to-host copy
             let mut result_data = vec![0.0f32; size];
             buffer.copy_to_host(&mut result_data)?;
-            
+
             // Validate data integrity
-            let max_error = test_data.iter()
+            let max_error = test_data
+                .iter()
                 .zip(result_data.iter())
                 .map(|(a, b)| (a - b).abs())
                 .fold(0.0f32, f32::max);
-            
+
             Ok(max_error)
         })();
 
@@ -266,25 +269,40 @@ impl GpuValidator {
     #[cfg(feature = "metal")]
     fn validate_metal_memory(&self) -> ValidationResult {
         use crate::gpu::metal_kernels::MetalBuffer;
-        
+
         let start_time = std::time::Instant::now();
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
-            let buffer = MetalBuffer::from_host_data(&test_data)?;
-            
+            #[cfg(feature = "metal")]
+            let device = metal::Device::system_default().ok_or_else(|| {
+                crate::error::RusTorchError::UnsupportedDevice(
+                    "No Metal device available".to_string(),
+                )
+            })?;
+            #[cfg(feature = "metal")]
+            let mut buffer = MetalBuffer::new(size, &device)?;
+            #[cfg(feature = "metal")]
+            buffer.copy_from_host(&test_data)?;
+
+            #[cfg(not(feature = "metal"))]
+            return Err(crate::error::RusTorchError::UnsupportedDevice(
+                "Metal not available".to_string(),
+            ));
+
             // Test device-to-host copy
             let mut result_data = vec![0.0f32; size];
             buffer.copy_to_host(&mut result_data)?;
-            
+
             // Validate data integrity
-            let max_error = test_data.iter()
+            let max_error = test_data
+                .iter()
                 .zip(result_data.iter())
                 .map(|(a, b)| (a - b).abs())
                 .fold(0.0f32, f32::max);
-            
+
             Ok(max_error)
         })();
 
@@ -311,31 +329,32 @@ impl GpuValidator {
     #[cfg(feature = "opencl")]
     fn validate_opencl_memory(&self) -> ValidationResult {
         use crate::gpu::opencl_kernels::OpenClBuffer;
-        
+
         let start_time = std::time::Instant::now();
         let size = 1024;
         let test_data: Vec<f32> = (0..size).map(|i| i as f32).collect();
 
-        let result = (|| -> Result<f32, GpuError> {
+        let result = (|| -> RusTorchResult<f32> {
             // Test buffer creation
             let buffer = OpenClBuffer::from_host_data(&test_data)?;
-            
+
             // Test device-to-host copy
             let mut result_data = vec![0.0f32; size];
             buffer.copy_to_host(&mut result_data)?;
-            
+
             // Validate data integrity
-            let max_error = test_data.iter()
+            let max_error = test_data
+                .iter()
                 .zip(result_data.iter())
                 .map(|(a, b)| (a - b).abs())
                 .fold(0.0f32, f32::max);
-            
+
             Ok(max_error)
         })();
 
         match result {
             Ok(max_error) => ValidationResult {
-                device: DeviceType::OpenCl(0),
+                device: DeviceType::OpenCL(0),
                 operation: "OpenClMemoryOperations".to_string(),
                 passed: max_error <= self.tolerance,
                 error_message: None,
@@ -343,7 +362,7 @@ impl GpuValidator {
                 max_error,
             },
             Err(e) => ValidationResult {
-                device: DeviceType::OpenCl(0),
+                device: DeviceType::OpenCL(0),
                 operation: "OpenClMemoryOperations".to_string(),
                 passed: false,
                 error_message: Some(format!("{:?}", e)),
@@ -366,25 +385,32 @@ impl GpuValidator {
         report.push_str(&format!("Total Tests: {}\n", total_tests));
         report.push_str(&format!("Passed: {}\n", passed_tests));
         report.push_str(&format!("Failed: {}\n", failed_tests));
-        report.push_str(&format!("Success Rate: {:.1}%\n\n", 
-            (passed_tests as f64 / total_tests as f64) * 100.0));
+        report.push_str(&format!(
+            "Success Rate: {:.1}%\n\n",
+            (passed_tests as f64 / total_tests as f64) * 100.0
+        ));
 
         // Group results by device
-        let mut device_results: std::collections::HashMap<DeviceType, Vec<&ValidationResult>> = 
+        let mut device_results: std::collections::HashMap<DeviceType, Vec<&ValidationResult>> =
             std::collections::HashMap::new();
-        
+
         for result in results {
-            device_results.entry(result.device).or_insert_with(Vec::new).push(result);
+            device_results
+                .entry(result.device)
+                .or_default()
+                .push(result);
         }
 
         for (device, device_results) in device_results {
             report.push_str(&format!("--- {} ---\n", device));
-            
+
             for result in device_results {
                 let status = if result.passed { "PASS" } else { "FAIL" };
-                report.push_str(&format!("  {}: {} ({:.2}ms, max_error: {:.6})\n",
-                    result.operation, status, result.execution_time_ms, result.max_error));
-                
+                report.push_str(&format!(
+                    "  {}: {} ({:.2}ms, max_error: {:.6})\n",
+                    result.operation, status, result.execution_time_ms, result.max_error
+                ));
+
                 if let Some(ref error) = result.error_message {
                     report.push_str(&format!("    Error: {}\n", error));
                 }
@@ -445,17 +471,15 @@ mod tests {
     #[test]
     fn test_validation_report_generation() {
         let validator = GpuValidator::new(1e-5);
-        let results = vec![
-            ValidationResult {
-                device: DeviceType::Cpu,
-                operation: "Test".to_string(),
-                passed: true,
-                error_message: None,
-                execution_time_ms: 1.0,
-                max_error: 0.0,
-            }
-        ];
-        
+        let results = vec![ValidationResult {
+            device: DeviceType::Cpu,
+            operation: "Test".to_string(),
+            passed: true,
+            error_message: None,
+            execution_time_ms: 1.0,
+            max_error: 0.0,
+        }];
+
         let report = validator.generate_report(&results);
         assert!(report.contains("Total Tests: 1"));
         assert!(report.contains("Passed: 1"));

@@ -144,7 +144,7 @@
 //! parallel contexts without additional synchronization.
 
 use super::Tensor;
-use super::parallel_errors::{ParallelError, ParallelResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::ArrayD;
 use num_traits::Float;
 use rayon::prelude::*;
@@ -210,12 +210,7 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         F: Fn(T, T) -> T + Send + Sync,
     {
         if self.data.shape() != other.data.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.data.shape(),
-                other.data.shape(),
-                "in-place element-wise operation"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         if let (Some(self_slice), Some(other_slice)) = (
             self.data.as_slice_mut(),
@@ -268,15 +263,15 @@ impl<T: Float + Clone + Send + Sync + 'static> Tensor<T> {
         let other_shape = other.data.shape();
 
         if self_shape.len() != 2 || other_shape.len() != 2 {
-            return Err(ParallelError::insufficient_dimensions(
+            return Err(RusTorchError::parallel(insufficient_dimensions(
                 2, self_shape.len(), "matrix multiplication"
-            ));
+            ).into());
         }
 
         if self_shape[1] != other_shape[0] {
-            return Err(ParallelError::matmul_dimension_mismatch(
+            return Err(RusTorchError::parallel(matmul_dimension_mismatch(
                 self_shape, other_shape
-            ));
+            ).into());
         }
 
         let result_shape = vec![self_shape[0], other_shape[1]];
@@ -376,12 +371,7 @@ impl Tensor<f32> {
     /// メモリプーリング付きSIMD最適化要素ごと加算
     pub fn add_simd_pooled(&self, other: &Tensor<f32>) -> ParallelResult<Tensor<f32>> {
         if self.data.shape() != other.data.shape() {
-            return Err(ParallelError::shape_mismatch(
-                self.data.shape(),
-                other.data.shape(),
-                "SIMD addition"
-            ));
-        }
+            return Err(RusTorchError::parallel("Shape mismatch"));        }
 
         let mut result = Self::with_strategy(self.data.shape(), AllocationStrategy::SimdAligned);
         
@@ -516,7 +506,7 @@ mod tests {
         assert!(result.is_err());
         
         match result.unwrap_err() {
-            ParallelError::ShapeMismatch { .. } => {},
+            RusTorchError::parallel(ShapeMismatch { .. } => {},
             _ => panic!("Expected ShapeMismatch error"),
         }
     }

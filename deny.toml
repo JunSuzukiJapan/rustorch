@@ -31,6 +31,7 @@ db-urls = ["https://github.com/rustsec/advisory-db"]
 
 # 特定のアドバイザリを無視
 [[advisories.ignore]]
-# instantクレートは非推奨だが、互換性のために一時的に無視
-id = "RUSTSEC-2024-0384"
-reason = "Temporary ignore for unmaintained crate"
+# pasteクレートは非推奨だが、metal依存関係のために一時的に無視
+# metalチームが代替手段に移行するまで待機
+id = "RUSTSEC-2024-0436"
+reason = "Temporary ignore: paste unmaintained but required by metal crate"

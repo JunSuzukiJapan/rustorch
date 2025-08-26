@@ -1,16 +1,16 @@
 //! 汎用的な学習ループトレーナー
 //! Generic training loop trainer
 
-use crate::autograd::Variable;
-use crate::nn::loss::Loss;
-use crate::optim::Optimizer;
-use crate::data::DataLoader;
-use super::state::{TrainingState, EpochState, BatchState};
 use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
+use super::state::{BatchState, EpochState, TrainingState};
+use crate::autograd::Variable;
+use crate::data::DataLoader;
+use crate::nn::loss::Loss;
+use crate::optim::Optimizer;
 use num_traits::Float;
-use std::time::Instant;
 use std::fmt::Debug;
+use std::time::Instant;
 
 /// 訓練設定
 /// Training configuration
@@ -50,7 +50,14 @@ impl Default for TrainerConfig {
 /// Generic training loop trainer
 pub struct Trainer<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -64,7 +71,14 @@ where
 
 impl<T, O, L> Trainer<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -192,7 +206,9 @@ where
 
             // 順伝播
             let outputs = model.forward(&Variable::new(inputs, false));
-            let loss = self.loss_fn.forward(&outputs, &Variable::new(targets, false));
+            let loss = self
+                .loss_fn
+                .forward(&outputs, &Variable::new(targets, false));
 
             // 逆伝播と最適化
             if batch_count % self.config.accumulation_steps == 0 {
@@ -228,11 +244,7 @@ where
 
             // ログ出力
             if batch_count % self.config.log_frequency == 0 {
-                println!(
-                    "Batch {}: Loss = {:.4}",
-                    batch_count,
-                    loss_value
-                );
+                println!("Batch {}: Loss = {:.4}", batch_count, loss_value);
             }
 
             batch_count += 1;
@@ -266,7 +278,9 @@ where
         while let Some((inputs, targets)) = val_loader.next_batch() {
             // 順伝播のみ（勾配計算なし）
             let outputs = model.forward(&Variable::new(inputs, false));
-            let loss = self.loss_fn.forward(&outputs, &Variable::new(targets, false));
+            let loss = self
+                .loss_fn
+                .forward(&outputs, &Variable::new(targets, false));
 
             let loss_value = self.extract_scalar_value(&loss);
             epoch_metrics.total_loss = epoch_metrics.total_loss + T::from(loss_value).unwrap();
@@ -330,7 +344,10 @@ where
 
 /// 訓練可能なモデルのトレイト
 /// Trait for trainable models
-pub trait TrainableModel<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub trait TrainableModel<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+>
+{
     /// 順伝播
     /// Forward pass
     fn forward(&self, input: &Variable<T>) -> Variable<T>;
@@ -399,7 +416,14 @@ pub enum CallbackSignal {
 /// TrainerBuilderパターンでの流暢なAPI
 pub struct TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -411,7 +435,14 @@ where
 
 impl<T, O, L> TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -478,8 +509,12 @@ where
     /// トレーナーを構築
     /// Build the trainer
     pub fn build(self) -> anyhow::Result<Trainer<T, O, L>> {
-        let optimizer = self.optimizer.ok_or_else(|| anyhow::anyhow!("Optimizer not provided"))?;
-        let loss_fn = self.loss_fn.ok_or_else(|| anyhow::anyhow!("Loss function not provided"))?;
+        let optimizer = self
+            .optimizer
+            .ok_or_else(|| anyhow::anyhow!("Optimizer not provided"))?;
+        let loss_fn = self
+            .loss_fn
+            .ok_or_else(|| anyhow::anyhow!("Loss function not provided"))?;
 
         Ok(Trainer::new(self.config, optimizer, loss_fn))
     }
@@ -487,7 +522,14 @@ where
 
 impl<T, O, L> Default for TrainerBuilder<T, O, L>
 where
-    T: Float + 'static + Send + Sync + Debug + Clone + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + 'static
+        + Send
+        + Sync
+        + Debug
+        + Clone
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
     O: Optimizer + Clone,
     L: Loss<T> + Clone,
 {
@@ -508,7 +550,7 @@ mod tests {
         assert_eq!(config.validation_frequency, 1);
         assert_eq!(config.gradient_clip_value, None);
         assert_eq!(config.device, "cpu");
-        assert_eq!(config.use_mixed_precision, false);
+        assert!(!config.use_mixed_precision);
         assert_eq!(config.accumulation_steps, 1);
     }
 
@@ -524,8 +566,8 @@ mod tests {
     fn test_callback_signal() {
         let signal = CallbackSignal::Continue;
         match signal {
-            CallbackSignal::Continue => assert!(true),
-            CallbackSignal::Stop => assert!(false),
+            CallbackSignal::Continue => {} // Continue execution
+            CallbackSignal::Stop => unreachable!("Stop signal should be handled earlier"),
         }
     }
 }

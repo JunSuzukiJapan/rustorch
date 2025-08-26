@@ -24,12 +24,16 @@ pub fn kaiming_init<T: Float>(shape: &[usize], fan_in: usize) -> Vec<T> {
 }
 
 /// Computes the mean squared error between two tensors
-pub fn mse_loss<T>(output: &ArrayD<T>, target: &ArrayD<T>) -> T 
+pub fn mse_loss<T>(output: &ArrayD<T>, target: &ArrayD<T>) -> T
 where
     T: Float + FromPrimitive + ScalarOperand + std::ops::AddAssign + std::iter::Sum,
 {
-    assert_eq!(output.shape(), target.shape(), "Shapes must match for MSE loss");
-    
+    assert_eq!(
+        output.shape(),
+        target.shape(),
+        "Shapes must match for MSE loss"
+    );
+
     let diff = output - target;
     let squared_diff = &diff * &diff;
     let sum: T = squared_diff.iter().cloned().sum();

@@ -81,65 +81,37 @@ pub mod utils;
 pub mod tests;
 
 // Re-export main visualization types
-pub use plotting::{TrainingPlotter, PlotConfig, PlotStyle, ChartType};
-pub use tensor_viz::{TensorVisualizer, TensorPlotConfig, ColorMap};
-pub use graph_viz::{GraphVisualizer, GraphNode, GraphEdge, GraphLayout};
-pub use utils::{save_plot, export_format, PlotFormat};
+pub use graph_viz::{GraphEdge, GraphLayout, GraphNode, GraphVisualizer};
+pub use plotting::{ChartType, PlotConfig, PlotStyle, TrainingPlotter};
+pub use tensor_viz::{ColorMap, TensorPlotConfig, TensorVisualizer};
+pub use utils::{export_format, save_plot, PlotFormat};
 
+use crate::error::RusTorchResult; // RusTorchError,
 use num_traits::Float;
 use std::collections::HashMap;
 
-/// 可視化エラー
-/// Visualization errors
-#[derive(Debug)]
-pub enum VisualizationError {
-    /// データ形式が無効
-    /// Invalid data format
-    InvalidDataFormat(String),
-    /// I/Oエラー
-    /// I/O error
-    IoError(std::io::Error),
-    /// プロッティングエラー
-    /// Plotting error
-    PlottingError(String),
-    /// 設定エラー
-    /// Configuration error
-    ConfigError(String),
-}
+// PlotData is defined later with generic type parameter
 
-impl std::fmt::Display for VisualizationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VisualizationError::InvalidDataFormat(msg) => write!(f, "Invalid data format: {}", msg),
-            VisualizationError::IoError(err) => write!(f, "File I/O error: {}", err),
-            VisualizationError::PlottingError(msg) => write!(f, "Plotting error: {}", msg),
-            VisualizationError::ConfigError(msg) => write!(f, "Configuration error: {}", msg),
-        }
-    }
-}
+// TensorSpec is defined in model_import::mod - import when needed
+pub use crate::model_import::TensorSpec;
 
-impl std::error::Error for VisualizationError {}
+// VisualizationError enum removed - now using unified RusTorchError system
+// VisualizationErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-impl From<std::io::Error> for VisualizationError {
-    fn from(err: std::io::Error) -> Self {
-        VisualizationError::IoError(err)
-    }
-}
-
-/// 可視化結果
-/// Visualization result
-pub type VisualizationResult<T> = Result<T, VisualizationError>;
+// 可視化結果 (統一済み)
+// Visualization result (統一済み)
+// RusTorchResult already imported - no need to redefine
 
 /// 基本的な可視化トレイト
 /// Base visualization trait
 pub trait Visualizable<T: Float> {
     /// データを可視化用フォーマットに変換
     /// Convert data to visualization format
-    fn to_plot_data(&self) -> VisualizationResult<PlotData<T>>;
-    
+    fn to_plot_data(&self) -> RusTorchResult<PlotData<T>>;
+
     /// 可視化設定を検証
     /// Validate visualization configuration
-    fn validate_config(&self, config: &PlotConfig) -> VisualizationResult<()>;
+    fn validate_config(&self, config: &PlotConfig) -> RusTorchResult<()>;
 }
 
 /// プロットデータ
@@ -175,14 +147,14 @@ impl<T: Float> PlotData<T> {
             style: PlotStyle::Line,
         }
     }
-    
+
     /// 色を設定
     /// Set color
     pub fn with_color(mut self, color: String) -> Self {
         self.color = Some(color);
         self
     }
-    
+
     /// スタイルを設定
     /// Set style
     pub fn with_style(mut self, style: PlotStyle) -> Self {
@@ -221,14 +193,14 @@ impl PlotMetadata {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     /// タイトルを設定
     /// Set title
     pub fn with_title(mut self, title: String) -> Self {
         self.title = Some(title);
         self
     }
-    
+
     /// 軸ラベルを設定
     /// Set axis labels
     pub fn with_labels(mut self, xlabel: String, ylabel: String) -> Self {
@@ -236,7 +208,7 @@ impl PlotMetadata {
         self.ylabel = Some(ylabel);
         self
     }
-    
+
     /// 凡例とグリッドを有効化
     /// Enable legend and grid
     pub fn with_legend_and_grid(mut self) -> Self {

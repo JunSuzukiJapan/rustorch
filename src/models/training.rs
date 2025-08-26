@@ -2,10 +2,10 @@
 //! Model training and inference interface
 
 use crate::autograd::Variable;
+use crate::data::{DataLoader, Dataset};
+use crate::models::Model;
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
-use crate::models::Model;
-use crate::data::{Dataset, DataLoader};
 use num_traits::Float;
 use std::fmt::Debug;
 use std::time::{Duration, Instant};
@@ -90,7 +90,7 @@ impl TrainingResult {
             completed_epochs: 0,
         }
     }
-    
+
     /// 訓練結果のサマリーを表示
     /// Display training result summary
     pub fn summary(&self) -> String {
@@ -110,9 +110,15 @@ impl TrainingResult {
     }
 }
 
+impl Default for TrainingResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// モデル訓練器
 /// Model trainer
-pub struct Trainer<T, M, O, L> 
+pub struct Trainer<T, M, O, L>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
@@ -126,7 +132,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, M, O, L> Trainer<T, M, O, L> 
+impl<T, M, O, L> Trainer<T, M, O, L>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
@@ -144,27 +150,23 @@ where
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// モデルを訓練
     /// Train the model
-    pub fn train<D>(
-        &mut self,
-        _train_dataset: D,
-        _val_dataset: Option<D>,
-    ) -> TrainingResult 
+    pub fn train<D>(&mut self, _train_dataset: D, _val_dataset: Option<D>) -> TrainingResult
     where
         D: Dataset<T> + Clone,
     {
         let mut result = TrainingResult::new();
         let start_time = Instant::now();
-        
+
         // DataLoader の実装は簡略化 - 実際には適切なイテレータが必要
         // let train_loader = DataLoader::new(train_dataset.clone(), self.config.batch_size, true);
         // let val_loader = val_dataset.map(|dataset| DataLoader::new(dataset, self.config.batch_size, false));
-        
+
         let mut best_val_loss = f64::INFINITY;
         let mut patience_counter = 0;
-        
+
         for epoch in 0..self.config.epochs {
             // 訓練フェーズ（簡略化実装）
             Model::train(&mut self.model);
@@ -172,7 +174,7 @@ where
             let train_acc = 0.5 + (epoch as f64 * 0.08); // シミュレーション
             result.train_losses.push(train_loss);
             result.train_accuracies.push(train_acc);
-            
+
             // 検証フェーズ（簡略化実装）
             if epoch % self.config.validation_frequency == 0 {
                 Model::eval(&mut self.model);
@@ -180,7 +182,7 @@ where
                 let val_acc = train_acc - 0.05; // シミュレーション
                 result.val_losses.push(val_loss);
                 result.val_accuracies.push(val_acc);
-                
+
                 // 最良モデルの更新
                 if val_loss < best_val_loss {
                     best_val_loss = val_loss;
@@ -190,7 +192,7 @@ where
                 } else {
                     patience_counter += 1;
                 }
-                
+
                 // 早期停止チェック
                 if let Some(patience) = self.config.early_stopping_patience {
                     if patience_counter >= patience {
@@ -199,7 +201,7 @@ where
                     }
                 }
             }
-            
+
             // ログ出力
             if epoch % self.config.log_frequency == 0 {
                 println!(
@@ -209,7 +211,7 @@ where
                     train_loss,
                     train_acc
                 );
-                
+
                 if let Some(val_loss) = result.val_losses.last() {
                     if let Some(val_acc) = result.val_accuracies.last() {
                         println!(
@@ -219,24 +221,20 @@ where
                     }
                 }
             }
-            
+
             result.completed_epochs = epoch + 1;
         }
-        
+
         result.total_training_time = start_time.elapsed();
         result
     }
-    
-    
-    
-    
-    
+
     /// モデルへの参照を取得
     /// Get reference to the model
     pub fn model(&self) -> &M {
         &self.model
     }
-    
+
     /// モデルへの可変参照を取得
     /// Get mutable reference to the model
     pub fn model_mut(&mut self) -> &mut M {
@@ -246,7 +244,7 @@ where
 
 /// 推論器
 /// Inference engine
-pub struct InferenceEngine<T, M> 
+pub struct InferenceEngine<T, M>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
@@ -256,7 +254,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T, M> InferenceEngine<T, M> 
+impl<T, M> InferenceEngine<T, M>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
     M: Model<T>,
@@ -271,31 +269,32 @@ where
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// 単一サンプルの推論
     /// Inference for a single sample
     pub fn predict(&self, input: &Variable<T>) -> Variable<T> {
         self.model.forward(input)
     }
-    
+
     /// バッチ推論
     /// Batch inference
     pub fn predict_batch(&self, inputs: Vec<Variable<T>>) -> Vec<Variable<T>> {
-        inputs.into_iter()
+        inputs
+            .into_iter()
             .map(|input| self.predict(&input))
             .collect()
     }
-    
+
     /// データローダーを使用した推論（簡略化実装）
     /// Inference using data loader (simplified implementation)
-    pub fn predict_dataloader<D>(&self, _dataloader: &DataLoader<T, D>) -> Vec<Variable<T>> 
+    pub fn predict_dataloader<D>(&self, _dataloader: &DataLoader<T, D>) -> Vec<Variable<T>>
     where
         D: Dataset<T>,
     {
         // 簡略化実装 - 空のベクターを返す
         Vec::new()
     }
-    
+
     /// 確率分布の予測
     /// Predict probability distribution
     pub fn predict_proba(&self, input: &Variable<T>) -> Variable<T> {
@@ -303,7 +302,7 @@ where
         // ソフトマックスを適用（実装は簡略化）
         output
     }
-    
+
     /// Top-k予測
     /// Top-k prediction
     pub fn predict_top_k(&self, input: &Variable<T>, _k: usize) -> Vec<(usize, T)> {
@@ -315,7 +314,7 @@ where
 
 /// 訓練器ビルダー
 /// Trainer builder
-pub struct TrainerBuilder<T> 
+pub struct TrainerBuilder<T>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
@@ -323,7 +322,7 @@ where
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> TrainerBuilder<T> 
+impl<T> TrainerBuilder<T>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
@@ -335,52 +334,52 @@ where
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// エポック数を設定
     /// Set number of epochs
     pub fn epochs(mut self, epochs: usize) -> Self {
         self.config.epochs = epochs;
         self
     }
-    
+
     /// バッチサイズを設定
     /// Set batch size
     pub fn batch_size(mut self, batch_size: usize) -> Self {
         self.config.batch_size = batch_size;
         self
     }
-    
+
     /// 学習率を設定
     /// Set learning rate
     pub fn learning_rate(mut self, lr: f64) -> Self {
         self.config.learning_rate = lr;
         self
     }
-    
+
     /// 重み減衰を設定
     /// Set weight decay
     pub fn weight_decay(mut self, decay: f64) -> Self {
         self.config.weight_decay = decay;
         self
     }
-    
+
     /// 早期停止の忍耐度を設定
     /// Set early stopping patience
     pub fn early_stopping_patience(mut self, patience: usize) -> Self {
         self.config.early_stopping_patience = Some(patience);
         self
     }
-    
+
     /// デバイスを設定
     /// Set device
     pub fn device(mut self, device: String) -> Self {
         self.config.device = device;
         self
     }
-    
+
     /// 訓練器を構築
     /// Build the trainer
-    pub fn build<M, O, L>(self, model: M, optimizer: O, loss_fn: L) -> Trainer<T, M, O, L> 
+    pub fn build<M, O, L>(self, model: M, optimizer: O, loss_fn: L) -> Trainer<T, M, O, L>
     where
         M: Model<T>,
         O: Optimizer,
@@ -391,7 +390,7 @@ where
     }
 }
 
-impl<T> Default for TrainerBuilder<T> 
+impl<T> Default for TrainerBuilder<T>
 where
     T: Float + 'static + Send + Sync + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
@@ -407,52 +406,79 @@ pub struct EvaluationMetrics;
 impl EvaluationMetrics {
     /// 精度を計算
     /// Calculate accuracy
-    pub fn accuracy<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
+    pub fn accuracy<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64
     where
-        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.85
     }
-    
+
     /// 精密度を計算
     /// Calculate precision
-    pub fn precision<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
+    pub fn precision<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64
     where
-        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.82
     }
-    
+
     /// 再現率を計算
     /// Calculate recall
-    pub fn recall<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
+    pub fn recall<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64
     where
-        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.88
     }
-    
+
     /// F1スコアを計算
     /// Calculate F1 score
-    pub fn f1_score<T>(
-        _predictions: &Variable<T>,
-        _targets: &Variable<T>,
-    ) -> f64 
+    pub fn f1_score<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64
     where
-        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.85
     }
-    
+
     /// ROC AUCを計算
     /// Calculate ROC AUC
-    pub fn roc_auc<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64 
+    pub fn roc_auc<T>(_predictions: &Variable<T>, _targets: &Variable<T>) -> f64
     where
-        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // 実装は簡略化
         0.92
