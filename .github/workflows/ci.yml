@@ -158,8 +158,8 @@ jobs:
             # macOSではApple Silicon互換性のため明示的にx86_64ターゲットでテスト
             cargo test --verbose --no-default-features --features "linalg-netlib" --target x86_64-apple-darwin
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            # LinuxではMPI機能を含む基本テスト (linalg-netlibの代わりに標準linalg使用)
-            cargo test --verbose --features "linalg,mpi"
+            # LinuxではLAPACK/BLAS機能を含む基本テスト (MPIを除外してlinalg使用)
+            cargo test --verbose --features "linalg"
           else
             # Windowsでは基本機能のみでテスト (linalg-netlibを無効化)
             cargo test --verbose --no-default-features
@@ -172,8 +172,8 @@ jobs:
             # macOSではApple Silicon互換性のため明示的にx86_64ターゲットでdoctest実行
             cargo test --doc --no-default-features --features "linalg-netlib" --target x86_64-apple-darwin
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            # LinuxではMPI機能を含む基本doctest (linalg-netlibの代わりに標準linalg使用)
-            cargo test --doc --features "linalg,mpi"
+            # LinuxではLAPACK/BLAS機能を含む基本doctest (MPIを除外してlinalg使用)
+            cargo test --doc --features "linalg"
           else
             # Windowsでは基本機能のみでdoctest (linalg-netlibを無効化)
             cargo test --doc --no-default-features
