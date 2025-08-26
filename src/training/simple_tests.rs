@@ -73,32 +73,28 @@ mod basic_tests {
     #[test]
     fn test_metrics_collector() {
         let _collector = MetricsCollector::<f32>::new();
-        // 基本的な作成テストのみ
-        assert!(true); // プレースホルダー
+        // 基本的な作成テストのみ - プレースホルダーテスト
     }
 
     #[test]
     fn test_early_stopping_callback() {
         let _early_stopping: EarlyStopping<f32> = EarlyStopping::monitor_val_loss(3, 0.01);
 
-        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける）
-        assert!(true); // プレースホルダー
+        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける） - プレースホルダーテスト
     }
 
     #[test]
     fn test_lr_scheduler() {
         let _scheduler = LearningRateScheduler::exponential_decay(0.001, 0.95);
 
-        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける）
-        assert!(true); // プレースホルダー
+        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける） - プレースホルダーテスト
     }
 
     #[test]
     fn test_progress_bar() {
         let _progress = ProgressBar::simple();
 
-        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける）
-        assert!(true); // プレースホルダー
+        // 基本的な作成テストのみ（プライベートフィールドのアクセスを避ける） - プレースホルダーテスト
     }
 
     #[test]

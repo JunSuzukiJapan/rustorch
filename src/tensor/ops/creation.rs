@@ -218,7 +218,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let mut tiled_data = Vec::with_capacity(new_shape.iter().product());
         
         // Simple tiling implementation
-        Self::_tile_recursive(original_data, original_shape, &full_reps, 0, &mut vec![], &mut tiled_data);
+        Self::_tile_recursive(original_data, original_shape, &full_reps, 0, &mut [], &mut tiled_data);
         
         Ok(Tensor::from_vec(tiled_data, new_shape))
     }

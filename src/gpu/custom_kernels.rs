@@ -39,8 +39,7 @@ pub enum CustomKernelType {
 }
 
 /// Custom kernel configuration
-/// カスタムカーネル設定
-#[derive(Debug, Clone)]
+/// カスタムカーネル設定#[derive(Debug, Clone)]
 pub struct KernelConfig {
     /// Type of custom kernel to execute
     /// 実行するカスタムカーネルのタイプ
@@ -60,8 +59,7 @@ pub struct KernelConfig {
 }
 
 /// Kernel parameter types
-/// カーネルパラメータタイプ
-#[derive(Debug, Clone)]
+/// カーネルパラメータタイプ#[derive(Debug, Clone)]
 pub enum KernelParameter {
     /// Integer parameter
     /// 整数パラメータ
@@ -653,8 +651,7 @@ extern "C" __global__ void fused_attention(
 }
 
 /// Kernel performance statistics
-/// カーネルパフォーマンス統計
-#[derive(Debug)]
+/// カーネルパフォーマンス統計#[derive(Debug)]
 pub struct KernelStats {
     /// Type of the kernel
     /// カーネルのタイプ

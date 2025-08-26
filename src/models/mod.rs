@@ -15,8 +15,8 @@ pub mod sequential;
 /// High-level model API
 pub mod high_level;
 
-/// Sequential APIの使用例
-/// Sequential API examples
+// Sequential APIの使用例
+// Sequential API examples
 // pub mod examples;  // 一時的にコメントアウト - 型制約の問題のため
 
 /// 基本的なSequential API実装

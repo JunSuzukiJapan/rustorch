@@ -6,8 +6,7 @@ use std::collections::HashMap;
 use std::time::Instant;
 
 /// Benchmark configuration
-/// ベンチマーク設定
-#[derive(Debug, Clone)]
+/// ベンチマーク設定#[derive(Debug, Clone)]
 pub struct BenchmarkConfig {
     /// Number of warmup iterations
     /// ウォームアップ反復回数
@@ -43,8 +42,7 @@ impl Default for BenchmarkConfig {
 }
 
 /// Benchmark result for a single operation
-/// 単一演算のベンチマーク結果
-#[derive(Debug, Clone)]
+/// 単一演算のベンチマーク結果#[derive(Debug, Clone)]
 #[allow(missing_docs)]
 pub struct BenchmarkResult {
     pub operation_name: String,

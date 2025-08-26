@@ -48,8 +48,7 @@ pub enum GpuBuffer<T> {
     Cpu(Arc<Vec<T>>),
 }
 
-/// GPU memory manager for tensor operations
-#[derive(Default)]
+/// GPU memory manager for tensor operations#[derive(Default)]
 pub struct GpuMemoryManager<T: Float> {
     _phantom: PhantomData<T>,
 }

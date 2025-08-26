@@ -120,8 +120,7 @@ impl Default for GpuBackend {
     }
 }
 
-/// CPU device implementation
-#[derive(Debug)]
+/// CPU device implementation#[derive(Debug)]
 pub struct CpuDevice {
     id: usize,
 }
@@ -177,8 +176,7 @@ impl GpuDevice for CpuDevice {
     }
 }
 
-/// CPU stream implementation
-#[derive(Debug)]
+/// CPU stream implementation#[derive(Debug)]
 pub struct CpuStream;
 
 impl CpuStream {
@@ -459,8 +457,7 @@ impl GpuStream for OpenCLStream {
 }
 
 /// GPU device capabilities
-/// GPUデバイス機能
-#[derive(Debug, Clone)]
+/// GPUデバイス機能#[derive(Debug, Clone)]
 pub struct DeviceCapabilities {
     /// Device name
     /// デバイス名

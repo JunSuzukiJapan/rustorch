@@ -16,8 +16,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 /// Optimization target metrics
-/// 最適化対象メトリクス
-#[derive(Debug, Clone, Copy, PartialEq)]
+/// 最適化対象メトリクス#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum OptimizationTarget {
     /// Minimize execution time
     /// 実行時間を最小化
@@ -34,8 +33,7 @@ pub enum OptimizationTarget {
 }
 
 /// Parameter optimization configuration
-/// パラメータ最適化設定
-#[derive(Debug, Clone)]
+/// パラメータ最適化設定#[derive(Debug, Clone)]
 pub struct OptimizationConfig {
     /// Optimization target
     /// 最適化目標
@@ -63,8 +61,7 @@ impl Default for OptimizationConfig {
 }
 
 /// Optimization result
-/// 最適化結果
-#[derive(Debug, Clone)]
+/// 最適化結果#[derive(Debug, Clone)]
 pub struct OptimizationResult {
     /// Optimized kernel parameters
     /// 最適化されたカーネルパラメータ
@@ -81,8 +78,7 @@ pub struct OptimizationResult {
 }
 
 /// Memory layout optimizer
-/// メモリレイアウト最適化器
-#[derive(Debug, Clone)]
+/// メモリレイアウト最適化器#[derive(Debug, Clone)]
 pub struct MemoryLayoutOptimizer {
     /// Device-specific memory alignment requirements
     /// デバイス固有のメモリアライメント要件

@@ -3,7 +3,7 @@ use super::vectorized;
 
 /// High-level SIMD operations interface
 /// 高レベルSIMD演算インターフェース
-
+///
 /// Optimized element-wise addition with automatic SIMD selection
 /// 自動SIMD選択による最適化された要素ごと加算
 pub fn add_optimized(a: &[f32], b: &[f32], result: &mut [f32]) {

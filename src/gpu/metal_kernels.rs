@@ -721,7 +721,7 @@ impl MetalKernelExecutor {
 
 /// Public interface functions for Metal operations
 /// Metal演算のためのパブリックインターフェース関数
-
+///
 /// Execute Metal matrix multiplication
 /// Metal行列乗算を実行
 pub fn metal_matmul_f32(

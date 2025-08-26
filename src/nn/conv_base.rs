@@ -93,7 +93,7 @@ pub trait PoolingBase<T: Float + Send + Sync> {
 /// ニューラルネットワーク操作の結果型 (統一済み)
 pub type NNResult<T> = crate::error::RusTorchResult<T>;
 
-/// Error types for neural network operations
+// Error types for neural network operations
 // RusTorchError enum removed - now using unified RusTorchError system
 // RusTorchErrorエナム削除 - 統一RusTorchErrorシステムを使用
 

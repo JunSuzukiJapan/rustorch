@@ -421,7 +421,7 @@ macro_rules! profile_fn {
 
 /// Global profiler control functions
 /// グローバルプロファイラー制御関数
-
+///
 /// Enable global profiler
 /// グローバルプロファイラーを有効化
 pub fn enable_profiler() {

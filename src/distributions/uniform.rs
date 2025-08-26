@@ -252,7 +252,7 @@ mod tests {
 
         let uniform = Uniform::new(low, high, true).unwrap();
         assert_eq!(uniform.base.batch_shape, vec![1]);
-        assert_eq!(uniform.base.event_shape, vec![] as Vec<usize>);
+        assert_eq!(uniform.base.event_shape, [] as Vec<usize>);
     }
 
     #[test]

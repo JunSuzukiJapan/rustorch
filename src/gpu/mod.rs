@@ -344,13 +344,14 @@ impl GpuContext {
     }
 }
 
-/// GPU error types
-/// GPUエラータイプ
+// GPU error types
+// GPUエラータイプ
 // GpuError enum removed - now using unified RusTorchError system
 // GpuErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-/// Result type for GPU operations (now unified) - using global RusTorchResult
-/// GPU演算の結果型（統一済み）- グローバルRusTorchResultを使用
+// Result type for GPU operations (now unified) - using global RusTorchResult
+// GPU演算の結果型（統一済み）- グローバルRusTorchResultを使用
+
 // Re-export simplified unified kernel system components
 // 簡潔な統一カーネルシステムコンポーネントを再エクスポート
 pub use unified_kernel_simple::{

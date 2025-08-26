@@ -317,8 +317,7 @@ impl GpuMemoryPool {
 }
 
 /// Memory utilization statistics
-/// メモリ使用統計
-#[derive(Debug, Clone)]
+/// メモリ使用統計#[derive(Debug, Clone)]
 pub struct MemoryStats {
     /// Total pool size in bytes
     pub total_size: usize,

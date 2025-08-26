@@ -11,8 +11,7 @@ use cudarc::{
 };
 
 /// CUDA kernel types
-/// CUDAカーネルタイプ
-#[derive(Debug, Clone, Copy)]
+/// CUDAカーネルタイプ#[derive(Debug, Clone, Copy)]
 pub enum CudaKernelType {
     /// Element-wise operations
     /// 要素ごと演算
@@ -32,8 +31,7 @@ pub enum CudaKernelType {
 }
 
 /// CUDA kernel parameters
-/// CUDAカーネルパラメータ
-#[derive(Debug, Clone)]
+/// CUDAカーネルパラメータ#[derive(Debug, Clone)]
 pub struct CudaKernelParams {
     /// Grid dimensions
     /// グリッド次元
@@ -61,8 +59,7 @@ impl Default for CudaKernelParams {
 }
 
 /// CUDA memory buffer
-/// CUDAメモリバッファ
-#[derive(Debug)]
+/// CUDAメモリバッファ#[derive(Debug)]
 pub struct CudaBuffer<T> {
     /// Device pointer
     /// デバイスポインタ
@@ -515,7 +512,7 @@ impl CudaKernelExecutor {
 
 /// Public interface functions for CUDA operations
 /// CUDA演算のためのパブリックインターフェース関数
-
+///
 /// Execute CUDA matrix multiplication
 /// CUDA行列乗算を実行
 pub fn cuda_matmul_f32(
@@ -614,8 +611,7 @@ pub mod cuda_utils {
 }
 
 /// CUDA device properties
-/// CUDAデバイスプロパティ
-#[derive(Debug, Clone)]
+/// CUDAデバイスプロパティ#[derive(Debug, Clone)]
 pub struct DeviceProperties {
     /// Device name
     /// デバイス名

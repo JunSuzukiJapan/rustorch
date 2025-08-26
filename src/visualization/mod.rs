@@ -98,8 +98,8 @@ pub use crate::model_import::TensorSpec;
 // VisualizationError enum removed - now using unified RusTorchError system
 // VisualizationErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-/// 可視化結果 (統一済み)
-/// Visualization result (統一済み)
+// 可視化結果 (統一済み)
+// Visualization result (統一済み)
 // RusTorchResult already imported - no need to redefine
 
 /// 基本的な可視化トレイト

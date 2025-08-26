@@ -1235,7 +1235,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
 
     /// Apply a function element-wise.
-
+    ///
     /// Apply exponential function element-wise.
     /// 要素ごとに指数関数を適用
     pub fn exp(&self) -> Self {

@@ -336,7 +336,7 @@ impl CudaMatrixExecutor {
 
 /// Public interface functions for CUDA operations
 /// CUDA演算のためのパブリックインターフェース関数
-
+///
 /// Execute CUDA matrix multiplication with cuBLAS
 /// cuBLASを使用したCUDA行列乗算を実行
 pub fn cuda_matmul_f32(

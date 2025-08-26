@@ -15,8 +15,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
 /// Performance database for kernel selection
-/// カーネル選択のためのパフォーマンスデータベース
-#[derive(Debug, Clone)]
+/// カーネル選択のためのパフォーマンスデータベース#[derive(Debug, Clone)]
 pub struct PerformanceDatabase {
     /// Performance records: (device, operation, input_size) -> metrics
     /// パフォーマンスレコード: (デバイス, 操作, 入力サイズ) -> メトリクス
@@ -62,8 +61,7 @@ impl Default for PerformanceDatabase {
 }
 
 /// Workload characteristics for kernel selection
-/// カーネル選択のためのワークロード特性
-#[derive(Debug, Clone)]
+/// カーネル選択のためのワークロード特性#[derive(Debug, Clone)]
 pub struct WorkloadProfile {
     /// Total number of elements to process
     /// 処理する要素の総数
@@ -132,8 +130,7 @@ impl WorkloadProfile {
 }
 
 /// Kernel selection strategy
-/// カーネル選択戦略
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// カーネル選択戦略#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionStrategy {
     /// Always prefer fastest device
     /// 常に最速デバイスを優先

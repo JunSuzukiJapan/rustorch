@@ -17,8 +17,7 @@ use opencl3::{
 };
 
 /// OpenCL device information for optimization selection
-/// 最適化選択のためのOpenCLデバイス情報
-#[derive(Debug, Clone)]
+/// 最適化選択のためのOpenCLデバイス情報#[derive(Debug, Clone)]
 pub struct OpenClDeviceInfo {
     /// Device name
     /// デバイス名
@@ -654,7 +653,7 @@ impl OpenClMatrixExecutor {
 
 /// Public interface functions for OpenCL operations
 /// OpenCL演算のためのパブリックインターフェース関数
-
+///
 /// Execute OpenCL matrix multiplication
 /// OpenCL行列乗算を実行
 pub fn opencl_matmul_f32(

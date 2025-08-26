@@ -14,8 +14,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 /// Unified kernel operation types
-/// 統一カーネル操作タイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// 統一カーネル操作タイプ#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KernelOp {
     /// Element-wise addition
     /// 要素ごとの加算
@@ -53,8 +52,7 @@ pub enum KernelOp {
 }
 
 /// Kernel execution parameters
-/// カーネル実行パラメータ
-#[derive(Debug, Clone)]
+/// カーネル実行パラメータ#[derive(Debug, Clone)]
 pub struct KernelParams {
     /// Input tensor shapes for optimization
     /// 最適化のための入力テンソル形状
@@ -78,8 +76,7 @@ impl Default for KernelParams {
 }
 
 /// Kernel performance metrics
-/// カーネル性能メトリクス
-#[derive(Debug, Clone)]
+/// カーネル性能メトリクス#[derive(Debug, Clone)]
 pub struct KernelMetrics {
     /// Execution time
     /// 実行時間
@@ -141,8 +138,7 @@ trait ExecuteGeneric<T: Float + 'static + Send + Sync> {
 }
 
 /// CUDA kernel executor
-/// CUDAカーネル実行者
-#[cfg(feature = "cuda")]
+/// CUDAカーネル実行者#[cfg(feature = "cuda")]
 pub struct CudaUnifiedExecutor {
     device_id: usize,
     metrics: Arc<Mutex<KernelMetrics>>,
@@ -392,8 +388,7 @@ impl CudaUnifiedExecutor {
 }
 
 /// Metal kernel executor
-/// Metalカーネル実行者
-#[cfg(feature = "metal")]
+/// Metalカーネル実行者#[cfg(feature = "metal")]
 pub struct MetalUnifiedExecutor {
     device_id: usize,
     metrics: Arc<Mutex<KernelMetrics>>,
@@ -508,8 +503,7 @@ impl MetalUnifiedExecutor {
 }
 
 /// OpenCL kernel executor
-/// OpenCLカーネル実行者
-#[cfg(feature = "opencl")]
+/// OpenCLカーネル実行者#[cfg(feature = "opencl")]
 pub struct OpenClUnifiedExecutor {
     device_id: usize,
     metrics: Arc<Mutex<KernelMetrics>>,

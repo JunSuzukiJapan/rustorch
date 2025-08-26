@@ -21,8 +21,7 @@ use opencl3::{
 };
 
 /// OpenCL kernel types
-/// OpenCLカーネルタイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// OpenCLカーネルタイプ#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OpenClKernelType {
     /// Element-wise operations (add, mul, etc.)
     /// 要素ごとの演算（加算、乗算など）
@@ -42,8 +41,7 @@ pub enum OpenClKernelType {
 }
 
 /// OpenCL kernel parameters
-/// OpenCLカーネルパラメータ
-#[derive(Debug, Clone)]
+/// OpenCLカーネルパラメータ#[derive(Debug, Clone)]
 pub struct OpenClKernelParams {
     /// Global work size for OpenCL kernel execution
     /// OpenCLカーネル実行のグローバルワークサイズ
@@ -534,7 +532,7 @@ impl OpenClKernelExecutor {
 
 /// Public interface functions for OpenCL operations
 /// OpenCL演算のためのパブリックインターフェース関数
-
+///
 /// Execute OpenCL matrix multiplication
 /// OpenCL行列乗算を実行
 pub fn opencl_matmul_f32(

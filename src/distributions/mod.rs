@@ -150,9 +150,9 @@ impl DistributionUtils {
 
     /// Generate random uniform samples
     /// ランダムな一様サンプルを生成
-    pub fn random_uniform<T: Float>(shape: &[usize]) -> Tensor<T>
+    pub fn random_uniform<T>(shape: &[usize]) -> Tensor<T>
     where
-        T: 'static + rand::distributions::uniform::SampleUniform,
+        T: Float + 'static + rand::distributions::uniform::SampleUniform,
     {
         use rand::{thread_rng, Rng};
         let mut rng = thread_rng();
@@ -165,9 +165,9 @@ impl DistributionUtils {
 
     /// Generate random normal samples using Box-Muller transform
     /// Box-Muller変換を使用してランダムな正規サンプルを生成
-    pub fn random_normal<T: Float>(shape: &[usize]) -> Tensor<T>
+    pub fn random_normal<T>(shape: &[usize]) -> Tensor<T>
     where
-        T: 'static + rand::distributions::uniform::SampleUniform,
+        T: Float + 'static + rand::distributions::uniform::SampleUniform,
     {
         use rand::{thread_rng, Rng};
         let mut rng = thread_rng();
@@ -197,9 +197,9 @@ impl DistributionUtils {
 
     /// Generate single random uniform scalar
     /// 単一のランダムな一様スカラーを生成
-    pub fn random_uniform_scalar<T: Float>() -> T
+    pub fn random_uniform_scalar<T>() -> T
     where
-        T: 'static + rand::distributions::uniform::SampleUniform,
+        T: Float + 'static + rand::distributions::uniform::SampleUniform,
     {
         use rand::{thread_rng, Rng};
         let mut rng = thread_rng();
@@ -208,9 +208,9 @@ impl DistributionUtils {
 
     /// Generate single random normal scalar
     /// 単一のランダムな正規スカラーを生成
-    pub fn random_normal_scalar<T: Float>() -> T
+    pub fn random_normal_scalar<T>() -> T
     where
-        T: 'static + rand::distributions::uniform::SampleUniform,
+        T: Float + 'static + rand::distributions::uniform::SampleUniform,
     {
         use rand::{thread_rng, Rng};
         let mut rng = thread_rng();

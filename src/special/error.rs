@@ -112,7 +112,7 @@ pub fn erfc_scalar<T: Float>(x: T) -> T {
     }
 
     // For better numerical precision, especially for large x
-    if x_f64 > 0.0 && x_f64 > 3.5 {
+    if x_f64 > 3.5 {
         // Use asymptotic expansion for large positive x
         T::from(erfc_asymptotic(x_f64)).unwrap_or(T::zero())
     } else {
