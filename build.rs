@@ -49,19 +49,31 @@ fn main() {
                     .or_else(|_| env::var("RUSTORCH_LAPACK_LIB"))
                     .unwrap_or_else(|_| "openblas".to_string());
 
-                // Check if OpenBLAS is actually available before linking
+                // Check for available BLAS/LAPACK libraries
                 let openblas_available =
                     std::path::Path::new("/usr/lib/x86_64-linux-gnu/libopenblas.so.0").exists()
+                        || std::path::Path::new("/usr/lib/x86_64-linux-gnu/libopenblas.so").exists()
                         || std::path::Path::new("/usr/lib/libopenblas.so").exists()
                         || std::path::Path::new("/usr/local/lib/libopenblas.so").exists();
+                        
+                let separate_blas_available = 
+                    std::path::Path::new("/usr/lib/x86_64-linux-gnu/libblas.so").exists()
+                        || std::path::Path::new("/usr/lib/libblas.so").exists();
+                        
+                let separate_lapack_available = 
+                    std::path::Path::new("/usr/lib/x86_64-linux-gnu/liblapack.so").exists()
+                        || std::path::Path::new("/usr/lib/liblapack.so").exists();
 
-                if blas_lib == "openblas" && openblas_available {
+                if openblas_available && (blas_lib == "openblas" || !separate_blas_available) {
                     // Link OpenBLAS (includes both BLAS and LAPACK)
                     println!("cargo:rustc-link-lib=openblas");
-                } else {
+                } else if separate_blas_available && separate_lapack_available {
                     // Fallback to separate BLAS/LAPACK libraries
                     println!("cargo:rustc-link-lib=blas");
                     println!("cargo:rustc-link-lib=lapack");
+                } else {
+                    // Final fallback - try OpenBLAS even if not explicitly requested
+                    println!("cargo:rustc-link-lib=openblas");
                 }
 
                 // Always link gfortran for Fortran runtime
