@@ -45,8 +45,11 @@ fn main() {
             }
 
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
-            if cfg!(target_os = "linux") && !has_linalg_netlib {
-                // Skip system library linking for linalg-netlib as netlib-src provides them
+            if cfg!(target_os = "linux") && has_linalg_netlib {
+                // For linalg-netlib, netlib-src handles all linking
+                println!("cargo:warning=Using netlib-src for LAPACK/BLAS, skipping system library linking");
+            } else if cfg!(target_os = "linux") {
+                // Only link system libraries if NOT using linalg-netlib
                 // Check for explicit BLAS/LAPACK library preferences
                 let blas_lib = env::var("BLAS_LIB")
                     .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
@@ -160,9 +163,6 @@ fn main() {
                         println!("cargo:rustc-link-lib=gfortran");
                     }
                 }
-            } else if cfg!(target_os = "linux") && has_linalg_netlib {
-                // For linalg-netlib on Linux, netlib-src will handle all linking
-                println!("cargo:warning=Using netlib-src for LAPACK/BLAS, skipping system library linking");
             } else if cfg!(target_os = "macos") {
                 // macOS with intelligent BLAS/LAPACK detection
                 let blas_lib = env::var("BLAS_LIB")
