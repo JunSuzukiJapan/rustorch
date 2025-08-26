@@ -37,12 +37,23 @@ fn main() {
 
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
             if cfg!(target_os = "linux") {
-                // On Linux, try OpenBLAS first (includes both BLAS and LAPACK)
-                println!("cargo:rustc-link-lib=openblas");
-                // Fallback to separate libraries if OpenBLAS doesn't work
-                println!("cargo:rustc-link-lib=lapack");
-                println!("cargo:rustc-link-lib=blas");
+                // Check for explicit BLAS/LAPACK library preferences
+                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                let lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
+                
+                // Link explicitly specified libraries
+                println!("cargo:rustc-link-lib={}", blas_lib);
+                if blas_lib != lapack_lib {
+                    println!("cargo:rustc-link-lib={}", lapack_lib);
+                }
+                
+                // Always link gfortran for Fortran runtime
                 println!("cargo:rustc-link-lib=gfortran");
+                
+                // Add explicit dylib linking for better symbol resolution
+                if blas_lib == "openblas" || lapack_lib == "openblas" {
+                    println!("cargo:rustc-link-lib=dylib=openblas");
+                }
             } else {
                 // Other Unix systems (macOS, etc.)
                 println!("cargo:rustc-link-lib=lapack");
