@@ -68,11 +68,19 @@ jobs:
           rustup target add x86_64-apple-darwin
         shell: bash
           
-      - name: Install MPI (Linux)
+      - name: Install system dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin pkg-config
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libopenblas-dev \
+            liblapack-dev \
+            libopenmpi-dev \
+            openmpi-bin \
+            libffi-dev \
+            pkg-config
         shell: bash
 
       - name: Run tests
@@ -128,7 +136,15 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin pkg-config gfortran
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libopenblas-dev \
+            liblapack-dev \
+            libopenmpi-dev \
+            openmpi-bin \
+            libffi-dev \
+            pkg-config
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -198,6 +214,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libopenblas-dev \
+            liblapack-dev \
+            libopenmpi-dev \
+            openmpi-bin \
+            libffi-dev \
+            pkg-config
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -284,6 +313,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libopenblas-dev \
+            liblapack-dev \
+            libopenmpi-dev \
+            openmpi-bin \
+            libffi-dev \
+            pkg-config
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -310,6 +352,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libopenblas-dev \
+            liblapack-dev \
+            libopenmpi-dev \
+            openmpi-bin \
+            libffi-dev \
+            pkg-config
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
