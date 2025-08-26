@@ -120,6 +120,8 @@ jobs:
             liblapack-dev \
             libblas-dev \
             libatlas-base-dev \
+            liblapack3 \
+            liblapacke-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \
@@ -127,9 +129,9 @@ jobs:
           # 明示的にOpenBLAS環境変数を設定
           echo "OPENBLAS_NUM_THREADS=1" >> $GITHUB_ENV
           echo "BLAS_LIB=openblas" >> $GITHUB_ENV
-          echo "LAPACK_LIB=openblas" >> $GITHUB_ENV
+          echo "LAPACK_LIB=lapack" >> $GITHUB_ENV
           echo "RUSTORCH_BLAS_LIB=openblas" >> $GITHUB_ENV  
-          echo "RUSTORCH_LAPACK_LIB=openblas" >> $GITHUB_ENV
+          echo "RUSTORCH_LAPACK_LIB=lapack" >> $GITHUB_ENV
         shell: bash
         
       - name: Verify Linux environment
@@ -140,8 +142,15 @@ jobs:
           gfortran --version
           echo "=== Library paths ==="
           find /usr/lib* -name "liblapack*" -o -name "libblas*" -o -name "libopenblas*" 2>/dev/null || true
-          echo "=== OpenBLAS symbols check ==="
-          nm -D /usr/lib/x86_64-linux-gnu/libopenblas.so.0 | grep -E "(dsyev_|dgeev_)" || echo "LAPACK symbols not found in OpenBLAS"
+          echo "=== LAPACK symbols check ==="
+          echo "Checking LAPACK symbols in system libraries..."
+          if [ -f /usr/lib/x86_64-linux-gnu/liblapack.so.3 ]; then
+            nm -D /usr/lib/x86_64-linux-gnu/liblapack.so.3 | grep -E "(dsyev_|dgeev_|dgeqrf_|dgelqf_|dorgqr_|dgesvd_)" | head -5 || echo "No LAPACK symbols in liblapack.so.3"
+          fi
+          echo "Checking LAPACK symbols in OpenBLAS..."
+          if [ -f /usr/lib/x86_64-linux-gnu/libopenblas.so.0 ]; then
+            nm -D /usr/lib/x86_64-linux-gnu/libopenblas.so.0 | grep -E "(dsyev_|dgeev_|dgeqrf_|dgelqf_|dorgqr_|dgesvd_)" | head -5 || echo "No LAPACK symbols in OpenBLAS"
+          fi
           echo "=== pkg-config ==="
           pkg-config --list-all | grep -i blas || true
           pkg-config --list-all | grep -i lapack || true
@@ -221,6 +230,9 @@ jobs:
             gfortran \
             libopenblas-dev \
             liblapack-dev \
+            libblas-dev \
+            liblapack3 \
+            liblapacke-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \
@@ -303,6 +315,9 @@ jobs:
             gfortran \
             libopenblas-dev \
             liblapack-dev \
+            libblas-dev \
+            liblapack3 \
+            liblapacke-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \
@@ -401,6 +416,9 @@ jobs:
             gfortran \
             libopenblas-dev \
             liblapack-dev \
+            libblas-dev \
+            liblapack3 \
+            liblapacke-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \
@@ -441,6 +459,9 @@ jobs:
             gfortran \
             libopenblas-dev \
             liblapack-dev \
+            libblas-dev \
+            liblapack3 \
+            liblapacke-dev \
             libopenmpi-dev \
             openmpi-bin \
             libffi-dev \

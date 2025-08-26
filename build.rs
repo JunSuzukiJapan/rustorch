@@ -118,19 +118,24 @@ fn main() {
                 }
 
                 if openblas_available && (blas_lib == "openblas" || !separate_blas_available) {
-                    // Link OpenBLAS (includes both BLAS and LAPACK)
+                    // OpenBLAS includes both BLAS and LAPACK, but ensure proper linking order
                     println!("cargo:rustc-link-lib=openblas");
+                    // On Ubuntu, sometimes we need to explicitly link lapack even with OpenBLAS
+                    if separate_lapack_available {
+                        println!("cargo:rustc-link-lib=lapack");
+                    }
                 } else if separate_blas_available && separate_lapack_available {
-                    // Fallback to separate BLAS/LAPACK libraries
-                    println!("cargo:rustc-link-lib=blas");
+                    // Fallback to separate BLAS/LAPACK libraries - link in correct order
                     println!("cargo:rustc-link-lib=lapack");
+                    println!("cargo:rustc-link-lib=blas");
                 } else if has_linalg_netlib {
                     // For linalg-netlib feature, we expect netlib-src to provide the libraries
                     // Don't attempt to link system libraries that might not exist
                     println!("cargo:warning=OpenBLAS/BLAS/LAPACK libraries not found on system, relying on netlib-src");
                 } else {
-                    // For regular linalg feature, try OpenBLAS as last resort
+                    // For regular linalg feature, try both OpenBLAS and LAPACK as last resort
                     println!("cargo:rustc-link-lib=openblas");
+                    println!("cargo:rustc-link-lib=lapack");
                 }
 
                 // Always link gfortran for Fortran runtime (except for linalg-netlib)
