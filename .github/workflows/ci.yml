@@ -119,7 +119,6 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            libatlas-base-dev \
             liblapack3 \
             liblapacke-dev \
             libopenmpi-dev \
