@@ -496,8 +496,8 @@ impl MetalKernelExecutor {
         // Calculate thread configuration for tiled execution
         let threads_per_threadgroup = MTLSize::new(TILE_SIZE as u64, TILE_SIZE as u64, 1);
         let threadgroups_per_grid = MTLSize::new(
-            ((n + TILE_SIZE - 1) / TILE_SIZE) as u64,
-            ((m + TILE_SIZE - 1) / TILE_SIZE) as u64,
+            n.div_ceil(TILE_SIZE) as u64,
+            m.div_ceil(TILE_SIZE) as u64,
             1,
         );
 
@@ -611,7 +611,7 @@ impl MetalKernelExecutor {
     pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
         let size = input.len();
         let block_size = 256;
-        let grid_size = (size + block_size - 1) / block_size;
+        let grid_size = size.div_ceil(block_size);
 
         // Create Metal buffers
         let input_buffer = self.device.new_buffer_with_data(

@@ -274,8 +274,7 @@ where
         if self.devices.len() < 2 {
             return Err(RusTorchError::ConfigurationError(
                 "Multi-GPU validation requires at least 2 devices".to_string(),
-            )
-            .into());
+            ));
         }
 
         self.process_group = Some(process_group);
@@ -300,7 +299,6 @@ where
 
         // Split validation data across devices
         let chunks_per_device = validation_data.len() / self.devices.len();
-        let comm_time;
 
         for (device_idx, device) in self.devices.iter().enumerate() {
             if !device.is_available {
@@ -324,14 +322,14 @@ where
 
             device_losses.insert(device.device_id, loss);
             device_accuracies.insert(device.device_id, accuracy);
-            device_times.insert(device.device_id, device_start.elapsed().into());
+            device_times.insert(device.device_id, device_start.elapsed());
         }
 
         // Synchronize results across devices
         let comm_start = Instant::now();
         let (total_loss, total_accuracy) =
             self.synchronize_metrics(&device_losses, &device_accuracies)?;
-        comm_time = comm_start.elapsed();
+        let comm_time = comm_start.elapsed();
 
         let total_time = start_time.elapsed();
         let total_samples = validation_data.len();
@@ -348,7 +346,7 @@ where
             throughput,
         };
 
-        self.metrics_history.push(metrics.clone().into());
+        self.metrics_history.push(metrics.clone());
 
         Ok(metrics)
     }
@@ -448,7 +446,7 @@ where
             optimal_batch_size,
         };
 
-        self.benchmark_cache = Some(results.clone().into());
+        self.benchmark_cache = Some(results.clone());
 
         Ok(results)
     }
@@ -521,7 +519,7 @@ where
         let comm_start = Instant::now();
         for _ in 0..iterations {
             // Simulate all-reduce
-            std::thread::sleep(Duration::from_micros(data_size as u64 / 1000).into());
+            std::thread::sleep(Duration::from_micros(data_size as u64 / 1000));
         }
         let comm_time = comm_start.elapsed();
 

@@ -23,6 +23,11 @@ fn main() {
             if cfg!(target_os = "linux") {
                 println!("cargo:rustc-link-search=native=/usr/lib");
                 println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
+                println!(
+                    "cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/openblas-pthread"
+                );
+                println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/blas");
+                println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/lapack");
             }
 
             // Common library path for Unix systems
@@ -30,13 +35,18 @@ fn main() {
                 println!("cargo:rustc-link-search=native=/usr/local/lib");
             }
 
-            // Link LAPACK and BLAS libraries
-            println!("cargo:rustc-link-lib=lapack");
-            println!("cargo:rustc-link-lib=blas");
-
-            // gfortran is typically needed on Linux, but may not be available on all systems
+            // Link LAPACK and BLAS libraries with specific library names for better compatibility
             if cfg!(target_os = "linux") {
+                // On Linux, try OpenBLAS first (includes both BLAS and LAPACK)
+                println!("cargo:rustc-link-lib=openblas");
+                // Fallback to separate libraries if OpenBLAS doesn't work
+                println!("cargo:rustc-link-lib=lapack");
+                println!("cargo:rustc-link-lib=blas");
                 println!("cargo:rustc-link-lib=gfortran");
+            } else {
+                // Other Unix systems (macOS, etc.)
+                println!("cargo:rustc-link-lib=lapack");
+                println!("cargo:rustc-link-lib=blas");
             }
         }
 

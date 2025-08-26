@@ -603,8 +603,8 @@ __kernel void matmul_f32(
         let tile_size = self.calculate_optimal_tile_size(m, n, m.max(n));
 
         let global_work_size = [
-            ((n + tile_size - 1) / tile_size) * tile_size,
-            ((m + tile_size - 1) / tile_size) * tile_size,
+            n.div_ceil(tile_size) * tile_size,
+            m.div_ceil(tile_size) * tile_size,
         ];
 
         let local_work_size = [tile_size, tile_size];

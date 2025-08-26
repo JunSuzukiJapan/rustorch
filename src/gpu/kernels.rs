@@ -192,7 +192,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
                 let threads_per_block = 256;
-                let num_blocks = (problem_size + threads_per_block - 1) / threads_per_block;
+                let num_blocks = problem_size.div_ceil(threads_per_block);
                 KernelParams {
                     block_size: (threads_per_block as u32, 1, 1),
                     grid_size: (num_blocks as u32, 1, 1),
@@ -202,7 +202,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             }
             DeviceType::Metal(_) => {
                 let threads_per_group = 256;
-                let num_groups = (problem_size + threads_per_group - 1) / threads_per_group;
+                let num_groups = problem_size.div_ceil(threads_per_group);
                 KernelParams {
                     block_size: (threads_per_group as u32, 1, 1),
                     grid_size: (num_groups as u32, 1, 1),
@@ -212,8 +212,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             }
             DeviceType::OpenCL(_) => {
                 let work_group_size = 256;
-                let global_size =
-                    (problem_size + work_group_size - 1) / work_group_size * work_group_size;
+                let global_size = problem_size.div_ceil(work_group_size) * work_group_size;
                 KernelParams {
                     block_size: (work_group_size as u32, 1, 1),
                     grid_size: (global_size as u32, 1, 1),
@@ -359,7 +358,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             DeviceType::Cuda(_) => {
                 // Use 2D block for matrix multiplication
                 let block_size = 16; // 16x16 block
-                let grid_size = (n + block_size - 1) / block_size;
+                let grid_size = n.div_ceil(block_size);
                 KernelParams {
                     block_size: (block_size as u32, block_size as u32, 1),
                     grid_size: (grid_size as u32, grid_size as u32, 1),
@@ -370,7 +369,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             }
             DeviceType::Metal(_) => {
                 let threads_per_group = 16;
-                let num_groups = (n + threads_per_group - 1) / threads_per_group;
+                let num_groups = n.div_ceil(threads_per_group);
                 KernelParams {
                     block_size: (threads_per_group as u32, threads_per_group as u32, 1),
                     grid_size: (num_groups as u32, num_groups as u32, 1),
@@ -380,7 +379,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             }
             DeviceType::OpenCL(_) => {
                 let work_group_size = 16;
-                let global_size = (n + work_group_size - 1) / work_group_size * work_group_size;
+                let global_size = n.div_ceil(work_group_size) * work_group_size;
                 KernelParams {
                     block_size: (work_group_size as u32, work_group_size as u32, 1),
                     grid_size: (global_size as u32, global_size as u32, 1),
@@ -467,7 +466,7 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
             DeviceType::Cpu => KernelParams::default(),
             DeviceType::Cuda(_) => {
                 let block_size = 16;
-                let grid_size = (problem_size + block_size - 1) / block_size;
+                let grid_size = problem_size.div_ceil(block_size);
                 KernelParams {
                     block_size: (block_size as u32, block_size as u32, 1),
                     grid_size: (grid_size as u32, 1, 1),

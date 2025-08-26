@@ -87,7 +87,7 @@ where
     /// 入力をデバイス間で複製
     pub fn replicate_input(&self, input: &Variable<T>) -> RusTorchResult<Vec<Variable<T>>> {
         let batch_size = input.data().read().unwrap().shape()[0];
-        let chunk_size = (batch_size + self.device_ids.len() - 1) / self.device_ids.len();
+        let chunk_size = batch_size.div_ceil(self.device_ids.len());
 
         let mut replicated_inputs = Vec::new();
 
@@ -290,7 +290,12 @@ impl<T: Float + Send + Sync + 'static> DistributedDataLoader<T> {
     /// Get number of batches per epoch
     /// エポックあたりのバッチ数を取得
     pub fn len(&self) -> usize {
-        (self.data.len() + self.batch_size - 1) / self.batch_size
+        self.data.len().div_ceil(self.batch_size)
+    }
+
+    /// Returns true if the dataloader has no data
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 }
 
@@ -407,8 +412,7 @@ impl DistributedSampler {
             return Err(RusTorchError::ProcessGroupError(format!(
                 "Rank {} is greater than or equal to num_replicas {}",
                 rank, num_replicas
-            ))
-            .into());
+            )));
         }
 
         Ok(Self {
@@ -448,7 +452,7 @@ impl DistributedSampler {
         let total_size = if self.drop_last {
             (self.num_samples / self.num_replicas) * self.num_replicas
         } else {
-            ((self.num_samples + self.num_replicas - 1) / self.num_replicas) * self.num_replicas
+            self.num_samples.div_ceil(self.num_replicas) * self.num_replicas
         };
 
         while indices.len() < total_size {
@@ -474,8 +478,13 @@ impl DistributedSampler {
         if self.drop_last {
             self.num_samples / self.num_replicas
         } else {
-            (self.num_samples + self.num_replicas - 1) / self.num_replicas
+            self.num_samples.div_ceil(self.num_replicas)
         }
+    }
+
+    /// Returns true if there are no samples
+    pub fn is_empty(&self) -> bool {
+        self.num_samples == 0
     }
 }
 

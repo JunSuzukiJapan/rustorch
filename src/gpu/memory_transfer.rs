@@ -108,9 +108,20 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
             GpuBuffer::OpenCL { buffer, context } => Self::opencl_transfer_to_cpu(buffer, context)?,
         };
 
+        // Validate shape matches data length
+        let expected_len: usize = shape.iter().product();
+        if data.len() != expected_len {
+            return Err(RusTorchError::gpu(&format!(
+                "Shape mismatch: expected {} elements for shape {:?}, but got {}",
+                expected_len,
+                shape,
+                data.len()
+            )));
+        }
+
         // Convert Vec to ArrayD
         let array = ArrayD::from_shape_vec(IxDyn(shape), data)
-            .map_err(|e| RusTorchError::gpu(&format!("Shape mismatch: {}", e)))?;
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create array: {}", e)))?;
 
         Ok(Tensor::from_ndarray(array))
     }
@@ -409,6 +420,12 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
     }
 }
 
+impl<T: Float + 'static> Default for GpuMemoryManager<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // CUDA implementation
 #[cfg(feature = "cuda")]
 impl<T: Float + 'static> GpuMemoryManager<T> {
@@ -523,7 +540,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
                 {
                     if let Ok(func) = device.get_func("elementwise", "elementwise_add_f32") {
                         let threads_per_block = 256;
-                        let blocks = (size + threads_per_block - 1) / threads_per_block;
+                        let blocks = size.div_ceil(threads_per_block);
 
                         let config = LaunchConfig {
                             grid_dim: (blocks as u32, 1, 1),

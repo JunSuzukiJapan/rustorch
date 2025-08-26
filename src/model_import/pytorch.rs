@@ -570,9 +570,10 @@ pub fn load_pretrained_pytorch_model(model_name: &str) -> RusTorchResult<Importe
         "densenet121" => "https://download.pytorch.org/models/densenet121-a639ec97.pth",
         "vgg16" => "https://download.pytorch.org/models/vgg16-397923af.pth",
         _ => {
-            return Err(
-                RusTorchError::InvalidModel(format!("Unknown model: {}", model_name)).into(),
-            )
+            return Err(RusTorchError::InvalidModel(format!(
+                "Unknown model: {}",
+                model_name
+            )))
         }
     };
 

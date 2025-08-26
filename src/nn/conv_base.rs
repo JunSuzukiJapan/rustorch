@@ -79,7 +79,7 @@ pub trait PoolingBase<T: Float + Send + Sync> {
         let mut strides = Vec::new();
 
         for (input_dim, output_dim) in input_size.iter().zip(output_size.iter()) {
-            let kernel = (input_dim + output_dim - 1) / output_dim;
+            let kernel = input_dim.div_ceil(*output_dim);
             let stride = input_dim / output_dim;
             kernel_sizes.push(kernel);
             strides.push(stride);

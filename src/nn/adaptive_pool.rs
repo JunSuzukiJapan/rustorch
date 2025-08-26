@@ -89,8 +89,8 @@ where
         let (output_h, output_w) = self.output_size;
 
         // Calculate kernel size and stride
-        let kernel_h = (input_h + output_h - 1) / output_h;
-        let kernel_w = (input_w + output_w - 1) / output_w;
+        let kernel_h = input_h.div_ceil(output_h);
+        let kernel_w = input_w.div_ceil(output_w);
 
         let stride_h = input_h / output_h;
         let stride_w = input_w / output_w;
@@ -205,8 +205,8 @@ where
         let (output_h, output_w) = self.output_size;
 
         // For average pooling, we use precise calculation to ensure all input is covered
-        let kernel_h = (input_h + output_h - 1) / output_h;
-        let kernel_w = (input_w + output_w - 1) / output_w;
+        let kernel_h = input_h.div_ceil(output_h);
+        let kernel_w = input_w.div_ceil(output_w);
 
         let stride_h = input_h / output_h;
         let stride_w = input_w / output_w;

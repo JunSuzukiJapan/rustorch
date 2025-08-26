@@ -60,11 +60,13 @@ impl CommonOps {
     pub fn validate_tensor<T: Float + 'static>(tensor: &Tensor<T>) -> RusTorchResult<()> {
         let shape = tensor.shape();
         if shape.is_empty() {
-            return Err(RusTorchError::CommunicationError("Empty tensor shape".to_string()).into());
+            return Err(RusTorchError::CommunicationError(
+                "Empty tensor shape".to_string(),
+            ));
         }
 
         // Check for zero-sized dimensions
-        if shape.iter().any(|&dim| dim == 0) {
+        if shape.contains(&0) {
             return Err(RusTorchError::ShapeMismatch {
                 expected: vec![1], // Minimum expected shape
                 actual: shape.to_vec(),
@@ -78,8 +80,7 @@ impl CommonOps {
             return Err(RusTorchError::CommunicationError(format!(
                 "Tensor too large: {} elements exceeds maximum {}",
                 total_elements, MAX_ELEMENTS
-            ))
-            .into());
+            )));
         }
 
         Ok(())
@@ -103,7 +104,7 @@ impl CommonOps {
         tensors: &[Tensor<T>],
         expected_shape: &[usize],
     ) -> RusTorchResult<()> {
-        for (_i, tensor) in tensors.iter().enumerate() {
+        for tensor in tensors.iter() {
             let actual_shape = tensor.shape();
             if actual_shape != expected_shape {
                 return Err(RusTorchError::ShapeMismatch {

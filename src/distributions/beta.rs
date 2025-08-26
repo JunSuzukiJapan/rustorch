@@ -397,8 +397,8 @@ mod tests {
 
     #[test]
     fn test_beta_creation() {
-        let alpha = Tensor::from_vec(vec![2.0f32], vec![1]);
-        let beta = Tensor::from_vec(vec![3.0f32], vec![1]);
+        let alpha = Tensor::from_vec([2.0f32].to_vec(), vec![1]);
+        let beta = Tensor::from_vec([3.0f32].to_vec(), vec![1]);
 
         let distribution = Beta::new(alpha, beta, true).unwrap();
         assert_eq!(distribution.base.batch_shape, vec![1]);
@@ -456,7 +456,7 @@ mod tests {
     #[test]
     fn test_beta_log_prob() {
         let beta = Beta::<f32>::uniform(true).unwrap(); // Beta(1,1) = Uniform(0,1)
-        let values = Tensor::from_vec(vec![-0.1f32, 0.5, 1.1], vec![3]);
+        let values = Tensor::from_vec([-0.1f32, 0.5, 1.1].to_vec(), vec![3]);
 
         let log_probs = beta.log_prob(&values).unwrap();
         let log_prob_data = log_probs.data.as_slice().unwrap();

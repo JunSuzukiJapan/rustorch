@@ -464,12 +464,11 @@ where
         if self.parallel_dim >= shape.len() {
             return Err(RusTorchError::ProcessGroupError(
                 "Parallel dimension exceeds tensor dimensions".to_string(),
-            )
-            .into());
+            ));
         }
 
         let dim_size = shape[self.parallel_dim];
-        let chunk_size = (dim_size + self.num_partitions - 1) / self.num_partitions;
+        let chunk_size = dim_size.div_ceil(self.num_partitions);
         let start_idx = self.partition_rank * chunk_size;
         let end_idx = ((self.partition_rank + 1) * chunk_size).min(dim_size);
 
@@ -555,7 +554,7 @@ where
         // Simplified expert routing implementation
         // 簡略化エキスパートルーティング実装
         if self.experts.is_empty() {
-            return Ok(input.clone().into());
+            return Ok(input.clone());
         }
 
         // Use first expert as fallback

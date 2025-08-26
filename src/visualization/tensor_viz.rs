@@ -318,7 +318,7 @@ impl TensorVisualizer {
 
     fn generate_3d_slices_header(&self, depth: usize, width: usize, height: usize) -> String {
         let cols = (depth as f32).sqrt().ceil() as usize;
-        let rows = (depth + cols - 1) / cols;
+        let rows = depth.div_ceil(cols);
 
         let svg_width = cols * (width * 15 + 20) + 50;
         let svg_height = rows * (height * 15 + 30) + 50;

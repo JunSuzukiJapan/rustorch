@@ -1619,7 +1619,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         };
 
         let size = self.shape()[actual_dim];
-        let mid = (size + 1) / 2;
+        let mid = size.div_ceil(2);
 
         let input_data = self.data.as_slice().unwrap();
         let mut new_data = Vec::new();

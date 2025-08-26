@@ -178,7 +178,7 @@ impl DistributionUtils {
         let pi = T::from(std::f64::consts::PI).unwrap();
         let two = T::from(2.0).unwrap();
 
-        for _ in 0..(size + 1) / 2 {
+        for _ in 0..size.div_ceil(2) {
             let u1: T = rng.gen_range(T::from(1e-10).unwrap()..T::one());
             let u2: T = rng.gen_range(T::zero()..T::one());
 
@@ -233,17 +233,17 @@ mod tests {
     #[test]
     fn test_validation_utils() {
         // Test probability validation
-        let valid_prob = Tensor::from_vec(vec![0.0f32, 0.5, 1.0], vec![3]);
+        let valid_prob = Tensor::from_vec([0.0f32, 0.5, 1.0].to_vec(), vec![3]);
         assert!(DistributionUtils::validate_probability(&valid_prob).is_ok());
 
-        let invalid_prob = Tensor::from_vec(vec![0.0f32, 0.5, 1.5], vec![3]);
+        let invalid_prob = Tensor::from_vec([0.0f32, 0.5, 1.5].to_vec(), vec![3]);
         assert!(DistributionUtils::validate_probability(&invalid_prob).is_err());
 
         // Test positive validation
-        let positive = Tensor::from_vec(vec![0.1f32, 1.0, 2.0], vec![3]);
+        let positive = Tensor::from_vec([0.1f32, 1.0, 2.0].to_vec(), vec![3]);
         assert!(DistributionUtils::validate_positive(&positive, "param").is_ok());
 
-        let non_positive = Tensor::from_vec(vec![0.0f32, 1.0, 2.0], vec![3]);
+        let non_positive = Tensor::from_vec([0.0f32, 1.0, 2.0].to_vec(), vec![3]);
         assert!(DistributionUtils::validate_positive(&non_positive, "param").is_err());
     }
 

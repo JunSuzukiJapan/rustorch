@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn test_exponential_creation() {
-        let rate = Tensor::from_vec(vec![2.0f32], vec![1]);
+        let rate = Tensor::from_vec([2.0f32].to_vec(), vec![1]);
 
         let exp_dist = Exponential::new(rate, true).unwrap();
         assert_eq!(exp_dist.base.batch_shape, vec![1]);
@@ -278,7 +278,7 @@ mod tests {
     #[test]
     fn test_exponential_log_prob() {
         let exp_dist = Exponential::<f32>::from_scalar(2.0, true).unwrap();
-        let values = Tensor::from_vec(vec![-1.0f32, 0.0, 1.0, 2.0], vec![4]);
+        let values = Tensor::from_vec([-1.0f32, 0.0, 1.0, 2.0].to_vec(), vec![4]);
 
         let log_probs = exp_dist.log_prob(&values).unwrap();
         let log_prob_data = log_probs.data.as_slice().unwrap();
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn test_exponential_cdf() {
         let exp_dist = Exponential::<f32>::from_scalar(1.0, true).unwrap();
-        let values = Tensor::from_vec(vec![-1.0f32, 0.0, 1.0, f32::INFINITY], vec![4]);
+        let values = Tensor::from_vec([-1.0f32, 0.0, 1.0, f32::INFINITY].to_vec(), vec![4]);
 
         let cdf_vals = exp_dist.cdf(&values).unwrap();
         let cdf_data = cdf_vals.data.as_slice().unwrap();
@@ -309,7 +309,7 @@ mod tests {
     #[test]
     fn test_exponential_icdf() {
         let exp_dist = Exponential::<f32>::from_scalar(2.0, true).unwrap();
-        let probs = Tensor::from_vec(vec![0.0f32, 0.5, 0.75, 1.0], vec![4]);
+        let probs = Tensor::from_vec([0.0f32, 0.5, 0.75, 1.0].to_vec(), vec![4]);
 
         let icdf_vals = exp_dist.icdf(&probs).unwrap();
         let icdf_data = icdf_vals.data.as_slice().unwrap();
@@ -352,9 +352,9 @@ mod tests {
         let s = 2.0f32;
         let t = 1.0f32;
 
-        let s_tensor = Tensor::from_vec(vec![s], vec![1]);
-        let t_tensor = Tensor::from_vec(vec![t], vec![1]);
-        let st_tensor = Tensor::from_vec(vec![s + t], vec![1]);
+        let s_tensor = Tensor::from_vec([s].to_vec(), vec![1]);
+        let t_tensor = Tensor::from_vec([t].to_vec(), vec![1]);
+        let st_tensor = Tensor::from_vec([s + t].to_vec(), vec![1]);
 
         let cdf_s = exp_dist.cdf(&s_tensor).unwrap();
         let cdf_t = exp_dist.cdf(&t_tensor).unwrap();

@@ -114,8 +114,7 @@ impl UnifiedKernelExecutor {
             return Err(RusTorchError::DeviceNotAvailable(format!(
                 "Device {} not available",
                 device
-            ))
-            .into());
+            )));
         }
 
         Ok(Self {
@@ -178,8 +177,7 @@ impl UnifiedKernelExecutor {
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
                 op
-            ))
-            .into()),
+            ))),
         };
 
         // Update metrics
@@ -210,7 +208,7 @@ impl UnifiedKernelExecutor {
             }
         }
 
-        result.map_err(|e| e.into())
+        result
     }
 
     /// Execute kernel operation on f64 tensors
@@ -267,8 +265,7 @@ impl UnifiedKernelExecutor {
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
                 op
-            ))
-            .into()),
+            ))),
         };
 
         // Update metrics
@@ -299,7 +296,7 @@ impl UnifiedKernelExecutor {
             }
         }
 
-        result.map_err(|e| e.into())
+        result
     }
 
     /// Check if operation is supported
@@ -374,8 +371,7 @@ impl KernelSelector {
             Err(RusTorchError::UnsupportedOperation(format!(
                 "No executor supports operation {:?}",
                 op
-            ))
-            .into())
+            )))
         }
     }
 
@@ -393,8 +389,7 @@ impl KernelSelector {
             Err(RusTorchError::UnsupportedOperation(format!(
                 "No executor supports operation {:?}",
                 op
-            ))
-            .into())
+            )))
         }
     }
 

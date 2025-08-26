@@ -127,7 +127,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
         let input_nodes: Vec<Weak<GraphNode<T>>> = input_ids
             .iter()
-            .filter_map(|&input_id| self.nodes.get(&input_id).map(|node| Arc::downgrade(node)))
+            .filter_map(|&input_id| self.nodes.get(&input_id).map(Arc::downgrade))
             .collect();
 
         let node = GraphNode::new_function(function, input_nodes, input_tensors, requires_grad);

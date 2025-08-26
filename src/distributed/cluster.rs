@@ -322,8 +322,7 @@ impl ClusterManager {
             backend: Default::default(),
         };
 
-        self.process_groups
-            .insert(job_id, process_group.clone().into());
+        self.process_groups.insert(job_id, process_group.clone());
 
         Ok(process_group)
     }
@@ -374,7 +373,7 @@ impl ClusterManager {
 
         for node in nodes.values() {
             if node.status == NodeStatus::Available {
-                return Ok(node.clone().into());
+                return Ok(node.clone());
             }
         }
 
@@ -615,7 +614,7 @@ impl HeartbeatMonitor {
     /// ノードのハートビートを更新
     pub fn update_heartbeat(&self, node_id: usize) -> RusTorchResult<()> {
         let mut heartbeat_guard = self.last_heartbeat.lock().unwrap();
-        heartbeat_guard.insert(node_id, Instant::now().into());
+        heartbeat_guard.insert(node_id, Instant::now());
         Ok(())
     }
 }
@@ -647,7 +646,7 @@ impl ResourceScheduler {
     fn schedule_first_fit(&self, required_nodes: usize) -> RusTorchResult<Vec<usize>> {
         let mut selected_nodes = Vec::new();
 
-        for (node_id, _resources) in &self.node_resources {
+        for node_id in self.node_resources.keys() {
             if selected_nodes.len() >= required_nodes {
                 break;
             }
@@ -662,8 +661,7 @@ impl ResourceScheduler {
                 "Not enough available nodes: need {}, found {}",
                 required_nodes,
                 selected_nodes.len()
-            ))
-            .into());
+            )));
         }
 
         Ok(selected_nodes)

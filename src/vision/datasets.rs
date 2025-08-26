@@ -80,8 +80,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
                 return Err(RusTorchError::DatasetError(format!(
                     "MNIST data not found at {:?}. Set download=true to download.",
                     data_dir
-                ))
-                .into());
+                )));
             }
         }
 
@@ -236,8 +235,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
                 return Err(RusTorchError::DatasetError(format!(
                     "CIFAR-10 data not found at {:?}. Set download=true to download.",
                     data_dir
-                ))
-                .into());
+                )));
             }
         }
 
@@ -394,8 +392,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
                 return Err(RusTorchError::DatasetError(format!(
                     "CIFAR-100 data not found at {:?}. Set download=true to download.",
                     data_dir
-                ))
-                .into());
+                )));
             }
         }
 

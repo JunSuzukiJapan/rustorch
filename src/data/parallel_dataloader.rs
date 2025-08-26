@@ -113,7 +113,7 @@ impl<
 
         // Create indices for batching
         let total_samples = dataset.len();
-        let _num_batches = (total_samples + batch_size - 1) / batch_size;
+        let _num_batches = total_samples.div_ceil(batch_size);
 
         let indices = Arc::new(Mutex::new({
             let mut idx: Vec<usize> = (0..total_samples).collect();

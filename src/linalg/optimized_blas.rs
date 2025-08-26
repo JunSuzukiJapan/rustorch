@@ -265,7 +265,7 @@ mod tests {
         let b = Tensor::<f32>::from_vec(vec![2.0, 0.0, 1.0, 3.0], vec![2, 2]);
 
         let result = optimized_matmul(&a, &b).unwrap();
-        let expected = vec![4.0, 6.0, 10.0, 12.0];
+        let expected = [4.0, 6.0, 10.0, 12.0];
 
         let result_data = result.data.as_slice().unwrap();
         for (i, &expected_val) in expected.iter().enumerate() {
@@ -279,7 +279,7 @@ mod tests {
         let b = Tensor::<f32>::from_vec(vec![2.0, 0.0, 1.0, 3.0], vec![2, 2]);
 
         let result = multithreaded_matmul(&a, &b).unwrap();
-        let expected = vec![4.0, 6.0, 10.0, 12.0];
+        let expected = [4.0, 6.0, 10.0, 12.0];
 
         let result_data = result.data.as_slice().unwrap();
         for (i, &expected_val) in expected.iter().enumerate() {

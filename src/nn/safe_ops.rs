@@ -37,16 +37,14 @@ impl SafeOps {
                 data.len(),
                 shape,
                 expected_size
-            ))
-            .into());
+            )));
         }
 
         // Check for empty dimensions
         if shape.iter().any(|&dim| dim == 0) {
             return Err(RusTorchError::InvalidDimensions(
                 "Shape dimensions must be positive".to_string(),
-            )
-            .into());
+            ));
         }
 
         let tensor = Tensor::from_vec(data, shape);
@@ -78,8 +76,7 @@ impl SafeOps {
             return Err(RusTorchError::InvalidDimensions(format!(
                 "Cannot reshape tensor of size {} to size {}",
                 current_size, new_size
-            ))
-            .into());
+            )));
         }
 
         // Create new tensor with same data but new shape
@@ -191,15 +188,13 @@ impl SafeOps {
                 return Err(RusTorchError::ComputationError(format!(
                     "NaN detected at index {}",
                     i
-                ))
-                .into());
+                )));
             }
             if value.is_infinite() {
                 return Err(RusTorchError::ComputationError(format!(
                     "Infinity detected at index {}",
                     i
-                ))
-                .into());
+                )));
             }
         }
 

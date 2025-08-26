@@ -302,7 +302,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
         if self.step_count % sync_frequency == 0 {
             // Synchronize accumulated local gradients
             // 蓄積されたローカル勾配を同期
-            for (_name, gradient) in &mut self.local_gradients {
+            for gradient in self.local_gradients.values_mut() {
                 self.backend
                     .all_reduce(gradient, crate::distributed::ReduceOp::Average)?;
             }
@@ -322,7 +322,7 @@ impl<T: Float + Send + Sync + 'static> DistributedOptimizer<T> {
                     } else {
                         // Store new gradient
                         // 新しい勾配を保存
-                        self.local_gradients.insert(key, tensor.clone().into());
+                        self.local_gradients.insert(key, tensor.clone());
                     }
                 }
             }

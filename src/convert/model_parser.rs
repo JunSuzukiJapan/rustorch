@@ -6,6 +6,11 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
 
+/// Type alias for execution result containing layer order and dependencies
+type ExecutionResult = (Vec<String>, HashMap<String, Vec<String>>);
+/// Type alias for parsing result containing layer order and dependencies  
+type ParsingResult = Result<ExecutionResult, ParsingError>;
+
 /// Model parsing errors
 /// モデル解析エラー
 #[derive(Debug)]
@@ -286,7 +291,7 @@ impl ModelParser {
 
             layer_params
                 .entry(layer_name.clone())
-                .or_insert_with(HashMap::new)
+                .or_default()
                 .insert(param_type, tensor_data);
         }
 
@@ -483,23 +488,20 @@ impl ModelParser {
 
     /// Infer model architecture from layers
     /// レイヤーからモデルアーキテクチャを推論
-    fn infer_architecture(
-        &self,
-        layers: &HashMap<String, LayerInfo>,
-    ) -> Result<(Vec<String>, HashMap<String, Vec<String>>), ParsingError> {
+    fn infer_architecture(&self, layers: &HashMap<String, LayerInfo>) -> ParsingResult {
         // Simple sequential ordering based on layer names
         let mut execution_order: Vec<String> = layers.keys().cloned().collect();
         execution_order.sort();
 
         // Create sequential connections
-        let mut connections = HashMap::new();
+        let mut connections: HashMap<String, Vec<String>> = HashMap::new();
         for i in 0..execution_order.len().saturating_sub(1) {
             let current_layer = &execution_order[i];
             let next_layer = &execution_order[i + 1];
 
             connections
                 .entry(current_layer.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(next_layer.clone());
         }
 
@@ -512,7 +514,7 @@ impl ModelParser {
         &self,
         _architecture: &str,
         layers: &HashMap<String, LayerInfo>,
-    ) -> Result<(Vec<String>, HashMap<String, Vec<String>>), ParsingError> {
+    ) -> ParsingResult {
         // TODO: Implement parsing of explicit architecture descriptions
         // For now, fall back to inference
         self.infer_architecture(layers)

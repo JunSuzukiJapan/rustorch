@@ -332,7 +332,7 @@ impl CudaKernelExecutor {
             })?;
 
         let block_size = 256;
-        let grid_size = (size + block_size - 1) / block_size;
+        let grid_size = size.div_ceil(block_size);
 
         let config = LaunchConfig {
             grid_dim: (grid_size as u32, 1, 1),
@@ -411,7 +411,7 @@ impl CudaKernelExecutor {
         })?;
 
         let block_size = 256;
-        let grid_size = (size + block_size - 1) / block_size;
+        let grid_size = size.div_ceil(block_size);
         let mut output_gpu = self.device.alloc_zeros::<f32>(grid_size).map_err(|e| {
             RusTorchError::AllocationError(format!("Failed to allocate output array: {}", e))
         })?;
@@ -577,7 +577,7 @@ pub mod cuda_utils {
     /// 最適なグリッドとブロック次元を計算
     pub fn calculate_launch_config(size: usize, max_threads_per_block: usize) -> (usize, usize) {
         let block_size = (max_threads_per_block).min(256);
-        let grid_size = (size + block_size - 1) / block_size;
+        let grid_size = size.div_ceil(block_size);
         (grid_size, block_size)
     }
 

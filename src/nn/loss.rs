@@ -601,7 +601,7 @@ mod tests {
         let result_binding = result.data();
         let result_data = result_binding.read().unwrap();
 
-        let expected = vec![2.0, 2.0];
+        let expected = [2.0, 2.0];
         for (actual, expected) in result_data.as_array().iter().zip(expected.iter()) {
             assert_abs_diff_eq!(*actual, *expected, epsilon = 1e-6);
         }

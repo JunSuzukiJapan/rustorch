@@ -66,7 +66,7 @@ mod tests {
         // Check result
         let data_binding = c.data();
         let result_data = data_binding.read().unwrap();
-        let expected = vec![4.0, 6.0];
+        let expected = [4.0, 6.0];
         for (actual, expected) in result_data.as_array().iter().zip(expected.iter()) {
             assert_abs_diff_eq!(*actual, *expected, epsilon = 1e-6);
         }
@@ -84,7 +84,7 @@ mod tests {
         // Check result
         let data_binding = c.data();
         let result_data = data_binding.read().unwrap();
-        let expected = vec![8.0, 15.0];
+        let expected = [8.0, 15.0];
         for (actual, expected) in result_data.as_array().iter().zip(expected.iter()) {
             assert_abs_diff_eq!(*actual, *expected, epsilon = 1e-6);
         }

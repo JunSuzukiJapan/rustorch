@@ -217,7 +217,7 @@ impl<
         if self.drop_last {
             self.dataset.len() / self.batch_size
         } else {
-            (self.dataset.len() + self.batch_size - 1) / self.batch_size
+            self.dataset.len().div_ceil(self.batch_size)
         }
     }
 

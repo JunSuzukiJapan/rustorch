@@ -550,7 +550,7 @@ mod tests {
         assert_eq!(config.validation_frequency, 1);
         assert_eq!(config.gradient_clip_value, None);
         assert_eq!(config.device, "cpu");
-        assert_eq!(config.use_mixed_precision, false);
+        assert!(!config.use_mixed_precision);
         assert_eq!(config.accumulation_steps, 1);
     }
 
@@ -567,7 +567,7 @@ mod tests {
         let signal = CallbackSignal::Continue;
         match signal {
             CallbackSignal::Continue => {} // Continue execution
-            CallbackSignal::Stop => assert!(false),
+            CallbackSignal::Stop => unreachable!("Stop signal should be handled earlier"),
         }
     }
 }

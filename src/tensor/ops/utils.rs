@@ -161,7 +161,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err("Number of chunks must be positive".to_string());
         }
 
-        let chunk_size = (dim_size + chunks - 1) / chunks; // Ceiling division
+        let chunk_size = dim_size.div_ceil(chunks);
         let mut result = Vec::new();
         
         for i in 0..chunks {

@@ -72,6 +72,12 @@ pub struct GradScaler {
     scaled_grads: HashMap<usize, Tensor<f32>>,
 }
 
+impl Default for GradScaler {
+    fn default() -> Self {
+        Self::new(None, None, None, None, None)
+    }
+}
+
 impl GradScaler {
     /// Create a new gradient scaler
     pub fn new(
@@ -107,6 +113,7 @@ impl GradScaler {
     }
 
     /// Create a default scaler
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Self {
         Self::new(None, None, None, None, None)
     }
@@ -136,9 +143,7 @@ impl GradScaler {
 
     /// Unscale gradients
     pub fn unscale_grads(&mut self, _optimizer: &mut dyn Optimizer) {
-        if !self.state.enabled {
-            return;
-        }
+        if !self.state.enabled {}
 
         // In a real implementation, we would iterate through optimizer's parameters
         // and unscale their gradients by dividing by the scale factor
@@ -239,13 +244,8 @@ impl GradScaler {
         }
 
         // Clip gradients if requested
-        let grad_norm = if let Some(max_norm) = max_grad_norm {
-            Some(crate::amp::dtype_utils::utils::clip_grad_norm(
-                grads, max_norm,
-            ))
-        } else {
-            None
-        };
+        let grad_norm = max_grad_norm
+            .map(|max_norm| crate::amp::dtype_utils::utils::clip_grad_norm(grads, max_norm));
 
         // Final inf/nan check after unscaling and clipping
         if self.check_overflow(grads) {
@@ -294,7 +294,7 @@ impl GradScaler {
         }
 
         // Clamp scale to reasonable bounds
-        self.state.scale = self.state.scale.max(1.0).min(65536.0 * 65536.0);
+        self.state.scale = self.state.scale.clamp(1.0, 65536.0 * 65536.0);
     }
 
     /// Get current scale

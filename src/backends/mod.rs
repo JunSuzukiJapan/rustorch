@@ -320,10 +320,8 @@ impl BackendFactory {
     /// Get all available backends on the current system
     /// 現在のシステムで利用可能な全バックエンドを取得
     pub fn available_backends() -> Vec<DeviceType> {
-        let mut backends = Vec::new();
-
         // CPU is always available
-        backends.push(DeviceType::Cpu);
+        let backends = vec![DeviceType::Cpu];
 
         // Additional backends would be checked here when implemented
         // #[cfg(feature = "cuda")]

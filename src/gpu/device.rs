@@ -133,6 +133,12 @@ impl CpuDevice {
     }
 }
 
+impl Default for CpuDevice {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GpuDevice for CpuDevice {
     fn id(&self) -> usize {
         self.id
@@ -184,6 +190,12 @@ impl CpuStream {
     /// 新しいCPUストリームを作成
     pub fn new() -> Self {
         Self
+    }
+}
+
+impl Default for CpuStream {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -666,7 +678,7 @@ impl DeviceInfo {
         block_size: (u32, u32, u32),
     ) -> (u32, u32, u32) {
         let total_threads = block_size.0 * block_size.1 * block_size.2;
-        let num_blocks = ((problem_size as u32 + total_threads - 1) / total_threads).max(1);
+        let num_blocks = (problem_size as u32).div_ceil(total_threads).max(1);
 
         match self.device_type {
             DeviceType::Cpu => (1, 1, 1),

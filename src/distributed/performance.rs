@@ -120,8 +120,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
             return Err(RusTorchError::ConfigurationError(format!(
                 "Invalid compression ratio: {}",
                 ratio
-            ))
-            .into());
+            )));
         }
 
         Ok(CompressedGradient {
@@ -142,8 +141,7 @@ impl<T: Float + 'static> GradientCompressor<T> {
             return Err(RusTorchError::ConfigurationError(format!(
                 "Invalid quantization bits: {}",
                 bits
-            ))
-            .into());
+            )));
         }
 
         Ok(CompressedGradient {

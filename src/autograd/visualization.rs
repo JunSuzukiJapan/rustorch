@@ -86,6 +86,12 @@ pub enum NodeType {
     Output,
 }
 
+impl Default for GradientFlowVisualizer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GradientFlowVisualizer {
     /// Create a new gradient flow visualizer
     /// 新しい勾配フロービジュアライザーを作成
@@ -234,7 +240,7 @@ impl GradientFlowVisualizer {
         for edge in &self.edges {
             let style = if edge.gradient_magnitude.is_some() {
                 let magnitude = edge.gradient_magnitude.unwrap();
-                let width = (magnitude.log10() + 2.0).max(0.5).min(3.0);
+                let width = (magnitude.log10() + 2.0).clamp(0.5, 3.0);
                 format!("penwidth={:.1}", width)
             } else {
                 "".to_string()
@@ -487,10 +493,7 @@ impl GradientFlowAnalyzer {
             .sum::<f32>()
             .sqrt();
 
-        let history = self
-            .gradient_history
-            .entry(name.to_string())
-            .or_insert_with(Vec::new);
+        let history = self.gradient_history.entry(name.to_string()).or_default();
         history.push(norm);
 
         // Maintain maximum history length

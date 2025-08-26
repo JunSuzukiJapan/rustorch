@@ -500,7 +500,7 @@ impl GraphVisualizer {
 
     fn apply_grid_layout(&mut self) -> RusTorchResult<()> {
         let cols = (self.nodes.len() as f32).sqrt().ceil() as usize;
-        let rows = (self.nodes.len() + cols - 1) / cols;
+        let rows = self.nodes.len().div_ceil(cols);
 
         let margin = 50.0;
         let cell_width = (self.canvas_size.0 - 2.0 * margin) / cols as f32;

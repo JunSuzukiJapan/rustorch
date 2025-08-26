@@ -406,7 +406,7 @@ impl OpenClKernelExecutor {
     pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
         let size = input.len();
         let local_size = 256;
-        let global_size = ((size + local_size - 1) / local_size) * local_size;
+        let global_size = size.div_ceil(local_size) * local_size;
         let num_groups = global_size / local_size;
 
         // Create OpenCL buffers

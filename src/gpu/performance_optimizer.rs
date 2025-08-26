@@ -532,7 +532,7 @@ impl KernelParameterOptimizer {
 /// Helper function to align value up to boundary
 /// 値を境界に切り上げるヘルパー関数
 fn align_up(value: usize, alignment: usize) -> usize {
-    (value + alignment - 1) / alignment * alignment
+    value.div_ceil(alignment) * alignment
 }
 
 #[cfg(test)]

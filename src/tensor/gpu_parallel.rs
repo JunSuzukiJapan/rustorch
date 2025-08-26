@@ -586,29 +586,86 @@ where
     where
         F: Fn(T, T) -> T + Send + Sync,
     {
-        use crate::gpu::{memory_transfer::GpuMemoryManager, DeviceManager};
-        let manager = DeviceManager::new();
+        use crate::gpu::memory_transfer::GpuMemoryManager;
+        use ndarray::ArrayD;
+
+        // Get available devices
+        let manager = get_device_manager();
         let devices = manager.available_devices();
 
-        if devices.is_empty() {
-            return Err(crate::error::RusTorchError::gpu("GPU unavailable"));
+        // If no GPU devices available, return an error that will trigger CPU fallback
+        if devices.is_empty() || devices == vec![DeviceType::Cpu] {
+            return Err(crate::error::RusTorchError::gpu(
+                "No GPU devices available, falling back to CPU",
+            ));
         }
 
-        // GPU memory managerを作成
-        let gpu_manager = GpuMemoryManager::new();
-
-        // デフォルトデバイス選択
+        // Try to use the first available device
         let device = devices.first().unwrap();
 
-        // CPU -> GPU転送
-        let gpu_self = GpuMemoryManager::to_device(self, device)?;
-        let gpu_other = GpuMemoryManager::to_device(other, device)?;
+        // For CPU, just perform the operation directly without GPU
+        if *device == DeviceType::Cpu {
+            return self.batch_elementwise_op(other, op).map_err(|e| {
+                crate::error::RusTorchError::gpu(&format!("CPU fallback failed: {}", e))
+            });
+        }
 
-        // GPU上で element-wise operation を実行
+        // Ensure tensors have the same shape
+        if self.shape() != other.shape() {
+            return Err(crate::error::RusTorchError::shape_mismatch(
+                self.shape(),
+                other.shape(),
+            ));
+        }
+
+        // Save the original shape and data length
+        let original_shape = self.shape().to_vec();
+        let data_len = self.data.len();
+
+        // Get the data as a flat vector, ensuring it's contiguous
+        let self_data = self.data.view().to_owned().into_raw_vec();
+        let other_data = other.data.view().to_owned().into_raw_vec();
+
+        // Create flat tensors with the correct shape [total_elements]
+        let flat_self = Tensor::from_raw_vec(self_data, &[data_len]);
+        let flat_other = Tensor::from_raw_vec(other_data, &[data_len]);
+
+        // Initialize GPU memory manager
+        let gpu_manager = GpuMemoryManager::new();
+
+        // Transfer data to device
+        let gpu_self = GpuMemoryManager::to_device(&flat_self, device)?;
+        let gpu_other = GpuMemoryManager::to_device(&flat_other, device)?;
+
+        // Execute element-wise operation
         let gpu_result = gpu_manager.execute_elementwise(&gpu_self, &gpu_other, op)?;
 
-        // GPU -> CPU転送
-        let result = GpuMemoryManager::to_cpu(&gpu_result, self.data.shape())?;
+        // Transfer result back to CPU as a flat vector
+        let flat_result = GpuMemoryManager::to_cpu(&gpu_result, &[data_len]).map_err(|e| {
+            crate::error::RusTorchError::gpu(&format!(
+                "Failed to transfer result from device: {}",
+                e
+            ))
+        })?;
+
+        // Convert the flat result back to the original shape
+        let result_data = flat_result.data.into_raw_vec();
+
+        // Ensure the total number of elements matches
+        let total_elements: usize = original_shape.iter().product();
+        if result_data.len() != total_elements {
+            return Err(crate::error::RusTorchError::gpu(&format!(
+                "Mismatched element count: expected {} but got {}",
+                total_elements,
+                result_data.len()
+            )));
+        }
+
+        // Create the result tensor with the original shape
+        let array = ArrayD::from_shape_vec(original_shape.clone(), result_data).map_err(|e| {
+            crate::error::RusTorchError::gpu(&format!("Failed to reshape result: {}", e))
+        })?;
+        let result = Tensor::from_ndarray(array);
 
         Ok(result)
     }

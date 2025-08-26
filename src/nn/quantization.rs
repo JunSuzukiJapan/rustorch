@@ -179,7 +179,7 @@ where
     pub fn memory_bytes(&self) -> usize {
         match self.params.qtype {
             QuantizationType::Int8 => self.data.len(),
-            QuantizationType::Int4 => (self.data.len() + 1) / 2, // 4 bits per element
+            QuantizationType::Int4 => self.data.len().div_ceil(2), // 4 bits per element
             QuantizationType::Float16 => self.data.len() * 2,
             QuantizationType::Dynamic => self.data.len(),
         }
@@ -561,7 +561,7 @@ mod tests {
 
         // Check that dequantization is approximately correct
         let dequant_array = dequantized.as_array();
-        let expected = vec![1.0, 2.0, 3.0, -1.0, -2.0, -3.0];
+        let expected = [1.0, 2.0, 3.0, -1.0, -2.0, -3.0];
         for (i, &val) in dequant_array.iter().enumerate() {
             assert!((val - expected[i]).abs() < 0.01);
         }

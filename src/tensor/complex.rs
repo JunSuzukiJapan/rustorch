@@ -1191,7 +1191,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
 
         let input_data: Vec<Complex<T>> = self.data.iter().cloned().collect();
         let input_len = input_data.len();
-        let mid = (input_len + 1) / 2;
+        let mid = input_len.div_ceil(2);
         let mut new_data = Vec::with_capacity(input_len);
 
         // Shift: second half to front, first half to back

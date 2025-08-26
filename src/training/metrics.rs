@@ -495,10 +495,10 @@ mod tests {
         assert!(precision >= 0.0 && precision <= 1.0);
 
         let recall = collector.recall(&predictions, &targets);
-        assert!(recall >= 0.0 && recall <= 1.0);
+        assert!((0.0..=1.0).contains(&recall));
 
         let f1 = collector.f1_score(&predictions, &targets);
-        assert!(f1 >= 0.0 && f1 <= 1.0);
+        assert!((0.0..=1.0).contains(&f1));
     }
 
     #[test]

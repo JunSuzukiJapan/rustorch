@@ -110,6 +110,12 @@ impl TrainingResult {
     }
 }
 
+impl Default for TrainingResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// モデル訓練器
 /// Model trainer
 pub struct Trainer<T, M, O, L>

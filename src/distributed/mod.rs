@@ -214,6 +214,12 @@ pub struct DistributedState {
     pub device_map: HashMap<usize, Vec<DeviceType>>,
 }
 
+impl Default for DistributedState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DistributedState {
     /// Create new distributed state
     /// 新しい分散状態を作成
@@ -255,7 +261,7 @@ impl DistributedState {
 pub fn get_distributed_state() -> &'static Arc<Mutex<DistributedState>> {
     unsafe {
         DISTRIBUTED_INIT.call_once(|| {
-            DISTRIBUTED_STATE = Some(Arc::new(Mutex::new(DistributedState::new())).into());
+            DISTRIBUTED_STATE = Some(Arc::new(Mutex::new(DistributedState::new())));
         });
         #[allow(static_mut_refs)]
         DISTRIBUTED_STATE.as_ref().unwrap()
