@@ -85,14 +85,8 @@ fn main() {
             }
         }
 
-        // For systems with different LAPACK/BLAS implementations
-        if let Ok(lapack_lib) = env::var("RUSTORCH_LAPACK_LIB") {
-            println!("cargo:rustc-link-lib={}", lapack_lib);
-        }
-
-        if let Ok(blas_lib) = env::var("RUSTORCH_BLAS_LIB") {
-            println!("cargo:rustc-link-lib={}", blas_lib);
-        }
+        // Note: Platform-specific library linking is handled above
+        // Additional custom library paths can be specified via RUSTORCH_LIB_DIR
 
         // Additional search paths
         if let Ok(lib_dir) = env::var("RUSTORCH_LIB_DIR") {
