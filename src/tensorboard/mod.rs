@@ -382,7 +382,22 @@ mod tests {
             .filter_map(Result::ok)
             .collect();
 
-        assert!(entries[0].metadata().unwrap().len() > 0);
+        assert_eq!(entries.len(), 1);
+        assert!(entries[0]
+            .file_name()
+            .to_string_lossy()
+            .starts_with("events.out.tfevents"));
+
+        // On some platforms (particularly Windows), file metadata might not be
+        // immediately available or might report 0 size for recently written files.
+        // Instead, verify that the file can be read and contains some data.
+        let file_path = entries[0].path();
+        let file_contents = fs::read(&file_path).unwrap();
+        assert!(
+            file_contents.len() > 0,
+            "Event file should contain data after flush(), but was empty on platform: {}",
+            std::env::consts::OS
+        );
     }
 
     #[test]
