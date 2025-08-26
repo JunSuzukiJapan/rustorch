@@ -9,8 +9,12 @@ use std::env;
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
-    // Check if we're building with linalg-netlib feature
-    if env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok() {
+    // Check if we're building with any LAPACK/BLAS feature
+    let has_linalg_netlib = env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok();
+    let has_linalg = env::var("CARGO_FEATURE_LINALG").is_ok();
+    let has_blas_optimized = env::var("CARGO_FEATURE_BLAS_OPTIMIZED").is_ok();
+    
+    if has_linalg_netlib || has_linalg || has_blas_optimized {
         // Windows requires special handling for LAPACK/BLAS
         if cfg!(target_os = "windows") {
             // On Windows, we rely on netlib-src crate's build system
