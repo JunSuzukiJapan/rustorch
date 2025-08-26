@@ -13,7 +13,7 @@ fn main() {
     let has_linalg_netlib = env::var("CARGO_FEATURE_LINALG_NETLIB").is_ok();
     let has_linalg = env::var("CARGO_FEATURE_LINALG").is_ok();
     let has_blas_optimized = env::var("CARGO_FEATURE_BLAS_OPTIMIZED").is_ok();
-    
+
     if has_linalg_netlib || has_linalg || has_blas_optimized {
         // Windows requires special handling for LAPACK/BLAS
         if cfg!(target_os = "windows") {
@@ -42,14 +42,19 @@ fn main() {
             // Link LAPACK and BLAS libraries with specific library names for better compatibility
             if cfg!(target_os = "linux") {
                 // Check for explicit BLAS/LAPACK library preferences
-                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "openblas".to_string());
-                let _lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "openblas".to_string());
-                
+                let blas_lib = env::var("BLAS_LIB")
+                    .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
+                    .unwrap_or_else(|_| "openblas".to_string());
+                let _lapack_lib = env::var("LAPACK_LIB")
+                    .or_else(|_| env::var("RUSTORCH_LAPACK_LIB"))
+                    .unwrap_or_else(|_| "openblas".to_string());
+
                 // Check if OpenBLAS is actually available before linking
-                let openblas_available = std::path::Path::new("/usr/lib/x86_64-linux-gnu/libopenblas.so.0").exists() ||
-                                         std::path::Path::new("/usr/lib/libopenblas.so").exists() ||
-                                         std::path::Path::new("/usr/local/lib/libopenblas.so").exists();
-                
+                let openblas_available =
+                    std::path::Path::new("/usr/lib/x86_64-linux-gnu/libopenblas.so.0").exists()
+                        || std::path::Path::new("/usr/lib/libopenblas.so").exists()
+                        || std::path::Path::new("/usr/local/lib/libopenblas.so").exists();
+
                 if blas_lib == "openblas" && openblas_available {
                     // Link OpenBLAS (includes both BLAS and LAPACK)
                     println!("cargo:rustc-link-lib=openblas");
@@ -58,14 +63,18 @@ fn main() {
                     println!("cargo:rustc-link-lib=blas");
                     println!("cargo:rustc-link-lib=lapack");
                 }
-                
+
                 // Always link gfortran for Fortran runtime
                 println!("cargo:rustc-link-lib=gfortran");
             } else if cfg!(target_os = "macos") {
                 // macOS with intelligent BLAS/LAPACK detection
-                let blas_lib = env::var("BLAS_LIB").or_else(|_| env::var("RUSTORCH_BLAS_LIB")).unwrap_or_else(|_| "framework".to_string());
-                let _lapack_lib = env::var("LAPACK_LIB").or_else(|_| env::var("RUSTORCH_LAPACK_LIB")).unwrap_or_else(|_| "framework".to_string());
-                
+                let blas_lib = env::var("BLAS_LIB")
+                    .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
+                    .unwrap_or_else(|_| "framework".to_string());
+                let _lapack_lib = env::var("LAPACK_LIB")
+                    .or_else(|_| env::var("RUSTORCH_LAPACK_LIB"))
+                    .unwrap_or_else(|_| "framework".to_string());
+
                 // Check for Homebrew OpenBLAS (both ARM64 and x86_64)
                 let mut openblas_found = false;
                 if std::path::Path::new("/opt/homebrew/lib/libopenblas.dylib").exists() {
@@ -76,7 +85,7 @@ fn main() {
                     println!("cargo:rustc-link-search=native=/usr/local/lib");
                     openblas_found = true;
                 }
-                
+
                 // macOS linking strategy: avoid duplicate libraries
                 if blas_lib == "openblas" && openblas_found {
                     // Link OpenBLAS only if explicitly requested AND found
