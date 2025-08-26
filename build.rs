@@ -130,11 +130,11 @@ fn main() {
                     // Default Ubuntu strategy: link complete LAPACK stack
                     // Many Ubuntu OpenBLAS packages lack Fortran LAPACK symbols
                     let mut needs_gfortran = true;
-                    
+
                     if separate_lapack_available {
                         // Always prioritize system LAPACK for Fortran compatibility
                         println!("cargo:rustc-link-lib=lapack");
-                        
+
                         if openblas_available {
                             // Use OpenBLAS for BLAS operations
                             println!("cargo:rustc-link-lib=openblas");
@@ -157,7 +157,7 @@ fn main() {
                         println!("cargo:rustc-link-lib=blas");
                         println!("cargo:warning=Using fallback LAPACK/BLAS linking");
                     }
-                    
+
                     // Always add Fortran runtime for system libraries
                     if needs_gfortran {
                         println!("cargo:rustc-link-lib=gfortran");
