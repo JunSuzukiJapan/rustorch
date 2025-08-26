@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_optimal_dtype","has_bf16_support","has_fp16_support","should_use_reduced_precision"]};

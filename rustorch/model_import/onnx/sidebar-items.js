@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OnnxDataType"],"fn":["export_to_onnx","import_onnx_model"],"struct":["LayerDescription","OnnxGraph","OnnxModel","OnnxNode","OnnxTensorInfo"]};

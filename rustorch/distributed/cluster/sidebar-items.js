@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ClusterTopology","DistributedBackend","NodeStatus","SchedulingStrategy"],"struct":["ClusterConfig","ClusterManager","ClusterStatus","FaultToleranceConfig","HeartbeatMonitor","NodeCapabilities","NodeInfo","ResourceScheduler","ResourceUsage"]};

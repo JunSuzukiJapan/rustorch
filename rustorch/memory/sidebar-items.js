@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_f32_pool","get_f64_pool"],"struct":["MemoryPool","PoolStats"]};

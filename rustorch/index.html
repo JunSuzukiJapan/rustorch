@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="RusTorch 🚀"><title>rustorch - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../static.files/storage-4e99c027.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../rustorch/index.html">rustorch</a><span class="version">0.4.0</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#rustorch-" title="RusTorch 🚀">RusTorch 🚀</a><ul><li><a href="#-key-features" title="✨ Key Features">✨ Key Features</a></li><li><a href="#-quick-start" title="🚀 Quick Start">🚀 Quick Start</a></li><li><a href="#-safe-operations-with-error-handling" title="🔧 Safe Operations with Error Handling">🔧 Safe Operations with Error Handling</a></li><li><a href="#-architecture-overview" title="🏗️ Architecture Overview">🏗️ Architecture Overview</a></li><li><a href="#-parallel-operations" title="🔄 Parallel Operations">🔄 Parallel Operations</a></li><li><a href="#-gpu-integration" title="🎮 GPU Integration">🎮 GPU Integration</a></li><li><a href="#-memory-optimization" title="💾 Memory Optimization">💾 Memory Optimization</a></li><li><a href="#-webassembly-integration" title="🌐 WebAssembly Integration">🌐 WebAssembly Integration</a></li></ul></li></ul><h3><a href="#modules">Crate Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#macros" title="Macros">Macros</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <span>rustorch</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/rustorch/lib.rs.html#1-373">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="rustorch-"><a class="doc-anchor" href="#rustorch-">§</a>RusTorch 🚀</h2>
+<p><strong>A production-ready deep learning library in Rust with PyTorch-like API, unified error handling, and 100% test success</strong></p>
+<p>RusTorch v0.4.0 is a fully functional deep learning library that leverages Rust’s safety and performance,
+providing comprehensive tensor operations, automatic differentiation, neural network layers,
+transformer architectures, GPU acceleration, unified error handling system, and advanced memory optimization features.</p>
+<h3 id="-key-features"><a class="doc-anchor" href="#-key-features">§</a>✨ Key Features</h3>
+<ul>
+<li><strong>🔥 Comprehensive Tensor Operations</strong>: Math operations, broadcasting, indexing, and statistics</li>
+<li><strong>🤖 Transformer Architecture</strong>: Complete transformer implementation with multi-head attention</li>
+<li><strong>⚡ SIMD Optimizations</strong>: AVX2/SSE4.1 vectorized operations for high performance</li>
+<li><strong>🔄 Unified Parallel Operations</strong>: Trait-based parallel tensor operations with intelligent scheduling</li>
+<li><strong>🎮 GPU Integration</strong>: CUDA/Metal/OpenCL support with automatic device selection</li>
+<li><strong>💾 Advanced Memory Management</strong>: Zero-copy operations, SIMD-aligned allocation, and memory pools</li>
+<li><strong>🧠 Automatic Differentiation</strong>: Tape-based computational graph for gradient computation</li>
+<li><strong>🏗️ Neural Network Layers</strong>: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more</li>
+<li><strong>🛡️ Unified Error Handling</strong>: Single <code>RusTorchError</code> type with 61+ specialized helper functions and <code>RusTorchResult&lt;T&gt;</code> for cleaner APIs</li>
+<li><strong>🔧 Safe Operations</strong>: Type-safe tensor operations with comprehensive error handling and ReLU activation</li>
+<li><strong>⚙️ Shared Base Traits</strong>: Reusable convolution and pooling base implementations for code efficiency</li>
+<li><strong>🌐 WebAssembly Support</strong>: Browser-compatible WASM bindings with optimized performance</li>
+</ul>
+<h3 id="-quick-start"><a class="doc-anchor" href="#-quick-start">§</a>🚀 Quick Start</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::prelude::<span class="kw-2">*</span>;
+
+<span class="comment">// Create tensors
+</span><span class="kw">let </span>a = Tensor::from_vec(<span class="macro">vec!</span>[<span class="number">1.0f32</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>], <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">2</span>]);
+<span class="kw">let </span>b = Tensor::from_vec(<span class="macro">vec!</span>[<span class="number">5.0f32</span>, <span class="number">6.0</span>, <span class="number">7.0</span>, <span class="number">8.0</span>], <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">2</span>]);
+
+<span class="comment">// Basic operations
+</span><span class="kw">let </span>c = <span class="kw-2">&amp;</span>a + <span class="kw-2">&amp;</span>b;  <span class="comment">// Addition
+</span><span class="kw">let </span>d = a.matmul(<span class="kw-2">&amp;</span>b);  <span class="comment">// Matrix multiplication
+
+// Mathematical functions
+</span><span class="kw">let </span>e = a.sin();  <span class="comment">// Sine function
+</span><span class="kw">let </span>f = a.exp();  <span class="comment">// Exponential function
+
+</span><span class="macro">println!</span>(<span class="string">"Shape: {:?}"</span>, c.shape());
+<span class="macro">println!</span>(<span class="string">"Result: {:?}"</span>, c.as_slice());</code></pre></div>
+<h3 id="-safe-operations-with-error-handling"><a class="doc-anchor" href="#-safe-operations-with-error-handling">§</a>🔧 Safe Operations with Error Handling</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::nn::safe_ops::SafeOps;
+
+<span class="comment">// Create variables safely with validation
+</span><span class="kw">let </span>var = SafeOps::create_variable(<span class="macro">vec!</span>[-<span class="number">1.0</span>, <span class="number">0.0</span>, <span class="number">1.0</span>], <span class="macro">vec!</span>[<span class="number">3</span>], <span class="bool-val">false</span>).unwrap();
+
+<span class="comment">// Apply ReLU activation function
+</span><span class="kw">let </span>relu_result = SafeOps::relu(<span class="kw-2">&amp;</span>var).unwrap();
+<span class="macro">println!</span>(<span class="string">"ReLU: {:?}"</span>, relu_result.data().read().unwrap().as_array()); <span class="comment">// [0.0, 0.0, 1.0]
+
+// Get tensor statistics
+</span><span class="kw">let </span>stats = SafeOps::get_stats(<span class="kw-2">&amp;</span>var).unwrap();
+<span class="macro">println!</span>(<span class="string">"Mean: {:.2}, Std: {:.2}"</span>, stats.mean, stats.std_dev());</code></pre></div>
+<h3 id="-architecture-overview"><a class="doc-anchor" href="#-architecture-overview">§</a>🏗️ Architecture Overview</h3>
+<p>The library is organized into several key modules:</p>
+<ul>
+<li><a href="tensor/index.html" title="mod rustorch::tensor"><code>tensor</code></a>: Core tensor operations with parallel and GPU acceleration</li>
+<li><a href="nn/index.html" title="mod rustorch::nn"><code>nn</code></a>: Neural network layers and building blocks
+<ul>
+<li><a href="nn/safe_ops/index.html" title="mod rustorch::nn::safe_ops"><code>nn::safe_ops</code></a>: Safe tensor operations with error handling and ReLU activation</li>
+<li><a href="nn/conv_base/index.html" title="mod rustorch::nn::conv_base"><code>nn::conv_base</code></a>: Shared base traits for convolution and pooling layers</li>
+</ul>
+</li>
+<li><a href="autograd/index.html" title="mod rustorch::autograd"><code>autograd</code></a>: Automatic differentiation system</li>
+<li><a href="vision/index.html" title="mod rustorch::vision"><code>vision</code></a>: Computer vision utilities including transforms and datasets</li>
+<li><a href="optim/index.html" title="mod rustorch::optim"><code>optim</code></a>: Optimization algorithms (SGD, Adam, etc.)</li>
+<li><a href="gpu/index.html" title="mod rustorch::gpu"><code>gpu</code></a>: GPU acceleration support (CUDA, Metal, OpenCL)</li>
+<li><a href="simd/index.html" title="mod rustorch::simd"><code>simd</code></a>: SIMD vectorized operations</li>
+<li><code>wasm</code>: WebAssembly bindings for browser deployment</li>
+<li><a href="memory/index.html" title="mod rustorch::memory"><code>memory</code></a>: Advanced memory management and pooling</li>
+<li><a href="data/index.html" title="mod rustorch::data"><code>data</code></a>: Data loading and processing utilities</li>
+</ul>
+<h3 id="-parallel-operations"><a class="doc-anchor" href="#-parallel-operations">§</a>🔄 Parallel Operations</h3>
+<p>RusTorch provides a unified trait-based system for parallel tensor operations:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::{Tensor, parallel_traits::<span class="kw-2">*</span>};
+
+<span class="kw">let </span>tensor1 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">4</span>]);  <span class="comment">// 2D matrices for simplicity
+</span><span class="kw">let </span>tensor2 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">4</span>]);
+
+<span class="comment">// Basic tensor operations
+</span><span class="kw">let </span>result = <span class="kw-2">&amp;</span>tensor1 + <span class="kw-2">&amp;</span>tensor2; <span class="comment">// Element-wise addition
+
+// Matrix multiplication
+</span><span class="kw">let </span>matmul_result = tensor1.matmul(<span class="kw-2">&amp;</span>tensor2);
+
+<span class="comment">// Basic reduction operations
+</span><span class="kw">let </span>sum = tensor1.sum();</code></pre></div>
+<h3 id="-gpu-integration"><a class="doc-anchor" href="#-gpu-integration">§</a>🎮 GPU Integration</h3>
+<p>Seamless GPU acceleration with automatic device selection:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::Tensor;
+
+<span class="kw">let </span>tensor1 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">4</span>]);
+<span class="kw">let </span>tensor2 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">4</span>]);
+
+<span class="comment">// GPU-accelerated operations (when available)
+</span><span class="kw">let </span>result = <span class="kw-2">&amp;</span>tensor1 + <span class="kw-2">&amp;</span>tensor2;  <span class="comment">// Basic tensor operations</span></code></pre></div>
+<h3 id="-memory-optimization"><a class="doc-anchor" href="#-memory-optimization">§</a>💾 Memory Optimization</h3>
+<p>Advanced memory management for optimal performance:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::Tensor;
+
+<span class="kw">let </span>tensor = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">4</span>, <span class="number">4</span>]);
+
+<span class="comment">// Basic tensor operations
+</span><span class="kw">let </span>result = <span class="kw-2">&amp;</span>tensor * <span class="kw-2">&amp;</span>tensor; <span class="comment">// Element-wise multiplication</span></code></pre></div>
+<h3 id="-webassembly-integration"><a class="doc-anchor" href="#-webassembly-integration">§</a>🌐 WebAssembly Integration</h3>
+<p>Run neural networks directly in browsers with optimized WASM bindings:</p>
+<div class="example-wrap"><pre class="language-javascript"><code>// Browser usage (JavaScript)
+import init, * as rustorch from &#39;./pkg/rustorch.js&#39;;
+
+await init();
+
+// Create and manipulate tensors
+const tensor1 = rustorch.WasmTensor.ones([2, 3]);
+const tensor2 = rustorch.WasmTensor.random([2, 3]);
+const sum = tensor1.add(tensor2);
+
+// Neural network inference
+const model = new rustorch.WasmModel();
+model.add_linear(10, 5, true);
+model.add_relu();
+
+const input = rustorch.WasmTensor.random([1, 10]);
+const output = model.forward(input);
+
+console.log(&#39;Output:&#39;, output.data());</code></pre></div></div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="amp/index.html" title="mod rustorch::amp">amp</a></dt><dd>Automatic Mixed Precision (AMP) training support
+自動混合精度(AMP)学習サポート
+Automatic Mixed Precision (AMP) training support
+自動混合精度学習のサポート</dd><dt><a class="mod" href="autograd/index.html" title="mod rustorch::autograd">autograd</a></dt><dd>Automatic differentiation module
+自動微分モジュール</dd><dt><a class="mod" href="backends/index.html" title="mod rustorch::backends">backends</a></dt><dd>Unified compute backend abstraction layer<br />
+統一計算バックエンド抽象化レイヤー
+Unified compute backend abstraction for RusTorch v0.4.0
+RusTorch v0.4.0の統一計算バックエンド抽象化</dd><dt><a class="mod" href="common/index.html" title="mod rustorch::common">common</a></dt><dd>Common utilities and shared functionality
+共通ユーティリティと共有機能
+Common utilities and shared functionality for RusTorch
+RusTorchの共通ユーティリティと共有機能</dd><dt><a class="mod" href="convert/index.html" title="mod rustorch::convert">convert</a></dt><dd>PyTorch to RusTorch conversion system
+PyTorchからRusTorch変換システム
+PyTorch to RusTorch conversion module
+PyTorchからRusTorchへの変換モジュール</dd><dt><a class="mod" href="data/index.html" title="mod rustorch::data">data</a></dt><dd>Data loading and processing utilities
+データ読み込みと処理のユーティリティ
+Data loading and processing utilities
+データ読み込みと処理のユーティリティ</dd><dt><a class="mod" href="distributed/index.html" title="mod rustorch::distributed">distributed</a></dt><dd>Distributed training support for multi-GPU and multi-machine training
+マルチGPUおよびマルチマシン学習用分散学習サポート
+Distributed training support for RusTorch
+RusTorchの分散学習サポート</dd><dt><a class="mod" href="distributions/index.html" title="mod rustorch::distributions">distributions</a></dt><dd>Statistical distributions module providing PyTorch-compatible probability distributions
+PyTorch互換の確率分布を提供する統計分布モジュール</dd><dt><a class="mod" href="dtype/index.html" title="mod rustorch::dtype">dtype</a></dt><dd>Data types for tensors
+テンソル用データ型</dd><dt><a class="mod" href="error/index.html" title="mod rustorch::error">error</a></dt><dd>Unified error handling system
+統一エラーハンドリングシステム
+Unified error handling system for RusTorch
+RusTorch用統一エラーハンドリングシステム</dd><dt><a class="mod" href="formats/index.html" title="mod rustorch::formats">formats</a></dt><dd>Model format support and conversion utilities
+モデル形式サポートと変換ユーティリティ
+Model format support for RusTorch
+RusTorchのモデルフォーマットサポート</dd><dt><a class="mod" href="gpu/index.html" title="mod rustorch::gpu">gpu</a></dt><dd>GPU acceleration support (CUDA, Metal, OpenCL)
+GPU加速サポート（CUDA、Metal、OpenCL）</dd><dt><a class="mod" href="linalg/index.html" title="mod rustorch::linalg">linalg</a></dt><dd>High-performance linear algebra with BLAS integration
+BLAS統合による高性能線形代数
+Linear Algebra Module with High-Performance Optimizations
+高性能最適化付き線形代数モジュール</dd><dt><a class="mod" href="memory/index.html" title="mod rustorch::memory">memory</a></dt><dd>Memory management and pooling utilities
+メモリ管理とプーリングユーティリティ</dd><dt><a class="mod" href="model_import/index.html" title="mod rustorch::model_import">model_<wbr>import</a></dt><dd>Model import functionality for PyTorch and ONNX models
+PyTorchとONNXモデルのインポート機能</dd><dt><a class="mod" href="models/index.html" title="mod rustorch::models">models</a></dt><dd>Pre-built models and architectures
+事前構築モデルとアーキテクチャ
+機械学習モデルアーキテクチャ
+Machine learning model architectures</dd><dt><a class="mod" href="nn/index.html" title="mod rustorch::nn">nn</a></dt><dd>Neural network layers and building blocks
+ニューラルネットワークレイヤーと構成要素
+ニューラルネットワークモジュールの定義
+Neural network module definitions.</dd><dt><a class="mod" href="optim/index.html" title="mod rustorch::optim">optim</a></dt><dd>Optimization algorithms
+最適化アルゴリズム</dd><dt><a class="mod" href="parallel/index.html" title="mod rustorch::parallel">parallel</a></dt><dd>Parallel processing utilities
+並列処理ユーティリティ</dd><dt><a class="mod" href="prelude/index.html" title="mod rustorch::prelude">prelude</a></dt><dd>Re-exports of commonly used items</dd><dt><a class="mod" href="profiler/index.html" title="mod rustorch::profiler">profiler</a></dt><dd>Performance profiler
+パフォーマンスプロファイラー
+Performance profiler for RusTorch operations
+RusTorch操作のパフォーマンスプロファイラー</dd><dt><a class="mod" href="simd/index.html" title="mod rustorch::simd">simd</a></dt><dd>SIMD vectorized operations for performance optimization
+パフォーマンス最適化のためのSIMDベクトル化操作</dd><dt><a class="mod" href="special/index.html" title="mod rustorch::special">special</a></dt><dd>Special mathematical functions (gamma, Bessel, error functions)
+特殊数学関数（ガンマ、ベッセル、誤差関数）
+Special mathematical functions module
+特殊数学関数モジュール</dd><dt><a class="mod" href="tensor/index.html" title="mod rustorch::tensor">tensor</a></dt><dd>Tensor operations and data structures
+テンソル操作とデータ構造</dd><dt><a class="mod" href="tensorboard/index.html" title="mod rustorch::tensorboard">tensorboard</a></dt><dd>TensorBoard integration
+TensorBoard統合
+TensorBoard integration for RusTorch
+RusTorch用TensorBoard統合</dd><dt><a class="mod" href="training/index.html" title="mod rustorch::training">training</a></dt><dd>Training loop abstractions and utilities
+学習ループの抽象化とユーティリティ
+学習ループの抽象化
+Training loop abstraction</dd><dt><a class="mod" href="utils/index.html" title="mod rustorch::utils">utils</a></dt><dd>Utility functions
+ユーティリティ関数
+Utility functions and types</dd><dt><a class="mod" href="vision/index.html" title="mod rustorch::vision">vision</a></dt><dd>Computer vision module providing image transforms, data augmentation, and built-in datasets
+画像変換、データ拡張、組み込みデータセットを提供するコンピュータビジョンモジュール
+Computer Vision utilities for RusTorch
+RusTorch用コンピュータビジョンユーティリティ</dd><dt><a class="mod" href="visualization/index.html" title="mod rustorch::visualization">visualization</a></dt><dd>Visualization tools for plots, graphs, and data analysis
+プロット、グラフ、データ解析用の可視化ツール</dd></dl><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><dl class="item-table"><dt><a class="macro" href="macro.autocast_op.html" title="macro rustorch::autocast_op">autocast_<wbr>op</a></dt><dd>Macro for autocast-aware operations</dd><dt><a class="macro" href="macro.distributed_error.html" title="macro rustorch::distributed_error">distributed_<wbr>error</a></dt><dd>Macro for creating distributed errors easily
+分散エラーを簡単に作成するためのマクロ</dd><dt><a class="macro" href="macro.error_context.html" title="macro rustorch::error_context">error_<wbr>context</a></dt><dd>Macro for creating error context with file location
+ファイル位置付きのエラーコンテキストを作成するマクロ</dd><dt><a class="macro" href="macro.gpu_error.html" title="macro rustorch::gpu_error">gpu_<wbr>error</a></dt><dd>Macro for creating GPU errors easily
+GPUエラーを簡単に作成するためのマクロ</dd><dt><a class="macro" href="macro.profile.html" title="macro rustorch::profile">profile</a></dt><dd>Profile a code block
+コードブロックをプロファイル</dd><dt><a class="macro" href="macro.profile_fn.html" title="macro rustorch::profile_fn">profile_<wbr>fn</a></dt><dd>Profile a function
+関数をプロファイル</dd><dt><a class="macro" href="macro.tb_log.html" title="macro rustorch::tb_log">tb_log</a></dt><dd>Macro for easy TensorBoard logging
+簡単なTensorBoardログ用マクロ</dd><dt><a class="macro" href="macro.tensor_error.html" title="macro rustorch::tensor_error">tensor_<wbr>error</a></dt><dd>Helper macros for error creation
+エラー作成用ヘルパーマクロ
+Macro for creating tensor errors easily
+テンソルエラーを簡単に作成するためのマクロ</dd><dt><a class="macro" href="macro.with_context.html" title="macro rustorch::with_context">with_<wbr>context</a></dt><dd>Macro for adding context to results
+結果にコンテキストを追加するマクロ</dd></dl></section></div></main></body></html>

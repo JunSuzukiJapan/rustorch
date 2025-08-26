@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeviceType","Operation","ReduceOp","SelectionStrategy","TransferDirection"],"fn":["global_device_manager","initialize_backends"],"struct":["DeviceManager","PerformanceMetrics"],"trait":["ComputeBackend","ComputeBackendGeneric"]};

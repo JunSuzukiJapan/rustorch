@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["event_writer","python_compat","summary"],"struct":["EdgeDef","GraphDef","ImageData","NodeDef","SummaryWriter"]};

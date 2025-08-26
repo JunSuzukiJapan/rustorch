@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CACHE_LINE_SIZE","HUGE_PAGE_SIZE","PAGE_SIZE"],"enum":["AllocationStrategy"],"struct":["AdvancedMemoryPool","AllocationStats","OptimizedTensorOps","PoolConfig"],"trait":["TensorMemoryExt"]};

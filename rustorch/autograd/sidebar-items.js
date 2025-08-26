@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["function","grad_fn","graph","linear_grad_fn","visualization"],"struct":["Variable"],"trait":["GradFn"]};

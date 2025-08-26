@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PlateauMode","ThresholdMode"],"struct":["CosineAnnealingLR","ExponentialLR","MultiStepLR","ReduceLROnPlateau","StepLR"],"trait":["LRScheduler"]};

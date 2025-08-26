@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Dim1","Dim2","Dim3","Dim4","TypedTensor"],"trait":["Dimension","TypeSafeReshape"]};

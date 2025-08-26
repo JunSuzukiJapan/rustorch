@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["calculate_launch_config","get_device_properties"]};

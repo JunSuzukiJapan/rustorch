@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["binary_cross_entropy","cross_entropy","cross_entropy_loss","cross_entropy_loss_old","focal_loss","huber_loss","kl_div_loss","mse_loss","nll_loss","triplet_loss"],"struct":["CrossEntropyLoss","FocalLoss","KLDivLoss","MSELoss","TripletLoss"],"trait":["Loss"]};

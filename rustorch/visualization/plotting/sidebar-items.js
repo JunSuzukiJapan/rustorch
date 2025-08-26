@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChartType","PlotStyle"],"struct":["PlotConfig","TrainingPlotter"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AvgPool2d","MaxPool2d"]};

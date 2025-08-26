@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BERT","BERTBuilder","BERTConfig","BERTEmbeddings","GPT","GPTConfig","TransformerModel","TransformerModelBuilder"]};
