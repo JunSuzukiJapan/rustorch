@@ -27,11 +27,13 @@ fn main() {
             if cfg!(target_os = "linux") {
                 println!("cargo:rustc-link-search=native=/usr/lib");
                 println!("cargo:rustc-link-search=native=/usr/local/lib");
-                
+
                 // Multi-architecture support
                 if cfg!(target_arch = "x86_64") {
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu");
-                    println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/openblas-pthread");
+                    println!(
+                        "cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/openblas-pthread"
+                    );
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/blas");
                     println!("cargo:rustc-link-search=native=/usr/lib/x86_64-linux-gnu/lapack");
                 } else if cfg!(target_arch = "aarch64") {
@@ -55,59 +57,62 @@ fn main() {
 
                 // Check for available BLAS/LAPACK libraries with multi-arch support
                 let arch_paths = if cfg!(target_arch = "x86_64") {
-                    vec![
-                        "/usr/lib/x86_64-linux-gnu",
-                        "/usr/lib64",
-                    ]
+                    vec!["/usr/lib/x86_64-linux-gnu", "/usr/lib64"]
                 } else if cfg!(target_arch = "aarch64") {
-                    vec![
-                        "/usr/lib/aarch64-linux-gnu",
-                        "/usr/lib64",
-                    ]
+                    vec!["/usr/lib/aarch64-linux-gnu", "/usr/lib64"]
                 } else {
                     vec!["/usr/lib"]
                 };
-                
+
                 let mut openblas_available = false;
                 let mut separate_blas_available = false;
                 let mut separate_lapack_available = false;
-                
+
                 for path in &arch_paths {
                     // Check OpenBLAS variants
                     if std::path::Path::new(&format!("{}/libopenblas.so.0", path)).exists()
                         || std::path::Path::new(&format!("{}/libopenblas.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists() {
+                        || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists()
+                    {
                         openblas_available = true;
                     }
-                    
-                    // Check separate BLAS libraries  
+
+                    // Check separate BLAS libraries
                     if std::path::Path::new(&format!("{}/libblas.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/libblas.a", path)).exists() {
+                        || std::path::Path::new(&format!("{}/libblas.a", path)).exists()
+                    {
                         separate_blas_available = true;
                     }
-                    
+
                     // Check separate LAPACK libraries
                     if std::path::Path::new(&format!("{}/liblapack.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/liblapack.a", path)).exists() {
+                        || std::path::Path::new(&format!("{}/liblapack.a", path)).exists()
+                    {
                         separate_lapack_available = true;
                     }
                 }
-                
+
                 // Also check common system paths
                 for common_path in &["/usr/lib", "/usr/local/lib", "/opt/local/lib"] {
-                    if !openblas_available && (
-                        std::path::Path::new(&format!("{}/libopenblas.so", common_path)).exists()
-                        || std::path::Path::new(&format!("{}/libopenblas.a", common_path)).exists()) {
+                    if !openblas_available
+                        && (std::path::Path::new(&format!("{}/libopenblas.so", common_path))
+                            .exists()
+                            || std::path::Path::new(&format!("{}/libopenblas.a", common_path))
+                                .exists())
+                    {
                         openblas_available = true;
                     }
-                    if !separate_blas_available && (
-                        std::path::Path::new(&format!("{}/libblas.so", common_path)).exists()
-                        || std::path::Path::new(&format!("{}/libblas.a", common_path)).exists()) {
+                    if !separate_blas_available
+                        && (std::path::Path::new(&format!("{}/libblas.so", common_path)).exists()
+                            || std::path::Path::new(&format!("{}/libblas.a", common_path)).exists())
+                    {
                         separate_blas_available = true;
                     }
-                    if !separate_lapack_available && (
-                        std::path::Path::new(&format!("{}/liblapack.so", common_path)).exists()
-                        || std::path::Path::new(&format!("{}/liblapack.a", common_path)).exists()) {
+                    if !separate_lapack_available
+                        && (std::path::Path::new(&format!("{}/liblapack.so", common_path)).exists()
+                            || std::path::Path::new(&format!("{}/liblapack.a", common_path))
+                                .exists())
+                    {
                         separate_lapack_available = true;
                     }
                 }
@@ -169,18 +174,22 @@ fn main() {
                 let common_paths = ["/usr/lib", "/usr/local/lib", "/opt/local/lib"];
                 let mut openblas_found = false;
                 let mut separate_libs_found = false;
-                
+
                 for path in &common_paths {
-                    if !openblas_found && (std::path::Path::new(&format!("{}/libopenblas.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists()) {
+                    if !openblas_found
+                        && (std::path::Path::new(&format!("{}/libopenblas.so", path)).exists()
+                            || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists())
+                    {
                         openblas_found = true;
                     }
-                    if !separate_libs_found && std::path::Path::new(&format!("{}/liblapack.so", path)).exists() 
-                        && std::path::Path::new(&format!("{}/libblas.so", path)).exists() {
+                    if !separate_libs_found
+                        && std::path::Path::new(&format!("{}/liblapack.so", path)).exists()
+                        && std::path::Path::new(&format!("{}/libblas.so", path)).exists()
+                    {
                         separate_libs_found = true;
                     }
                 }
-                
+
                 if openblas_found {
                     println!("cargo:rustc-link-lib=openblas");
                 } else if separate_libs_found {
@@ -208,15 +217,15 @@ fn main() {
         // Try to detect CUDA installation paths
         let cuda_paths = [
             "/usr/local/cuda/lib64",
-            "/opt/cuda/lib64", 
+            "/opt/cuda/lib64",
             "/usr/lib/x86_64-linux-gnu",
-            "/usr/local/cuda/lib"
+            "/usr/local/cuda/lib",
         ];
-        
+
         let cuda_root = env::var("CUDA_ROOT")
             .or_else(|_| env::var("CUDA_PATH"))
             .or_else(|_| env::var("CUDA_HOME"));
-            
+
         if let Ok(cuda_root) = cuda_root {
             println!("cargo:rustc-link-search=native={}/lib64", cuda_root);
             println!("cargo:rustc-link-search=native={}/lib", cuda_root);
@@ -229,7 +238,7 @@ fn main() {
                 }
             }
         }
-        
+
         println!("cargo:rustc-link-lib=cudart");
         println!("cargo:rustc-link-lib=cublas");
         println!("cargo:rustc-link-lib=curand");

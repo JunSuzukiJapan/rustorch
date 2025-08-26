@@ -171,7 +171,8 @@
       "mcp__serena__check_onboarding_performed",
       "mcp__serena__list_dir",
       "Bash(sudo apt-get:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(RUST_BACKTRACE=1 cargo test --features \"linalg-netlib\" --lib tensor::core::tests --no-default-features)"
     ],
     "deny": [],
     "ask": [],
