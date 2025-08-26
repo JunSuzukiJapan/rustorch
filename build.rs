@@ -51,7 +51,7 @@ fn main() {
             } else if cfg!(target_os = "linux") {
                 // Only link system libraries if NOT using linalg-netlib
                 // Check for explicit BLAS/LAPACK library preferences
-                let blas_lib = env::var("BLAS_LIB")
+                let _blas_lib = env::var("BLAS_LIB")
                     .or_else(|_| env::var("RUSTORCH_BLAS_LIB"))
                     .unwrap_or_else(|_| "openblas".to_string());
                 let _lapack_lib = env::var("LAPACK_LIB")
