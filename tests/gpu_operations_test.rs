@@ -4,16 +4,12 @@
 //! This module provides comprehensive tests for all GPU operations
 //! including memory transfer, matrix operations, convolution, and reduction.
 
-use rustorch::error::RusTorchResult;
 use rustorch::gpu::DeviceManager;
-use rustorch::tensor::Tensor;
 
 // GPU matrix operations tests
 // GPU行列演算テスト
 #[cfg(test)]
 mod matrix_operations_tests {
-    use super::*;
-    use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
@@ -77,9 +73,6 @@ mod matrix_operations_tests {
 // GPU畳み込み演算テスト
 #[cfg(test)]
 mod convolution_tests {
-    use super::*;
-    use rustorch::backends::ConvolutionParams;
-    use rustorch::gpu::conv_ops::GpuConvolution;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
@@ -112,7 +105,6 @@ mod convolution_tests {
 // GPUリダクション演算テスト
 #[cfg(test)]
 mod reduction_tests {
-    use super::*;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
@@ -187,8 +179,6 @@ mod reduction_tests {
 // GPU並列演算テスト
 #[cfg(test)]
 mod parallel_operations_tests {
-    use super::*;
-    use rustorch::tensor::gpu_parallel::GpuParallelOp;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
@@ -211,9 +201,6 @@ mod parallel_operations_tests {
 // パフォーマンスとストレステスト
 #[cfg(test)]
 mod performance_tests {
-    use super::*;
-    use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
-    use std::time::Instant;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
@@ -275,8 +262,6 @@ mod performance_tests {
 // エラー処理とエッジケース
 #[cfg(test)]
 mod error_handling_tests {
-    use super::*;
-    use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
 
     #[test]
     #[cfg(not(target_os = "macos"))] // Skip on macOS CI due to no GPU access
