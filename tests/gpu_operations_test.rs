@@ -29,7 +29,7 @@ mod matrix_operations_tests {
         // Verify result matches expected computation
         let expected_result = a
             .matmul(&b)
-            .map_err(|e| rustorch::error::RusTorchError::tensor_op(e))?;
+            .map_err(rustorch::error::RusTorchError::tensor_op)?;
         for (gpu_val, cpu_val) in result.data.iter().zip(expected_result.data.iter()) {
             assert!(
                 (gpu_val - cpu_val).abs() < 1e-5,
@@ -218,7 +218,7 @@ mod performance_tests {
         let start = Instant::now();
         let _result = a
             .matmul(&b)
-            .map_err(|e| rustorch::error::RusTorchError::tensor_op(e))?;
+            .map_err(rustorch::error::RusTorchError::tensor_op)?;
         let cpu_time = start.elapsed();
 
         println!("GPU matrix multiplication time: {:?}", gpu_time);

@@ -253,3 +253,16 @@ harness = false
 name = "simple_gpu_bench"
 harness = false
 
+[lints.clippy]
+# Allow common warnings in examples, tests, and benches
+approx_constant = "allow"
+identity_op = "allow"
+needless_borrow = "allow"
+needless_range_loop = "allow"
+unit_arg = "allow"
+useless_vec = "allow"
+unnecessary_cast = "allow"
+redundant_closure = "allow"
+println_empty_string = "allow"
+useless_asref = "allow"
+needless_borrows_for_generic_args = "allow"

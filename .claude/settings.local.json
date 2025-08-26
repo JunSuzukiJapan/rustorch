@@ -172,7 +172,8 @@
       "mcp__serena__list_dir",
       "Bash(sudo apt-get:*)",
       "Read(//tmp/**)",
-      "Bash(RUST_BACKTRACE=1 cargo test --features \"linalg-netlib\" --lib tensor::core::tests --no-default-features)"
+      "Bash(RUST_BACKTRACE=1 cargo test --features \"linalg-netlib\" --lib tensor::core::tests --no-default-features)",
+      "mcp__serena__write_memory"
     ],
     "deny": [],
     "ask": [],

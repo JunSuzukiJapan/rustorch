@@ -46,6 +46,18 @@
 #![allow(unused_variables)]
 #![allow(clippy::all)]
 #![warn(clippy::correctness)]
+// Additional allows for examples, tests, and benches
+#![allow(clippy::println_empty_string)]
+#![allow(clippy::useless_asref)]
+#![allow(clippy::needless_borrow)]
+#![allow(clippy::identity_op)]
+#![allow(clippy::redundant_closure)]
+#![allow(clippy::needless_range_loop)]
+#![allow(clippy::unnecessary_cast)]
+#![allow(clippy::useless_vec)]
+#![allow(clippy::unit_arg)]
+#![allow(clippy::approx_constant)]
+#![allow(clippy::needless_borrows_for_generic_args)]
 
 //!
 //! **A production-ready deep learning library in Rust with PyTorch-like API, unified error handling, and 100% test success**

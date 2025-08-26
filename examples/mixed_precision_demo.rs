@@ -174,7 +174,7 @@ fn dtype_conversion_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("   Testing data type conversions...");
 
     // Create FP32 tensor
-    let fp32_tensor = Tensor::from_vec(vec![1.0, 2.5, 3.14159, -0.5], vec![4]);
+    let fp32_tensor = Tensor::from_vec(vec![1.0, 2.5, std::f32::consts::PI, -0.5], vec![4]);
     println!("   - Original FP32 tensor: {:?}", fp32_tensor.as_slice());
 
     // Convert to FP16 (simulated)
