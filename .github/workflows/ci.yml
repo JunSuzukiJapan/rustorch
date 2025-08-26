@@ -247,7 +247,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --features "linalg" --all-targets
+        run: cargo clippy --features "linalg-netlib" --all-targets
 
       - name: Install audit tools
         run: |
@@ -329,7 +329,7 @@ jobs:
           toolchain: stable
 
       - name: Run benchmarks
-        run: cargo bench --features "linalg"
+        run: cargo bench --features "linalg-netlib"
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
