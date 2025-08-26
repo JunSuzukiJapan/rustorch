@@ -2279,7 +2279,7 @@ mod tests {
 
         // For diagonal matrix, eigenvalues should be the diagonal elements (sorted)
         let eigenvals_data = eigenvals.data.as_slice().unwrap();
-        let mut expected = vec![3.0, 5.0]; // diagonal elements
+        let mut expected = [3.0, 5.0]; // diagonal elements
         expected.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         assert_abs_diff_eq!(eigenvals_data[0], expected[0], epsilon = 1e-4);

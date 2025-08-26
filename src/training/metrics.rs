@@ -489,10 +489,10 @@ mod tests {
         let targets = Variable::new(Tensor::from_vec(vec![1.0, 0.0, 1.0, 0.0], vec![4]), false);
 
         let accuracy = collector.accuracy(&predictions, &targets);
-        assert!(accuracy >= 0.0 && accuracy <= 1.0);
+        assert!((0.0..=1.0).contains(&accuracy));
 
         let precision = collector.precision(&predictions, &targets);
-        assert!(precision >= 0.0 && precision <= 1.0);
+        assert!((0.0..=1.0).contains(&precision));
 
         let recall = collector.recall(&predictions, &targets);
         assert!((0.0..=1.0).contains(&recall));

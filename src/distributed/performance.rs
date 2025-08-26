@@ -170,6 +170,7 @@ pub struct CompressedGradient<T: Float> {
 /// Memory pool for efficient tensor allocation
 /// 効率的なテンソル割り当て用メモリプール
 pub struct TensorMemoryPool<T: Float> {
+    #[allow(clippy::type_complexity)]
     pools: Arc<Mutex<HashMap<Vec<usize>, Vec<Tensor<T>>>>>,
     max_pool_size: usize,
 }

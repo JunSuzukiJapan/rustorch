@@ -267,13 +267,12 @@ where
 
         let mut result_data = Vec::with_capacity(sample_size);
 
-        for i in 0..sample_size {
+        for (i, &u) in uniform_data.iter().enumerate().take(sample_size) {
             let batch_idx = i % batch_size;
             let batch_start = batch_idx * self.num_categories;
             let batch_probs = &probs_data[batch_start..batch_start + self.num_categories];
 
             // Inverse transform sampling using cumulative probabilities
-            let u = uniform_data[i];
             let mut cumulative = T::zero();
             let mut category = 0;
 
@@ -367,19 +366,19 @@ where
         let batch_size: usize = self.base.batch_shape.iter().product();
         let batch_size = if batch_size == 0 { 1 } else { batch_size };
 
-        let mut result_data = Vec::with_capacity(batch_size);
+        let result_data: Vec<_> = (0..batch_size)
+            .map(|batch| {
+                let batch_start = batch * self.num_categories;
+                let batch_probs = &probs_data[batch_start..batch_start + self.num_categories];
 
-        for batch in 0..batch_size {
-            let batch_start = batch * self.num_categories;
-            let batch_probs = &probs_data[batch_start..batch_start + self.num_categories];
+                let mut mean = T::zero();
+                for (k, &p) in batch_probs.iter().enumerate() {
+                    mean = mean + T::from(k).unwrap() * p;
+                }
 
-            let mut mean = T::zero();
-            for (k, &p) in batch_probs.iter().enumerate() {
-                mean = mean + T::from(k).unwrap() * p;
-            }
-
-            result_data.push(mean);
-        }
+                mean
+            })
+            .collect();
 
         let result_shape = if self.base.batch_shape.is_empty() {
             vec![1]

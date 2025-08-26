@@ -137,9 +137,7 @@ impl Distribution {
 
             if dim1 == 1 {
                 result[i] = dim2;
-            } else if dim2 == 1 {
-                result[i] = dim1;
-            } else if dim1 == dim2 {
+            } else if dim2 == 1 || dim1 == dim2 {
                 result[i] = dim1;
             } else {
                 return Err(DistributionError::ShapeMismatch {

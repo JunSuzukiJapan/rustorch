@@ -263,6 +263,7 @@ pub trait ComputeBackend: Send + Sync {
 
     /// Batch normalization
     /// バッチ正規化
+    #[allow(clippy::too_many_arguments)]
     fn batch_norm<T>(
         &self,
         input: &Tensor<T>,

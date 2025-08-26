@@ -152,7 +152,7 @@ mod tests {
         let tensor = tensor_test_utils::create_test_tensor::<f32>();
         tensor_test_utils::assert_tensor_shape(&tensor, &[2, 3]);
 
-        let expected_data = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
+        let expected_data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0];
         let actual_data = tensor.as_slice().unwrap();
 
         for (expected, actual) in expected_data.iter().zip(actual_data.iter()) {

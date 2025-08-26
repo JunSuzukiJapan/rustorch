@@ -373,7 +373,7 @@ mod tests {
         let result = large.safe_add(large);
         assert!(result.is_err());
 
-        if let Err(_) = result {
+        if result.is_err() {
             // Expected error
         } else {
             panic!("Expected overflow error");
@@ -388,7 +388,7 @@ mod tests {
         let result = a.safe_div(zero);
         assert!(result.is_err());
 
-        if let Err(_) = result {
+        if result.is_err() {
             // Expected error
         } else {
             panic!("Expected division by zero error");

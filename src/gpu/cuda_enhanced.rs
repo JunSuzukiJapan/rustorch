@@ -265,7 +265,7 @@ impl CudaMemoryPool {
     }
 
     fn return_buffer(&mut self, ptr: *mut u8, size: usize) {
-        self.buffers.entry(size).or_insert_with(Vec::new).push(ptr);
+        self.buffers.entry(size).or_default().push(ptr);
     }
 }
 

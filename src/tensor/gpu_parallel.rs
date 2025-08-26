@@ -824,6 +824,57 @@ pub mod gpu_parallel_utils {
     }
 }
 
+// Additional GPU operations
+impl<
+        T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > Tensor<T>
+{
+    /// GPU sum operation
+    pub fn gpu_sum(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_sum(self, dim)
+    }
+
+    /// GPU mean operation
+    pub fn gpu_mean(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>>
+    where
+        T: num_traits::FromPrimitive,
+    {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_mean(self, dim)
+    }
+
+    /// GPU max operation
+    pub fn gpu_max(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_max(self, dim)
+    }
+
+    /// GPU min operation
+    pub fn gpu_min(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_min(self, dim)
+    }
+
+    /// GPU standard deviation operation
+    pub fn gpu_std(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_std(self, dim)
+    }
+
+    /// GPU variance operation
+    pub fn gpu_var(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
+        use crate::gpu::reduction_ops::GpuReduction;
+        GpuReduction::gpu_var(self, dim)
+    }
+
+    /// GPU batch matrix multiplication
+    pub fn gpu_batch_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
+        // Fallback to CPU batch implementation
+        self.batch_matmul(other)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -877,56 +928,5 @@ mod tests {
 
         let result = result.unwrap();
         assert_eq!(result.shape(), &[1, 2, 2]);
-    }
-}
-
-// Additional GPU operations
-impl<
-        T: Float + Send + Sync + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-    > Tensor<T>
-{
-    /// GPU sum operation
-    pub fn gpu_sum(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_sum(self, dim)
-    }
-
-    /// GPU mean operation
-    pub fn gpu_mean(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>>
-    where
-        T: num_traits::FromPrimitive,
-    {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_mean(self, dim)
-    }
-
-    /// GPU max operation
-    pub fn gpu_max(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_max(self, dim)
-    }
-
-    /// GPU min operation
-    pub fn gpu_min(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_min(self, dim)
-    }
-
-    /// GPU standard deviation operation
-    pub fn gpu_std(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_std(self, dim)
-    }
-
-    /// GPU variance operation
-    pub fn gpu_var(&self, dim: Option<usize>) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::reduction_ops::GpuReduction;
-        GpuReduction::gpu_var(self, dim)
-    }
-
-    /// GPU batch matrix multiplication
-    pub fn gpu_batch_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // Fallback to CPU batch implementation
-        self.batch_matmul(other)
     }
 }

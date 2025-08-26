@@ -3,7 +3,7 @@
 use std::fmt;
 
 /// Data type enumeration
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum DType {
     /// 8-bit signed integer
     Int8,
@@ -26,6 +26,7 @@ pub enum DType {
     /// 16-bit brain floating point (bfloat16)
     BFloat16,
     /// 32-bit floating point (single precision)
+    #[default]
     Float32,
     /// 64-bit floating point (double precision)
     Float64,
@@ -221,7 +222,7 @@ impl DType {
     }
 
     /// Parse dtype from string
-    pub fn from_str(s: &str) -> Result<DType, String> {
+    pub fn parse_dtype(s: &str) -> Result<DType, String> {
         match s.to_lowercase().as_str() {
             "int8" | "i8" => Ok(DType::Int8),
             "uint8" | "u8" => Ok(DType::UInt8),
@@ -263,12 +264,6 @@ impl fmt::Display for DType {
             DType::Complex128 => "complex128",
         };
         write!(f, "{}", name)
-    }
-}
-
-impl Default for DType {
-    fn default() -> Self {
-        DType::Float32
     }
 }
 
@@ -361,12 +356,12 @@ mod tests {
 
     #[test]
     fn test_dtype_from_string() {
-        assert_eq!(DType::from_str("int32").unwrap(), DType::Int32);
-        assert_eq!(DType::from_str("float32").unwrap(), DType::Float32);
-        assert_eq!(DType::from_str("bool").unwrap(), DType::Bool);
-        assert_eq!(DType::from_str("f32").unwrap(), DType::Float32);
-        assert_eq!(DType::from_str("i32").unwrap(), DType::Int32);
-        assert!(DType::from_str("invalid").is_err());
+        assert_eq!(DType::parse_dtype("int32").unwrap(), DType::Int32);
+        assert_eq!(DType::parse_dtype("float32").unwrap(), DType::Float32);
+        assert_eq!(DType::parse_dtype("bool").unwrap(), DType::Bool);
+        assert_eq!(DType::parse_dtype("f32").unwrap(), DType::Float32);
+        assert_eq!(DType::parse_dtype("i32").unwrap(), DType::Int32);
+        assert!(DType::parse_dtype("invalid").is_err());
     }
 
     #[test]

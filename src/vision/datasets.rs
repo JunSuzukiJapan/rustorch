@@ -513,8 +513,7 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
             return Err(RusTorchError::DatasetError(format!(
                 "Root directory {:?} does not exist or is not a directory",
                 root
-            ))
-            .into());
+            )));
         }
 
         let mut dataset = ImageFolder {

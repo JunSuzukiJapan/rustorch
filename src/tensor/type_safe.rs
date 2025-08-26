@@ -356,7 +356,7 @@ mod tests {
         let result = TypedTensor::new(data, shape);
         assert!(result.is_err());
 
-        if let Err(_) = result {
+        if result.is_err() {
             // Error occurred as expected
         } else {
             panic!("Expected error");
