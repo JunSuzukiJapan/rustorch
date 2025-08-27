@@ -530,51 +530,64 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
             let test_a = T::from(2.0).unwrap();
             let test_b = T::from(3.0).unwrap();
             let test_result = op(test_a, test_b);
-            
+
             // Determine operation type based on result
             let (kernel_src, kernel_name) = if test_result == T::from(5.0).unwrap() {
                 // Addition operation
-                (r#"extern "C" __global__ void elementwise_add_f32(
+                (
+                    r#"extern "C" __global__ void elementwise_add_f32(
                     const float* a, const float* b, float* result, int n
                 ) {
                     int idx = blockIdx.x * blockDim.x + threadIdx.x;
                     if (idx < n) {
                         result[idx] = a[idx] + b[idx];
                     }
-                }"#, "elementwise_add_f32")
+                }"#,
+                    "elementwise_add_f32",
+                )
             } else if test_result == T::from(6.0).unwrap() {
                 // Multiplication operation
-                (r#"extern "C" __global__ void elementwise_mul_f32(
+                (
+                    r#"extern "C" __global__ void elementwise_mul_f32(
                     const float* a, const float* b, float* result, int n
                 ) {
                     int idx = blockIdx.x * blockDim.x + threadIdx.x;
                     if (idx < n) {
                         result[idx] = a[idx] * b[idx];
                     }
-                }"#, "elementwise_mul_f32")
+                }"#,
+                    "elementwise_mul_f32",
+                )
             } else if test_result == T::from(-1.0).unwrap() {
                 // Subtraction operation
-                (r#"extern "C" __global__ void elementwise_sub_f32(
+                (
+                    r#"extern "C" __global__ void elementwise_sub_f32(
                     const float* a, const float* b, float* result, int n
                 ) {
                     int idx = blockIdx.x * blockDim.x + threadIdx.x;
                     if (idx < n) {
                         result[idx] = a[idx] - b[idx];
                     }
-                }"#, "elementwise_sub_f32")
+                }"#,
+                    "elementwise_sub_f32",
+                )
             } else if (test_result - T::from(0.6667).unwrap()).abs() < T::from(0.001).unwrap() {
                 // Division operation
-                (r#"extern "C" __global__ void elementwise_div_f32(
+                (
+                    r#"extern "C" __global__ void elementwise_div_f32(
                     const float* a, const float* b, float* result, int n
                 ) {
                     int idx = blockIdx.x * blockDim.x + threadIdx.x;
                     if (idx < n) {
                         result[idx] = a[idx] / b[idx];
                     }
-                }"#, "elementwise_div_f32")
+                }"#,
+                    "elementwise_div_f32",
+                )
             } else {
                 // Default to generic operation
-                (r#"extern "C" __global__ void elementwise_generic_f32(
+                (
+                    r#"extern "C" __global__ void elementwise_generic_f32(
                     const float* a, const float* b, float* result, int n
                 ) {
                     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -582,7 +595,9 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
                         // Use CPU fallback for complex operations
                         result[idx] = a[idx] + b[idx]; // Fallback to addition
                     }
-                }"#, "elementwise_generic_f32")
+                }"#,
+                    "elementwise_generic_f32",
+                )
             };
 
             // Compile and load kernel
@@ -653,7 +668,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
     {
         let size = data.len();
         let mut result_slice = device.alloc_zeros::<T>(size)?;
-        
+
         // Calculate mean and variance on GPU
         let mut mean_slice = device.alloc_zeros::<T>(1)?;
         let mut variance_slice = device.alloc_zeros::<T>(1)?;
@@ -727,7 +742,15 @@ extern "C" __global__ void calculate_variance_f32(
         "#;
 
         // Load kernel module
-        if let Ok(module) = device.load_ptx(kernel_src.into(), "batch_normalize", &["calculate_mean_f32", "calculate_variance_f32", "batch_normalize_f32"]) {
+        if let Ok(module) = device.load_ptx(
+            kernel_src.into(),
+            "batch_normalize",
+            &[
+                "calculate_mean_f32",
+                "calculate_variance_f32",
+                "batch_normalize_f32",
+            ],
+        ) {
             let threads_per_block = 256;
             let grid_dim = (size + threads_per_block - 1) / threads_per_block;
 
@@ -750,7 +773,10 @@ extern "C" __global__ void calculate_variance_f32(
                     shared_mem_bytes: threads_per_block * std::mem::size_of::<T>() as u32,
                 };
 
-                let _ = variance_func.launch(config, (data, &mean_slice, &mut variance_slice, size as i32));
+                let _ = variance_func.launch(
+                    config,
+                    (data, &mean_slice, &mut variance_slice, size as i32),
+                );
             }
 
             // Apply batch normalization
@@ -761,7 +787,17 @@ extern "C" __global__ void calculate_variance_f32(
                     shared_mem_bytes: 0,
                 };
 
-                let _ = norm_func.launch(config, (data, &mut result_slice, &mean_slice, &variance_slice, epsilon, size as i32));
+                let _ = norm_func.launch(
+                    config,
+                    (
+                        data,
+                        &mut result_slice,
+                        &mean_slice,
+                        &variance_slice,
+                        epsilon,
+                        size as i32,
+                    ),
+                );
             }
         } else {
             // Fallback to CPU implementation if kernel compilation fails
@@ -806,7 +842,7 @@ extern "C" __global__ void calculate_variance_f32(
         // Assume attention dimensions: seq_len x d_model
         let seq_len = (query.len() as f64).sqrt() as usize; // Simplified assumption
         let d_model = query.len() / seq_len;
-        
+
         // Allocate result buffer
         let mut result_slice = device.alloc_zeros::<T>(query.len())?;
         let mut scores_slice = device.alloc_zeros::<T>(seq_len * seq_len)?;
@@ -888,15 +924,18 @@ extern "C" __global__ void attention_f32(
                     shared_mem_bytes: 0,
                 };
 
-                let _ = func.launch(config, (
-                    query,
-                    key,
-                    value,
-                    &mut result_slice,
-                    &mut scores_slice,
-                    seq_len as i32,
-                    d_model as i32,
-                ));
+                let _ = func.launch(
+                    config,
+                    (
+                        query,
+                        key,
+                        value,
+                        &mut result_slice,
+                        &mut scores_slice,
+                        seq_len as i32,
+                        d_model as i32,
+                    ),
+                );
             }
         } else {
             // Fallback to CPU implementation if kernel compilation fails
@@ -995,20 +1034,20 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         use metal::{CommandQueue, ComputeCommandEncoder, MTLSize};
 
         let size = lhs.length() as usize / std::mem::size_of::<T>();
-        
+
         // Create test values to determine operation type
         let test_a = T::from(2.0).unwrap();
         let test_b = T::from(3.0).unwrap();
         let test_result = op(test_a, test_b);
-        
+
         // Determine shader function name based on operation
         let function_name = if test_result == T::from(5.0).unwrap() {
             "elementwise_add_f32"
         } else if test_result == T::from(6.0).unwrap() {
-            "elementwise_mul_f32" 
+            "elementwise_mul_f32"
         } else if test_result == T::from(-1.0).unwrap() {
             "elementwise_sub_f32"
-        } else if test_result == T::from(2.0/3.0).unwrap() {
+        } else if test_result == T::from(2.0 / 3.0).unwrap() {
             "elementwise_div_f32"
         } else {
             // Use generic shader for unknown operations
@@ -1019,15 +1058,19 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         let library_source = include_str!("metal_shaders.metal");
         let library = device
             .new_library_with_source(library_source, &metal::CompileOptions::new())
-            .map_err(|e| RusTorchError::gpu(&format!("Failed to compile Metal library: {:?}", e)))?;
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to compile Metal library: {:?}", e))
+            })?;
 
-        let function = library
-            .get_function(function_name, None)
-            .ok_or_else(|| RusTorchError::gpu(&format!("Metal function {} not found", function_name)))?;
+        let function = library.get_function(function_name, None).ok_or_else(|| {
+            RusTorchError::gpu(&format!("Metal function {} not found", function_name))
+        })?;
 
         let pipeline_state = device
             .new_compute_pipeline_state_with_function(&function)
-            .map_err(|e| RusTorchError::gpu(&format!("Failed to create Metal pipeline: {:?}", e)))?;
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to create Metal pipeline: {:?}", e))
+            })?;
 
         // Create result buffer
         let result_buffer = device.new_buffer(
@@ -1049,7 +1092,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         // Configure thread groups
         let threads_per_group = 64;
         let thread_group_count = (size + threads_per_group - 1) / threads_per_group;
-        
+
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_group_count, 1, 1),
             MTLSize::new(threads_per_group, 1, 1),
@@ -1107,7 +1150,9 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         let library_source = include_str!("metal_shaders.metal");
         let library = device
             .new_library_with_source(library_source, &metal::CompileOptions::new())
-            .map_err(|e| RusTorchError::gpu(&format!("Failed to compile Metal library: {:?}", e)))?;
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to compile Metal library: {:?}", e))
+            })?;
 
         let function = library
             .get_function("batch_normalize_f32", None)
@@ -1115,7 +1160,9 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
 
         let pipeline_state = device
             .new_compute_pipeline_state_with_function(&function)
-            .map_err(|e| RusTorchError::gpu(&format!("Failed to create Metal pipeline: {:?}", e)))?;
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to create Metal pipeline: {:?}", e))
+            })?;
 
         // Create buffers for mean, variance, and result
         let mean_buffer = device.new_buffer(
@@ -1135,17 +1182,14 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         // In a production implementation, these would be computed on GPU
         let cpu_data = Self::metal_transfer_to_cpu(buffer, &[size])?;
         let mean: T = cpu_data.iter().sum::<T>() / T::from(size as f64).unwrap();
-        let variance: T = cpu_data
-            .iter()
-            .map(|&x| (x - mean) * (x - mean))
-            .sum::<T>()
+        let variance: T = cpu_data.iter().map(|&x| (x - mean) * (x - mean)).sum::<T>()
             / T::from(size as f64).unwrap();
 
         // Copy mean and variance to GPU buffers
         unsafe {
             let mean_ptr = mean_buffer.contents() as *mut T;
             *mean_ptr = mean;
-            
+
             let variance_ptr = variance_buffer.contents() as *mut T;
             *variance_ptr = variance;
         }
@@ -1173,7 +1217,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         // Configure thread groups
         let threads_per_group = 64;
         let thread_group_count = (size + threads_per_group - 1) / threads_per_group;
-        
+
         encoder.dispatch_thread_groups(
             MTLSize::new(thread_group_count, 1, 1),
             MTLSize::new(threads_per_group, 1, 1),
@@ -1307,7 +1351,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
     {
         use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
         use opencl3::kernel::{ExecuteKernel, Kernel};
-        use opencl3::memory::{CL_MEM_READ_WRITE, Buffer as CLBuffer};
+        use opencl3::memory::{Buffer as CLBuffer, CL_MEM_READ_WRITE};
         use opencl3::program::Program;
 
         let size = lhs.size() / std::mem::size_of::<T>();
@@ -1316,15 +1360,15 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         let test_a = T::from(2.0).unwrap();
         let test_b = T::from(3.0).unwrap();
         let test_result = op(test_a, test_b);
-        
+
         // Determine kernel function name based on operation
         let kernel_name = if test_result == T::from(5.0).unwrap() {
             "elementwise_add_f32"
         } else if test_result == T::from(6.0).unwrap() {
-            "elementwise_mul_f32" 
+            "elementwise_mul_f32"
         } else if test_result == T::from(-1.0).unwrap() {
             "elementwise_sub_f32"
-        } else if test_result == T::from(2.0/3.0).unwrap() {
+        } else if test_result == T::from(2.0 / 3.0).unwrap() {
             "elementwise_div_f32"
         } else {
             // Use fallback for unknown operations
@@ -1335,20 +1379,19 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         let kernel_source = include_str!("opencl_kernels.cl");
 
         // Create program and kernel
-        let program = Program::create_and_build_from_source(context, kernel_source, "")
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL program compilation failed: {}", e)))?;
+        let program =
+            Program::create_and_build_from_source(context, kernel_source, "").map_err(|e| {
+                RusTorchError::gpu(&format!("OpenCL program compilation failed: {}", e))
+            })?;
 
         let kernel = Kernel::create(&program, kernel_name)
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL kernel creation failed: {}", e)))?;
 
         // Create result buffer
-        let mut result_buffer = CLBuffer::<T>::create(
-            context,
-            CL_MEM_READ_WRITE,
-            size,
-            std::ptr::null_mut(),
-        )
-        .map_err(|e| RusTorchError::gpu(&format!("OpenCL result buffer creation failed: {}", e)))?;
+        let mut result_buffer =
+            CLBuffer::<T>::create(context, CL_MEM_READ_WRITE, size, std::ptr::null_mut()).map_err(
+                |e| RusTorchError::gpu(&format!("OpenCL result buffer creation failed: {}", e)),
+            )?;
 
         // Create command queue
         let queue = CommandQueue::create_default(context, CL_QUEUE_PROFILING_ENABLE)
@@ -1365,7 +1408,9 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL kernel execution failed: {}", e)))?;
 
         // Wait for completion
-        queue.finish().map_err(|e| RusTorchError::gpu(&format!("OpenCL queue finish failed: {}", e)))?;
+        queue
+            .finish()
+            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue finish failed: {}", e)))?;
 
         // Return OpenCL buffer with result
         Ok(GpuBuffer::OpenCL {
@@ -1411,7 +1456,7 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
     {
         use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
         use opencl3::kernel::{ExecuteKernel, Kernel};
-        use opencl3::memory::{CL_MEM_READ_WRITE, Buffer as CLBuffer};
+        use opencl3::memory::{Buffer as CLBuffer, CL_MEM_READ_WRITE};
         use opencl3::program::Program;
 
         let size = buffer.size() / std::mem::size_of::<T>();
@@ -1420,36 +1465,29 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         let kernel_source = include_str!("opencl_kernels.cl");
 
         // Create program and kernel
-        let program = Program::create_and_build_from_source(context, kernel_source, "")
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL program compilation failed: {}", e)))?;
+        let program =
+            Program::create_and_build_from_source(context, kernel_source, "").map_err(|e| {
+                RusTorchError::gpu(&format!("OpenCL program compilation failed: {}", e))
+            })?;
 
         let kernel = Kernel::create(&program, "batch_normalize_f32")
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL kernel creation failed: {}", e)))?;
 
         // Create buffers for mean, variance, and result
-        let mut mean_buffer = CLBuffer::<T>::create(
-            context,
-            CL_MEM_READ_WRITE,
-            1,
-            std::ptr::null_mut(),
-        )
-        .map_err(|e| RusTorchError::gpu(&format!("OpenCL mean buffer creation failed: {}", e)))?;
+        let mut mean_buffer =
+            CLBuffer::<T>::create(context, CL_MEM_READ_WRITE, 1, std::ptr::null_mut()).map_err(
+                |e| RusTorchError::gpu(&format!("OpenCL mean buffer creation failed: {}", e)),
+            )?;
 
-        let mut variance_buffer = CLBuffer::<T>::create(
-            context,
-            CL_MEM_READ_WRITE,
-            1,
-            std::ptr::null_mut(),
-        )
-        .map_err(|e| RusTorchError::gpu(&format!("OpenCL variance buffer creation failed: {}", e)))?;
+        let mut variance_buffer =
+            CLBuffer::<T>::create(context, CL_MEM_READ_WRITE, 1, std::ptr::null_mut()).map_err(
+                |e| RusTorchError::gpu(&format!("OpenCL variance buffer creation failed: {}", e)),
+            )?;
 
-        let mut result_buffer = CLBuffer::<T>::create(
-            context,
-            CL_MEM_READ_WRITE,
-            size,
-            std::ptr::null_mut(),
-        )
-        .map_err(|e| RusTorchError::gpu(&format!("OpenCL result buffer creation failed: {}", e)))?;
+        let mut result_buffer =
+            CLBuffer::<T>::create(context, CL_MEM_READ_WRITE, size, std::ptr::null_mut()).map_err(
+                |e| RusTorchError::gpu(&format!("OpenCL result buffer creation failed: {}", e)),
+            )?;
 
         // Create command queue
         let queue = CommandQueue::create_default(context, CL_QUEUE_PROFILING_ENABLE)
@@ -1459,17 +1497,16 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         // In a production implementation, these would be computed on GPU
         let cpu_data = Self::opencl_transfer_to_cpu(buffer, context)?;
         let mean: T = cpu_data.iter().sum::<T>() / T::from(size as f64).unwrap();
-        let variance: T = cpu_data
-            .iter()
-            .map(|&x| (x - mean) * (x - mean))
-            .sum::<T>()
+        let variance: T = cpu_data.iter().map(|&x| (x - mean) * (x - mean)).sum::<T>()
             / T::from(size as f64).unwrap();
 
         // Write mean and variance to GPU buffers
-        queue.enqueue_write_buffer(&mut mean_buffer, true, 0, &[mean], &[])
+        queue
+            .enqueue_write_buffer(&mut mean_buffer, true, 0, &[mean], &[])
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL mean write failed: {}", e)))?;
 
-        queue.enqueue_write_buffer(&mut variance_buffer, true, 0, &[variance], &[])
+        queue
+            .enqueue_write_buffer(&mut variance_buffer, true, 0, &[variance], &[])
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL variance write failed: {}", e)))?;
 
         // Execute batch normalization kernel
@@ -1482,10 +1519,14 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
             .set_arg(&(size as i32))
             .set_global_work_size(size)
             .enqueue_nd_range(&queue)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL batch norm kernel execution failed: {}", e)))?;
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("OpenCL batch norm kernel execution failed: {}", e))
+            })?;
 
         // Wait for completion
-        queue.finish().map_err(|e| RusTorchError::gpu(&format!("OpenCL queue finish failed: {}", e)))?;
+        queue
+            .finish()
+            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue finish failed: {}", e)))?;
 
         // Return OpenCL buffer with result
         Ok(GpuBuffer::OpenCL {

@@ -169,7 +169,8 @@ where
         let (out_d, out_h, out_w) = self.calculate_output_size((input_d, input_h, input_w));
 
         // Initialize output tensor
-        let mut output = ndarray::Array5::<T>::zeros((batch_size, out_channels, out_d, out_h, out_w));
+        let mut output =
+            ndarray::Array5::<T>::zeros((batch_size, out_channels, out_d, out_h, out_w));
 
         // Perform 3D convolution with groups support
         for b in 0..batch_size {
@@ -282,11 +283,16 @@ where
             // Create bias tensor with same output shape for element-wise addition
             let output_shape = output_tensor.shape();
             let (batch_size, out_channels, out_d, out_h, out_w) = (
-                output_shape[0], output_shape[1], output_shape[2], output_shape[3], output_shape[4]
+                output_shape[0],
+                output_shape[1],
+                output_shape[2],
+                output_shape[3],
+                output_shape[4],
             );
 
             // Create expanded bias data
-            let mut bias_expanded = Vec::with_capacity(batch_size * out_channels * out_d * out_h * out_w);
+            let mut bias_expanded =
+                Vec::with_capacity(batch_size * out_channels * out_d * out_h * out_w);
             for _b in 0..batch_size {
                 for c in 0..out_channels {
                     let bias_val = bias_array[[c]];
@@ -755,7 +761,7 @@ mod tests {
         let data1 = binding1.read().unwrap();
         let binding2 = output2.data();
         let data2 = binding2.read().unwrap();
-        
+
         assert_eq!(data1.shape(), data2.shape());
     }
 }
