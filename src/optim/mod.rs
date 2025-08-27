@@ -5,8 +5,8 @@ pub mod lr_scheduler;
 
 pub use adamw::AdamW;
 pub use lr_scheduler::{
-    CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, PlateauMode, ReduceLROnPlateau,
-    StepLR, ThresholdMode,
+    AnnealStrategy, CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, OneCycleLR, 
+    PlateauMode, PolynomialLR, ReduceLROnPlateau, StepLR, ThresholdMode, WarmupScheduler,
 };
 
 /// SGD (Stochastic Gradient Descent) optimizer module
