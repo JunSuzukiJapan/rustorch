@@ -225,3 +225,83 @@ kernel void attention_f32(
     // Full attention would require softmax normalization
     // and weighted sum with values
 }
+
+// 3D Convolution kernel
+kernel void conv3d_f32(
+    device const float* input [[buffer(0)]],     // [batch, in_channels, depth, height, width]
+    device const float* weight [[buffer(1)]],    // [out_channels, in_channels_per_group, kd, kh, kw]
+    device float* output [[buffer(2)]],          // [batch, out_channels, out_depth, out_height, out_width]
+    constant uint& batch_size [[buffer(3)]],
+    constant uint& in_channels [[buffer(4)]],
+    constant uint& out_channels [[buffer(5)]],
+    constant uint& input_d [[buffer(6)]],
+    constant uint& input_h [[buffer(7)]],
+    constant uint& input_w [[buffer(8)]],
+    constant uint& output_d [[buffer(9)]],
+    constant uint& output_h [[buffer(10)]],
+    constant uint& output_w [[buffer(11)]],
+    constant uint& kernel_d [[buffer(12)]],
+    constant uint& kernel_h [[buffer(13)]],
+    constant uint& kernel_w [[buffer(14)]],
+    constant uint& stride_d [[buffer(15)]],
+    constant uint& stride_h [[buffer(16)]],
+    constant uint& stride_w [[buffer(17)]],
+    constant uint& pad_d [[buffer(18)]],
+    constant uint& pad_h [[buffer(19)]],
+    constant uint& pad_w [[buffer(20)]],
+    constant uint& dilation_d [[buffer(21)]],
+    constant uint& dilation_h [[buffer(22)]],
+    constant uint& dilation_w [[buffer(23)]],
+    constant uint& groups [[buffer(24)]],
+    uint3 gid [[thread_position_in_grid]]
+) {
+    uint batch_idx = gid.z;
+    uint out_ch_idx = gid.y;
+    uint spatial_idx = gid.x;
+    
+    if (batch_idx >= batch_size || out_ch_idx >= out_channels) return;
+    
+    // Calculate spatial coordinates
+    uint out_size = output_d * output_h * output_w;
+    if (spatial_idx >= out_size) return;
+    
+    uint od = spatial_idx / (output_h * output_w);
+    uint temp = spatial_idx % (output_h * output_w);
+    uint oh = temp / output_w;
+    uint ow = temp % output_w;
+    
+    // Calculate group parameters
+    uint in_channels_per_group = in_channels / groups;
+    uint out_channels_per_group = out_channels / groups;
+    uint group_idx = out_ch_idx / out_channels_per_group;
+    uint in_start = group_idx * in_channels_per_group;
+    
+    float sum = 0.0;
+    
+    // Perform 3D convolution
+    for (uint ic = 0; ic < in_channels_per_group; ic++) {
+        for (uint kd = 0; kd < kernel_d; kd++) {
+            for (uint kh = 0; kh < kernel_h; kh++) {
+                for (uint kw = 0; kw < kernel_w; kw++) {
+                    // Calculate input coordinates with stride, padding, and dilation
+                    int id = od * stride_d + kd * dilation_d - pad_d;
+                    int ih = oh * stride_h + kh * dilation_h - pad_h;
+                    int iw = ow * stride_w + kw * dilation_w - pad_w;
+                    
+                    // Check bounds
+                    if (id >= 0 && id < input_d && ih >= 0 && ih < input_h && iw >= 0 && iw < input_w) {
+                        // Calculate indices
+                        uint input_idx = ((batch_idx * in_channels + in_start + ic) * input_d + id) * input_h * input_w + ih * input_w + iw;
+                        uint weight_idx = ((out_ch_idx * in_channels_per_group + ic) * kernel_d + kd) * kernel_h * kernel_w + kh * kernel_w + kw;
+                        
+                        sum += input[input_idx] * weight[weight_idx];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Write output
+    uint output_idx = ((batch_idx * out_channels + out_ch_idx) * output_d + od) * output_h * output_w + oh * output_w + ow;
+    output[output_idx] = sum;
+}
