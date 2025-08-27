@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PlateauMode","ThresholdMode"],"struct":["CosineAnnealingLR","ExponentialLR","MultiStepLR","ReduceLROnPlateau","StepLR"],"trait":["LRScheduler"]};
+window.SIDEBAR_ITEMS = {"enum":["AnnealStrategy","PlateauMode","ThresholdMode"],"struct":["CosineAnnealingLR","ExponentialLR","MultiStepLR","OneCycleLR","PolynomialLR","ReduceLROnPlateau","StepLR","WarmupScheduler"],"trait":["LRScheduler"]};

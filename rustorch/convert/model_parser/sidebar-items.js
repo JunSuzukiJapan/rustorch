@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["LayerType","ParsingError"],"struct":["LayerInfo","ModelGraph","ModelParser"]};
+window.SIDEBAR_ITEMS = {"enum":["LayerType","ParsingError"],"struct":["ArchitectureDescription","ConnectionDefinition","LayerDefinition","LayerInfo","ModelGraph","ModelMetadata","ModelParser"]};
