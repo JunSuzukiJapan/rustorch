@@ -408,6 +408,216 @@ impl<O: Optimizer> LRScheduler for MultiStepLR<O> {
     }
 }
 
+/// WarmupScheduler - gradually increases learning rate from base to target over warmup_epochs
+/// ウォームアップスケジューラ - 指定エポック数でbase_lrからtarget_lrまで徐々に学習率を上昇
+pub struct WarmupScheduler<O: Optimizer> {
+    optimizer: O,
+    base_lr: f32,
+    target_lr: f32,
+    warmup_epochs: usize,
+    last_epoch: usize,
+}
+
+impl<O: Optimizer> WarmupScheduler<O> {
+    /// Create a new WarmupScheduler
+    ///
+    /// # Arguments
+    /// * `optimizer` - The optimizer to schedule
+    /// * `target_lr` - Target learning rate to reach after warmup
+    /// * `warmup_epochs` - Number of epochs for warmup phase
+    pub fn new(optimizer: O, target_lr: f32, warmup_epochs: usize) -> Self {
+        assert!(warmup_epochs > 0, "Warmup epochs must be positive");
+        assert!(target_lr > 0.0, "Target LR must be positive");
+
+        let base_lr = optimizer.learning_rate();
+        Self {
+            optimizer,
+            base_lr,
+            target_lr,
+            warmup_epochs,
+            last_epoch: 0,
+        }
+    }
+}
+
+impl<O: Optimizer> LRScheduler for WarmupScheduler<O> {
+    fn step(&mut self) {
+        self.last_epoch += 1;
+
+        let new_lr = if self.last_epoch <= self.warmup_epochs {
+            self.base_lr
+                + (self.target_lr - self.base_lr)
+                    * (self.last_epoch as f32 / self.warmup_epochs as f32)
+        } else {
+            self.target_lr
+        };
+
+        self.optimizer.set_learning_rate(new_lr);
+    }
+
+    fn get_lr(&self) -> f32 {
+        self.optimizer.learning_rate()
+    }
+
+    fn get_last_epoch(&self) -> usize {
+        self.last_epoch
+    }
+}
+
+/// Annealing strategy for OneCycleLR
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum AnnealStrategy {
+    /// Cosine annealing
+    Cos,
+    /// Linear annealing
+    Linear,
+}
+
+/// OneCycleLR scheduler - implements 1cycle learning rate policy
+/// OneCycleLRスケジューラ - 1サイクル学習率ポリシーを実装
+pub struct OneCycleLR<O: Optimizer> {
+    optimizer: O,
+    max_lr: f32,
+    total_steps: usize,
+    pct_start: f32,
+    anneal_strategy: AnnealStrategy,
+    base_lr: f32,
+    last_epoch: usize,
+}
+
+impl<O: Optimizer> OneCycleLR<O> {
+    /// Create a new OneCycleLR scheduler
+    ///
+    /// # Arguments
+    /// * `optimizer` - The optimizer to schedule
+    /// * `max_lr` - Upper learning rate boundary in the cycle
+    /// * `total_steps` - Total number of steps in the training
+    /// * `pct_start` - Percentage of the cycle spent increasing the learning rate
+    /// * `anneal_strategy` - Specifies the annealing strategy (Cos or Linear)
+    pub fn new(
+        optimizer: O,
+        max_lr: f32,
+        total_steps: usize,
+        pct_start: f32,
+        anneal_strategy: AnnealStrategy,
+    ) -> Self {
+        assert!(max_lr > 0.0, "Max LR must be positive");
+        assert!(total_steps > 0, "Total steps must be positive");
+        assert!(
+            pct_start > 0.0 && pct_start < 1.0,
+            "Pct start must be in (0, 1)"
+        );
+
+        let base_lr = optimizer.learning_rate();
+        Self {
+            optimizer,
+            max_lr,
+            total_steps,
+            pct_start,
+            anneal_strategy,
+            base_lr,
+            last_epoch: 0,
+        }
+    }
+}
+
+impl<O: Optimizer> LRScheduler for OneCycleLR<O> {
+    fn step(&mut self) {
+        self.last_epoch += 1;
+
+        let step_num = self.last_epoch.min(self.total_steps) as f32;
+        let cycle_pos = step_num / self.total_steps as f32;
+
+        let new_lr = if cycle_pos <= self.pct_start {
+            // Warmup phase
+            let warmup_pos = cycle_pos / self.pct_start;
+            self.base_lr + (self.max_lr - self.base_lr) * warmup_pos
+        } else {
+            // Annealing phase
+            let anneal_pos = (cycle_pos - self.pct_start) / (1.0 - self.pct_start);
+
+            match self.anneal_strategy {
+                AnnealStrategy::Cos => {
+                    self.base_lr
+                        + (self.max_lr - self.base_lr) * (1.0 + (PI * anneal_pos).cos()) / 2.0
+                }
+                AnnealStrategy::Linear => self.max_lr - (self.max_lr - self.base_lr) * anneal_pos,
+            }
+        };
+
+        self.optimizer.set_learning_rate(new_lr);
+    }
+
+    fn get_lr(&self) -> f32 {
+        self.optimizer.learning_rate()
+    }
+
+    fn get_last_epoch(&self) -> usize {
+        self.last_epoch
+    }
+}
+
+/// PolynomialLR scheduler - decays learning rate using polynomial function
+/// PolynomialLRスケジューラ - 多項式関数で学習率を減衰
+pub struct PolynomialLR<O: Optimizer> {
+    optimizer: O,
+    total_epochs: usize,
+    power: f32,
+    min_lr: f32,
+    base_lr: f32,
+    last_epoch: usize,
+}
+
+impl<O: Optimizer> PolynomialLR<O> {
+    /// Create a new PolynomialLR scheduler
+    ///
+    /// # Arguments
+    /// * `optimizer` - The optimizer to schedule
+    /// * `total_epochs` - Total number of training epochs
+    /// * `power` - The power of the polynomial (default: 1.0 for linear)
+    /// * `min_lr` - Minimum learning rate (default: 0.0)
+    pub fn new(optimizer: O, total_epochs: usize, power: f32, min_lr: f32) -> Self {
+        assert!(total_epochs > 0, "Total epochs must be positive");
+        assert!(power > 0.0, "Power must be positive");
+        assert!(min_lr >= 0.0, "Min LR must be non-negative");
+
+        let base_lr = optimizer.learning_rate();
+        assert!(base_lr > min_lr, "Base LR must be greater than min LR");
+
+        Self {
+            optimizer,
+            total_epochs,
+            power,
+            min_lr,
+            base_lr,
+            last_epoch: 0,
+        }
+    }
+}
+
+impl<O: Optimizer> LRScheduler for PolynomialLR<O> {
+    fn step(&mut self) {
+        self.last_epoch += 1;
+
+        let decay_factor = if self.last_epoch >= self.total_epochs {
+            0.0
+        } else {
+            (1.0 - (self.last_epoch as f32 / self.total_epochs as f32)).powf(self.power)
+        };
+
+        let new_lr = self.min_lr + (self.base_lr - self.min_lr) * decay_factor;
+        self.optimizer.set_learning_rate(new_lr);
+    }
+
+    fn get_lr(&self) -> f32 {
+        self.optimizer.learning_rate()
+    }
+
+    fn get_last_epoch(&self) -> usize {
+        self.last_epoch
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -504,5 +714,49 @@ mod tests {
             scheduler.step();
         }
         assert!((scheduler.get_lr() - 0.001).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_warmup_scheduler() {
+        let optimizer = SGD::new(0.1);
+        let mut scheduler = WarmupScheduler::new(optimizer, 1.0, 5);
+
+        assert!((scheduler.get_lr() - 0.1).abs() < 1e-6);
+
+        for i in 1..=5 {
+            scheduler.step();
+            let expected = 0.1 + (1.0 - 0.1) * (i as f32 / 5.0);
+            assert!((scheduler.get_lr() - expected).abs() < 1e-5);
+        }
+
+        scheduler.step();
+        assert!((scheduler.get_lr() - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_one_cycle_lr() {
+        let optimizer = SGD::new(0.1);
+        let mut scheduler = OneCycleLR::new(optimizer, 1.0, 10, 0.25, AnnealStrategy::Cos);
+
+        assert!((scheduler.get_lr() - 0.1).abs() < 1e-6);
+
+        for _ in 0..10 {
+            scheduler.step();
+        }
+
+        assert!(scheduler.get_lr() < 1.0);
+        assert!(scheduler.get_lr() > 0.0);
+    }
+
+    #[test]
+    fn test_polynomial_lr() {
+        let optimizer = SGD::new(1.0);
+        let mut scheduler = PolynomialLR::new(optimizer, 10, 2.0, 0.0);
+
+        assert_eq!(scheduler.get_lr(), 1.0);
+
+        scheduler.step();
+        let expected = 0.81;
+        assert!((scheduler.get_lr() - expected).abs() < 0.01);
     }
 }
