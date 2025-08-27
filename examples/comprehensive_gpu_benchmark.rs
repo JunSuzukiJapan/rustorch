@@ -157,15 +157,15 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
         .map(|i| ((i * 2) as f32) / (k * n) as f32)
         .collect();
 
-    let a = Tensor::from_vec(a_data, vec![m, k]);
-    let b = Tensor::from_vec(b_data, vec![k, n]);
+    let _a = Tensor::from_vec(a_data, vec![m, k]);
+    let _b = Tensor::from_vec(b_data, vec![k, n]);
 
-    let start = Instant::now();
+    let _start = Instant::now();
     #[cfg(feature = "linalg-system")]
     {
-        match optimized_matmul(&a, &b) {
+        match optimized_matmul(&_a, &_b) {
             Ok(_result) => {
-                let duration = start.elapsed();
+                let duration = _start.elapsed();
                 let duration_ms = duration.as_secs_f64() * 1000.0;
                 let flops = 2.0 * (m * n * k) as f64;
                 let gflops = flops / (duration.as_secs_f64() * 1e9);
