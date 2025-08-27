@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -46,6 +46,7 @@ rand_distr = "0.4.3"
 rayon = { version = "1.10.0" }
 serde = { version = "1.0.202", features = ["derive", "rc"] }
 serde_json = "1.0"
+serde_yaml = "0.9"
 approx = "0.5"
 lazy_static = "1.4"
 parking_lot = "0.12"

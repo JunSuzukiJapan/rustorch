@@ -6,13 +6,13 @@ use crate::tensor::Tensor;
 #[cfg(feature = "onnx")]
 use num_traits::Float;
 #[cfg(feature = "onnx")]
-use ort::environment::Environment;
+use ndarray::Array;
 use ort::execution_providers::ExecutionProvider;
 use ort::session::{
-    builder::{GraphOptimizationLevel, SessionBuilder},
+    builder::GraphOptimizationLevel,
     Session,
 };
-use ort::value::Value;
+use ort::value::{Tensor as OrtTensor, DynValue, TensorRef};
 #[cfg(feature = "onnx")]
 use std::collections::HashMap;
 #[cfg(feature = "onnx")]
@@ -67,12 +67,10 @@ impl OnnxModel {
     /// Load ONNX model from file
     /// ファイルからONNXモデルを読み込み
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, OnnxError> {
-        let environment = Environment::default();
-
-        let session = SessionBuilder::new()?
+        let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(4)?
-            .with_model_from_file(path)?;
+            .commit_from_file(path)?;
 
         // Get input and output names
         let input_names: Vec<String> = session
@@ -106,31 +104,28 @@ impl OnnxModel {
         &self.output_names
     }
 
-    /// Run inference with input tensors
-    /// 入力テンソルで推論実行
-    pub fn run<T: Float + 'static>(
-        &self,
-        inputs: HashMap<String, Tensor<T>>,
-    ) -> Result<HashMap<String, Tensor<T>>, OnnxError> {
-        // Convert RusTorch tensors to ONNX values
-        let mut onnx_inputs = Vec::new();
+    /// Run inference with input tensors (f32 only for v2.0 compatibility)
+    /// 入力テンソルで推論実行 (v2.0互換性のためf32のみ)
+    pub fn run_f32(
+        &mut self,
+        inputs: HashMap<String, Tensor<f32>>,
+    ) -> Result<HashMap<String, Tensor<f32>>, OnnxError> {
+        // Convert RusTorch tensors to ONNX inputs using v2.0 API
+        let mut onnx_inputs: Vec<(&str, TensorRef<f32>)> = Vec::new();
 
         for input_name in &self.input_names {
             let tensor = inputs.get(input_name).ok_or_else(|| {
                 OnnxError::ConversionError(format!("Missing input tensor: {}", input_name))
             })?;
 
-            // Convert to f32 data
-            let data: Vec<f32> = tensor.data.iter().map(|&x| x.to_f32().unwrap()).collect();
-
-            let shape: Vec<usize> = tensor.shape().to_vec();
-
-            let onnx_value = Value::from_array((&data[..]).into())?;
-            onnx_inputs.push(onnx_value);
+            // RusTorch tensor.data is already an ndarray, so we can use it directly
+            let tensor_ref = TensorRef::<f32>::from_array_view(tensor.data.view())?;
+            onnx_inputs.push((input_name.as_str(), tensor_ref));
         }
 
-        // Run inference
-        let outputs = self.session.run(onnx_inputs)?;
+        // Run inference using v2.0 API with HashMap inputs
+        let input_map: std::collections::HashMap<&str, TensorRef<f32>> = onnx_inputs.into_iter().collect();
+        let outputs = self.session.run(input_map)?;
 
         // Convert ONNX outputs back to RusTorch tensors
         let mut result = HashMap::new();
@@ -138,27 +133,31 @@ impl OnnxModel {
         for (i, output_name) in self.output_names.iter().enumerate() {
             let onnx_output = &outputs[i];
 
-            // Extract data and shape
-            let output_tensor = self.extract_tensor_from_value::<T>(onnx_output)?;
+            // Extract data and shape using v2.0 API (inlined to avoid borrow conflict)
+            let array_view = onnx_output.try_extract_array::<f32>()?;
+            let shape: Vec<usize> = array_view.shape().iter().copied().collect();
+            let data: Vec<f32> = array_view.iter().copied().collect();
+            let output_tensor = Tensor::from_vec(data, shape);
+            
             result.insert(output_name.clone(), output_tensor);
         }
 
         Ok(result)
     }
 
-    /// Run inference with single input
-    /// 単一入力で推論実行
-    pub fn run_single<T: Float + 'static>(&self, input: Tensor<T>) -> Result<Tensor<T>, OnnxError> {
+    /// Run inference with single input (f32 only for v2.0 compatibility)
+    /// 単一入力で推論実行 (v2.0互換性のためf32のみ)
+    pub fn run_single_f32(&mut self, input: Tensor<f32>) -> Result<Tensor<f32>, OnnxError> {
         if self.input_names.len() != 1 {
             return Err(OnnxError::ConversionError(
-                "Model has multiple inputs, use run() instead".to_string(),
+                "Model has multiple inputs, use run_f32() instead".to_string(),
             ));
         }
 
         let mut inputs = HashMap::new();
         inputs.insert(self.input_names[0].clone(), input);
 
-        let mut outputs = self.run(inputs)?;
+        let mut outputs = self.run_f32(inputs)?;
 
         if outputs.len() != 1 {
             return Err(OnnxError::ConversionError(
@@ -172,33 +171,6 @@ impl OnnxModel {
             .ok_or_else(|| OnnxError::ConversionError("Output not found".to_string()))
     }
 
-    fn extract_tensor_from_value<T: Float + 'static>(
-        &self,
-        value: &Value,
-    ) -> Result<Tensor<T>, OnnxError> {
-        match value {
-            Value::Tensor(tensor) => {
-                let shape = tensor
-                    .shape()
-                    .ok_or_else(|| OnnxError::ShapeError("Cannot get tensor shape".to_string()))?;
-
-                // Extract f32 data and convert to T
-                let data_f32 = tensor.try_extract::<f32>()?;
-                let data: Vec<T> = data_f32
-                    .view()
-                    .iter()
-                    .map(|&x| T::from(x).unwrap())
-                    .collect();
-
-                let shape_vec: Vec<usize> = shape.iter().map(|&dim| dim as usize).collect();
-
-                Ok(Tensor::from_vec(data, shape_vec))
-            }
-            _ => Err(OnnxError::ConversionError(
-                "Expected tensor output".to_string(),
-            )),
-        }
-    }
 }
 
 /// ONNX model builder for exporting RusTorch models
@@ -234,41 +206,43 @@ pub mod utils {
     /// Get available ONNX execution providers
     /// 利用可能なONNX実行プロバイダーを取得
     pub fn get_available_providers() -> Vec<String> {
-        // TODO: Update for ort 2.0 API - this function doesn't exist anymore
-        // For now return a default list of common providers
-        vec!["CPUExecutionProvider".to_string()]
+        // In ort v2.0, execution providers are checked via the is_available() method
+        // Return a list of common providers that could be available
+        vec![
+            "CPUExecutionProvider".to_string(),
+            #[cfg(feature = "cuda")]
+            "CUDAExecutionProvider".to_string(),
+        ]
     }
 
-    /// Create ONNX session with specific execution provider
-    /// 特定の実行プロバイダーでONNXセッションを作成
-    pub fn create_session_with_provider<P: AsRef<Path>>(
-        model_path: P,
-        provider: impl ExecutionProvider,
-    ) -> Result<Session, OnnxError> {
-        let environment = Environment::default();
+//     /// Create ONNX session with specific execution provider
+//     /// 特定の実行プロバイダーでONNXセッションを作成
+//     pub fn create_session_with_provider<P: AsRef<Path>>(
+//         model_path: P,
+//         provider: impl ExecutionProvider,
+//     ) -> Result<Session, OnnxError> {
+//         let session = Session::builder()?
+//             .with_execution_providers([provider])?
+//             .with_optimization_level(GraphOptimizationLevel::Level3)?
+//             .commit_from_file(model_path)?;
+// 
+//         Ok(session)
+//     }
 
-        let session = SessionBuilder::new()?
-            .with_execution_providers([provider])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_model_from_file(model_path)?;
-
-        Ok(session)
-    }
-
-    /// Benchmark ONNX model inference
-    /// ONNXモデル推論のベンチマーク
-    pub fn benchmark_inference<T: Float + 'static>(
-        model: &OnnxModel,
-        inputs: HashMap<String, Tensor<T>>,
+    /// Benchmark ONNX model inference (f32 only for v2.0 compatibility)
+    /// ONNXモデル推論のベンチマーク (v2.0互換性のためf32のみ)
+    pub fn benchmark_inference_f32(
+        model: &mut OnnxModel,
+        inputs: HashMap<String, Tensor<f32>>,
         iterations: usize,
-    ) -> Result<(f64, HashMap<String, Tensor<T>>), OnnxError> {
+    ) -> Result<(f64, HashMap<String, Tensor<f32>>), OnnxError> {
         use std::time::Instant;
 
         let start = Instant::now();
         let mut result = HashMap::new();
 
         for _ in 0..iterations {
-            result = model.run(inputs.clone())?;
+            result = model.run_f32(inputs.clone())?;
         }
 
         let duration = start.elapsed();
@@ -310,13 +284,13 @@ mod tests {
     fn test_onnx_inference() {
         let model_path = PathBuf::from("test_models/simple_model.onnx");
         if model_path.exists() {
-            let model = OnnxModel::from_file(&model_path).unwrap();
+            let mut model = OnnxModel::from_file(&model_path).unwrap();
 
             // Create dummy input
-            let input_tensor = Tensor::<f32>::ones(vec![1, 3, 224, 224]);
+            let input_tensor = Tensor::<f32>::ones(&[1, 3, 224, 224]);
 
             if model.input_names().len() == 1 {
-                let result = model.run_single(input_tensor);
+                let result = model.run_single_f32(input_tensor);
                 assert!(result.is_ok());
             }
         }

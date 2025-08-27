@@ -2,6 +2,7 @@
 //! PyTorchモデルアーキテクチャの解析と分析
 
 use crate::formats::pytorch::{PyTorchModel, StateDict, TensorData};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fmt;
@@ -87,6 +88,20 @@ pub enum LayerType {
         /// Output features
         out_features: usize,
     },
+    /// 1D Convolution layer
+    /// 1D畳み込みレイヤー
+    Conv1d {
+        /// Input channels
+        in_channels: usize,
+        /// Output channels
+        out_channels: usize,
+        /// Kernel size
+        kernel_size: usize,
+        /// Stride
+        stride: usize,
+        /// Padding
+        padding: usize,
+    },
     /// 2D Convolution layer
     /// 2D畳み込みレイヤー
     Conv2d {
@@ -100,6 +115,20 @@ pub enum LayerType {
         stride: (usize, usize),
         /// Padding
         padding: (usize, usize),
+    },
+    /// 3D Convolution layer
+    /// 3D畳み込みレイヤー
+    Conv3d {
+        /// Input channels
+        in_channels: usize,
+        /// Output channels
+        out_channels: usize,
+        /// Kernel size
+        kernel_size: (usize, usize, usize),
+        /// Stride
+        stride: (usize, usize, usize),
+        /// Padding
+        padding: (usize, usize, usize),
     },
     /// 2D Batch Normalization
     /// 2Dバッチ正規化
@@ -138,6 +167,77 @@ pub enum LayerType {
     /// Unknown layer type
     /// 不明なレイヤータイプ
     Unknown(String),
+}
+
+/// Architecture description format for explicit model definition
+/// 明示的なモデル定義のためのアーキテクチャ記述形式
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ArchitectureDescription {
+    /// Model metadata
+    /// モデルメタデータ
+    pub metadata: ModelMetadata,
+    /// Layer definitions
+    /// レイヤー定義
+    pub layers: Vec<LayerDefinition>,
+    /// Layer connections
+    /// レイヤー接続
+    pub connections: Vec<ConnectionDefinition>,
+}
+
+/// Model metadata information
+/// モデルメタデータ情報
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelMetadata {
+    /// Model name
+    /// モデル名
+    pub name: String,
+    /// Model version
+    /// モデルバージョン
+    pub version: Option<String>,
+    /// Framework (pytorch, tensorflow, etc.)
+    /// フレームワーク
+    pub framework: Option<String>,
+    /// Description
+    /// 説明
+    pub description: Option<String>,
+}
+
+/// Layer definition in architecture description
+/// アーキテクチャ記述でのレイヤー定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LayerDefinition {
+    /// Layer name/id
+    /// レイヤー名/ID
+    pub name: String,
+    /// Layer type specification
+    /// レイヤータイプ仕様
+    #[serde(rename = "type")]
+    pub layer_type: String,
+    /// Layer parameters
+    /// レイヤーパラメータ
+    pub params: Option<HashMap<String, serde_json::Value>>,
+    /// Input shape hint
+    /// 入力形状ヒント
+    pub input_shape: Option<Vec<usize>>,
+    /// Output shape hint
+    /// 出力形状ヒント
+    pub output_shape: Option<Vec<usize>>,
+}
+
+/// Connection definition between layers
+/// レイヤー間の接続定義
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectionDefinition {
+    /// Source layer name
+    /// ソースレイヤー名
+    pub from: String,
+    /// Target layer name
+    /// ターゲットレイヤー名
+    pub to: String,
+    /// Connection type (optional)
+    /// 接続タイプ（オプション）
+    #[serde(rename = "type")]
+    pub connection_type: Option<String>,
 }
 
 /// Model architecture graph
@@ -206,6 +306,26 @@ impl ModelParser {
                 LayerType::Linear {
                     in_features: 0,
                     out_features: 0,
+                },
+            ),
+            (
+                "conv3d",
+                LayerType::Conv3d {
+                    in_channels: 0,
+                    out_channels: 0,
+                    kernel_size: (0, 0, 0),
+                    stride: (1, 1, 1),
+                    padding: (0, 0, 0),
+                },
+            ),
+            (
+                "conv1d",
+                LayerType::Conv1d {
+                    in_channels: 0,
+                    out_channels: 0,
+                    kernel_size: 0,
+                    stride: 1,
+                    padding: 0,
                 },
             ),
             (
@@ -363,11 +483,27 @@ impl ModelParser {
         layer_name: &str,
         params: &HashMap<String, &TensorData>,
     ) -> Result<LayerType, ParsingError> {
-        // Check layer name patterns first
+        // Check layer name patterns first - prioritize exact matches
+        let layer_lower = layer_name.to_lowercase();
+        
+        // First pass: exact matches
         for (pattern, base_type) in &self.layer_patterns {
-            if layer_name.to_lowercase().contains(pattern) {
+            if layer_lower == *pattern {
                 return self.refine_layer_type(base_type.clone(), params);
             }
+        }
+        
+        // Second pass: substring matches, but prioritize longer patterns
+        let mut matches: Vec<(&String, &LayerType)> = self.layer_patterns
+            .iter()
+            .filter(|(pattern, _)| layer_lower.contains(pattern.as_str()))
+            .collect();
+        
+        // Sort by pattern length (longest first) to prefer more specific matches
+        matches.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
+        
+        if let Some((_, base_type)) = matches.first() {
+            return self.refine_layer_type((*base_type).clone(), params);
         }
 
         // Infer from parameter shapes if no pattern match
@@ -382,6 +518,19 @@ impl ModelParser {
                         out_features,
                     })
                 }
+                3 => {
+                    // Conv1d layer
+                    let out_channels = weight.shape[0];
+                    let in_channels = weight.shape[1];
+                    let kernel_size = weight.shape[2];
+                    Ok(LayerType::Conv1d {
+                        in_channels,
+                        out_channels,
+                        kernel_size,
+                        stride: 1,  // Default
+                        padding: 0, // Default
+                    })
+                }
                 4 => {
                     // Conv2d layer
                     let out_channels = weight.shape[0];
@@ -394,6 +543,21 @@ impl ModelParser {
                         kernel_size: (kernel_h, kernel_w),
                         stride: (1, 1),  // Default
                         padding: (0, 0), // Default
+                    })
+                }
+                5 => {
+                    // Conv3d layer
+                    let out_channels = weight.shape[0];
+                    let in_channels = weight.shape[1];
+                    let kernel_d = weight.shape[2];
+                    let kernel_h = weight.shape[3];
+                    let kernel_w = weight.shape[4];
+                    Ok(LayerType::Conv3d {
+                        in_channels,
+                        out_channels,
+                        kernel_size: (kernel_d, kernel_h, kernel_w),
+                        stride: (1, 1, 1),  // Default
+                        padding: (0, 0, 0), // Default
                     })
                 }
                 1 => {
@@ -431,6 +595,20 @@ impl ModelParser {
                     }
                 }
             }
+            LayerType::Conv1d {
+                in_channels,
+                out_channels,
+                kernel_size,
+                ..
+            } => {
+                if let Some(weight) = params.get("weight") {
+                    if weight.shape.len() == 3 {
+                        *out_channels = weight.shape[0];
+                        *in_channels = weight.shape[1];
+                        *kernel_size = weight.shape[2];
+                    }
+                }
+            }
             LayerType::Conv2d {
                 in_channels,
                 out_channels,
@@ -442,6 +620,20 @@ impl ModelParser {
                         *out_channels = weight.shape[0];
                         *in_channels = weight.shape[1];
                         *kernel_size = (weight.shape[2], weight.shape[3]);
+                    }
+                }
+            }
+            LayerType::Conv3d {
+                in_channels,
+                out_channels,
+                kernel_size,
+                ..
+            } => {
+                if let Some(weight) = params.get("weight") {
+                    if weight.shape.len() == 5 {
+                        *out_channels = weight.shape[0];
+                        *in_channels = weight.shape[1];
+                        *kernel_size = (weight.shape[2], weight.shape[3], weight.shape[4]);
                     }
                 }
             }
@@ -512,12 +704,187 @@ impl ModelParser {
     /// 明示的なアーキテクチャ記述を解析
     fn parse_explicit_architecture(
         &self,
-        _architecture: &str,
+        architecture: &str,
         layers: &HashMap<String, LayerInfo>,
     ) -> ParsingResult {
-        // TODO: Implement parsing of explicit architecture descriptions
-        // For now, fall back to inference
-        self.infer_architecture(layers)
+        // Try to parse as JSON first, then YAML
+        let arch_desc = self.parse_architecture_string(architecture)?;
+        
+        // Convert architecture description to execution order and connections
+        let execution_order = self.compute_execution_order(&arch_desc)?;
+        let connections = self.build_connections_map(&arch_desc);
+        
+        // Validate that all referenced layers exist
+        self.validate_layer_references(&arch_desc, layers)?;
+        
+        Ok((execution_order, connections))
+    }
+
+    /// Parse architecture string as JSON or YAML
+    /// アーキテクチャ文字列をJSONまたはYAMLとして解析
+    fn parse_architecture_string(&self, architecture: &str) -> Result<ArchitectureDescription, ParsingError> {
+        // Try JSON parsing first
+        if let Ok(desc) = serde_json::from_str::<ArchitectureDescription>(architecture) {
+            return Ok(desc);
+        }
+        
+        // Try YAML parsing
+        if let Ok(desc) = serde_yaml::from_str::<ArchitectureDescription>(architecture) {
+            return Ok(desc);
+        }
+        
+        // If both fail, try simple format parsing
+        self.parse_simple_format(architecture)
+    }
+    
+    /// Parse simple architecture format (e.g., "conv2d -> relu -> pool -> linear")
+    /// シンプルなアーキテクチャ形式を解析
+    fn parse_simple_format(&self, architecture: &str) -> Result<ArchitectureDescription, ParsingError> {
+        let layer_names: Vec<&str> = architecture
+            .split("->")
+            .map(|s| s.trim())
+            .collect();
+            
+        if layer_names.is_empty() {
+            return Err(ParsingError::InvalidArchitecture(
+                "Empty architecture description".to_string(),
+            ));
+        }
+        
+        let mut layers = Vec::new();
+        let mut connections = Vec::new();
+        
+        // Create layer definitions
+        for (i, layer_name) in layer_names.iter().enumerate() {
+            layers.push(LayerDefinition {
+                name: format!("layer_{}", i),
+                layer_type: layer_name.to_string(),
+                params: None,
+                input_shape: None,
+                output_shape: None,
+            });
+            
+            // Create connections (except for last layer)
+            if i < layer_names.len() - 1 {
+                connections.push(ConnectionDefinition {
+                    from: format!("layer_{}", i),
+                    to: format!("layer_{}", i + 1),
+                    connection_type: None,
+                });
+            }
+        }
+        
+        Ok(ArchitectureDescription {
+            metadata: ModelMetadata {
+                name: "parsed_model".to_string(),
+                version: None,
+                framework: Some("unknown".to_string()),
+                description: Some("Parsed from simple format".to_string()),
+            },
+            layers,
+            connections,
+        })
+    }
+    
+    /// Compute execution order from architecture description using topological sort
+    /// アーキテクチャ記述からトポロジカルソートを使って実行順序を計算
+    fn compute_execution_order(&self, desc: &ArchitectureDescription) -> Result<Vec<String>, ParsingError> {
+        let mut graph: HashMap<String, Vec<String>> = HashMap::new();
+        let mut in_degree: HashMap<String, usize> = HashMap::new();
+        
+        // Initialize in_degree for all layers
+        for layer in &desc.layers {
+            in_degree.insert(layer.name.clone(), 0);
+            graph.insert(layer.name.clone(), Vec::new());
+        }
+        
+        // Build graph and calculate in-degrees
+        for connection in &desc.connections {
+            graph.entry(connection.from.clone())
+                .or_default()
+                .push(connection.to.clone());
+                
+            *in_degree.entry(connection.to.clone()).or_insert(0) += 1;
+        }
+        
+        // Topological sort using Kahn's algorithm
+        let mut queue = Vec::new();
+        let mut execution_order = Vec::new();
+        
+        // Add all layers with no incoming edges
+        for (layer_name, degree) in &in_degree {
+            if *degree == 0 {
+                queue.push(layer_name.clone());
+            }
+        }
+        
+        while let Some(current) = queue.pop() {
+            execution_order.push(current.clone());
+            
+            // Update in-degrees for neighbors
+            if let Some(neighbors) = graph.get(&current) {
+                for neighbor in neighbors {
+                    if let Some(degree) = in_degree.get_mut(neighbor) {
+                        *degree -= 1;
+                        if *degree == 0 {
+                            queue.push(neighbor.clone());
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Check for cycles
+        if execution_order.len() != desc.layers.len() {
+            return Err(ParsingError::CircularDependency(
+                "Circular dependency detected in architecture description".to_string(),
+            ));
+        }
+        
+        Ok(execution_order)
+    }
+    
+    /// Build connections map from architecture description
+    /// アーキテクチャ記述から接続マップを構築
+    fn build_connections_map(&self, desc: &ArchitectureDescription) -> HashMap<String, Vec<String>> {
+        let mut connections: HashMap<String, Vec<String>> = HashMap::new();
+        
+        for connection in &desc.connections {
+            connections
+                .entry(connection.from.clone())
+                .or_default()
+                .push(connection.to.clone());
+        }
+        
+        connections
+    }
+    
+    /// Validate that all referenced layers exist
+    /// 参照されるすべてのレイヤーが存在することを検証
+    fn validate_layer_references(
+        &self,
+        desc: &ArchitectureDescription,
+        layers: &HashMap<String, LayerInfo>,
+    ) -> Result<(), ParsingError> {
+        let layer_names: HashSet<String> = desc.layers.iter().map(|l| l.name.clone()).collect();
+        
+        for connection in &desc.connections {
+            if !layer_names.contains(&connection.from) {
+                return Err(ParsingError::MissingConnection(format!(
+                    "Connection references unknown source layer: {}",
+                    connection.from
+                )));
+            }
+            
+            if !layer_names.contains(&connection.to) {
+                return Err(ParsingError::MissingConnection(format!(
+                    "Connection references unknown target layer: {}",
+                    connection.to
+                )));
+            }
+        }
+        
+        Ok(())
     }
 
     /// Find input layers (layers with no incoming connections)
@@ -801,15 +1168,155 @@ mod tests {
         let layer_type = parser.infer_layer_type("conv1", &params).unwrap();
         assert!(matches!(layer_type, LayerType::Conv2d { .. }));
 
+        // Test Conv3d inference
+        let conv3d_weight = TensorData {
+            shape: vec![16, 8, 3, 3, 3],
+            data: vec![0.1; 3456],
+            dtype: "f32".to_string(),
+        };
+        params.clear();
+        params.insert("weight".to_string(), &conv3d_weight);
+
+        let layer_type = parser.infer_layer_type("conv3d", &params).unwrap();
+        assert!(matches!(layer_type, LayerType::Conv3d { .. }));
+
         // Test Linear inference
         let linear_weight = TensorData {
             shape: vec![10, 512],
             data: vec![0.1; 5120],
             dtype: "f32".to_string(),
         };
+        params.clear();
         params.insert("weight".to_string(), &linear_weight);
 
         let layer_type = parser.infer_layer_type("fc", &params).unwrap();
         assert!(matches!(layer_type, LayerType::Linear { .. }));
+    }
+
+    #[test]
+    fn test_simple_architecture_parsing() {
+        let parser = ModelParser::new();
+        let architecture = "conv2d -> relu -> maxpool -> flatten -> linear";
+        
+        let desc = parser.parse_simple_format(architecture).unwrap();
+        
+        assert_eq!(desc.layers.len(), 5);
+        assert_eq!(desc.connections.len(), 4);
+        assert_eq!(desc.layers[0].layer_type, "conv2d");
+        assert_eq!(desc.layers[4].layer_type, "linear");
+        
+        // Check connections
+        assert_eq!(desc.connections[0].from, "layer_0");
+        assert_eq!(desc.connections[0].to, "layer_1");
+    }
+
+    #[test]
+    fn test_json_architecture_parsing() {
+        let parser = ModelParser::new();
+        let json_arch = r#"
+        {
+            "metadata": {
+                "name": "test_model",
+                "framework": "pytorch"
+            },
+            "layers": [
+                {
+                    "name": "conv1",
+                    "type": "Conv2d",
+                    "params": {"in_channels": 3, "out_channels": 32, "kernel_size": [3, 3]}
+                },
+                {
+                    "name": "relu1", 
+                    "type": "ReLU"
+                }
+            ],
+            "connections": [
+                {"from": "conv1", "to": "relu1"}
+            ]
+        }"#;
+        
+        let desc = parser.parse_architecture_string(json_arch).unwrap();
+        assert_eq!(desc.layers.len(), 2);
+        assert_eq!(desc.connections.len(), 1);
+        assert_eq!(desc.metadata.name, "test_model");
+    }
+
+    #[test]
+    fn test_yaml_architecture_parsing() {
+        let parser = ModelParser::new();
+        let yaml_arch = r#"
+        metadata:
+          name: test_model
+          framework: pytorch
+        layers:
+          - name: conv3d1
+            type: Conv3d
+            params:
+              in_channels: 3
+              out_channels: 16
+              kernel_size: [3, 3, 3]
+          - name: relu1
+            type: ReLU
+        connections:
+          - from: conv3d1
+            to: relu1
+        "#;
+        
+        let desc = parser.parse_architecture_string(yaml_arch).unwrap();
+        assert_eq!(desc.layers.len(), 2);
+        assert_eq!(desc.connections.len(), 1);
+        assert_eq!(desc.layers[0].layer_type, "Conv3d");
+    }
+
+    #[test]
+    fn test_execution_order_computation() {
+        let parser = ModelParser::new();
+        
+        let desc = ArchitectureDescription {
+            metadata: ModelMetadata {
+                name: "test".to_string(),
+                version: None,
+                framework: None,
+                description: None,
+            },
+            layers: vec![
+                LayerDefinition {
+                    name: "input".to_string(),
+                    layer_type: "Conv2d".to_string(),
+                    params: None,
+                    input_shape: None,
+                    output_shape: None,
+                },
+                LayerDefinition {
+                    name: "hidden".to_string(),
+                    layer_type: "ReLU".to_string(),
+                    params: None,
+                    input_shape: None,
+                    output_shape: None,
+                },
+                LayerDefinition {
+                    name: "output".to_string(),
+                    layer_type: "Linear".to_string(),
+                    params: None,
+                    input_shape: None,
+                    output_shape: None,
+                },
+            ],
+            connections: vec![
+                ConnectionDefinition {
+                    from: "input".to_string(),
+                    to: "hidden".to_string(),
+                    connection_type: None,
+                },
+                ConnectionDefinition {
+                    from: "hidden".to_string(),
+                    to: "output".to_string(),
+                    connection_type: None,
+                },
+            ],
+        };
+        
+        let execution_order = parser.compute_execution_order(&desc).unwrap();
+        assert_eq!(execution_order, vec!["input", "hidden", "output"]);
     }
 }
