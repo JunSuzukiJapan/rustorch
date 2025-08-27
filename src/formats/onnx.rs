@@ -4,15 +4,12 @@
 #[cfg(feature = "onnx")]
 use crate::tensor::Tensor;
 #[cfg(feature = "onnx")]
-use num_traits::Float;
-#[cfg(feature = "onnx")]
 use ndarray::Array;
+#[cfg(feature = "onnx")]
+use num_traits::Float;
 use ort::execution_providers::ExecutionProvider;
-use ort::session::{
-    builder::GraphOptimizationLevel,
-    Session,
-};
-use ort::value::{Tensor as OrtTensor, DynValue, TensorRef};
+use ort::session::{builder::GraphOptimizationLevel, Session};
+use ort::value::{DynValue, Tensor as OrtTensor, TensorRef};
 #[cfg(feature = "onnx")]
 use std::collections::HashMap;
 #[cfg(feature = "onnx")]
@@ -124,7 +121,8 @@ impl OnnxModel {
         }
 
         // Run inference using v2.0 API with HashMap inputs
-        let input_map: std::collections::HashMap<&str, TensorRef<f32>> = onnx_inputs.into_iter().collect();
+        let input_map: std::collections::HashMap<&str, TensorRef<f32>> =
+            onnx_inputs.into_iter().collect();
         let outputs = self.session.run(input_map)?;
 
         // Convert ONNX outputs back to RusTorch tensors
@@ -138,7 +136,7 @@ impl OnnxModel {
             let shape: Vec<usize> = array_view.shape().iter().copied().collect();
             let data: Vec<f32> = array_view.iter().copied().collect();
             let output_tensor = Tensor::from_vec(data, shape);
-            
+
             result.insert(output_name.clone(), output_tensor);
         }
 
@@ -170,7 +168,6 @@ impl OnnxModel {
             .remove(output_name)
             .ok_or_else(|| OnnxError::ConversionError("Output not found".to_string()))
     }
-
 }
 
 /// ONNX model builder for exporting RusTorch models
@@ -215,19 +212,19 @@ pub mod utils {
         ]
     }
 
-//     /// Create ONNX session with specific execution provider
-//     /// 特定の実行プロバイダーでONNXセッションを作成
-//     pub fn create_session_with_provider<P: AsRef<Path>>(
-//         model_path: P,
-//         provider: impl ExecutionProvider,
-//     ) -> Result<Session, OnnxError> {
-//         let session = Session::builder()?
-//             .with_execution_providers([provider])?
-//             .with_optimization_level(GraphOptimizationLevel::Level3)?
-//             .commit_from_file(model_path)?;
-// 
-//         Ok(session)
-//     }
+    //     /// Create ONNX session with specific execution provider
+    //     /// 特定の実行プロバイダーでONNXセッションを作成
+    //     pub fn create_session_with_provider<P: AsRef<Path>>(
+    //         model_path: P,
+    //         provider: impl ExecutionProvider,
+    //     ) -> Result<Session, OnnxError> {
+    //         let session = Session::builder()?
+    //             .with_execution_providers([provider])?
+    //             .with_optimization_level(GraphOptimizationLevel::Level3)?
+    //             .commit_from_file(model_path)?;
+    //
+    //         Ok(session)
+    //     }
 
     /// Benchmark ONNX model inference (f32 only for v2.0 compatibility)
     /// ONNXモデル推論のベンチマーク (v2.0互換性のためf32のみ)

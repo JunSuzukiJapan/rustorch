@@ -5,7 +5,7 @@ pub mod lr_scheduler;
 
 pub use adamw::AdamW;
 pub use lr_scheduler::{
-    AnnealStrategy, CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, OneCycleLR, 
+    AnnealStrategy, CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, OneCycleLR,
     PlateauMode, PolynomialLR, ReduceLROnPlateau, StepLR, ThresholdMode, WarmupScheduler,
 };
 

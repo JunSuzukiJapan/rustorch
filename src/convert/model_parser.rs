@@ -485,23 +485,24 @@ impl ModelParser {
     ) -> Result<LayerType, ParsingError> {
         // Check layer name patterns first - prioritize exact matches
         let layer_lower = layer_name.to_lowercase();
-        
+
         // First pass: exact matches
         for (pattern, base_type) in &self.layer_patterns {
             if layer_lower == *pattern {
                 return self.refine_layer_type(base_type.clone(), params);
             }
         }
-        
+
         // Second pass: substring matches, but prioritize longer patterns
-        let mut matches: Vec<(&String, &LayerType)> = self.layer_patterns
+        let mut matches: Vec<(&String, &LayerType)> = self
+            .layer_patterns
             .iter()
             .filter(|(pattern, _)| layer_lower.contains(pattern.as_str()))
             .collect();
-        
+
         // Sort by pattern length (longest first) to prefer more specific matches
         matches.sort_by(|a, b| b.0.len().cmp(&a.0.len()));
-        
+
         if let Some((_, base_type)) = matches.first() {
             return self.refine_layer_type((*base_type).clone(), params);
         }
@@ -709,51 +710,54 @@ impl ModelParser {
     ) -> ParsingResult {
         // Try to parse as JSON first, then YAML
         let arch_desc = self.parse_architecture_string(architecture)?;
-        
+
         // Convert architecture description to execution order and connections
         let execution_order = self.compute_execution_order(&arch_desc)?;
         let connections = self.build_connections_map(&arch_desc);
-        
+
         // Validate that all referenced layers exist
         self.validate_layer_references(&arch_desc, layers)?;
-        
+
         Ok((execution_order, connections))
     }
 
     /// Parse architecture string as JSON or YAML
     /// アーキテクチャ文字列をJSONまたはYAMLとして解析
-    fn parse_architecture_string(&self, architecture: &str) -> Result<ArchitectureDescription, ParsingError> {
+    fn parse_architecture_string(
+        &self,
+        architecture: &str,
+    ) -> Result<ArchitectureDescription, ParsingError> {
         // Try JSON parsing first
         if let Ok(desc) = serde_json::from_str::<ArchitectureDescription>(architecture) {
             return Ok(desc);
         }
-        
+
         // Try YAML parsing
         if let Ok(desc) = serde_yaml::from_str::<ArchitectureDescription>(architecture) {
             return Ok(desc);
         }
-        
+
         // If both fail, try simple format parsing
         self.parse_simple_format(architecture)
     }
-    
+
     /// Parse simple architecture format (e.g., "conv2d -> relu -> pool -> linear")
     /// シンプルなアーキテクチャ形式を解析
-    fn parse_simple_format(&self, architecture: &str) -> Result<ArchitectureDescription, ParsingError> {
-        let layer_names: Vec<&str> = architecture
-            .split("->")
-            .map(|s| s.trim())
-            .collect();
-            
+    fn parse_simple_format(
+        &self,
+        architecture: &str,
+    ) -> Result<ArchitectureDescription, ParsingError> {
+        let layer_names: Vec<&str> = architecture.split("->").map(|s| s.trim()).collect();
+
         if layer_names.is_empty() {
             return Err(ParsingError::InvalidArchitecture(
                 "Empty architecture description".to_string(),
             ));
         }
-        
+
         let mut layers = Vec::new();
         let mut connections = Vec::new();
-        
+
         // Create layer definitions
         for (i, layer_name) in layer_names.iter().enumerate() {
             layers.push(LayerDefinition {
@@ -763,7 +767,7 @@ impl ModelParser {
                 input_shape: None,
                 output_shape: None,
             });
-            
+
             // Create connections (except for last layer)
             if i < layer_names.len() - 1 {
                 connections.push(ConnectionDefinition {
@@ -773,7 +777,7 @@ impl ModelParser {
                 });
             }
         }
-        
+
         Ok(ArchitectureDescription {
             metadata: ModelMetadata {
                 name: "parsed_model".to_string(),
@@ -785,42 +789,46 @@ impl ModelParser {
             connections,
         })
     }
-    
+
     /// Compute execution order from architecture description using topological sort
     /// アーキテクチャ記述からトポロジカルソートを使って実行順序を計算
-    fn compute_execution_order(&self, desc: &ArchitectureDescription) -> Result<Vec<String>, ParsingError> {
+    fn compute_execution_order(
+        &self,
+        desc: &ArchitectureDescription,
+    ) -> Result<Vec<String>, ParsingError> {
         let mut graph: HashMap<String, Vec<String>> = HashMap::new();
         let mut in_degree: HashMap<String, usize> = HashMap::new();
-        
+
         // Initialize in_degree for all layers
         for layer in &desc.layers {
             in_degree.insert(layer.name.clone(), 0);
             graph.insert(layer.name.clone(), Vec::new());
         }
-        
+
         // Build graph and calculate in-degrees
         for connection in &desc.connections {
-            graph.entry(connection.from.clone())
+            graph
+                .entry(connection.from.clone())
                 .or_default()
                 .push(connection.to.clone());
-                
+
             *in_degree.entry(connection.to.clone()).or_insert(0) += 1;
         }
-        
+
         // Topological sort using Kahn's algorithm
         let mut queue = Vec::new();
         let mut execution_order = Vec::new();
-        
+
         // Add all layers with no incoming edges
         for (layer_name, degree) in &in_degree {
             if *degree == 0 {
                 queue.push(layer_name.clone());
             }
         }
-        
+
         while let Some(current) = queue.pop() {
             execution_order.push(current.clone());
-            
+
             // Update in-degrees for neighbors
             if let Some(neighbors) = graph.get(&current) {
                 for neighbor in neighbors {
@@ -833,32 +841,35 @@ impl ModelParser {
                 }
             }
         }
-        
+
         // Check for cycles
         if execution_order.len() != desc.layers.len() {
             return Err(ParsingError::CircularDependency(
                 "Circular dependency detected in architecture description".to_string(),
             ));
         }
-        
+
         Ok(execution_order)
     }
-    
+
     /// Build connections map from architecture description
     /// アーキテクチャ記述から接続マップを構築
-    fn build_connections_map(&self, desc: &ArchitectureDescription) -> HashMap<String, Vec<String>> {
+    fn build_connections_map(
+        &self,
+        desc: &ArchitectureDescription,
+    ) -> HashMap<String, Vec<String>> {
         let mut connections: HashMap<String, Vec<String>> = HashMap::new();
-        
+
         for connection in &desc.connections {
             connections
                 .entry(connection.from.clone())
                 .or_default()
                 .push(connection.to.clone());
         }
-        
+
         connections
     }
-    
+
     /// Validate that all referenced layers exist
     /// 参照されるすべてのレイヤーが存在することを検証
     fn validate_layer_references(
@@ -867,7 +878,7 @@ impl ModelParser {
         layers: &HashMap<String, LayerInfo>,
     ) -> Result<(), ParsingError> {
         let layer_names: HashSet<String> = desc.layers.iter().map(|l| l.name.clone()).collect();
-        
+
         for connection in &desc.connections {
             if !layer_names.contains(&connection.from) {
                 return Err(ParsingError::MissingConnection(format!(
@@ -875,7 +886,7 @@ impl ModelParser {
                     connection.from
                 )));
             }
-            
+
             if !layer_names.contains(&connection.to) {
                 return Err(ParsingError::MissingConnection(format!(
                     "Connection references unknown target layer: {}",
@@ -883,7 +894,7 @@ impl ModelParser {
                 )));
             }
         }
-        
+
         Ok(())
     }
 
@@ -1197,14 +1208,14 @@ mod tests {
     fn test_simple_architecture_parsing() {
         let parser = ModelParser::new();
         let architecture = "conv2d -> relu -> maxpool -> flatten -> linear";
-        
+
         let desc = parser.parse_simple_format(architecture).unwrap();
-        
+
         assert_eq!(desc.layers.len(), 5);
         assert_eq!(desc.connections.len(), 4);
         assert_eq!(desc.layers[0].layer_type, "conv2d");
         assert_eq!(desc.layers[4].layer_type, "linear");
-        
+
         // Check connections
         assert_eq!(desc.connections[0].from, "layer_0");
         assert_eq!(desc.connections[0].to, "layer_1");
@@ -1234,7 +1245,7 @@ mod tests {
                 {"from": "conv1", "to": "relu1"}
             ]
         }"#;
-        
+
         let desc = parser.parse_architecture_string(json_arch).unwrap();
         assert_eq!(desc.layers.len(), 2);
         assert_eq!(desc.connections.len(), 1);
@@ -1261,7 +1272,7 @@ mod tests {
           - from: conv3d1
             to: relu1
         "#;
-        
+
         let desc = parser.parse_architecture_string(yaml_arch).unwrap();
         assert_eq!(desc.layers.len(), 2);
         assert_eq!(desc.connections.len(), 1);
@@ -1271,7 +1282,7 @@ mod tests {
     #[test]
     fn test_execution_order_computation() {
         let parser = ModelParser::new();
-        
+
         let desc = ArchitectureDescription {
             metadata: ModelMetadata {
                 name: "test".to_string(),
@@ -1315,7 +1326,7 @@ mod tests {
                 },
             ],
         };
-        
+
         let execution_order = parser.compute_execution_order(&desc).unwrap();
         assert_eq!(execution_order, vec!["input", "hidden", "output"]);
     }

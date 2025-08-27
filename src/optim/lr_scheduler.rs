@@ -445,7 +445,9 @@ impl<O: Optimizer> LRScheduler for WarmupScheduler<O> {
         self.last_epoch += 1;
 
         let new_lr = if self.last_epoch <= self.warmup_epochs {
-            self.base_lr + (self.target_lr - self.base_lr) * (self.last_epoch as f32 / self.warmup_epochs as f32)
+            self.base_lr
+                + (self.target_lr - self.base_lr)
+                    * (self.last_epoch as f32 / self.warmup_epochs as f32)
         } else {
             self.target_lr
         };
@@ -501,7 +503,10 @@ impl<O: Optimizer> OneCycleLR<O> {
     ) -> Self {
         assert!(max_lr > 0.0, "Max LR must be positive");
         assert!(total_steps > 0, "Total steps must be positive");
-        assert!(pct_start > 0.0 && pct_start < 1.0, "Pct start must be in (0, 1)");
+        assert!(
+            pct_start > 0.0 && pct_start < 1.0,
+            "Pct start must be in (0, 1)"
+        );
 
         let base_lr = optimizer.learning_rate();
         Self {
@@ -530,14 +535,13 @@ impl<O: Optimizer> LRScheduler for OneCycleLR<O> {
         } else {
             // Annealing phase
             let anneal_pos = (cycle_pos - self.pct_start) / (1.0 - self.pct_start);
-            
+
             match self.anneal_strategy {
                 AnnealStrategy::Cos => {
-                    self.base_lr + (self.max_lr - self.base_lr) * (1.0 + (PI * anneal_pos).cos()) / 2.0
+                    self.base_lr
+                        + (self.max_lr - self.base_lr) * (1.0 + (PI * anneal_pos).cos()) / 2.0
                 }
-                AnnealStrategy::Linear => {
-                    self.max_lr - (self.max_lr - self.base_lr) * anneal_pos
-                }
+                AnnealStrategy::Linear => self.max_lr - (self.max_lr - self.base_lr) * anneal_pos,
             }
         };
 
