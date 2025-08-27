@@ -70,6 +70,18 @@
 - **Dropout**: Standard and Alpha dropout layers
 - **Pooling**: MaxPool2d, AvgPool2d
 
+### Optimizers and Learning Rate Schedulers
+- **Optimizers**: SGD (with momentum, weight decay, Nesterov), Adam, AdamW, RMSprop, AdaGrad
+- **Learning Rate Schedulers**:
+  - **StepLR**: Decay LR by gamma every step_size epochs
+  - **ExponentialLR**: Exponential decay every epoch
+  - **CosineAnnealingLR**: Cosine annealing with restarts
+  - **ReduceLROnPlateau**: Reduce LR when metric plateaus
+  - **MultiStepLR**: Decay at specific milestones
+  - **WarmupScheduler**: Gradual warmup from base to target LR
+  - **OneCycleLR**: 1cycle policy with cosine/linear annealing
+  - **PolynomialLR**: Polynomial decay function
+
 ## 📊 Feature Matrix
 
 | Category | Feature | Status | Performance |
@@ -77,6 +89,8 @@
 | **Tensor Operations** | Basic Math | ✅ Production | 34K-2.3M ops/sec |
 | **Matrix Decomposition** | SVD/QR/LU/Eig | ✅ Production | <10μs for 32x32 |
 | **Neural Networks** | Linear/Conv/RNN | ✅ Production | 15-60 inferences/sec |
+| **Optimizers** | SGD/Adam/AdamW/RMSprop | ✅ Production | Full feature set |
+| **LR Schedulers** | 8 scheduler types | ✅ Production | Advanced policies |
 | **GPU Acceleration** | CUDA/Metal/OpenCL | ✅ Production | Auto device selection |
 | **SIMD Optimization** | AVX2/SSE4.1 | ✅ Production | Automatic vectorization |
 | **WebAssembly** | Browser Support | ✅ Production | Full feature set |

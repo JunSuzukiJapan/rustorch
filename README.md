@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-682%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-733%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
@@ -22,7 +22,8 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🎮 **GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
 - 🌐 **WebAssembly Support**: Browser-compatible WASM bindings for client-side ML
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- ✅ **Production Ready**: 682 tests passing (100% success rate), unified error handling system
+- ✅ **Production Ready**: 733 tests passing (100% success rate), unified error handling system
+- 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
 
 For detailed features, see [Features Documentation](docs/features.md).
 
@@ -34,7 +35,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.4.0"
+rustorch = "0.4.1"
 
 # Optional features
 [features]
@@ -47,13 +48,14 @@ safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.4.0", default-features = false }
+rustorch = { version = "0.4.1", default-features = false }
 ```
 
 ### Basic Usage
 
 ```rust
 use rustorch::tensor::Tensor;
+use rustorch::optim::{SGD, WarmupScheduler, OneCycleLR, AnnealStrategy};
 
 fn main() {
     // Create tensors
@@ -63,6 +65,14 @@ fn main() {
     // Basic operations
     let c = &a + &b;  // Addition
     let d = a.matmul(&b);  // Matrix multiplication
+    
+    // Advanced optimizers with learning rate scheduling
+    let optimizer = SGD::new(0.01);
+    let mut scheduler = WarmupScheduler::new(optimizer, 0.1, 5); // Warmup to 0.1 over 5 epochs
+    
+    // One-cycle learning rate policy
+    let optimizer2 = SGD::new(0.01);
+    let mut one_cycle = OneCycleLR::new(optimizer2, 1.0, 100, 0.3, AnnealStrategy::Cos);
     
     println!("Shape: {:?}", c.shape());
     println!("Result: {:?}", c.as_slice());
@@ -97,7 +107,7 @@ For detailed performance analysis, see [Performance Documentation](docs/performa
 
 ## 🧪 Testing
 
-**All 682 tests passing** - Production-ready quality assurance with unified error handling system.
+**All 733 tests passing** - Production-ready quality assurance with unified error handling system.
 
 ```bash
 # Run all tests
