@@ -143,6 +143,7 @@ pub mod opencl_kernels;
 pub mod opencl_optimized;
 /// Performance benchmark suite for GPU operations
 /// GPU演算用パフォーマンスベンチマークスイート
+pub mod benchmark;
 pub mod performance_benchmark;
 /// GPU reduction operations and optimizations
 /// GPUリダクション演算と最適化

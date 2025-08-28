@@ -65,10 +65,12 @@ pub mod plotting;
 
 /// テンソルの可視化機能
 /// Tensor visualization functionality
+pub mod tensor;
 pub mod tensor_viz;
 
 /// 計算グラフの可視化機能
 /// Computation graph visualization functionality
+pub mod graph;
 pub mod graph_viz;
 
 /// 可視化ユーティリティ
