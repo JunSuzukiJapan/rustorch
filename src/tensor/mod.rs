@@ -74,9 +74,9 @@ use num_traits::Float;
 pub mod core;
 #[cfg(test)]
 mod test_error_handling;
-/// Mathematical operations for tensors (legacy - replaced by ops)
-/// テンソルの数学演算（レガシー - opsに置換）
-pub mod operations;
+/// Mathematical operations for tensors (legacy - will be phased out)
+/// テンソルの数学演算（レガシー - 段階的に廃止予定）
+// pub mod operations; // Temporarily disabled to avoid conflicts
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
 
@@ -99,14 +99,18 @@ pub mod parallel_traits;
 /// コンパイル時検証付きの型安全テンソル操作
 pub mod type_safe;
 
+/// Modern memory management system
+/// 現代的なメモリ管理システム
 #[cfg(not(target_arch = "wasm32"))]
-pub mod advanced_memory;
+pub mod memory;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod gpu_parallel;
 #[cfg(not(target_arch = "wasm32"))]
-pub mod simd_aligned;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod simd_avx512;
+
+/// Organized tensor operations by category (trait-based system)
+/// カテゴリ別に整理されたテンソル操作（トレイトベースシステム）
+pub mod operations;
 /// Parallel tensor operations for batch processing and SIMD acceleration
 /// バッチ処理とSIMD加速のための並列テンソル操作
 #[cfg(not(target_arch = "wasm32"))]
@@ -117,6 +121,11 @@ mod broadcasting;
 // Re-export important types and functions
 pub use crate::error::RusTorchResult as ParallelResult;
 pub use core::Tensor;
+
+// Re-export commonly used traits for better ergonomics
+#[cfg(not(target_arch = "wasm32"))]
+pub use memory::optimization::{MemoryOptimization, TensorMemoryInfo};
+pub use operations::zero_copy::{ZeroCopyOps, TensorIterOps};
 
 // Convenience functions
 /// Create a tensor with linearly spaced values
