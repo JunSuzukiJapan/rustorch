@@ -72,6 +72,8 @@ use num_traits::Float;
 /// Core tensor data structure
 /// コアテンソルデータ構造  
 pub mod core;
+#[cfg(test)]
+mod test_error_handling;
 /// Mathematical operations for tensors (legacy - replaced by ops)
 /// テンソルの数学演算（レガシー - opsに置換）
 pub mod operations;

@@ -1,6 +1,7 @@
 //! Core tensor data structure and basic operations
 //! コアテンソルデータ構造と基本操作
 
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::fmt;
@@ -26,6 +27,45 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Self {
         let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
         Tensor::new(array)
+    }
+
+    /// Creates a tensor from a vector and shape with error handling.
+    /// エラーハンドリング付きでベクトルと形状からテンソルを作成します。
+    pub fn try_from_vec(data: Vec<T>, shape: Vec<usize>) -> RusTorchResult<Self> {
+        // Calculate expected size
+        let expected_size = shape.iter().product::<usize>();
+        let actual_size = data.len();
+        
+        if expected_size != actual_size {
+            return Err(RusTorchError::ShapeMismatch {
+                expected: vec![expected_size],
+                actual: vec![actual_size],
+            });
+        }
+        
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+        
+        // Check for zero or negative dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+        
+        match ArrayD::from_shape_vec(shape, data) {
+            Ok(array) => Ok(Tensor::new(array)),
+            Err(e) => Err(RusTorchError::TensorOp {
+                message: format!("Failed to create tensor from vector: {}", e),
+                source: Some(Box::new(e)),
+            }),
+        }
     }
 
     /// Get pointer address for unique identification
@@ -66,12 +106,86 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor::from_vec(data, shape.to_vec())
     }
 
+    /// Creates a tensor filled with zeros with error handling.
+    /// エラーハンドリング付きでゼロで満たされたテンソルを作成します。
+    pub fn try_zeros(shape: &[usize]) -> RusTorchResult<Self> {
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        let total_size = shape.iter().product::<usize>();
+        
+        // Check for reasonable memory size (avoid OOM)
+        const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
+        if total_size > MAX_ELEMENTS {
+            return Err(RusTorchError::TensorOp {
+                message: format!(
+                    "Tensor too large: {} elements exceeds maximum of {}",
+                    total_size, MAX_ELEMENTS
+                ),
+                source: None,
+            });
+        }
+
+        let data = vec![T::zero(); total_size];
+        Self::try_from_vec(data, shape.to_vec())
+    }
+
     /// Creates a tensor filled with ones.
     /// 1で満たされたテンソルを作成します。
     pub fn ones(shape: &[usize]) -> Self {
         let total_size = shape.iter().product();
         let data = vec![T::one(); total_size];
         Tensor::from_vec(data, shape.to_vec())
+    }
+
+    /// Creates a tensor filled with ones with error handling.
+    /// エラーハンドリング付きで1で満たされたテンソルを作成します。
+    pub fn try_ones(shape: &[usize]) -> RusTorchResult<Self> {
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        let total_size = shape.iter().product::<usize>();
+        
+        // Check for reasonable memory size (avoid OOM)
+        const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
+        if total_size > MAX_ELEMENTS {
+            return Err(RusTorchError::TensorOp {
+                message: format!(
+                    "Tensor too large: {} elements exceeds maximum of {}",
+                    total_size, MAX_ELEMENTS
+                ),
+                source: None,
+            });
+        }
+
+        let data = vec![T::one(); total_size];
+        Self::try_from_vec(data, shape.to_vec())
     }
 
     /// Create a scalar tensor from a single value
@@ -167,6 +281,44 @@ impl<T: Float + 'static> Tensor<T> {
         match self.data.clone().into_shape_with_order(IxDyn(shape)) {
             Ok(reshaped) => Ok(Tensor::new(reshaped)),
             Err(e) => Err(format!("View failed: {}", e)),
+        }
+    }
+
+    /// Creates a view into the tensor with proper error handling.
+    /// 適切なエラーハンドリング付きでテンソルのビューを作成します。
+    pub fn try_view(&self, shape: &[usize]) -> RusTorchResult<Self> {
+        let total_elements = self.data.len();
+        let new_total_elements: usize = shape.iter().product();
+
+        if total_elements != new_total_elements {
+            return Err(RusTorchError::ShapeMismatch {
+                expected: vec![total_elements],
+                actual: vec![new_total_elements],
+            });
+        }
+
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        match self.data.clone().into_shape_with_order(IxDyn(shape)) {
+            Ok(reshaped) => Ok(Tensor::new(reshaped)),
+            Err(e) => Err(RusTorchError::TensorOp {
+                message: format!("View failed: {}", e),
+                source: Some(Box::new(e)),
+            }),
         }
     }
 
