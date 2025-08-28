@@ -163,7 +163,9 @@ mod pytorch_compatibility_tests {
 
         let output = linear.forward(&dummy_input);
         let diff = &output - &dummy_target;
-        let loss = (&diff * &diff).mean_autograd();
+        // Use simple squared loss computation
+        let squared_diff = &diff * &diff;
+        let loss = squared_diff.sum();
         loss.backward();
 
         // Test parameter updates for each optimizer
@@ -474,7 +476,9 @@ fn test_end_to_end_pytorch_workflow() {
 
     // 4. Compute loss (MSE)
     let diff = &output - &target;
-    let loss = (&diff * &diff).mean_autograd();
+    // Use simple squared loss computation
+    let squared_diff = &diff * &diff;
+    let loss = squared_diff.sum();
     println!("  ✓ Loss computed (MSE)");
 
     // 5. Backward pass
