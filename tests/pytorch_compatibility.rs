@@ -6,7 +6,7 @@ use rustorch::nn::{BatchNorm2d, Conv2d, Linear, ReLU};
 use rustorch::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
 use rustorch::prelude::*;
 use rustorch::tensor::Tensor;
-use std::ops::Add;
+// use std::ops::Add; // Not needed with add_v2
 
 #[cfg(test)]
 mod pytorch_compatibility_tests {
@@ -62,7 +62,7 @@ mod pytorch_compatibility_tests {
 
         // Broadcasting
         let scalar = Tensor::from_vec(vec![2.0], vec![1]);
-        let broadcast_result = tensor1.add(&scalar).unwrap();
+        let broadcast_result = tensor1.add_v2(&scalar).unwrap();
         println!("  ✓ Broadcasting with scalar");
         assert_eq!(broadcast_result.shape(), &[2, 2]);
 

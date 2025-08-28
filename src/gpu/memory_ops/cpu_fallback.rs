@@ -197,11 +197,8 @@ mod tests {
 
         let result = CpuFallback::execute_elementwise(&lhs, &rhs, &|a, b| a + b).unwrap();
 
-        if let GpuBuffer::Cpu(data) = result {
-            assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]);
-        } else {
-            panic!("Expected CPU buffer");
-        }
+        let GpuBuffer::Cpu(data) = result;
+        assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]);
     }
 
     #[test]
@@ -211,17 +208,14 @@ mod tests {
 
         let result = CpuFallback::execute_batch_normalize(&data, epsilon).unwrap();
 
-        if let GpuBuffer::Cpu(normalized_data) = result {
-            // Check that the normalized data has zero mean (approximately)
-            let mean: f32 = normalized_data.iter().sum::<f32>() / normalized_data.len() as f32;
-            assert!(
-                (mean.abs()) < 1e-6,
-                "Mean should be approximately zero, got {}",
-                mean
-            );
-        } else {
-            panic!("Expected CPU buffer");
-        }
+        let GpuBuffer::Cpu(normalized_data) = result;
+        // Check that the normalized data has zero mean (approximately)
+        let mean: f32 = normalized_data.iter().sum::<f32>() / normalized_data.len() as f32;
+        assert!(
+            (mean.abs()) < 1e-6,
+            "Mean should be approximately zero, got {}",
+            mean
+        );
     }
 
     #[test]
@@ -232,12 +226,9 @@ mod tests {
 
         let result = CpuFallback::execute_attention(&query, &key, &value).unwrap();
 
-        if let GpuBuffer::Cpu(attention_result) = result {
-            assert_eq!(attention_result.len(), 2);
-            // Check that we got some reasonable values
-            assert!(attention_result.iter().all(|&x| x.is_finite()));
-        } else {
-            panic!("Expected CPU buffer");
-        }
+        let GpuBuffer::Cpu(attention_result) = result;
+        assert_eq!(attention_result.len(), 2);
+        // Check that we got some reasonable values
+        assert!(attention_result.iter().all(|&x| x.is_finite()));
     }
 }

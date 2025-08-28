@@ -185,7 +185,8 @@
       "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features nn::attention::tests::test_attention_forward_shape -- --nocapture)",
       "Bash(RUST_BACKTRACE=1 cargo test nn::attention::tests::test_attention_forward_shape -- --nocapture)",
       "Bash(RUST_BACKTRACE=1 cargo test nn::attention::tests::test_attention_forward_shape --lib --no-default-features -- --nocapture)",
-      "mcp__serena__find_symbol"
+      "mcp__serena__find_symbol",
+      "Bash(RUST_BACKTRACE=1 cargo build --example fft_demo)"
     ],
     "deny": [],
     "ask": [],

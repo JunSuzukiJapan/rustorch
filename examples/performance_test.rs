@@ -36,14 +36,14 @@ fn benchmark_basic_ops() {
         // Addition benchmark
         let start = Instant::now();
         for _ in 0..100 {
-            let _result = a.add(&b).unwrap();
+            let _result = a.add_v2(&b).unwrap();
         }
         let add_time = start.elapsed();
 
         // Sum benchmark
         let start = Instant::now();
         for _ in 0..100 {
-            let _sum = a.sum();
+            let _sum = a.sum_v2();
         }
         let sum_time = start.elapsed();
 
@@ -77,7 +77,7 @@ fn benchmark_matmul() {
 
         let start = Instant::now();
         for _ in 0..10 {
-            let _result = a.matmul(&b).unwrap();
+            let _result = a.matmul_v2(&b).unwrap();
         }
         let matmul_time = start.elapsed();
 
