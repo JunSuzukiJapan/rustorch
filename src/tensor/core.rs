@@ -1,7 +1,9 @@
 //! Core tensor data structure and basic operations
 //! コアテンソルデータ構造と基本操作
 
+#[cfg(not(target_arch = "wasm32"))]
 use super::memory::aligned::{SimdAllocator, SIMD_ALIGNMENT};
+#[cfg(not(target_arch = "wasm32"))]
 use super::memory::optimization::{MemoryOptimization, TensorMemoryInfo};
 use super::operations::zero_copy::{TensorIterOps, ZeroCopyOps};
 use crate::error::{RusTorchError, RusTorchResult};
