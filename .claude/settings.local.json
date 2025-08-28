@@ -179,7 +179,10 @@
       "Bash(git stash show:*)",
       "mcp__serena__think_about_task_adherence",
       "Bash(./test_operators)",
-      "Bash(./test_complex_modular)"
+      "Bash(./test_complex_modular)",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features tensor::complex::tests::test_complex_matrix_multiplication -- --nocapture)",
+      "Bash(RUST_BACKTRACE=full cargo test --lib --no-default-features tensor::complex::tests::test_complex_matrix_multiplication -- --nocapture)",
+      "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features nn::attention::tests::test_attention_forward_shape -- --nocapture)"
     ],
     "deny": [],
     "ask": [],

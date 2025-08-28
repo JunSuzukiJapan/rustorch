@@ -3,6 +3,8 @@
 
 use crate::tensor::Tensor;
 use crate::error::RusTorchError;
+use crate::tensor::memory::optimization::MemoryOptimization;
+use crate::tensor::operations::zero_copy::{TensorIterOps, ZeroCopyOps};
 
 #[cfg(test)]
 mod tests {

@@ -36,11 +36,18 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
 
         let mut result = vec![Complex::zero(); m * n];
 
+        // Get slices for row-major access
+        let self_slice = self.as_slice().unwrap();
+        let other_slice = other.as_slice().unwrap();
+        
         for i in 0..m {
             for j in 0..n {
                 let mut sum = Complex::zero();
                 for l in 0..k {
-                    sum = sum + self.data[i * k + l] * other.data[l * n + j];
+                    // Use row-major indexing: [i, l] = i * k + l
+                    let self_val = self_slice[i * k + l];
+                    let other_val = other_slice[l * n + j];
+                    sum = sum + self_val * other_val;
                 }
                 result[i * n + j] = sum;
             }
@@ -65,7 +72,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         for i in 0..rows {
             for j in 0..cols {
                 let dst_idx = j * rows + i;
-                result[dst_idx] = self.data[i * cols + j];
+                result[dst_idx] = self.data[[i, j]];
             }
         }
 
@@ -88,7 +95,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         for i in 0..rows {
             for j in 0..cols {
                 let dst_idx = j * rows + i;
-                result[dst_idx] = self.data[i * cols + j].conj();
+                result[dst_idx] = self.data[[i, j]].conj();
             }
         }
 
@@ -109,7 +116,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
 
         let mut sum = Complex::zero();
         for i in 0..min_dim {
-            sum = sum + self.data[i * cols + i];
+            sum = sum + self.data[[i, i]];
         }
 
         Ok(sum)
@@ -128,12 +135,12 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         }
 
         if shape[0] == 1 {
-            return Ok(self.data[0]);
+            return Ok(self.data[[0, 0]]);
         } else if shape[0] == 2 {
-            let a = self.data[0]; // [0,0]
-            let b = self.data[1]; // [0,1]
-            let c = self.data[2]; // [1,0]
-            let d = self.data[3]; // [1,1]
+            let a = self.data[[0, 0]];
+            let b = self.data[[0, 1]];
+            let c = self.data[[1, 0]];
+            let d = self.data[[1, 1]];
             return Ok(a * d - b * c);
         } else {
             return Err(

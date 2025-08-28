@@ -151,10 +151,31 @@ where
         let weight_binding = self.weight.data();
         let weight_data = weight_binding.read().unwrap();
 
-        // Matrix multiplication: input @ weight.T
-        // For batch processing: (batch_size, input_features) @ (input_features, output_features)
-        let weight_t = weight_data.transpose().expect("Transpose failed");
-        let mut output_data = input_data.matmul(&weight_t).expect("MatMul failed");
+        let input_shape = input_data.shape();
+        
+        let mut output_data = if input_shape.len() == 3 {
+            // Handle 3D input: (batch_size, seq_length, input_features)
+            let batch_size = input_shape[0];
+            let seq_length = input_shape[1];
+            let input_features = input_shape[2];
+            
+            // Reshape to 2D for matrix multiplication: (batch_size * seq_length, input_features)
+            let reshaped_input = input_data.reshape(&[batch_size * seq_length, input_features])
+                .expect("Reshape failed");
+            
+            // Transpose weight here for 2D case
+            let weight_t = weight_data.transpose().expect("Transpose failed");
+            let matmul_result = reshaped_input.matmul(&weight_t).expect("MatMul failed");
+            
+            // Reshape back to 3D: (batch_size, seq_length, output_features)
+            let output_features = self.output_size;
+            matmul_result.reshape(&[batch_size, seq_length, output_features])
+                .expect("Reshape back failed")
+        } else {
+            // Handle 2D input: (batch_size, input_features) @ (input_features, output_features)
+            let weight_t = weight_data.transpose().expect("Transpose failed");
+            input_data.matmul(&weight_t).expect("MatMul failed")
+        };
 
         // Add bias if present
         if let Some(ref bias) = self.bias {
