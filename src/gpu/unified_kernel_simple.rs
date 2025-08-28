@@ -5,6 +5,7 @@ use crate::error::{RusTorchError, RusTorchResult};
 use crate::gpu::DeviceType;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::ops::{Add, Mul, Sub};
 use std::time::Duration;
 
 /// Unified kernel operation types
@@ -132,9 +133,7 @@ impl UnifiedKernelExecutor {
                         "Add requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .add(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].add(inputs[1]))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -142,9 +141,7 @@ impl UnifiedKernelExecutor {
                         "Mul requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .mul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].mul(inputs[1]))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -152,9 +149,7 @@ impl UnifiedKernelExecutor {
                         "Sub requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .sub(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].sub(inputs[1]))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -164,7 +159,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
@@ -220,9 +215,7 @@ impl UnifiedKernelExecutor {
                         "Add requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .add(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].add(inputs[1]))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -230,9 +223,7 @@ impl UnifiedKernelExecutor {
                         "Mul requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .mul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].mul(inputs[1]))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -240,9 +231,7 @@ impl UnifiedKernelExecutor {
                         "Sub requires exactly 2 inputs",
                     ));
                 }
-                inputs[0]
-                    .sub(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                Ok(inputs[0].sub(inputs[1]))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -252,7 +241,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",

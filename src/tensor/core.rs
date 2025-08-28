@@ -635,3 +635,88 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Su
         &self - scalar
     }
 }
+
+// Convenience aliases for common operations
+// よく使用される操作のエイリアス
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
+    /// Matrix multiplication alias for matmul_v2
+    /// matmul_v2のエイリアス
+    #[inline]
+    pub fn matmul(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+        self.matmul_v2(other)
+    }
+
+    /// Transpose alias for transpose_v2  
+    /// transpose_v2のエイリアス
+    #[inline]
+    pub fn transpose(&self) -> RusTorchResult<Self> {
+        self.transpose_v2()
+    }
+
+    /// Sum alias for sum_v2
+    /// sum_v2のエイリアス
+    #[inline]
+    pub fn sum(&self) -> T {
+        self.sum_v2()
+    }
+
+    /// Mean alias for mean_v2
+    /// mean_v2のエイリアス  
+    #[inline]
+    pub fn mean(&self) -> T {
+        self.mean_v2()
+    }
+
+    /// Maximum alias for maximum_v2
+    /// maximum_v2のエイリアス
+    #[inline]
+    pub fn maximum(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+        self.maximum_v2(other)
+    }
+
+    /// Minimum alias for minimum_v2
+    /// minimum_v2のエイリアス
+    #[inline]
+    pub fn minimum(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+        self.minimum_v2(other)
+    }
+
+    /// Sum axis alias for sum_axis_v2
+    /// sum_axis_v2のエイリアス
+    #[inline]
+    pub fn sum_axis(&self, axis: usize) -> RusTorchResult<Self> {
+        self.sum_axis_v2(axis)
+    }
+
+    /// Stack tensors alias for stack_v2
+    /// stack_v2のエイリアス
+    #[inline]
+    pub fn stack(tensors: &[&Tensor<T>]) -> RusTorchResult<Tensor<T>> {
+        Self::stack_v2(tensors)
+    }
+
+    /// Concatenate tensors alias for concatenate_v2
+    /// concatenate_v2のエイリアス
+    #[inline]
+    pub fn concatenate(tensors: &[&Tensor<T>], axis: usize) -> RusTorchResult<Tensor<T>> {
+        Self::concatenate_v2(tensors, axis)
+    }
+
+    /// Random normal alias for randn_v2
+    /// randn_v2のエイリアス
+    #[inline]
+    pub fn randn(shape: &[usize]) -> Tensor<T>
+    where
+        T: Float + std::iter::Sum + From<f32> + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    {
+        Self::randn_v2(shape)
+    }
+
+    /// Element-wise square root
+    /// 要素ごとの平方根
+    #[inline]
+    pub fn sqrt(&self) -> Self {
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
+    }
+}

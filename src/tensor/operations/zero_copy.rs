@@ -52,11 +52,11 @@ pub trait ZeroCopyOps<T: Float> {
 pub trait TensorIterOps<T: Float> {
     /// Get an iterator over tensor elements (zero-copy)
     /// テンソル要素のイテレータを取得（ゼロコピー）
-    fn iter(&self) -> impl Iterator<Item = &T>;
+    fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> where T: 'a;
     
     /// Get a mutable iterator over tensor elements (zero-copy)
     /// テンソル要素の可変イテレータを取得（ゼロコピー）
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut T>;
+    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T> where T: 'a;
 }
 
 impl<T: Float + Clone + 'static + ndarray::ScalarOperand> ZeroCopyOps<T> for Tensor<T> {
@@ -198,11 +198,11 @@ impl<T: Float + Clone + 'static + ndarray::ScalarOperand> ZeroCopyOps<T> for Ten
 }
 
 impl<T: Float + Clone + 'static> TensorIterOps<T> for Tensor<T> {
-    fn iter(&self) -> impl Iterator<Item = &T> {
+    fn iter<'a>(&'a self) -> impl Iterator<Item = &'a T> where T: 'a {
         self.data.iter()
     }
     
-    fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
+    fn iter_mut<'a>(&'a mut self) -> impl Iterator<Item = &'a mut T> where T: 'a {
         self.data.iter_mut()
     }
 }
