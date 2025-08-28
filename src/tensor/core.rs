@@ -8,6 +8,7 @@ use super::operations::zero_copy::{ZeroCopyOps, TensorIterOps};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::fmt;
+use std::ops::{Add, Sub, Mul, Div, Neg};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::gpu::device::GpuDevice;
@@ -496,3 +497,141 @@ impl<T: Float + 'static> From<ndarray::Array2<T>> for Tensor<T> {
 
 // Zero-copy operations are now provided by the ZeroCopyOps and TensorIterOps traits
 // ゼロコピー操作はZeroCopyOpsとTensorIterOpsトレイトで提供されます
+
+// Standard operator implementations for Tensor
+// テンソルの標準演算子実装
+
+// Tensor + Tensor - using existing add_v2 implementation
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn add(self, other: Self) -> Self::Output {
+        self.add_v2(other).unwrap_or_else(|_| {
+            // Fallback to panic for now
+            panic!("Addition failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+        })
+    }
+}
+
+// Tensor - Tensor - using existing sub_v2 implementation  
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn sub(self, other: Self) -> Self::Output {
+        self.sub_v2(other).unwrap_or_else(|_| {
+            panic!("Subtraction failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+        })
+    }
+}
+
+// Tensor * Tensor - using existing mul_v2 implementation
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn mul(self, other: Self) -> Self::Output {
+        self.mul_v2(other).unwrap_or_else(|_| {
+            panic!("Multiplication failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+        })
+    }
+}
+
+// Tensor / Tensor - using existing div_v2 implementation
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn div(self, other: Self) -> Self::Output {
+        self.div_v2(other).unwrap_or_else(|_| {
+            panic!("Division failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+        })
+    }
+}
+
+// Tensor * scalar - using existing mul_scalar_v2
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T> for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn mul(self, scalar: T) -> Self::Output {
+        self.mul_scalar_v2(scalar)
+    }
+}
+
+// Tensor * scalar (owned)
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T> for Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn mul(self, scalar: T) -> Self::Output {
+        &self * scalar
+    }
+}
+
+// Tensor / scalar - using existing div_scalar_v2  
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T> for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn div(self, scalar: T) -> Self::Output {
+        self.div_scalar_v2(scalar)
+    }
+}
+
+// Tensor / scalar (owned)
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T> for Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn div(self, scalar: T) -> Self::Output {
+        &self / scalar
+    }
+}
+
+// Negation operator - using existing neg_v2
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Neg for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn neg(self) -> Self::Output {
+        self.neg_v2()
+    }
+}
+
+// Negation operator (owned)
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Neg for Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn neg(self) -> Self::Output {
+        -&self
+    }
+}
+
+// Tensor + scalar - using existing add_scalar_v2
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T> for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn add(self, scalar: T) -> Self::Output {
+        self.add_scalar_v2(scalar)
+    }
+}
+
+// Tensor + scalar (owned)
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T> for Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn add(self, scalar: T) -> Self::Output {
+        &self + scalar
+    }
+}
+
+// Tensor - scalar - using existing sub_scalar_v2
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T> for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn sub(self, scalar: T) -> Self::Output {
+        self.sub_scalar_v2(scalar)
+    }
+}
+
+// Tensor - scalar (owned)
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T> for Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn sub(self, scalar: T) -> Self::Output {
+        &self - scalar
+    }
+}
