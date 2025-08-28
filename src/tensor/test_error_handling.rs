@@ -153,4 +153,55 @@ mod tests {
         let tensor = result.unwrap();
         assert_eq!(tensor.shape(), &[100, 100]);
     }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_auto_device_selection() {
+        // Test automatic device selection for small tensor (should use CPU)
+        let small_tensor = Tensor::<f32>::zeros_auto(&[2, 2]);
+        assert_eq!(small_tensor.device_type(), "cpu");
+        assert!(!small_tensor.is_on_gpu());
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_try_to_gpu_no_gpu_available() {
+        let tensor = Tensor::<f32>::zeros(&[2, 2]);
+        let result = tensor.try_to_gpu();
+        
+        // Should return error since GPU is not available in test
+        assert!(result.is_err());
+        
+        match result.unwrap_err() {
+            RusTorchError::Device { device, message } => {
+                assert_eq!(device, "GPU");
+                assert!(message.contains("No GPU devices available"));
+            }
+            _ => panic!("Expected Device error"),
+        }
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_from_vec_auto() {
+        let data = vec![1.0f32, 2.0, 3.0, 4.0];
+        let shape = vec![2, 2];
+        
+        let tensor = Tensor::from_vec_auto(data, shape);
+        assert_eq!(tensor.shape(), &[2, 2]);
+        assert_eq!(tensor.device_type(), "cpu");
+    }
+
+    #[test]
+    #[cfg(not(target_arch = "wasm32"))]
+    fn test_ones_auto() {
+        let tensor = Tensor::<f32>::ones_auto(&[3, 3]);
+        assert_eq!(tensor.shape(), &[3, 3]);
+        assert_eq!(tensor.device_type(), "cpu");
+        
+        // All elements should be one
+        for &value in tensor.as_slice().unwrap() {
+            assert_eq!(value, 1.0);
+        }
+    }
 }

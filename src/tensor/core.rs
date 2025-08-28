@@ -6,6 +6,9 @@ use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::fmt;
 
+#[cfg(not(target_arch = "wasm32"))]
+use crate::gpu::device::GpuDevice;
+
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
 #[derive(Debug, Clone)]
@@ -98,6 +101,62 @@ impl<T: Float + 'static> Tensor<T> {
         self.clone()
     }
 
+    /// Automatically select the best device for this tensor operation
+    /// このテンソル操作に最適なデバイスを自動選択
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn auto_device(&self) -> Self {
+        // Simple heuristic: use GPU for large tensors, CPU for small ones
+        let total_elements = self.data.len();
+        const GPU_THRESHOLD: usize = 1000; // Elements
+
+        if total_elements >= GPU_THRESHOLD {
+            // Try to use GPU if available, fallback to CPU
+            if let Ok(gpu_tensor) = self.try_to_gpu() {
+                return gpu_tensor;
+            }
+        }
+        
+        // Default to CPU
+        self.to_cpu()
+    }
+
+    /// Try to move tensor to GPU with error handling
+    /// エラーハンドリング付きでテンソルをGPUに移動を試行
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn try_to_gpu(&self) -> RusTorchResult<Self> {
+        // Check if GPU is available
+        if !self.is_gpu_available() {
+            return Err(RusTorchError::Device {
+                device: "GPU".to_string(),
+                message: "No GPU devices available".to_string(),
+            });
+        }
+
+        // For now, just return CPU version (GPU implementation would go here)
+        Ok(self.clone())
+    }
+
+    /// Check if GPU is available for this tensor
+    /// このテンソルでGPUが利用可能かチェック
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn is_gpu_available(&self) -> bool {
+        // Simple mock implementation
+        // In real implementation, this would check for CUDA/Metal/OpenCL availability
+        false
+    }
+
+    /// Get the current device type for this tensor
+    /// このテンソルの現在のデバイスタイプを取得
+    pub fn device_type(&self) -> String {
+        "cpu".to_string() // Default to CPU for now
+    }
+
+    /// Check if tensor is on GPU
+    /// テンソルがGPU上にあるかチェック
+    pub fn is_on_gpu(&self) -> bool {
+        false // Default implementation
+    }
+
     /// Creates a tensor filled with zeros.
     /// ゼロで満たされたテンソルを作成します。
     pub fn zeros(shape: &[usize]) -> Self {
@@ -186,6 +245,30 @@ impl<T: Float + 'static> Tensor<T> {
 
         let data = vec![T::one(); total_size];
         Self::try_from_vec(data, shape.to_vec())
+    }
+
+    /// Creates a tensor filled with zeros with automatic device selection
+    /// 自動デバイス選択付きでゼロで満たされたテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn zeros_auto(shape: &[usize]) -> Self {
+        let tensor = Self::zeros(shape);
+        tensor.auto_device()
+    }
+
+    /// Creates a tensor filled with ones with automatic device selection
+    /// 自動デバイス選択付きで1で満たされたテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn ones_auto(shape: &[usize]) -> Self {
+        let tensor = Self::ones(shape);
+        tensor.auto_device()
+    }
+
+    /// Creates a tensor from vector with automatic device selection
+    /// 自動デバイス選択付きでベクトルからテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn from_vec_auto(data: Vec<T>, shape: Vec<usize>) -> Self {
+        let tensor = Self::from_vec(data, shape);
+        tensor.auto_device()
     }
 
     /// Create a scalar tensor from a single value
