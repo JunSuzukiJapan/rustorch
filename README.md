@@ -35,7 +35,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.4.1"
+rustorch = "0.4.2"
 
 # Optional features
 [features]
