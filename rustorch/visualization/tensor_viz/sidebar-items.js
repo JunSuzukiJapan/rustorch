@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ColorMap"],"struct":["TensorPlotConfig","TensorVisualizer"]};
+window.SIDEBAR_ITEMS = {};

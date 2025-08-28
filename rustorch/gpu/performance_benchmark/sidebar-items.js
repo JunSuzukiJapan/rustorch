@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BenchmarkConfig","BenchmarkResult","PerformanceBenchmark"]};
+window.SIDEBAR_ITEMS = {};

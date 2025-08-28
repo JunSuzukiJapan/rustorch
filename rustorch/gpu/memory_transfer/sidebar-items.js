@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GpuBuffer"],"struct":["GpuMemoryManager"]};
+window.SIDEBAR_ITEMS = {};

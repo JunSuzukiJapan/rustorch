@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["linspace","unsqueeze"],"mod":["advanced_memory","complex","core","gpu_parallel","numeric_safety","operations","ops","parallel_errors","parallel_impl","parallel_ops","parallel_traits","simd_aligned","simd_avx512","simd_integration","type_safe"]};
+window.SIDEBAR_ITEMS = {"mod":["complex","complex_impl","core","gpu_parallel","memory","numeric_safety","operations","ops","parallel_errors","parallel_impl","parallel_ops","parallel_traits","simd_avx512","simd_integration","type_safe"]};

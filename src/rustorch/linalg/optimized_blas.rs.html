@@ -136,7 +136,7 @@
 <a href=#136 id=136 data-nosnippet>136</a>    </span>T: Float + Send + Sync + <span class="lifetime">'static </span>+ ndarray::ScalarOperand + num_traits::FromPrimitive,
 <a href=#137 id=137 data-nosnippet>137</a>{
 <a href=#138 id=138 data-nosnippet>138</a>    <span class="comment">// Use standard implementation
-<a href=#139 id=139 data-nosnippet>139</a>    </span>a.matmul(b).map_err(|e| RusTorchError::gpu(<span class="kw-2">&amp;</span>e))
+<a href=#139 id=139 data-nosnippet>139</a>    </span>a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
 <a href=#140 id=140 data-nosnippet>140</a>}
 <a href=#141 id=141 data-nosnippet>141</a>
 <a href=#142 id=142 data-nosnippet>142</a><span class="doccomment">/// Multi-threaded matrix multiplication using Rayon
@@ -218,7 +218,7 @@
 <a href=#218 id=218 data-nosnippet>218</a>    </span><span class="kw">let </span>start = Instant::now();
 <a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">let </span>std_result = matrix_a
 <a href=#220 id=220 data-nosnippet>220</a>        .matmul(<span class="kw-2">&amp;</span>matrix_b)
-<a href=#221 id=221 data-nosnippet>221</a>        .map_err(|e| RusTorchError::gpu(<span class="kw-2">&amp;</span>e))<span class="question-mark">?</span>;
+<a href=#221 id=221 data-nosnippet>221</a>        .map_err(|e| RusTorchError::gpu(e.to_string()))<span class="question-mark">?</span>;
 <a href=#222 id=222 data-nosnippet>222</a>    <span class="kw">let </span>std_time = start.elapsed();
 <a href=#223 id=223 data-nosnippet>223</a>    <span class="macro">println!</span>(<span class="string">"  Standard: {:.2}ms"</span>, std_time.as_secs_f64() * <span class="number">1000.0</span>);
 <a href=#224 id=224 data-nosnippet>224</a>

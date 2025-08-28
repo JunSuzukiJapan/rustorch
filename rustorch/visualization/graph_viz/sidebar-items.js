@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ArrowType","GraphLayout","LineType","NodeShape","NodeType"],"struct":["EdgeStyle","GraphEdge","GraphNode","GraphVisualizer","NodeStyle"]};
+window.SIDEBAR_ITEMS = {};

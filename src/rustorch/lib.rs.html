@@ -94,9 +94,9 @@
 <a href=#94 id=94 data-nosnippet>94</a>//! let c = &amp;a + &amp;b;  // Addition
 <a href=#95 id=95 data-nosnippet>95</a>//! let d = a.matmul(&amp;b);  // Matrix multiplication
 <a href=#96 id=96 data-nosnippet>96</a>//!
-<a href=#97 id=97 data-nosnippet>97</a>//! // Mathematical functions
-<a href=#98 id=98 data-nosnippet>98</a>//! let e = a.sin();  // Sine function
-<a href=#99 id=99 data-nosnippet>99</a>//! let f = a.exp();  // Exponential function
+<a href=#97 id=97 data-nosnippet>97</a>//! // Mathematical functions (using methods from tensor ops)
+<a href=#98 id=98 data-nosnippet>98</a>//! let e = a.data.mapv(|x| x.sin());  // Sine function
+<a href=#99 id=99 data-nosnippet>99</a>//! let f = a.data.mapv(|x| x.exp());  // Exponential function
 <a href=#100 id=100 data-nosnippet>100</a>//!
 <a href=#101 id=101 data-nosnippet>101</a>//! println!("Shape: {:?}", c.shape());
 <a href=#102 id=102 data-nosnippet>102</a>//! println!("Result: {:?}", c.as_slice());
