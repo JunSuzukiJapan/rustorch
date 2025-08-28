@@ -42,7 +42,7 @@
 //!     let variable = Variable::new(tensor, true);
 //!     let mut graph_viz = GraphVisualizer::new();
 //!     graph_viz.build_graph(&variable)?;
-//!     let graph_svg = graph_viz.to_svg()?;
+//!     let graph_svg = graph_viz.to_svg();
 //!     
 //!     Ok(())
 //! }
@@ -65,10 +65,12 @@ pub mod plotting;
 
 /// テンソルの可視化機能
 /// Tensor visualization functionality
+pub mod tensor;
 pub mod tensor_viz;
 
 /// 計算グラフの可視化機能
 /// Computation graph visualization functionality
+pub mod graph;
 pub mod graph_viz;
 
 /// 可視化ユーティリティ

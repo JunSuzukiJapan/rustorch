@@ -15,6 +15,7 @@
 
 pub mod arithmetic;
 pub mod matrix;
+pub mod signal;
 pub mod statistical;
 pub mod utilities;
 

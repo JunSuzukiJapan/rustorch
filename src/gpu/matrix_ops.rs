@@ -244,7 +244,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
                 }
                 super::DeviceType::Cpu => {
                     // CPU fallback
-                    a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+                    a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
                 }
             }
         } else {
@@ -255,7 +255,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
             }
             #[cfg(not(feature = "blas-optimized"))]
             {
-                a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+                a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
             }
         }
     }
@@ -264,19 +264,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuBatchMatrixExecutor<
     fn cuda_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // CUDA batch matrix multiplication
         // For now, fallback to CPU until CUDA kernels are fully implemented
-        a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 
     fn metal_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Metal batch matrix multiplication
         // For now, fallback to CPU until Metal kernels are fully implemented
-        a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 
     fn opencl_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // OpenCL batch matrix multiplication
         // For now, fallback to CPU until OpenCL kernels are fully implemented
-        a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 }
 

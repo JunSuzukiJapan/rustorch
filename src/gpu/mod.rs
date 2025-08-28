@@ -111,6 +111,9 @@
 //! - **Memory Bandwidth**: Minimize GPU-CPU data transfers
 //! - **Asynchronous Execution**: Use streams for overlapping computation and transfer
 
+/// Performance benchmark suite for GPU operations
+/// GPU演算用パフォーマンスベンチマークスイート
+pub mod benchmark;
 /// GPU convolution operations and cuDNN/MPS integration
 /// GPU畳み込み演算とcuDNN/MPS統合
 pub mod conv_ops;
@@ -135,14 +138,15 @@ pub mod matrix_ops;
 /// GPU memory management and allocation
 /// GPUメモリ管理とアロケーション
 pub mod memory;
+/// GPU memory operations (modular implementation)
+/// GPUメモリ操作（モジュラー実装）
+pub mod memory_ops;
 /// GPU memory transfer operations
 /// GPUメモリ転送操作
 pub mod memory_transfer;
 pub mod metal_kernels;
 pub mod opencl_kernels;
 pub mod opencl_optimized;
-/// Performance benchmark suite for GPU operations
-/// GPU演算用パフォーマンスベンチマークスイート
 pub mod performance_benchmark;
 /// GPU reduction operations and optimizations
 /// GPUリダクション演算と最適化

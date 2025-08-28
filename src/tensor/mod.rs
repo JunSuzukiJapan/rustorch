@@ -50,9 +50,9 @@
 //! let c = &a + &b;
 //! let d = a.matmul(&b);
 //!
-//! // Mathematical functions
-//! let e = a.sin();
-//! let f = a.exp();
+//! // Mathematical functions (using ndarray methods)
+//! let e = a.data.mapv(|x| x.sin());
+//! let f = a.data.mapv(|x| x.exp());
 //! ```
 //!
 //! ### Parallel Operations
@@ -72,15 +72,20 @@ use num_traits::Float;
 /// Core tensor data structure
 /// コアテンソルデータ構造  
 pub mod core;
-/// Mathematical operations for tensors (legacy - replaced by ops)
-/// テンソルの数学演算（レガシー - opsに置換）
-pub mod operations;
+/// Mathematical operations for tensors (legacy - will be phased out)
+/// テンソルの数学演算（レガシー - 段階的に廃止予定）
+// pub mod operations; // Temporarily disabled to avoid conflicts
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
+#[cfg(test)]
+mod test_error_handling;
 
 /// Complex number support for tensors
 /// テンソルの複素数サポート
 pub mod complex;
+/// Modular complex number implementation
+/// モジュール化された複素数実装
+pub mod complex_impl;
 /// Numeric safety and overflow protection
 /// 数値安全性とオーバーフロー保護
 pub mod numeric_safety;
@@ -98,13 +103,17 @@ pub mod parallel_traits;
 pub mod type_safe;
 
 #[cfg(not(target_arch = "wasm32"))]
-pub mod advanced_memory;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod gpu_parallel;
+/// Modern memory management system
+/// 現代的なメモリ管理システム
 #[cfg(not(target_arch = "wasm32"))]
-pub mod simd_aligned;
+pub mod memory;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_avx512;
+
+/// Organized tensor operations by category (trait-based system)
+/// カテゴリ別に整理されたテンソル操作（トレイトベースシステム）
+pub mod operations;
 /// Parallel tensor operations for batch processing and SIMD acceleration
 /// バッチ処理とSIMD加速のための並列テンソル操作
 #[cfg(not(target_arch = "wasm32"))]
@@ -116,30 +125,7 @@ mod broadcasting;
 pub use crate::error::RusTorchResult as ParallelResult;
 pub use core::Tensor;
 
-// Convenience functions
-/// Create a tensor with linearly spaced values
-/// 線形に間隔を空けた値でテンソルを作成
-pub fn linspace<T: Float + 'static>(start: T, end: T, steps: usize) -> Tensor<T> {
-    if steps == 0 {
-        return Tensor::from_vec(vec![], vec![0]);
-    }
-    if steps == 1 {
-        return Tensor::from_vec(vec![start], vec![1]);
-    }
-
-    let step = (end - start) / T::from(steps - 1).unwrap();
-    let mut values = Vec::with_capacity(steps);
-    let mut current = start;
-
-    for _ in 0..steps {
-        values.push(current);
-        current = current + step;
-    }
-    Tensor::from_vec(values, vec![steps])
-}
-
-/// Add unsqueeze function for convenience
-/// 便利関数としてunsqueezeを追加
-pub fn unsqueeze<T: Float + 'static>(tensor: &Tensor<T>, dim: usize) -> Result<Tensor<T>, String> {
-    tensor.unsqueeze(dim).map_err(|e| e.to_string())
-}
+// Re-export commonly used traits for better ergonomics
+#[cfg(not(target_arch = "wasm32"))]
+pub use memory::optimization::{MemoryOptimization, TensorMemoryInfo};
+pub use operations::zero_copy::{TensorIterOps, ZeroCopyOps};

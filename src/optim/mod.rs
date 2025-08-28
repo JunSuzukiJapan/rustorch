@@ -17,6 +17,7 @@ pub mod sgd {
 
 use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::ops::Add;
 
 /// Optimizer trait for parameter updates
 pub trait Optimizer {
@@ -114,7 +115,7 @@ impl Optimizer for SGD {
             let buf = if let Some(momentum_buffer) = self.momentum_buffers.get(&param_id) {
                 let momentum_term = momentum_buffer * self.momentum;
                 let dampening_term = &d_p * (1.0 - self.dampening);
-                momentum_term + dampening_term
+                (&momentum_term) + (&dampening_term)
             } else {
                 d_p.clone()
             };
@@ -273,8 +274,8 @@ impl Optimizer for Adam {
         // Get or initialize momentum buffers
         let exp_avg = if let Some(avg) = self.exp_avg.get(&param_id) {
             let beta1_term = avg * self.beta1;
-            let one_minus_beta1_term = &d_p * (1.0 - self.beta1);
-            beta1_term + one_minus_beta1_term
+            let one_minus_beta1_term = (&d_p) * (1.0 - self.beta1);
+            (&beta1_term) + (&one_minus_beta1_term)
         } else {
             d_p.clone() * (1.0 - self.beta1)
         };
@@ -282,8 +283,8 @@ impl Optimizer for Adam {
         let exp_avg_sq = if let Some(avg_sq) = self.exp_avg_sq.get(&param_id) {
             let beta2_term = avg_sq * self.beta2;
             let d_p_squared = &d_p * &d_p;
-            let one_minus_beta2_term = &d_p_squared * (1.0 - self.beta2);
-            beta2_term + one_minus_beta2_term
+            let one_minus_beta2_term = (&d_p_squared) * (1.0 - self.beta2);
+            (&beta2_term) + (&one_minus_beta2_term)
         } else {
             let d_p_squared = &d_p * &d_p;
             d_p_squared * (1.0 - self.beta2)
@@ -478,8 +479,8 @@ impl Optimizer for RMSprop {
         let square_avg = if let Some(sq_avg) = self.square_avg.get(&param_id) {
             let alpha_term = sq_avg * self.alpha;
             let grad_squared = &d_p * &d_p;
-            let one_minus_alpha_term = &grad_squared * (1.0 - self.alpha);
-            alpha_term + one_minus_alpha_term
+            let one_minus_alpha_term = (&grad_squared) * (1.0 - self.alpha);
+            (&alpha_term) + (&one_minus_alpha_term)
         } else {
             let grad_squared = &d_p * &d_p;
             grad_squared * (1.0 - self.alpha)
@@ -491,8 +492,8 @@ impl Optimizer for RMSprop {
             // Centered variant: subtract the squared mean of gradients
             let grad_avg = if let Some(g_avg) = self.grad_avg.get(&param_id) {
                 let alpha_term = g_avg * self.alpha;
-                let one_minus_alpha_term = &d_p * (1.0 - self.alpha);
-                alpha_term + one_minus_alpha_term
+                let one_minus_alpha_term = (&d_p) * (1.0 - self.alpha);
+                (&alpha_term) + (&one_minus_alpha_term)
             } else {
                 d_p.clone() * (1.0 - self.alpha)
             };
@@ -514,7 +515,7 @@ impl Optimizer for RMSprop {
             let buf = if let Some(momentum_buf) = self.momentum_buffer.get(&param_id) {
                 let momentum_term = momentum_buf * self.momentum;
                 let grad_term = (&d_p / &denom) * self.learning_rate;
-                momentum_term + grad_term
+                (&momentum_term) + (&grad_term)
             } else {
                 (&d_p / &denom) * self.learning_rate
             };
