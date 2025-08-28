@@ -42,7 +42,7 @@
 //!     let variable = Variable::new(tensor, true);
 //!     let mut graph_viz = GraphVisualizer::new();
 //!     graph_viz.build_graph(&variable)?;
-//!     let graph_svg = graph_viz.to_svg()?;
+//!     let graph_svg = graph_viz.to_svg();
 //!     
 //!     Ok(())
 //! }

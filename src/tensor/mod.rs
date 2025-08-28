@@ -50,9 +50,9 @@
 //! let c = &a + &b;
 //! let d = a.matmul(&b);
 //!
-//! // Mathematical functions
-//! let e = a.sin();
-//! let f = a.exp();
+//! // Mathematical functions (using ndarray methods)
+//! let e = a.data.mapv(|x| x.sin());
+//! let f = a.data.mapv(|x| x.exp());
 //! ```
 //!
 //! ### Parallel Operations
