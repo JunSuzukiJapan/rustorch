@@ -2,7 +2,7 @@
 //! GPUパフォーマンスベンチマークモジュール
 
 pub mod config;
-pub mod result; 
+pub mod result;
 pub mod suite;
 
 pub use config::BenchmarkConfig;

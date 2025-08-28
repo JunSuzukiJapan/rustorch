@@ -8,9 +8,9 @@
 
 // Core modules
 pub mod buffer;
+pub mod cpu_fallback;
 pub mod manager;
 pub mod transfer;
-pub mod cpu_fallback;
 
 // Backend-specific modules
 pub mod cuda;
@@ -24,10 +24,10 @@ pub use manager::GpuMemoryManager;
 
 // Re-export backend operations for internal use
 // 内部使用のためのバックエンド操作を再エクスポート
+pub use cpu_fallback::CpuFallback;
 pub use cuda::CudaOperations;
 pub use metal::MetalOperations;
 pub use opencl::OpenCLOperations;
-pub use cpu_fallback::CpuFallback;
 
 #[cfg(test)]
 mod tests {
@@ -63,9 +63,11 @@ mod tests {
         let manager = GpuMemoryManager::<f32>::new();
         let lhs = GpuBuffer::Cpu(Arc::new(vec![1.0, 2.0, 3.0]));
         let rhs = GpuBuffer::Cpu(Arc::new(vec![4.0, 5.0, 6.0]));
-        
-        let result = manager.execute_elementwise(&lhs, &rhs, |a, b| a + b).unwrap();
-        
+
+        let result = manager
+            .execute_elementwise(&lhs, &rhs, |a, b| a + b)
+            .unwrap();
+
         if let GpuBuffer::Cpu(data) = result {
             assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]);
         }
@@ -82,7 +84,11 @@ mod tests {
         if let GpuBuffer::Cpu(normalized_data) = result {
             // Check that the normalized data has approximately zero mean
             let mean: f32 = normalized_data.iter().sum::<f32>() / normalized_data.len() as f32;
-            assert!(mean.abs() < 1e-6, "Mean should be approximately zero, got {}", mean);
+            assert!(
+                mean.abs() < 1e-6,
+                "Mean should be approximately zero, got {}",
+                mean
+            );
         }
     }
 

@@ -7,7 +7,10 @@ use num_traits::Float;
 use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
-use super::{GraphNode, GraphEdge, GraphLayout, NodeType, NodeStyle, EdgeStyle, NodeShape, LineType, ArrowType};
+use super::{
+    ArrowType, EdgeStyle, GraphEdge, GraphLayout, GraphNode, LineType, NodeShape, NodeStyle,
+    NodeType,
+};
 
 /// Computation graph visualizer
 /// 計算グラフ可視化クラス
@@ -126,9 +129,21 @@ impl GraphVisualizer {
     }
 
     // Helper methods for implementation
-    fn traverse_variable<T>(&mut self, variable: &Variable<T>, visited: &mut HashSet<String>, node_counter: &mut usize) -> RusTorchResult<()>
+    fn traverse_variable<T>(
+        &mut self,
+        variable: &Variable<T>,
+        visited: &mut HashSet<String>,
+        node_counter: &mut usize,
+    ) -> RusTorchResult<()>
     where
-        T: Float + Debug + std::fmt::Display + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + Debug
+            + std::fmt::Display
+            + Send
+            + Sync
+            + 'static
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         // Implementation for traversing computation graph
         // This would be extracted from the original implementation
@@ -174,9 +189,14 @@ impl GraphVisualizer {
         // SVG node rendering implementation
         format!(
             r#"<circle cx="{}" cy="{}" r="20" fill="rgb({},{},{})" stroke="rgb({},{},{})" stroke-width="{}"/>"#,
-            node.position.0, node.position.1,
-            node.style.background_color.0, node.style.background_color.1, node.style.background_color.2,
-            node.style.border_color.0, node.style.border_color.1, node.style.border_color.2,
+            node.position.0,
+            node.position.1,
+            node.style.background_color.0,
+            node.style.background_color.1,
+            node.style.background_color.2,
+            node.style.border_color.0,
+            node.style.border_color.1,
+            node.style.border_color.2,
             node.style.border_width
         )
     }
@@ -185,13 +205,17 @@ impl GraphVisualizer {
         // SVG edge rendering implementation
         if let (Some(from_node), Some(to_node)) = (
             self.nodes.iter().find(|n| n.id == edge.from),
-            self.nodes.iter().find(|n| n.id == edge.to)
+            self.nodes.iter().find(|n| n.id == edge.to),
         ) {
             format!(
                 r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="rgb({},{},{})" stroke-width="{}"/>"#,
-                from_node.position.0, from_node.position.1,
-                to_node.position.0, to_node.position.1,
-                edge.style.color.0, edge.style.color.1, edge.style.color.2,
+                from_node.position.0,
+                from_node.position.1,
+                to_node.position.0,
+                to_node.position.1,
+                edge.style.color.0,
+                edge.style.color.1,
+                edge.style.color.2,
                 edge.style.thickness
             )
         } else {

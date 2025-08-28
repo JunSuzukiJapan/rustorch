@@ -7,4 +7,4 @@
 pub mod zero_copy;
 
 // Re-export important traits and types
-pub use zero_copy::{ZeroCopyOps, TensorIterOps};
+pub use zero_copy::{TensorIterOps, ZeroCopyOps};

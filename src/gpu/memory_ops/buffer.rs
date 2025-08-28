@@ -12,10 +12,7 @@ use cudarc::driver::{CudaDevice as CudarcDevice, CudaSlice};
 use metal::{Buffer, Device as MetalDeviceType};
 
 #[cfg(feature = "opencl")]
-use opencl3::{
-    context::Context as CLContext,
-    memory::Buffer as CLBuffer,
-};
+use opencl3::{context::Context as CLContext, memory::Buffer as CLBuffer};
 
 /// GPU memory buffer abstraction
 /// GPUメモリバッファの抽象化
@@ -97,13 +94,9 @@ impl<T> GpuBuffer<T> {
             #[cfg(feature = "cuda")]
             GpuBuffer::Cuda { data, .. } => data.len(),
             #[cfg(feature = "metal")]
-            GpuBuffer::Metal { buffer, .. } => {
-                buffer.length() as usize / std::mem::size_of::<T>()
-            }
+            GpuBuffer::Metal { buffer, .. } => buffer.length() as usize / std::mem::size_of::<T>(),
             #[cfg(feature = "opencl")]
-            GpuBuffer::OpenCL { buffer, .. } => {
-                buffer.size() / std::mem::size_of::<T>()
-            }
+            GpuBuffer::OpenCL { buffer, .. } => buffer.size() / std::mem::size_of::<T>(),
         }
     }
 
@@ -152,7 +145,10 @@ impl<T: std::fmt::Debug> std::fmt::Debug for GpuBuffer<T> {
             #[cfg(feature = "metal")]
             GpuBuffer::Metal { buffer, .. } => f
                 .debug_struct("GpuBuffer::Metal")
-                .field("len", &(buffer.length() as usize / std::mem::size_of::<T>()))
+                .field(
+                    "len",
+                    &(buffer.length() as usize / std::mem::size_of::<T>()),
+                )
                 .finish(),
             #[cfg(feature = "opencl")]
             GpuBuffer::OpenCL { buffer, .. } => f
@@ -171,7 +167,7 @@ mod tests {
     fn test_cpu_buffer() {
         let data = vec![1.0f32, 2.0, 3.0, 4.0];
         let buffer = GpuBuffer::Cpu(Arc::new(data));
-        
+
         assert!(buffer.is_cpu());
         assert!(!buffer.is_cuda());
         assert!(!buffer.is_metal());

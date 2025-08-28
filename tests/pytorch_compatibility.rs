@@ -6,6 +6,7 @@ use rustorch::nn::{BatchNorm2d, Conv2d, Linear, ReLU};
 use rustorch::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
 use rustorch::prelude::*;
 use rustorch::tensor::Tensor;
+use std::ops::Add;
 
 #[cfg(test)]
 mod pytorch_compatibility_tests {

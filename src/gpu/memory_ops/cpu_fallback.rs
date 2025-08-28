@@ -214,7 +214,11 @@ mod tests {
         if let GpuBuffer::Cpu(normalized_data) = result {
             // Check that the normalized data has zero mean (approximately)
             let mean: f32 = normalized_data.iter().sum::<f32>() / normalized_data.len() as f32;
-            assert!((mean.abs()) < 1e-6, "Mean should be approximately zero, got {}", mean);
+            assert!(
+                (mean.abs()) < 1e-6,
+                "Mean should be approximately zero, got {}",
+                mean
+            );
         } else {
             panic!("Expected CPU buffer");
         }

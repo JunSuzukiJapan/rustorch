@@ -39,7 +39,7 @@ impl<T: Float + 'static> Tensor<Complex<T>> {
         // Get slices for row-major access
         let self_slice = self.as_slice().unwrap();
         let other_slice = other.as_slice().unwrap();
-        
+
         for i in 0..m {
             for j in 0..n {
                 let mut sum = Complex::zero();

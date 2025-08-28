@@ -51,10 +51,7 @@ impl MetalOperations {
 
     /// Transfer data from Metal device to CPU
     /// データをMetalデバイスからCPUに転送
-    pub fn transfer_to_cpu<T>(
-        metal_buffer: &Arc<Buffer>,
-        shape: &[usize],
-    ) -> RusTorchResult<Vec<T>>
+    pub fn transfer_to_cpu<T>(metal_buffer: &Arc<Buffer>, shape: &[usize]) -> RusTorchResult<Vec<T>>
     where
         T: Float + 'static,
     {
@@ -163,7 +160,7 @@ impl MetalOperations {
         // In a production implementation, this would use Metal compute shaders
         let cpu_data = Self::transfer_to_cpu(buffer, &[size])?;
         let n = cpu_data.len();
-        
+
         if n == 0 {
             return Ok(GpuBuffer::Metal {
                 buffer: buffer.clone(),
@@ -172,8 +169,12 @@ impl MetalOperations {
         }
 
         // Calculate mean and variance on CPU
-        let mean: T = cpu_data.iter().fold(T::zero(), |acc, &x| acc + x) / T::from(size as f64).unwrap();
-        let variance: T = cpu_data.iter().map(|&x| (x - mean) * (x - mean)).fold(T::zero(), |acc, x| acc + x)
+        let mean: T =
+            cpu_data.iter().fold(T::zero(), |acc, &x| acc + x) / T::from(size as f64).unwrap();
+        let variance: T = cpu_data
+            .iter()
+            .map(|&x| (x - mean) * (x - mean))
+            .fold(T::zero(), |acc, x| acc + x)
             / T::from(size as f64).unwrap();
 
         // Normalize
@@ -197,16 +198,12 @@ impl MetalOperations {
     {
         // For now, fall back to CPU implementation
         // TODO: Implement actual Metal compute shader for attention
-        let query_cpu: Vec<T> = Self::transfer_to_cpu(
-            query,
-            &[query.length() as usize / std::mem::size_of::<T>()],
-        )?;
+        let query_cpu: Vec<T> =
+            Self::transfer_to_cpu(query, &[query.length() as usize / std::mem::size_of::<T>()])?;
         let key_cpu: Vec<T> =
             Self::transfer_to_cpu(key, &[key.length() as usize / std::mem::size_of::<T>()])?;
-        let value_cpu: Vec<T> = Self::transfer_to_cpu(
-            value,
-            &[value.length() as usize / std::mem::size_of::<T>()],
-        )?;
+        let value_cpu: Vec<T> =
+            Self::transfer_to_cpu(value, &[value.length() as usize / std::mem::size_of::<T>()])?;
 
         // Simple attention computation on CPU
         let scores: Vec<T> = query_cpu

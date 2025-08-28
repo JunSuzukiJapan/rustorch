@@ -237,7 +237,7 @@ where
     ) -> Variable<T> {
         // QK^T / sqrt(d_k)
         let key_transposed = key.transpose_last_two();
-        let scores = query.matmul(&key_transposed);
+        let scores = query.attention_matmul(&key_transposed);
         let scaled_scores = self.apply_temperature(&scores);
 
         // Apply mask if provided
@@ -251,7 +251,7 @@ where
         let attention_weights = self.softmax(&masked_scores);
 
         // Apply to values
-        attention_weights.matmul(value)
+        attention_weights.attention_matmul(value)
     }
 
     /// Apply temperature scaling

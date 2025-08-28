@@ -72,13 +72,13 @@ use num_traits::Float;
 /// Core tensor data structure
 /// コアテンソルデータ構造  
 pub mod core;
-#[cfg(test)]
-mod test_error_handling;
 /// Mathematical operations for tensors (legacy - will be phased out)
 /// テンソルの数学演算（レガシー - 段階的に廃止予定）
 // pub mod operations; // Temporarily disabled to avoid conflicts
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
+#[cfg(test)]
+mod test_error_handling;
 
 /// Complex number support for tensors
 /// テンソルの複素数サポート
@@ -102,12 +102,12 @@ pub mod parallel_traits;
 /// コンパイル時検証付きの型安全テンソル操作
 pub mod type_safe;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod gpu_parallel;
 /// Modern memory management system
 /// 現代的なメモリ管理システム
 #[cfg(not(target_arch = "wasm32"))]
 pub mod memory;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod gpu_parallel;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_avx512;
 
@@ -128,4 +128,4 @@ pub use core::Tensor;
 // Re-export commonly used traits for better ergonomics
 #[cfg(not(target_arch = "wasm32"))]
 pub use memory::optimization::{MemoryOptimization, TensorMemoryInfo};
-pub use operations::zero_copy::{ZeroCopyOps, TensorIterOps};
+pub use operations::zero_copy::{TensorIterOps, ZeroCopyOps};

@@ -1,14 +1,14 @@
 //! Core tensor data structure and basic operations
 //! コアテンソルデータ構造と基本操作
 
-use crate::error::{RusTorchError, RusTorchResult};
 use super::memory::aligned::{SimdAllocator, SIMD_ALIGNMENT};
 use super::memory::optimization::{MemoryOptimization, TensorMemoryInfo};
-use super::operations::zero_copy::{ZeroCopyOps, TensorIterOps};
+use super::operations::zero_copy::{TensorIterOps, ZeroCopyOps};
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::fmt;
-use std::ops::{Add, Sub, Mul, Div, Neg};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::gpu::device::GpuDevice;
@@ -42,14 +42,14 @@ impl<T: Float + 'static> Tensor<T> {
         // Calculate expected size
         let expected_size = shape.iter().product::<usize>();
         let actual_size = data.len();
-        
+
         if expected_size != actual_size {
             return Err(RusTorchError::ShapeMismatch {
                 expected: vec![expected_size],
                 actual: vec![actual_size],
             });
         }
-        
+
         // Check for empty shape
         if shape.is_empty() {
             return Err(RusTorchError::TensorOp {
@@ -57,7 +57,7 @@ impl<T: Float + 'static> Tensor<T> {
                 source: None,
             });
         }
-        
+
         // Check for zero or negative dimensions
         if shape.iter().any(|&dim| dim == 0) {
             return Err(RusTorchError::TensorOp {
@@ -65,7 +65,7 @@ impl<T: Float + 'static> Tensor<T> {
                 source: None,
             });
         }
-        
+
         match ArrayD::from_shape_vec(shape, data) {
             Ok(array) => Ok(Tensor::new(array)),
             Err(e) => Err(RusTorchError::TensorOp {
@@ -119,7 +119,7 @@ impl<T: Float + 'static> Tensor<T> {
                 return gpu_tensor;
             }
         }
-        
+
         // Default to CPU
         self.to_cpu()
     }
@@ -192,7 +192,7 @@ impl<T: Float + 'static> Tensor<T> {
         }
 
         let total_size = shape.iter().product::<usize>();
-        
+
         // Check for reasonable memory size (avoid OOM)
         const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
         if total_size > MAX_ELEMENTS {
@@ -237,7 +237,7 @@ impl<T: Float + 'static> Tensor<T> {
         }
 
         let total_size = shape.iter().product::<usize>();
-        
+
         // Check for reasonable memory size (avoid OOM)
         const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
         if total_size > MAX_ELEMENTS {
@@ -508,18 +508,26 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Ad
     fn add(self, other: Self) -> Self::Output {
         self.add_v2(other).unwrap_or_else(|_| {
             // Fallback to panic for now
-            panic!("Addition failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+            panic!(
+                "Addition failed: shape mismatch {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            );
         })
     }
 }
 
-// Tensor - Tensor - using existing sub_v2 implementation  
+// Tensor - Tensor - using existing sub_v2 implementation
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub for &Tensor<T> {
     type Output = Tensor<T>;
 
     fn sub(self, other: Self) -> Self::Output {
         self.sub_v2(other).unwrap_or_else(|_| {
-            panic!("Subtraction failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+            panic!(
+                "Subtraction failed: shape mismatch {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            );
         })
     }
 }
@@ -530,7 +538,11 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mu
 
     fn mul(self, other: Self) -> Self::Output {
         self.mul_v2(other).unwrap_or_else(|_| {
-            panic!("Multiplication failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+            panic!(
+                "Multiplication failed: shape mismatch {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            );
         })
     }
 }
@@ -541,13 +553,19 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Di
 
     fn div(self, other: Self) -> Self::Output {
         self.div_v2(other).unwrap_or_else(|_| {
-            panic!("Division failed: shape mismatch {:?} vs {:?}", self.shape(), other.shape());
+            panic!(
+                "Division failed: shape mismatch {:?} vs {:?}",
+                self.shape(),
+                other.shape()
+            );
         })
     }
 }
 
 // Tensor * scalar - using existing mul_scalar_v2
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T>
+    for &Tensor<T>
+{
     type Output = Tensor<T>;
 
     fn mul(self, scalar: T) -> Self::Output {
@@ -564,8 +582,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mu
     }
 }
 
-// Tensor / scalar - using existing div_scalar_v2  
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T> for &Tensor<T> {
+// Tensor / scalar - using existing div_scalar_v2
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T>
+    for &Tensor<T>
+{
     type Output = Tensor<T>;
 
     fn div(self, scalar: T) -> Self::Output {
@@ -601,7 +621,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Ne
 }
 
 // Tensor + scalar - using existing add_scalar_v2
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T>
+    for &Tensor<T>
+{
     type Output = Tensor<T>;
 
     fn add(self, scalar: T) -> Self::Output {
@@ -619,7 +641,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Ad
 }
 
 // Tensor - scalar - using existing sub_scalar_v2
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T> for &Tensor<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T>
+    for &Tensor<T>
+{
     type Output = Tensor<T>;
 
     fn sub(self, scalar: T) -> Self::Output {
@@ -707,7 +731,12 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     #[inline]
     pub fn randn(shape: &[usize]) -> Tensor<T>
     where
-        T: Float + std::iter::Sum + From<f32> + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+        T: Float
+            + std::iter::Sum
+            + From<f32>
+            + 'static
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive,
     {
         Self::randn_v2(shape)
     }

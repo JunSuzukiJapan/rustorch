@@ -152,24 +152,26 @@ where
         let weight_data = weight_binding.read().unwrap();
 
         let input_shape = input_data.shape();
-        
+
         let mut output_data = if input_shape.len() == 3 {
             // Handle 3D input: (batch_size, seq_length, input_features)
             let batch_size = input_shape[0];
             let seq_length = input_shape[1];
             let input_features = input_shape[2];
-            
+
             // Reshape to 2D for matrix multiplication: (batch_size * seq_length, input_features)
-            let reshaped_input = input_data.reshape(&[batch_size * seq_length, input_features])
+            let reshaped_input = input_data
+                .reshape(&[batch_size * seq_length, input_features])
                 .expect("Reshape failed");
-            
+
             // Transpose weight here for 2D case
             let weight_t = weight_data.transpose().expect("Transpose failed");
             let matmul_result = reshaped_input.matmul(&weight_t).expect("MatMul failed");
-            
+
             // Reshape back to 3D: (batch_size, seq_length, output_features)
             let output_features = self.output_size;
-            matmul_result.reshape(&[batch_size, seq_length, output_features])
+            matmul_result
+                .reshape(&[batch_size, seq_length, output_features])
                 .expect("Reshape back failed")
         } else {
             // Handle 2D input: (batch_size, input_features) @ (input_features, output_features)
@@ -184,23 +186,61 @@ where
 
             // Broadcast bias to match output shape
             let output_shape = output_data.shape();
-            if output_shape.len() == 2 {
-                // Batch processing: add bias to each sample
-                let _batch_size = output_shape[0];
-                let output_features = output_shape[1];
+            match output_shape.len() {
+                1 => {
+                    // Single sample: direct addition
+                    output_data = &output_data + &*bias_data;
+                }
+                2 => {
+                    // Batch processing: add bias to each sample
+                    let batch_size = output_shape[0];
+                    let output_features = output_shape[1];
 
-                // Create bias tensor with shape (1, output_features) for broadcasting
-                let bias_expanded = bias_data
-                    .as_array()
-                    .clone()
-                    .into_shape_with_order((1, output_features))
-                    .unwrap();
-                let bias_tensor = Tensor::new(bias_expanded.into_dyn());
+                    // Create bias tensor with shape (1, output_features) for broadcasting
+                    let bias_expanded = bias_data
+                        .as_array()
+                        .clone()
+                        .into_shape_with_order((1, output_features))
+                        .unwrap();
+                    let bias_tensor = Tensor::new(bias_expanded.into_dyn());
 
-                output_data = &output_data + &bias_tensor;
-            } else if output_shape.len() == 1 {
-                // Single sample: direct addition
-                output_data = &output_data + &*bias_data;
+                    output_data = &output_data + &bias_tensor;
+                }
+                3 => {
+                    // 3D tensor: (batch_size, seq_length, output_features)
+                    let batch_size = output_shape[0];
+                    let seq_length = output_shape[1];
+                    let output_features = output_shape[2];
+
+                    // Create bias tensor with shape (1, 1, output_features) for broadcasting
+                    let bias_expanded = bias_data
+                        .as_array()
+                        .clone()
+                        .into_shape_with_order((1, 1, output_features))
+                        .unwrap();
+                    let bias_tensor = Tensor::new(bias_expanded.into_dyn());
+
+                    output_data = &output_data + &bias_tensor;
+                }
+                _ => {
+                    // For higher dimensions, broadcast by repeating the bias for all leading dimensions
+                    let total_elements = output_shape.iter().product::<usize>();
+                    let output_features = output_shape.last().unwrap();
+                    let leading_dims: usize =
+                        output_shape[..output_shape.len() - 1].iter().product();
+
+                    let mut broadcasted_bias = Vec::with_capacity(total_elements);
+                    let bias_slice = bias_data.as_array();
+
+                    for _ in 0..leading_dims {
+                        for i in 0..*output_features {
+                            broadcasted_bias.push(bias_slice[i]);
+                        }
+                    }
+
+                    let bias_tensor = Tensor::from_vec(broadcasted_bias, output_shape.to_vec());
+                    output_data = &output_data + &bias_tensor;
+                }
             }
         }
 

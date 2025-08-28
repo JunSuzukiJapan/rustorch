@@ -209,10 +209,10 @@ mod tests {
         let manager = GpuMemoryManager::<f32>::new();
         let lhs = GpuBuffer::Cpu(Arc::new(vec![1.0, 2.0, 3.0]));
         let rhs = GpuBuffer::Cpu(Arc::new(vec![4.0, 5.0, 6.0]));
-        
+
         let result = manager.execute_elementwise(&lhs, &rhs, |a, b| a + b);
         assert!(result.is_ok());
-        
+
         if let Ok(GpuBuffer::Cpu(data)) = result {
             assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]);
         }

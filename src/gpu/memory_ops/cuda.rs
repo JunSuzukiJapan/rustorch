@@ -259,25 +259,27 @@ impl CudaOperations {
         // In a production implementation, this would use optimized CUDA kernels
         let cpu_data = Self::transfer_to_cpu(data)?;
         let n = cpu_data.len();
-        
+
         if n > 0 {
             // Calculate mean and variance on CPU
             let mean = cpu_data.iter().fold(T::zero(), |acc, &x| acc + x)
-                / T::from(n).ok_or_else(|| RusTorchError::gpu("Failed to convert size to float"))?;
+                / T::from(n)
+                    .ok_or_else(|| RusTorchError::gpu("Failed to convert size to float"))?;
 
             let variance = cpu_data
                 .iter()
                 .fold(T::zero(), |acc, &x| acc + (x - mean) * (x - mean))
-                / T::from(n).ok_or_else(|| RusTorchError::gpu("Failed to convert size to float"))?;
+                / T::from(n)
+                    .ok_or_else(|| RusTorchError::gpu("Failed to convert size to float"))?;
 
             // Normalize on CPU
             let std_dev = (variance + epsilon).sqrt();
             let normalized: Vec<T> = cpu_data.iter().map(|&x| (x - mean) / std_dev).collect();
 
             // Transfer result back to GPU
-            let gpu_normalized = device
-                .htod_sync_copy(&normalized)
-                .map_err(|e| RusTorchError::gpu(&format!("CUDA batch norm transfer failed: {}", e)))?;
+            let gpu_normalized = device.htod_sync_copy(&normalized).map_err(|e| {
+                RusTorchError::gpu(&format!("CUDA batch norm transfer failed: {}", e))
+            })?;
 
             result_slice = gpu_normalized;
         }

@@ -1,8 +1,8 @@
 //! Performance benchmark suite implementation
 //! パフォーマンスベンチマークスイート実装
 
-use crate::error::{RusTorchError, RusTorchResult};
 use super::{BenchmarkConfig, BenchmarkResult};
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -237,11 +237,16 @@ impl PerformanceBenchmark {
     }
 
     #[cfg(feature = "cuda")]
-    fn benchmark_gpu_elementwise_add(&self, a: &[f32], b: &[f32], size: usize) -> RusTorchResult<f64> {
+    fn benchmark_gpu_elementwise_add(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        size: usize,
+    ) -> RusTorchResult<f64> {
         use crate::gpu::cuda_kernels::CudaKernelExecutor;
-        
+
         let executor = CudaKernelExecutor::new(0)?;
-        
+
         // Warmup
         for _ in 0..self.config.warmup_iterations {
             let _ = executor.elementwise_add(a, b)?;
@@ -266,7 +271,12 @@ impl PerformanceBenchmark {
         Ok(())
     }
 
-    fn benchmark_matrix_multiplication(&mut self, m: usize, n: usize, k: usize) -> RusTorchResult<()> {
+    fn benchmark_matrix_multiplication(
+        &mut self,
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<()> {
         // Matrix multiplication benchmark implementation
         Ok(())
     }
@@ -311,7 +321,13 @@ impl PerformanceBenchmark {
         Ok(())
     }
 
-    fn benchmark_conv2d(&mut self, input_h: usize, input_w: usize, kernel_h: usize, kernel_w: usize) -> RusTorchResult<()> {
+    fn benchmark_conv2d(
+        &mut self,
+        input_h: usize,
+        input_w: usize,
+        kernel_h: usize,
+        kernel_w: usize,
+    ) -> RusTorchResult<()> {
         // 2D convolution benchmark
         Ok(())
     }
@@ -341,18 +357,17 @@ impl PerformanceBenchmark {
     fn print_comprehensive_report(&self) {
         println!("\n📊 Comprehensive Performance Report");
         println!("====================================");
-        
+
         for result in &self.results {
-            println!("{}: {} on {}", 
-                result.operation_name, 
-                result.problem_size, 
-                result.device_name
+            println!(
+                "{}: {} on {}",
+                result.operation_name, result.problem_size, result.device_name
             );
-            
+
             if let Some(speedup) = result.speedup {
                 println!("  Speedup: {:.2}x", speedup);
             }
-            
+
             if let Some(throughput) = result.gpu_throughput_gops {
                 println!("  Throughput: {:.2} GOPS", throughput);
             }

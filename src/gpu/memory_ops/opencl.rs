@@ -177,7 +177,7 @@ impl OpenCLOperations {
         // In a production implementation, this would use OpenCL kernels
         let cpu_data = Self::transfer_to_cpu(buffer, context)?;
         let n = cpu_data.len();
-        
+
         if n == 0 {
             return Ok(GpuBuffer::OpenCL {
                 buffer: buffer.clone(),
@@ -186,8 +186,12 @@ impl OpenCLOperations {
         }
 
         // Calculate mean and variance on CPU
-        let mean: T = cpu_data.iter().fold(T::zero(), |acc, &x| acc + x) / T::from(size as f64).unwrap();
-        let variance: T = cpu_data.iter().map(|&x| (x - mean) * (x - mean)).fold(T::zero(), |acc, x| acc + x)
+        let mean: T =
+            cpu_data.iter().fold(T::zero(), |acc, &x| acc + x) / T::from(size as f64).unwrap();
+        let variance: T = cpu_data
+            .iter()
+            .map(|&x| (x - mean) * (x - mean))
+            .fold(T::zero(), |acc, x| acc + x)
             / T::from(size as f64).unwrap();
 
         // Normalize

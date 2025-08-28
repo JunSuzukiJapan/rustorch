@@ -1,8 +1,8 @@
 //! Memory optimization utilities for tensor operations
 //! テンソル操作のためのメモリ最適化ユーティリティ
 
-use crate::error::{RusTorchError, RusTorchResult};
 use super::aligned::{SimdAllocator, SIMD_ALIGNMENT};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
 
@@ -39,15 +39,15 @@ pub trait MemoryOptimization<T: Float> {
     /// Get memory information about this tensor
     /// このテンソルのメモリ情報を取得
     fn memory_info(&self) -> TensorMemoryInfo;
-    
+
     /// Check if this tensor can be optimized for memory usage
     /// このテンソルがメモリ使用量を最適化できるかチェック
     fn can_optimize_memory(&self) -> bool;
-    
+
     /// Create a memory-optimized copy of this tensor
     /// このテンソルのメモリ最適化コピーを作成
     fn optimize_memory(&self) -> Self;
-    
+
     /// Try to create a memory-optimized copy with error handling
     /// エラーハンドリング付きでメモリ最適化コピーを作成を試行
     fn try_optimize_memory(&self) -> RusTorchResult<Self>
@@ -60,7 +60,7 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
         let element_size = std::mem::size_of::<T>();
         let total_elements = self.data.len();
         let total_bytes = total_elements * element_size;
-        
+
         // Check for SIMD alignment
         let ptr = self.data.as_ptr();
         let alignment = if SimdAllocator::is_aligned(ptr) {
@@ -77,10 +77,10 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
                 1
             }
         };
-        
+
         let is_on_gpu = self.is_on_gpu();
         let device = self.device_type().to_string();
-        
+
         TensorMemoryInfo {
             total_elements,
             element_size,
@@ -102,12 +102,12 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
         if !self.can_optimize_memory() {
             return self.clone();
         }
-        
+
         // Try to create SIMD-aligned copy for f32 tensors
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             let shape = self.shape();
             let len = self.numel();
-            
+
             // Allocate SIMD-aligned memory
             if let Ok(ptr) = SimdAllocator::alloc_f32(len) {
                 unsafe {
@@ -115,13 +115,13 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
                     let src = self.data.as_ptr();
                     let dst = ptr.as_ptr();
                     std::ptr::copy_nonoverlapping(src as *const f32, dst, len);
-                    
+
                     // Create vector from aligned memory
                     let aligned_data = Vec::from_raw_parts(dst, len, len);
-                    
+
                     // Convert to T type (this is safe because we checked TypeId)
                     let aligned_data_t: Vec<T> = std::mem::transmute(aligned_data);
-                    
+
                     // Create tensor from aligned data
                     match Self::try_from_vec(aligned_data_t, shape.to_vec()) {
                         Ok(tensor) => return tensor,
@@ -133,14 +133,14 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
                 }
             }
         }
-        
+
         // Fallback to regular clone if SIMD optimization fails
         self.clone()
     }
 
     fn try_optimize_memory(&self) -> RusTorchResult<Self> {
         let info = self.memory_info();
-        
+
         // Check if tensor is too large to optimize safely
         const MAX_OPTIMIZE_SIZE: usize = 1_000_000_000; // 1GB
         if info.total_bytes > MAX_OPTIMIZE_SIZE {
@@ -152,7 +152,7 @@ impl<T: Float + Clone + 'static> MemoryOptimization<T> for Tensor<T> {
                 source: None,
             });
         }
-        
+
         Ok(self.optimize_memory())
     }
 }

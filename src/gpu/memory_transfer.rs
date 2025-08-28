@@ -4,17 +4,14 @@
 //! This module provides backward compatibility for the original memory_transfer.rs
 //! implementation. The actual functionality has been reorganized into the
 //! `gpu::memory_ops` module for better maintainability.
-//! 
+//!
 //! このモジュールは元のmemory_transfer.rs実装の後方互換性を提供します。
 //! 実際の機能はより良い保守性のために`gpu::memory_ops`モジュールに再編成されています。
 
 // Re-export everything from the new modular structure
 // 新しいモジュラー構造からすべてを再エクスポート
 
-pub use super::memory_ops::{
-    GpuBuffer,
-    GpuMemoryManager,
-};
+pub use super::memory_ops::{GpuBuffer, GpuMemoryManager};
 
 // For legacy compatibility, also re-export the implementations
 // レガシー互換性のため、実装も再エクスポート

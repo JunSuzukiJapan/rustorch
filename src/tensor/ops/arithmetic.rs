@@ -6,21 +6,112 @@ use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// Element-wise addition with another tensor (new implementation)
-    /// 他のテンソルとの要素ごとの加算（新実装）
+    /// Element-wise addition with broadcasting support
+    /// ブロードキャスト対応の要素ごとの加算
     pub fn add_v2(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
-        if self.shape() != other.shape() {
-            return Err(RusTorchError::shape_mismatch(self.shape(), other.shape()));
+        let self_shape = self.shape();
+        let other_shape = other.shape();
+
+        // Check if shapes are identical (fastest path)
+        if self_shape == other_shape {
+            let result_data: Vec<T> = self
+                .data
+                .iter()
+                .zip(other.data.iter())
+                .map(|(&a, &b)| a + b)
+                .collect();
+            return Ok(Tensor::from_vec(result_data, self_shape.to_vec()));
         }
 
-        // Direct element-wise addition
-        let result_data: Vec<T> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(&a, &b)| a + b)
-            .collect();
-        Ok(Tensor::from_vec(result_data, self.shape().to_vec()))
+        // Handle broadcasting cases
+        let result_shape = self.broadcast_shapes(self_shape, other_shape)?;
+        let total_elements: usize = result_shape.iter().product();
+        let mut result_data = vec![T::zero(); total_elements];
+
+        for i in 0..total_elements {
+            let self_idx = self.broadcast_index(i, &result_shape, self_shape);
+            let other_idx = self.broadcast_index(i, &result_shape, other_shape);
+
+            let self_val = self
+                .data
+                .as_slice()
+                .map(|s| s.get(self_idx).copied().unwrap_or(T::zero()))
+                .unwrap_or(T::zero());
+            let other_val = other
+                .data
+                .as_slice()
+                .map(|s| s.get(other_idx).copied().unwrap_or(T::zero()))
+                .unwrap_or(T::zero());
+
+            result_data[i] = self_val + other_val;
+        }
+
+        Ok(Tensor::from_vec(result_data, result_shape))
+    }
+
+    /// Helper function to compute broadcast compatible shape
+    /// ブロードキャスト互換形状を計算するヘルパー関数
+    fn broadcast_shapes(&self, shape1: &[usize], shape2: &[usize]) -> RusTorchResult<Vec<usize>> {
+        let max_dims = shape1.len().max(shape2.len());
+        let mut result_shape = vec![1; max_dims];
+
+        for i in 0..max_dims {
+            let dim1 = shape1
+                .get(shape1.len().wrapping_sub(max_dims - i))
+                .copied()
+                .unwrap_or(1);
+            let dim2 = shape2
+                .get(shape2.len().wrapping_sub(max_dims - i))
+                .copied()
+                .unwrap_or(1);
+
+            if dim1 == dim2 || dim1 == 1 || dim2 == 1 {
+                result_shape[i] = dim1.max(dim2);
+            } else {
+                return Err(RusTorchError::InvalidOperation {
+                    operation: "broadcasting".to_string(),
+                    message: format!("Cannot broadcast shapes {:?} and {:?}", shape1, shape2),
+                });
+            }
+        }
+
+        Ok(result_shape)
+    }
+
+    /// Helper function to map linear index to broadcasted index
+    /// 線形インデックスをブロードキャストインデックスにマップするヘルパー関数
+    fn broadcast_index(
+        &self,
+        linear_idx: usize,
+        result_shape: &[usize],
+        original_shape: &[usize],
+    ) -> usize {
+        let mut idx = 0;
+        let mut remaining = linear_idx;
+
+        for i in (0..result_shape.len()).rev() {
+            let stride = result_shape.iter().skip(i + 1).product::<usize>();
+            let coord = remaining / stride;
+            remaining %= stride;
+
+            let dim_size = original_shape
+                .get(original_shape.len().wrapping_sub(result_shape.len() - i))
+                .copied()
+                .unwrap_or(1);
+            if dim_size > 1 {
+                let original_stride = if original_shape.len() > result_shape.len() - i {
+                    original_shape
+                        .iter()
+                        .skip(original_shape.len().wrapping_sub(result_shape.len() - i) + 1)
+                        .product::<usize>()
+                } else {
+                    1
+                };
+                idx += (coord % dim_size) * original_stride;
+            }
+        }
+
+        idx
     }
 
     /// Element-wise subtraction with another tensor (new implementation)

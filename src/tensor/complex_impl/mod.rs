@@ -3,7 +3,7 @@
 //!
 //! This module provides comprehensive complex number support for tensor operations,
 //! organized into logical submodules for better maintainability:
-//! 
+//!
 //! - `core`: Core Complex struct and basic operations
 //! - `arithmetic`: Arithmetic operations (+, -, *, /, etc.)
 //! - `math`: Mathematical functions (exp, log, sin, cos, etc.)

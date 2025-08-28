@@ -8,8 +8,8 @@
 //! - Memory optimization and analysis tools
 
 pub mod aligned;
-pub mod pool;
 pub mod optimization;
+pub mod pool;
 
 // Re-export commonly used types and functions
 pub use aligned::{SimdAllocator, SIMD_ALIGNMENT};
