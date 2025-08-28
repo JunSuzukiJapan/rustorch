@@ -83,6 +83,9 @@ mod pool_integration;
 /// Complex number support for tensors
 /// テンソルの複素数サポート
 pub mod complex;
+/// Modular complex number implementation
+/// モジュール化された複素数実装
+pub mod complex_impl;
 /// Numeric safety and overflow protection
 /// 数値安全性とオーバーフロー保護
 pub mod numeric_safety;
@@ -126,31 +129,3 @@ pub use core::Tensor;
 #[cfg(not(target_arch = "wasm32"))]
 pub use memory::optimization::{MemoryOptimization, TensorMemoryInfo};
 pub use operations::zero_copy::{ZeroCopyOps, TensorIterOps};
-
-// Convenience functions
-/// Create a tensor with linearly spaced values
-/// 線形に間隔を空けた値でテンソルを作成
-pub fn linspace<T: Float + 'static>(start: T, end: T, steps: usize) -> Tensor<T> {
-    if steps == 0 {
-        return Tensor::from_vec(vec![], vec![0]);
-    }
-    if steps == 1 {
-        return Tensor::from_vec(vec![start], vec![1]);
-    }
-
-    let step = (end - start) / T::from(steps - 1).unwrap();
-    let mut values = Vec::with_capacity(steps);
-    let mut current = start;
-
-    for _ in 0..steps {
-        values.push(current);
-        current = current + step;
-    }
-    Tensor::from_vec(values, vec![steps])
-}
-
-/// Add unsqueeze function for convenience
-/// 便利関数としてunsqueezeを追加
-pub fn unsqueeze<T: Float + 'static>(tensor: &Tensor<T>, dim: usize) -> Result<Tensor<T>, String> {
-    tensor.unsqueeze(dim).map_err(|e| e.to_string())
-}

@@ -135,6 +135,9 @@ pub mod matrix_ops;
 /// GPU memory management and allocation
 /// GPUメモリ管理とアロケーション
 pub mod memory;
+/// GPU memory operations (modular implementation)
+/// GPUメモリ操作（モジュラー実装）
+pub mod memory_ops;
 /// GPU memory transfer operations
 /// GPUメモリ転送操作
 pub mod memory_transfer;
