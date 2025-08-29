@@ -205,7 +205,8 @@
       "mcp__serena__get_symbols_overview",
       "mcp__serena__find_symbol",
       "Bash(RUST_BACKTRACE=1 cargo test test_sum_operations -- --nocapture)",
-      "Bash(./test_sum_debug)"
+      "Bash(./test_sum_debug)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": [],
