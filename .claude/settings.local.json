@@ -175,7 +175,10 @@
       "Bash(RUST_BACKTRACE=1 cargo test --features \"linalg-netlib\" --lib tensor::core::tests --no-default-features)",
       "mcp__serena__write_memory",
       "mcp__serena__think_about_collected_information",
-      "mcp__serena__list_memories"
+      "mcp__serena__list_memories",
+      "Read(//**)",
+      "Bash(RUSTDOCFLAGS=\"--deny warnings\" cargo doc --features \"wasm,model-import,safetensors\")",
+      "Bash(RUSTDOCFLAGS=\"--allow rustdoc::broken_intra_doc_links\" cargo doc --features \"wasm,model-import,safetensors\")"
     ],
     "deny": [],
     "ask": [],

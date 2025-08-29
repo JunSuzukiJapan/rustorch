@@ -29,3 +29,13 @@ pub mod activation; // Neural network activation functions
 pub mod loss; // Loss functions
 #[cfg(feature = "wasm")]
 pub mod optimizer; // Optimization algorithms
+
+// Additional WASM ML utilities
+#[cfg(feature = "wasm")]
+pub mod preprocessing; // Data preprocessing utilities
+#[cfg(feature = "wasm")]
+pub mod normalization; // Normalization layers (BatchNorm, LayerNorm, GroupNorm)
+#[cfg(feature = "wasm")]
+pub mod metrics; // Model evaluation metrics
+#[cfg(feature = "wasm")]
+pub mod tensor_ops; // Advanced tensor operations
