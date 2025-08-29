@@ -6,6 +6,7 @@ use rustorch::nn::{BatchNorm2d, Conv2d, Linear, ReLU};
 use rustorch::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
 use rustorch::prelude::*;
 use rustorch::tensor::Tensor;
+// use std::ops::Add; // Not needed with add_v2
 
 #[cfg(test)]
 mod pytorch_compatibility_tests {
@@ -162,7 +163,9 @@ mod pytorch_compatibility_tests {
 
         let output = linear.forward(&dummy_input);
         let diff = &output - &dummy_target;
-        let loss = (&diff * &diff).mean_autograd();
+        // Use simple squared loss computation
+        let squared_diff = &diff * &diff;
+        let loss = squared_diff.sum();
         loss.backward();
 
         // Test parameter updates for each optimizer
@@ -226,7 +229,7 @@ mod pytorch_compatibility_tests {
         let y_grad_binding = y.grad();
         let y_grad = y_grad_binding.read().unwrap();
 
-        if let (Some(ref x_g), Some(ref y_g)) = (x_grad.as_ref(), y_grad.as_ref()) {
+        if let (Some(x_g), Some(y_g)) = (x_grad.as_ref(), y_grad.as_ref()) {
             let x_grad_val = x_g.as_array()[0];
             let y_grad_val = y_g.as_array()[0];
 
@@ -473,7 +476,9 @@ fn test_end_to_end_pytorch_workflow() {
 
     // 4. Compute loss (MSE)
     let diff = &output - &target;
-    let loss = (&diff * &diff).mean_autograd();
+    // Use simple squared loss computation
+    let squared_diff = &diff * &diff;
+    let loss = squared_diff.sum();
     println!("  ✓ Loss computed (MSE)");
 
     // 5. Backward pass

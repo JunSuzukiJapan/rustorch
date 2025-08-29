@@ -225,8 +225,8 @@ fn main() {
             .or_else(|_| env::var("CUDA_HOME"));
 
         if let Ok(cuda_root) = cuda_root {
-            println!("cargo:rustc-link-search=native={}/lib64", cuda_root);
-            println!("cargo:rustc-link-search=native={}/lib", cuda_root);
+            println!("cargo:rustc-link-search=native={cuda_root}/lib64");
+            println!("cargo:rustc-link-search=native={cuda_root}/lib");
         } else {
             // Try common CUDA installation paths
             for path in &cuda_paths {

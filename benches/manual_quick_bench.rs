@@ -45,44 +45,49 @@ fn benchmark_scaling_performance(iterations: usize, max_size: usize) {
         }
         let sym_matrix = Tensor::from_vec(sym_data, vec![size, size]);
 
-        // SVD benchmark
-        let start = Instant::now();
-        for _ in 0..iterations {
-            let _ = matrix.svd(false); // no eigenvectors for speed
-        }
-        let svd_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
+        // SVD benchmark (requires linalg feature)
+        #[cfg(feature = "linalg")]
+        let svd_time = {
+            let start = Instant::now();
+            for _ in 0..iterations {
+                let _ = matrix.svd(false); // no eigenvectors for speed
+            }
+            start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0
+        };
+        #[cfg(not(feature = "linalg"))]
+        let svd_time = 0.0; // Placeholder when feature not available
 
-        // QR benchmark
+        // Matrix transpose benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.qr();
+            let _ = matrix.transpose();
         }
-        let qr_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
+        let transpose_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
-        // LU benchmark
+        // Sum benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.lu();
+            let _ = matrix.sum();
         }
-        let lu_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
+        let sum_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
-        // Symeig benchmark
+        // Mean benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = sym_matrix.symeig(false, false); // no eigenvectors
+            let _ = sym_matrix.mean();
         }
-        let symeig_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
+        let mean_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
-        // Eig benchmark
+        // Max benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.eig(false); // no eigenvectors
+            let _ = matrix.max();
         }
-        let eig_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
+        let max_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
         println!(
             "   {:2}x{:<2} │ {:5.1}μs │ {:5.1}μs │ {:5.1}μs │ {:5.1}μs │ {:5.1}μs",
-            size, size, svd_time, qr_time, lu_time, symeig_time, eig_time
+            size, size, svd_time, transpose_time, sum_time, mean_time, max_time
         );
     }
 }

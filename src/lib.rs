@@ -94,9 +94,9 @@
 //! let c = &a + &b;  // Addition
 //! let d = a.matmul(&b);  // Matrix multiplication
 //!
-//! // Mathematical functions
-//! let e = a.sin();  // Sine function
-//! let f = a.exp();  // Exponential function
+//! // Mathematical functions (using methods from tensor ops)
+//! let e = a.data.mapv(|x| x.sin());  // Sine function
+//! let f = a.data.mapv(|x| x.exp());  // Exponential function
 //!
 //! println!("Shape: {:?}", c.shape());
 //! println!("Result: {:?}", c.as_slice());

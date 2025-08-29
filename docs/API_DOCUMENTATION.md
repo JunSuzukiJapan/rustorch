@@ -4,6 +4,37 @@
 
 This document provides comprehensive API documentation for RusTorch, organized by module and functionality.
 
+## ⚠️ v0.5.0 Breaking Changes & Migration / v0.5.0 破壊的変更と移行
+
+### Method Consolidation Impact / メソッド統合の影響
+
+**Important**: v0.5.0 introduces breaking changes due to method consolidation. All `_v2` methods have been unified with their base versions.
+**重要**: v0.5.0はメソッド統合により破壊的変更を導入します。すべての`_v2`メソッドは基本版と統合されました。
+
+#### Affected APIs / 影響を受けるAPI
+- All tensor operations with `_v2` suffixes → unified to base method names
+- すべての`_v2`接尾辞付きテンソル演算 → 基本メソッド名に統合
+
+#### Migration Examples / 移行例
+```rust
+// Before v0.5.0 / v0.5.0以前
+tensor.add_v2(&other);     // ❌ Removed
+tensor.mul_v2(&other);     // ❌ Removed
+tensor.matmul_v2(&other);  // ❌ Removed
+
+// v0.5.0+ / v0.5.0以降  
+tensor.add(&other);        // ✅ Unified optimized version
+tensor.mul(&other);        // ✅ Unified optimized version
+tensor.matmul(&other);     // ✅ Unified optimized version
+```
+
+#### Benefits / 利点
+- **Simplified API**: Single method per operation, no version confusion
+- **Performance**: All methods now use optimized implementations
+- **Consistency**: Uniform naming across all tensor operations
+
+For complete migration instructions, see the [Migration Guide](#migration-guide) section below.
+
 ## 🏗️ Core Architecture
 
 ### Module Structure
@@ -11,6 +42,14 @@ This document provides comprehensive API documentation for RusTorch, organized b
 ```
 rustorch/
 ├── tensor/              # Core tensor operations
+│   ├── core.rs         # Tensor data structure
+│   └── ops/            # Tensor operations (v0.5.0+)
+│       ├── arithmetic.rs    # Basic arithmetic operations
+│       ├── mathematical.rs  # Mathematical functions (exp, ln, sin, cos, etc.)
+│       ├── operators.rs     # Operator overloads (+, -, *, /, +=, -=)
+│       ├── matrix.rs        # Matrix operations (matmul, transpose, etc.)
+│       ├── statistical.rs   # Statistical operations
+│       └── utilities.rs     # Utility operations
 ├── nn/                  # Neural network layers  
 ├── autograd/            # Automatic differentiation
 ├── optim/               # Optimizers (SGD, Adam)
@@ -41,12 +80,33 @@ let result = &a * &b;                              // Element-wise multiplicatio
 let result = a.matmul(&b);                         // Matrix multiplication
 let result = a.transpose();                        // Matrix transpose
 
-// Mathematical Functions
-let result = tensor.sin();                         // Trigonometric
-let result = tensor.exp();                         // Exponential
-let result = tensor.log();                         // Natural logarithm
+// Mathematical Functions (v0.5.0+)
+let result = tensor.exp();                         // Exponential function
+let result = tensor.ln();                          // Natural logarithm  
+let result = tensor.sin();                         // Sine function
+let result = tensor.cos();                         // Cosine function
+let result = tensor.tan();                         // Tangent function
 let result = tensor.sqrt();                        // Square root
-let result = tensor.pow(2.0);                      // Power
+let result = tensor.abs();                         // Absolute value
+let result = tensor.pow(2.0);                      // Power function
+
+// Enhanced Operator Overloads (v0.5.0+)
+let result = &a + &b;                              // Tensor + Tensor
+let result = &a - &b;                              // Tensor - Tensor
+let result = &a * &b;                              // Tensor * Tensor (element-wise)
+let result = &a / &b;                              // Tensor / Tensor (element-wise)
+
+// Scalar Operations
+let result = &a + 10.0;                            // Tensor + Scalar
+let result = &a - 5.0;                             // Tensor - Scalar
+let result = &a * 2.0;                             // Tensor * Scalar
+let result = &a / 3.0;                             // Tensor / Scalar
+
+// In-place Operations  
+let mut a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
+let b = Tensor::from_vec(vec![3.0, 4.0], vec![2]);
+a += &b;                                           // In-place addition
+a -= &b;                                           // In-place subtraction
 
 // Aggregation
 let sum = tensor.sum();                            // Sum all elements

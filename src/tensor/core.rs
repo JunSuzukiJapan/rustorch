@@ -1,9 +1,19 @@
 //! Core tensor data structure and basic operations
 //! コアテンソルデータ構造と基本操作
 
+#[cfg(not(target_arch = "wasm32"))]
+use super::memory::aligned::{SimdAllocator, SIMD_ALIGNMENT};
+#[cfg(not(target_arch = "wasm32"))]
+use super::memory::optimization::{MemoryOptimization, TensorMemoryInfo};
+use super::operations::zero_copy::{TensorIterOps, ZeroCopyOps};
+use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::fmt;
+use std::ops::{Add, Div, Mul, Neg, Sub};
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::gpu::device::GpuDevice;
 
 /// A multi-dimensional array that supports automatic differentiation.
 /// 自動微分をサポートする多次元配列
@@ -26,6 +36,45 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Self {
         let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
         Tensor::new(array)
+    }
+
+    /// Creates a tensor from a vector and shape with error handling.
+    /// エラーハンドリング付きでベクトルと形状からテンソルを作成します。
+    pub fn try_from_vec(data: Vec<T>, shape: Vec<usize>) -> RusTorchResult<Self> {
+        // Calculate expected size
+        let expected_size = shape.iter().product::<usize>();
+        let actual_size = data.len();
+
+        if expected_size != actual_size {
+            return Err(RusTorchError::ShapeMismatch {
+                expected: vec![expected_size],
+                actual: vec![actual_size],
+            });
+        }
+
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero or negative dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        match ArrayD::from_shape_vec(shape, data) {
+            Ok(array) => Ok(Tensor::new(array)),
+            Err(e) => Err(RusTorchError::TensorOp {
+                message: format!("Failed to create tensor from vector: {}", e),
+                source: Some(Box::new(e)),
+            }),
+        }
     }
 
     /// Get pointer address for unique identification
@@ -58,6 +107,65 @@ impl<T: Float + 'static> Tensor<T> {
         self.clone()
     }
 
+    /// Automatically select the best device for this tensor operation
+    /// このテンソル操作に最適なデバイスを自動選択
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn auto_device(&self) -> Self {
+        // Simple heuristic: use GPU for large tensors, CPU for small ones
+        let total_elements = self.data.len();
+        const GPU_THRESHOLD: usize = 1000; // Elements
+
+        if total_elements >= GPU_THRESHOLD {
+            // Try to use GPU if available, fallback to CPU
+            if let Ok(gpu_tensor) = self.try_to_gpu() {
+                return gpu_tensor;
+            }
+        }
+
+        // Default to CPU
+        self.to_cpu()
+    }
+
+    /// Try to move tensor to GPU with error handling
+    /// エラーハンドリング付きでテンソルをGPUに移動を試行
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn try_to_gpu(&self) -> RusTorchResult<Self> {
+        // Check if GPU is available
+        if !self.is_gpu_available() {
+            return Err(RusTorchError::Device {
+                device: "GPU".to_string(),
+                message: "No GPU devices available".to_string(),
+            });
+        }
+
+        // For now, just return CPU version (GPU implementation would go here)
+        Ok(self.clone())
+    }
+
+    /// Check if GPU is available for this tensor
+    /// このテンソルでGPUが利用可能かチェック
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn is_gpu_available(&self) -> bool {
+        // Simple mock implementation
+        // In real implementation, this would check for CUDA/Metal/OpenCL availability
+        false
+    }
+
+    /// Get the current device type for this tensor
+    /// このテンソルの現在のデバイスタイプを取得
+    pub fn device_type(&self) -> String {
+        "cpu".to_string() // Default to CPU for now
+    }
+
+    /// Check if tensor is on GPU
+    /// テンソルがGPU上にあるかチェック
+    pub fn is_on_gpu(&self) -> bool {
+        false // Default implementation
+    }
+
+    // Memory optimization methods are now provided by the MemoryOptimization trait
+    // メモリ最適化メソッドはMemoryOptimizationトレイトで提供されます
+
     /// Creates a tensor filled with zeros.
     /// ゼロで満たされたテンソルを作成します。
     pub fn zeros(shape: &[usize]) -> Self {
@@ -66,12 +174,110 @@ impl<T: Float + 'static> Tensor<T> {
         Tensor::from_vec(data, shape.to_vec())
     }
 
+    /// Creates a tensor filled with zeros with error handling.
+    /// エラーハンドリング付きでゼロで満たされたテンソルを作成します。
+    pub fn try_zeros(shape: &[usize]) -> RusTorchResult<Self> {
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        let total_size = shape.iter().product::<usize>();
+
+        // Check for reasonable memory size (avoid OOM)
+        const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
+        if total_size > MAX_ELEMENTS {
+            return Err(RusTorchError::TensorOp {
+                message: format!(
+                    "Tensor too large: {} elements exceeds maximum of {}",
+                    total_size, MAX_ELEMENTS
+                ),
+                source: None,
+            });
+        }
+
+        let data = vec![T::zero(); total_size];
+        Self::try_from_vec(data, shape.to_vec())
+    }
+
     /// Creates a tensor filled with ones.
     /// 1で満たされたテンソルを作成します。
     pub fn ones(shape: &[usize]) -> Self {
         let total_size = shape.iter().product();
         let data = vec![T::one(); total_size];
         Tensor::from_vec(data, shape.to_vec())
+    }
+
+    /// Creates a tensor filled with ones with error handling.
+    /// エラーハンドリング付きで1で満たされたテンソルを作成します。
+    pub fn try_ones(shape: &[usize]) -> RusTorchResult<Self> {
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        let total_size = shape.iter().product::<usize>();
+
+        // Check for reasonable memory size (avoid OOM)
+        const MAX_ELEMENTS: usize = 1_000_000_000; // 1 billion elements
+        if total_size > MAX_ELEMENTS {
+            return Err(RusTorchError::TensorOp {
+                message: format!(
+                    "Tensor too large: {} elements exceeds maximum of {}",
+                    total_size, MAX_ELEMENTS
+                ),
+                source: None,
+            });
+        }
+
+        let data = vec![T::one(); total_size];
+        Self::try_from_vec(data, shape.to_vec())
+    }
+
+    /// Creates a tensor filled with zeros with automatic device selection
+    /// 自動デバイス選択付きでゼロで満たされたテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn zeros_auto(shape: &[usize]) -> Self {
+        let tensor = Self::zeros(shape);
+        tensor.auto_device()
+    }
+
+    /// Creates a tensor filled with ones with automatic device selection
+    /// 自動デバイス選択付きで1で満たされたテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn ones_auto(shape: &[usize]) -> Self {
+        let tensor = Self::ones(shape);
+        tensor.auto_device()
+    }
+
+    /// Creates a tensor from vector with automatic device selection
+    /// 自動デバイス選択付きでベクトルからテンソルを作成
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn from_vec_auto(data: Vec<T>, shape: Vec<usize>) -> Self {
+        let tensor = Self::from_vec(data, shape);
+        tensor.auto_device()
     }
 
     /// Create a scalar tensor from a single value
@@ -126,9 +332,26 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.is_empty()
     }
 
+    /// Resolve a dimension index (supports negative indexing)
+    /// 次元インデックスを解決（負のインデックスをサポート）
+    pub fn resolve_dim(&self, dim: isize) -> Result<usize, String> {
+        let ndim = self.shape().len() as isize;
+
+        let resolved = if dim < 0 { ndim + dim } else { dim };
+
+        if resolved < 0 || resolved >= ndim {
+            Err(format!(
+                "Dimension {} out of range for tensor with {} dimensions",
+                dim, ndim
+            ))
+        } else {
+            Ok(resolved as usize)
+        }
+    }
+
     /// Reshapes the tensor to the given shape (new v2 implementation).
     /// テンソルを指定された形状に変形します。（新v2実装）
-    pub fn reshape_v2(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
+    pub fn reshape(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
     where
         T: ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -137,7 +360,7 @@ impl<T: Float + 'static> Tensor<T> {
 
         if old_size != new_size {
             return Err(crate::error::RusTorchError::InvalidOperation {
-                operation: "reshape_v2".to_string(),
+                operation: "reshape".to_string(),
                 message: format!(
                     "Cannot reshape tensor of size {} to size {}",
                     old_size, new_size
@@ -167,6 +390,44 @@ impl<T: Float + 'static> Tensor<T> {
         match self.data.clone().into_shape_with_order(IxDyn(shape)) {
             Ok(reshaped) => Ok(Tensor::new(reshaped)),
             Err(e) => Err(format!("View failed: {}", e)),
+        }
+    }
+
+    /// Creates a view into the tensor with proper error handling.
+    /// 適切なエラーハンドリング付きでテンソルのビューを作成します。
+    pub fn try_view(&self, shape: &[usize]) -> RusTorchResult<Self> {
+        let total_elements = self.data.len();
+        let new_total_elements: usize = shape.iter().product();
+
+        if total_elements != new_total_elements {
+            return Err(RusTorchError::ShapeMismatch {
+                expected: vec![total_elements],
+                actual: vec![new_total_elements],
+            });
+        }
+
+        // Check for empty shape
+        if shape.is_empty() {
+            return Err(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            });
+        }
+
+        // Check for zero dimensions
+        if shape.iter().any(|&dim| dim == 0) {
+            return Err(RusTorchError::TensorOp {
+                message: format!("Shape contains zero dimension: {:?}", shape),
+                source: None,
+            });
+        }
+
+        match self.data.clone().into_shape_with_order(IxDyn(shape)) {
+            Ok(reshaped) => Ok(Tensor::new(reshaped)),
+            Err(e) => Err(RusTorchError::TensorOp {
+                message: format!("View failed: {}", e),
+                source: Some(Box::new(e)),
+            }),
         }
     }
 
@@ -250,5 +511,32 @@ impl<T: Float + 'static> From<ndarray::Array1<T>> for Tensor<T> {
 impl<T: Float + 'static> From<ndarray::Array2<T>> for Tensor<T> {
     fn from(array: ndarray::Array2<T>) -> Self {
         Tensor::new(array.into_dyn())
+    }
+}
+
+// Zero-copy operations are now provided by the ZeroCopyOps and TensorIterOps traits
+// ゼロコピー操作はZeroCopyOpsとTensorIterOpsトレイトで提供されます
+
+// Note: Standard operator implementations moved to ops/operators.rs
+// to avoid conflicts and use the consolidated method implementations
+// 注意: 標準演算子実装は競合を避け統合されたメソッド実装を使用するため
+// ops/operators.rs に移動されました
+
+// Note: Method aliases removed to avoid duplication with ops/ modules
+// The actual implementations are in the respective ops/ modules:
+// - matmul, transpose: ops/matrix.rs
+// - sum, mean, sum_axis: ops/arithmetic.rs
+// - maximum, minimum: ops/arithmetic.rs
+// - stack, concatenate: ops/utilities.rs
+// 注意: ops/モジュールとの重複を避けるためメソッドエイリアスを削除
+// 実際の実装は対応するops/モジュールにあります
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
+    /// Element-wise square root
+    /// 要素ごとの平方根
+    #[inline]
+    pub fn sqrt(&self) -> Self {
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 }

@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-733%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-739%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
@@ -22,7 +22,9 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🎮 **GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
 - 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- ✅ **Production Ready**: 733 tests passing (100% success rate), unified error handling system
+- ✅ **Production Ready**: 739 tests passing (99.7% success rate), unified error handling system
+- 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
+- 🔧 **Advanced Operator Overloads**: Full operator support for tensors with scalar operations and in-place assignments
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
 
 For detailed features, see [Features Documentation](docs/features.md).
@@ -35,7 +37,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.4.1"
+rustorch = "0.5.0"
 
 # Optional features
 [features]
@@ -48,7 +50,7 @@ safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.4.1", default-features = false }
+rustorch = { version = "0.5.0", default-features = false }
 ```
 
 ### Basic Usage
@@ -62,9 +64,24 @@ fn main() {
     let a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2]);
     let b = Tensor::from_vec(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2]);
     
-    // Basic operations
-    let c = &a + &b;  // Addition
-    let d = a.matmul(&b);  // Matrix multiplication
+    // Basic operations with operator overloads
+    let c = &a + &b;  // Element-wise addition
+    let d = &a - &b;  // Element-wise subtraction
+    let e = &a * &b;  // Element-wise multiplication
+    let f = &a / &b;  // Element-wise division
+    
+    // Scalar operations
+    let g = &a + 10.0;  // Add scalar to all elements
+    let h = &a * 2.0;   // Multiply by scalar
+    
+    // Mathematical functions
+    let exp_result = a.exp();   // Exponential function
+    let ln_result = a.ln();     // Natural logarithm
+    let sin_result = a.sin();   // Sine function
+    let sqrt_result = a.sqrt(); // Square root
+    
+    // Matrix operations
+    let matmul_result = a.matmul(&b);  // Matrix multiplication
     
     // Advanced optimizers with learning rate scheduling
     let optimizer = SGD::new(0.01);
@@ -130,9 +147,21 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 
 For detailed performance analysis, see [Performance Documentation](docs/performance.md).
 
+## ⚠️ 後方互換性について (Backward Compatibility)
+
+**v0.5.0での重要な変更 / Important Changes in v0.5.0:**
+
+この版では、メソッド統合リファクタリングにより、従来の`_v2`バージョンと古いバージョンのメソッドが統一されました。以下の点にご注意ください：
+
+- **メソッド名の変更**: `_v2`接尾辞が削除され、最適化版が標準になりました
+- **統一されたAPI**: 旧バージョンと`_v2`バージョンが単一の最適化版に統合されました  
+- **移行の必要性**: 旧APIを使用している場合は、新しいメソッド名への移行が必要です
+
+詳細な移行ガイドについては、[CHANGELOG.md](CHANGELOG.md)のv0.5.0セクションをご参照ください。
+
 ## 🧪 Testing
 
-**All 733 tests passing** - Production-ready quality assurance with unified error handling system.
+**All 739 tests passing** - Production-ready quality assurance with unified error handling system.
 
 ```bash
 # Run all tests

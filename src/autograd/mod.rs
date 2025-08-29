@@ -170,7 +170,17 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     pub fn matmul(&self, other: &Variable<T>) -> Variable<T> {
         let lhs_data = self.data.read().unwrap().clone();
         let rhs_data = other.data.read().unwrap().clone();
-        let result_data = lhs_data.matmul(&rhs_data).expect("MatMul failed");
+
+        // Try batch matmul for higher dimensions, fall back to regular matmul
+        let result_data = if lhs_data.shape().len() > 2 || rhs_data.shape().len() > 2 {
+            use crate::tensor::parallel_traits::MatrixParallelOp;
+            lhs_data
+                .batch_matmul(&rhs_data)
+                .or_else(|_| lhs_data.matmul(&rhs_data))
+                .expect("MatMul failed")
+        } else {
+            lhs_data.matmul(&rhs_data).expect("MatMul failed")
+        };
 
         if self.requires_grad || other.requires_grad {
             let grad_fn = Arc::new(MatMulBackward {
@@ -189,11 +199,77 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// 最後の2次元を転置
     pub fn transpose_last_two(&self) -> Variable<T> {
         let input_data = self.data.read().unwrap();
-        let result_data = input_data.transpose().expect("Transpose failed");
+        let result_data = input_data
+            .transpose_last_two()
+            .expect("Transpose last two failed");
 
         // For now, no gradient support for transpose
         // 現在のところ、転置の勾配サポートはなし
         Variable::new(result_data, false)
+    }
+
+    /// Batch matrix multiplication for 4D tensors (batch_size, num_heads, seq_len, d_k)
+    /// 4Dテンソル用のバッチ行列乗算（batch_size, num_heads, seq_len, d_k）
+    pub fn attention_matmul(&self, other: &Variable<T>) -> Variable<T> {
+        let lhs_data = self.data.read().unwrap();
+        let rhs_data = other.data.read().unwrap();
+        let lhs_shape = lhs_data.shape();
+        let rhs_shape = rhs_data.shape();
+
+        if lhs_shape.len() != 4 || rhs_shape.len() != 4 {
+            return self.matmul(other); // Fallback to regular matmul
+        }
+
+        let (batch_size, num_heads, seq_len_lhs, d_k_lhs) =
+            (lhs_shape[0], lhs_shape[1], lhs_shape[2], lhs_shape[3]);
+        let (batch_size_rhs, num_heads_rhs, seq_len_rhs, d_k_rhs) =
+            (rhs_shape[0], rhs_shape[1], rhs_shape[2], rhs_shape[3]);
+
+        if batch_size != batch_size_rhs || num_heads != num_heads_rhs || d_k_lhs != seq_len_rhs {
+            panic!(
+                "Attention matmul dimension mismatch: {:?} vs {:?}",
+                lhs_shape, rhs_shape
+            );
+        }
+
+        // Result shape: (batch_size, num_heads, seq_len_lhs, d_k_rhs)
+        let output_shape = vec![batch_size, num_heads, seq_len_lhs, d_k_rhs];
+        let mut result_data = vec![T::zero(); batch_size * num_heads * seq_len_lhs * d_k_rhs];
+
+        // Perform batch matrix multiplication
+        for b in 0..batch_size {
+            for h in 0..num_heads {
+                for i in 0..seq_len_lhs {
+                    for j in 0..d_k_rhs {
+                        let mut sum = T::zero();
+                        for k in 0..d_k_lhs {
+                            // Use ndarray's get method with proper multi-dimensional indexing
+                            let lhs_val = lhs_data
+                                .data
+                                .get(ndarray::IxDyn(&[b, h, i, k]))
+                                .copied()
+                                .unwrap_or(T::zero());
+                            let rhs_val = rhs_data
+                                .data
+                                .get(ndarray::IxDyn(&[b, h, k, j]))
+                                .copied()
+                                .unwrap_or(T::zero());
+                            sum = sum + lhs_val * rhs_val;
+                        }
+                        let result_idx = b * (num_heads * seq_len_lhs * d_k_rhs)
+                            + h * (seq_len_lhs * d_k_rhs)
+                            + i * d_k_rhs
+                            + j;
+                        result_data[result_idx] = sum;
+                    }
+                }
+            }
+        }
+
+        let result_tensor = Tensor::from_vec(result_data, output_shape);
+
+        // For now, no gradient support for attention matmul
+        Variable::new(result_tensor, false)
     }
 
     /// Sum all elements with automatic differentiation support

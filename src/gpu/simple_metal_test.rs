@@ -3,6 +3,7 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
+use std::ops::Add;
 
 /// Test Metal GPU availability and basic functionality
 /// Metal GPUの可用性と基本機能をテスト
@@ -59,7 +60,7 @@ pub fn test_metal_tensor_operations() -> RusTorchResult<()> {
     let b = Tensor::<f32>::from_vec(vec![2.0, 3.0, 4.0, 5.0], vec![2, 2]);
 
     // Test basic CPU operations first
-    let cpu_result = a.add(&b).map_err(|e| RusTorchError::gpu(&e))?;
+    let cpu_result = &a + &b;
     println!(
         "✅ CPU tensor addition successful: {:?}",
         cpu_result.data.as_slice()
@@ -96,7 +97,7 @@ pub fn benchmark_metal_performance() -> RusTorchResult<()> {
         let start = Instant::now();
         let cpu_result = matrix_a
             .matmul(&matrix_b)
-            .map_err(|e| RusTorchError::gpu(&e))?;
+            .map_err(|e| RusTorchError::gpu(e.to_string()))?;
         let cpu_time = start.elapsed();
 
         println!("  CPU time: {:.2}ms", cpu_time.as_secs_f64() * 1000.0);

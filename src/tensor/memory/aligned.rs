@@ -1,8 +1,8 @@
 //! SIMD-aligned memory allocation and operations for maximum performance
 //! 最大パフォーマンスのためのSIMDアライメントメモリ割り当てと演算
 
-use super::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 type ParallelResult<T> = RusTorchResult<T>;
 use num_traits::Float;
 use std::alloc::{alloc_zeroed, dealloc, Layout};

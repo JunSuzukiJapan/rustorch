@@ -8,36 +8,6 @@ use rand::prelude::*;
 use rand_distr::StandardNormal;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// Create tensor with random values from normal distribution (new implementation)
-    /// 正規分布からランダム値でテンソルを作成（新実装）
-    pub fn randn_v2(shape: &[usize]) -> Tensor<T>
-    where
-        T: From<f32>,
-    {
-        let mut rng = thread_rng();
-        let total_size: usize = shape.iter().product();
-        let data: Vec<T> = (0..total_size)
-            .map(|_| <T as From<f32>>::from(rng.sample::<f32, _>(StandardNormal)))
-            .collect();
-
-        Tensor::from_vec(data, shape.to_vec())
-    }
-
-    /// Create tensor with random uniform values [0, 1) (new implementation)
-    /// 一様分布[0, 1)からランダム値でテンソルを作成（新実装）
-    pub fn rand_v2(shape: &[usize]) -> Tensor<T>
-    where
-        T: From<f32>,
-    {
-        let mut rng = thread_rng();
-        let total_size: usize = shape.iter().product();
-        let data: Vec<T> = (0..total_size)
-            .map(|_| <T as From<f32>>::from(rng.gen::<f32>()))
-            .collect();
-
-        Tensor::from_vec(data, shape.to_vec())
-    }
-
     /// Get the batch size (first dimension)
     /// バッチサイズを取得（最初の次元）
     pub fn batch_size(&self) -> usize {
@@ -67,7 +37,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Stack tensors along a new axis (new implementation)
     /// 新しい軸に沿ってテンソルを積み重ね（新実装）
-    pub fn stack_v2(tensors: &[&Tensor<T>]) -> RusTorchResult<Tensor<T>> {
+    pub fn stack(tensors: &[&Tensor<T>]) -> RusTorchResult<Tensor<T>> {
         if tensors.is_empty() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "stack".to_string(),
@@ -100,7 +70,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Concatenate tensors along an existing axis (new implementation)
     /// 既存の軸に沿ってテンソルを連結（新実装）
-    pub fn concatenate_v2(tensors: &[&Tensor<T>], axis: usize) -> RusTorchResult<Tensor<T>> {
+    pub fn concatenate(tensors: &[&Tensor<T>], axis: usize) -> RusTorchResult<Tensor<T>> {
         if tensors.is_empty() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "concatenate".to_string(),
@@ -188,76 +158,33 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
     }
 
-    /// Reshape tensor (must preserve total number of elements)
-    /// テンソルの形状変更（総要素数は保持）
-    pub fn reshape(&self, new_shape: &[usize]) -> RusTorchResult<Self> {
-        let old_size: usize = self.shape().iter().product();
-        let new_size: usize = new_shape.iter().product();
-
-        if old_size != new_size {
-            return Err(RusTorchError::InvalidOperation {
-                operation: "reshape".to_string(),
-                message: format!(
-                    "Cannot reshape tensor of size {} to size {}",
-                    old_size, new_size
-                ),
-            });
-        }
-
-        Ok(Tensor::from_vec(
-            self.data.iter().copied().collect(),
-            new_shape.to_vec(),
-        ))
-    }
-
-    /// Flatten tensor to 1D (new implementation)
-    /// テンソルを1Dに平坦化（新実装）
-    pub fn flatten_v2(&self) -> Self {
-        let total_size: usize = self.shape().iter().product();
-        Tensor::from_vec(self.data.iter().copied().collect(), vec![total_size])
-    }
-
-    /// Squeeze dimensions of size 1 (new implementation)
-    /// サイズ1の次元を削除（新実装）
-    pub fn squeeze_v2(&self) -> Self {
-        let new_shape: Vec<usize> = self
-            .shape()
-            .iter()
-            .filter(|&&dim| dim != 1)
-            .copied()
-            .collect();
-
-        if new_shape.is_empty() {
-            // If all dimensions were 1, keep at least one dimension
-            Tensor::from_vec(self.data.iter().copied().collect(), vec![1])
-        } else {
-            Tensor::from_vec(self.data.iter().copied().collect(), new_shape)
-        }
-    }
-
-    /// Add dimension of size 1 at specified position (new implementation)
-    /// 指定位置にサイズ1の次元を追加（新実装）
-    pub fn unsqueeze_v2(&self, dim: usize) -> RusTorchResult<Self> {
-        let mut new_shape = self.shape().to_vec();
-
-        if dim > new_shape.len() {
-            return Err(RusTorchError::InvalidOperation {
-                operation: "unsqueeze".to_string(),
-                message: format!("Dimension {} is out of bounds for unsqueeze", dim),
-            });
-        }
-
-        new_shape.insert(dim, 1);
-        Ok(Tensor::from_vec(
-            self.data.iter().copied().collect(),
-            new_shape,
-        ))
-    }
-
     /// Clone tensor data (explicit for clarity)
     /// テンソルデータのクローン（明示的）
     pub fn clone_tensor(&self) -> Self {
         Tensor::from_vec(self.data.iter().copied().collect(), self.shape().to_vec())
+    }
+
+    /// Create a tensor with random values from standard normal distribution
+    /// 標準正規分布からランダムな値を持つテンソルを作成
+    pub fn randn(shape: &[usize]) -> Tensor<T>
+    where
+        StandardNormal: Distribution<T>,
+    {
+        let size: usize = shape.iter().product();
+        let mut rng = thread_rng();
+        let data: Vec<T> = (0..size).map(|_| rng.sample(StandardNormal)).collect();
+        Tensor::from_vec(data, shape.to_vec())
+    }
+
+    /// Create a tensor with random values from uniform distribution [0, 1)
+    /// 一様分布[0, 1)からランダムな値を持つテンソルを作成
+    pub fn rand(shape: &[usize]) -> Tensor<T> {
+        let size: usize = shape.iter().product();
+        let mut rng = thread_rng();
+        let data: Vec<T> = (0..size)
+            .map(|_| T::from(rng.gen::<f64>()).unwrap_or(T::zero()))
+            .collect();
+        Tensor::from_vec(data, shape.to_vec())
     }
 }
 
@@ -266,17 +193,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_randn() {
-        let tensor = Tensor::<f32>::randn_v2(&[2, 3]);
-        assert_eq!(tensor.shape(), &[2, 3]);
-        assert_eq!(tensor.data.len(), 6);
-    }
-
-    #[test]
     fn test_stack() {
         let a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let b = Tensor::from_vec(vec![3.0, 4.0], vec![2]);
-        let result = Tensor::stack_v2(&[&a, &b]).unwrap();
+        let result = Tensor::stack(&[&a, &b]).unwrap();
 
         assert_eq!(result.shape(), &[2, 2]);
         assert_eq!(result.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
@@ -286,7 +206,7 @@ mod tests {
     fn test_concatenate_1d() {
         let a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let b = Tensor::from_vec(vec![3.0, 4.0], vec![2]);
-        let result = Tensor::concatenate_v2(&[&a, &b], 0).unwrap();
+        let result = Tensor::concatenate(&[&a, &b], 0).unwrap();
 
         assert_eq!(result.shape(), &[4]);
         assert_eq!(result.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
@@ -295,7 +215,7 @@ mod tests {
     #[test]
     fn test_reshape() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
-        let reshaped = tensor.reshape_v2(&[3, 2]).unwrap();
+        let reshaped = tensor.reshape(&[3, 2]).unwrap();
 
         assert_eq!(reshaped.shape(), &[3, 2]);
         assert_eq!(
@@ -307,10 +227,10 @@ mod tests {
     #[test]
     fn test_squeeze_unsqueeze() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
-        let squeezed = tensor.squeeze_v2();
+        let squeezed = tensor.squeeze();
         assert_eq!(squeezed.shape(), &[3]);
 
-        let unsqueezed = squeezed.unsqueeze_v2(0).unwrap();
+        let unsqueezed = squeezed.unsqueeze(0).unwrap();
         assert_eq!(unsqueezed.shape(), &[1, 3]);
     }
 

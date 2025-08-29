@@ -4,6 +4,7 @@
 use crate::optim::Optimizer;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::ops::Add;
 
 /// AdamW optimizer with decoupled weight decay
 /// 分離された重み減衰を持つAdamWオプティマイザ
@@ -114,11 +115,11 @@ impl Optimizer for AdamW {
         let state = self.get_or_create_state(param_id, param.shape());
 
         // Update biased first moment estimate
-        state.momentum = &state.momentum * beta1 + grad * (1.0 - beta1);
+        state.momentum = (&(&state.momentum * beta1)) + (&(grad * (1.0 - beta1)));
 
         // Update biased second raw moment estimate
         let grad_squared = grad * grad;
-        state.velocity = &state.velocity * beta2 + &grad_squared * (1.0 - beta2);
+        state.velocity = (&(&state.velocity * beta2)) + (&(&grad_squared * (1.0 - beta2)));
 
         // Compute bias-corrected first moment estimate
         let bias_correction1 = 1.0 - beta1.powi(step as i32);

@@ -52,7 +52,7 @@ fn bench_matrix_operations(c: &mut Criterion) {
 fn bench_memory_operations(c: &mut Criterion) {
     c.bench_function("tensor_creation", |b| {
         b.iter(|| {
-            let _tensor = Tensor::<f32>::zeros(&vec![black_box(1000)]);
+            let _tensor = Tensor::<f32>::zeros(&[black_box(1000)]);
         })
     });
 

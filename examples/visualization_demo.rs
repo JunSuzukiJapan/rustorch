@@ -85,8 +85,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         aspect: "equal".to_string(),
         title: Some("Sample Heatmap".to_string()),
         show_colorbar: true,
-        show_values: false,
-        precision: 3,
+        show_axes: false,
+        figsize: (8.0, 6.0),
+        dpi: 100,
     });
 
     // 2Dテンソルのヒートマップ
@@ -147,39 +148,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("✓ 計算グラフ構築成功");
 
             // SVG形式で出力
-            match graph_viz.to_svg() {
-                Ok(svg) => {
-                    println!("✓ 計算グラフSVG生成成功 ({} bytes)", svg.len());
+            let svg = graph_viz.to_svg();
+            println!("✓ 計算グラフSVG生成成功 ({} bytes)", svg.len());
 
-                    // ファイルに保存
-                    if let Err(e) = save_plot(&svg, "computation_graph.svg", PlotFormat::Svg) {
-                        println!("⚠ ファイル保存に失敗: {}", e);
-                    } else {
-                        println!("✓ ファイルに保存: computation_graph.svg");
-                    }
-                }
-                Err(e) => println!("✗ SVG生成エラー: {}", e),
-            }
-
-            // DOT形式で出力
-            match graph_viz.to_dot() {
-                Ok(dot) => {
-                    println!("✓ DOT形式生成成功 ({} bytes)", dot.len());
-                    if let Err(e) = save_plot(&dot, "computation_graph.dot", PlotFormat::Dot) {
-                        println!("⚠ DOTファイル保存に失敗: {}", e);
-                    } else {
-                        println!("✓ DOTファイルに保存: computation_graph.dot");
-                    }
-                }
-                Err(e) => println!("✗ DOT生成エラー: {}", e),
+            // ファイルに保存
+            if let Err(e) = save_plot(&svg, "computation_graph.svg", PlotFormat::Svg) {
+                println!("⚠ ファイル保存に失敗: {}", e);
+            } else {
+                println!("✓ ファイルに保存: computation_graph.svg");
             }
 
             // グラフ統計情報
-            let stats = graph_viz.get_statistics();
             println!("📊 グラフ統計:");
-            for (key, value) in stats {
-                println!("   {}: {}", key, value);
-            }
+            println!("   ノード数: {}", graph_viz.nodes.len());
+            println!("   エッジ数: {}", graph_viz.edges.len());
+            println!("   レイアウト: {:?}", graph_viz.layout);
+            println!(
+                "   キャンバスサイズ: {}x{}",
+                graph_viz.canvas_size.0, graph_viz.canvas_size.1
+            );
         }
         Err(e) => println!("✗ 計算グラフ構築エラー: {}", e),
     }
@@ -246,14 +233,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  - training_curves.svg     : 学習曲線");
     println!("  - heatmap.svg             : テンソルヒートマップ");
     println!("  - computation_graph.svg   : 計算グラフ (SVG)");
-    println!("  - computation_graph.dot   : 計算グラフ (DOT)");
     println!("  - dashboard.html          : 可視化ダッシュボード");
     println!();
 
     println!("💡 使用方法:");
     println!("💡 Usage:");
     println!("  - SVGファイルはブラウザやベクター画像エディタで表示");
-    println!("  - DOTファイルはGraphvizで変換可能 (dot -Tpng file.dot -o output.png)");
     println!("  - HTMLダッシュボードはブラウザで直接表示");
 
     Ok(())

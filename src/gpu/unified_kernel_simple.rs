@@ -5,6 +5,7 @@ use crate::error::{RusTorchError, RusTorchResult};
 use crate::gpu::DeviceType;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::ops::{Add, Mul, Sub};
 use std::time::Duration;
 
 /// Unified kernel operation types
@@ -134,7 +135,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .add(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -144,7 +145,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .mul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -154,7 +155,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .sub(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -164,7 +165,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
@@ -222,7 +223,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .add(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -232,7 +233,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .mul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -242,7 +243,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .sub(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -252,7 +253,7 @@ impl UnifiedKernelExecutor {
                 }
                 inputs[0]
                     .matmul(inputs[1])
-                    .map_err(RusTorchError::KernelExecutionError)
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "Operation {:?} not implemented",
