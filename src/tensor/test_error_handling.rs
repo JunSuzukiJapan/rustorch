@@ -140,7 +140,7 @@ mod tests {
         // Test that extremely large allocations return proper errors instead of causing heap corruption
         // Use a size that's large but not catastrophic: 100MB instead of 4TB
         let result = Tensor::<f32>::try_zeros(&[10_000, 10_000]); // 400MB allocation
-        
+
         // This should either succeed (if system has enough memory) or fail gracefully
         // Either outcome is acceptable - what we want to avoid is heap corruption
         match result {
