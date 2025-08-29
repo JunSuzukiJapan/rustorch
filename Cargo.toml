@@ -225,6 +225,7 @@ required-features = ["linalg"]
 [[bench]]
 name = "manual_quick_bench"
 harness = false
+required-features = ["linalg"]
 
 [[bench]]
 name = "fft_benchmark"

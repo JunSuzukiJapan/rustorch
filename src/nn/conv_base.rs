@@ -8,6 +8,7 @@ use num_traits::Float;
 use rand::distributions::Distribution;
 use rand_distr::Normal;
 use std::fmt::Debug;
+use std::ops::Add;
 
 /// Common convolution parameters and initialization
 /// 共通の畳み込みパラメータと初期化
@@ -351,7 +352,7 @@ impl ConvOps {
         let a_data = a_binding.read().unwrap();
         let b_binding = b.data();
         let b_data = b_binding.read().unwrap();
-        let result_data = a_data.add(&*b_data).expect("Add failed");
+        let result_data = (&*a_data).add(&*b_data);
         Variable::new(result_data, a.requires_grad() || b.requires_grad())
     }
 

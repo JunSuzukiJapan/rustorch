@@ -107,6 +107,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         Tensor::new(result_data)
     }
 
+    /// Element-wise square root function (v2)
+    /// 要素ごとの平方根関数（v2版）
+    pub fn sqrt_v2(&self) -> Self {
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
+    }
+
     /// Element-wise cube root function
     /// 要素ごとの立方根関数
     pub fn cbrt(&self) -> Self {

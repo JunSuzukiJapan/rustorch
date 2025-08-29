@@ -68,11 +68,11 @@ fn bench_tensor_reductions(c: &mut Criterion) {
     });
 
     c.bench_function("mean_axis_100x1000", |bencher| {
-        bencher.iter(|| black_box(tensor.mean_axis(0)))
+        bencher.iter(|| black_box(tensor.mean_axis_v2(0)))
     });
 
     c.bench_function("sum_axis_100x1000", |bencher| {
-        bencher.iter(|| black_box(tensor.sum_axis(0)))
+        bencher.iter(|| black_box(tensor.sum_axis_v2(0)))
     });
 }
 

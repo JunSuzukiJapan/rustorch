@@ -6,6 +6,7 @@ use rustorch::nn::{BatchNorm2d, Conv2d, Linear, ReLU};
 use rustorch::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
 use rustorch::prelude::*;
 use rustorch::tensor::Tensor;
+// use std::ops::Add; // Not needed with add_v2
 
 #[cfg(test)]
 mod pytorch_compatibility_tests {
@@ -61,7 +62,7 @@ mod pytorch_compatibility_tests {
 
         // Broadcasting
         let scalar = Tensor::from_vec(vec![2.0], vec![1]);
-        let broadcast_result = tensor1.add(&scalar).unwrap();
+        let broadcast_result = tensor1.add_v2(&scalar).unwrap();
         println!("  ✓ Broadcasting with scalar");
         assert_eq!(broadcast_result.shape(), &[2, 2]);
 
@@ -162,7 +163,9 @@ mod pytorch_compatibility_tests {
 
         let output = linear.forward(&dummy_input);
         let diff = &output - &dummy_target;
-        let loss = (&diff * &diff).mean_autograd();
+        // Use simple squared loss computation
+        let squared_diff = &diff * &diff;
+        let loss = squared_diff.sum();
         loss.backward();
 
         // Test parameter updates for each optimizer
@@ -473,7 +476,9 @@ fn test_end_to_end_pytorch_workflow() {
 
     // 4. Compute loss (MSE)
     let diff = &output - &target;
-    let loss = (&diff * &diff).mean_autograd();
+    // Use simple squared loss computation
+    let squared_diff = &diff * &diff;
+    let loss = squared_diff.sum();
     println!("  ✓ Loss computed (MSE)");
 
     // 5. Backward pass

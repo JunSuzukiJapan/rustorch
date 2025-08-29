@@ -3,6 +3,7 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
+use std::ops::Add;
 
 /// Test Metal GPU availability and basic functionality
 /// Metal GPUの可用性と基本機能をテスト

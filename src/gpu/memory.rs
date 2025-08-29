@@ -31,6 +31,8 @@ pub struct GpuMemoryPool {
     allocated_size: usize,
     free_blocks: Vec<(usize, usize)>, // (offset, size)
     allocations: HashMap<usize, MemoryAllocation>,
+    // Use safe Rust memory management instead of raw pointers
+    memory_buffer: Option<Box<[u8]>>,
     base_ptr: usize,
 }
 
@@ -38,19 +40,19 @@ impl GpuMemoryPool {
     /// Create a new GPU memory pool
     /// 新しいGPUメモリプールを作成
     pub fn new(device: DeviceType, size: usize) -> RusTorchResult<Self> {
-        let base_ptr = match device {
+        let (memory_buffer, base_ptr) = match device {
             DeviceType::Cpu => {
-                // For CPU, we can use regular allocation
-                let layout = std::alloc::Layout::from_size_align(size, 64)
-                    .map_err(|_| RusTorchError::tensor_op("Invalid memory layout"))?;
-                unsafe { std::alloc::alloc(layout) as usize }
+                // Use safe Rust Box allocation instead of unsafe alloc
+                let buffer = vec![0u8; size].into_boxed_slice();
+                let ptr = buffer.as_ptr() as usize;
+                (Some(buffer), ptr)
             }
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
                     // CUDA memory allocation would go here
                     // cudaMalloc equivalent
-                    0 // Placeholder
+                    (None, 0) // Placeholder
                 }
                 #[cfg(not(feature = "cuda"))]
                 {
@@ -61,7 +63,7 @@ impl GpuMemoryPool {
                 #[cfg(feature = "metal")]
                 {
                     // Metal buffer allocation would go here
-                    0 // Placeholder
+                    (None, 0) // Placeholder
                 }
                 #[cfg(not(feature = "metal"))]
                 {
@@ -72,7 +74,7 @@ impl GpuMemoryPool {
                 #[cfg(feature = "opencl")]
                 {
                     // OpenCL buffer allocation would go here
-                    0 // Placeholder
+                    (None, 0) // Placeholder
                 }
                 #[cfg(not(feature = "opencl"))]
                 {
@@ -91,6 +93,7 @@ impl GpuMemoryPool {
             allocated_size: 0,
             free_blocks: vec![(0, size)],
             allocations: HashMap::new(),
+            memory_buffer,
             base_ptr,
         })
     }
@@ -339,12 +342,8 @@ impl Drop for GpuMemoryPool {
     fn drop(&mut self) {
         match self.device {
             DeviceType::Cpu => {
-                if self.base_ptr != 0 {
-                    let layout = std::alloc::Layout::from_size_align(self.total_size, 64).unwrap();
-                    unsafe {
-                        std::alloc::dealloc(self.base_ptr as *mut u8, layout);
-                    }
-                }
+                // Memory is automatically freed when memory_buffer goes out of scope
+                // No manual deallocation needed - Box handles it safely
             }
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]

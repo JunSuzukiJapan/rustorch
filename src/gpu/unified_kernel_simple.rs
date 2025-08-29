@@ -5,6 +5,7 @@ use crate::error::{RusTorchError, RusTorchResult};
 use crate::gpu::DeviceType;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::ops::{Add, Mul, Sub};
 use std::time::Duration;
 
 /// Unified kernel operation types
