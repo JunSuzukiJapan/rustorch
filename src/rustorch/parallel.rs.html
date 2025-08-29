@@ -30,6 +30,7 @@
 <a href=#30 id=30 data-nosnippet>30</a>        </span>F: Fn(T) -&gt; T + Send + Sync,
 <a href=#31 id=31 data-nosnippet>31</a>    {
 <a href=#32 id=32 data-nosnippet>32</a>        <span class="comment">// Mock implementation - in reality would use rayon
-<a href=#33 id=33 data-nosnippet>33</a>        </span><span class="self">self</span>.tensor.map(f)
-<a href=#34 id=34 data-nosnippet>34</a>    }
-<a href=#35 id=35 data-nosnippet>35</a>}</code></pre></div></section></main></body></html>
+<a href=#33 id=33 data-nosnippet>33</a>        </span><span class="kw">let </span>result_data: Vec&lt;T&gt; = <span class="self">self</span>.tensor.data.iter().map(|<span class="kw-2">&amp;</span>x| f(x)).collect();
+<a href=#34 id=34 data-nosnippet>34</a>        Tensor::from_vec(result_data, <span class="self">self</span>.tensor.shape().to_vec())
+<a href=#35 id=35 data-nosnippet>35</a>    }
+<a href=#36 id=36 data-nosnippet>36</a>}</code></pre></div></section></main></body></html>
