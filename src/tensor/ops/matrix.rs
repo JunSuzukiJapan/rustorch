@@ -8,7 +8,7 @@ use num_traits::Float;
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     /// Matrix multiplication (new implementation)
     /// 行列乗算（新実装）
-    pub fn matmul_v2(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+    pub fn matmul(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
         let self_shape = self.shape();
         let other_shape = other.shape();
 
@@ -165,7 +165,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
     /// Simple 2D transpose (new implementation)
     /// 単純な2D転置（新実装）
-    pub fn transpose_v2(&self) -> RusTorchResult<Self> {
+    pub fn transpose(&self) -> RusTorchResult<Self> {
         let shape = self.shape();
 
         match shape.len() {
@@ -297,7 +297,7 @@ mod tests {
     fn test_matmul_2d() {
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let b = Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);
-        let result = a.matmul_v2(&b).unwrap();
+        let result = a.matmul(&b).unwrap();
 
         // Expected: [1*5+2*7, 1*6+2*8; 3*5+4*7, 3*6+4*8] = [19, 22; 43, 50]
         assert_eq!(result.as_slice().unwrap(), &[19.0, 22.0, 43.0, 50.0]);
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn test_transpose_2d() {
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
-        let result = a.transpose_v2().unwrap();
+        let result = a.transpose().unwrap();
 
         // Expected: [[1, 2, 3], [4, 5, 6]]^T = [[1, 4], [2, 5], [3, 6]]
         assert_eq!(result.as_slice().unwrap(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);

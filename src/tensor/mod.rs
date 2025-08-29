@@ -74,7 +74,7 @@ use num_traits::Float;
 pub mod core;
 /// Mathematical operations for tensors (legacy - replaced by ops)
 /// テンソルの数学演算（レガシー - opsに置換）
-pub mod operations;
+// pub mod operations; // Disabled - replaced by ops/ modules
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
 

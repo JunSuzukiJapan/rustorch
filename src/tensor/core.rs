@@ -126,9 +126,26 @@ impl<T: Float + 'static> Tensor<T> {
         self.data.is_empty()
     }
 
+    /// Resolve a dimension index (supports negative indexing)
+    /// 次元インデックスを解決（負のインデックスをサポート）
+    pub fn resolve_dim(&self, dim: isize) -> Result<usize, String> {
+        let ndim = self.shape().len() as isize;
+
+        let resolved = if dim < 0 { ndim + dim } else { dim };
+
+        if resolved < 0 || resolved >= ndim {
+            Err(format!(
+                "Dimension {} out of range for tensor with {} dimensions",
+                dim, ndim
+            ))
+        } else {
+            Ok(resolved as usize)
+        }
+    }
+
     /// Reshapes the tensor to the given shape (new v2 implementation).
     /// テンソルを指定された形状に変形します。（新v2実装）
-    pub fn reshape_v2(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
+    pub fn reshape(&self, new_shape: &[usize]) -> crate::error::RusTorchResult<Self>
     where
         T: ndarray::ScalarOperand + num_traits::FromPrimitive,
     {
@@ -137,7 +154,7 @@ impl<T: Float + 'static> Tensor<T> {
 
         if old_size != new_size {
             return Err(crate::error::RusTorchError::InvalidOperation {
-                operation: "reshape_v2".to_string(),
+                operation: "reshape".to_string(),
                 message: format!(
                     "Cannot reshape tensor of size {} to size {}",
                     old_size, new_size

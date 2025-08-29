@@ -136,7 +136,7 @@ where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     // Use standard implementation
-    a.matmul(b).map_err(|e| RusTorchError::gpu(&e))
+    a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
 }
 
 /// Multi-threaded matrix multiplication using Rayon
@@ -218,7 +218,7 @@ where
     let start = Instant::now();
     let std_result = matrix_a
         .matmul(&matrix_b)
-        .map_err(|e| RusTorchError::gpu(&e))?;
+        .map_err(|e| RusTorchError::gpu(e.to_string()))?;
     let std_time = start.elapsed();
     println!("  Standard: {:.2}ms", std_time.as_secs_f64() * 1000.0);
 
