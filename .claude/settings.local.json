@@ -180,7 +180,8 @@
       "Bash(RUSTDOCFLAGS=\"--deny warnings\" cargo doc --features \"wasm,model-import,safetensors\")",
       "Bash(RUSTDOCFLAGS=\"--allow rustdoc::broken_intra_doc_links\" cargo doc --features \"wasm,model-import,safetensors\")",
       "Bash(wasm-pack test:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": [],
