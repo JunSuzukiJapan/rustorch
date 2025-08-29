@@ -1,13 +1,19 @@
 //! Matrix operations for tensors
 //! テンソルの行列演算
+//!
+//! Note: Core matrix methods (matmul, transpose) are now defined in core.rs
+//! 注意: コア行列メソッド (matmul, transpose) は core.rs で定義されています
 
 use super::super::core::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// Matrix multiplication (new implementation)
-    /// 行列乗算（新実装）
+    // Core methods (matmul, transpose) are defined in core.rs to avoid duplication
+    // コアメソッド (matmul, transpose) は重複を避けるため core.rs で定義
+
+    /// Matrix multiplication
+    /// 行列乗算
     pub fn matmul(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
         let self_shape = self.shape();
         let other_shape = other.shape();

@@ -8,49 +8,57 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// Apply exponential function element-wise
     /// 要素ごとに指数関数を適用
     pub fn exp(&self) -> Self {
-        self.map(|x| x.exp())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.exp()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply natural logarithm element-wise
     /// 要素ごとに自然対数を適用
     pub fn ln(&self) -> Self {
-        self.map(|x| x.ln())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.ln()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply sine function element-wise
     /// 要素ごとにサイン関数を適用
     pub fn sin(&self) -> Self {
-        self.map(|x| x.sin())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.sin()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply cosine function element-wise
     /// 要素ごとにコサイン関数を適用
     pub fn cos(&self) -> Self {
-        self.map(|x| x.cos())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.cos()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply tangent function element-wise
     /// 要素ごとにタンジェント関数を適用
     pub fn tan(&self) -> Self {
-        self.map(|x| x.tan())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.tan()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply square root element-wise
     /// 要素ごとに平方根を適用
     pub fn sqrt(&self) -> Self {
-        self.map(|x| x.sqrt())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Apply absolute value element-wise
     /// 要素ごとに絶対値を適用
     pub fn abs(&self) -> Self {
-        self.map(|x| x.abs())
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.abs()).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
     /// Power operation element-wise
     /// 要素ごとのべき乗演算
     pub fn pow(&self, exponent: T) -> Self {
-        self.map(|x| x.powf(exponent))
+        let result_data: Vec<T> = self.data.iter().map(|&x| x.powf(exponent)).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 }
 

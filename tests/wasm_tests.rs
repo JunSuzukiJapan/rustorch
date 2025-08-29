@@ -296,7 +296,7 @@ mod wasm_build_tests {
     #[test]
     fn test_wasm_pack_build() {
         let output = Command::new("wasm-pack")
-            .args(&["build", "--target", "web", "--dev"])
+            .args(["build", "--target", "web", "--dev"])
             .output();
 
         match output {

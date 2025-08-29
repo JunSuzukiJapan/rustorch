@@ -201,7 +201,11 @@
       "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features tensor::ops::integration_tests -- --nocapture)",
       "Bash(RUST_BACKTRACE=1 rustc --edition 2021 -L target/debug/deps --extern rustorch=target/debug/librustorch.rlib /tmp/test_operators.rs -o /tmp/test_operators)",
       "Bash(/tmp/test_operators:*)",
-      "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features tensor::ops::creation::tests::test_arange_errors -- --nocapture)"
+      "Bash(RUST_BACKTRACE=1 cargo test --lib --no-default-features tensor::ops::creation::tests::test_arange_errors -- --nocapture)",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "Bash(RUST_BACKTRACE=1 cargo test test_sum_operations -- --nocapture)",
+      "Bash(./test_sum_debug)"
     ],
     "deny": [],
     "ask": [],

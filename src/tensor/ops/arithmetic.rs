@@ -3,6 +3,7 @@
 
 use super::super::core::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use ndarray::ArrayD;
 use num_traits::Float;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
@@ -269,6 +270,30 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             result_data,
             broadcasted_self.shape().to_vec(),
         ))
+    }
+
+    /// Sum all elements in the tensor
+    /// テンソル内のすべての要素の和
+    pub fn sum(&self) -> T {
+        self.data.iter().fold(T::zero(), |acc, &x| acc + x)
+    }
+
+    /// Mean of all elements in the tensor
+    /// テンソル内のすべての要素の平均
+    pub fn mean(&self) -> T {
+        let sum = self.sum();
+        let count = T::from(self.data.len()).unwrap_or(T::one());
+        sum / count
+    }
+
+    /// Sum along a specific axis
+    /// 特定の軸に沿って和を計算
+    pub fn sum_axis(&self, axis: usize) -> RusTorchResult<Tensor<T>> {
+        // Use ndarray's built-in sum_axis functionality to avoid manual implementation bugs
+        use ndarray::Axis;
+
+        let result_array = self.data.sum_axis(Axis(axis));
+        Ok(Tensor::new(result_array))
     }
 }
 

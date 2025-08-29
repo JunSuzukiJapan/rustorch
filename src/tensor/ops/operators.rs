@@ -12,9 +12,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs)
-            .map_err(|e| e.to_string())
-            .expect("Addition failed")
+        self.add(rhs).expect("Addition failed")
     }
 }
 
@@ -24,9 +22,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        self.sub(rhs)
-            .map_err(|e| e.to_string())
-            .expect("Subtraction failed")
+        self.sub(rhs).expect("Subtraction failed")
     }
 }
 
@@ -36,9 +32,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        self.mul(rhs)
-            .map_err(|e| e.to_string())
-            .expect("Multiplication failed")
+        self.mul(rhs).expect("Multiplication failed")
     }
 }
 
@@ -48,9 +42,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        self.div(rhs)
-            .map_err(|e| e.to_string())
-            .expect("Division failed")
+        self.div(rhs).expect("Division failed")
     }
 }
 
@@ -66,7 +58,9 @@ impl<
     type Output = Tensor<T>;
 
     fn neg(self) -> Self::Output {
-        self.neg()
+        // Use the neg method from arithmetic module
+        let result_data = self.data.iter().map(|&x| -x).collect();
+        Tensor::from_vec(result_data, self.shape().to_vec())
     }
 }
 
@@ -154,10 +148,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        (&self)
-            .sub(&rhs)
-            .map_err(|e| e.to_string())
-            .expect("Subtraction failed")
+        (&self).sub(&rhs).expect("Subtraction failed")
     }
 }
 
@@ -167,10 +158,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn mul(self, rhs: Self) -> Self::Output {
-        (&self)
-            .mul(&rhs)
-            .map_err(|e| e.to_string())
-            .expect("Multiplication failed")
+        (&self).mul(&rhs).expect("Multiplication failed")
     }
 }
 
@@ -180,10 +168,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn div(self, rhs: Self) -> Self::Output {
-        (&self)
-            .div(&rhs)
-            .map_err(|e| e.to_string())
-            .expect("Division failed")
+        (&self).div(&rhs).expect("Division failed")
     }
 }
 
@@ -194,7 +179,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn add(self, rhs: T) -> Self::Output {
-        (&self).add_scalar(rhs)
+        self.add_scalar(rhs)
     }
 }
 
@@ -204,7 +189,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn sub(self, rhs: T) -> Self::Output {
-        (&self).sub_scalar(rhs)
+        self.sub_scalar(rhs)
     }
 }
 
@@ -214,7 +199,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn mul(self, rhs: T) -> Self::Output {
-        (&self).mul_scalar(rhs)
+        self.mul_scalar(rhs)
     }
 }
 
@@ -224,7 +209,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn div(self, rhs: T) -> Self::Output {
-        (&self).div_scalar(rhs)
+        self.div_scalar(rhs)
     }
 }
 
@@ -235,10 +220,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn add(self, rhs: &Tensor<T>) -> Self::Output {
-        (&self)
-            .add(rhs)
-            .map_err(|e| e.to_string())
-            .expect("Addition failed")
+        (&self).add(rhs).expect("Addition failed")
     }
 }
 
@@ -248,8 +230,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn add(self, rhs: Tensor<T>) -> Self::Output {
-        self.add(&rhs)
-            .map_err(|e| e.to_string())
-            .expect("Addition failed")
+        self.add(&rhs).expect("Addition failed")
     }
 }

@@ -13,14 +13,16 @@
 //! - `statistical`: 統計演算 (mean, std, sum など)
 //! - `utilities`: ユーティリティ演算 (reshape, stack, ランダム生成など)
 
-pub mod arithmetic;
-pub mod creation;
-pub mod mathematical;
-pub mod matrix;
-pub mod operators;
-pub mod signal;
-pub mod statistical;
-pub mod utilities;
+// Temporarily disable duplicate modules during consolidation
+// 統合作業中に重複モジュールを一時的に無効化
+pub mod arithmetic; // Re-enabled - essential basic operations
+                    // pub mod creation;      // Methods integrated into core.rs
+pub mod mathematical; // New mathematical functions (exp, ln, sin, etc.)
+pub mod matrix; // Re-enabled - essential matrix operations
+pub mod operators; // Re-enabled - essential operator overloads
+pub mod signal; // Signal processing functions
+pub mod statistical; // Re-enabled - essential statistical operations
+pub mod utilities; // Re-enabled - essential utility operations
 
 // Re-export commonly used functions for convenience
 // よく使用される関数を利便性のために再エクスポート

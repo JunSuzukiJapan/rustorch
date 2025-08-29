@@ -30,6 +30,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Pa
         F: Fn(T) -> T + Send + Sync,
     {
         // Mock implementation - in reality would use rayon
-        self.tensor.map(f)
+        let result_data: Vec<T> = self.tensor.data.iter().map(|&x| f(x)).collect();
+        Tensor::from_vec(result_data, self.tensor.shape().to_vec())
     }
 }

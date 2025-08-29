@@ -163,6 +163,29 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     pub fn clone_tensor(&self) -> Self {
         Tensor::from_vec(self.data.iter().copied().collect(), self.shape().to_vec())
     }
+
+    /// Create a tensor with random values from standard normal distribution
+    /// 標準正規分布からランダムな値を持つテンソルを作成
+    pub fn randn(shape: &[usize]) -> Tensor<T>
+    where
+        StandardNormal: Distribution<T>,
+    {
+        let size: usize = shape.iter().product();
+        let mut rng = thread_rng();
+        let data: Vec<T> = (0..size).map(|_| rng.sample(StandardNormal)).collect();
+        Tensor::from_vec(data, shape.to_vec())
+    }
+
+    /// Create a tensor with random values from uniform distribution [0, 1)
+    /// 一様分布[0, 1)からランダムな値を持つテンソルを作成
+    pub fn rand(shape: &[usize]) -> Tensor<T> {
+        let size: usize = shape.iter().product();
+        let mut rng = thread_rng();
+        let data: Vec<T> = (0..size)
+            .map(|_| T::from(rng.gen::<f64>()).unwrap_or(T::zero()))
+            .collect();
+        Tensor::from_vec(data, shape.to_vec())
+    }
 }
 
 #[cfg(test)]
