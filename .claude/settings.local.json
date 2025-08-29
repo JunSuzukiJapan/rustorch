@@ -213,7 +213,9 @@
       "Bash(./test_sum_debug)",
       "Bash(git pull:*)",
       "Bash(git rm:*)",
-      "Bash(gh pr:*)"
+      "Bash(gh pr:*)",
+      "Bash(git branch:*)",
+      "Bash(git config:*)"
     ],
     "deny": [],
     "ask": [],
