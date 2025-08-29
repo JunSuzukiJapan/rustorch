@@ -1,11 +1,39 @@
+//! Enhanced Memory Management System for RusTorch
+//! RusTorch用の高度メモリ管理システム
+//!
+//! This module provides comprehensive memory management capabilities:
+//! - Enhanced memory pools with intelligent allocation strategies
+//! - Memory pressure monitoring and adaptive garbage collection
+//! - Memory analytics and profiling for performance optimization
+//! - Memory-aware optimization with predictive allocation
+//! 
+//! Features:
+//! - NUMA-aware allocation
+//! - Memory leak detection
+//! - Automatic defragmentation
+//! - Smart caching with priority-based eviction
+//! - Zero-copy optimizations
+
+pub mod enhanced_pool;
+pub mod pressure_monitor;
+pub mod analytics;
+pub mod optimizer;
+
+// Re-export enhanced memory management components
+pub use enhanced_pool::{EnhancedMemoryPool, PoolConfig, AllocationStrategy, EnhancedPoolStats};
+pub use pressure_monitor::{AdaptivePressureMonitor, PressureLevel, GcStrategy, MonitorConfig};
+pub use analytics::{MemoryAnalytics, MemoryReport, AllocationRecord, AnalyticsConfig};
+pub use optimizer::{MemoryOptimizer, OptimizerConfig, OptimizationStrategy, MemoryPrediction};
+
 use lazy_static::lazy_static;
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use crate::error::{RusTorchError, RusTorchResult};
 
-/// Memory pool for efficient tensor allocation and reuse
-/// テンソルの効率的な割り当てと再利用のためのメモリプール
+/// Legacy memory pool for backward compatibility
+/// 後方互換性のためのレガシーメモリプール
 pub struct MemoryPool<T: Float> {
     pools: Vec<Arc<Mutex<VecDeque<ArrayD<T>>>>>,
     max_pool_size: usize,
@@ -257,4 +285,324 @@ mod tests {
         assert!(pool_f32.lock().is_ok());
         assert!(pool_f64.lock().is_ok());
     }
+}
+
+/// Comprehensive Memory Management System
+/// 包括的メモリ管理システム
+pub struct ComprehensiveMemoryManager<T: Float + Clone + Send + Sync + 'static> {
+    /// Enhanced memory pool
+    /// 高度メモリプール
+    pool: EnhancedMemoryPool<T>,
+    /// Pressure monitor
+    /// プレッシャー監視
+    monitor: AdaptivePressureMonitor,
+    /// Analytics engine
+    /// 分析エンジン
+    analytics: MemoryAnalytics,
+    /// Memory optimizer
+    /// メモリオプティマイザー
+    optimizer: MemoryOptimizer<T>,
+}
+
+impl<T: Float + Clone + Send + Sync + 'static> ComprehensiveMemoryManager<T> {
+    /// Create new comprehensive memory manager
+    /// 新しい包括的メモリマネージャーを作成
+    pub fn new() -> Self {
+        let pool_config = PoolConfig::default();
+        let monitor_config = MonitorConfig::default();
+        let analytics_config = AnalyticsConfig::default();
+        let optimizer_config = OptimizerConfig::default();
+
+        Self {
+            pool: EnhancedMemoryPool::new(pool_config),
+            monitor: AdaptivePressureMonitor::new(monitor_config),
+            analytics: MemoryAnalytics::new(analytics_config),
+            optimizer: MemoryOptimizer::new(optimizer_config),
+        }
+    }
+
+    /// Create with custom configurations
+    /// カスタム設定で作成
+    pub fn with_configs(
+        pool_config: PoolConfig,
+        monitor_config: MonitorConfig,
+        analytics_config: AnalyticsConfig,
+        optimizer_config: OptimizerConfig,
+    ) -> Self {
+        Self {
+            pool: EnhancedMemoryPool::new(pool_config),
+            monitor: AdaptivePressureMonitor::new(monitor_config),
+            analytics: MemoryAnalytics::new(analytics_config),
+            optimizer: MemoryOptimizer::new(optimizer_config),
+        }
+    }
+
+    /// Allocate memory with full optimization
+    /// 完全最適化でメモリを割り当て
+    pub fn allocate(&self, shape: &[usize]) -> RusTorchResult<ArrayD<T>> {
+        // Record allocation in analytics
+        let source_location = format!("tensor::allocate::{:?}", shape);
+        let alloc_id = self.analytics.record_allocation(
+            shape.iter().product::<usize>() * std::mem::size_of::<T>(),
+            source_location,
+        )?;
+
+        // Use optimizer for intelligent allocation
+        let array = self.optimizer.optimize_allocation(shape)?;
+
+        // Update memory usage in monitor (simplified)
+        // In real implementation, we would collect actual usage data
+        
+        Ok(array)
+    }
+
+    /// Deallocate memory with optimization
+    /// 最適化でメモリを解放
+    pub fn deallocate(&self, array: ArrayD<T>, alloc_id: u64) -> RusTorchResult<()> {
+        // Record deallocation
+        self.analytics.record_deallocation(alloc_id)?;
+
+        // Use optimizer for intelligent deallocation
+        self.optimizer.optimize_deallocation(array)?;
+
+        Ok(())
+    }
+
+    /// Start all monitoring and analysis systems
+    /// 全ての監視・分析システムを開始
+    pub fn start_all_systems(&self) -> RusTorchResult<()> {
+        self.monitor.start_monitoring()?;
+        self.analytics.start_analysis()?;
+        Ok(())
+    }
+
+    /// Stop all monitoring and analysis systems
+    /// 全ての監視・分析システムを停止
+    pub fn stop_all_systems(&self) -> RusTorchResult<()> {
+        self.monitor.stop_monitoring()?;
+        self.analytics.stop_analysis()?;
+        Ok(())
+    }
+
+    /// Generate comprehensive memory report
+    /// 包括的メモリレポートを生成
+    pub fn generate_comprehensive_report(&self) -> RusTorchResult<ComprehensiveReport> {
+        let pool_stats = self.pool.get_stats()?;
+        let monitor_stats = self.monitor.get_stats()?;
+        let analytics_report = self.analytics.generate_report()?;
+        let optimizer_stats = self.optimizer.get_stats()?;
+
+        Ok(ComprehensiveReport {
+            pool_stats,
+            monitor_stats,
+            analytics_report,
+            optimizer_stats,
+        })
+    }
+
+    /// Perform comprehensive memory optimization
+    /// 包括的メモリ最適化を実行
+    pub fn optimize_all(&self) -> RusTorchResult<OptimizationSummary> {
+        let start_time = std::time::Instant::now();
+
+        // Perform garbage collection
+        let gc_stats = self.pool.garbage_collect()?;
+
+        // Defragment memory
+        let defrag_reclaimed = self.optimizer.defragment_memory()?;
+
+        // Compress memory if beneficial
+        let compression_saved = self.optimizer.compress_memory()?;
+
+        let total_time = start_time.elapsed();
+
+        Ok(OptimizationSummary {
+            gc_memory_reclaimed: gc_stats.memory_reclaimed,
+            defrag_memory_reclaimed: defrag_reclaimed,
+            compression_memory_saved: compression_saved,
+            total_optimization_time: total_time,
+        })
+    }
+
+    /// Get current system health status
+    /// 現在のシステムヘルス状況を取得
+    pub fn get_health_status(&self) -> RusTorchResult<SystemHealthStatus> {
+        let snapshot = self.monitor.get_current_snapshot()?;
+        let trend = self.monitor.analyze_trend()?;
+        let prediction = self.optimizer.predict_memory_usage()?;
+
+        let health_score = self.calculate_health_score(&snapshot, &trend, &prediction)?;
+
+        Ok(SystemHealthStatus {
+            current_snapshot: snapshot,
+            trend_analysis: trend,
+            memory_prediction: prediction,
+            health_score,
+            recommendations: self.generate_recommendations(health_score)?,
+        })
+    }
+
+    // Private helper methods
+
+    fn calculate_health_score(
+        &self,
+        snapshot: &Option<pressure_monitor::MemorySnapshot>,
+        trend: &Option<pressure_monitor::PressureTrend>,
+        prediction: &Option<MemoryPrediction>,
+    ) -> RusTorchResult<f64> {
+        let mut score = 1.0;
+
+        // Factor in current pressure
+        if let Some(snap) = snapshot {
+            score -= snap.pressure_ratio * 0.4; // Reduce score based on pressure
+        }
+
+        // Factor in trend
+        if let Some(t) = trend {
+            if t.direction > 0.0 { // Increasing pressure trend
+                score -= t.strength * 0.3;
+            }
+        }
+
+        // Factor in prediction confidence
+        if let Some(pred) = prediction {
+            if pred.confidence < 0.5 {
+                score -= 0.1; // Reduce score for low prediction confidence
+            }
+        }
+
+        Ok(score.max(0.0).min(1.0))
+    }
+
+    fn generate_recommendations(&self, health_score: f64) -> RusTorchResult<Vec<String>> {
+        let mut recommendations = Vec::new();
+
+        if health_score < 0.3 {
+            recommendations.push("Critical: Immediate memory optimization required".to_string());
+            recommendations.push("Consider reducing batch sizes or model complexity".to_string());
+            recommendations.push("Run comprehensive memory cleanup".to_string());
+        } else if health_score < 0.6 {
+            recommendations.push("Warning: High memory pressure detected".to_string());
+            recommendations.push("Consider running memory defragmentation".to_string());
+            recommendations.push("Monitor memory usage closely".to_string());
+        } else if health_score < 0.8 {
+            recommendations.push("Moderate memory pressure".to_string());
+            recommendations.push("Consider periodic cleanup".to_string());
+        } else {
+            recommendations.push("Memory system operating normally".to_string());
+        }
+
+        Ok(recommendations)
+    }
+}
+
+impl<T: Float + Clone + Send + Sync + 'static> Default for ComprehensiveMemoryManager<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Comprehensive memory report combining all subsystems
+/// 全サブシステムを組み合わせた包括的メモリレポート
+#[derive(Debug, Clone)]
+pub struct ComprehensiveReport {
+    /// Enhanced pool statistics
+    /// 高度プール統計
+    pub pool_stats: EnhancedPoolStats,
+    /// Pressure monitor statistics
+    /// プレッシャー監視統計
+    pub monitor_stats: pressure_monitor::MonitorStats,
+    /// Analytics report
+    /// 分析レポート
+    pub analytics_report: MemoryReport,
+    /// Optimizer statistics
+    /// オプティマイザー統計
+    pub optimizer_stats: optimizer::OptimizationStats,
+}
+
+/// Memory optimization summary
+/// メモリ最適化サマリー
+#[derive(Debug, Clone)]
+pub struct OptimizationSummary {
+    /// Memory reclaimed by GC (bytes)
+    /// GCにより回収されたメモリ（バイト）
+    pub gc_memory_reclaimed: usize,
+    /// Memory reclaimed by defragmentation (bytes)
+    /// デフラグメンテーションにより回収されたメモリ（バイト）
+    pub defrag_memory_reclaimed: usize,
+    /// Memory saved by compression (bytes)
+    /// 圧縮により節約されたメモリ（バイト）
+    pub compression_memory_saved: usize,
+    /// Total optimization time
+    /// 総最適化時間
+    pub total_optimization_time: std::time::Duration,
+}
+
+/// System health status
+/// システムヘルス状況
+#[derive(Debug, Clone)]
+pub struct SystemHealthStatus {
+    /// Current memory snapshot
+    /// 現在のメモリスナップショット
+    pub current_snapshot: Option<pressure_monitor::MemorySnapshot>,
+    /// Trend analysis
+    /// 傾向分析
+    pub trend_analysis: Option<pressure_monitor::PressureTrend>,
+    /// Memory prediction
+    /// メモリ予測
+    pub memory_prediction: Option<MemoryPrediction>,
+    /// Overall health score (0.0 - 1.0)
+    /// 総合ヘルススコア（0.0 - 1.0）
+    pub health_score: f64,
+    /// System recommendations
+    /// システム推奨事項
+    pub recommendations: Vec<String>,
+}
+
+impl std::fmt::Display for ComprehensiveReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Comprehensive Memory Management Report")?;
+        writeln!(f, "=====================================")?;
+        writeln!(f, "")?;
+        writeln!(f, "Enhanced Pool Statistics:")?;
+        writeln!(f, "{}", self.pool_stats)?;
+        writeln!(f, "")?;
+        writeln!(f, "Monitor Statistics:")?;
+        writeln!(f, "  Total Snapshots: {}", self.monitor_stats.total_snapshots)?;
+        writeln!(f, "  Average Pressure: {:.2}%", self.monitor_stats.avg_pressure * 100.0)?;
+        writeln!(f, "  Peak Pressure: {:.2}%", self.monitor_stats.peak_pressure * 100.0)?;
+        writeln!(f, "")?;
+        writeln!(f, "{}", self.analytics_report)?;
+        writeln!(f, "")?;
+        writeln!(f, "Optimizer Statistics:")?;
+        writeln!(f, "  Total Optimizations: {}", self.optimizer_stats.total_optimizations)?;
+        writeln!(f, "  Memory Saved: {} bytes", self.optimizer_stats.memory_saved)?;
+        writeln!(f, "  Cache Hit Ratio: {:.2}%", self.optimizer_stats.cache_hit_ratio * 100.0)?;
+        writeln!(f, "  Zero-Copy Operations: {}", self.optimizer_stats.zero_copy_operations)?;
+        Ok(())
+    }
+}
+
+lazy_static! {
+    /// Global comprehensive memory manager for f32
+    /// f32用のグローバル包括的メモリマネージャー
+    static ref GLOBAL_MEMORY_MANAGER_F32: Arc<Mutex<ComprehensiveMemoryManager<f32>>> =
+        Arc::new(Mutex::new(ComprehensiveMemoryManager::new()));
+    
+    /// Global comprehensive memory manager for f64
+    /// f64用のグローバル包括的メモリマネージャー
+    static ref GLOBAL_MEMORY_MANAGER_F64: Arc<Mutex<ComprehensiveMemoryManager<f64>>> =
+        Arc::new(Mutex::new(ComprehensiveMemoryManager::new()));
+}
+
+/// Get global comprehensive memory manager for f32
+/// f32用のグローバル包括的メモリマネージャーを取得
+pub fn get_global_memory_manager_f32() -> Arc<Mutex<ComprehensiveMemoryManager<f32>>> {
+    GLOBAL_MEMORY_MANAGER_F32.clone()
+}
+
+/// Get global comprehensive memory manager for f64
+/// f64用のグローバル包括的メモリマネージャーを取得
+pub fn get_global_memory_manager_f64() -> Arc<Mutex<ComprehensiveMemoryManager<f64>>> {
+    GLOBAL_MEMORY_MANAGER_F64.clone()
 }
