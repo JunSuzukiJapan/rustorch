@@ -15,11 +15,11 @@
 
 // Temporarily disable duplicate modules during consolidation
 // 統合作業中に重複モジュールを一時的に無効化
-pub mod arithmetic; // Re-enabled - essential basic operations
+pub mod arithmetic; // Re-enabled - essential basic operations (includes operator overloads)
                     // pub mod creation;      // Methods integrated into core.rs
 pub mod mathematical; // New mathematical functions (exp, ln, sin, etc.)
 pub mod matrix; // Re-enabled - essential matrix operations
-pub mod operators; // Re-enabled - essential operator overloads
+                // pub mod operators; // Disabled - operator overloads moved to arithmetic.rs
 pub mod signal; // Signal processing functions
 pub mod statistical; // Re-enabled - essential statistical operations
 pub mod utilities; // Re-enabled - essential utility operations

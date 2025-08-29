@@ -62,7 +62,7 @@ mod pytorch_compatibility_tests {
 
         // Broadcasting
         let scalar = Tensor::from_vec(vec![2.0], vec![1]);
-        let broadcast_result = tensor1.add_v2(&scalar).unwrap();
+        let broadcast_result = tensor1.add(&scalar).unwrap();
         println!("  ✓ Broadcasting with scalar");
         assert_eq!(broadcast_result.shape(), &[2, 2]);
 

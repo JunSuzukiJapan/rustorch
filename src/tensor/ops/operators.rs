@@ -12,7 +12,20 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> op
     type Output = Tensor<T>;
 
     fn add(self, rhs: Self) -> Self::Output {
-        self.add(rhs).expect("Addition failed")
+        // Direct element-wise addition implementation
+        if self.shape() == rhs.shape() {
+            let result_data: Vec<T> = self
+                .data
+                .iter()
+                .zip(rhs.data.iter())
+                .map(|(&a, &b)| a + b)
+                .collect();
+            Tensor::from_vec(result_data, self.shape().to_vec())
+        } else {
+            // For broadcast cases, use the arithmetic module implementation
+            use crate::tensor::ops::arithmetic::*;
+            self.add(rhs).expect("Addition failed")
+        }
     }
 }
 

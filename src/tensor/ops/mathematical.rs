@@ -40,12 +40,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         Tensor::from_vec(result_data, self.shape().to_vec())
     }
 
-    /// Apply square root element-wise
-    /// 要素ごとに平方根を適用
-    pub fn sqrt(&self) -> Self {
-        let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
-        Tensor::from_vec(result_data, self.shape().to_vec())
-    }
+    // Note: sqrt method available in core.rs to avoid duplication
+    // 注意: 重複を避けるためsqrtメソッドはcore.rsで利用可能です
 
     /// Apply absolute value element-wise
     /// 要素ごとに絶対値を適用

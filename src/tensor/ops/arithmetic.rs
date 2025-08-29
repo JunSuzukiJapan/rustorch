@@ -5,6 +5,7 @@ use super::super::core::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
 use ndarray::ArrayD;
 use num_traits::Float;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     /// Element-wise addition with another tensor
@@ -297,6 +298,162 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     }
 }
 
+// Operator overloads using the methods above
+// 上記メソッドを使用する演算子オーバーロード
+
+// Tensor + Tensor
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn add(self, other: Self) -> Self::Output {
+        Tensor::add(self, other).expect("Addition failed")
+    }
+}
+
+// Tensor - Tensor
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn sub(self, other: Self) -> Self::Output {
+        Tensor::sub(self, other).expect("Subtraction failed")
+    }
+}
+
+// Tensor * Tensor
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn mul(self, other: Self) -> Self::Output {
+        Tensor::mul(self, other).expect("Multiplication failed")
+    }
+}
+
+// Tensor / Tensor
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn div(self, other: Self) -> Self::Output {
+        Tensor::div(self, other).expect("Division failed")
+    }
+}
+
+// Tensor * scalar
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T>
+    for &Tensor<T>
+{
+    type Output = Tensor<T>;
+
+    fn mul(self, scalar: T) -> Self::Output {
+        self.mul_scalar(scalar)
+    }
+}
+
+// Tensor / scalar
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T>
+    for &Tensor<T>
+{
+    type Output = Tensor<T>;
+
+    fn div(self, scalar: T) -> Self::Output {
+        self.div_scalar(scalar)
+    }
+}
+
+// Tensor + scalar
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T>
+    for &Tensor<T>
+{
+    type Output = Tensor<T>;
+
+    fn add(self, scalar: T) -> Self::Output {
+        self.add_scalar(scalar)
+    }
+}
+
+// Tensor - scalar
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T>
+    for &Tensor<T>
+{
+    type Output = Tensor<T>;
+
+    fn sub(self, scalar: T) -> Self::Output {
+        self.sub_scalar(scalar)
+    }
+}
+
+// -Tensor
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Neg for &Tensor<T> {
+    type Output = Tensor<T>;
+
+    fn neg(self) -> Self::Output {
+        Tensor::neg(self)
+    }
+}
+
+// Owned variants
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add for Tensor<T> {
+    type Output = Tensor<T>;
+    fn add(self, other: Self) -> Self::Output {
+        &self + &other
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub for Tensor<T> {
+    type Output = Tensor<T>;
+    fn sub(self, other: Self) -> Self::Output {
+        &self - &other
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul for Tensor<T> {
+    type Output = Tensor<T>;
+    fn mul(self, other: Self) -> Self::Output {
+        &self * &other
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div for Tensor<T> {
+    type Output = Tensor<T>;
+    fn div(self, other: Self) -> Self::Output {
+        &self / &other
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mul<T> for Tensor<T> {
+    type Output = Tensor<T>;
+    fn mul(self, scalar: T) -> Self::Output {
+        &self * scalar
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Div<T> for Tensor<T> {
+    type Output = Tensor<T>;
+    fn div(self, scalar: T) -> Self::Output {
+        &self / scalar
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Add<T> for Tensor<T> {
+    type Output = Tensor<T>;
+    fn add(self, scalar: T) -> Self::Output {
+        &self + scalar
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Sub<T> for Tensor<T> {
+    type Output = Tensor<T>;
+    fn sub(self, scalar: T) -> Self::Output {
+        &self - scalar
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Neg for Tensor<T> {
+    type Output = Tensor<T>;
+    fn neg(self) -> Self::Output {
+        -&self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -305,7 +462,7 @@ mod tests {
     fn test_add() {
         let a = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
         let b = Tensor::from_vec(vec![4.0, 5.0, 6.0], vec![3]);
-        let result = a.add(&b).unwrap();
+        let result = &a + &b;
         assert_eq!(result.as_slice().unwrap(), &[5.0, 7.0, 9.0]);
     }
 
@@ -320,7 +477,7 @@ mod tests {
     fn test_shape_mismatch() {
         let a = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let b = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
-        let result = a.add(&b);
+        let result = (&a).add(&b);
         assert!(result.is_err());
     }
 }

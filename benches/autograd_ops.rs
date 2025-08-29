@@ -30,7 +30,8 @@ fn bench_backward_propagation(c: &mut Criterion) {
             let d = &c * &a;
             let loss = d.sum();
 
-            black_box(loss.backward());
+            loss.backward();
+            black_box(());
         })
     });
 
@@ -50,7 +51,8 @@ fn bench_backward_propagation(c: &mut Criterion) {
             let e = &d * &b;
             let loss = e.mean();
 
-            black_box(loss.backward());
+            loss.backward();
+            black_box(());
         })
     });
 }
@@ -70,7 +72,8 @@ fn bench_gradient_computation(c: &mut Criterion) {
             let c = a.matmul(&b);
             let loss = c.sum();
 
-            black_box(loss.backward());
+            loss.backward();
+            black_box(());
         })
     });
 }
@@ -90,7 +93,8 @@ fn bench_chain_operations(c: &mut Criterion) {
                 result = temp.mean_autograd();
             }
 
-            black_box(result.backward());
+            result.backward();
+            black_box(());
         })
     });
 }

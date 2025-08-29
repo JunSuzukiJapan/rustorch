@@ -67,14 +67,14 @@ fn benchmark_scaling_performance(iterations: usize, max_size: usize) {
         // Sum benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.sum_v2();
+            let _ = matrix.sum();
         }
         let sum_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
         // Mean benchmark
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = sym_matrix.mean_v2();
+            let _ = sym_matrix.mean();
         }
         let mean_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
