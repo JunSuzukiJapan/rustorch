@@ -2,9 +2,9 @@
 //! WASMニューラルネットワーク用最適化アルゴリズム
 
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
-#[cfg(feature = "wasm")]
 use std::collections::HashMap;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 /// SGD (Stochastic Gradient Descent) optimizer for WASM
 /// WASM用SGD（確率的勾配降下法）オプティマイザ
@@ -84,7 +84,8 @@ impl WasmSGD {
                 d_p.clone()
             };
 
-            self.momentum_buffers.insert(param_id.to_string(), momentum_buffer.clone());
+            self.momentum_buffers
+                .insert(param_id.to_string(), momentum_buffer.clone());
 
             if self.nesterov {
                 for (i, grad) in d_p.iter_mut().enumerate() {
@@ -134,8 +135,8 @@ pub struct WasmAdam {
     epsilon: f32,
     weight_decay: f32,
     step_count: u32,
-    exp_avg: HashMap<String, Vec<f32>>,     // First moment estimates
-    exp_avg_sq: HashMap<String, Vec<f32>>,  // Second moment estimates
+    exp_avg: HashMap<String, Vec<f32>>, // First moment estimates
+    exp_avg_sq: HashMap<String, Vec<f32>>, // Second moment estimates
 }
 
 #[cfg(feature = "wasm")]
@@ -205,12 +206,15 @@ impl WasmAdam {
                 })
                 .collect()
         } else {
-            d_p.iter().map(|&grad| (1.0 - self.beta2) * grad * grad).collect()
+            d_p.iter()
+                .map(|&grad| (1.0 - self.beta2) * grad * grad)
+                .collect()
         };
 
         // Store updated moments
         self.exp_avg.insert(param_id.to_string(), exp_avg.clone());
-        self.exp_avg_sq.insert(param_id.to_string(), exp_avg_sq.clone());
+        self.exp_avg_sq
+            .insert(param_id.to_string(), exp_avg_sq.clone());
 
         // Bias correction
         let bias_correction1 = 1.0 - self.beta1.powi(self.step_count as i32);
@@ -309,7 +313,8 @@ impl WasmAdaGrad {
             d_p.iter().map(|&grad| grad * grad).collect()
         };
 
-        self.sum_of_squares.insert(param_id.to_string(), sum_of_squares.clone());
+        self.sum_of_squares
+            .insert(param_id.to_string(), sum_of_squares.clone());
 
         // Update parameters
         parameters
@@ -357,7 +362,12 @@ impl WasmRMSprop {
 
     /// Create RMSprop with momentum
     #[wasm_bindgen]
-    pub fn with_momentum(learning_rate: f32, alpha: f32, epsilon: f32, momentum: f32) -> WasmRMSprop {
+    pub fn with_momentum(
+        learning_rate: f32,
+        alpha: f32,
+        epsilon: f32,
+        momentum: f32,
+    ) -> WasmRMSprop {
         Self {
             learning_rate,
             alpha,
@@ -395,10 +405,13 @@ impl WasmRMSprop {
                 })
                 .collect()
         } else {
-            d_p.iter().map(|&grad| (1.0 - self.alpha) * grad * grad).collect()
+            d_p.iter()
+                .map(|&grad| (1.0 - self.alpha) * grad * grad)
+                .collect()
         };
 
-        self.square_avg.insert(param_id.to_string(), square_avg.clone());
+        self.square_avg
+            .insert(param_id.to_string(), square_avg.clone());
 
         // Apply momentum if specified
         let update_values = if self.momentum > 0.0 {
@@ -421,7 +434,8 @@ impl WasmRMSprop {
                     .collect()
             };
 
-            self.momentum_buffer.insert(param_id.to_string(), momentum_buffer.clone());
+            self.momentum_buffer
+                .insert(param_id.to_string(), momentum_buffer.clone());
             momentum_buffer
         } else {
             // No momentum
@@ -453,10 +467,10 @@ pub struct WasmLRScheduler {
     step_count: u32,
     scheduler_type: String,
     // Parameters for different scheduler types
-    step_size: u32,      // For StepLR
-    gamma: f32,          // For StepLR and ExponentialLR
-    t_max: u32,          // For CosineAnnealingLR
-    eta_min: f32,        // For CosineAnnealingLR
+    step_size: u32, // For StepLR
+    gamma: f32,     // For StepLR and ExponentialLR
+    t_max: u32,     // For CosineAnnealingLR
+    eta_min: f32,   // For CosineAnnealingLR
 }
 
 #[cfg(feature = "wasm")]
@@ -523,8 +537,10 @@ impl WasmLRScheduler {
             "exponential" => self.initial_lr * self.gamma.powi(self.step_count as i32),
             "cosine" => {
                 let t = (self.step_count % self.t_max) as f32;
-                self.eta_min + (self.initial_lr - self.eta_min) * 
-                    (1.0 + (std::f32::consts::PI * t / self.t_max as f32).cos()) / 2.0
+                self.eta_min
+                    + (self.initial_lr - self.eta_min)
+                        * (1.0 + (std::f32::consts::PI * t / self.t_max as f32).cos())
+                        / 2.0
             }
             _ => self.current_lr,
         };
@@ -581,7 +597,12 @@ impl WasmOptimizerFactory {
 
     /// Create RMSprop optimizer
     #[wasm_bindgen]
-    pub fn create_rmsprop(learning_rate: f32, alpha: f32, epsilon: f32, momentum: f32) -> WasmRMSprop {
+    pub fn create_rmsprop(
+        learning_rate: f32,
+        alpha: f32,
+        epsilon: f32,
+        momentum: f32,
+    ) -> WasmRMSprop {
         WasmRMSprop::with_momentum(learning_rate, alpha, epsilon, momentum)
     }
 }
@@ -594,12 +615,12 @@ mod tests {
     #[test]
     fn test_sgd_optimizer() {
         let mut sgd = WasmSGD::new(0.01);
-        
+
         let params = vec![1.0, 2.0, 3.0];
         let grads = vec![0.1, 0.2, 0.3];
-        
+
         let updated_params = sgd.step("param1", params.clone(), grads);
-        
+
         // Check that parameters moved in the opposite direction of gradients
         for (i, (&original, &updated)) in params.iter().zip(updated_params.iter()).enumerate() {
             assert!(updated < original, "Parameter {} should decrease", i);
@@ -609,15 +630,15 @@ mod tests {
     #[test]
     fn test_adam_optimizer() {
         let mut adam = WasmAdam::new(0.001);
-        
+
         let params = vec![1.0, 2.0, 3.0];
         let grads = vec![0.1, 0.2, 0.3];
-        
+
         let updated_params = adam.step("param1", params.clone(), grads);
-        
+
         assert_eq!(updated_params.len(), params.len());
         assert_eq!(adam.get_step_count(), 1);
-        
+
         // Parameters should have moved
         for (&original, &updated) in params.iter().zip(updated_params.iter()) {
             assert_ne!(original, updated);
@@ -627,14 +648,14 @@ mod tests {
     #[test]
     fn test_adagrad_optimizer() {
         let mut adagrad = WasmAdaGrad::new(0.01, 1e-8);
-        
+
         let params = vec![1.0, 2.0];
         let grads = vec![0.1, 0.2];
-        
+
         let updated_params = adagrad.step("param1", params.clone(), grads);
-        
+
         assert_eq!(updated_params.len(), 2);
-        
+
         // Check that parameters moved in the opposite direction of gradients
         for (&original, &updated) in params.iter().zip(updated_params.iter()) {
             assert!(updated < original);
@@ -644,15 +665,15 @@ mod tests {
     #[test]
     fn test_lr_scheduler() {
         let mut scheduler = WasmLRScheduler::step_lr(0.1, 10, 0.5);
-        
+
         assert_eq!(scheduler.get_lr(), 0.1);
-        
+
         // Step 9 times (no change yet)
         for _ in 0..9 {
             scheduler.step();
         }
         assert_eq!(scheduler.get_lr(), 0.1);
-        
+
         // Step once more (should trigger decay)
         scheduler.step();
         assert!((scheduler.get_lr() - 0.05).abs() < 1e-6);
@@ -661,14 +682,14 @@ mod tests {
     #[test]
     fn test_cosine_annealing_scheduler() {
         let mut scheduler = WasmLRScheduler::cosine_annealing_lr(1.0, 100, 0.0);
-        
+
         assert_eq!(scheduler.get_lr(), 1.0);
-        
+
         // At t_max/2, lr should be at minimum
         for _ in 0..50 {
             scheduler.step();
         }
-        
+
         let mid_lr = scheduler.get_lr();
         assert!(mid_lr < 0.1); // Should be close to eta_min (0.0)
     }
@@ -679,7 +700,7 @@ mod tests {
         let adam = WasmOptimizerFactory::create_adam(0.001, 0.9, 0.999, 1e-8, 1e-2);
         let adagrad = WasmOptimizerFactory::create_adagrad(0.01, 1e-8);
         let rmsprop = WasmOptimizerFactory::create_rmsprop(0.01, 0.99, 1e-8, 0.0);
-        
+
         assert_eq!(sgd.get_learning_rate(), 0.01);
         assert_eq!(adam.get_learning_rate(), 0.001);
         assert_eq!(adagrad.learning_rate, 0.01);

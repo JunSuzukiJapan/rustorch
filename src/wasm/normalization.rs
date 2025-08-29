@@ -2,9 +2,9 @@
 //! WASM用の正規化レイヤー
 
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
-#[cfg(feature = "wasm")]
 use std::collections::HashMap;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 /// Batch Normalization layer for WASM
 /// WASM用のバッチ正規化レイヤー
@@ -70,7 +70,10 @@ impl WasmBatchNorm {
     #[wasm_bindgen]
     pub fn forward(&mut self, input: Vec<f32>, batch_size: usize) -> Vec<f32> {
         if input.len() != batch_size * self.num_features {
-            panic!("Input size mismatch: expected {} elements", batch_size * self.num_features);
+            panic!(
+                "Input size mismatch: expected {} elements",
+                batch_size * self.num_features
+            );
         }
 
         let mut output = vec![0.0; input.len()];
@@ -101,9 +104,9 @@ impl WasmBatchNorm {
 
             // Update running statistics
             for feature in 0..self.num_features {
-                self.running_mean[feature] = self.momentum * self.running_mean[feature] 
+                self.running_mean[feature] = self.momentum * self.running_mean[feature]
                     + (1.0 - self.momentum) * batch_mean[feature];
-                self.running_var[feature] = self.momentum * self.running_var[feature] 
+                self.running_var[feature] = self.momentum * self.running_var[feature]
                     + (1.0 - self.momentum) * batch_var[feature];
             }
 
@@ -111,7 +114,7 @@ impl WasmBatchNorm {
             for batch in 0..batch_size {
                 for feature in 0..self.num_features {
                     let idx = batch * self.num_features + feature;
-                    let normalized = (input[idx] - batch_mean[feature]) 
+                    let normalized = (input[idx] - batch_mean[feature])
                         / (batch_var[feature] + self.epsilon).sqrt();
                     output[idx] = self.gamma[feature] * normalized + self.beta[feature];
                 }
@@ -121,7 +124,7 @@ impl WasmBatchNorm {
             for batch in 0..batch_size {
                 for feature in 0..self.num_features {
                     let idx = batch * self.num_features + feature;
-                    let normalized = (input[idx] - self.running_mean[feature]) 
+                    let normalized = (input[idx] - self.running_mean[feature])
                         / (self.running_var[feature] + self.epsilon).sqrt();
                     output[idx] = self.gamma[feature] * normalized + self.beta[feature];
                 }
@@ -206,9 +209,8 @@ impl WasmLayerNorm {
 
             // Calculate mean and variance for this sample
             let mean = batch_slice.iter().sum::<f32>() / normalized_size as f32;
-            let variance = batch_slice.iter()
-                .map(|x| (x - mean).powi(2))
-                .sum::<f32>() / normalized_size as f32;
+            let variance = batch_slice.iter().map(|x| (x - mean).powi(2)).sum::<f32>()
+                / normalized_size as f32;
 
             let std_dev = (variance + self.epsilon).sqrt();
 
@@ -276,10 +278,20 @@ impl WasmGroupNorm {
     /// Forward pass through group normalization
     /// グループ正規化の順伝播
     #[wasm_bindgen]
-    pub fn forward(&self, input: Vec<f32>, batch_size: usize, height: usize, width: usize) -> Vec<f32> {
+    pub fn forward(
+        &self,
+        input: Vec<f32>,
+        batch_size: usize,
+        height: usize,
+        width: usize,
+    ) -> Vec<f32> {
         let expected_size = batch_size * self.num_channels * height * width;
         if input.len() != expected_size {
-            panic!("Input size mismatch: expected {}, got {}", expected_size, input.len());
+            panic!(
+                "Input size mismatch: expected {}, got {}",
+                expected_size,
+                input.len()
+            );
         }
 
         let channels_per_group = self.num_channels / self.num_groups;
@@ -296,7 +308,8 @@ impl WasmGroupNorm {
                     let channel = group * channels_per_group + ch;
                     for h in 0..height {
                         for w in 0..width {
-                            let idx = ((batch * self.num_channels + channel) * height + h) * width + w;
+                            let idx =
+                                ((batch * self.num_channels + channel) * height + h) * width + w;
                             group_sum += input[idx];
                             group_count += 1;
                         }
@@ -311,7 +324,8 @@ impl WasmGroupNorm {
                     let channel = group * channels_per_group + ch;
                     for h in 0..height {
                         for w in 0..width {
-                            let idx = ((batch * self.num_channels + channel) * height + h) * width + w;
+                            let idx =
+                                ((batch * self.num_channels + channel) * height + h) * width + w;
                             let diff = input[idx] - group_mean;
                             group_var_sum += diff * diff;
                         }
@@ -326,7 +340,8 @@ impl WasmGroupNorm {
                     let channel = group * channels_per_group + ch;
                     for h in 0..height {
                         for w in 0..width {
-                            let idx = ((batch * self.num_channels + channel) * height + h) * width + w;
+                            let idx =
+                                ((batch * self.num_channels + channel) * height + h) * width + w;
                             let normalized = (input[idx] - group_mean) / group_std;
                             output[idx] = self.gamma[channel] * normalized + self.beta[channel];
                         }
@@ -348,14 +363,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_batch_norm() {
         let mut batch_norm = WasmBatchNorm::new(2, 0.1, 1e-5);
-        
+
         // Simple test data: batch_size=2, features=2
         let input = vec![1.0, 2.0, 3.0, 4.0]; // [[1,2], [3,4]]
         let output = batch_norm.forward(input, 2);
-        
+
         // Output should have same shape
         assert_eq!(output.len(), 4);
-        
+
         // Check running statistics updated
         let mean = batch_norm.get_running_mean();
         let var = batch_norm.get_running_var();
@@ -366,12 +381,12 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_layer_norm() {
         let layer_norm = WasmLayerNorm::new(vec![2], 1e-5);
-        
+
         let input = vec![1.0, 2.0, 3.0, 4.0]; // 2 samples of 2 features each
         let output = layer_norm.forward(input);
-        
+
         assert_eq!(output.len(), 4);
-        
+
         // Each pair should be normalized independently
         // [1,2] -> normalized, [3,4] -> normalized
         assert!((output[0] + output[1]).abs() < 1e-5); // Mean should be ~0
@@ -381,11 +396,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_group_norm() {
         let group_norm = WasmGroupNorm::new(2, 4, 1e-5); // 2 groups, 4 channels
-        
+
         // Test with minimal 1x1 spatial dimensions
         let input = vec![1.0, 2.0, 3.0, 4.0]; // batch=1, channels=4, h=1, w=1
         let output = group_norm.forward(input, 1, 1, 1);
-        
+
         assert_eq!(output.len(), 4);
     }
 }

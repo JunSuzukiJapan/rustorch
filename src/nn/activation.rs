@@ -276,8 +276,8 @@ pub fn selu<
     let input_data = x.data().read().unwrap().clone();
 
     // SELU with fixed parameters: alpha = 1.6732632423543772848170429916717, scale = 1.0507009873554804934193349852946
-    let alpha = T::from(1.6732632423543772848170429916717f32).unwrap();
-    let scale = T::from(1.0507009873554804934193349852946f32).unwrap();
+    let alpha = T::from(1.673_263_242_354_377_284_817_042_991_671_7_f32).unwrap();
+    let scale = T::from(1.050_700_987_355_480_493_419_334_985_294_6_f32).unwrap();
     let output_data = apply_selu(&input_data, alpha, scale);
 
     if x.requires_grad() {

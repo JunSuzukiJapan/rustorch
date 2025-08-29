@@ -73,10 +73,7 @@ impl WasmActivation {
     #[wasm_bindgen]
     pub fn sigmoid_derivative(input: Vec<f32>) -> Vec<f32> {
         let sigmoid_output = Self::sigmoid(input);
-        sigmoid_output
-            .into_iter()
-            .map(|s| s * (1.0 - s))
-            .collect()
+        sigmoid_output.into_iter().map(|s| s * (1.0 - s)).collect()
     }
 
     /// Tanh (Hyperbolic Tangent) activation function
@@ -98,10 +95,7 @@ impl WasmActivation {
     #[wasm_bindgen]
     pub fn tanh_derivative(input: Vec<f32>) -> Vec<f32> {
         let tanh_output = Self::tanh(input);
-        tanh_output
-            .into_iter()
-            .map(|t| 1.0 - t * t)
-            .collect()
+        tanh_output.into_iter().map(|t| 1.0 - t * t).collect()
     }
 
     /// Softmax activation function
@@ -116,10 +110,7 @@ impl WasmActivation {
         let max_val = input.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
         // Compute exp(x - max) for each element
-        let exp_values: Vec<f32> = input
-            .iter()
-            .map(|&x| (x - max_val).exp())
-            .collect();
+        let exp_values: Vec<f32> = input.iter().map(|&x| (x - max_val).exp()).collect();
 
         // Compute sum of exponentials
         let sum_exp: f32 = exp_values.iter().sum();
@@ -145,11 +136,7 @@ impl WasmActivation {
         let max_val = input.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
         // Compute log(sum(exp(x - max)))
-        let log_sum_exp = input
-            .iter()
-            .map(|&x| (x - max_val).exp())
-            .sum::<f32>()
-            .ln();
+        let log_sum_exp = input.iter().map(|&x| (x - max_val).exp()).sum::<f32>().ln();
 
         // Compute x_i - max - log(sum(exp(x_j - max)))
         input
@@ -187,9 +174,9 @@ impl WasmActivation {
                 let inner = SQRT_2_OVER_PI * (x + COEFF * x * x * x);
                 let tanh_val = inner.tanh();
                 let sech2 = 1.0 - tanh_val * tanh_val; // sech²(inner)
-                
-                0.5 * (1.0 + tanh_val) + 
-                0.5 * x * sech2 * SQRT_2_OVER_PI * (1.0 + 3.0 * COEFF * x * x)
+
+                0.5 * (1.0 + tanh_val)
+                    + 0.5 * x * sech2 * SQRT_2_OVER_PI * (1.0 + 3.0 * COEFF * x * x)
             })
             .collect()
     }
@@ -272,10 +259,7 @@ impl WasmActivation {
     /// Softsign(x) = x / (1 + |x|)
     #[wasm_bindgen]
     pub fn softsign(input: Vec<f32>) -> Vec<f32> {
-        input
-            .into_iter()
-            .map(|x| x / (1.0 + x.abs()))
-            .collect()
+        input.into_iter().map(|x| x / (1.0 + x.abs())).collect()
     }
 
     /// Apply activation function to 2D data (batch processing)
@@ -338,7 +322,9 @@ impl WasmActivation {
             "softplus" => Self::softplus(input),
             "softsign" => Self::softsign(input),
             _ => {
-                web_sys::console::warn_1(&format!("Unknown activation type: {}, using ReLU", activation_type).into());
+                web_sys::console::warn_1(
+                    &format!("Unknown activation type: {}, using ReLU", activation_type).into(),
+                );
                 Self::relu(input)
             }
         }
@@ -355,7 +341,7 @@ mod tests {
         let input = vec![-2.0, -1.0, 0.0, 1.0, 2.0];
         let output = WasmActivation::relu(input);
         let expected = vec![0.0, 0.0, 0.0, 1.0, 2.0];
-        
+
         for (actual, expected) in output.iter().zip(expected.iter()) {
             assert!((actual - expected).abs() < 1e-6);
         }
@@ -365,12 +351,12 @@ mod tests {
     fn test_sigmoid() {
         let input = vec![-2.0, 0.0, 2.0];
         let output = WasmActivation::sigmoid(input);
-        
+
         // Check bounds: all values should be between 0 and 1
         for &val in &output {
             assert!(val > 0.0 && val < 1.0);
         }
-        
+
         // Check sigmoid(0) ≈ 0.5
         assert!((output[1] - 0.5).abs() < 1e-6);
     }
@@ -379,12 +365,12 @@ mod tests {
     fn test_tanh() {
         let input = vec![-2.0, 0.0, 2.0];
         let output = WasmActivation::tanh(input);
-        
+
         // Check bounds: all values should be between -1 and 1
         for &val in &output {
             assert!(val > -1.0 && val < 1.0);
         }
-        
+
         // Check tanh(0) = 0
         assert!(output[1].abs() < 1e-6);
     }
@@ -393,16 +379,16 @@ mod tests {
     fn test_softmax() {
         let input = vec![1.0, 2.0, 3.0];
         let output = WasmActivation::softmax(input);
-        
+
         // Check sum ≈ 1
         let sum: f32 = output.iter().sum();
         assert!((sum - 1.0).abs() < 1e-6);
-        
+
         // Check all values are positive
         for &val in &output {
             assert!(val > 0.0);
         }
-        
+
         // Check monotonicity (larger input -> larger output)
         assert!(output[0] < output[1]);
         assert!(output[1] < output[2]);
@@ -414,7 +400,7 @@ mod tests {
         let alpha = 0.1;
         let output = WasmActivation::leaky_relu(input, alpha);
         let expected = vec![-0.2, -0.1, 0.0, 1.0, 2.0];
-        
+
         for (actual, expected) in output.iter().zip(expected.iter()) {
             assert!((actual - expected).abs() < 1e-6);
         }
@@ -424,10 +410,10 @@ mod tests {
     fn test_gelu() {
         let input = vec![-1.0, 0.0, 1.0];
         let output = WasmActivation::gelu(input);
-        
+
         // GELU(0) ≈ 0
         assert!(output[1].abs() < 1e-3);
-        
+
         // GELU should be approximately x for large positive x
         let large_input = vec![5.0];
         let large_output = WasmActivation::gelu(large_input.clone());
@@ -438,11 +424,11 @@ mod tests {
     fn test_softmax_2d() {
         let input = vec![1.0, 2.0, 3.0, 4.0]; // 2x2 matrix
         let output = WasmActivation::softmax_2d(input, 2, 2, 1);
-        
+
         // Check that each row sums to 1
         let row1_sum = output[0] + output[1];
         let row2_sum = output[2] + output[3];
-        
+
         assert!((row1_sum - 1.0).abs() < 1e-6);
         assert!((row2_sum - 1.0).abs() < 1e-6);
     }
@@ -450,11 +436,11 @@ mod tests {
     #[test]
     fn test_activation_selector() {
         let input = vec![-1.0, 0.0, 1.0];
-        
+
         let relu_output = WasmActivation::apply_activation(input.clone(), "relu");
         let sigmoid_output = WasmActivation::apply_activation(input.clone(), "sigmoid");
         let tanh_output = WasmActivation::apply_activation(input.clone(), "tanh");
-        
+
         // Basic sanity checks
         assert_eq!(relu_output, vec![0.0, 0.0, 1.0]);
         assert!(sigmoid_output[1] - 0.5 < 1e-6); // sigmoid(0) = 0.5

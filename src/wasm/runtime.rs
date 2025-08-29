@@ -62,39 +62,23 @@ impl WasmPerformance {
 #[wasm_bindgen]
 pub fn detect_wasm_features() -> js_sys::Object {
     let features = js_sys::Object::new();
-    
+
     // Check for SIMD support (basic detection)
-    let simd_supported = js_sys::Reflect::has(
-        &js_sys::global(),
-        &"WebAssembly".into()
-    ).unwrap_or(false);
-    
-    js_sys::Reflect::set(
-        &features,
-        &"simd".into(),
-        &simd_supported.into()
-    ).unwrap();
+    let simd_supported =
+        js_sys::Reflect::has(&js_sys::global(), &"WebAssembly".into()).unwrap_or(false);
+
+    js_sys::Reflect::set(&features, &"simd".into(), &simd_supported.into()).unwrap();
 
     // Check for threads support
-    let threads_supported = js_sys::Reflect::has(
-        &js_sys::global(), 
-        &"SharedArrayBuffer".into()
-    ).unwrap_or(false);
-    
-    js_sys::Reflect::set(
-        &features,
-        &"threads".into(), 
-        &threads_supported.into()
-    ).unwrap();
+    let threads_supported =
+        js_sys::Reflect::has(&js_sys::global(), &"SharedArrayBuffer".into()).unwrap_or(false);
+
+    js_sys::Reflect::set(&features, &"threads".into(), &threads_supported.into()).unwrap();
 
     // Check available memory
     if let Ok(memory) = js_sys::Reflect::get(&js_sys::global(), &"WebAssembly".into()) {
         if let Ok(memory_obj) = js_sys::Reflect::get(&memory, &"Memory".into()) {
-            js_sys::Reflect::set(
-                &features,
-                &"memory".into(),
-                &true.into()
-            ).unwrap();
+            js_sys::Reflect::set(&features, &"memory".into(), &true.into()).unwrap();
         }
     }
 

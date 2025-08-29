@@ -99,10 +99,13 @@ impl WasmSpecial {
         if x < 8.0 {
             // Power series for small x
             let y = x * x;
-            let ans1 = 57568490574.0 + y * (-13362590354.0 + y * (651619640.7
-                + y * (-11214424.18 + y * (77392.33017 + y * (-184.9052456)))));
-            let ans2 = 57568490411.0 + y * (1029532985.0 + y * (9494680.718
-                + y * (59272.64853 + y * (267.8532712 + y * 1.0))));
+            let ans1 = 57568490574.0
+                + y * (-13362590354.0
+                    + y * (651619640.7
+                        + y * (-11214424.18 + y * (77392.33017 + y * (-184.9052456)))));
+            let ans2 = 57568490411.0
+                + y * (1029532985.0
+                    + y * (9494680.718 + y * (59272.64853 + y * (267.8532712 + y * 1.0))));
             ans1 / ans2
         } else {
             // Asymptotic expansion for large x
@@ -130,14 +133,18 @@ impl WasmSpecial {
     pub fn bessel_j1(x: f32) -> f32 {
         let sign = if x < 0.0 { -1.0 } else { 1.0 };
         let x = x.abs();
-        
+
         if x < 8.0 {
             // Power series for small x
             let y = x * x;
-            let ans1 = x * (72362614232.0 + y * (-7895059235.0 + y * (242396853.1
-                + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
-            let ans2 = 144725228442.0 + y * (2300535178.0 + y * (18583304.74
-                + y * (99447.43394 + y * (376.9991397 + y * 1.0))));
+            let ans1 = x
+                * (72362614232.0
+                    + y * (-7895059235.0
+                        + y * (242396853.1
+                            + y * (-2972611.439 + y * (15704.48260 + y * (-30.16036606))))));
+            let ans2 = 144725228442.0
+                + y * (2300535178.0
+                    + y * (18583304.74 + y * (99447.43394 + y * (376.9991397 + y * 1.0))));
             sign * ans1 / ans2
         } else {
             // Asymptotic expansion for large x
@@ -167,16 +174,23 @@ impl WasmSpecial {
         if x < 3.75 {
             // Power series for small x
             let y = (x / 3.75).powi(2);
-            1.0 + y * (3.5156229 + y * (3.0899424 + y * (1.2067492
-                + y * (0.2659732 + y * (0.360768e-1 + y * 0.45813e-2)))))
+            1.0 + y
+                * (3.5156229
+                    + y * (3.0899424
+                        + y * (1.2067492 + y * (0.2659732 + y * (0.360768e-1 + y * 0.45813e-2)))))
         } else {
             // Asymptotic expansion for large x
             let ax = x;
             let y = 3.75 / ax;
-            let ans = (ax.exp() / ax.sqrt()) * (0.39894228 + y * (0.1328592e-1
-                + y * (0.225319e-2 + y * (-0.157565e-2 + y * (0.916281e-2
-                + y * (-0.2057706e-1 + y * (0.2635537e-1 + y * (-0.1647633e-1
-                + y * 0.392377e-2))))))));
+            let ans = (ax.exp() / ax.sqrt())
+                * (0.39894228
+                    + y * (0.1328592e-1
+                        + y * (0.225319e-2
+                            + y * (-0.157565e-2
+                                + y * (0.916281e-2
+                                    + y * (-0.2057706e-1
+                                        + y * (0.2635537e-1
+                                            + y * (-0.1647633e-1 + y * 0.392377e-2))))))));
             ans
         }
     }
@@ -217,7 +231,9 @@ pub struct WasmTensorSpecial;
 impl WasmTensorSpecial {
     /// Apply gamma function to tensor elements
     #[wasm_bindgen]
-    pub fn tensor_gamma(tensor: &crate::wasm::tensor::WasmTensor) -> crate::wasm::tensor::WasmTensor {
+    pub fn tensor_gamma(
+        tensor: &crate::wasm::tensor::WasmTensor,
+    ) -> crate::wasm::tensor::WasmTensor {
         let data = tensor.data();
         let result: Vec<f32> = data.iter().map(|&x| WasmSpecial::gamma(x)).collect();
         crate::wasm::tensor::WasmTensor::new(result, tensor.shape())
@@ -225,7 +241,9 @@ impl WasmTensorSpecial {
 
     /// Apply lgamma function to tensor elements
     #[wasm_bindgen]
-    pub fn tensor_lgamma(tensor: &crate::wasm::tensor::WasmTensor) -> crate::wasm::tensor::WasmTensor {
+    pub fn tensor_lgamma(
+        tensor: &crate::wasm::tensor::WasmTensor,
+    ) -> crate::wasm::tensor::WasmTensor {
         let data = tensor.data();
         let result: Vec<f32> = data.iter().map(|&x| WasmSpecial::lgamma(x)).collect();
         crate::wasm::tensor::WasmTensor::new(result, tensor.shape())
@@ -241,7 +259,9 @@ impl WasmTensorSpecial {
 
     /// Apply bessel_j0 function to tensor elements
     #[wasm_bindgen]
-    pub fn tensor_bessel_j0(tensor: &crate::wasm::tensor::WasmTensor) -> crate::wasm::tensor::WasmTensor {
+    pub fn tensor_bessel_j0(
+        tensor: &crate::wasm::tensor::WasmTensor,
+    ) -> crate::wasm::tensor::WasmTensor {
         let data = tensor.data();
         let result: Vec<f32> = data.iter().map(|&x| WasmSpecial::bessel_j0(x)).collect();
         crate::wasm::tensor::WasmTensor::new(result, tensor.shape())
@@ -258,7 +278,8 @@ mod tests {
         // Test known values
         assert!((WasmSpecial::gamma(1.0) - 1.0).abs() < 1e-6); // Γ(1) = 1
         assert!((WasmSpecial::gamma(2.0) - 1.0).abs() < 1e-6); // Γ(2) = 1
-        assert!((WasmSpecial::gamma(0.5) - std::f32::consts::PI.sqrt()).abs() < 1e-4); // Γ(0.5) = √π
+        assert!((WasmSpecial::gamma(0.5) - std::f32::consts::PI.sqrt()).abs() < 1e-4);
+        // Γ(0.5) = √π
     }
 
     #[test]

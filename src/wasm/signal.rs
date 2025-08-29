@@ -29,7 +29,7 @@ impl WasmSignal {
                 let angle = -2.0 * std::f32::consts::PI * (k as f32) * (j as f32) / (n as f32);
                 let cos_val = angle.cos();
                 let sin_val = angle.sin();
-                
+
                 sum_real += real_input[j] * cos_val;
                 sum_imag += real_input[j] * sin_val;
             }
@@ -39,8 +39,18 @@ impl WasmSignal {
         }
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &"real".into(), &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
-        js_sys::Reflect::set(&result, &"imag".into(), &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"real".into(),
+            &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"imag".into(),
+            &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
         result
     }
 
@@ -64,7 +74,7 @@ impl WasmSignal {
                 let angle = 2.0 * std::f32::consts::PI * (k as f32) * (j as f32) / (n as f32);
                 let cos_val = angle.cos();
                 let sin_val = angle.sin();
-                
+
                 // Complex multiplication: (real_input[j] + i*imag_input[j]) * (cos + i*sin)
                 sum_real += real_input[j] * cos_val - imag_input[j] * sin_val;
                 sum_imag += real_input[j] * sin_val + imag_input[j] * cos_val;
@@ -75,8 +85,18 @@ impl WasmSignal {
         }
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &"real".into(), &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
-        js_sys::Reflect::set(&result, &"imag".into(), &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"real".into(),
+            &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"imag".into(),
+            &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
         result
     }
 
@@ -97,7 +117,7 @@ impl WasmSignal {
                 let angle = -2.0 * std::f32::consts::PI * (k as f32) * (j as f32) / (n as f32);
                 let cos_val = angle.cos();
                 let sin_val = angle.sin();
-                
+
                 sum_real += real_input[j] * cos_val;
                 sum_imag += real_input[j] * sin_val;
             }
@@ -107,8 +127,18 @@ impl WasmSignal {
         }
 
         let result = js_sys::Object::new();
-        js_sys::Reflect::set(&result, &"real".into(), &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
-        js_sys::Reflect::set(&result, &"imag".into(), &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x)))).unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"real".into(),
+            &js_sys::Array::from_iter(real_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
+        js_sys::Reflect::set(
+            &result,
+            &"imag".into(),
+            &js_sys::Array::from_iter(imag_output.iter().map(|&x| js_sys::Number::from(x))),
+        )
+        .unwrap();
         result
     }
 
@@ -143,7 +173,8 @@ impl WasmSignal {
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                let window = 0.54 - 0.46 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
+                let window =
+                    0.54 - 0.46 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
                 x * window
             })
             .collect()
@@ -158,7 +189,8 @@ impl WasmSignal {
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                let window = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos());
+                let window =
+                    0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos());
                 x * window
             })
             .collect()
@@ -177,7 +209,8 @@ impl WasmSignal {
                 let a0 = (1.0 - alpha) / 2.0;
                 let a1 = 0.5;
                 let a2 = alpha / 2.0;
-                let window = a0 - a1 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos()
+                let window = a0
+                    - a1 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos()
                     + a2 * (4.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
                 x * window
             })
@@ -246,7 +279,7 @@ impl WasmSignal {
         for i in 0..signal.len() {
             let start = if i >= half_window { i - half_window } else { 0 };
             let end = std::cmp::min(i + half_window + 1, signal.len());
-            
+
             let sum: f32 = signal[start..end].iter().sum();
             let avg = sum / (end - start) as f32;
             filtered.push(avg);
@@ -382,11 +415,9 @@ impl WasmSignal {
     #[wasm_bindgen]
     pub fn find_peaks(signal: Vec<f32>, threshold: f32) -> Vec<usize> {
         let mut peaks = Vec::new();
-        
+
         for i in 1..signal.len() - 1 {
-            if signal[i] > threshold 
-                && signal[i] > signal[i - 1] 
-                && signal[i] > signal[i + 1] {
+            if signal[i] > threshold && signal[i] > signal[i - 1] && signal[i] > signal[i + 1] {
                 peaks.push(i);
             }
         }
@@ -405,10 +436,8 @@ impl WasmSignal {
     /// 信号を[-1, 1]範囲に正規化
     #[wasm_bindgen]
     pub fn normalize_signal(signal: Vec<f32>) -> Vec<f32> {
-        let max_abs = signal.iter()
-            .map(|&x| x.abs())
-            .fold(0.0, f32::max);
-        
+        let max_abs = signal.iter().map(|&x| x.abs()).fold(0.0, f32::max);
+
         if max_abs == 0.0 {
             signal
         } else {
@@ -421,7 +450,7 @@ impl WasmSignal {
     #[wasm_bindgen]
     pub fn zero_crossing_rate(signal: Vec<f32>) -> f32 {
         let mut crossings = 0;
-        
+
         for i in 1..signal.len() {
             if (signal[i] >= 0.0) != (signal[i - 1] >= 0.0) {
                 crossings += 1;
@@ -441,10 +470,10 @@ mod tests {
     fn test_dft_simple() {
         let signal = vec![1.0, 0.0, 1.0, 0.0];
         let result = WasmSignal::dft(signal);
-        
+
         let real_part = js_sys::Reflect::get(&result, &"real".into()).unwrap();
         let imag_part = js_sys::Reflect::get(&result, &"imag".into()).unwrap();
-        
+
         assert!(real_part.is_truthy());
         assert!(imag_part.is_truthy());
     }
@@ -453,7 +482,7 @@ mod tests {
     fn test_sine_wave_generation() {
         let signal = WasmSignal::generate_sine_wave(1.0, 44100.0, 1.0, 1.0, 0.0);
         assert_eq!(signal.len(), 44100);
-        
+
         // Check that we have a proper sine wave
         let energy = WasmSignal::signal_energy(signal);
         assert!(energy > 0.0);
@@ -462,16 +491,16 @@ mod tests {
     #[test]
     fn test_windowing_functions() {
         let signal = vec![1.0; 100];
-        
+
         let hamming = WasmSignal::hamming_window(signal.clone());
         let hanning = WasmSignal::hanning_window(signal.clone());
         let blackman = WasmSignal::blackman_window(signal);
-        
+
         // All should have same length
         assert_eq!(hamming.len(), 100);
         assert_eq!(hanning.len(), 100);
         assert_eq!(blackman.len(), 100);
-        
+
         // Edge values should be attenuated
         assert!(hamming[0] < 1.0);
         assert!(hanning[0] < 1.0);
@@ -481,10 +510,10 @@ mod tests {
     #[test]
     fn test_filters() {
         let signal = vec![1.0, 2.0, 3.0, 2.0, 1.0];
-        
+
         let low_pass = WasmSignal::low_pass_filter(signal.clone(), 3);
         let high_pass = WasmSignal::high_pass_filter(signal, 3);
-        
+
         assert_eq!(low_pass.len(), 5);
         assert_eq!(high_pass.len(), 5);
     }
@@ -492,12 +521,12 @@ mod tests {
     #[test]
     fn test_signal_analysis() {
         let signal = vec![1.0, -1.0, 1.0, -1.0, 1.0];
-        
+
         let energy = WasmSignal::signal_energy(signal.clone());
         let power = WasmSignal::signal_power(signal.clone());
         let rms = WasmSignal::rms_amplitude(signal.clone());
         let zcr = WasmSignal::zero_crossing_rate(signal);
-        
+
         assert_eq!(energy, 5.0);
         assert_eq!(power, 1.0);
         assert_eq!(rms, 1.0);

@@ -639,8 +639,8 @@ fn create_mock_pretrained_model(model_name: &str) -> RusTorchResult<ImportedMode
                 attributes: desc.attributes,
             })
             .collect(),
-        parameter_count: 11000000, // Mock parameter count
-        model_size: 44000000,      // Mock model size
+        parameter_count: 11_000_000, // Mock parameter count
+        model_size: 44_000_000,      // Mock model size
     };
 
     // Create mock weights
@@ -677,7 +677,7 @@ fn create_resnet18_layers() -> Vec<LayerDescription> {
             layer_type: "ResNetLayer".to_string(),
             input_shape: vec![0, 64, 56, 56],
             output_shape: vec![0, 64, 56, 56],
-            params: 147648,
+            params: 147_648,
             attributes: HashMap::new(),
         },
         LayerDescription {
@@ -685,7 +685,7 @@ fn create_resnet18_layers() -> Vec<LayerDescription> {
             layer_type: "Linear".to_string(),
             input_shape: vec![0, 512],
             output_shape: vec![0, 1000],
-            params: 513000, // 512 * 1000 + 1000
+            params: 513_000, // 512 * 1000 + 1000
             attributes: HashMap::new(),
         },
     ]
@@ -708,7 +708,7 @@ fn create_resnet50_layers() -> Vec<LayerDescription> {
             layer_type: "Linear".to_string(),
             input_shape: vec![0, 2048],
             output_shape: vec![0, 1000],
-            params: 2049000, // 2048 * 1000 + 1000
+            params: 2_049_000, // 2048 * 1000 + 1000
             attributes: HashMap::new(),
         },
     ]
@@ -731,7 +731,7 @@ fn create_mobilenet_layers() -> Vec<LayerDescription> {
             layer_type: "Linear".to_string(),
             input_shape: vec![0, 1280],
             output_shape: vec![0, 1000],
-            params: 1281000, // 1280 * 1000 + 1000
+            params: 1_281_000, // 1280 * 1000 + 1000
             attributes: HashMap::new(),
         },
     ]

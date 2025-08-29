@@ -319,7 +319,7 @@ extern "C" __global__ void optimized_convolution(
             )),
 
             DeviceType::Metal(_) => Ok(format!(
-                r#"
+                r"
 #include <metal_stdlib>
 using namespace metal;
 
@@ -380,7 +380,7 @@ kernel void optimized_convolution(
         output[output_idx] = result;
     }}
 }}
-"#,
+",
                 config.shared_memory_size / 4,
                 kernel_size[0] * kernel_size[1],
                 stride[0],

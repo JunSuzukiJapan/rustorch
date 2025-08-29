@@ -2,9 +2,9 @@
 //! WASM用のモデル評価メトリクス
 
 #[cfg(feature = "wasm")]
-use wasm_bindgen::prelude::*;
-#[cfg(feature = "wasm")]
 use std::collections::HashMap;
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
 
 /// Model evaluation metrics calculator
 /// モデル評価メトリクス計算機
@@ -97,7 +97,11 @@ impl WasmMetrics {
     /// Calculate confusion matrix for multi-class classification
     /// 多クラス分類の混同行列を計算
     #[wasm_bindgen]
-    pub fn confusion_matrix(predictions: Vec<u32>, targets: Vec<u32>, num_classes: u32) -> Vec<u32> {
+    pub fn confusion_matrix(
+        predictions: Vec<u32>,
+        targets: Vec<u32>,
+        num_classes: u32,
+    ) -> Vec<u32> {
         let mut matrix = vec![0u32; (num_classes * num_classes) as usize];
 
         for (pred, target) in predictions.iter().zip(targets.iter()) {
@@ -160,7 +164,7 @@ impl WasmMetrics {
         }
 
         let target_mean = targets.iter().sum::<f32>() / targets.len() as f32;
-        
+
         let ss_res: f32 = predictions
             .iter()
             .zip(targets.iter())
@@ -194,16 +198,16 @@ impl WasmMetrics {
             let start_idx = i * num_classes as usize;
             let end_idx = start_idx + num_classes as usize;
             let sample_logits = &logits[start_idx..end_idx];
-            
+
             // Get top-k indices
             let mut indexed_logits: Vec<(usize, f32)> = sample_logits
                 .iter()
                 .enumerate()
                 .map(|(idx, &val)| (idx, val))
                 .collect();
-            
+
             indexed_logits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-            
+
             let top_k_classes: Vec<usize> = indexed_logits
                 .iter()
                 .take(k as usize)
@@ -221,37 +225,58 @@ impl WasmMetrics {
     /// Calculate comprehensive classification report
     /// 包括的な分類レポートを計算
     #[wasm_bindgen]
-    pub fn classification_report(predictions: Vec<u32>, targets: Vec<u32>, num_classes: u32) -> js_sys::Object {
+    pub fn classification_report(
+        predictions: Vec<u32>,
+        targets: Vec<u32>,
+        num_classes: u32,
+    ) -> js_sys::Object {
         let report = js_sys::Object::new();
-        
+
         // Overall accuracy
         let overall_accuracy = Self::accuracy(predictions.clone(), targets.clone());
-        js_sys::Reflect::set(&report, &"accuracy".into(), &JsValue::from_f64(overall_accuracy as f64)).unwrap();
-        
+        js_sys::Reflect::set(
+            &report,
+            &"accuracy".into(),
+            &JsValue::from_f64(overall_accuracy as f64),
+        )
+        .unwrap();
+
         // Per-class metrics
         let classes = js_sys::Object::new();
-        
+
         for class in 0..num_classes {
             let precision = Self::precision(predictions.clone(), targets.clone(), class);
             let recall = Self::recall(predictions.clone(), targets.clone(), class);
             let f1 = Self::f1_score(predictions.clone(), targets.clone(), class);
-            
+
             let class_metrics = js_sys::Object::new();
-            js_sys::Reflect::set(&class_metrics, &"precision".into(), &JsValue::from_f64(precision as f64)).unwrap();
-            js_sys::Reflect::set(&class_metrics, &"recall".into(), &JsValue::from_f64(recall as f64)).unwrap();
-            js_sys::Reflect::set(&class_metrics, &"f1".into(), &JsValue::from_f64(f1 as f64)).unwrap();
-            
+            js_sys::Reflect::set(
+                &class_metrics,
+                &"precision".into(),
+                &JsValue::from_f64(precision as f64),
+            )
+            .unwrap();
+            js_sys::Reflect::set(
+                &class_metrics,
+                &"recall".into(),
+                &JsValue::from_f64(recall as f64),
+            )
+            .unwrap();
+            js_sys::Reflect::set(&class_metrics, &"f1".into(), &JsValue::from_f64(f1 as f64))
+                .unwrap();
+
             let class_key = format!("class_{}", class);
             js_sys::Reflect::set(&classes, &class_key.into(), &class_metrics).unwrap();
         }
-        
+
         js_sys::Reflect::set(&report, &"classes".into(), &classes).unwrap();
-        
+
         // Confusion matrix
         let confusion = Self::confusion_matrix(predictions, targets, num_classes);
-        let confusion_array = js_sys::Array::from_iter(confusion.iter().map(|&x| JsValue::from_f64(x as f64)));
+        let confusion_array =
+            js_sys::Array::from_iter(confusion.iter().map(|&x| JsValue::from_f64(x as f64)));
         js_sys::Reflect::set(&report, &"confusionMatrix".into(), &confusion_array).unwrap();
-        
+
         report
     }
 }
@@ -274,10 +299,10 @@ mod tests {
     fn test_precision_recall() {
         let predictions = vec![1, 1, 0, 1];
         let targets = vec![1, 0, 0, 1];
-        
+
         let precision = WasmMetrics::precision(predictions.clone(), targets.clone(), 1);
         let recall = WasmMetrics::recall(predictions, targets, 1);
-        
+
         // True positives: 2, False positives: 1, False negatives: 0
         assert_eq!(precision, 2.0 / 3.0);
         assert_eq!(recall, 1.0);
@@ -287,13 +312,13 @@ mod tests {
     fn test_mse_mae() {
         let predictions = vec![1.0, 2.0, 3.0];
         let targets = vec![1.5, 1.5, 2.5];
-        
+
         let mse = WasmMetrics::mse(predictions.clone(), targets.clone());
         let mae = WasmMetrics::mae(predictions, targets);
-        
+
         // MSE = ((0.5)² + (0.5)² + (0.5)²) / 3 = 0.25
         assert!((mse - 0.25).abs() < 1e-5);
-        
+
         // MAE = (0.5 + 0.5 + 0.5) / 3 = 0.5
         assert!((mae - 0.5).abs() < 1e-5);
     }
@@ -301,14 +326,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_top_k_accuracy() {
         let logits = vec![
-            0.1, 0.8, 0.1,  // Prediction: class 1, Target: class 1 ✓
-            0.7, 0.2, 0.1,  // Prediction: class 0, Target: class 1, but class 1 in top-2 ✓
+            0.1, 0.8, 0.1, // Prediction: class 1, Target: class 1 ✓
+            0.7, 0.2, 0.1, // Prediction: class 0, Target: class 1, but class 1 in top-2 ✓
         ];
         let targets = vec![1, 1];
-        
+
         let top1_acc = WasmMetrics::top_k_accuracy(logits.clone(), targets.clone(), 3, 1);
         let top2_acc = WasmMetrics::top_k_accuracy(logits, targets, 3, 2);
-        
+
         assert_eq!(top1_acc, 0.5); // Only first sample correct for top-1
         assert_eq!(top2_acc, 1.0); // Both samples correct for top-2
     }

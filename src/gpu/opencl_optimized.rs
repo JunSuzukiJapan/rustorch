@@ -656,6 +656,7 @@ impl OpenClMatrixExecutor {
 ///
 /// Execute OpenCL matrix multiplication
 /// OpenCL行列乗算を実行
+#[allow(clippy::many_single_char_names)] // Matrix dimensions m,n,k and matrices a,b,c are standard in linear algebra
 pub fn opencl_matmul_f32(
     a: &[f32],
     b: &[f32],

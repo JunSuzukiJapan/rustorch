@@ -261,14 +261,30 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "=== PR: Running lightweight benchmarks ==="
+            # linalg機能依存のベンチマークを除外
             timeout 300s cargo bench --no-default-features \
               --bench simple_performance_test \
               --bench quick_benchmark \
-              --bench quick_matrix_benchmark \
-              --bench tensor_ops || echo "Lightweight benchmarks completed"
+              --bench tensor_ops \
+              --bench distributions_benchmark || echo "Lightweight benchmarks completed"
           else
-            echo "=== Main branch: Running full benchmark suite ==="
-            timeout 900s cargo bench --no-default-features || echo "Full benchmarks completed"
+            echo "=== Main branch: Running feature-compatible benchmark suite ==="
+            # 機能依存のないベンチマークのみ実行
+            timeout 900s cargo bench --no-default-features \
+              --bench simple_performance_test \
+              --bench quick_benchmark \
+              --bench tensor_ops \
+              --bench distributions_benchmark \
+              --bench simple_distributions_bench \
+              --bench micro_distributions_benchmark \
+              --bench quick_distributions_benchmark \
+              --bench special_functions_benchmark \
+              --bench fft_benchmark \
+              --bench memory_pool \
+              --bench mixed_precision_benchmark \
+              --bench nn_benchmark \
+              --bench simple_gpu_bench \
+              --bench manual_quick_bench || echo "Compatible benchmarks completed"
           fi
 
       - name: Store benchmark results
@@ -280,6 +296,39 @@ jobs:
           output-file-path: target/criterion/reports/index.html
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
+
+  # Feature-enabled benchmarks (with linalg)
+  benchmark_linalg:
+    name: Linear Algebra Benchmarks
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libopenblas-dev \
+            liblapack-dev \
+            libblas-dev \
+            pkg-config
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
+      - name: Run linalg-dependent benchmarks
+        run: |
+          echo "=== Running linalg-dependent benchmarks ==="
+          timeout 600s cargo bench --features "linalg" \
+            --bench quick_matrix_benchmark \
+            --bench matrix_decomposition_benchmark \
+            --bench matrix_decomp_micro_bench \
+            --bench optimized_matrix_benchmark || echo "Linalg benchmarks completed"
 
   # Docker builds
   docker:

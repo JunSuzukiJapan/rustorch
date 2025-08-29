@@ -196,26 +196,30 @@ where
             y * u.powf(T::one() / shape)
         } else {
             // Marsaglia-Tsang algorithm for shape >= 1
-            let d = shape - T::from(1.0 / 3.0).unwrap();
-            let c = T::one() / (T::from(9.0).unwrap() * d).sqrt();
+            #[allow(clippy::many_single_char_names)]
+            // Mathematical variables d, c, x, v, u are conventional in statistical algorithms
+            {
+                let d = shape - T::from(1.0 / 3.0).unwrap();
+                let c = T::one() / (T::from(9.0).unwrap() * d).sqrt();
 
-            loop {
-                let mut x = DistributionUtils::random_normal_scalar::<T>();
-                let v = (T::one() + c * x).powi(3);
+                loop {
+                    let mut x = DistributionUtils::random_normal_scalar::<T>();
+                    let v = (T::one() + c * x).powi(3);
 
-                if v <= T::zero() {
-                    continue;
-                }
+                    if v <= T::zero() {
+                        continue;
+                    }
 
-                x = x * x;
-                let u = DistributionUtils::random_uniform_scalar::<T>();
+                    x = x * x;
+                    let u = DistributionUtils::random_uniform_scalar::<T>();
 
-                if u < T::one() - T::from(0.0331).unwrap() * x * x {
-                    return d * v;
-                }
+                    if u < T::one() - T::from(0.0331).unwrap() * x * x {
+                        return d * v;
+                    }
 
-                if u.ln() < T::from(0.5).unwrap() * x + d * (T::one() - v + v.ln()) {
-                    return d * v;
+                    if u.ln() < T::from(0.5).unwrap() * x + d * (T::one() - v + v.ln()) {
+                        return d * v;
+                    }
                 }
             }
         }

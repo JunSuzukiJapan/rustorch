@@ -193,23 +193,28 @@ where
 
         if shape >= T::one() {
             // Use Marsaglia-Tsang method for α >= 1
-            let d = shape - T::from(1.0 / 3.0).unwrap();
-            let c = T::one() / (T::from(9.0).unwrap() * d).sqrt();
+            #[allow(clippy::many_single_char_names)]
+            // Mathematical variables d, c, x, v, u are conventional in gamma distribution algorithm
+            {
+                let d = shape - T::from(1.0 / 3.0).unwrap();
+                let c = T::one() / (T::from(9.0).unwrap() * d).sqrt();
 
-            loop {
-                let x: T = rng.gen_range(T::from(-4.0).unwrap()..T::from(4.0).unwrap());
-                let v = (T::one() + c * x).powi(3);
+                loop {
+                    let x: T = rng.gen_range(T::from(-4.0).unwrap()..T::from(4.0).unwrap());
+                    let v = (T::one() + c * x).powi(3);
 
-                if v > T::zero() {
-                    let u: T = rng.gen_range(T::zero()..T::one());
-                    let x_squared = x * x;
+                    if v > T::zero() {
+                        let u: T = rng.gen_range(T::zero()..T::one());
+                        let x_squared = x * x;
 
-                    if u < T::one() - T::from(0.0331).unwrap() * x_squared * x_squared {
-                        return d * v;
-                    }
+                        if u < T::one() - T::from(0.0331).unwrap() * x_squared * x_squared {
+                            return d * v;
+                        }
 
-                    if u.ln() < T::from(0.5).unwrap() * x_squared + d * (T::one() - v + v.ln()) {
-                        return d * v;
+                        if u.ln() < T::from(0.5).unwrap() * x_squared + d * (T::one() - v + v.ln())
+                        {
+                            return d * v;
+                        }
                     }
                 }
             }

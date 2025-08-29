@@ -1,11 +1,12 @@
-//! Build script for RusTorch
-//! RusTorch用ビルドスクリプト
+//! Build script for `RusTorch`
+//! `RusTorch`用ビルドスクリプト
 //!
 //! This build script ensures proper linking of LAPACK/BLAS libraries
 //! when using the linalg-system feature.
 
 use std::env;
 
+#[allow(clippy::too_many_lines)] // Build script with platform-specific logic requires many lines
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
 
@@ -76,23 +77,23 @@ fn main() {
 
                 for path in &arch_paths {
                     // Check OpenBLAS variants
-                    if std::path::Path::new(&format!("{}/libopenblas.so.0", path)).exists()
-                        || std::path::Path::new(&format!("{}/libopenblas.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists()
+                    if std::path::Path::new(&format!("{path}/libopenblas.so.0")).exists()
+                        || std::path::Path::new(&format!("{path}/libopenblas.so")).exists()
+                        || std::path::Path::new(&format!("{path}/libopenblas.a")).exists()
                     {
                         openblas_available = true;
                     }
 
                     // Check separate BLAS libraries
-                    if std::path::Path::new(&format!("{}/libblas.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/libblas.a", path)).exists()
+                    if std::path::Path::new(&format!("{path}/libblas.so")).exists()
+                        || std::path::Path::new(&format!("{path}/libblas.a")).exists()
                     {
                         separate_blas_available = true;
                     }
 
                     // Check separate LAPACK libraries
-                    if std::path::Path::new(&format!("{}/liblapack.so", path)).exists()
-                        || std::path::Path::new(&format!("{}/liblapack.a", path)).exists()
+                    if std::path::Path::new(&format!("{path}/liblapack.so")).exists()
+                        || std::path::Path::new(&format!("{path}/liblapack.a")).exists()
                     {
                         separate_lapack_available = true;
                     }
@@ -101,23 +102,21 @@ fn main() {
                 // Also check common system paths
                 for common_path in &["/usr/lib", "/usr/local/lib", "/opt/local/lib"] {
                     if !openblas_available
-                        && (std::path::Path::new(&format!("{}/libopenblas.so", common_path))
-                            .exists()
-                            || std::path::Path::new(&format!("{}/libopenblas.a", common_path))
+                        && (std::path::Path::new(&format!("{common_path}/libopenblas.so")).exists()
+                            || std::path::Path::new(&format!("{common_path}/libopenblas.a"))
                                 .exists())
                     {
                         openblas_available = true;
                     }
                     if !separate_blas_available
-                        && (std::path::Path::new(&format!("{}/libblas.so", common_path)).exists()
-                            || std::path::Path::new(&format!("{}/libblas.a", common_path)).exists())
+                        && (std::path::Path::new(&format!("{common_path}/libblas.so")).exists()
+                            || std::path::Path::new(&format!("{common_path}/libblas.a")).exists())
                     {
                         separate_blas_available = true;
                     }
                     if !separate_lapack_available
-                        && (std::path::Path::new(&format!("{}/liblapack.so", common_path)).exists()
-                            || std::path::Path::new(&format!("{}/liblapack.a", common_path))
-                                .exists())
+                        && (std::path::Path::new(&format!("{common_path}/liblapack.so")).exists()
+                            || std::path::Path::new(&format!("{common_path}/liblapack.a")).exists())
                     {
                         separate_lapack_available = true;
                     }
@@ -176,14 +175,14 @@ fn main() {
 
                 for path in &common_paths {
                     if !openblas_found
-                        && (std::path::Path::new(&format!("{}/libopenblas.so", path)).exists()
-                            || std::path::Path::new(&format!("{}/libopenblas.a", path)).exists())
+                        && (std::path::Path::new(&format!("{path}/libopenblas.so")).exists()
+                            || std::path::Path::new(&format!("{path}/libopenblas.a")).exists())
                     {
                         openblas_found = true;
                     }
                     if !separate_libs_found
-                        && std::path::Path::new(&format!("{}/liblapack.so", path)).exists()
-                        && std::path::Path::new(&format!("{}/libblas.so", path)).exists()
+                        && std::path::Path::new(&format!("{path}/liblapack.so")).exists()
+                        && std::path::Path::new(&format!("{path}/libblas.so")).exists()
                     {
                         separate_libs_found = true;
                     }
@@ -205,7 +204,7 @@ fn main() {
         // Additional custom library paths (Unix systems only)
         if cfg!(unix) {
             if let Ok(lib_dir) = env::var("RUSTORCH_LIB_DIR") {
-                println!("cargo:rustc-link-search=native={}", lib_dir);
+                println!("cargo:rustc-link-search=native={lib_dir}");
             }
         }
     }

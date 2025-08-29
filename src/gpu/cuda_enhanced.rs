@@ -340,7 +340,7 @@ impl CudaMatrixExecutor {
 ///
 /// Execute CUDA matrix multiplication with cuBLAS
 /// cuBLASを使用したCUDA行列乗算を実行
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::many_single_char_names)] // Matrix dimensions m,n,k and matrices a,b,c are standard in linear algebra
 pub fn cuda_matmul_f32(
     a: &[f32],
     b: &[f32],

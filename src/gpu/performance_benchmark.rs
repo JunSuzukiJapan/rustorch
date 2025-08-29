@@ -183,11 +183,11 @@ impl PerformanceBenchmark {
         println!("---------------------------------------");
 
         let sizes = vec![
-            1024,     // 1K elements
-            65536,    // 64K elements
-            1048576,  // 1M elements
-            16777216, // 16M elements
-            67108864, // 64M elements
+            1024,       // 1K elements
+            65536,      // 64K elements
+            1_048_576,  // 1M elements
+            16_777_216, // 16M elements
+            67_108_864, // 64M elements
         ];
 
         for &size in &sizes {
@@ -235,7 +235,7 @@ impl PerformanceBenchmark {
         println!("\n📊 Benchmarking Reduction Operations");
         println!("------------------------------------");
 
-        let sizes = vec![1024, 65536, 1048576, 16777216, 67108864];
+        let sizes = vec![1024, 65536, 1_048_576, 16_777_216, 67_108_864];
 
         for &size in &sizes {
             self.benchmark_reduce_sum(size)?;
@@ -252,7 +252,7 @@ impl PerformanceBenchmark {
         println!("\n📊 Benchmarking Neural Network Operations");
         println!("----------------------------------------");
 
-        let sizes = vec![1024, 65536, 1048576, 4194304];
+        let sizes = vec![1024, 65536, 1_048_576, 4_194_304];
 
         for &size in &sizes {
             self.benchmark_relu_activation(size)?;

@@ -297,8 +297,15 @@ pub mod tensorboard;
 /// テストユーティリティとヘルパー
 #[cfg(test)]
 pub mod test_utils;
-/// Training loop abstractions and utilities
+/// Training loop abstractions and utilities  
 /// 学習ループの抽象化とユーティリティ
+///
+/// This module provides comprehensive training infrastructure including:
+/// - Model checkpoint management for saving and restoring training state
+/// - Early stopping implementation to prevent overfitting  
+/// - Metrics collection and computation for training monitoring
+/// - Generic training loop implementation for various model types
+/// - Training state management for session persistence
 pub mod training;
 /// Utility functions
 /// ユーティリティ関数

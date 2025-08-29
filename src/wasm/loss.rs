@@ -108,7 +108,7 @@ impl WasmLoss {
             .map(|(pred, target)| {
                 // Clip predictions to avoid log(0) or log(1)
                 let clipped_pred = pred.max(epsilon).min(1.0 - epsilon);
-                
+
                 -target * clipped_pred.ln() - (1.0 - target) * (1.0 - clipped_pred).ln()
             })
             .sum();
@@ -130,7 +130,7 @@ impl WasmLoss {
 
         // Apply softmax to logits first
         let softmax_probs = Self::softmax(&logits);
-        
+
         let epsilon = 1e-7;
         let sum_cross_entropy: f32 = softmax_probs
             .iter()
@@ -148,12 +148,12 @@ impl WasmLoss {
     /// logits: \[batch_size * num_classes\], targets: \[batch_size\] (class indices)
     #[wasm_bindgen]
     pub fn sparse_cross_entropy_loss(
-        logits: Vec<f32>, 
-        targets: Vec<u32>, 
-        num_classes: usize
+        logits: Vec<f32>,
+        targets: Vec<u32>,
+        num_classes: usize,
     ) -> f32 {
         let batch_size = targets.len();
-        
+
         if logits.len() != batch_size * num_classes {
             panic!("Logits size must equal batch_size * num_classes");
         }
@@ -172,10 +172,10 @@ impl WasmLoss {
             // Extract logits for this batch sample
             let start_idx = batch_idx * num_classes;
             let batch_logits: Vec<f32> = logits[start_idx..start_idx + num_classes].to_vec();
-            
+
             // Apply softmax
             let softmax_probs = Self::softmax(&batch_logits);
-            
+
             // Compute cross-entropy for target class
             let epsilon = 1e-7;
             let target_prob = softmax_probs[target_class as usize].max(epsilon);
@@ -215,12 +215,7 @@ impl WasmLoss {
     /// Focal loss for handling class imbalance
     /// FL(pt) = -α(1-pt)^γ log(pt)
     #[wasm_bindgen]
-    pub fn focal_loss(
-        predictions: Vec<f32>, 
-        targets: Vec<f32>, 
-        alpha: f32, 
-        gamma: f32
-    ) -> f32 {
+    pub fn focal_loss(predictions: Vec<f32>, targets: Vec<f32>, alpha: f32, gamma: f32) -> f32 {
         if predictions.len() != targets.len() {
             panic!("Predictions and targets must have the same length");
         }
@@ -236,8 +231,12 @@ impl WasmLoss {
             .zip(targets.iter())
             .map(|(pred, target)| {
                 let clipped_pred = pred.max(epsilon).min(1.0 - epsilon);
-                let pt = if *target == 1.0 { clipped_pred } else { 1.0 - clipped_pred };
-                
+                let pt = if *target == 1.0 {
+                    clipped_pred
+                } else {
+                    1.0 - clipped_pred
+                };
+
                 -alpha * (1.0 - pt).powf(gamma) * pt.ln()
             })
             .sum();
@@ -353,11 +352,7 @@ impl WasmLoss {
     /// Combined loss function selector
     /// 損失関数セレクター
     #[wasm_bindgen]
-    pub fn compute_loss(
-        predictions: Vec<f32>,
-        targets: Vec<f32>,
-        loss_type: &str,
-    ) -> f32 {
+    pub fn compute_loss(predictions: Vec<f32>, targets: Vec<f32>, loss_type: &str) -> f32 {
         match loss_type.to_lowercase().as_str() {
             "mse" | "mean_squared_error" => Self::mse_loss(predictions, targets),
             "mae" | "mean_absolute_error" => Self::mae_loss(predictions, targets),
@@ -369,7 +364,9 @@ impl WasmLoss {
             "squared_hinge" => Self::squared_hinge_loss(predictions, targets),
             "log_cosh" => Self::log_cosh_loss(predictions, targets),
             _ => {
-                web_sys::console::warn_1(&format!("Unknown loss type: {}, using MSE", loss_type).into());
+                web_sys::console::warn_1(
+                    &format!("Unknown loss type: {}, using MSE", loss_type).into(),
+                );
                 Self::mse_loss(predictions, targets)
             }
         }
@@ -385,10 +382,7 @@ impl WasmLoss {
         let max_val = logits.iter().copied().fold(f32::NEG_INFINITY, f32::max);
 
         // Compute exp(x - max) for each element
-        let exp_values: Vec<f32> = logits
-            .iter()
-            .map(|&x| (x - max_val).exp())
-            .collect();
+        let exp_values: Vec<f32> = logits.iter().map(|&x| (x - max_val).exp()).collect();
 
         // Compute sum of exponentials
         let sum_exp: f32 = exp_values.iter().sum();
@@ -404,11 +398,7 @@ impl WasmLoss {
     /// Get loss function gradient for backpropagation
     /// 逆伝播用の損失関数勾配を取得
     #[wasm_bindgen]
-    pub fn loss_gradient(
-        predictions: Vec<f32>,
-        targets: Vec<f32>,
-        loss_type: &str,
-    ) -> Vec<f32> {
+    pub fn loss_gradient(predictions: Vec<f32>, targets: Vec<f32>, loss_type: &str) -> Vec<f32> {
         if predictions.len() != targets.len() {
             panic!("Predictions and targets must have the same length");
         }
@@ -537,10 +527,10 @@ mod tests {
     fn test_loss_selector() {
         let predictions = vec![1.0, 2.0, 3.0];
         let targets = vec![1.1, 2.1, 3.1];
-        
+
         let mse_loss = WasmLoss::compute_loss(predictions.clone(), targets.clone(), "mse");
         let mae_loss = WasmLoss::compute_loss(predictions.clone(), targets.clone(), "mae");
-        
+
         assert!(mse_loss > 0.0);
         assert!(mae_loss > 0.0);
     }
@@ -549,14 +539,14 @@ mod tests {
     fn test_loss_gradients() {
         let predictions = vec![1.0, 2.0];
         let targets = vec![0.5, 1.5];
-        
+
         let gradients = WasmLoss::loss_gradient(predictions, targets, "mse");
         assert_eq!(gradients.len(), 2);
-        
+
         // MSE gradient should be 2*(pred - target)/n
         let expected_grad_1 = 2.0 * (1.0 - 0.5) / 2.0; // = 0.5
         let expected_grad_2 = 2.0 * (2.0 - 1.5) / 2.0; // = 0.5
-        
+
         assert!((gradients[0] - expected_grad_1).abs() < 1e-6);
         assert!((gradients[1] - expected_grad_2).abs() < 1e-6);
     }

@@ -425,8 +425,8 @@ impl ModelLoader {
         if let Some(extension) = path.extension() {
             match extension.to_str() {
                 Some("json") => Ok(SerializationFormat::Json),
-                Some("bin") | Some("dat") => Ok(SerializationFormat::Binary),
-                Some("msgpack") | Some("mp") => Ok(SerializationFormat::MessagePack),
+                Some("bin" | "dat") => Ok(SerializationFormat::Binary),
+                Some("msgpack" | "mp") => Ok(SerializationFormat::MessagePack),
                 _ => Err(LoadError::FormatError(format!(
                     "Unknown file extension: {:?}",
                     extension

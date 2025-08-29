@@ -141,6 +141,7 @@ where
 
 /// Multi-threaded matrix multiplication using Rayon
 /// Rayon使用によるマルチスレッド行列乗算
+#[allow(clippy::many_single_char_names)] // Matrix dimensions m,n,k and matrices a,b are standard in linear algebra
 pub fn multithreaded_matmul<T>(a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,

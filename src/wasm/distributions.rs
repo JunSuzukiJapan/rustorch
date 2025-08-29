@@ -86,13 +86,13 @@ impl WasmNormal {
         // Box-Muller transform
         let u1 = self.rng.uniform();
         let u2 = self.rng.uniform();
-        
+
         let z0 = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
         let z1 = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).sin();
-        
+
         self.spare = z1;
         self.has_spare = true;
-        
+
         self.mean + self.std_dev * z0
     }
 
@@ -258,7 +258,11 @@ impl WasmBernoulli {
     /// Sample single value (0 or 1)
     #[wasm_bindgen]
     pub fn sample(&mut self) -> u32 {
-        if self.rng.uniform() < self.p { 1 } else { 0 }
+        if self.rng.uniform() < self.p {
+            1
+        } else {
+            0
+        }
     }
 
     /// Sample multiple values
@@ -425,10 +429,10 @@ mod tests {
         let mut normal = WasmNormal::new(0.0, 1.0, 42);
         let sample = normal.sample();
         assert!(!sample.is_nan());
-        
+
         let pdf_val = normal.pdf(0.0);
         assert!(pdf_val > 0.0);
-        
+
         let cdf_val = normal.cdf(0.0);
         assert!((cdf_val - 0.5).abs() < 0.01);
     }
@@ -438,10 +442,10 @@ mod tests {
         let mut uniform = WasmUniform::new(0.0, 1.0, 123);
         let sample = uniform.sample();
         assert!(sample >= 0.0 && sample < 1.0);
-        
+
         let pdf_val = uniform.pdf(0.5);
         assert_eq!(pdf_val, 1.0);
-        
+
         let cdf_val = uniform.cdf(0.5);
         assert_eq!(cdf_val, 0.5);
     }
@@ -451,7 +455,7 @@ mod tests {
         let mut bernoulli = WasmBernoulli::new(0.5, 456).unwrap();
         let sample = bernoulli.sample();
         assert!(sample == 0 || sample == 1);
-        
+
         let pmf_0 = bernoulli.pmf(0);
         let pmf_1 = bernoulli.pmf(1);
         assert_eq!(pmf_0, 0.5);
@@ -463,10 +467,10 @@ mod tests {
         let mut exp = WasmExponential::new(1.0, 789).unwrap();
         let sample = exp.sample();
         assert!(sample >= 0.0);
-        
+
         let pdf_val = exp.pdf(1.0);
         assert!(pdf_val > 0.0);
-        
+
         let mean = exp.mean();
         assert_eq!(mean, 1.0);
     }
