@@ -340,7 +340,7 @@
 <a href=#340 id=340 data-nosnippet>340</a>///
 <a href=#341 id=341 data-nosnippet>341</a>/// Execute CUDA matrix multiplication with cuBLAS
 <a href=#342 id=342 data-nosnippet>342</a>/// cuBLASを使用したCUDA行列乗算を実行
-<a href=#343 id=343 data-nosnippet>343</a></span><span class="attr">#[allow(clippy::too_many_arguments)]
+<a href=#343 id=343 data-nosnippet>343</a></span><span class="attr">#[allow(clippy::too_many_arguments, clippy::many_single_char_names)] </span><span class="comment">// Matrix dimensions m,n,k and matrices a,b,c are standard in linear algebra
 <a href=#344 id=344 data-nosnippet>344</a></span><span class="kw">pub fn </span>cuda_matmul_f32(
 <a href=#345 id=345 data-nosnippet>345</a>    a: <span class="kw-2">&amp;</span>[f32],
 <a href=#346 id=346 data-nosnippet>346</a>    b: <span class="kw-2">&amp;</span>[f32],

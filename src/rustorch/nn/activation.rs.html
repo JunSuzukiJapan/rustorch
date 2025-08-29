@@ -276,8 +276,8 @@
 <a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">let </span>input_data = x.data().read().unwrap().clone();
 <a href=#277 id=277 data-nosnippet>277</a>
 <a href=#278 id=278 data-nosnippet>278</a>    <span class="comment">// SELU with fixed parameters: alpha = 1.6732632423543772848170429916717, scale = 1.0507009873554804934193349852946
-<a href=#279 id=279 data-nosnippet>279</a>    </span><span class="kw">let </span>alpha = T::from(<span class="number">1.6732632423543772848170429916717f32</span>).unwrap();
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>scale = T::from(<span class="number">1.0507009873554804934193349852946f32</span>).unwrap();
+<a href=#279 id=279 data-nosnippet>279</a>    </span><span class="kw">let </span>alpha = T::from(<span class="number">1.673_263_242_354_377_284_817_042_991_671_7_f32</span>).unwrap();
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>scale = T::from(<span class="number">1.050_700_987_355_480_493_419_334_985_294_6_f32</span>).unwrap();
 <a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">let </span>output_data = apply_selu(<span class="kw-2">&amp;</span>input_data, alpha, scale);
 <a href=#282 id=282 data-nosnippet>282</a>
 <a href=#283 id=283 data-nosnippet>283</a>    <span class="kw">if </span>x.requires_grad() {

@@ -425,8 +425,8 @@
 <a href=#425 id=425 data-nosnippet>425</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(extension) = path.extension() {
 <a href=#426 id=426 data-nosnippet>426</a>            <span class="kw">match </span>extension.to_str() {
 <a href=#427 id=427 data-nosnippet>427</a>                <span class="prelude-val">Some</span>(<span class="string">"json"</span>) =&gt; <span class="prelude-val">Ok</span>(SerializationFormat::Json),
-<a href=#428 id=428 data-nosnippet>428</a>                <span class="prelude-val">Some</span>(<span class="string">"bin"</span>) | <span class="prelude-val">Some</span>(<span class="string">"dat"</span>) =&gt; <span class="prelude-val">Ok</span>(SerializationFormat::Binary),
-<a href=#429 id=429 data-nosnippet>429</a>                <span class="prelude-val">Some</span>(<span class="string">"msgpack"</span>) | <span class="prelude-val">Some</span>(<span class="string">"mp"</span>) =&gt; <span class="prelude-val">Ok</span>(SerializationFormat::MessagePack),
+<a href=#428 id=428 data-nosnippet>428</a>                <span class="prelude-val">Some</span>(<span class="string">"bin" </span>| <span class="string">"dat"</span>) =&gt; <span class="prelude-val">Ok</span>(SerializationFormat::Binary),
+<a href=#429 id=429 data-nosnippet>429</a>                <span class="prelude-val">Some</span>(<span class="string">"msgpack" </span>| <span class="string">"mp"</span>) =&gt; <span class="prelude-val">Ok</span>(SerializationFormat::MessagePack),
 <a href=#430 id=430 data-nosnippet>430</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(LoadError::FormatError(<span class="macro">format!</span>(
 <a href=#431 id=431 data-nosnippet>431</a>                    <span class="string">"Unknown file extension: {:?}"</span>,
 <a href=#432 id=432 data-nosnippet>432</a>                    extension

@@ -119,12 +119,12 @@
 <a href=#119 id=119 data-nosnippet>119</a>    /// CDF計算のための誤差関数近似
 <a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">fn </span>erf_approx(x: T) -&gt; T {
 <a href=#121 id=121 data-nosnippet>121</a>        <span class="comment">// Abramowitz and Stegun approximation
-<a href=#122 id=122 data-nosnippet>122</a>        </span><span class="kw">let </span>a1 = T::from(<span class="number">0.254829592</span>).unwrap();
-<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">let </span>a2 = T::from(-<span class="number">0.284496736</span>).unwrap();
-<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>a3 = T::from(<span class="number">1.421413741</span>).unwrap();
-<a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">let </span>a4 = T::from(-<span class="number">1.453152027</span>).unwrap();
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">let </span>a5 = T::from(<span class="number">1.061405429</span>).unwrap();
-<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span>p = T::from(<span class="number">0.3275911</span>).unwrap();
+<a href=#122 id=122 data-nosnippet>122</a>        </span><span class="kw">let </span>a1 = T::from(<span class="number">0.254_829_592</span>).unwrap();
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">let </span>a2 = T::from(-<span class="number">0.284_496_736</span>).unwrap();
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>a3 = T::from(<span class="number">1.421_413_741</span>).unwrap();
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">let </span>a4 = T::from(-<span class="number">1.453_152_027</span>).unwrap();
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">let </span>a5 = T::from(<span class="number">1.061_405_429</span>).unwrap();
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span>p = T::from(<span class="number">0.327_591_1</span>).unwrap();
 <a href=#128 id=128 data-nosnippet>128</a>
 <a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>sign = <span class="kw">if </span>x &gt;= T::zero() {
 <a href=#130 id=130 data-nosnippet>130</a>            T::one()
