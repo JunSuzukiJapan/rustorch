@@ -713,7 +713,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     /// 対称行列の固有値分解 - torch.symeig互換
     ///
     /// Returns (eigenvalues, eigenvectors) where:
-    /// - eigenvalues: real eigenvalues as [n] tensor (sorted in ascending order if upper=false)
+    /// - eigenvalues: real eigenvalues as \[n\] tensor (sorted in ascending order if upper=false)
     /// - eigenvectors: orthonormal eigenvectors as [n, n] tensor (if eigenvectors=true)
     pub fn symeig(&self, eigenvectors: bool, upper: bool) -> Result<(Self, Option<Self>), String> {
         if self.ndim() != 2 {

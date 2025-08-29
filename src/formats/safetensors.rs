@@ -18,9 +18,17 @@ use std::path::Path;
 
 #[cfg(feature = "safetensors")]
 #[derive(Debug)]
+/// Errors that can occur during safetensors operations
+/// Safetensors操作中に発生する可能性のあるエラー
 pub enum SafetensorsError {
+    /// IO error during file operations
+    /// ファイル操作中のIOエラー
     IoError(std::io::Error),
+    /// Safetensors library error
+    /// Safetensorsライブラリエラー
     SafetensorsError(safetensors::SafeTensorError),
+    /// Data conversion error
+    /// データ変換エラー
     ConversionError(String),
 }
 

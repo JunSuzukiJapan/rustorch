@@ -13,9 +13,11 @@ keywords = ["pytorch", "machine-learning", "tensor", "fft", "matrix-decompositio
 categories = ["science", "algorithms"]
 
 [package.metadata.docs.rs]
-# ドキュメントビルドの設定
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+# ドキュメントビルドの設定 - 外部依存関係のない機能のみ
+features = ["wasm", "model-import", "safetensors"]
+rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
+# GPU機能とMPI/NCCLは除外（外部ライブラリ依存関係を回避）
+# 日本語テキストのfalse positiveリンクエラーを許可
 
 [package.metadata.rust-analyzer]
 # 開発時の依存関係の最適化

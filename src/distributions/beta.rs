@@ -15,7 +15,7 @@ use std::marker::PhantomData;
 /// - concentration1 (α): first shape parameter (must be positive)
 /// - concentration0 (β): second shape parameter (must be positive)
 ///
-/// PDF: f(x) = (Γ(α+β) / (Γ(α)Γ(β))) * x^(α-1) * (1-x)^(β-1) for x ∈ [0,1]
+/// PDF: f(x) = (Γ(α+β) / (Γ(α)Γ(β))) * x^(α-1) * (1-x)^(β-1) for x ∈ \[0,1\]
 #[derive(Debug, Clone)]
 pub struct Beta<T: Float> {
     /// First concentration parameter (α)

@@ -223,6 +223,8 @@ pub struct WasmMemoryMonitor {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl WasmMemoryMonitor {
+    /// Create a new memory usage monitor
+    /// 新しいメモリ使用量モニターを作成
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {

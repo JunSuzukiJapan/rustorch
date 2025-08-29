@@ -145,7 +145,7 @@ impl WasmLoss {
     }
 
     /// Sparse cross-entropy loss (targets as class indices instead of one-hot)
-    /// logits: [batch_size * num_classes], targets: [batch_size] (class indices)
+    /// logits: \[batch_size * num_classes\], targets: \[batch_size\] (class indices)
     #[wasm_bindgen]
     pub fn sparse_cross_entropy_loss(
         logits: Vec<f32>, 

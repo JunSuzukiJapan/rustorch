@@ -27,6 +27,8 @@ pub struct WasmPerformance {
 #[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl WasmPerformance {
+    /// Create a new performance monitor
+    /// 新しいパフォーマンスモニターを作成
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
