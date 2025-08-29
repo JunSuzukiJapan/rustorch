@@ -20,7 +20,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more
 - ⚡ **SIMD Optimizations**: AVX2/SSE4.1 vectorized operations for high performance
 - 🎮 **GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
-- 🌐 **WebAssembly Support**: Browser-compatible WASM bindings for client-side ML
+- 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
 - ✅ **Production Ready**: 739 tests passing (99.7% success rate), unified error handling system
 - 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
@@ -96,7 +96,31 @@ fn main() {
 }
 ```
 
-For more examples, see [Getting Started Guide](docs/getting-started.md).
+### WebAssembly Usage
+
+For browser-based ML applications:
+
+```javascript
+import init, * as rustorch from './pkg/rustorch.js';
+
+async function browserML() {
+    await init();
+    
+    // Neural network layers
+    const linear = new rustorch.WasmLinear(784, 10, true);
+    const conv = new rustorch.WasmConv2d(3, 32, 3, 1, 1, true);
+    
+    // Image processing
+    const resized = rustorch.WasmVision.resize(image, 256, 256, 224, 224, 3);
+    const normalized = rustorch.WasmVision.normalize(resized, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225], 3);
+    
+    // Forward pass
+    const predictions = conv.forward(normalized, 1, 224, 224);
+    console.log('Browser ML predictions:', predictions);
+}
+```
+
+For more examples, see [Getting Started Guide](docs/getting-started.md) and [WebAssembly Guide](docs/wasm/README.md).
 
 ## 📚 Documentation
 
@@ -106,6 +130,7 @@ For more examples, see [Getting Started Guide](docs/getting-started.md).
 - **[Architecture](docs/architecture.md)** - System design and project structure
 - **[Examples](docs/examples.md)** - Comprehensive code examples
 - **[API Documentation](https://docs.rs/rustorch)** - Detailed API reference
+- **[WebAssembly Guide](docs/wasm/README.md)** - Browser ML with WASM bindings
 - **[GPU Acceleration Guide](docs/GPU_ACCELERATION_GUIDE.md)** - GPU setup and usage
 - **[Production Guide](docs/PRODUCTION_GUIDE.md)** - Deployment and scaling
 

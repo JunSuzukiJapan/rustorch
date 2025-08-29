@@ -4,20 +4,26 @@
 //! This module provides comprehensive tests for all GPU operations
 //! including memory transfer, matrix operations, convolution, and reduction.
 
-// GPU tests are disabled on CI environments
+// GPU tests are disabled on CI environments and WASM
 #[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_arch = "wasm32"),
     not(target_os = "macos"),
     not(target_os = "linux"),
     not(target_os = "windows")
 ))]
 use rustorch::error::RusTorchResult;
 #[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_arch = "wasm32"),
     not(target_os = "macos"),
     not(target_os = "linux"),
     not(target_os = "windows")
 ))]
 use rustorch::gpu::DeviceManager;
 #[cfg(all(
+    not(target_arch = "wasm32"),
+    not(target_arch = "wasm32"),
     not(target_os = "macos"),
     not(target_os = "linux"),
     not(target_os = "windows")
@@ -29,12 +35,14 @@ use rustorch::tensor::Tensor;
 #[cfg(test)]
 mod matrix_operations_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use super::*;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -43,6 +51,7 @@ mod matrix_operations_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -75,6 +84,7 @@ mod matrix_operations_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -93,6 +103,7 @@ mod matrix_operations_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -115,18 +126,21 @@ mod matrix_operations_tests {
 #[cfg(test)]
 mod convolution_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use super::*;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use rustorch::backends::ConvolutionParams;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -135,6 +149,7 @@ mod convolution_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -169,6 +184,7 @@ mod convolution_tests {
 #[cfg(test)]
 mod reduction_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -177,6 +193,7 @@ mod reduction_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -195,6 +212,7 @@ mod reduction_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -212,6 +230,7 @@ mod reduction_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -235,6 +254,7 @@ mod reduction_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -265,12 +285,14 @@ mod reduction_tests {
 #[cfg(test)]
 mod parallel_operations_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use super::*;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -279,6 +301,7 @@ mod parallel_operations_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -303,18 +326,21 @@ mod parallel_operations_tests {
 #[cfg(test)]
 mod performance_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use super::*;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -323,6 +349,7 @@ mod performance_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -355,6 +382,7 @@ mod performance_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -390,12 +418,14 @@ mod performance_tests {
 #[cfg(test)]
 mod error_handling_tests {
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
     ))]
     use super::*;
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -404,6 +434,7 @@ mod error_handling_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -420,6 +451,7 @@ mod error_handling_tests {
 
     #[test]
     #[cfg(all(
+        not(target_arch = "wasm32"),
         not(target_os = "macos"),
         not(target_os = "linux"),
         not(target_os = "windows")
@@ -447,6 +479,7 @@ mod error_handling_tests {
 // Main test runner function
 #[test]
 #[cfg(all(
+    not(target_arch = "wasm32"),
     not(target_os = "macos"),
     not(target_os = "linux"),
     not(target_os = "windows")

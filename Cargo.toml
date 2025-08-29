@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -13,9 +13,11 @@ keywords = ["pytorch", "machine-learning", "tensor", "fft", "matrix-decompositio
 categories = ["science", "algorithms"]
 
 [package.metadata.docs.rs]
-# ドキュメントビルドの設定
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
+# ドキュメントビルドの設定 - 外部依存関係のない機能のみ
+features = ["wasm", "model-import", "safetensors"]
+rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
+# GPU機能とMPI/NCCLは除外（外部ライブラリ依存関係を回避）
+# 日本語テキストのfalse positiveリンクエラーを許可
 
 [package.metadata.rust-analyzer]
 # 開発時の依存関係の最適化

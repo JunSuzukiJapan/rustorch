@@ -80,13 +80,18 @@ impl ModelFormat {
     pub fn supports_feature(&self, feature: FormatFeature) -> bool {
         matches!(
             (self, feature),
-            (ModelFormat::Onnx, FormatFeature::GraphStructure)
-                | (ModelFormat::Onnx, FormatFeature::Metadata)
-                | (ModelFormat::Onnx, FormatFeature::Quantization)
-                | (ModelFormat::PyTorch, FormatFeature::DynamicShapes)
-                | (ModelFormat::PyTorch, FormatFeature::StateDict)
-                | (ModelFormat::TensorFlowLite, FormatFeature::Quantization)
-                | (ModelFormat::TensorFlowLite, FormatFeature::MobileOptimized)
+            (
+                ModelFormat::Onnx,
+                FormatFeature::GraphStructure
+                    | FormatFeature::Metadata
+                    | FormatFeature::Quantization
+            ) | (
+                ModelFormat::PyTorch,
+                FormatFeature::DynamicShapes | FormatFeature::StateDict
+            ) | (
+                ModelFormat::TensorFlowLite,
+                FormatFeature::Quantization | FormatFeature::MobileOptimized
+            )
         )
     }
 

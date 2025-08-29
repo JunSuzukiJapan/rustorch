@@ -119,12 +119,12 @@ where
     /// CDF計算のための誤差関数近似
     fn erf_approx(x: T) -> T {
         // Abramowitz and Stegun approximation
-        let a1 = T::from(0.254829592).unwrap();
-        let a2 = T::from(-0.284496736).unwrap();
-        let a3 = T::from(1.421413741).unwrap();
-        let a4 = T::from(-1.453152027).unwrap();
-        let a5 = T::from(1.061405429).unwrap();
-        let p = T::from(0.3275911).unwrap();
+        let a1 = T::from(0.254_829_592).unwrap();
+        let a2 = T::from(-0.284_496_736).unwrap();
+        let a3 = T::from(1.421_413_741).unwrap();
+        let a4 = T::from(-1.453_152_027).unwrap();
+        let a5 = T::from(1.061_405_429).unwrap();
+        let p = T::from(0.327_591_1).unwrap();
 
         let sign = if x >= T::zero() {
             T::one()

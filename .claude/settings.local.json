@@ -176,6 +176,11 @@
       "mcp__serena__write_memory",
       "mcp__serena__think_about_collected_information",
       "mcp__serena__list_memories",
+      "Read(//**)",
+      "Bash(RUSTDOCFLAGS=\"--deny warnings\" cargo doc --features \"wasm,model-import,safetensors\")",
+      "Bash(RUSTDOCFLAGS=\"--allow rustdoc::broken_intra_doc_links\" cargo doc --features \"wasm,model-import,safetensors\")",
+      "Bash(wasm-pack test:*)",
+      "Bash(open:*)",
       "Bash(do echo \"=== $file ===\")",
       "Bash(./test_performance)",
       "Bash(./benchmark_detailed)",
@@ -206,7 +211,9 @@
       "mcp__serena__find_symbol",
       "Bash(RUST_BACKTRACE=1 cargo test test_sum_operations -- --nocapture)",
       "Bash(./test_sum_debug)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(git rm:*)",
+      "Bash(gh pr:*)"
     ],
     "deny": [],
     "ask": [],
