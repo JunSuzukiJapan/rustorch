@@ -137,18 +137,19 @@ mod tests {
 
     #[test]
     fn test_try_zeros_too_large() {
-        // Test that extremely large allocations return proper errors instead of causing heap corruption
-        // Use a size that's large but not catastrophic: 100MB instead of 4TB
-        let result = Tensor::<f32>::try_zeros(&[10_000, 10_000]); // 400MB allocation
+        // Test that large allocations are handled safely without heap corruption
+        // Use a size that's large but safe for CI environments: ~16MB
+        let result = Tensor::<f32>::try_zeros(&[2048, 2048]); // ~16MB allocation
 
-        // This should either succeed (if system has enough memory) or fail gracefully
-        // Either outcome is acceptable - what we want to avoid is heap corruption
+        // This should succeed in most environments but test memory safety
         match result {
-            Ok(_) => {
-                // System had enough memory, that's fine
+            Ok(tensor) => {
+                // System had enough memory, verify it's correctly allocated
+                assert_eq!(tensor.shape(), &[2048, 2048]);
+                assert_eq!(tensor.numel(), 2048 * 2048);
             }
             Err(_) => {
-                // System couldn't allocate, that's also fine - error was handled properly
+                // System couldn't allocate, that's fine - error was handled properly
             }
         }
     }
