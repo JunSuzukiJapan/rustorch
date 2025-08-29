@@ -133,7 +133,9 @@ impl UnifiedKernelExecutor {
                         "Add requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].add(inputs[1]))
+                inputs[0]
+                    .add(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -141,7 +143,9 @@ impl UnifiedKernelExecutor {
                         "Mul requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].mul(inputs[1]))
+                inputs[0]
+                    .mul(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -149,7 +153,9 @@ impl UnifiedKernelExecutor {
                         "Sub requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].sub(inputs[1]))
+                inputs[0]
+                    .sub(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {
@@ -215,7 +221,9 @@ impl UnifiedKernelExecutor {
                         "Add requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].add(inputs[1]))
+                inputs[0]
+                    .add(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Mul => {
                 if inputs.len() != 2 {
@@ -223,7 +231,9 @@ impl UnifiedKernelExecutor {
                         "Mul requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].mul(inputs[1]))
+                inputs[0]
+                    .mul(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::Sub => {
                 if inputs.len() != 2 {
@@ -231,7 +241,9 @@ impl UnifiedKernelExecutor {
                         "Sub requires exactly 2 inputs",
                     ));
                 }
-                Ok(inputs[0].sub(inputs[1]))
+                inputs[0]
+                    .sub(inputs[1])
+                    .map_err(|e| RusTorchError::KernelExecutionError(e.to_string()))
             }
             KernelOp::MatMul => {
                 if inputs.len() != 2 {

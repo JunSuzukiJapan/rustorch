@@ -352,7 +352,7 @@ impl ConvOps {
         let a_data = a_binding.read().unwrap();
         let b_binding = b.data();
         let b_data = b_binding.read().unwrap();
-        let result_data = (&*a_data).add(&*b_data);
+        let result_data = (&*a_data).add(&*b_data).unwrap();
         Variable::new(result_data, a.requires_grad() || b.requires_grad())
     }
 

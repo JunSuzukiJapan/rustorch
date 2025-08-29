@@ -60,7 +60,7 @@ pub fn test_metal_tensor_operations() -> RusTorchResult<()> {
     let b = Tensor::<f32>::from_vec(vec![2.0, 3.0, 4.0, 5.0], vec![2, 2]);
 
     // Test basic CPU operations first
-    let cpu_result = (&a).add(&b);
+    let cpu_result = &a + &b;
     println!(
         "✅ CPU tensor addition successful: {:?}",
         cpu_result.data.as_slice()

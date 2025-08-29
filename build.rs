@@ -1,5 +1,5 @@
-//! Build script for RusTorch
-//! RusTorch用ビルドスクリプト
+//! Build script for `RusTorch`
+//! `RusTorch`用ビルドスクリプト
 //!
 //! This build script ensures proper linking of LAPACK/BLAS libraries
 //! when using the linalg-system feature.
@@ -205,7 +205,7 @@ fn main() {
         // Additional custom library paths (Unix systems only)
         if cfg!(unix) {
             if let Ok(lib_dir) = env::var("RUSTORCH_LIB_DIR") {
-                println!("cargo:rustc-link-search=native={}", lib_dir);
+                println!("cargo:rustc-link-search=native={lib_dir}");
             }
         }
     }
@@ -226,8 +226,8 @@ fn main() {
             .or_else(|_| env::var("CUDA_HOME"));
 
         if let Ok(cuda_root) = cuda_root {
-            println!("cargo:rustc-link-search=native={}/lib64", cuda_root);
-            println!("cargo:rustc-link-search=native={}/lib", cuda_root);
+            println!("cargo:rustc-link-search=native={cuda_root}/lib64");
+            println!("cargo:rustc-link-search=native={cuda_root}/lib");
         } else {
             // Try common CUDA installation paths
             for path in &cuda_paths {

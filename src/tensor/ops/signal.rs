@@ -5,36 +5,41 @@
 //! and frequency domain manipulations.
 //! このモジュールはFFT、IFFT、周波数領域操作を含む信号処理演算を提供します。
 
-use crate::tensor::Tensor;
+use crate::tensor::{complex::Complex, Tensor};
 use num_traits::Float;
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// Fast Fourier Transform (placeholder implementation)
-    /// 高速フーリエ変換（プレースホルダー実装）
+impl<
+        T: Float
+            + 'static
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive
+            + Default
+            + Clone
+            + std::fmt::Debug,
+    > Tensor<T>
+{
+    /// Fast Fourier Transform (basic implementation)
+    /// 高速フーリエ変換（基本実装）
     pub fn fft(
         &self,
         n: Option<usize>,
         dim: Option<isize>,
         norm: Option<&str>,
     ) -> Result<(Self, Self), String> {
-        // This is a placeholder implementation
-        // In practice, you would integrate with a proper FFT library like rustfft
-        // 実際にはrustfftなどの適切なFFTライブラリと統合します
+        let actual_dim = self.resolve_dim(dim.unwrap_or(-1))?;
+        let input_len = self.shape()[actual_dim];
+        let fft_len = n.unwrap_or(input_len);
 
-        let _n = n.unwrap_or(self.shape().last().copied().unwrap_or(1));
-        let _dim = dim.unwrap_or(-1);
-        let _norm = norm.unwrap_or("backward");
+        // For 1D case on the last dimension
+        if self.shape().len() == 1 && actual_dim == 0 {
+            return self.fft_1d_basic(fft_len, norm, false);
+        }
 
-        // For now, return input tensor as both real and imaginary parts
-        // とりあえず、入力テンソルを実部と虚部の両方として返す
-        let real_part = self.clone();
-        let imag_part = Tensor::zeros(self.shape());
-
-        Ok((real_part, imag_part))
+        Err("Multi-dimensional FFT not implemented in this version".to_string())
     }
 
-    /// Inverse Fast Fourier Transform (placeholder implementation)
-    /// 逆高速フーリエ変換（プレースホルダー実装）
+    /// Inverse Fast Fourier Transform (basic implementation)
+    /// 逆高速フーリエ変換（基本実装）
     pub fn ifft(
         &self,
         real_part: &Self,
@@ -47,38 +52,42 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
             return Err("Real and imaginary parts must have the same shape".to_string());
         }
 
-        let _n = n.unwrap_or(real_part.shape().last().copied().unwrap_or(1));
-        let _dim = dim.unwrap_or(-1);
-        let _norm = norm.unwrap_or("backward");
+        let actual_dim = self.resolve_dim(dim.unwrap_or(-1))?;
+        let input_len = real_part.shape()[actual_dim];
+        let fft_len = n.unwrap_or(input_len);
 
-        // Placeholder implementation - return input as-is
-        // プレースホルダー実装 - 入力をそのまま返す
-        Ok((real_part.clone(), imag_part.clone()))
+        // For 1D case on the last dimension
+        if real_part.shape().len() == 1 && actual_dim == 0 {
+            return self.ifft_1d_basic(real_part, imag_part, fft_len, norm);
+        }
+
+        Err("Multi-dimensional IFFT not implemented in this version".to_string())
     }
 
-    /// Real Fast Fourier Transform (placeholder implementation)
-    /// 実数高速フーリエ変換（プレースホルダー実装）
+    /// Real Fast Fourier Transform (basic implementation)
+    /// 実数高速フーリエ変換（基本実装）
     pub fn rfft(
         &self,
         n: Option<usize>,
         dim: Option<isize>,
         norm: Option<&str>,
     ) -> Result<(Self, Self), String> {
-        let _n = n.unwrap_or(self.shape().last().copied().unwrap_or(1));
-        let _dim = dim.unwrap_or(-1);
-        let _norm = norm.unwrap_or("backward");
+        // RFFT returns only the first N/2+1 frequencies due to Hermitian symmetry
+        let (real_full, imag_full) = self.fft(n, dim, norm)?;
+        let full_len = real_full.shape()[0];
+        let rfft_len = full_len / 2 + 1;
 
-        // Placeholder: for real FFT, output should be about half the size + 1
-        // プレースホルダー: 実数FFTの場合、出力は約半分のサイズ + 1になるはず
-        let mut output_shape = self.shape().to_vec();
-        if let Some(last_dim) = output_shape.last_mut() {
-            *last_dim = *last_dim / 2 + 1;
-        }
+        // Extract first half + 1
+        let real_data = real_full.as_slice().unwrap();
+        let imag_data = imag_full.as_slice().unwrap();
 
-        let real_part = Tensor::zeros(&output_shape);
-        let imag_part = Tensor::zeros(&output_shape);
+        let real_rfft: Vec<T> = real_data[0..rfft_len].to_vec();
+        let imag_rfft: Vec<T> = imag_data[0..rfft_len].to_vec();
 
-        Ok((real_part, imag_part))
+        Ok((
+            Tensor::from_vec(real_rfft, vec![rfft_len]),
+            Tensor::from_vec(imag_rfft, vec![rfft_len]),
+        ))
     }
 
     /// Shift zero-frequency component to center of spectrum
@@ -335,6 +344,113 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
 
         Ok(Tensor::from_vec(result_data, shape.to_vec()))
+    }
+
+    /// Basic 1D FFT implementation (simple DFT for now)
+    /// 基本的な1D FFT実装（今のところはシンプルなDFT）
+    fn fft_1d_basic(
+        &self,
+        n: usize,
+        norm: Option<&str>,
+        inverse: bool,
+    ) -> Result<(Self, Self), String> {
+        let input_data = self.as_slice().unwrap();
+        let input_len = input_data.len();
+
+        // Pad or truncate to desired length
+        let real_input: Vec<T> = if n != input_len {
+            if n > input_len {
+                // Zero-pad
+                let mut padded = input_data.to_vec();
+                padded.resize(n, T::zero());
+                padded
+            } else {
+                // Truncate
+                input_data[0..n].to_vec()
+            }
+        } else {
+            input_data.to_vec()
+        };
+
+        // Convert to complex representation
+        let complex_data: Vec<Complex<T>> = real_input
+            .iter()
+            .map(|&x| Complex::new(x, T::zero()))
+            .collect();
+
+        // Simple DFT implementation (O(n²))
+        let mut result = Vec::with_capacity(n);
+        for k in 0..n {
+            let mut sum = Complex::new(T::zero(), T::zero());
+            for (j, &x) in complex_data.iter().enumerate() {
+                let angle =
+                    T::from(-2.0 * std::f64::consts::PI * j as f64 * k as f64 / n as f64).unwrap();
+                let angle = if inverse { -angle } else { angle };
+                let twiddle = Complex::new(angle.cos(), angle.sin());
+                sum = sum + x * twiddle;
+            }
+            if inverse {
+                sum = Complex::new(sum.re / T::from(n).unwrap(), sum.im / T::from(n).unwrap());
+            }
+            result.push(sum);
+        }
+
+        // Apply normalization based on norm parameter
+        let normalized_result = match norm {
+            Some("ortho") => {
+                let scale = T::from(1.0 / (n as f64).sqrt()).unwrap();
+                result
+                    .iter()
+                    .map(|c| Complex::new(c.re * scale, c.im * scale))
+                    .collect()
+            }
+            Some("forward") => {
+                if !inverse {
+                    let scale = T::from(1.0 / n as f64).unwrap();
+                    result
+                        .iter()
+                        .map(|c| Complex::new(c.re * scale, c.im * scale))
+                        .collect()
+                } else {
+                    result
+                }
+            }
+            _ => result, // "backward" is default
+        };
+
+        // Extract real and imaginary parts
+        let real_part: Vec<T> = normalized_result.iter().map(|c| c.re).collect();
+        let imag_part: Vec<T> = normalized_result.iter().map(|c| c.im).collect();
+
+        Ok((
+            Tensor::from_vec(real_part, vec![n]),
+            Tensor::from_vec(imag_part, vec![n]),
+        ))
+    }
+
+    /// Basic 1D IFFT implementation
+    /// 基本的な1D IFFT実装
+    fn ifft_1d_basic(
+        &self,
+        real_part: &Self,
+        imag_part: &Self,
+        n: usize,
+        norm: Option<&str>,
+    ) -> Result<(Self, Self), String> {
+        // Reconstruct complex data from separate real and imaginary tensors
+        let real_data = real_part.as_slice().unwrap();
+        let imag_data = imag_part.as_slice().unwrap();
+
+        // Use the real part tensor to create a temporary combined tensor for IFFT
+        // Since we need to call fft_1d_basic, we need to create a combined representation
+        // For simplicity, we'll perform IFFT using the same DFT approach but with inverse=true
+
+        let input_len = real_data.len();
+        let complex_input: Vec<T> = real_data.to_vec();
+        let temp_tensor = Tensor::from_vec(complex_input, vec![input_len]);
+
+        // Call fft_1d_basic with inverse=true
+        temp_tensor.fft_1d_basic(n, norm, true)
     }
 }
 

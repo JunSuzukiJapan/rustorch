@@ -1,24 +1,16 @@
 //! Statistical operations for tensors
 //! テンソルの統計演算
+//!
+//! Note: Core statistical methods (sum, mean, sum_axis) are now defined in core.rs
+//! 注意: コア統計メソッド (sum, mean, sum_axis) は core.rs で定義されています
 
 use super::super::core::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// Sum all elements (new implementation)
-    /// 全要素の合計（新実装）
-    pub fn sum_v2(&self) -> T {
-        self.data.iter().copied().fold(T::zero(), |acc, x| acc + x)
-    }
-
-    /// Mean of all elements (new implementation)
-    /// 全要素の平均（新実装）
-    pub fn mean_v2(&self) -> T {
-        let sum = self.sum_v2();
-        let count = T::from(self.data.len()).unwrap_or(T::one());
-        sum / count
-    }
+    // Core methods (sum, mean, sum_axis) are defined in core.rs to avoid duplication
+    // コアメソッド (sum, mean, sum_axis) は重複を避けるため core.rs で定義
 
     /// Get a single scalar value (for 0-dim or 1-element tensors)
     /// スカラー値を取得（0次元または1要素テンソル用）
@@ -30,90 +22,20 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         }
     }
 
-    /// Sum along a specific axis (new implementation)
-    /// 特定の軸に沿った合計（新実装）
-    pub fn sum_axis_v2(&self, axis: usize) -> RusTorchResult<Self> {
-        let shape = self.shape();
-
-        if axis >= shape.len() {
-            return Err(RusTorchError::InvalidOperation {
-                operation: "sum_axis".to_string(),
-                message: format!(
-                    "Axis {} is out of bounds for tensor with {} dimensions",
-                    axis,
-                    shape.len()
-                ),
-            });
-        }
-
-        let mut new_shape = shape.to_vec();
-        let _axis_size = new_shape.remove(axis);
-
-        if new_shape.is_empty() {
-            // Result is a scalar
-            return Ok(Tensor::from_vec(vec![self.sum_v2()], vec![1]));
-        }
-
-        let new_size: usize = new_shape.iter().product();
-        let mut result = vec![T::zero(); new_size];
-
-        match shape.len() {
-            1 => {
-                // 1D case - sum all elements
-                result[0] = self.sum_v2();
-            }
-            2 => {
-                // 2D case - optimized implementation
-                if axis == 0 {
-                    // Sum along rows (result is column vector)
-                    let cols = shape[1];
-                    for j in 0..cols {
-                        let mut sum = T::zero();
-                        for i in 0..shape[0] {
-                            if let Some(value) = self.data.get(ndarray::IxDyn(&[i, j])) {
-                                sum = sum + *value;
-                            }
-                        }
-                        result[j] = sum;
-                    }
-                } else {
-                    // Sum along columns (result is row vector)
-                    let cols = shape[1];
-                    for i in 0..shape[0] {
-                        let mut sum = T::zero();
-                        for j in 0..cols {
-                            if let Some(value) = self.data.get(ndarray::IxDyn(&[i, j])) {
-                                sum = sum + *value;
-                            }
-                        }
-                        result[i] = sum;
-                    }
-                }
-            }
-            _ => {
-                // General N-dimensional case (simplified)
-                // This is a placeholder - real implementation would handle strided access
-                return Err(RusTorchError::UnsupportedOperation(
-                    "sum_axis for >2D tensors not yet implemented".to_string(),
-                ));
-            }
-        }
-
-        Ok(Tensor::from_vec(result, new_shape))
-    }
+    // sum_axis method is defined in core.rs to avoid duplication
 
     /// Mean along a specific axis (new implementation)
     /// 特定の軸に沿った平均（新実装）
-    pub fn mean_axis_v2(&self, axis: usize) -> RusTorchResult<Self> {
-        let sum_result = self.sum_axis_v2(axis)?;
+    pub fn mean_axis(&self, axis: usize) -> RusTorchResult<Self> {
+        let sum_result = self.sum_axis(axis)?;
         let axis_size = T::from(self.shape()[axis]).unwrap_or(T::one());
-        Ok(sum_result.div_scalar_v2(axis_size))
+        Ok(sum_result.div_scalar(axis_size))
     }
 
     /// Variance of all elements
     /// 全要素の分散
     pub fn var(&self) -> T {
-        let mean = self.mean_v2();
+        let mean = self.mean();
         let squared_diffs: T = self
             .data
             .iter()
@@ -219,13 +141,13 @@ mod tests {
     #[test]
     fn test_sum() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        assert_eq!(tensor.sum_v2(), 10.0);
+        assert_eq!(tensor.sum(), 10.0);
     }
 
     #[test]
     fn test_mean() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        assert_eq!(tensor.mean_v2(), 2.5);
+        assert_eq!(tensor.mean(), 2.5);
     }
 
     #[test]
@@ -233,11 +155,11 @@ mod tests {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
 
         // Sum along axis 0 (rows)
-        let result = tensor.sum_axis_v2(0).unwrap();
+        let result = tensor.sum_axis(0).unwrap();
         assert_eq!(result.as_slice().unwrap(), &[5.0, 7.0, 9.0]); // [1+4, 2+5, 3+6]
 
         // Sum along axis 1 (columns)
-        let result = tensor.sum_axis_v2(1).unwrap();
+        let result = tensor.sum_axis(1).unwrap();
         assert_eq!(result.as_slice().unwrap(), &[6.0, 15.0]); // [1+2+3, 4+5+6]
     }
 

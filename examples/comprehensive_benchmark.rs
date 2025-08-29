@@ -228,7 +228,7 @@ fn benchmark_advanced_operations() {
     let scalar_tensor = Tensor::<f32>::from_vec(vec![2.0], vec![1]);
     let start = Instant::now();
     for _ in 0..1000 {
-        let _result = tensor.add_v2(&scalar_tensor).unwrap();
+        let _result = tensor.add(&scalar_tensor).unwrap();
     }
     let broadcast_time = start.elapsed();
 

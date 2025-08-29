@@ -72,9 +72,9 @@ use num_traits::Float;
 /// Core tensor data structure
 /// コアテンソルデータ構造  
 pub mod core;
-/// Mathematical operations for tensors (legacy - will be phased out)
-/// テンソルの数学演算（レガシー - 段階的に廃止予定）
-// pub mod operations; // Temporarily disabled to avoid conflicts
+/// Mathematical operations for tensors (legacy - replaced by ops)
+/// テンソルの数学演算（レガシー - opsに置換）
+// pub mod operations; // Disabled - replaced by ops/ modules
 #[cfg(not(target_arch = "wasm32"))]
 mod pool_integration;
 #[cfg(test)]

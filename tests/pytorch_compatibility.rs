@@ -62,7 +62,7 @@ mod pytorch_compatibility_tests {
 
         // Broadcasting
         let scalar = Tensor::from_vec(vec![2.0], vec![1]);
-        let broadcast_result = tensor1.add_v2(&scalar).unwrap();
+        let broadcast_result = tensor1.add(&scalar).unwrap();
         println!("  ✓ Broadcasting with scalar");
         assert_eq!(broadcast_result.shape(), &[2, 2]);
 
@@ -229,7 +229,7 @@ mod pytorch_compatibility_tests {
         let y_grad_binding = y.grad();
         let y_grad = y_grad_binding.read().unwrap();
 
-        if let (Some(ref x_g), Some(ref y_g)) = (x_grad.as_ref(), y_grad.as_ref()) {
+        if let (Some(x_g), Some(y_g)) = (x_grad.as_ref(), y_grad.as_ref()) {
             let x_grad_val = x_g.as_array()[0];
             let y_grad_val = y_g.as_array()[0];
 
