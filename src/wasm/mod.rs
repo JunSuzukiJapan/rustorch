@@ -11,3 +11,21 @@ pub mod interop;
 pub mod optimized;
 #[cfg(feature = "wasm")]
 pub mod tensor;
+
+// New WASM-compatible modules
+#[cfg(feature = "wasm")]
+pub mod special; // Special mathematical functions
+#[cfg(feature = "wasm")]
+pub mod runtime; // Runtime utilities
+#[cfg(feature = "wasm")]
+pub mod memory; // Memory management
+#[cfg(feature = "wasm")]
+pub mod distributions; // Statistical distributions
+#[cfg(feature = "wasm")]
+pub mod signal; // Signal processing functions
+#[cfg(feature = "wasm")]
+pub mod activation; // Neural network activation functions
+#[cfg(feature = "wasm")]
+pub mod loss; // Loss functions
+#[cfg(feature = "wasm")]
+pub mod optimizer; // Optimization algorithms
