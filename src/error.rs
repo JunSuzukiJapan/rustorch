@@ -203,6 +203,15 @@ pub enum RusTorchError {
         source: Option<Box<dyn Error + Send + Sync>>,
     },
 
+    /// Profiling and performance analysis errors
+    /// プロファイリング・パフォーマンス分析エラー
+    #[error("Profiling error: {message}")]
+    Profiling {
+        /// Profiling error description
+        /// プロファイリングエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]
