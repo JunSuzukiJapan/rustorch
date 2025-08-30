@@ -146,7 +146,7 @@ pub enum IssueCategory {
 
 /// Issue severity levels
 /// 問題重要度レベル
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum IssueSeverity {
     /// Informational - no action required
     /// 情報提供 - アクション不要
@@ -464,7 +464,7 @@ impl QualityMetrics {
         DataCharacteristics {
             total_points,
             data_type: std::any::type_name::<T>().to_string(),
-            shape,
+            shape: shape.to_vec(),
             distribution_stats,
             memory_footprint: total_points * std::mem::size_of::<T>(),
         }

@@ -396,7 +396,7 @@ impl MetricsCollector {
     /// カスタムメトリクスを登録
     pub fn register_metric(&self, metric: CustomMetric) -> RusTorchResult<()> {
         let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         metrics.insert(metric.name.clone(), metric);
         Ok(())
@@ -406,13 +406,13 @@ impl MetricsCollector {
     /// メトリクス値を更新
     pub fn update_metric(&self, name: &str, value: f64) -> RusTorchResult<()> {
         let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         if let Some(metric) = metrics.get_mut(name) {
             metric.update(value);
             Ok(())
         } else {
-            Err(RusTorchError::profiling(&format!("Metric '{}' not found", name)))
+            Err(RusTorchError::Profiling { message: format!("Metric '{}' not found", name) })
         }
     }
 
@@ -420,13 +420,13 @@ impl MetricsCollector {
     /// カウンターメトリクスをインクリメント
     pub fn increment_counter(&self, name: &str, delta: f64) -> RusTorchResult<()> {
         let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         if let Some(metric) = metrics.get_mut(name) {
             metric.increment(delta);
             Ok(())
         } else {
-            Err(RusTorchError::profiling(&format!("Counter '{}' not found", name)))
+            Err(RusTorchError::Profiling { message: format!("Counter '{}' not found", name) })
         }
     }
 
@@ -441,7 +441,7 @@ impl MetricsCollector {
     /// ヒストグラムを作成
     pub fn create_histogram(&self, name: String, bucket_bounds: Vec<f64>) -> RusTorchResult<()> {
         let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire histograms lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
         
         let histogram = Histogram::new(bucket_bounds);
         histograms.insert(name, histogram);
@@ -452,13 +452,13 @@ impl MetricsCollector {
     /// ヒストグラムに値を追加
     pub fn add_histogram_value(&self, name: &str, value: f64) -> RusTorchResult<()> {
         let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire histograms lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
         
         if let Some(histogram) = histograms.get_mut(name) {
             histogram.add_value(value);
             Ok(())
         } else {
-            Err(RusTorchError::profiling(&format!("Histogram '{}' not found", name)))
+            Err(RusTorchError::Profiling { message: format!("Histogram '{}' not found", name) })
         }
     }
 
@@ -466,12 +466,12 @@ impl MetricsCollector {
     /// メトリクス統計を取得
     pub fn get_metric_statistics(&self, name: &str, window: Duration) -> RusTorchResult<MetricStatistics> {
         let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         if let Some(metric) = metrics.get(name) {
             Ok(metric.get_statistics(window))
         } else {
-            Err(RusTorchError::profiling(&format!("Metric '{}' not found", name)))
+            Err(RusTorchError::Profiling { message: format!("Metric '{}' not found", name) })
         }
     }
 
@@ -479,12 +479,12 @@ impl MetricsCollector {
     /// ヒストグラムパーセンタイルを取得
     pub fn get_histogram_percentile(&self, name: &str, percentile: f64) -> RusTorchResult<Option<f64>> {
         let histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire histograms lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
         
         if let Some(histogram) = histograms.get(name) {
             Ok(histogram.get_percentile(percentile))
         } else {
-            Err(RusTorchError::profiling(&format!("Histogram '{}' not found", name)))
+            Err(RusTorchError::Profiling { message: format!("Histogram '{}' not found", name) })
         }
     }
 
@@ -525,7 +525,7 @@ impl MetricsCollector {
     /// 全メトリクススナップショットを取得
     pub fn get_all_metrics(&self) -> RusTorchResult<HashMap<String, CustomMetric>> {
         let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         Ok(metrics.clone())
     }
@@ -534,9 +534,9 @@ impl MetricsCollector {
     /// 全メトリクスをクリア
     pub fn clear_metrics(&self) -> RusTorchResult<()> {
         let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire histograms lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
         
         metrics.clear();
         histograms.clear();
@@ -547,7 +547,7 @@ impl MetricsCollector {
     /// Prometheus形式でメトリクスをエクスポート
     pub fn export_prometheus(&self) -> RusTorchResult<String> {
         let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire metrics lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
         
         let mut output = String::new();
         

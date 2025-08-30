@@ -104,12 +104,12 @@ pub struct DebugProfiler {
 
 /// Statistics for a specific operation type
 #[derive(Debug, Clone)]
-struct OperationStats {
-    count: usize,
-    total_duration: Duration,
-    min_duration: Duration,
-    max_duration: Duration,
-    durations: Vec<Duration>, // For percentile calculations
+pub struct OperationStats {
+    pub count: usize,
+    pub total_duration: Duration,
+    pub min_duration: Duration,
+    pub max_duration: Duration,
+    pub durations: Vec<Duration>, // For percentile calculations
 }
 
 impl OperationStats {

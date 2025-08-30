@@ -448,7 +448,7 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
             for i in 0..pool.len() {
                 let total_elements: usize = shape.iter().product();
                 if pool[i].data.len() == total_elements {
-                    let mut block = pool.remove(i).unwrap();
+                    let block = pool.remove(i).unwrap();
                     
                     // Try to reshape
                     if let Ok(reshaped) = block.data.into_shape_with_order(IxDyn(shape)) {

@@ -131,7 +131,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + s
             });
         }
 
-        let mut result = self.clone();
         let shape = self.shape().to_vec();
         let axis_size = shape[axis];
         
@@ -151,7 +150,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + s
             result_data.push(cumulative);
         }
         
-        result = Tensor::from_vec(result_data, shape.to_vec());
+        let result = Tensor::from_vec(result_data, shape.to_vec());
         
         Ok(result)
     }
@@ -166,7 +165,6 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + s
             });
         }
 
-        let mut result = self.clone();
         let shape = self.shape().to_vec();
         let axis_size = shape[axis];
         
@@ -186,7 +184,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + s
             result_data.push(cumulative);
         }
         
-        result = Tensor::from_vec(result_data, shape.to_vec());
+        let result = Tensor::from_vec(result_data, shape.to_vec());
         
         Ok(result)
     }

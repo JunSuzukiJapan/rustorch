@@ -64,7 +64,11 @@ pub struct ProfilerConfig {
     /// Export format options
     /// エクスポート形式オプション
     pub export_chrome_trace: bool,
+    /// Export to TensorBoard format
+    /// TensorBoard形式にエクスポート
     pub export_tensorboard: bool,
+    /// Export to JSON format
+    /// JSON形式にエクスポート
     pub export_json: bool,
 }
 
@@ -166,7 +170,7 @@ impl ProfilingSession {
     /// セッションを開始
     pub fn start(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::NotStarted {
-            return Err(RusTorchError::profiling("Session already started"));
+            return Err(RusTorchError::Profiling { message: "Session already started".to_string() });
         }
         
         self.state = SessionState::Running;
@@ -178,7 +182,7 @@ impl ProfilingSession {
     /// セッションを停止
     pub fn stop(&mut self) -> RusTorchResult<SessionSnapshot> {
         if self.state != SessionState::Running {
-            return Err(RusTorchError::profiling("Session not running"));
+            return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
         }
         
         self.state = SessionState::Completed;
@@ -191,7 +195,7 @@ impl ProfilingSession {
     /// セッションを一時停止
     pub fn pause(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::Running {
-            return Err(RusTorchError::profiling("Session not running"));
+            return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
         }
         
         self.state = SessionState::Paused;
@@ -202,7 +206,7 @@ impl ProfilingSession {
     /// セッションを再開
     pub fn resume(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::Paused {
-            return Err(RusTorchError::profiling("Session not paused"));
+            return Err(RusTorchError::Profiling { message: "Session not paused".to_string() });
         }
         
         self.state = SessionState::Running;
@@ -481,7 +485,7 @@ impl ProfilerCore {
     /// プロファイリングセッションを開始
     pub fn start_session(&mut self, name: String) -> RusTorchResult<()> {
         if self.current_session.is_some() {
-            return Err(RusTorchError::profiling("Session already active"));
+            return Err(RusTorchError::Profiling { message: "Session already active".to_string() });
         }
 
         let mut session = ProfilingSession::new(name, self.config.clone());
@@ -495,7 +499,7 @@ impl ProfilerCore {
     /// 現在のセッションを停止
     pub fn stop_session(&mut self) -> RusTorchResult<SessionSnapshot> {
         let session = self.current_session.as_mut()
-            .ok_or_else(|| RusTorchError::profiling("No active session"))?;
+            .ok_or_else(|| RusTorchError::Profiling { message: "No active session".to_string() })?;
         
         let snapshot = session.stop()?;
         self.session_history.push(snapshot.clone());
@@ -511,10 +515,10 @@ impl ProfilerCore {
     pub fn start_timer(&mut self, name: String) -> RusTorchResult<()> {
         if let Some(session) = &self.current_session {
             if session.state != SessionState::Running {
-                return Err(RusTorchError::profiling("Session not running"));
+                return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
             }
         } else {
-            return Err(RusTorchError::profiling("No active session"));
+            return Err(RusTorchError::Profiling { message: "No active session".to_string() });
         }
 
         self.active_timers.insert(name.clone(), Instant::now());
@@ -527,7 +531,7 @@ impl ProfilerCore {
     /// 操作タイミング停止
     pub fn stop_timer(&mut self, name: &str) -> RusTorchResult<f64> {
         let start_time = self.active_timers.remove(name)
-            .ok_or_else(|| RusTorchError::profiling("Timer not found"))?;
+            .ok_or_else(|| RusTorchError::Profiling { message: "Timer not found".to_string() })?;
 
         let duration = start_time.elapsed();
         
@@ -547,7 +551,7 @@ impl ProfilerCore {
     /// カスタムメトリクスを記録
     pub fn record_custom_metric(&mut self, name: &str, value: f64, metric_type: super::metrics_collector::MetricType) -> RusTorchResult<()> {
         if self.current_session.is_none() {
-            return Err(RusTorchError::profiling("No active session"));
+            return Err(RusTorchError::Profiling { message: "No active session".to_string() });
         }
 
         // For now, store as operation with the value as duration in nanoseconds
@@ -592,7 +596,7 @@ impl ProfilerCore {
     /// 設定を更新
     pub fn update_config(&mut self, config: ProfilerConfig) -> RusTorchResult<()> {
         if self.current_session.is_some() {
-            return Err(RusTorchError::profiling("Cannot update config during active session"));
+            return Err(RusTorchError::Profiling { message: "Cannot update config during active session".to_string() });
         }
 
         self.config = config;

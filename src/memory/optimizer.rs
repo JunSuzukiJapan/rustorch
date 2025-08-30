@@ -434,18 +434,15 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
             .collect();
 
         let mut total_usage_trend = 0.0;
-        let mut allocation_trend = 0.0;
 
         for i in 1..recent_snapshots.len() {
             let curr = recent_snapshots[i - 1];
             let prev = recent_snapshots[i];
 
             total_usage_trend += curr.total_usage as f64 - prev.total_usage as f64;
-            allocation_trend += curr.active_allocations as f64 - prev.active_allocations as f64;
         }
 
         total_usage_trend /= (recent_snapshots.len() - 1) as f64;
-        allocation_trend /= (recent_snapshots.len() - 1) as f64;
 
         let current_usage = recent_snapshots[0].total_usage;
         let predicted_memory = ((current_usage as f64 + total_usage_trend * 5.0) as usize)

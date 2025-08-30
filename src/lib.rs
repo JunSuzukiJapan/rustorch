@@ -215,7 +215,7 @@
 //! console.log('Output:', output.data());
 //! ```
 
-#![warn(missing_docs)]
+#![allow(missing_docs)]
 #![warn(rustdoc::missing_crate_level_docs)]
 
 /// Unified error handling system

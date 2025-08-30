@@ -287,11 +287,13 @@ pub trait ValidationRule: fmt::Debug + Send + Sync {
     /// 識別用ルール名
     fn name(&self) -> &str;
     
-    /// Apply validation rule to tensor
-    /// テンソルに検証ルールを適用
-    fn validate<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ValidationIssue>>
-    where
-        T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static;
+    /// Apply validation rule to f32 tensor
+    /// f32テンソルに検証ルールを適用
+    fn validate_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ValidationIssue>>;
+    
+    /// Apply validation rule to f64 tensor
+    /// f64テンソルに検証ルールを適用
+    fn validate_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ValidationIssue>>;
 }
 
 /// Schema validation implementation
@@ -316,7 +318,19 @@ impl ValidationRule for SchemaValidation {
         "schema_validation"
     }
     
-    fn validate<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ValidationIssue>>
+    fn validate_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ValidationIssue>> {
+        self.validate_tensor_generic(tensor)
+    }
+    
+    fn validate_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ValidationIssue>> {
+        self.validate_tensor_generic(tensor)
+    }
+}
+
+impl SchemaValidation {
+    /// Generic validation implementation for any float type
+    /// 任意の浮動小数点型の汎用検証実装
+    fn validate_tensor_generic<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ValidationIssue>>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -446,9 +460,29 @@ impl ValidationEngine {
             },
         };
         
-        // Apply custom rules
+        // Apply custom rules - dispatch based on type
+        use std::any::{Any, TypeId};
+        let tensor_any = tensor as &dyn Any;
+        
         for rule in &self.rules {
-            match rule.validate(tensor) {
+            let rule_result = if TypeId::of::<T>() == TypeId::of::<f32>() {
+                if let Some(f32_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f32>>() {
+                    rule.validate_f32(f32_tensor)
+                } else {
+                    continue;
+                }
+            } else if TypeId::of::<T>() == TypeId::of::<f64>() {
+                if let Some(f64_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f64>>() {
+                    rule.validate_f64(f64_tensor)
+                } else {
+                    continue;
+                }
+            } else {
+                // Skip unsupported types
+                continue;
+            };
+            
+            match rule_result {
                 Ok(mut rule_issues) => issues.append(&mut rule_issues),
                 Err(e) => {
                     issues.push(ValidationIssue {

@@ -223,10 +223,10 @@ impl RealTimeValidator {
     /// リアルタイム監視を開始
     pub fn start_monitoring(&mut self) -> RusTorchResult<()> {
         let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::validation("Failed to acquire running lock".to_string()))?;
+            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire running lock".to_string() })?;
         
         if *running {
-            return Err(RusTorchError::validation("Real-time validator already running".to_string()));
+            return Err(RusTorchError::Validation { message: "Real-time validator already running".to_string() });
         }
         
         *running = true;
@@ -238,7 +238,7 @@ impl RealTimeValidator {
     /// リアルタイム監視を停止
     pub fn stop_monitoring(&mut self) -> RusTorchResult<()> {
         let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::validation("Failed to acquire running lock".to_string()))?;
+            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire running lock".to_string() })?;
         
         *running = false;
         println!("🔍 Real-time data validation stopped");
@@ -272,7 +272,7 @@ impl RealTimeValidator {
         
         // Store result in buffer
         let mut buffer = self.buffer.lock()
-            .map_err(|_| RusTorchError::validation("Failed to acquire buffer lock".to_string()))?;
+            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire buffer lock".to_string() })?;
         buffer.add_result(result.clone());
         
         Ok(result)

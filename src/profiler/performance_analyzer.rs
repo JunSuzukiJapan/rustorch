@@ -370,7 +370,7 @@ impl PerformanceAnalyzer {
             session_id: session.session_id.clone(),
             session_name: session.session_name.clone(),
             analysis_timestamp: Instant::now(),
-            operation_trends: trends,
+            operation_trends: trends.clone(),
             overall_performance_score: self.calculate_overall_score(&session.operations)?,
             recommendations: self.recommendations.clone(),
             summary: self.generate_analysis_summary(&trends),
@@ -465,7 +465,7 @@ impl PerformanceAnalyzer {
 
     fn analyze_operation_trend(&self, operation_name: &str) -> RusTorchResult<PerformanceTrend> {
         let measurements = self.performance_history.get(operation_name)
-            .ok_or_else(|| RusTorchError::profiling(&format!("No measurements for operation: {}", operation_name)))?;
+            .ok_or_else(|| RusTorchError::Profiling { message: format!("No measurements for operation: {}", operation_name) })?;
 
         if measurements.len() < self.config.min_measurements {
             return Ok(PerformanceTrend {
@@ -754,11 +754,21 @@ pub struct BenchmarkAnalysis {
 
 // Supporting data structures (placeholders for full implementation)
 
+/// Benchmark performance analysis results
+/// ベンチマークパフォーマンス分析結果
 #[derive(Debug, Clone)]
 pub struct BenchmarkPerformanceAnalysis {
+    /// Stability score (0.0 - 1.0)
+    /// 安定性スコア（0.0 - 1.0）
     pub stability_score: f64,
+    /// Efficiency score (0.0 - 1.0)
+    /// 効率性スコア（0.0 - 1.0）
     pub efficiency_score: f64,
+    /// Comparison to baseline performance
+    /// ベースラインパフォーマンスとの比較
     pub comparison_to_baseline: Option<f64>,
+    /// Identified bottleneck indicators
+    /// 特定されたボトルネック指標
     pub bottleneck_indicators: Vec<String>,
 }
 

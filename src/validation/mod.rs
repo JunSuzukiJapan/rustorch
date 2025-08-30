@@ -53,7 +53,7 @@ pub use real_time_validator::{
     RealTimeConfig, ValidationBuffer,
 };
 pub use quality_reporter::{
-    QualityReporter, QualityReport, ReportFormat, ValidationSummary,
+    QualityReporter, QualityReport, ReportFormat,
     QualityDashboard, ReportConfiguration,
 };
 
@@ -178,7 +178,7 @@ impl DataValidationFramework {
         // 6. Create summary
         let summary = ValidationSummary {
             validation_result,
-            quality_assessment,
+            quality_assessment: quality_assessment.clone(),
             anomaly_result,
             consistency_result,
             validation_time,

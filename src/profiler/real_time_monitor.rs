@@ -127,10 +127,10 @@ impl RealTimeMonitor {
     /// 監視開始
     pub fn start(&self) -> RusTorchResult<()> {
         let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire running lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire running lock".to_string() })?;
         
         if *running {
-            return Err(RusTorchError::profiling("Monitor already running"));
+            return Err(RusTorchError::Profiling { message: "Monitor already running".to_string() });
         }
 
         *running = true;
@@ -142,7 +142,7 @@ impl RealTimeMonitor {
     /// 監視停止
     pub fn stop(&self) -> RusTorchResult<()> {
         let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire running lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire running lock".to_string() })?;
         
         *running = false;
         println!("📡 Real-time monitoring stopped");
@@ -153,7 +153,7 @@ impl RealTimeMonitor {
     /// 現在のアラートを取得
     pub fn get_alerts(&self) -> RusTorchResult<Vec<SystemAlert>> {
         let alerts = self.alerts.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire alerts lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire alerts lock".to_string() })?;
         
         Ok(alerts.clone())
     }
@@ -162,7 +162,7 @@ impl RealTimeMonitor {
     /// アラートをクリア
     pub fn clear_alerts(&self) -> RusTorchResult<()> {
         let mut alerts = self.alerts.lock()
-            .map_err(|_| RusTorchError::profiling("Failed to acquire alerts lock"))?;
+            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire alerts lock".to_string() })?;
         
         alerts.clear();
         Ok(())

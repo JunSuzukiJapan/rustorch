@@ -24,11 +24,13 @@ pub trait ConsistencyRule: fmt::Debug + Send + Sync {
     /// ルール名
     fn name(&self) -> &str;
     
-    /// Check consistency
-    /// 整合性をチェック
-    fn check<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ConsistencyViolation>>
-    where
-        T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static;
+    /// Check consistency for f32 tensor
+    /// f32テンソルの整合性をチェック
+    fn check_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ConsistencyViolation>>;
+    
+    /// Check consistency for f64 tensor
+    /// f64テンソルの整合性をチェック
+    fn check_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ConsistencyViolation>>;
 }
 
 /// Consistency check result
@@ -66,7 +68,7 @@ pub struct ConsistencyViolation {
 
 /// Violation severity levels
 /// 違反重要度レベル
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum ViolationSeverity {
     /// Minor violation
     /// 軽微な違反
@@ -146,7 +148,19 @@ impl ConsistencyRule for ShapeConsistencyRule {
         "shape_consistency"
     }
     
-    fn check<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ConsistencyViolation>>
+    fn check_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ConsistencyViolation>> {
+        self.check_tensor_generic(tensor)
+    }
+    
+    fn check_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ConsistencyViolation>> {
+        self.check_tensor_generic(tensor)
+    }
+}
+
+impl ShapeConsistencyRule {
+    /// Generic consistency check implementation for any float type
+    /// 任意の浮動小数点型の汎用整合性チェック実装
+    fn check_tensor_generic<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ConsistencyViolation>>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -209,9 +223,29 @@ impl ConsistencyChecker {
     {
         let mut all_violations = Vec::new();
         
-        // Apply all rules
+        // Apply all rules - dispatch based on type
+        use std::any::{Any, TypeId};
+        let tensor_any = tensor as &dyn Any;
+        
         for rule in &self.rules {
-            match rule.check(tensor) {
+            let rule_result = if TypeId::of::<T>() == TypeId::of::<f32>() {
+                if let Some(f32_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f32>>() {
+                    rule.check_f32(f32_tensor)
+                } else {
+                    continue;
+                }
+            } else if TypeId::of::<T>() == TypeId::of::<f64>() {
+                if let Some(f64_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f64>>() {
+                    rule.check_f64(f64_tensor)
+                } else {
+                    continue;
+                }
+            } else {
+                // Skip unsupported types
+                continue;
+            };
+            
+            match rule_result {
                 Ok(mut violations) => all_violations.append(&mut violations),
                 Err(e) => {
                     all_violations.push(ConsistencyViolation {

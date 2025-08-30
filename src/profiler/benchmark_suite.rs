@@ -411,7 +411,7 @@ impl AdvancedBenchmarkSuite {
                 timestamp: start_time,
             });
             self.suite_metadata.benchmarks_failed += 1;
-            return Err(RusTorchError::profiling(&error_msg));
+            return Err(RusTorchError::Profiling { message: error_msg });
         }
 
         // Calculate statistics
@@ -839,7 +839,7 @@ mod tests {
             BenchmarkCategory::System,
             Some(config),
             || -> RusTorchResult<()> {
-                Err(RusTorchError::profiling("Intentional failure"))
+                Err(RusTorchError::Profiling { message: "Intentional failure".to_string() })
             }
         );
 
