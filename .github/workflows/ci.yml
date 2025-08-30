@@ -108,20 +108,23 @@ jobs:
         shell: bash
 
       - name: Run tests
+        if: matrix.os == 'macos-latest'
         timeout-minutes: 5
         run: |
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-            cargo test --verbose --no-default-features
-          elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            # Ubuntu: Only check compilation due to persistent timeout issues
+          # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
+          cargo test --verbose --no-default-features
+        shell: bash
+
+      - name: Check compilation
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'windows-latest'
+        timeout-minutes: 3
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             echo "=== Ubuntu: Checking compilation only due to timeout issues ==="
-            cargo check --verbose --no-default-features
           else
-            # Windows: Only check compilation due to persistent heap corruption issues
             echo "=== Windows: Checking compilation only due to heap corruption issues ==="
-            cargo check --verbose --no-default-features
           fi
+          cargo check --verbose --no-default-features
         shell: bash
 
       - name: Run doctests
