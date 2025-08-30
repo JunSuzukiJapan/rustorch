@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.5.2"
+version = "0.5.3"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -57,7 +57,7 @@ libc = "0.2"
 # hostname moved to non-WASM targets
 crc32fast = "1.4"
 tempfile = { version = "3.0", optional = true }
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 anyhow = "1.0"
 thiserror = "1.0"
 half = "2.2"
@@ -70,6 +70,19 @@ prost-types = { version = "0.12", optional = true }
 prost-build = { version = "0.12", optional = true }
 bytes = { version = "1.5", optional = true }
 base64 = { version = "0.21", optional = true }
+
+# HTTP client for model downloads
+reqwest = { version = "0.11", optional = true, features = ["stream", "json"] }
+futures-util = { version = "0.3", optional = true }
+tokio = { version = "1.0", optional = true, features = ["full"] }
+
+# Cryptographic hashing for model verification
+sha2 = { version = "0.10", optional = true }
+md5 = { version = "0.7", optional = true }
+digest = { version = "0.10", optional = true }
+
+# Directory utilities
+dirs = { version = "5.0", optional = true }
 
 # Safetensors and ONNX dependencies
 safetensors = { version = "0.4", optional = true }
@@ -140,6 +153,7 @@ wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_er
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
 onnx = ["dep:ort"]
+model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
 ci-fast = []
 
 [profile.release]
@@ -258,6 +272,14 @@ harness = false
 [[bench]]
 name = "simple_gpu_bench"
 harness = false
+
+[[example]]
+name = "model_hub_demo"
+required-features = ["model-hub"]
+
+[[example]]
+name = "test_actual_download"
+required-features = ["model-hub"]
 
 [lints.clippy]
 # Allow common warnings in examples, tests, and benches

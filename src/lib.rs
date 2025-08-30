@@ -268,6 +268,10 @@ pub mod memory;
 /// Model import functionality for PyTorch and ONNX models
 /// PyTorchとONNXモデルのインポート機能
 pub mod model_import;
+/// Model hub for downloading and managing pretrained models
+/// 事前学習済みモデルのダウンロードと管理用モデルハブ
+#[cfg(feature = "model-hub")]
+pub mod model_hub;
 /// Pre-built models and architectures
 /// 事前構築モデルとアーキテクチャ
 pub mod models;

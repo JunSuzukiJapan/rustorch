@@ -728,6 +728,26 @@ impl RusTorchError {
     pub fn InvalidRank(message: impl Into<String>) -> Self {
         RusTorchError::distributed(format!("Invalid rank: {}", message.into()))
     }
+
+    /// Create deserialization error
+    pub fn DeserializationError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Deserialization error: {}", message.into()))
+    }
+
+    /// Create download error
+    pub fn DownloadError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Download error: {}", message.into()))
+    }
+
+    /// Create model not found error
+    pub fn ModelNotFound(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Model not found: {}", message.into()))
+    }
+
+    /// Create verification error
+    pub fn VerificationError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Verification error: {}", message.into()))
+    }
 }
 
 // All individual From implementations removed - using unified RusTorchError only
