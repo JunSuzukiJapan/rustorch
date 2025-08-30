@@ -42,6 +42,10 @@ pub mod tensor_ops; // Advanced tensor operations
 #[cfg(feature = "wasm")]
 pub mod vision; // Vision and image processing functions
 
+// Common utilities (v0.5.2+)
+#[cfg(feature = "wasm")]
+pub mod common; // Shared utilities and abstractions
+
 // Enhanced WASM features (v0.5.2+)
 #[cfg(feature = "wasm")]
 pub mod data_transforms; // Advanced data preprocessing
