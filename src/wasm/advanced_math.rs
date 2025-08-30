@@ -370,6 +370,10 @@ impl WasmOperation for WasmAdvancedMath {
 }
 
 impl WasmMathOperation for WasmAdvancedMath {
+    fn apply_unary(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
+        // Default to sinh operation for unary application
+        self.sinh(tensor)
+    }
     fn supports_operation(&self, operation: &str) -> bool {
         matches!(operation, 
             "sinh" | "cosh" | "tanh" | "asin" | "acos" | "atan" | "atan2" |
@@ -419,6 +423,9 @@ impl WasmAnalyzer for WasmStatisticalFunctions {
 }
 
 impl WasmStatistical for WasmStatisticalFunctions {
+    fn calculate_stats(&self, tensor: &WasmTensor) -> WasmResult<String> {
+        self.analyze(tensor)
+    }
     fn statistical_summary(&self, tensor: &WasmTensor) -> WasmResult<String> {
         self.analyze(tensor)
     }

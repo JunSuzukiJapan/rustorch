@@ -9,6 +9,7 @@ pub mod validation;
 pub mod traits;
 pub mod pipeline;
 pub mod patterns;
+pub mod realtime;
 
 pub use error::*;
 pub use stats::*;
@@ -18,3 +19,4 @@ pub use validation::*;
 pub use traits::*;
 pub use pipeline::*;
 pub use patterns::*;
+pub use realtime::*;

@@ -8,7 +8,14 @@
       "Bash(git commit:*)",
       "Bash(RUST_BACKTRACE=1 cargo run --example pytorch_conversion_demo)",
       "mcp__serena__find_symbol",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh release create:*)",
+      "mcp__serena__search_for_pattern",
+      "Bash(cargo build:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(cargo test)",
+      "Bash(cargo test:*)",
+      "Bash(cargo run:*)"
     ],
     "deny": [],
     "ask": [],

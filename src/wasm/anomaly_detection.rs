@@ -327,6 +327,10 @@ impl WasmDetector for WasmAnomalyDetector {
     fn set_threshold(&mut self, threshold: f32) -> WasmResult<()> {
         self.set_threshold(threshold)
     }
+
+    fn reset(&mut self) {
+        self.reset()
+    }
 }
 
 impl WasmAnalyzer for WasmAnomalyDetector {
@@ -373,6 +377,11 @@ impl WasmDetector for WasmTimeSeriesDetector {
     fn set_threshold(&mut self, _threshold: f32) -> WasmResult<()> {
         // Time series detector doesn't support threshold modification
         Ok(())
+    }
+
+    fn reset(&mut self) {
+        self.timestamps.clear();
+        self.values.clear();
     }
 }
 

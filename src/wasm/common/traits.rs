@@ -4,6 +4,7 @@
 use wasm_bindgen::prelude::*;
 use crate::wasm::tensor::WasmTensor;
 use crate::wasm::common::error::{WasmError, WasmResult};
+use crate::wasm::common::validation::WasmValidation;
 use js_sys::Array;
 
 /// Base trait for all WASM operations
@@ -57,14 +58,28 @@ pub trait WasmDetector: WasmOperation {
     /// Detect patterns in tensor data
     fn detect(&mut self, tensor: &WasmTensor) -> WasmResult<Array>;
     
+    /// Get detection type
+    fn detection_type(&self) -> &'static str;
+    
+    /// Get current threshold
+    fn threshold(&self) -> f32;
+    
+    /// Set detection threshold
+    fn set_threshold(&mut self, threshold: f32) -> WasmResult<()>;
+    
     /// Get detector configuration
-    fn get_config(&self) -> String;
+    fn get_config(&self) -> String {
+        format!("{{\"type\":\"{}\",\"threshold\":{}}}", self.detection_type(), self.threshold())
+    }
     
     /// Reset detector state
     fn reset(&mut self);
     
     /// Update detector parameters
-    fn update_params(&mut self, params: &str) -> WasmResult<()>;
+    fn update_params(&mut self, params: &str) -> WasmResult<()> {
+        // Default implementation - override for custom behavior
+        Ok(())
+    }
 }
 
 /// Trait for mathematical operations on tensors
@@ -76,6 +91,12 @@ pub trait WasmMathOperation: WasmOperation {
     fn apply_binary(&self, left: &WasmTensor, right: &WasmTensor) -> WasmResult<WasmTensor> {
         Err(WasmError::invalid_param("operation", self.name(), "binary operation not supported"))
     }
+    
+    /// Check if operation is supported
+    fn supports_operation(&self, operation: &str) -> bool;
+    
+    /// Get operation complexity (1-5 scale)
+    fn operation_complexity(&self, operation: &str) -> u32;
     
     /// Check if operation supports in-place modification
     fn supports_inplace(&self) -> bool {
@@ -92,6 +113,14 @@ pub trait WasmStatistical: WasmOperation {
     fn get_summary(&self, tensor: &WasmTensor) -> WasmResult<String> {
         self.calculate_stats(tensor)
     }
+    
+    /// Statistical summary (alias for analyze)
+    fn statistical_summary(&self, tensor: &WasmTensor) -> WasmResult<String> {
+        self.calculate_stats(tensor)
+    }
+    
+    /// Check if operation is supported
+    fn supports_statistical_operation(&self, operation: &str) -> bool;
     
     /// Check if sufficient data available
     fn has_sufficient_data(&self, tensor: &WasmTensor) -> bool {
