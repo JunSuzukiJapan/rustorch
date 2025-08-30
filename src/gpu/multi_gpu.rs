@@ -496,6 +496,11 @@ impl MultiGpuContext {
     pub fn get_device_ids(&self) -> &[usize] {
         &self.topology.device_ids
     }
+    
+    /// Get GPU IDs (alias for device IDs)
+    pub fn get_gpu_ids(&self) -> Vec<usize> {
+        self.topology.device_ids.clone()
+    }
 
     /// Test P2P communication between two GPUs
     pub fn test_p2p_communication(&self, src_gpu: usize, dst_gpu: usize, tensor: &Tensor<f32>) -> RusTorchResult<()> {

@@ -176,6 +176,10 @@ pub mod sync_primitives;
 /// マルチGPU学習用分散学習インフラストラクチャ
 pub mod distributed_training;
 
+/// Multi-GPU performance profiling and benchmarking
+/// マルチGPUパフォーマンスプロファイリングとベンチマーキング
+pub mod multi_gpu_profiler;
+
 use std::fmt;
 // use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
 

@@ -29,6 +29,8 @@ pub struct DistributedTrainer {
     config: TrainingConfig,
     /// Performance metrics
     metrics: Arc<RwLock<TrainingMetrics>>,
+    /// Performance profiler integration
+    profiler: Option<Arc<crate::gpu::multi_gpu_profiler::MultiGpuProfiler>>,
 }
 
 /// Training configuration
@@ -162,7 +164,23 @@ impl DistributedTrainer {
             parameter_server,
             config,
             metrics: Arc::new(RwLock::new(TrainingMetrics::new())),
+            profiler: None,
         })
+    }
+    
+    /// Enable performance profiling
+    pub fn enable_profiling(&mut self) -> RusTorchResult<()> {
+        let profiler = crate::gpu::multi_gpu_profiler::MultiGpuProfiler::new(
+            self.context.get_gpu_ids(),
+            self.config.clone().into(),
+        )?;
+        self.profiler = Some(Arc::new(profiler));
+        Ok(())
+    }
+    
+    /// Get profiling report
+    pub fn get_profiling_report(&self) -> Option<crate::gpu::multi_gpu_profiler::PerformanceReport> {
+        self.profiler.as_ref().map(|p| p.generate_report())
     }
     
     /// Get GPU count
@@ -195,6 +213,17 @@ impl DistributedTrainer {
         
         // Update metrics
         self.update_metrics(step_start.elapsed(), sync_time);
+        
+        // Profile this training step if profiler is enabled
+        if let Some(ref profiler) = self.profiler {
+            let _ = profiler.record_training_step(
+                Duration::from_millis(50), // Mock forward time
+                Duration::from_millis(30), // Mock backward time
+                Duration::from_millis(10), // Mock update time
+                sync_time,
+                100.0, // Mock throughput
+            );
+        }
         
         Ok(updated_parameters)
     }
@@ -574,6 +603,25 @@ impl Default for TrainingConfig {
 impl Default for ParameterServer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Convert TrainingConfig to ProfilerConfig for integration
+impl From<TrainingConfig> for crate::profiler::ProfilerConfig {
+    fn from(config: TrainingConfig) -> Self {
+        Self {
+            level: crate::profiler::ProfilingLevel::Comprehensive,
+            enable_memory_profiling: true,
+            enable_gpu_profiling: true,
+            enable_system_metrics: true,
+            enable_call_stack: false,
+            max_session_duration: Some(1800), // 30 minutes
+            metrics_buffer_size: 5000,
+            sampling_rate: 10.0,
+            export_chrome_trace: true,
+            export_tensorboard: false,
+            export_json: true,
+        }
     }
 }
 

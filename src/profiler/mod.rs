@@ -12,7 +12,7 @@
 use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -37,6 +37,9 @@ pub use performance_analyzer::{
     OptimizationRecommendation, PerformanceAnalyzer, PerformanceTrend, RecommendationPriority,
     RecommendationType, TrendAnalysis,
 };
+
+// Multi-GPU profiler integration
+pub use crate::gpu::multi_gpu_profiler::{MultiGpuProfiler, PerformanceReport as MultiGpuReport};
 
 // Legacy imports for backward compatibility
 use self::kernel_profiler::KernelProfiler;
@@ -649,5 +652,303 @@ mod tests {
 
         disable_profiler();
         force_reset_profiler();
+    }
+}
+
+/// Central profiling coordinator for all RusTorch operations
+pub struct RusTorchProfiler {
+    /// Multi-GPU profiler for distributed operations
+    multi_gpu_profiler: Option<Arc<MultiGpuProfiler>>,
+    /// General operation metrics
+    operation_metrics: Arc<RwLock<OperationMetrics>>,
+    /// Profiling configuration
+    config: ProfilerConfig,
+    /// Session start time
+    session_start: Instant,
+}
+
+/// General operation performance metrics
+#[derive(Debug, Clone)]
+pub struct OperationMetrics {
+    /// Operation execution times
+    operation_times: HashMap<String, Vec<Duration>>,
+    /// Memory usage snapshots
+    memory_snapshots: Vec<MemorySnapshot>,
+    /// Total operations profiled
+    total_operations: usize,
+    /// Session duration
+    session_duration: Duration,
+}
+
+/// Memory usage snapshot
+#[derive(Debug, Clone)]
+pub struct MemorySnapshot {
+    /// Timestamp of snapshot
+    pub timestamp: Instant,
+    /// Memory usage in bytes
+    pub memory_usage: usize,
+    /// Peak memory usage since last snapshot
+    pub peak_memory: usize,
+    /// GPU memory usage per device
+    pub gpu_memory: HashMap<usize, usize>,
+}
+
+impl RusTorchProfiler {
+    /// Create new profiler instance
+    pub fn new(config: ProfilerConfig) -> Self {
+        Self {
+            multi_gpu_profiler: None,
+            operation_metrics: Arc::new(RwLock::new(OperationMetrics::new())),
+            config,
+            session_start: Instant::now(),
+        }
+    }
+    
+    /// Enable multi-GPU profiling
+    pub fn enable_multi_gpu_profiling(&mut self, gpu_ids: Vec<usize>) -> RusTorchResult<()> {
+        let profiler = MultiGpuProfiler::new(gpu_ids, self.config.clone())?;
+        self.multi_gpu_profiler = Some(Arc::new(profiler));
+        Ok(())
+    }
+    
+    /// Record operation timing
+    pub fn record_operation(&self, operation_name: &str, duration: Duration) {
+        let mut metrics = self.operation_metrics.write().unwrap();
+        metrics.operation_times
+            .entry(operation_name.to_string())
+            .or_insert_with(Vec::new)
+            .push(duration);
+        metrics.total_operations += 1;
+        metrics.session_duration = self.session_start.elapsed();
+    }
+    
+    /// Take memory snapshot
+    pub fn take_memory_snapshot(&self, memory_usage: usize, gpu_memory: HashMap<usize, usize>) {
+        let mut metrics = self.operation_metrics.write().unwrap();
+        let snapshot = MemorySnapshot {
+            timestamp: Instant::now(),
+            memory_usage,
+            peak_memory: memory_usage, // Simplified for now
+            gpu_memory,
+        };
+        metrics.memory_snapshots.push(snapshot);
+    }
+    
+    /// Generate comprehensive performance report
+    pub fn generate_report(&self) -> ProfilingReport {
+        let operation_metrics = self.operation_metrics.read().unwrap();
+        let multi_gpu_report = self.multi_gpu_profiler
+            .as_ref()
+            .map(|p| p.generate_report());
+        
+        ProfilingReport {
+            session_duration: self.session_start.elapsed(),
+            total_operations: operation_metrics.total_operations,
+            operation_summary: self.summarize_operations(&operation_metrics),
+            memory_analysis: self.analyze_memory(&operation_metrics),
+            multi_gpu_analysis: multi_gpu_report,
+            recommendations: self.generate_recommendations(&operation_metrics),
+        }
+    }
+    
+    /// Summarize operation performance
+    fn summarize_operations(&self, metrics: &OperationMetrics) -> OperationSummary {
+        let mut summary = OperationSummary {
+            operations: HashMap::new(),
+            total_time: Duration::ZERO,
+            slowest_operation: None,
+        };
+        
+        for (op_name, durations) in &metrics.operation_times {
+            let total: Duration = durations.iter().sum();
+            let average = total / durations.len() as u32;
+            let min = durations.iter().min().copied().unwrap_or(Duration::ZERO);
+            let max = durations.iter().max().copied().unwrap_or(Duration::ZERO);
+            
+            summary.operations.insert(op_name.clone(), OperationStats {
+                name: op_name.clone(),
+                count: durations.len(),
+                total_time: total,
+                avg_time: average,
+                min_time: min,
+                max_time: max,
+                memory_allocated: 0,
+                memory_freed: 0,
+                cuda_time: None,
+                self_cpu_time: total,
+                children: Vec::new(),
+            });
+            
+            summary.total_time += total;
+            
+            let should_update = if let Some((_, current_max)) = &summary.slowest_operation {
+                max > *current_max
+            } else {
+                true
+            };
+            
+            if should_update {
+                summary.slowest_operation = Some((op_name.clone(), max));
+            }
+        }
+        
+        summary
+    }
+    
+    /// Analyze memory usage patterns
+    fn analyze_memory(&self, metrics: &OperationMetrics) -> MemoryAnalysis {
+        if metrics.memory_snapshots.is_empty() {
+            return MemoryAnalysis::default();
+        }
+        
+        let total_memory: usize = metrics.memory_snapshots.iter()
+            .map(|s| s.memory_usage)
+            .sum();
+        let avg_memory = total_memory / metrics.memory_snapshots.len();
+        let peak_memory = metrics.memory_snapshots.iter()
+            .map(|s| s.memory_usage)
+            .max()
+            .unwrap_or(0);
+        
+        MemoryAnalysis {
+            average_usage: avg_memory,
+            peak_usage: peak_memory,
+            total_snapshots: metrics.memory_snapshots.len(),
+            memory_trend: self.calculate_memory_trend(&metrics.memory_snapshots),
+        }
+    }
+    
+    /// Calculate memory usage trend
+    fn calculate_memory_trend(&self, snapshots: &[MemorySnapshot]) -> MemoryTrend {
+        if snapshots.len() < 2 {
+            return MemoryTrend::Stable;
+        }
+        
+        let first_half_avg = snapshots[..snapshots.len()/2].iter()
+            .map(|s| s.memory_usage as f64)
+            .sum::<f64>() / (snapshots.len() / 2) as f64;
+        
+        let second_half_avg = snapshots[snapshots.len()/2..].iter()
+            .map(|s| s.memory_usage as f64)
+            .sum::<f64>() / (snapshots.len() - snapshots.len() / 2) as f64;
+        
+        let change_ratio = (second_half_avg - first_half_avg) / first_half_avg;
+        
+        if change_ratio > 0.1 {
+            MemoryTrend::Increasing
+        } else if change_ratio < -0.1 {
+            MemoryTrend::Decreasing
+        } else {
+            MemoryTrend::Stable
+        }
+    }
+    
+    /// Generate optimization recommendations
+    fn generate_recommendations(&self, metrics: &OperationMetrics) -> Vec<String> {
+        let mut recommendations = Vec::new();
+        
+        // Check for slow operations
+        for (op_name, durations) in &metrics.operation_times {
+            if let Some(max_duration) = durations.iter().max() {
+                if max_duration.as_millis() > 1000 {
+                    recommendations.push(format!(
+                        "Operation '{}' has slow instances (max: {}ms) - consider optimization",
+                        op_name, max_duration.as_millis()
+                    ));
+                }
+            }
+        }
+        
+        // Memory usage recommendations
+        if !metrics.memory_snapshots.is_empty() {
+            let memory_analysis = self.analyze_memory(metrics);
+            match memory_analysis.memory_trend {
+                MemoryTrend::Increasing => {
+                    recommendations.push("Memory usage is increasing - check for memory leaks".to_string());
+                }
+                MemoryTrend::Stable => {
+                    recommendations.push("Memory usage is stable - good memory management".to_string());
+                }
+                MemoryTrend::Decreasing => {
+                    recommendations.push("Memory usage is decreasing - efficient memory usage".to_string());
+                }
+            }
+        }
+        
+        recommendations
+    }
+}
+
+/// Complete profiling report
+#[derive(Debug, Clone)]
+pub struct ProfilingReport {
+    /// Total session duration
+    pub session_duration: Duration,
+    /// Total operations profiled
+    pub total_operations: usize,
+    /// Operation performance summary
+    pub operation_summary: OperationSummary,
+    /// Memory usage analysis
+    pub memory_analysis: MemoryAnalysis,
+    /// Multi-GPU specific analysis
+    pub multi_gpu_analysis: Option<MultiGpuReport>,
+    /// Optimization recommendations
+    pub recommendations: Vec<String>,
+}
+
+/// Operation performance summary
+#[derive(Debug, Clone)]
+pub struct OperationSummary {
+    /// Per-operation statistics
+    pub operations: HashMap<String, OperationStats>,
+    /// Total time across all operations
+    pub total_time: Duration,
+    /// Slowest operation info
+    pub slowest_operation: Option<(String, Duration)>,
+}
+
+
+/// Memory usage analysis
+#[derive(Debug, Clone, Default)]
+pub struct MemoryAnalysis {
+    /// Average memory usage
+    pub average_usage: usize,
+    /// Peak memory usage
+    pub peak_usage: usize,
+    /// Total memory snapshots taken
+    pub total_snapshots: usize,
+    /// Memory usage trend
+    pub memory_trend: MemoryTrend,
+}
+
+/// Memory usage trend
+#[derive(Debug, Clone)]
+pub enum MemoryTrend {
+    Increasing,
+    Decreasing,
+    Stable,
+}
+
+impl Default for MemoryTrend {
+    fn default() -> Self {
+        MemoryTrend::Stable
+    }
+}
+
+impl OperationMetrics {
+    /// Create new operation metrics
+    pub fn new() -> Self {
+        Self {
+            operation_times: HashMap::new(),
+            memory_snapshots: Vec::new(),
+            total_operations: 0,
+            session_duration: Duration::ZERO,
+        }
+    }
+}
+
+impl Default for OperationMetrics {
+    fn default() -> Self {
+        Self::new()
     }
 }
