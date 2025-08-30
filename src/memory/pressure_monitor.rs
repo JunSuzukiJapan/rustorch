@@ -600,10 +600,8 @@ mod tests {
         thread::sleep(Duration::from_millis(10));
 
         // Stop monitoring with timeout
-        let result = std::panic::catch_unwind(|| {
-            monitor.stop_monitoring()
-        });
-        
+        let result = std::panic::catch_unwind(|| monitor.stop_monitoring());
+
         if result.is_err() {
             // Force cleanup if stop fails
             return;
