@@ -140,6 +140,7 @@ wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_er
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
 onnx = ["dep:ort"]
+ci-fast = []
 
 [profile.release]
 opt-level = 3

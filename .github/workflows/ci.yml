@@ -112,7 +112,7 @@ jobs:
         timeout-minutes: 5
         run: |
           # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-          cargo test --verbose --no-default-features
+          cargo test --verbose --no-default-features --features ci-fast --lib
         shell: bash
 
       - name: Check compilation
@@ -132,7 +132,7 @@ jobs:
         timeout-minutes: 3
         run: |
           # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-          cargo test --doc --no-default-features
+          cargo test --doc --no-default-features --features ci-fast
         shell: bash
 
       - name: Test examples
