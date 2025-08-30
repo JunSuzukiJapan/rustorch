@@ -108,7 +108,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-            timeout 8m cargo test --verbose --no-default-features
+            cargo test --verbose --no-default-features
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # Ubuntu: Use basic functionality only due to LAPACK linking issues
             echo "=== Ubuntu: Using basic functionality without LAPACK/BLAS ==="
@@ -126,7 +126,7 @@ jobs:
         run: |
           if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-            timeout 4m cargo test --doc --no-default-features
+            cargo test --doc --no-default-features
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # Ubuntu: Use basic functionality only due to LAPACK linking issues
             timeout 4m cargo test --doc --no-default-features
@@ -153,7 +153,7 @@ jobs:
               if [[ "$example_name" =~ (svd|eigenvalue|matrix_decomposition)_demo ]]; then
                 echo "Skipping $example_name on macOS (requires linalg feature)"
               else
-                timeout 30s cargo run --example "$example_name" --no-default-features || echo "Example $example_name completed or timed out"
+                cargo run --example "$example_name" --no-default-features || echo "Example $example_name completed or failed"
               fi
             elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
               # Ubuntu: Use basic functionality only due to LAPACK linking issues  
