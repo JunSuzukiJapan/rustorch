@@ -15,7 +15,9 @@
       "mcp__sequential-thinking__sequentialthinking",
       "Bash(cargo test)",
       "Bash(cargo test:*)",
-      "Bash(cargo run:*)"
+      "Bash(cargo run:*)",
+      "Bash(git check-ignore:*)",
+      "mcp__morphllm-fast-apply__list_directory"
     ],
     "deny": [],
     "ask": [],
