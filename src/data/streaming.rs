@@ -515,8 +515,8 @@ mod tests {
         // Start prefetching
         streaming_dataset.start_prefetch(vec![0, 1, 2, 3]);
 
-        // Wait a bit for prefetching
-        std::thread::sleep(Duration::from_millis(100));
+        // Wait a bit for prefetching (reduced for CI)
+        std::thread::sleep(Duration::from_millis(10));
 
         // Test accessing data
         if let Some((feature, target)) = streaming_dataset.get(0) {
@@ -592,8 +592,8 @@ mod tests {
             false, // shuffle
         );
 
-        // Wait a bit for async loading to start
-        std::thread::sleep(Duration::from_millis(100));
+        // Wait a bit for async loading to start (reduced for CI)
+        std::thread::sleep(Duration::from_millis(10));
 
         let mut batches_received = 0;
         while let Some((batch_features, batch_targets)) = async_loader.next() {

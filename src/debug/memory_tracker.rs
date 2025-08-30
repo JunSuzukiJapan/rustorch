@@ -611,8 +611,8 @@ mod tests {
             .track_allocation("potential_leak", 1024 * 1024)
             .unwrap();
 
-        // Wait for leak threshold
-        thread::sleep(Duration::from_secs(2));
+        // Wait for leak threshold (reduced for CI)
+        thread::sleep(Duration::from_millis(50));
 
         let leaks = tracker.detect_potential_leaks();
         assert_eq!(leaks.len(), 1);
