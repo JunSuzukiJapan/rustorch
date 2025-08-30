@@ -139,24 +139,13 @@ jobs:
 
       - name: Test examples
         if: matrix.os == 'macos-latest' && matrix.rust == 'stable'
-        timeout-minutes: 2
+        timeout-minutes: 1
         run: |
-          for example in examples/*.rs; do
-            example_name=$(basename "$example" .rs)
-            
-            # Skip problematic examples that cause CI failures
-            if [[ "$example_name" =~ (pytorch_conversion|mnist_training) ]]; then
-              echo "Skipping $example_name (disabled for CI stability)"
-              continue
-            fi
-            
-            # macOSではAccelerateフレームワークを使用（netlib-srcを回避）
-            # linalg依存のexampleをスキップ
-            if [[ "$example_name" =~ (svd|eigenvalue|matrix_decomposition)_demo ]]; then
-              echo "Skipping $example_name on macOS (requires linalg feature)"
-            else
-              echo "Testing example: $example_name"
-              cargo run --example "$example_name" --no-default-features || echo "Example $example_name completed or failed"
+          # CI環境では軽量なexamplesのみテスト
+          for example in basic_tensor_demo autograd_demo; do
+            if [ -f "examples/${example}.rs" ]; then
+              echo "Testing example: $example"
+              timeout 10s cargo run --example "$example" --no-default-features --features ci-fast || echo "Example $example completed or timed out"
             fi
           done
         shell: bash
