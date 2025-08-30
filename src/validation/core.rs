@@ -49,10 +49,10 @@ impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
             strict_mode: false,
-            max_nan_percentage: 0.01, // 1% NaN allowed
-            max_inf_percentage: 0.001, // 0.1% Inf allowed
+            max_nan_percentage: 0.01,    // 1% NaN allowed
+            max_inf_percentage: 0.001,   // 0.1% Inf allowed
             min_finite_percentage: 0.95, // 95% finite values required
-            performance_budget_us: 500, // 500 microseconds
+            performance_budget_us: 500,  // 500 microseconds
             enable_schema_validation: true,
         }
     }
@@ -286,14 +286,20 @@ pub trait ValidationRule: fmt::Debug + Send + Sync {
     /// Rule name for identification
     /// 識別用ルール名
     fn name(&self) -> &str;
-    
+
     /// Apply validation rule to f32 tensor
     /// f32テンソルに検証ルールを適用
-    fn validate_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ValidationIssue>>;
-    
+    fn validate_f32(
+        &self,
+        tensor: &crate::tensor::Tensor<f32>,
+    ) -> RusTorchResult<Vec<ValidationIssue>>;
+
     /// Apply validation rule to f64 tensor
     /// f64テンソルに検証ルールを適用
-    fn validate_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ValidationIssue>>;
+    fn validate_f64(
+        &self,
+        tensor: &crate::tensor::Tensor<f64>,
+    ) -> RusTorchResult<Vec<ValidationIssue>>;
 }
 
 /// Schema validation implementation
@@ -317,12 +323,18 @@ impl ValidationRule for SchemaValidation {
     fn name(&self) -> &str {
         "schema_validation"
     }
-    
-    fn validate_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ValidationIssue>> {
+
+    fn validate_f32(
+        &self,
+        tensor: &crate::tensor::Tensor<f32>,
+    ) -> RusTorchResult<Vec<ValidationIssue>> {
         self.validate_tensor_generic(tensor)
     }
-    
-    fn validate_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ValidationIssue>> {
+
+    fn validate_f64(
+        &self,
+        tensor: &crate::tensor::Tensor<f64>,
+    ) -> RusTorchResult<Vec<ValidationIssue>> {
         self.validate_tensor_generic(tensor)
     }
 }
@@ -330,12 +342,15 @@ impl ValidationRule for SchemaValidation {
 impl SchemaValidation {
     /// Generic validation implementation for any float type
     /// 任意の浮動小数点型の汎用検証実装
-    fn validate_tensor_generic<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ValidationIssue>>
+    fn validate_tensor_generic<T>(
+        &self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<Vec<ValidationIssue>>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let mut issues = Vec::new();
-        
+
         // Validate shape
         if let Some(ref expected_shape) = self.schema.expected_shape {
             if &tensor.shape() != expected_shape {
@@ -356,7 +371,7 @@ impl SchemaValidation {
                 });
             }
         }
-        
+
         // Validate value constraints
         if !self.schema.value_constraints.allow_nan {
             // Check for NaN values (placeholder implementation)
@@ -374,7 +389,7 @@ impl SchemaValidation {
                 });
             }
         }
-        
+
         Ok(issues)
     }
 }
@@ -410,29 +425,32 @@ impl ValidationEngine {
             stats: ValidationStatistics::default(),
         })
     }
-    
+
     /// Add validation rule
     /// 検証ルールを追加
     pub fn add_rule(&mut self, rule: Box<dyn ValidationRule>) {
         self.rules.push(rule);
     }
-    
+
     /// Validate tensor with comprehensive checks
     /// 包括的チェックでテンソルを検証
-    pub fn validate_tensor<T>(&mut self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<ValidationResult>
+    pub fn validate_tensor<T>(
+        &mut self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<ValidationResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let start_time = Instant::now();
         let mut issues = Vec::new();
-        
+
         // Determine validation level
         let level = if self.config.strict_mode {
             ValidationLevel::Strict
         } else {
             ValidationLevel::Standard
         };
-        
+
         // Basic validation
         let shape = tensor.shape();
         if shape.is_empty() {
@@ -443,7 +461,7 @@ impl ValidationEngine {
                 context: HashMap::new(),
             });
         }
-        
+
         // Calculate basic metrics
         let total_elements = shape.iter().product();
         let metrics = ValidationMetrics {
@@ -454,16 +472,17 @@ impl ValidationEngine {
             value_range: Some((0.0, 1.0)), // Placeholder
             memory_usage_bytes: total_elements * std::mem::size_of::<T>(),
             performance_metrics: PerformanceMetrics {
-                elements_per_second: total_elements as f64 / start_time.elapsed().as_secs_f64().max(1e-9),
+                elements_per_second: total_elements as f64
+                    / start_time.elapsed().as_secs_f64().max(1e-9),
                 memory_throughput_mb_per_sec: 0.0, // Placeholder
-                cache_hit_rate: 0.0, // Placeholder
+                cache_hit_rate: 0.0,               // Placeholder
             },
         };
-        
+
         // Apply custom rules - dispatch based on type
         use std::any::{Any, TypeId};
         let tensor_any = tensor as &dyn Any;
-        
+
         for rule in &self.rules {
             let rule_result = if TypeId::of::<T>() == TypeId::of::<f32>() {
                 if let Some(f32_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f32>>() {
@@ -481,7 +500,7 @@ impl ValidationEngine {
                 // Skip unsupported types
                 continue;
             };
-            
+
             match rule_result {
                 Ok(mut rule_issues) => issues.append(&mut rule_issues),
                 Err(e) => {
@@ -494,9 +513,9 @@ impl ValidationEngine {
                 }
             }
         }
-        
+
         let validation_time = start_time.elapsed();
-        
+
         // Check performance budget
         if validation_time.as_micros() as u64 > self.config.performance_budget_us {
             issues.push(ValidationIssue {
@@ -509,19 +528,27 @@ impl ValidationEngine {
                 ),
                 context: {
                     let mut ctx = HashMap::new();
-                    ctx.insert("actual_time_us".to_string(), validation_time.as_micros().to_string());
-                    ctx.insert("budget_us".to_string(), self.config.performance_budget_us.to_string());
+                    ctx.insert(
+                        "actual_time_us".to_string(),
+                        validation_time.as_micros().to_string(),
+                    );
+                    ctx.insert(
+                        "budget_us".to_string(),
+                        self.config.performance_budget_us.to_string(),
+                    );
                     ctx
                 },
             });
         }
-        
+
         // Determine if validation passed
         let is_valid = match level {
             ValidationLevel::Strict => issues.is_empty(),
-            _ => !issues.iter().any(|issue| issue.severity >= IssueSeverity::High),
+            _ => !issues
+                .iter()
+                .any(|issue| issue.severity >= IssueSeverity::High),
         };
-        
+
         // Update statistics
         self.stats.total_validations += 1;
         if is_valid {
@@ -530,9 +557,9 @@ impl ValidationEngine {
             self.stats.failed_validations += 1;
         }
         self.stats.total_validation_time += validation_time;
-        self.stats.average_validation_time = 
+        self.stats.average_validation_time =
             self.stats.total_validation_time / self.stats.total_validations as u32;
-        
+
         Ok(ValidationResult {
             is_valid,
             level,
@@ -541,13 +568,13 @@ impl ValidationEngine {
             validation_time,
         })
     }
-    
+
     /// Get validation statistics
     /// 検証統計を取得
     pub fn get_statistics(&self) -> &ValidationStatistics {
         &self.stats
     }
-    
+
     /// Reset validation statistics
     /// 検証統計をリセット
     pub fn reset_statistics(&mut self) {
@@ -557,8 +584,13 @@ impl ValidationEngine {
 
 impl fmt::Display for ValidationResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let status = if self.is_valid { "✅ VALID" } else { "❌ INVALID" };
-        write!(f,
+        let status = if self.is_valid {
+            "✅ VALID"
+        } else {
+            "❌ INVALID"
+        };
+        write!(
+            f,
             "🔍 Validation Result\n\
              ===================\n\
              Status: {}\n\
@@ -602,7 +634,7 @@ mod tests {
             message: "Test issue".to_string(),
             context: HashMap::new(),
         };
-        
+
         assert_eq!(issue.issue_type, IssueType::NaNValues);
         assert_eq!(issue.severity, IssueSeverity::Medium);
     }

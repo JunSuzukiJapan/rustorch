@@ -170,9 +170,11 @@ impl ProfilingSession {
     /// セッションを開始
     pub fn start(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::NotStarted {
-            return Err(RusTorchError::Profiling { message: "Session already started".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Session already started".to_string(),
+            });
         }
-        
+
         self.state = SessionState::Running;
         self.start_time = Instant::now();
         Ok(())
@@ -182,12 +184,14 @@ impl ProfilingSession {
     /// セッションを停止
     pub fn stop(&mut self) -> RusTorchResult<SessionSnapshot> {
         if self.state != SessionState::Running {
-            return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Session not running".to_string(),
+            });
         }
-        
+
         self.state = SessionState::Completed;
         self.end_time = Some(Instant::now());
-        
+
         Ok(self.create_snapshot())
     }
 
@@ -195,9 +199,11 @@ impl ProfilingSession {
     /// セッションを一時停止
     pub fn pause(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::Running {
-            return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Session not running".to_string(),
+            });
         }
-        
+
         self.state = SessionState::Paused;
         Ok(())
     }
@@ -206,9 +212,11 @@ impl ProfilingSession {
     /// セッションを再開
     pub fn resume(&mut self) -> RusTorchResult<()> {
         if self.state != SessionState::Paused {
-            return Err(RusTorchError::Profiling { message: "Session not paused".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Session not paused".to_string(),
+            });
         }
-        
+
         self.state = SessionState::Running;
         Ok(())
     }
@@ -220,9 +228,10 @@ impl ProfilingSession {
             return;
         }
 
-        let metrics = self.operations.entry(name.to_string()).or_insert_with(|| {
-            OperationMetrics::new(name.to_string())
-        });
+        let metrics = self
+            .operations
+            .entry(name.to_string())
+            .or_insert_with(|| OperationMetrics::new(name.to_string()));
 
         metrics.record_timing(duration);
         self.max_call_depth = self.max_call_depth.max(call_depth);
@@ -242,7 +251,7 @@ impl ProfilingSession {
     /// セッションスナップショットを作成
     pub fn create_snapshot(&self) -> SessionSnapshot {
         let operations: Vec<_> = self.operations.values().cloned().collect();
-        
+
         SessionSnapshot {
             session_id: self.session_id.clone(),
             session_name: self.session_name.clone(),
@@ -321,17 +330,17 @@ impl OperationMetrics {
         self.total_time += duration;
         self.min_time = self.min_time.min(duration);
         self.max_time = self.max_time.max(duration);
-        
+
         // Update average
         self.avg_time = self.total_time / self.call_count as u32;
-        
+
         // Store sample for statistics
         self.timing_samples.push(duration);
         if self.timing_samples.len() > 1000 {
             // Keep only recent samples
             self.timing_samples.drain(0..500);
         }
-        
+
         // Update standard deviation
         self.update_std_dev();
     }
@@ -344,13 +353,15 @@ impl OperationMetrics {
         }
 
         let avg_secs = self.avg_time.as_secs_f64();
-        let variance: f64 = self.timing_samples
+        let variance: f64 = self
+            .timing_samples
             .iter()
             .map(|&d| {
                 let diff = d.as_secs_f64() - avg_secs;
                 diff * diff
             })
-            .sum::<f64>() / (self.timing_samples.len() - 1) as f64;
+            .sum::<f64>()
+            / (self.timing_samples.len() - 1) as f64;
 
         self.std_dev = variance.sqrt();
     }
@@ -485,28 +496,34 @@ impl ProfilerCore {
     /// プロファイリングセッションを開始
     pub fn start_session(&mut self, name: String) -> RusTorchResult<()> {
         if self.current_session.is_some() {
-            return Err(RusTorchError::Profiling { message: "Session already active".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Session already active".to_string(),
+            });
         }
 
         let mut session = ProfilingSession::new(name, self.config.clone());
         session.start()?;
         self.current_session = Some(session);
-        
+
         Ok(())
     }
 
     /// Stop current session
     /// 現在のセッションを停止
     pub fn stop_session(&mut self) -> RusTorchResult<SessionSnapshot> {
-        let session = self.current_session.as_mut()
-            .ok_or_else(|| RusTorchError::Profiling { message: "No active session".to_string() })?;
-        
+        let session = self
+            .current_session
+            .as_mut()
+            .ok_or_else(|| RusTorchError::Profiling {
+                message: "No active session".to_string(),
+            })?;
+
         let snapshot = session.stop()?;
         self.session_history.push(snapshot.clone());
         self.current_session = None;
         self.call_stack.clear();
         self.active_timers.clear();
-        
+
         Ok(snapshot)
     }
 
@@ -515,26 +532,34 @@ impl ProfilerCore {
     pub fn start_timer(&mut self, name: String) -> RusTorchResult<()> {
         if let Some(session) = &self.current_session {
             if session.state != SessionState::Running {
-                return Err(RusTorchError::Profiling { message: "Session not running".to_string() });
+                return Err(RusTorchError::Profiling {
+                    message: "Session not running".to_string(),
+                });
             }
         } else {
-            return Err(RusTorchError::Profiling { message: "No active session".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "No active session".to_string(),
+            });
         }
 
         self.active_timers.insert(name.clone(), Instant::now());
         self.call_stack.push(name);
-        
+
         Ok(())
     }
 
     /// Stop timing operation
     /// 操作タイミング停止
     pub fn stop_timer(&mut self, name: &str) -> RusTorchResult<f64> {
-        let start_time = self.active_timers.remove(name)
-            .ok_or_else(|| RusTorchError::Profiling { message: "Timer not found".to_string() })?;
+        let start_time =
+            self.active_timers
+                .remove(name)
+                .ok_or_else(|| RusTorchError::Profiling {
+                    message: "Timer not found".to_string(),
+                })?;
 
         let duration = start_time.elapsed();
-        
+
         if let Some(session) = &mut self.current_session {
             session.record_operation(name, duration, self.call_stack.len());
         }
@@ -549,14 +574,21 @@ impl ProfilerCore {
 
     /// Record custom metric
     /// カスタムメトリクスを記録
-    pub fn record_custom_metric(&mut self, name: &str, value: f64, metric_type: super::metrics_collector::MetricType) -> RusTorchResult<()> {
+    pub fn record_custom_metric(
+        &mut self,
+        name: &str,
+        value: f64,
+        metric_type: super::metrics_collector::MetricType,
+    ) -> RusTorchResult<()> {
         if self.current_session.is_none() {
-            return Err(RusTorchError::Profiling { message: "No active session".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "No active session".to_string(),
+            });
         }
 
         // For now, store as operation with the value as duration in nanoseconds
         let duration = Duration::from_nanos((value * 1_000_000.0) as u64);
-        
+
         if let Some(session) = &mut self.current_session {
             session.record_operation(name, duration, self.call_stack.len());
         }
@@ -568,7 +600,9 @@ impl ProfilerCore {
     /// 現在のセッション統計を取得
     pub fn get_current_statistics(&self) -> Option<Vec<PerformanceStatistics>> {
         self.current_session.as_ref().map(|session| {
-            session.operations.values()
+            session
+                .operations
+                .values()
                 .map(|op| op.get_statistics())
                 .collect()
         })
@@ -596,7 +630,9 @@ impl ProfilerCore {
     /// 設定を更新
     pub fn update_config(&mut self, config: ProfilerConfig) -> RusTorchResult<()> {
         if self.current_session.is_some() {
-            return Err(RusTorchError::Profiling { message: "Cannot update config during active session".to_string() });
+            return Err(RusTorchError::Profiling {
+                message: "Cannot update config during active session".to_string(),
+            });
         }
 
         self.config = config;
@@ -645,17 +681,17 @@ mod tests {
     fn test_timer_operations() {
         let config = ProfilerConfig::default();
         let mut profiler = ProfilerCore::new(config);
-        
+
         profiler.start_session("test".to_string()).unwrap();
-        
+
         // Start and stop timer
         assert!(profiler.start_timer("test_op".to_string()).is_ok());
         std::thread::sleep(Duration::from_millis(10));
-        
+
         let elapsed = profiler.stop_timer("test_op");
         assert!(elapsed.is_ok());
         assert!(elapsed.unwrap() >= 10.0); // Should be at least 10ms
-        
+
         // Check statistics
         let stats = profiler.get_current_statistics().unwrap();
         assert!(!stats.is_empty());
@@ -666,16 +702,16 @@ mod tests {
     #[test]
     fn test_operation_metrics() {
         let mut metrics = OperationMetrics::new("test".to_string());
-        
+
         metrics.record_timing(Duration::from_millis(100));
         metrics.record_timing(Duration::from_millis(200));
         metrics.record_timing(Duration::from_millis(150));
-        
+
         assert_eq!(metrics.call_count, 3);
         assert_eq!(metrics.min_time, Duration::from_millis(100));
         assert_eq!(metrics.max_time, Duration::from_millis(200));
         assert_eq!(metrics.avg_time, Duration::from_millis(150));
-        
+
         let stats = metrics.get_statistics();
         assert_eq!(stats.call_count, 3);
         assert!((stats.avg_time_ms - 150.0).abs() < 0.1);

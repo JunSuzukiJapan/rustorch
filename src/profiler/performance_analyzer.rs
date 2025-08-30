@@ -252,7 +252,7 @@ impl Default for TrendAnalysisConfig {
         Self {
             min_measurements: 5,
             lookback_window: Duration::from_secs(3600), // 1 hour
-            significance_threshold: 0.05, // 5% change
+            significance_threshold: 0.05,               // 5% change
             min_recommendation_confidence: 0.7,
         }
     }
@@ -311,7 +311,12 @@ impl PerformanceAnalyzer {
 
     /// Add performance measurement
     /// パフォーマンス測定を追加
-    pub fn add_measurement(&mut self, operation_name: String, value: f64, context: MeasurementContext) {
+    pub fn add_measurement(
+        &mut self,
+        operation_name: String,
+        value: f64,
+        context: MeasurementContext,
+    ) {
         let measurement = TrendMeasurement {
             timestamp: Instant::now(),
             value,
@@ -343,7 +348,7 @@ impl PerformanceAnalyzer {
 
         for operation in &session.operations {
             let stats = operation.get_statistics();
-            
+
             // Add measurement from session
             let context = MeasurementContext {
                 system_load: None,
@@ -379,8 +384,14 @@ impl PerformanceAnalyzer {
 
     /// Analyze benchmark results
     /// ベンチマーク結果を分析
-    pub fn analyze_benchmark_results(&mut self, results: &HashMap<String, BenchmarkResult>) -> RusTorchResult<BenchmarkAnalysis> {
-        println!("📊 Analyzing benchmark results ({} benchmarks)", results.len());
+    pub fn analyze_benchmark_results(
+        &mut self,
+        results: &HashMap<String, BenchmarkResult>,
+    ) -> RusTorchResult<BenchmarkAnalysis> {
+        println!(
+            "📊 Analyzing benchmark results ({} benchmarks)",
+            results.len()
+        );
 
         let mut analysis_results = HashMap::new();
         let mut performance_insights = Vec::new();
@@ -389,10 +400,22 @@ impl PerformanceAnalyzer {
             if result.error.is_none() {
                 // Add benchmark data to history
                 let context = MeasurementContext {
-                    system_load: result.system_metrics.as_ref().map(|s| s.cpu_utilization_percent),
-                    memory_pressure: result.memory_metrics.as_ref().map(|m| m.fragmentation_score),
-                    gpu_utilization: result.gpu_metrics.as_ref().map(|g| g.gpu_utilization_percent),
-                    temperature_celsius: result.gpu_metrics.as_ref().and_then(|g| g.gpu_temperature_celsius),
+                    system_load: result
+                        .system_metrics
+                        .as_ref()
+                        .map(|s| s.cpu_utilization_percent),
+                    memory_pressure: result
+                        .memory_metrics
+                        .as_ref()
+                        .map(|m| m.fragmentation_score),
+                    gpu_utilization: result
+                        .gpu_metrics
+                        .as_ref()
+                        .map(|g| g.gpu_utilization_percent),
+                    temperature_celsius: result
+                        .gpu_metrics
+                        .as_ref()
+                        .and_then(|g| g.gpu_temperature_celsius),
                     metadata: HashMap::new(),
                 };
 
@@ -432,7 +455,8 @@ impl PerformanceAnalyzer {
         }
 
         let trend = self.analyze_operation_trend(operation_name)?;
-        self.trend_cache.insert(operation_name.to_string(), trend.clone());
+        self.trend_cache
+            .insert(operation_name.to_string(), trend.clone());
         Ok(trend)
     }
 
@@ -444,7 +468,10 @@ impl PerformanceAnalyzer {
 
     /// Get recommendations by priority
     /// 優先度別推奨事項を取得
-    pub fn get_recommendations_by_priority(&self, priority: RecommendationPriority) -> Vec<&OptimizationRecommendation> {
+    pub fn get_recommendations_by_priority(
+        &self,
+        priority: RecommendationPriority,
+    ) -> Vec<&OptimizationRecommendation> {
         self.recommendations
             .iter()
             .filter(|r| r.priority == priority)
@@ -464,8 +491,12 @@ impl PerformanceAnalyzer {
     // Private analysis methods
 
     fn analyze_operation_trend(&self, operation_name: &str) -> RusTorchResult<PerformanceTrend> {
-        let measurements = self.performance_history.get(operation_name)
-            .ok_or_else(|| RusTorchError::Profiling { message: format!("No measurements for operation: {}", operation_name) })?;
+        let measurements = self
+            .performance_history
+            .get(operation_name)
+            .ok_or_else(|| RusTorchError::Profiling {
+                message: format!("No measurements for operation: {}", operation_name),
+            })?;
 
         if measurements.len() < self.config.min_measurements {
             return Ok(PerformanceTrend {
@@ -480,11 +511,11 @@ impl PerformanceAnalyzer {
 
         // Calculate trend using linear regression
         let (slope, confidence) = self.calculate_linear_trend(measurements)?;
-        
+
         let direction = if slope.abs() < self.config.significance_threshold {
             TrendDirection::Stable
         } else if slope < 0.0 {
-            TrendDirection::Improving  // Negative slope = decreasing time = better performance
+            TrendDirection::Improving // Negative slope = decreasing time = better performance
         } else {
             TrendDirection::Degrading
         };
@@ -508,7 +539,10 @@ impl PerformanceAnalyzer {
         })
     }
 
-    fn calculate_linear_trend(&self, measurements: &[TrendMeasurement]) -> RusTorchResult<(f64, f64)> {
+    fn calculate_linear_trend(
+        &self,
+        measurements: &[TrendMeasurement],
+    ) -> RusTorchResult<(f64, f64)> {
         if measurements.len() < 2 {
             return Ok((0.0, 0.0));
         }
@@ -519,7 +553,7 @@ impl PerformanceAnalyzer {
             .iter()
             .map(|m| m.timestamp.duration_since(first_time).as_secs_f64())
             .collect();
-        
+
         let y_values: Vec<f64> = measurements.iter().map(|m| m.value).collect();
 
         // Calculate linear regression
@@ -530,7 +564,7 @@ impl PerformanceAnalyzer {
         let sum_x2: f64 = x_values.iter().map(|x| x * x).sum();
 
         let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_x2 - sum_x * sum_x);
-        
+
         // Calculate R-squared for confidence
         let mean_y = sum_y / n;
         let ss_tot: f64 = y_values.iter().map(|y| (y - mean_y).powi(2)).sum();
@@ -541,22 +575,31 @@ impl PerformanceAnalyzer {
             .map(|(x, y)| (y - (slope * x + intercept)).powi(2))
             .sum();
 
-        let r_squared = if ss_tot > 0.0 { 1.0 - (ss_res / ss_tot) } else { 0.0 };
+        let r_squared = if ss_tot > 0.0 {
+            1.0 - (ss_res / ss_tot)
+        } else {
+            0.0
+        };
         let confidence = r_squared.max(0.0).min(1.0);
 
         Ok((slope, confidence))
     }
 
-    fn generate_projection(&self, measurements: &[TrendMeasurement], slope: f64, confidence: f64) -> RusTorchResult<PerformanceProjection> {
+    fn generate_projection(
+        &self,
+        measurements: &[TrendMeasurement],
+        slope: f64,
+        confidence: f64,
+    ) -> RusTorchResult<PerformanceProjection> {
         let last_measurement = &measurements[measurements.len() - 1];
         let time_horizon = Duration::from_secs(3600); // 1 hour projection
-        
+
         let next_value = last_measurement.value + slope * time_horizon.as_secs_f64();
-        
+
         // Calculate uncertainty range based on confidence
         let uncertainty_factor = (1.0 - confidence) * 0.2; // Max 20% uncertainty
         let range_width = next_value * uncertainty_factor;
-        
+
         Ok(PerformanceProjection {
             next_value,
             confidence,
@@ -565,18 +608,26 @@ impl PerformanceAnalyzer {
         })
     }
 
-    fn generate_recommendations(&mut self, trends: &HashMap<String, PerformanceTrend>) -> RusTorchResult<()> {
+    fn generate_recommendations(
+        &mut self,
+        trends: &HashMap<String, PerformanceTrend>,
+    ) -> RusTorchResult<()> {
         self.recommendations.clear();
 
         for (operation_name, trend) in trends {
             match trend.direction {
-                TrendDirection::Degrading if trend.confidence > self.config.min_recommendation_confidence => {
-                    let recommendation = self.create_degradation_recommendation(operation_name, trend)?;
+                TrendDirection::Degrading
+                    if trend.confidence > self.config.min_recommendation_confidence =>
+                {
+                    let recommendation =
+                        self.create_degradation_recommendation(operation_name, trend)?;
                     self.recommendations.push(recommendation);
                 }
                 TrendDirection::Stable => {
                     // Look for optimization opportunities even in stable performance
-                    if let Some(recommendation) = self.create_optimization_recommendation(operation_name, trend)? {
+                    if let Some(recommendation) =
+                        self.create_optimization_recommendation(operation_name, trend)?
+                    {
                         self.recommendations.push(recommendation);
                     }
                 }
@@ -585,12 +636,17 @@ impl PerformanceAnalyzer {
         }
 
         // Sort recommendations by priority
-        self.recommendations.sort_by(|a, b| a.priority.cmp(&b.priority));
+        self.recommendations
+            .sort_by(|a, b| a.priority.cmp(&b.priority));
 
         Ok(())
     }
 
-    fn create_degradation_recommendation(&self, operation_name: &str, trend: &PerformanceTrend) -> RusTorchResult<OptimizationRecommendation> {
+    fn create_degradation_recommendation(
+        &self,
+        operation_name: &str,
+        trend: &PerformanceTrend,
+    ) -> RusTorchResult<OptimizationRecommendation> {
         let priority = if trend.change_rate_percent > 20.0 {
             RecommendationPriority::Critical
         } else if trend.change_rate_percent > 10.0 {
@@ -624,12 +680,19 @@ impl PerformanceAnalyzer {
         })
     }
 
-    fn create_optimization_recommendation(&self, _operation_name: &str, _trend: &PerformanceTrend) -> RusTorchResult<Option<OptimizationRecommendation>> {
+    fn create_optimization_recommendation(
+        &self,
+        _operation_name: &str,
+        _trend: &PerformanceTrend,
+    ) -> RusTorchResult<Option<OptimizationRecommendation>> {
         // Placeholder for optimization opportunity detection
         Ok(None)
     }
 
-    fn analyze_benchmark_performance(&self, _result: &BenchmarkResult) -> RusTorchResult<BenchmarkPerformanceAnalysis> {
+    fn analyze_benchmark_performance(
+        &self,
+        _result: &BenchmarkResult,
+    ) -> RusTorchResult<BenchmarkPerformanceAnalysis> {
         // Placeholder implementation
         Ok(BenchmarkPerformanceAnalysis {
             stability_score: 0.9,
@@ -639,12 +702,18 @@ impl PerformanceAnalyzer {
         })
     }
 
-    fn generate_benchmark_insights(&self, _result: &BenchmarkResult) -> Option<Vec<PerformanceInsight>> {
+    fn generate_benchmark_insights(
+        &self,
+        _result: &BenchmarkResult,
+    ) -> Option<Vec<PerformanceInsight>> {
         // Placeholder implementation
         None
     }
 
-    fn generate_comparative_analysis(&self, _results: &HashMap<String, BenchmarkResult>) -> RusTorchResult<ComparativeAnalysis> {
+    fn generate_comparative_analysis(
+        &self,
+        _results: &HashMap<String, BenchmarkResult>,
+    ) -> RusTorchResult<ComparativeAnalysis> {
         // Placeholder implementation
         Ok(ComparativeAnalysis {
             performance_ranking: Vec::new(),
@@ -653,29 +722,51 @@ impl PerformanceAnalyzer {
         })
     }
 
-    fn identify_optimization_opportunities(&self, _results: &HashMap<String, BenchmarkResult>) -> RusTorchResult<Vec<OptimizationOpportunity>> {
+    fn identify_optimization_opportunities(
+        &self,
+        _results: &HashMap<String, BenchmarkResult>,
+    ) -> RusTorchResult<Vec<OptimizationOpportunity>> {
         // Placeholder implementation
         Ok(Vec::new())
     }
 
-    fn calculate_overall_score(&self, _operations: &[crate::profiler::core::OperationMetrics]) -> RusTorchResult<f64> {
+    fn calculate_overall_score(
+        &self,
+        _operations: &[crate::profiler::core::OperationMetrics],
+    ) -> RusTorchResult<f64> {
         // Simplified overall score calculation
         Ok(0.85) // Placeholder
     }
 
-    fn generate_analysis_summary(&self, trends: &HashMap<String, PerformanceTrend>) -> AnalysisSummary {
+    fn generate_analysis_summary(
+        &self,
+        trends: &HashMap<String, PerformanceTrend>,
+    ) -> AnalysisSummary {
         let total_operations = trends.len();
-        let improving_count = trends.values().filter(|t| t.direction == TrendDirection::Improving).count();
-        let degrading_count = trends.values().filter(|t| t.direction == TrendDirection::Degrading).count();
-        let stable_count = trends.values().filter(|t| t.direction == TrendDirection::Stable).count();
+        let improving_count = trends
+            .values()
+            .filter(|t| t.direction == TrendDirection::Improving)
+            .count();
+        let degrading_count = trends
+            .values()
+            .filter(|t| t.direction == TrendDirection::Degrading)
+            .count();
+        let stable_count = trends
+            .values()
+            .filter(|t| t.direction == TrendDirection::Stable)
+            .count();
 
         AnalysisSummary {
             total_operations,
             improving_count,
             degrading_count,
             stable_count,
-            critical_recommendations: self.get_recommendations_by_priority(RecommendationPriority::Critical).len(),
-            high_recommendations: self.get_recommendations_by_priority(RecommendationPriority::High).len(),
+            critical_recommendations: self
+                .get_recommendations_by_priority(RecommendationPriority::Critical)
+                .len(),
+            high_recommendations: self
+                .get_recommendations_by_priority(RecommendationPriority::High)
+                .len(),
         }
     }
 }
@@ -814,7 +905,7 @@ mod tests {
     #[test]
     fn test_measurement_addition() {
         let mut analyzer = PerformanceAnalyzer::new();
-        
+
         let context = MeasurementContext {
             system_load: Some(0.5),
             memory_pressure: None,
@@ -824,7 +915,7 @@ mod tests {
         };
 
         analyzer.add_measurement("test_op".to_string(), 100.0, context);
-        
+
         assert_eq!(analyzer.performance_history.len(), 1);
         assert!(analyzer.performance_history.contains_key("test_op"));
         assert_eq!(analyzer.performance_history["test_op"].len(), 1);
@@ -841,7 +932,7 @@ mod tests {
     fn test_baseline_setting() {
         let mut analyzer = PerformanceAnalyzer::new();
         analyzer.set_baseline("test_op".to_string(), 50.0);
-        
+
         assert!(analyzer.baselines.contains_key("test_op"));
         assert_eq!(analyzer.baselines["test_op"], 50.0);
     }
@@ -850,7 +941,7 @@ mod tests {
     fn test_linear_trend_calculation() {
         let analyzer = PerformanceAnalyzer::new();
         let start_time = Instant::now();
-        
+
         let measurements = vec![
             TrendMeasurement {
                 timestamp: start_time,

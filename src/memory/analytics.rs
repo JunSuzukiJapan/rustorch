@@ -9,10 +9,10 @@
 //! - Performance impact analysis
 
 use crate::error::{RusTorchError, RusTorchResult};
-use std::collections::{HashMap, BTreeMap};
-use std::sync::{Arc, RwLock, Mutex};
-use std::time::{Duration, Instant, SystemTime};
+use std::collections::{BTreeMap, HashMap};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
+use std::time::{Duration, Instant, SystemTime};
 
 /// Memory allocation record
 /// メモリ割り当て記録
@@ -84,8 +84,9 @@ impl AllocationPattern {
                 let age = SystemTime::now()
                     .duration_since(allocated_at)
                     .unwrap_or(Duration::from_secs(0));
-                
-                if age > Duration::from_secs(300) { // 5 minutes
+
+                if age > Duration::from_secs(300) {
+                    // 5 minutes
                     AllocationPattern::Leaked
                 } else {
                     AllocationPattern::MediumLived
@@ -234,7 +235,7 @@ impl Default for AnalyticsConfig {
             enable_stack_trace: true,
             stack_trace_depth: 10,
             leak_threshold: Duration::from_secs(300), // 5 minutes
-            report_interval: Duration::from_secs(60),  // 1 minute
+            report_interval: Duration::from_secs(60), // 1 minute
             enable_hotspot_analysis: true,
             hotspot_threshold: 10,
         }
@@ -321,17 +322,14 @@ impl MemoryAnalytics {
 
     /// Record memory allocation
     /// メモリ割り当てを記録
-    pub fn record_allocation(
-        &self,
-        size: usize,
-        source_location: String,
-    ) -> RusTorchResult<u64> {
+    pub fn record_allocation(&self, size: usize, source_location: String) -> RusTorchResult<u64> {
         let start_time = Instant::now();
 
         let id = {
-            let mut next_id = self.next_id.lock().map_err(|_| {
-                RusTorchError::MemoryError("Failed to acquire ID lock".to_string())
-            })?;
+            let mut next_id = self
+                .next_id
+                .lock()
+                .map_err(|_| RusTorchError::MemoryError("Failed to acquire ID lock".to_string()))?;
             let id = *next_id;
             *next_id += 1;
             id
@@ -377,7 +375,7 @@ impl MemoryAnalytics {
             let mut records = self.records.write().map_err(|_| {
                 RusTorchError::MemoryError("Failed to acquire records write lock".to_string())
             })?;
-            
+
             records.insert(id, record);
 
             // Clean up old records if necessary
@@ -416,7 +414,8 @@ impl MemoryAnalytics {
                 record.size
             } else {
                 return Err(RusTorchError::MemoryError(format!(
-                    "Allocation ID {} not found", id
+                    "Allocation ID {} not found",
+                    id
                 )));
             }
         };
@@ -473,8 +472,10 @@ impl MemoryAnalytics {
 
         for record in records.values() {
             // Update pattern distribution
-            *pattern_distribution.entry(record.pattern.clone()).or_insert(0) += 1;
-            
+            *pattern_distribution
+                .entry(record.pattern.clone())
+                .or_insert(0) += 1;
+
             // Update location statistics
             let location_stat = location_stats
                 .entry(record.source_location.clone())
@@ -486,17 +487,17 @@ impl MemoryAnalytics {
 
             if record.deallocated_at.is_none() {
                 active_count += 1;
-                
+
                 // Check for potential leaks
                 let age = SystemTime::now()
                     .duration_since(record.allocated_at)
                     .unwrap_or(Duration::from_secs(0));
-                
+
                 if age > self.config.leak_threshold {
                     leaked_count += 1;
                     leaked_bytes += record.size;
                     location_stat.2 += 1;
-                    
+
                     if oldest_leak_age.is_none() || age > oldest_leak_age.unwrap() {
                         oldest_leak_age = Some(age);
                     }
@@ -520,7 +521,7 @@ impl MemoryAnalytics {
                     });
                 }
             }
-            
+
             // Sort by total memory usage
             hotspots.sort_by(|a, b| b.total_memory.cmp(&a.total_memory));
         }
@@ -533,9 +534,9 @@ impl MemoryAnalytics {
         };
 
         let fragmentation_analysis = FragmentationAnalysis {
-            fragmentation_ratio: 0.1, // Simplified
-            pool_count: 8, // Simplified
-            avg_pool_utilization: 0.75, // Simplified
+            fragmentation_ratio: 0.1,            // Simplified
+            pool_count: 8,                       // Simplified
+            avg_pool_utilization: 0.75,          // Simplified
             wasted_memory: total_allocated / 20, // Simplified: 5% waste
         };
 
@@ -582,14 +583,16 @@ impl MemoryAnalytics {
         })?;
 
         if *running {
-            return Err(RusTorchError::MemoryError("Analysis already running".to_string()));
+            return Err(RusTorchError::MemoryError(
+                "Analysis already running".to_string(),
+            ));
         }
 
         *running = true;
 
         // We would spawn a background thread here for continuous analysis
         // For now, we'll just mark as running
-        
+
         Ok(())
     }
 
@@ -610,7 +613,7 @@ impl MemoryAnalytics {
         let stats = self.stats.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire stats read lock".to_string())
         })?;
-        
+
         Ok(stats.clone())
     }
 
@@ -627,9 +630,9 @@ impl MemoryAnalytics {
             .iter()
             .filter(|(_, record)| record.deallocated_at.is_some())
             .collect();
-        
+
         deallocated_records.sort_by_key(|(_, record)| record.allocated_at);
-        
+
         let remove_count = records.len() - target_size;
         for (id, _) in deallocated_records.into_iter().take(remove_count) {
             to_remove.push(*id);
@@ -662,14 +665,32 @@ impl std::fmt::Display for MemoryReport {
         writeln!(f, "")?;
         writeln!(f, "Memory Hotspots:")?;
         for (i, hotspot) in self.hotspots.iter().take(5).enumerate() {
-            writeln!(f, "  {}. {} ({} allocs, {} bytes)", 
-                i + 1, hotspot.location, hotspot.total_allocations, hotspot.total_memory)?;
+            writeln!(
+                f,
+                "  {}. {} ({} allocs, {} bytes)",
+                i + 1,
+                hotspot.location,
+                hotspot.total_allocations,
+                hotspot.total_memory
+            )?;
         }
         writeln!(f, "")?;
         writeln!(f, "Fragmentation:")?;
-        writeln!(f, "  Fragmentation Ratio: {:.2}%", self.fragmentation_analysis.fragmentation_ratio * 100.0)?;
-        writeln!(f, "  Pool Utilization: {:.2}%", self.fragmentation_analysis.avg_pool_utilization * 100.0)?;
-        writeln!(f, "  Wasted Memory: {} bytes", self.fragmentation_analysis.wasted_memory)?;
+        writeln!(
+            f,
+            "  Fragmentation Ratio: {:.2}%",
+            self.fragmentation_analysis.fragmentation_ratio * 100.0
+        )?;
+        writeln!(
+            f,
+            "  Pool Utilization: {:.2}%",
+            self.fragmentation_analysis.avg_pool_utilization * 100.0
+        )?;
+        writeln!(
+            f,
+            "  Wasted Memory: {} bytes",
+            self.fragmentation_analysis.wasted_memory
+        )?;
         Ok(())
     }
 }
@@ -681,17 +702,17 @@ mod tests {
     #[test]
     fn test_allocation_pattern_classification() {
         let now = SystemTime::now();
-        
+
         assert_eq!(
             AllocationPattern::classify(Some(Duration::from_millis(500)), now),
             AllocationPattern::ShortLived
         );
-        
+
         assert_eq!(
             AllocationPattern::classify(Some(Duration::from_secs(30)), now),
             AllocationPattern::MediumLived
         );
-        
+
         assert_eq!(
             AllocationPattern::classify(Some(Duration::from_secs(120)), now),
             AllocationPattern::LongLived
@@ -702,7 +723,7 @@ mod tests {
     fn test_analytics_creation() {
         let config = AnalyticsConfig::default();
         let analytics = MemoryAnalytics::new(config);
-        
+
         let stats = analytics.get_stats().unwrap();
         assert_eq!(stats.total_allocations, 0);
     }
@@ -711,14 +732,16 @@ mod tests {
     fn test_allocation_tracking() {
         let config = AnalyticsConfig::default();
         let analytics = MemoryAnalytics::new(config);
-        
+
         // Record allocation
-        let id = analytics.record_allocation(1024, "test.rs:10".to_string()).unwrap();
+        let id = analytics
+            .record_allocation(1024, "test.rs:10".to_string())
+            .unwrap();
         assert!(id > 0);
-        
+
         // Record deallocation
         analytics.record_deallocation(id).unwrap();
-        
+
         let stats = analytics.get_stats().unwrap();
         assert_eq!(stats.total_allocations, 1);
         assert_eq!(stats.total_deallocations, 1);
@@ -728,12 +751,16 @@ mod tests {
     fn test_report_generation() {
         let config = AnalyticsConfig::default();
         let analytics = MemoryAnalytics::new(config);
-        
+
         // Create some allocations
-        let id1 = analytics.record_allocation(1024, "test.rs:10".to_string()).unwrap();
-        let _id2 = analytics.record_allocation(2048, "test.rs:20".to_string()).unwrap();
+        let id1 = analytics
+            .record_allocation(1024, "test.rs:10".to_string())
+            .unwrap();
+        let _id2 = analytics
+            .record_allocation(2048, "test.rs:20".to_string())
+            .unwrap();
         analytics.record_deallocation(id1).unwrap();
-        
+
         let report = analytics.generate_report().unwrap();
         assert_eq!(report.total_allocations, 2);
         assert_eq!(report.total_deallocations, 1);

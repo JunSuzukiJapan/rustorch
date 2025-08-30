@@ -9,12 +9,12 @@
 //! - Adaptive memory compression
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::memory::pressure_monitor::{PressureLevel, GcStrategy};
 use crate::memory::analytics::AllocationPattern;
+use crate::memory::pressure_monitor::{GcStrategy, PressureLevel};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
-use std::collections::{HashMap, VecDeque, BTreeMap};
-use std::sync::{Arc, RwLock, Mutex};
+use std::collections::{BTreeMap, HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 
 /// Memory optimization strategy
@@ -292,7 +292,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
     /// 現在の戦略に基づいてメモリ割り当てを最適化
     pub fn optimize_allocation(&self, shape: &[usize]) -> RusTorchResult<ArrayD<T>> {
         let start_time = Instant::now();
-        
+
         let total_elements: usize = shape.iter().product();
         let size_class = self.get_size_class(total_elements);
 
@@ -389,7 +389,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
                 // Keep only the most recently added arrays
                 let keep_count = (pool.len() / 2).max(1);
                 let remove_count = pool.len() - keep_count;
-                
+
                 for _ in 0..remove_count {
                     if let Some(array) = pool.pop_front() {
                         memory_reclaimed += array.len() * std::mem::size_of::<T>();
@@ -445,8 +445,8 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
         total_usage_trend /= (recent_snapshots.len() - 1) as f64;
 
         let current_usage = recent_snapshots[0].total_usage;
-        let predicted_memory = ((current_usage as f64 + total_usage_trend * 5.0) as usize)
-            .max(current_usage);
+        let predicted_memory =
+            ((current_usage as f64 + total_usage_trend * 5.0) as usize).max(current_usage);
 
         let confidence = if total_usage_trend.abs() < current_usage as f64 * 0.1 {
             0.8 // High confidence for stable trends
@@ -454,9 +454,9 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
             0.5 // Lower confidence for volatile trends
         };
 
-        let recommended_prealloc = 
-            ((predicted_memory as f64 * self.config.preallocation_factor) as usize)
-                .saturating_sub(current_usage);
+        let recommended_prealloc = ((predicted_memory as f64 * self.config.preallocation_factor)
+            as usize)
+            .saturating_sub(current_usage);
 
         Ok(Some(MemoryPrediction {
             predicted_memory,
@@ -495,7 +495,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
         let stats = self.stats.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire stats read lock".to_string())
         })?;
-        
+
         Ok(stats.clone())
     }
 
@@ -522,7 +522,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
 
     fn try_cache_retrieval(&self, shape: &[usize]) -> RusTorchResult<Option<ArrayD<T>>> {
         let cache_key = format!("{:?}", shape);
-        
+
         let mut cache = self.smart_cache.write().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire cache write lock".to_string())
         })?;
@@ -530,7 +530,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
         if let Some(entry) = cache.get_mut(&cache_key) {
             entry.last_accessed = Instant::now();
             entry.access_count += 1;
-            
+
             // Clone the data and clear the original for reuse
             let mut result = entry.data.clone();
             result.fill(T::zero());
@@ -540,7 +540,11 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
         Ok(None)
     }
 
-    fn try_prealloc_retrieval(&self, size_class: usize, shape: &[usize]) -> RusTorchResult<Option<ArrayD<T>>> {
+    fn try_prealloc_retrieval(
+        &self,
+        size_class: usize,
+        shape: &[usize],
+    ) -> RusTorchResult<Option<ArrayD<T>>> {
         let mut pools = self.prealloc_pools.write().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire pools write lock".to_string())
         })?;
@@ -587,7 +591,7 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
     fn should_cache(&self, array: &ArrayD<T>) -> bool {
         let current_cache_size = self.estimate_cache_size();
         let array_size = array.len() * std::mem::size_of::<T>();
-        
+
         current_cache_size + array_size <= self.config.cache_size_limit
     }
 
@@ -650,13 +654,19 @@ impl<T: Float + Clone + Send + Sync + 'static> MemoryOptimizer<T> {
         }
     }
 
-    fn analyze_usage_patterns(&self, history: &VecDeque<MemoryUsageSnapshot>) -> RusTorchResult<()> {
+    fn analyze_usage_patterns(
+        &self,
+        history: &VecDeque<MemoryUsageSnapshot>,
+    ) -> RusTorchResult<()> {
         // Simplified pattern analysis
         // In a real implementation, we would perform more sophisticated analysis
         Ok(())
     }
 
-    fn update_strategy_if_adaptive(&self, history: &VecDeque<MemoryUsageSnapshot>) -> RusTorchResult<()> {
+    fn update_strategy_if_adaptive(
+        &self,
+        history: &VecDeque<MemoryUsageSnapshot>,
+    ) -> RusTorchResult<()> {
         let current_strategy = *self.current_strategy.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire strategy read lock".to_string())
         })?;
@@ -710,7 +720,7 @@ mod tests {
     fn test_optimizer_creation() {
         let config = OptimizerConfig::default();
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         let stats = optimizer.get_stats().unwrap();
         assert_eq!(stats.total_optimizations, 0);
     }
@@ -719,7 +729,7 @@ mod tests {
     fn test_size_class_calculation() {
         let config = OptimizerConfig::default();
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         assert_eq!(optimizer.get_size_class(32), 0);
         assert_eq!(optimizer.get_size_class(128), 1);
         assert_eq!(optimizer.get_size_class(512), 2);
@@ -730,10 +740,10 @@ mod tests {
     fn test_optimization_allocation() {
         let config = OptimizerConfig::default();
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         let array = optimizer.optimize_allocation(&[3, 4]).unwrap();
         assert_eq!(array.shape(), &[3, 4]);
-        
+
         let stats = optimizer.get_stats().unwrap();
         assert_eq!(stats.total_optimizations, 1);
     }
@@ -742,11 +752,11 @@ mod tests {
     fn test_cache_optimization() {
         let config = OptimizerConfig::default();
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         // First allocation
         let array1 = optimizer.optimize_allocation(&[2, 2]).unwrap();
         optimizer.optimize_deallocation(array1).unwrap();
-        
+
         // Second allocation should potentially hit cache
         let array2 = optimizer.optimize_allocation(&[2, 2]).unwrap();
         assert_eq!(array2.shape(), &[2, 2]);
@@ -759,7 +769,7 @@ mod tests {
             ..OptimizerConfig::default()
         };
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         // Add enough usage history to satisfy prediction window
         for i in 0..10 {
             let snapshot = MemoryUsageSnapshot {
@@ -771,10 +781,10 @@ mod tests {
             };
             optimizer.update_usage_snapshot(snapshot).unwrap();
         }
-        
+
         let prediction = optimizer.predict_memory_usage().unwrap();
         assert!(prediction.is_some());
-        
+
         let pred = prediction.unwrap();
         assert!(pred.predicted_memory > 0);
         assert!(pred.confidence > 0.0 && pred.confidence <= 1.0);
@@ -784,17 +794,17 @@ mod tests {
     fn test_defragmentation() {
         let config = OptimizerConfig::default();
         let optimizer: MemoryOptimizer<f32> = MemoryOptimizer::new(config);
-        
+
         // Create some allocations to fragment memory
         for _ in 0..5 {
             let array = optimizer.optimize_allocation(&[10, 10]).unwrap();
             optimizer.optimize_deallocation(array).unwrap();
         }
-        
+
         let reclaimed = optimizer.defragment_memory().unwrap();
         // May be 0 if nothing was actually fragmented
-        assert!(reclaimed >= 0);
-        
+        // reclaimed is usize, always >= 0
+
         let stats = optimizer.get_stats().unwrap();
         assert_eq!(stats.defragmentations, 1);
     }

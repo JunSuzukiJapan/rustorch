@@ -12,7 +12,7 @@ use crate::tensor::Tensor;
 use std::collections::HashMap;
 
 /// AdaBound optimizer
-/// 
+///
 /// AdaBound dynamically adjusts the bounds of learning rates to combine
 /// the fast convergence of Adam with the good generalization of SGD.
 #[derive(Debug, Clone)]
@@ -25,8 +25,8 @@ pub struct AdaBound {
     final_lr: f32,
     gamma: f32,
     step_count: usize,
-    exp_avg: HashMap<usize, Tensor<f32>>,      // First moment estimate
-    exp_avg_sq: HashMap<usize, Tensor<f32>>,   // Second moment estimate
+    exp_avg: HashMap<usize, Tensor<f32>>, // First moment estimate
+    exp_avg_sq: HashMap<usize, Tensor<f32>>, // Second moment estimate
 }
 
 impl AdaBound {
@@ -35,7 +35,7 @@ impl AdaBound {
     pub fn new(learning_rate: f32) -> Self {
         Self::with_params(learning_rate, 0.1, 0.9, 0.999, 1e-8, 0.0, 1e-3)
     }
-    
+
     /// Create AdaBound optimizer with custom parameters
     /// カスタムパラメータでAdaBoundオプティマイザーを作成
     pub fn with_params(
@@ -60,38 +60,38 @@ impl AdaBound {
             exp_avg_sq: HashMap::new(),
         }
     }
-    
+
     /// Set final learning rate for convergence
     /// 収束用の最終学習率を設定
     pub fn set_final_lr(&mut self, final_lr: f32) {
         self.final_lr = final_lr;
     }
-    
+
     /// Set gamma parameter for bounds adjustment
     /// 境界調整用のガンマパラメータを設定  
     pub fn set_gamma(&mut self, gamma: f32) {
         self.gamma = gamma;
     }
-    
+
     /// Get current step count
     /// 現在のステップ数を取得
     pub fn step_count(&self) -> usize {
         self.step_count
     }
-    
+
     /// Calculate dynamic learning rate bounds
     /// 動的学習率境界を計算
     fn compute_bounds(&self) -> (f32, f32) {
         let t = self.step_count as f32;
         let base_lr = self.learning_rate;
         let final_lr = self.final_lr;
-        
+
         // Dynamic bound calculation based on step count
         // ステップ数に基づく動的境界計算
         let bound_scale = (1.0 + t * self.gamma).ln();
         let lower_bound = final_lr * (1.0 - 1.0 / bound_scale);
         let upper_bound = final_lr * (1.0 + 1.0 / bound_scale);
-        
+
         (lower_bound.max(0.0), upper_bound.min(base_lr))
     }
 }
@@ -139,7 +139,7 @@ impl Optimizer for AdaBound {
         // バイアス補正
         let bias_correction1 = 1.0 - self.beta1.powi(self.step_count as i32);
         let bias_correction2 = 1.0 - self.beta2.powi(self.step_count as i32);
-        
+
         let corrected_exp_avg = &exp_avg / bias_correction1;
         let corrected_exp_avg_sq = &exp_avg_sq / bias_correction2;
 
@@ -151,16 +151,16 @@ impl Optimizer for AdaBound {
         // Apply dynamic bounds (AdaBound's key innovation)
         // 動的境界を適用（AdaBoundの主要革新）
         let (lower_bound, upper_bound) = self.compute_bounds();
-        
+
         // Element-wise bound clipping would be ideal, but for simplicity we use scalar bounds
         // 要素ごとの境界クリッピングが理想的ですが、簡単のためスカラー境界を使用
         let step_size = self.learning_rate.max(lower_bound).min(upper_bound);
-        
+
         // Final parameter update
         // 最終パラメータ更新
         let scaled_update = &raw_step_size * step_size;
         let updated_param = param - &scaled_update;
-        
+
         param.copy_from(&updated_param);
     }
 
@@ -242,9 +242,9 @@ mod tests {
     fn test_adabound_bounds_computation() {
         let mut optimizer = AdaBound::new(0.1);
         optimizer.step_count = 100;
-        
+
         let (lower_bound, upper_bound) = optimizer.compute_bounds();
-        
+
         // Bounds should be reasonable
         assert!(lower_bound >= 0.0);
         assert!(upper_bound <= optimizer.learning_rate());
@@ -259,17 +259,17 @@ mod tests {
 
         // Initial parameter values
         let initial_param = param.clone();
-        
+
         // Perform optimization step
         optimizer.step(&param, &grad);
-        
+
         // Verify step count increased
         assert_eq!(optimizer.step_count(), 1);
-        
+
         // Verify parameters were updated
         let updated_data = param.data.as_slice().unwrap();
         let initial_data = initial_param.data.as_slice().unwrap();
-        
+
         assert_ne!(updated_data[0], initial_data[0]);
     }
 
@@ -283,10 +283,10 @@ mod tests {
         for _ in 0..50 {
             optimizer.step(&param, &grad);
         }
-        
+
         // After many steps, the effective learning rate should approach final_lr
         assert_eq!(optimizer.step_count(), 50);
-        
+
         let (lower_bound, upper_bound) = optimizer.compute_bounds();
         // Bounds should be reasonable, upper_bound should be less than or equal to initial LR
         assert!(upper_bound <= optimizer.learning_rate());
@@ -296,7 +296,7 @@ mod tests {
     fn test_adabound_state_dict() {
         let optimizer = AdaBound::with_params(0.02, 0.08, 0.85, 0.95, 1e-5, 0.05, 2e-3);
         let state = optimizer.state_dict();
-        
+
         assert_eq!(state["learning_rate"], 0.02);
         assert_eq!(state["final_lr"], 0.08);
         assert_eq!(state["beta1"], 0.85);
@@ -311,9 +311,9 @@ mod tests {
         state.insert("learning_rate".to_string(), 0.05);
         state.insert("final_lr".to_string(), 0.02);
         state.insert("gamma".to_string(), 5e-4);
-        
+
         optimizer.load_state_dict(state);
-        
+
         assert_eq!(optimizer.learning_rate(), 0.05);
         assert_eq!(optimizer.final_lr, 0.02);
         assert_eq!(optimizer.gamma, 5e-4);

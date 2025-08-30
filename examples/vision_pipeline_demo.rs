@@ -78,8 +78,8 @@ fn demo_basic_pipeline(image: &Image<f32>) -> Result<(), Box<dyn std::error::Err
     // Create a basic pipeline with multiple transforms
     // 複数の変換を持つ基本的なパイプラインを作成
     let pipeline = PipelineBuilder::new("basic_demo".to_string())
-        .transform(Box::new(Resize::new((224, 224))))
-        .transform(Box::new(CenterCrop::new((200, 200))))
+        .transform(Box::new(Resize::new((128, 128))))
+        .transform(Box::new(CenterCrop::new((64, 64))))
         .transform(Box::new(RandomHorizontalFlip::new(0.5)))
         .transform(Box::new(ToTensor::new()))
         .transform(Box::new(Normalize::imagenet()))
@@ -124,7 +124,7 @@ fn demo_conditional_transforms(
             "resize_large_images".to_string(),
         )
         .conditional_transform(
-            Box::new(RandomCrop::new((224, 224))),
+            Box::new(RandomCrop::new((32, 32))),
             predicates::probability(0.7),
             "probabilistic_crop".to_string(),
         )
@@ -198,7 +198,7 @@ fn demo_performance_monitoring(image: &Image<f32>) -> Result<(), Box<dyn std::er
     // キャッシュを有効にしたパイプラインを作成
     let pipeline = PipelineBuilder::new("performance_demo".to_string())
         .transform(Box::new(Resize::new((256, 256))))
-        .transform(Box::new(CenterCrop::new((224, 224))))
+        .transform(Box::new(CenterCrop::new((32, 32))))
         .transform(Box::new(ToTensor::new()))
         .cache(5)
         .build();
@@ -241,7 +241,7 @@ fn demo_batch_processing(images: Vec<Image<f32>>) -> Result<(), Box<dyn std::err
     // Create a pipeline optimized for batch processing
     // バッチ処理用に最適化されたパイプラインを作成
     let pipeline = PipelineBuilder::new("batch_demo".to_string())
-        .transform(Box::new(Resize::new((224, 224))))
+        .transform(Box::new(Resize::new((128, 128))))
         .transform(Box::new(ToTensor::new()))
         .transform(Box::new(Normalize::imagenet()))
         .execution_mode(ExecutionMode::Batch)

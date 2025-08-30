@@ -14,8 +14,8 @@
 //! - 並列・非同期データ読み込み
 
 pub mod dataloader;
-pub mod parallel_dataloader;
 pub mod datasets;
+pub mod parallel_dataloader;
 pub mod streaming;
 pub mod transforms;
 
@@ -42,10 +42,7 @@ pub trait Dataset<T: Float> {
     /// Get a batch of samples
     /// サンプルのバッチを取得
     fn get_batch(&self, indices: &[usize]) -> Vec<(Tensor<T>, Tensor<T>)> {
-        indices
-            .iter()
-            .filter_map(|&idx| self.get(idx))
-            .collect()
+        indices.iter().filter_map(|&idx| self.get(idx)).collect()
     }
 
     /// Get dataset metadata (optional)
@@ -130,23 +127,29 @@ impl<T: Float + 'static> Dataset<T> for TensorDataset<T> {
         meta.insert("type".to_string(), "tensor".to_string());
         meta.insert("samples".to_string(), self.len().to_string());
         if !self.features.is_empty() {
-            meta.insert("feature_shape".to_string(), format!("{:?}", self.features[0].shape()));
+            meta.insert(
+                "feature_shape".to_string(),
+                format!("{:?}", self.features[0].shape()),
+            );
         }
         if !self.targets.is_empty() {
-            meta.insert("target_shape".to_string(), format!("{:?}", self.targets[0].shape()));
+            meta.insert(
+                "target_shape".to_string(),
+                format!("{:?}", self.targets[0].shape()),
+            );
         }
         meta
     }
 }
 
 // Re-export all public components
-pub use dataloader::{DataLoader, Transform, Compose, Normalize, RandomHorizontalFlip};
+pub use dataloader::{Compose, DataLoader, Normalize, RandomHorizontalFlip, Transform};
+pub use datasets::{CSVDataset, ImageDataset, MemoryMappedDataset, TextDataset};
 pub use parallel_dataloader::{ParallelBatchIterator, ParallelBatchProcessor, ParallelDataLoader};
-pub use datasets::{CSVDataset, ImageDataset, TextDataset, MemoryMappedDataset};
-pub use streaming::{StreamingDataset, DynamicBatchLoader, AsyncDataLoader};
+pub use streaming::{AsyncDataLoader, DynamicBatchLoader, StreamingDataset};
 pub use transforms::{
-    Transform as TransformTrait, Compose as ComposeTransform, RandomChoice,
-    MinMaxNormalize, CenterCrop, AddGaussianNoise, RandomBrightness, TokenDropout,
-    Normalize as AdvancedNormalize, RandomHorizontalFlip as AdvancedRandomHorizontalFlip,
-    RandomRotation,
+    AddGaussianNoise, CenterCrop, Compose as ComposeTransform, MinMaxNormalize,
+    Normalize as AdvancedNormalize, RandomBrightness, RandomChoice,
+    RandomHorizontalFlip as AdvancedRandomHorizontalFlip, RandomRotation, TokenDropout,
+    Transform as TransformTrait,
 };

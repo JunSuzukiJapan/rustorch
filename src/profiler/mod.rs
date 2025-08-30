@@ -17,23 +17,25 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 // Enhanced module structure
+pub mod benchmark_suite;
 pub mod core;
 pub mod kernel_profiler;
 pub mod memory_profiler;
-pub mod timeline;
 pub mod metrics_collector;
 pub mod performance_analyzer;
-pub mod benchmark_suite;
 pub mod real_time_monitor;
 pub mod system_profiler;
+pub mod timeline;
 
 // Enhanced re-exports for the new profiling system
-pub use benchmark_suite::{AdvancedBenchmarkSuite, BenchmarkCategory, BenchmarkConfiguration, BenchmarkResult};
+pub use benchmark_suite::{
+    AdvancedBenchmarkSuite, BenchmarkCategory, BenchmarkConfiguration, BenchmarkResult,
+};
 pub use core::{ProfilerConfig, ProfilerCore, ProfilingLevel, ProfilingSession, SessionSnapshot};
-pub use metrics_collector::{CustomMetric, MetricType, MetricsCollector, MetricStatistics};
+pub use metrics_collector::{CustomMetric, MetricStatistics, MetricType, MetricsCollector};
 pub use performance_analyzer::{
-    PerformanceAnalyzer, PerformanceTrend, OptimizationRecommendation, TrendAnalysis,
-    RecommendationType, RecommendationPriority,
+    OptimizationRecommendation, PerformanceAnalyzer, PerformanceTrend, RecommendationPriority,
+    RecommendationType, TrendAnalysis,
 };
 
 // Legacy imports for backward compatibility

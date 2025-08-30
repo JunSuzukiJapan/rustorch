@@ -6,7 +6,7 @@
 //! - Memory pressure monitoring and adaptive garbage collection
 //! - Memory analytics and profiling for performance optimization
 //! - Memory-aware optimization with predictive allocation
-//! 
+//!
 //! Features:
 //! - NUMA-aware allocation
 //! - Memory leak detection
@@ -14,23 +14,23 @@
 //! - Smart caching with priority-based eviction
 //! - Zero-copy optimizations
 
-pub mod enhanced_pool;
-pub mod pressure_monitor;
 pub mod analytics;
+pub mod enhanced_pool;
 pub mod optimizer;
+pub mod pressure_monitor;
 
 // Re-export enhanced memory management components
-pub use enhanced_pool::{EnhancedMemoryPool, PoolConfig, AllocationStrategy, EnhancedPoolStats};
-pub use pressure_monitor::{AdaptivePressureMonitor, PressureLevel, GcStrategy, MonitorConfig};
-pub use analytics::{MemoryAnalytics, MemoryReport, AllocationRecord, AnalyticsConfig};
-pub use optimizer::{MemoryOptimizer, OptimizerConfig, OptimizationStrategy, MemoryPrediction};
+pub use analytics::{AllocationRecord, AnalyticsConfig, MemoryAnalytics, MemoryReport};
+pub use enhanced_pool::{AllocationStrategy, EnhancedMemoryPool, EnhancedPoolStats, PoolConfig};
+pub use optimizer::{MemoryOptimizer, MemoryPrediction, OptimizationStrategy, OptimizerConfig};
+pub use pressure_monitor::{AdaptivePressureMonitor, GcStrategy, MonitorConfig, PressureLevel};
 
+use crate::error::{RusTorchError, RusTorchResult};
 use lazy_static::lazy_static;
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-use crate::error::{RusTorchError, RusTorchResult};
 
 /// Legacy memory pool for backward compatibility
 /// 後方互換性のためのレガシーメモリプール
@@ -352,7 +352,7 @@ impl<T: Float + Clone + Send + Sync + 'static> ComprehensiveMemoryManager<T> {
 
         // Update memory usage in monitor (simplified)
         // In real implementation, we would collect actual usage data
-        
+
         Ok(array)
     }
 
@@ -459,7 +459,8 @@ impl<T: Float + Clone + Send + Sync + 'static> ComprehensiveMemoryManager<T> {
 
         // Factor in trend
         if let Some(t) = trend {
-            if t.direction > 0.0 { // Increasing pressure trend
+            if t.direction > 0.0 {
+                // Increasing pressure trend
                 score -= t.strength * 0.3;
             }
         }
@@ -568,17 +569,45 @@ impl std::fmt::Display for ComprehensiveReport {
         writeln!(f, "{}", self.pool_stats)?;
         writeln!(f, "")?;
         writeln!(f, "Monitor Statistics:")?;
-        writeln!(f, "  Total Snapshots: {}", self.monitor_stats.total_snapshots)?;
-        writeln!(f, "  Average Pressure: {:.2}%", self.monitor_stats.avg_pressure * 100.0)?;
-        writeln!(f, "  Peak Pressure: {:.2}%", self.monitor_stats.peak_pressure * 100.0)?;
+        writeln!(
+            f,
+            "  Total Snapshots: {}",
+            self.monitor_stats.total_snapshots
+        )?;
+        writeln!(
+            f,
+            "  Average Pressure: {:.2}%",
+            self.monitor_stats.avg_pressure * 100.0
+        )?;
+        writeln!(
+            f,
+            "  Peak Pressure: {:.2}%",
+            self.monitor_stats.peak_pressure * 100.0
+        )?;
         writeln!(f, "")?;
         writeln!(f, "{}", self.analytics_report)?;
         writeln!(f, "")?;
         writeln!(f, "Optimizer Statistics:")?;
-        writeln!(f, "  Total Optimizations: {}", self.optimizer_stats.total_optimizations)?;
-        writeln!(f, "  Memory Saved: {} bytes", self.optimizer_stats.memory_saved)?;
-        writeln!(f, "  Cache Hit Ratio: {:.2}%", self.optimizer_stats.cache_hit_ratio * 100.0)?;
-        writeln!(f, "  Zero-Copy Operations: {}", self.optimizer_stats.zero_copy_operations)?;
+        writeln!(
+            f,
+            "  Total Optimizations: {}",
+            self.optimizer_stats.total_optimizations
+        )?;
+        writeln!(
+            f,
+            "  Memory Saved: {} bytes",
+            self.optimizer_stats.memory_saved
+        )?;
+        writeln!(
+            f,
+            "  Cache Hit Ratio: {:.2}%",
+            self.optimizer_stats.cache_hit_ratio * 100.0
+        )?;
+        writeln!(
+            f,
+            "  Zero-Copy Operations: {}",
+            self.optimizer_stats.zero_copy_operations
+        )?;
         Ok(())
     }
 }
@@ -588,7 +617,7 @@ lazy_static! {
     /// f32用のグローバル包括的メモリマネージャー
     static ref GLOBAL_MEMORY_MANAGER_F32: Arc<Mutex<ComprehensiveMemoryManager<f32>>> =
         Arc::new(Mutex::new(ComprehensiveMemoryManager::new()));
-    
+
     /// Global comprehensive memory manager for f64
     /// f64用のグローバル包括的メモリマネージャー
     static ref GLOBAL_MEMORY_MANAGER_F64: Arc<Mutex<ComprehensiveMemoryManager<f64>>> =

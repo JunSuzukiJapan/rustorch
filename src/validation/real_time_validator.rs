@@ -79,10 +79,13 @@ impl StreamingValidation {
     pub fn new(config: RealTimeConfig) -> Self {
         Self { config }
     }
-    
+
     /// Validate streaming data chunk
     /// ストリーミングデータチャンクを検証
-    pub fn validate_chunk<T>(&self, _tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<StreamingValidationResult>
+    pub fn validate_chunk<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<StreamingValidationResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -117,15 +120,18 @@ impl ValidationStream {
             position: 0,
         }
     }
-    
+
     /// Process next item in stream
     /// ストリーム内の次のアイテムを処理
-    pub fn process_next<T>(&mut self, _tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<StreamingValidationResult>
+    pub fn process_next<T>(
+        &mut self,
+        _tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<StreamingValidationResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         self.position += 1;
-        
+
         // Placeholder implementation
         Ok(StreamingValidationResult {
             timestamp: Instant::now(),
@@ -188,7 +194,7 @@ impl ValidationBuffer {
             max_size,
         }
     }
-    
+
     /// Add result to buffer
     /// バッファに結果を追加
     pub fn add_result(&mut self, result: StreamingValidationResult) {
@@ -197,7 +203,7 @@ impl ValidationBuffer {
         }
         self.results.push_back(result);
     }
-    
+
     /// Get recent results
     /// 最近の結果を取得
     pub fn get_recent_results(&self, count: usize) -> Vec<&StreamingValidationResult> {
@@ -210,7 +216,7 @@ impl RealTimeValidator {
     /// 新しいリアルタイム検証器を作成
     pub fn new(config: RealTimeConfig) -> RusTorchResult<Self> {
         let buffer = Arc::new(Mutex::new(ValidationBuffer::new(config.buffer_size)));
-        
+
         Ok(Self {
             config,
             buffer,
@@ -218,42 +224,55 @@ impl RealTimeValidator {
             stats: ValidationStats::default(),
         })
     }
-    
+
     /// Start real-time monitoring
     /// リアルタイム監視を開始
     pub fn start_monitoring(&mut self) -> RusTorchResult<()> {
-        let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire running lock".to_string() })?;
-        
+        let mut running = self
+            .is_running
+            .lock()
+            .map_err(|_| RusTorchError::Validation {
+                message: "Failed to acquire running lock".to_string(),
+            })?;
+
         if *running {
-            return Err(RusTorchError::Validation { message: "Real-time validator already running".to_string() });
+            return Err(RusTorchError::Validation {
+                message: "Real-time validator already running".to_string(),
+            });
         }
-        
+
         *running = true;
         println!("🔍 Real-time data validation started");
         Ok(())
     }
-    
+
     /// Stop real-time monitoring
     /// リアルタイム監視を停止
     pub fn stop_monitoring(&mut self) -> RusTorchResult<()> {
-        let mut running = self.is_running.lock()
-            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire running lock".to_string() })?;
-        
+        let mut running = self
+            .is_running
+            .lock()
+            .map_err(|_| RusTorchError::Validation {
+                message: "Failed to acquire running lock".to_string(),
+            })?;
+
         *running = false;
         println!("🔍 Real-time data validation stopped");
         Ok(())
     }
-    
+
     /// Validate data chunk in real-time
     /// リアルタイムでデータチャンクを検証
-    pub fn validate_realtime<T>(&mut self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<StreamingValidationResult>
+    pub fn validate_realtime<T>(
+        &mut self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<StreamingValidationResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let streaming_validation = StreamingValidation::new(self.config.clone());
         let result = streaming_validation.validate_chunk(tensor)?;
-        
+
         // Update statistics
         self.stats.total_chunks += 1;
         if result.is_valid {
@@ -261,23 +280,26 @@ impl RealTimeValidator {
         } else {
             self.stats.invalid_chunks += 1;
         }
-        
+
         // Update averages
         let total = self.stats.total_chunks as f64;
         self.stats.avg_processing_time = Duration::from_nanos(
-            (self.stats.avg_processing_time.as_nanos() as f64 * (total - 1.0) + result.processing_time.as_nanos() as f64) as u64 / total as u64
+            (self.stats.avg_processing_time.as_nanos() as f64 * (total - 1.0)
+                + result.processing_time.as_nanos() as f64) as u64
+                / total as u64,
         );
-        self.stats.avg_quality_score = 
+        self.stats.avg_quality_score =
             (self.stats.avg_quality_score * (total - 1.0) + result.quality_score) / total;
-        
+
         // Store result in buffer
-        let mut buffer = self.buffer.lock()
-            .map_err(|_| RusTorchError::Validation { message: "Failed to acquire buffer lock".to_string() })?;
+        let mut buffer = self.buffer.lock().map_err(|_| RusTorchError::Validation {
+            message: "Failed to acquire buffer lock".to_string(),
+        })?;
         buffer.add_result(result.clone());
-        
+
         Ok(result)
     }
-    
+
     /// Get validation statistics
     /// 検証統計を取得
     pub fn get_stats(&self) -> &ValidationStats {

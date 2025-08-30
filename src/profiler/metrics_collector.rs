@@ -89,15 +89,19 @@ impl CustomMetric {
     /// メトリクス値を更新
     pub fn update(&mut self, value: f64) {
         let now = Instant::now();
-        
+
         match self.metric_type {
             MetricType::Counter => {
                 if value >= self.value {
                     self.value = value;
                 }
             }
-            MetricType::Gauge | MetricType::TimingMs | MetricType::Throughput 
-            | MetricType::MemoryBytes | MetricType::CpuPercent | MetricType::GpuPercent
+            MetricType::Gauge
+            | MetricType::TimingMs
+            | MetricType::Throughput
+            | MetricType::MemoryBytes
+            | MetricType::CpuPercent
+            | MetricType::GpuPercent
             | MetricType::Custom(_) => {
                 self.value = value;
             }
@@ -108,7 +112,7 @@ impl CustomMetric {
         }
 
         self.timestamp = now;
-        
+
         // Store in history (keep last 1000 points)
         self.history.push_back((now, self.value));
         if self.history.len() > 1000 {
@@ -133,7 +137,7 @@ impl CustomMetric {
 
         let recent = self.history.back()?;
         let older = self.history.get(self.history.len() - 2)?;
-        
+
         let time_diff = recent.0.duration_since(older.0).as_secs_f64();
         if time_diff > 0.0 {
             Some((recent.1 - older.1) / time_diff)
@@ -146,7 +150,8 @@ impl CustomMetric {
     /// 時間窓での統計を取得
     pub fn get_statistics(&self, window: Duration) -> MetricStatistics {
         let cutoff_time = self.timestamp - window;
-        let relevant_points: Vec<_> = self.history
+        let relevant_points: Vec<_> = self
+            .history
             .iter()
             .filter(|(time, _)| *time >= cutoff_time)
             .map(|(_, value)| *value)
@@ -168,12 +173,15 @@ impl CustomMetric {
         let sum: f64 = relevant_points.iter().sum();
         let mean = sum / count as f64;
         let min = relevant_points.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-        let max = relevant_points.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-        
+        let max = relevant_points
+            .iter()
+            .fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+
         let variance = relevant_points
             .iter()
             .map(|value| (*value - mean).powi(2))
-            .sum::<f64>() / count as f64;
+            .sum::<f64>()
+            / count as f64;
         let std_dev = variance.sqrt();
 
         MetricStatistics {
@@ -272,7 +280,11 @@ impl Histogram {
     pub fn new(bucket_bounds: Vec<f64>) -> Self {
         let mut buckets = Vec::new();
         for i in 0..bucket_bounds.len() {
-            let lower = if i == 0 { f64::NEG_INFINITY } else { bucket_bounds[i - 1] };
+            let lower = if i == 0 {
+                f64::NEG_INFINITY
+            } else {
+                bucket_bounds[i - 1]
+            };
             let upper = bucket_bounds[i];
             buckets.push(HistogramBucket {
                 lower_bound: lower,
@@ -330,14 +342,18 @@ impl Histogram {
                 } else {
                     0.0
                 };
-                
-                let lower = if bucket.lower_bound.is_infinite() { 0.0 } else { bucket.lower_bound };
-                let upper = if bucket.upper_bound.is_infinite() { 
-                    bucket.lower_bound + 1.0 
-                } else { 
-                    bucket.upper_bound 
+
+                let lower = if bucket.lower_bound.is_infinite() {
+                    0.0
+                } else {
+                    bucket.lower_bound
                 };
-                
+                let upper = if bucket.upper_bound.is_infinite() {
+                    bucket.lower_bound + 1.0
+                } else {
+                    bucket.upper_bound
+                };
+
                 return Some(lower + ratio * (upper - lower));
             }
         }
@@ -395,9 +411,10 @@ impl MetricsCollector {
     /// Register custom metric
     /// カスタムメトリクスを登録
     pub fn register_metric(&self, metric: CustomMetric) -> RusTorchResult<()> {
-        let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+        let mut metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         metrics.insert(metric.name.clone(), metric);
         Ok(())
     }
@@ -405,28 +422,34 @@ impl MetricsCollector {
     /// Update metric value
     /// メトリクス値を更新
     pub fn update_metric(&self, name: &str, value: f64) -> RusTorchResult<()> {
-        let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+        let mut metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         if let Some(metric) = metrics.get_mut(name) {
             metric.update(value);
             Ok(())
         } else {
-            Err(RusTorchError::Profiling { message: format!("Metric '{}' not found", name) })
+            Err(RusTorchError::Profiling {
+                message: format!("Metric '{}' not found", name),
+            })
         }
     }
 
     /// Increment counter metric
     /// カウンターメトリクスをインクリメント
     pub fn increment_counter(&self, name: &str, delta: f64) -> RusTorchResult<()> {
-        let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+        let mut metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         if let Some(metric) = metrics.get_mut(name) {
             metric.increment(delta);
             Ok(())
         } else {
-            Err(RusTorchError::Profiling { message: format!("Counter '{}' not found", name) })
+            Err(RusTorchError::Profiling {
+                message: format!("Counter '{}' not found", name),
+            })
         }
     }
 
@@ -440,9 +463,13 @@ impl MetricsCollector {
     /// Create histogram
     /// ヒストグラムを作成
     pub fn create_histogram(&self, name: String, bucket_bounds: Vec<f64>) -> RusTorchResult<()> {
-        let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
-        
+        let mut histograms = self
+            .histograms
+            .lock()
+            .map_err(|_| RusTorchError::Profiling {
+                message: "Failed to acquire histograms lock".to_string(),
+            })?;
+
         let histogram = Histogram::new(bucket_bounds);
         histograms.insert(name, histogram);
         Ok(())
@@ -451,40 +478,63 @@ impl MetricsCollector {
     /// Add value to histogram
     /// ヒストグラムに値を追加
     pub fn add_histogram_value(&self, name: &str, value: f64) -> RusTorchResult<()> {
-        let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
-        
+        let mut histograms = self
+            .histograms
+            .lock()
+            .map_err(|_| RusTorchError::Profiling {
+                message: "Failed to acquire histograms lock".to_string(),
+            })?;
+
         if let Some(histogram) = histograms.get_mut(name) {
             histogram.add_value(value);
             Ok(())
         } else {
-            Err(RusTorchError::Profiling { message: format!("Histogram '{}' not found", name) })
+            Err(RusTorchError::Profiling {
+                message: format!("Histogram '{}' not found", name),
+            })
         }
     }
 
     /// Get metric statistics
     /// メトリクス統計を取得
-    pub fn get_metric_statistics(&self, name: &str, window: Duration) -> RusTorchResult<MetricStatistics> {
-        let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+    pub fn get_metric_statistics(
+        &self,
+        name: &str,
+        window: Duration,
+    ) -> RusTorchResult<MetricStatistics> {
+        let metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         if let Some(metric) = metrics.get(name) {
             Ok(metric.get_statistics(window))
         } else {
-            Err(RusTorchError::Profiling { message: format!("Metric '{}' not found", name) })
+            Err(RusTorchError::Profiling {
+                message: format!("Metric '{}' not found", name),
+            })
         }
     }
 
     /// Get histogram percentile
     /// ヒストグラムパーセンタイルを取得
-    pub fn get_histogram_percentile(&self, name: &str, percentile: f64) -> RusTorchResult<Option<f64>> {
-        let histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
-        
+    pub fn get_histogram_percentile(
+        &self,
+        name: &str,
+        percentile: f64,
+    ) -> RusTorchResult<Option<f64>> {
+        let histograms = self
+            .histograms
+            .lock()
+            .map_err(|_| RusTorchError::Profiling {
+                message: "Failed to acquire histograms lock".to_string(),
+            })?;
+
         if let Some(histogram) = histograms.get(name) {
             Ok(histogram.get_percentile(percentile))
         } else {
-            Err(RusTorchError::Profiling { message: format!("Histogram '{}' not found", name) })
+            Err(RusTorchError::Profiling {
+                message: format!("Histogram '{}' not found", name),
+            })
         }
     }
 
@@ -524,20 +574,26 @@ impl MetricsCollector {
     /// Get all metrics snapshot
     /// 全メトリクススナップショットを取得
     pub fn get_all_metrics(&self) -> RusTorchResult<HashMap<String, CustomMetric>> {
-        let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+        let metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         Ok(metrics.clone())
     }
 
     /// Clear all metrics
     /// 全メトリクスをクリア
     pub fn clear_metrics(&self) -> RusTorchResult<()> {
-        let mut metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        let mut histograms = self.histograms.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire histograms lock".to_string() })?;
-        
+        let mut metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+        let mut histograms = self
+            .histograms
+            .lock()
+            .map_err(|_| RusTorchError::Profiling {
+                message: "Failed to acquire histograms lock".to_string(),
+            })?;
+
         metrics.clear();
         histograms.clear();
         Ok(())
@@ -546,17 +602,18 @@ impl MetricsCollector {
     /// Export metrics in Prometheus format
     /// Prometheus形式でメトリクスをエクスポート
     pub fn export_prometheus(&self) -> RusTorchResult<String> {
-        let metrics = self.metrics.lock()
-            .map_err(|_| RusTorchError::Profiling { message: "Failed to acquire metrics lock".to_string() })?;
-        
+        let metrics = self.metrics.lock().map_err(|_| RusTorchError::Profiling {
+            message: "Failed to acquire metrics lock".to_string(),
+        })?;
+
         let mut output = String::new();
-        
+
         for (name, metric) in metrics.iter() {
             // Add metric help
             if let Some(ref description) = metric.description {
                 output.push_str(&format!("# HELP {} {}\n", name, description));
             }
-            
+
             // Add metric type
             let metric_type_str = match metric.metric_type {
                 MetricType::Counter => "counter",
@@ -565,18 +622,25 @@ impl MetricsCollector {
                 _ => "gauge",
             };
             output.push_str(&format!("# TYPE {} {}\n", name, metric_type_str));
-            
+
             // Add metric value
             if metric.tags.is_empty() {
                 output.push_str(&format!("{} {}\n", name, metric.value));
             } else {
-                let tags: Vec<String> = metric.tags.iter()
+                let tags: Vec<String> = metric
+                    .tags
+                    .iter()
                     .map(|(k, v)| format!("{}=\"{}\"", k, v))
                     .collect();
-                output.push_str(&format!("{}{{{}}} {}\n", name, tags.join(","), metric.value));
+                output.push_str(&format!(
+                    "{}{{{}}} {}\n",
+                    name,
+                    tags.join(","),
+                    metric.value
+                ));
             }
         }
-        
+
         Ok(output)
     }
 
@@ -620,7 +684,7 @@ mod tests {
         let mut metric = CustomMetric::new("counter".to_string(), MetricType::Counter);
         metric.increment(5.0);
         assert_eq!(metric.value, 5.0);
-        
+
         metric.increment(3.0);
         assert_eq!(metric.value, 8.0);
     }
@@ -630,7 +694,7 @@ mod tests {
         let mut metric = CustomMetric::new("gauge".to_string(), MetricType::Gauge);
         metric.update(10.0);
         assert_eq!(metric.value, 10.0);
-        
+
         metric.update(5.0);
         assert_eq!(metric.value, 5.0);
     }
@@ -647,12 +711,12 @@ mod tests {
     fn test_histogram_values() {
         let buckets = vec![1.0, 5.0, 10.0];
         let mut histogram = Histogram::new(buckets);
-        
+
         histogram.add_value(0.5);
         histogram.add_value(3.0);
         histogram.add_value(7.0);
         histogram.add_value(15.0);
-        
+
         assert_eq!(histogram.total_count, 4);
         assert_eq!(histogram.buckets[0].count, 1); // 0.5
         assert_eq!(histogram.buckets[1].count, 1); // 3.0
@@ -663,12 +727,12 @@ mod tests {
     #[test]
     fn test_metrics_collector() {
         let collector = MetricsCollector::new();
-        
+
         let counter = CustomMetric::new("test_counter".to_string(), MetricType::Counter);
         assert!(collector.register_metric(counter).is_ok());
-        
+
         assert!(collector.increment_counter("test_counter", 1.0).is_ok());
-        
+
         let stats = collector.get_metric_statistics("test_counter", Duration::from_secs(60));
         assert!(stats.is_ok());
     }
@@ -676,13 +740,13 @@ mod tests {
     #[test]
     fn test_metric_statistics() {
         let mut metric = CustomMetric::new("test".to_string(), MetricType::Gauge);
-        
+
         metric.update(10.0);
         std::thread::sleep(Duration::from_millis(1));
         metric.update(20.0);
         std::thread::sleep(Duration::from_millis(1));
         metric.update(15.0);
-        
+
         let stats = metric.get_statistics(Duration::from_secs(1));
         assert_eq!(stats.count, 3);
         assert_eq!(stats.min, 10.0);

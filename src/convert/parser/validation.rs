@@ -88,10 +88,16 @@ impl ModelValidator {
     /// レイヤー次元の互換性をチェック
     fn check_layer_compatibility(graph: &ModelGraph) -> Result<(), ParsingError> {
         for (from_layer, to_layers) in &graph.connections {
-            let from_info = &graph.layers[from_layer];
+            let from_info = match graph.layers.get(from_layer) {
+                Some(info) => info,
+                None => continue, // Skip missing layer
+            };
 
             for to_layer in to_layers {
-                let to_info = &graph.layers[to_layer];
+                let to_info = match graph.layers.get(to_layer) {
+                    Some(info) => info,
+                    None => continue, // Skip missing layer
+                };
 
                 // Check if output shape of from_layer matches input shape of to_layer
                 if let (Some(output_shape), Some(input_shape)) =

@@ -23,14 +23,20 @@ pub trait ConsistencyRule: fmt::Debug + Send + Sync {
     /// Rule name
     /// ルール名
     fn name(&self) -> &str;
-    
+
     /// Check consistency for f32 tensor
     /// f32テンソルの整合性をチェック
-    fn check_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ConsistencyViolation>>;
-    
+    fn check_f32(
+        &self,
+        tensor: &crate::tensor::Tensor<f32>,
+    ) -> RusTorchResult<Vec<ConsistencyViolation>>;
+
     /// Check consistency for f64 tensor
     /// f64テンソルの整合性をチェック
-    fn check_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ConsistencyViolation>>;
+    fn check_f64(
+        &self,
+        tensor: &crate::tensor::Tensor<f64>,
+    ) -> RusTorchResult<Vec<ConsistencyViolation>>;
 }
 
 /// Consistency check result
@@ -110,10 +116,14 @@ impl DataConsistency {
         let shape = tensor.shape();
         !shape.is_empty() && shape.iter().all(|&dim| dim > 0)
     }
-    
+
     /// Value range consistency check
     /// 値範囲整合性チェック
-    pub fn check_value_range_consistency<T>(_tensor: &crate::tensor::Tensor<T>, _min: T, _max: T) -> bool
+    pub fn check_value_range_consistency<T>(
+        _tensor: &crate::tensor::Tensor<T>,
+        _min: T,
+        _max: T,
+    ) -> bool
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -129,7 +139,10 @@ pub struct ReferentialIntegrity;
 impl ReferentialIntegrity {
     /// Check referential integrity between tensors
     /// テンソル間の参照整合性をチェック
-    pub fn check_referential_integrity<T>(_primary: &crate::tensor::Tensor<T>, _foreign: &crate::tensor::Tensor<T>) -> bool
+    pub fn check_referential_integrity<T>(
+        _primary: &crate::tensor::Tensor<T>,
+        _foreign: &crate::tensor::Tensor<T>,
+    ) -> bool
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -147,12 +160,18 @@ impl ConsistencyRule for ShapeConsistencyRule {
     fn name(&self) -> &str {
         "shape_consistency"
     }
-    
-    fn check_f32(&self, tensor: &crate::tensor::Tensor<f32>) -> RusTorchResult<Vec<ConsistencyViolation>> {
+
+    fn check_f32(
+        &self,
+        tensor: &crate::tensor::Tensor<f32>,
+    ) -> RusTorchResult<Vec<ConsistencyViolation>> {
         self.check_tensor_generic(tensor)
     }
-    
-    fn check_f64(&self, tensor: &crate::tensor::Tensor<f64>) -> RusTorchResult<Vec<ConsistencyViolation>> {
+
+    fn check_f64(
+        &self,
+        tensor: &crate::tensor::Tensor<f64>,
+    ) -> RusTorchResult<Vec<ConsistencyViolation>> {
         self.check_tensor_generic(tensor)
     }
 }
@@ -160,12 +179,15 @@ impl ConsistencyRule for ShapeConsistencyRule {
 impl ShapeConsistencyRule {
     /// Generic consistency check implementation for any float type
     /// 任意の浮動小数点型の汎用整合性チェック実装
-    fn check_tensor_generic<T>(&self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<Vec<ConsistencyViolation>>
+    fn check_tensor_generic<T>(
+        &self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<Vec<ConsistencyViolation>>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let mut violations = Vec::new();
-        
+
         if !DataConsistency::check_shape_consistency(tensor) {
             violations.push(ConsistencyViolation {
                 rule_name: self.name().to_string(),
@@ -174,7 +196,7 @@ impl ShapeConsistencyRule {
                 location: None,
             });
         }
-        
+
         Ok(violations)
     }
 }
@@ -202,31 +224,34 @@ impl ConsistencyChecker {
             rules: Vec::new(),
             stats: ConsistencyStatistics::default(),
         };
-        
+
         // Add default rules
         checker.add_rule(Box::new(ShapeConsistencyRule));
-        
+
         checker
     }
-    
+
     /// Add consistency rule
     /// 整合性ルールを追加
     pub fn add_rule(&mut self, rule: Box<dyn ConsistencyRule>) {
         self.rules.push(rule);
     }
-    
+
     /// Check consistency of tensor data
     /// テンソルデータの整合性をチェック
-    pub fn check_consistency<T>(&mut self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<ConsistencyResult>
+    pub fn check_consistency<T>(
+        &mut self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<ConsistencyResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let mut all_violations = Vec::new();
-        
+
         // Apply all rules - dispatch based on type
         use std::any::{Any, TypeId};
         let tensor_any = tensor as &dyn Any;
-        
+
         for rule in &self.rules {
             let rule_result = if TypeId::of::<T>() == TypeId::of::<f32>() {
                 if let Some(f32_tensor) = tensor_any.downcast_ref::<crate::tensor::Tensor<f32>>() {
@@ -244,7 +269,7 @@ impl ConsistencyChecker {
                 // Skip unsupported types
                 continue;
             };
-            
+
             match rule_result {
                 Ok(mut violations) => all_violations.append(&mut violations),
                 Err(e) => {
@@ -257,27 +282,33 @@ impl ConsistencyChecker {
                 }
             }
         }
-        
+
         // Update statistics
         self.stats.total_checks += 1;
         self.stats.total_violations += all_violations.len();
-        
+
         for violation in &all_violations {
-            *self.stats.violations_by_severity.entry(violation.severity.clone()).or_insert(0) += 1;
+            *self
+                .stats
+                .violations_by_severity
+                .entry(violation.severity.clone())
+                .or_insert(0) += 1;
         }
-        
+
         let is_consistent = all_violations.is_empty();
-        let consistency_score = if is_consistent { 1.0 } else {
+        let consistency_score = if is_consistent {
+            1.0
+        } else {
             1.0 - (all_violations.len() as f64 / 10.0).min(1.0)
         };
-        
+
         Ok(ConsistencyResult {
             is_consistent,
             violations: all_violations,
             consistency_score,
         })
     }
-    
+
     /// Get violation count
     /// 違反数を取得
     pub fn get_violation_count(&self) -> usize {

@@ -24,37 +24,34 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 // Core validation modules
-pub mod core;
-pub mod quality_metrics;
 pub mod anomaly_detector;
 pub mod consistency_checker;
-pub mod real_time_validator;
+pub mod core;
+pub mod quality_metrics;
 pub mod quality_reporter;
+pub mod real_time_validator;
 
 // Enhanced re-exports for the validation system
-pub use core::{
-    ValidationEngine, ValidationConfig, ValidationRule, ValidationResult,
-    ValidationLevel, DataSchema, SchemaValidation,
-};
-pub use quality_metrics::{
-    QualityMetrics, QualityScore, DataQualityAssessment, MetricThresholds,
-    QualityDimension, QualityTrend,
-};
 pub use anomaly_detector::{
-    AnomalyDetector, AnomalyResult, AnomalyType, StatisticalMethod,
-    OutlierDetection, AnomalyConfiguration,
+    AnomalyConfiguration, AnomalyDetector, AnomalyResult, AnomalyType, OutlierDetection,
+    StatisticalMethod,
 };
 pub use consistency_checker::{
-    ConsistencyChecker, ConsistencyRule, ConsistencyResult,
-    DataConsistency, ReferentialIntegrity,
+    ConsistencyChecker, ConsistencyResult, ConsistencyRule, DataConsistency, ReferentialIntegrity,
 };
-pub use real_time_validator::{
-    RealTimeValidator, StreamingValidation, ValidationStream,
-    RealTimeConfig, ValidationBuffer,
+pub use core::{
+    DataSchema, SchemaValidation, ValidationConfig, ValidationEngine, ValidationLevel,
+    ValidationResult, ValidationRule,
+};
+pub use quality_metrics::{
+    DataQualityAssessment, MetricThresholds, QualityDimension, QualityMetrics, QualityScore,
+    QualityTrend,
 };
 pub use quality_reporter::{
-    QualityReporter, QualityReport, ReportFormat,
-    QualityDashboard, ReportConfiguration,
+    QualityDashboard, QualityReport, QualityReporter, ReportConfiguration, ReportFormat,
+};
+pub use real_time_validator::{
+    RealTimeConfig, RealTimeValidator, StreamingValidation, ValidationBuffer, ValidationStream,
 };
 
 /// Main validation framework orchestrator
@@ -110,7 +107,7 @@ impl Default for FrameworkConfig {
         Self {
             enable_real_time: true,
             performance_budget_us: 1000, // 1ms budget
-            quality_threshold: 0.8, // 80% quality threshold
+            quality_threshold: 0.8,      // 80% quality threshold
             enable_anomaly_detection: true,
             enable_auto_reporting: true,
         }
@@ -126,13 +123,13 @@ impl DataValidationFramework {
         let anomaly_detector = AnomalyDetector::new(AnomalyConfiguration::default());
         let consistency_checker = ConsistencyChecker::new();
         let quality_reporter = QualityReporter::new(ReportConfiguration::default());
-        
+
         let real_time_validator = if config.enable_real_time {
             Some(RealTimeValidator::new(RealTimeConfig::default())?)
         } else {
             None
         };
-        
+
         Ok(Self {
             validation_engine,
             quality_metrics,
@@ -146,35 +143,41 @@ impl DataValidationFramework {
 
     /// Validate tensor data comprehensively
     /// テンソルデータを包括的に検証
-    pub fn validate_tensor_data<T>(&mut self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<ValidationSummary>
+    pub fn validate_tensor_data<T>(
+        &mut self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<ValidationSummary>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let start_time = Instant::now();
-        
+
         // 1. Basic validation
         let validation_result = self.validation_engine.validate_tensor(tensor)?;
-        
+
         // 2. Quality assessment
         let quality_assessment = self.quality_metrics.assess_quality(tensor)?;
-        
+
         // 3. Anomaly detection
         let anomaly_result = if self.config.enable_anomaly_detection {
             Some(self.anomaly_detector.detect_anomalies(tensor)?)
         } else {
             None
         };
-        
+
         // 4. Consistency check
         let consistency_result = self.consistency_checker.check_consistency(tensor)?;
-        
+
         // 5. Performance validation
         let validation_time = start_time.elapsed();
         if validation_time.as_micros() as u64 > self.config.performance_budget_us {
-            println!("⚠️ Validation exceeded performance budget: {}μs > {}μs", 
-                     validation_time.as_micros(), self.config.performance_budget_us);
+            println!(
+                "⚠️ Validation exceeded performance budget: {}μs > {}μs",
+                validation_time.as_micros(),
+                self.config.performance_budget_us
+            );
         }
-        
+
         // 6. Create summary
         let summary = ValidationSummary {
             validation_result,
@@ -185,12 +188,12 @@ impl DataValidationFramework {
             overall_quality_score: quality_assessment.overall_score,
             passed: quality_assessment.overall_score >= self.config.quality_threshold,
         };
-        
+
         // 7. Generate report if enabled
         if self.config.enable_auto_reporting {
             self.quality_reporter.add_validation_result(&summary)?;
         }
-        
+
         Ok(summary)
     }
 
@@ -256,7 +259,8 @@ pub struct FrameworkStatistics {
 
 impl fmt::Display for FrameworkStatistics {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, 
+        write!(
+            f,
             "📊 Data Validation Framework Statistics\n\
              =====================================\n\
              Total Validations: {}\n\
@@ -302,8 +306,13 @@ pub struct ValidationSummary {
 
 impl fmt::Display for ValidationSummary {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let status = if self.passed { "✅ PASSED" } else { "❌ FAILED" };
-        write!(f,
+        let status = if self.passed {
+            "✅ PASSED"
+        } else {
+            "❌ FAILED"
+        };
+        write!(
+            f,
             "🔍 Data Validation Summary\n\
              ========================\n\
              Status: {}\n\
@@ -316,19 +325,27 @@ impl fmt::Display for ValidationSummary {
             status,
             self.overall_quality_score,
             self.validation_time.as_secs_f64() * 1000.0,
-            if self.validation_result.is_valid { "✅" } else { "❌" },
+            if self.validation_result.is_valid {
+                "✅"
+            } else {
+                "❌"
+            },
             self.quality_assessment.overall_score,
             self.quality_assessment.quality_grade(),
             if let Some(ref anomaly) = self.anomaly_result {
-                if anomaly.anomalies_found > 0 { 
+                if anomaly.anomalies_found > 0 {
                     format!("{} detected", anomaly.anomalies_found)
-                } else { 
-                    "None".to_string() 
+                } else {
+                    "None".to_string()
                 }
-            } else { 
-                "Disabled".to_string() 
+            } else {
+                "Disabled".to_string()
             },
-            if self.consistency_result.is_consistent { "✅" } else { "❌" }
+            if self.consistency_result.is_consistent {
+                "✅"
+            } else {
+                "❌"
+            }
         )
     }
 }

@@ -2,7 +2,7 @@
 //! 品質レポート・ダッシュボードシステム
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::validation::{ValidationSummary, DataQualityAssessment, QualityDimension};
+use crate::validation::{DataQualityAssessment, QualityDimension, ValidationSummary};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -666,7 +666,10 @@ impl QualityReporter {
 
     /// Add quality assessment to history
     /// 品質評価を履歴に追加
-    pub fn add_quality_assessment(&mut self, assessment: &DataQualityAssessment) -> RusTorchResult<()> {
+    pub fn add_quality_assessment(
+        &mut self,
+        assessment: &DataQualityAssessment,
+    ) -> RusTorchResult<()> {
         self.quality_history.push_back(assessment.clone());
         if self.quality_history.len() > self.config.max_history_entries {
             self.quality_history.pop_front();
@@ -678,10 +681,10 @@ impl QualityReporter {
     /// 包括的品質レポートを生成
     pub fn generate_report(&self, format: ReportFormat) -> RusTorchResult<String> {
         let start_time = std::time::Instant::now();
-        
+
         // Build report structure
         let report = self.build_report(&format)?;
-        
+
         // Format report based on requested format
         let formatted_report = match format {
             ReportFormat::Summary => self.format_summary_report(&report)?,
@@ -691,10 +694,12 @@ impl QualityReporter {
             ReportFormat::Json => self.format_json_report(&report)?,
             ReportFormat::Csv => self.format_csv_report(&report)?,
         };
-        
-        println!("📊 Quality report generated in {:.2}ms", 
-                 start_time.elapsed().as_secs_f64() * 1000.0);
-        
+
+        println!(
+            "📊 Quality report generated in {:.2}ms",
+            start_time.elapsed().as_secs_f64() * 1000.0
+        );
+
         Ok(formatted_report)
     }
 
@@ -732,17 +737,21 @@ impl QualityReporter {
     /// レポートメタデータを構築
     fn build_metadata(&self, format: &ReportFormat) -> RusTorchResult<ReportMetadata> {
         let now = SystemTime::now();
-        let start = self.validation_history.front()
+        let start = self
+            .validation_history
+            .front()
             .map(|v| v.validation_result.validation_time)
             .unwrap_or_else(|| Duration::from_secs(0));
-        
+
         Ok(ReportMetadata {
             generated_at: now,
             format: format.clone(),
             data_period: DataPeriod {
                 start: self.start_time,
                 end: now,
-                duration: now.duration_since(self.start_time).unwrap_or(Duration::from_secs(0)),
+                duration: now
+                    .duration_since(self.start_time)
+                    .unwrap_or(Duration::from_secs(0)),
             },
             total_validations: self.validation_history.len(),
             version: "1.0.0".to_string(),
@@ -768,17 +777,15 @@ impl QualityReporter {
             critical_issues: self.count_critical_issues(),
             processing_volume: ProcessingVolume {
                 total_data_points: self.calculate_total_data_points(),
-                avg_processing_rate: 1000.0, // Placeholder
-                peak_processing_rate: 2000.0, // Placeholder
+                avg_processing_rate: 1000.0,         // Placeholder
+                peak_processing_rate: 2000.0,        // Placeholder
                 total_memory_processed: 1024 * 1024, // Placeholder
             },
             key_achievements: vec![
                 "Maintained high data quality".to_string(),
                 "Reduced validation time by 15%".to_string(),
             ],
-            key_concerns: vec![
-                "Occasional accuracy issues in dimension X".to_string(),
-            ],
+            key_concerns: vec!["Occasional accuracy issues in dimension X".to_string()],
         })
     }
 
@@ -787,18 +794,18 @@ impl QualityReporter {
     fn build_quality_overview(&self) -> RusTorchResult<QualityOverview> {
         let overall_metrics = OverallMetrics {
             current_average: self.get_average_quality_score(),
-            best_score: 1.0, // Placeholder
+            best_score: 1.0,  // Placeholder
             worst_score: 0.5, // Placeholder
-            variance: 0.05, // Placeholder
-            stability: 0.95, // Placeholder
+            variance: 0.05,   // Placeholder
+            stability: 0.95,  // Placeholder
         };
 
         Ok(QualityOverview {
             overall_metrics,
             dimension_breakdown: HashMap::new(), // Placeholder
             quality_distribution: QualityDistribution {
-                score_ranges: HashMap::new(), // Placeholder
-                percentiles: HashMap::new(), // Placeholder
+                score_ranges: HashMap::new(),       // Placeholder
+                percentiles: HashMap::new(),        // Placeholder
                 grade_distribution: HashMap::new(), // Placeholder
             },
         })
@@ -836,24 +843,22 @@ impl QualityReporter {
         Ok(IssueAnalysis {
             by_category: HashMap::new(), // Placeholder
             by_severity: HashMap::new(), // Placeholder
-            top_issues: Vec::new(), // Placeholder
-            resolution_rate: 0.85, // Placeholder
+            top_issues: Vec::new(),      // Placeholder
+            resolution_rate: 0.85,       // Placeholder
         })
     }
 
     /// Build recommendations
     /// 推奨事項を構築
     fn build_recommendations(&self) -> RusTorchResult<Vec<QualityRecommendation>> {
-        Ok(vec![
-            QualityRecommendation {
-                title: "Improve Data Completeness".to_string(),
-                description: "Address missing values in dataset".to_string(),
-                priority: RecommendationPriority::High,
-                expected_impact: "10% improvement in overall quality".to_string(),
-                implementation_effort: EffortLevel::Medium,
-                timeline: "2-3 weeks".to_string(),
-            },
-        ])
+        Ok(vec![QualityRecommendation {
+            title: "Improve Data Completeness".to_string(),
+            description: "Address missing values in dataset".to_string(),
+            priority: RecommendationPriority::High,
+            expected_impact: "10% improvement in overall quality".to_string(),
+            implementation_effort: EffortLevel::Medium,
+            timeline: "2-3 weeks".to_string(),
+        }])
     }
 
     /// Build technical details
@@ -888,36 +893,65 @@ impl QualityReporter {
     /// 詳細レポートをフォーマット
     fn format_detailed_report(&self, report: &QualityReport) -> RusTorchResult<String> {
         let mut output = String::new();
-        
+
         // Header
         output.push_str("📊 COMPREHENSIVE DATA QUALITY REPORT\n");
         output.push_str(&"=".repeat(50));
         output.push_str("\n\n");
-        
+
         // Executive Summary
         output.push_str("🎯 EXECUTIVE SUMMARY\n");
-        output.push_str(&format!("Health Status: {:?}\n", report.executive_summary.health_status));
-        output.push_str(&format!("Average Quality Score: {:.3}\n", report.executive_summary.average_quality_score));
-        output.push_str(&format!("Total Validations: {}\n", report.metadata.total_validations));
-        output.push_str(&format!("Critical Issues: {}\n", report.executive_summary.critical_issues));
+        output.push_str(&format!(
+            "Health Status: {:?}\n",
+            report.executive_summary.health_status
+        ));
+        output.push_str(&format!(
+            "Average Quality Score: {:.3}\n",
+            report.executive_summary.average_quality_score
+        ));
+        output.push_str(&format!(
+            "Total Validations: {}\n",
+            report.metadata.total_validations
+        ));
+        output.push_str(&format!(
+            "Critical Issues: {}\n",
+            report.executive_summary.critical_issues
+        ));
         output.push_str("\n");
-        
+
         // Quality Overview
         output.push_str("📈 QUALITY OVERVIEW\n");
-        output.push_str(&format!("Current Average: {:.3}\n", report.quality_overview.overall_metrics.current_average));
-        output.push_str(&format!("Best Score: {:.3}\n", report.quality_overview.overall_metrics.best_score));
-        output.push_str(&format!("Worst Score: {:.3}\n", report.quality_overview.overall_metrics.worst_score));
-        output.push_str(&format!("Stability: {:.3}\n", report.quality_overview.overall_metrics.stability));
+        output.push_str(&format!(
+            "Current Average: {:.3}\n",
+            report.quality_overview.overall_metrics.current_average
+        ));
+        output.push_str(&format!(
+            "Best Score: {:.3}\n",
+            report.quality_overview.overall_metrics.best_score
+        ));
+        output.push_str(&format!(
+            "Worst Score: {:.3}\n",
+            report.quality_overview.overall_metrics.worst_score
+        ));
+        output.push_str(&format!(
+            "Stability: {:.3}\n",
+            report.quality_overview.overall_metrics.stability
+        ));
         output.push_str("\n");
-        
+
         // Recommendations
         output.push_str("💡 RECOMMENDATIONS\n");
         for (i, rec) in report.recommendations.iter().enumerate() {
-            output.push_str(&format!("{}. {} (Priority: {:?})\n", i + 1, rec.title, rec.priority));
+            output.push_str(&format!(
+                "{}. {} (Priority: {:?})\n",
+                i + 1,
+                rec.title,
+                rec.priority
+            ));
             output.push_str(&format!("   {}\n", rec.description));
             output.push_str(&format!("   Timeline: {}\n", rec.timeline));
         }
-        
+
         Ok(output)
     }
 
@@ -944,7 +978,7 @@ impl QualityReporter {
     }
 
     // Helper methods
-    
+
     /// Get validation count
     /// 検証数を取得
     pub fn get_validation_count(&self) -> usize {
@@ -957,8 +991,10 @@ impl QualityReporter {
         if self.quality_history.is_empty() {
             return 0.0;
         }
-        
-        let sum: f64 = self.quality_history.iter()
+
+        let sum: f64 = self
+            .quality_history
+            .iter()
             .map(|assessment| assessment.overall_score)
             .sum();
         sum / self.quality_history.len() as f64
@@ -967,13 +1003,16 @@ impl QualityReporter {
     /// Get uptime duration
     /// 稼働時間を取得
     pub fn get_uptime(&self) -> Duration {
-        SystemTime::now().duration_since(self.start_time).unwrap_or(Duration::from_secs(0))
+        SystemTime::now()
+            .duration_since(self.start_time)
+            .unwrap_or(Duration::from_secs(0))
     }
 
     /// Count total issues across all validations
     /// 全検証にわたる総問題数をカウント
     fn count_total_issues(&self) -> usize {
-        self.validation_history.iter()
+        self.validation_history
+            .iter()
             .map(|v| v.validation_result.issues.len())
             .sum()
     }
@@ -981,16 +1020,23 @@ impl QualityReporter {
     /// Count critical issues
     /// 重要問題をカウント
     fn count_critical_issues(&self) -> usize {
-        self.validation_history.iter()
+        self.validation_history
+            .iter()
             .flat_map(|v| &v.validation_result.issues)
-            .filter(|issue| matches!(issue.severity, crate::validation::core::IssueSeverity::Critical))
+            .filter(|issue| {
+                matches!(
+                    issue.severity,
+                    crate::validation::core::IssueSeverity::Critical
+                )
+            })
             .count()
     }
 
     /// Calculate total data points processed
     /// 処理された総データポイントを計算
     fn calculate_total_data_points(&self) -> usize {
-        self.validation_history.iter()
+        self.validation_history
+            .iter()
             .map(|v| v.validation_result.metrics.total_elements)
             .sum()
     }
@@ -998,7 +1044,8 @@ impl QualityReporter {
 
 impl fmt::Display for QualityReport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f,
+        write!(
+            f,
             "📊 Quality Report (Generated: {:?})\n\
              Health: {:?} | Score: {:.3} | Issues: {}\n\
              Validations: {} | Recommendations: {}",

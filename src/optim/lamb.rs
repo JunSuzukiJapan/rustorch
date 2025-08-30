@@ -12,7 +12,7 @@ use crate::tensor::Tensor;
 use std::collections::HashMap;
 
 /// LAMB (Layer-wise Adaptive Moments optimizer for Batch training) optimizer
-/// 
+///
 /// LAMB combines the benefits of Adam with layer-wise adaptation, making it particularly
 /// effective for large batch training scenarios commonly used in distributed training.
 #[derive(Debug, Clone)]
@@ -24,8 +24,8 @@ pub struct LAMB {
     weight_decay: f32,
     bias_correction: bool,
     step_count: usize,
-    exp_avg: HashMap<usize, Tensor<f32>>,      // First moment estimate
-    exp_avg_sq: HashMap<usize, Tensor<f32>>,   // Second moment estimate
+    exp_avg: HashMap<usize, Tensor<f32>>, // First moment estimate
+    exp_avg_sq: HashMap<usize, Tensor<f32>>, // Second moment estimate
 }
 
 impl LAMB {
@@ -34,7 +34,7 @@ impl LAMB {
     pub fn new(learning_rate: f32) -> Self {
         Self::with_params(learning_rate, 0.9, 0.999, 1e-6, 0.01)
     }
-    
+
     /// Create LAMB optimizer with custom parameters
     /// カスタムパラメータでLAMBオプティマイザーを作成
     pub fn with_params(
@@ -56,7 +56,7 @@ impl LAMB {
             exp_avg_sq: HashMap::new(),
         }
     }
-    
+
     /// Create LAMB optimizer without bias correction
     /// バイアス補正なしでLAMBオプティマイザーを作成
     pub fn without_bias_correction(
@@ -70,13 +70,13 @@ impl LAMB {
         optimizer.bias_correction = false;
         optimizer
     }
-    
+
     /// Set bias correction option
     /// バイアス補正オプションを設定
     pub fn set_bias_correction(&mut self, bias_correction: bool) {
         self.bias_correction = bias_correction;
     }
-    
+
     /// Get current step count
     /// 現在のステップ数を取得
     pub fn step_count(&self) -> usize {
@@ -128,7 +128,7 @@ impl Optimizer for LAMB {
         let (corrected_exp_avg, corrected_exp_avg_sq) = if self.bias_correction {
             let bias_correction1 = 1.0 - self.beta1.powi(self.step_count as i32);
             let bias_correction2 = 1.0 - self.beta2.powi(self.step_count as i32);
-            
+
             let corrected_avg = &exp_avg / bias_correction1;
             let corrected_avg_sq = &exp_avg_sq / bias_correction2;
             (corrected_avg, corrected_avg_sq)
@@ -146,10 +146,10 @@ impl Optimizer for LAMB {
         // Simplified norm calculation using sum of squares
         let param_squared = param * param;
         let param_norm = param_squared.sum().sqrt();
-        
+
         let update_squared = &adaptive_update * &adaptive_update;
         let update_norm = update_squared.sum().sqrt();
-        
+
         let trust_ratio = if update_norm > 0.0 {
             param_norm / update_norm
         } else {
@@ -164,7 +164,7 @@ impl Optimizer for LAMB {
         // レイヤーワイズ適応による最終パラメータ更新
         let scaled_update = &adaptive_update * (self.learning_rate * clipped_trust_ratio);
         let updated_param = param - &scaled_update;
-        
+
         param.copy_from(&updated_param);
     }
 
@@ -183,7 +183,10 @@ impl Optimizer for LAMB {
         state.insert("beta2".to_string(), self.beta2);
         state.insert("epsilon".to_string(), self.epsilon);
         state.insert("weight_decay".to_string(), self.weight_decay);
-        state.insert("bias_correction".to_string(), if self.bias_correction { 1.0 } else { 0.0 });
+        state.insert(
+            "bias_correction".to_string(),
+            if self.bias_correction { 1.0 } else { 0.0 },
+        );
         state.insert("step_count".to_string(), self.step_count as f32);
         state
     }
@@ -243,17 +246,17 @@ mod tests {
 
         // Initial parameter values
         let initial_param = param.clone();
-        
+
         // Perform optimization step
         optimizer.step(&param, &grad);
-        
+
         // Verify step count increased
         assert_eq!(optimizer.step_count(), 1);
-        
+
         // Verify parameters were updated (should be different from initial)
         let updated_data = param.data.as_slice().unwrap();
         let initial_data = initial_param.data.as_slice().unwrap();
-        
+
         // Parameters should have changed
         assert_ne!(updated_data[0], initial_data[0]);
     }
@@ -271,7 +274,7 @@ mod tests {
     fn test_lamb_state_dict() {
         let optimizer = LAMB::with_params(0.02, 0.85, 0.95, 1e-5, 0.05);
         let state = optimizer.state_dict();
-        
+
         assert_eq!(state["learning_rate"], 0.02);
         assert_eq!(state["beta1"], 0.85);
         assert_eq!(state["beta2"], 0.95);
@@ -286,9 +289,9 @@ mod tests {
         state.insert("learning_rate".to_string(), 0.05);
         state.insert("beta1".to_string(), 0.8);
         state.insert("beta2".to_string(), 0.95);
-        
+
         optimizer.load_state_dict(state);
-        
+
         assert_eq!(optimizer.learning_rate(), 0.05);
         assert_eq!(optimizer.beta1, 0.8);
         assert_eq!(optimizer.beta2, 0.95);

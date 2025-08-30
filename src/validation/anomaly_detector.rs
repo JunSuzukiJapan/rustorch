@@ -131,17 +131,15 @@ impl OutlierDetection {
         if data.len() < 2 {
             return Vec::new();
         }
-        
+
         let mean = data.iter().sum::<f64>() / data.len() as f64;
-        let variance = data.iter()
-            .map(|x| (x - mean).powi(2))
-            .sum::<f64>() / data.len() as f64;
+        let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f64>() / data.len() as f64;
         let std_dev = variance.sqrt();
-        
+
         if std_dev == 0.0 {
             return Vec::new();
         }
-        
+
         data.iter()
             .enumerate()
             .filter_map(|(i, &value)| {
@@ -154,26 +152,26 @@ impl OutlierDetection {
             })
             .collect()
     }
-    
+
     /// IQR based outlier detection
     /// IQRベース外れ値検出
     pub fn iqr_method(data: &[f64]) -> Vec<usize> {
         if data.len() < 4 {
             return Vec::new();
         }
-        
+
         let mut sorted_data = data.to_vec();
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        
+
         let q1_idx = sorted_data.len() / 4;
         let q3_idx = 3 * sorted_data.len() / 4;
         let q1 = sorted_data[q1_idx];
         let q3 = sorted_data[q3_idx];
         let iqr = q3 - q1;
-        
+
         let lower_bound = q1 - 1.5 * iqr;
         let upper_bound = q3 + 1.5 * iqr;
-        
+
         data.iter()
             .enumerate()
             .filter_map(|(i, &value)| {
@@ -211,32 +209,35 @@ impl AnomalyDetector {
             stats: AnomalyStatistics::default(),
         }
     }
-    
+
     /// Detect anomalies in tensor data
     /// テンソルデータの異常を検出
-    pub fn detect_anomalies<T>(&mut self, _tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<AnomalyResult>
+    pub fn detect_anomalies<T>(
+        &mut self,
+        _tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<AnomalyResult>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         // Placeholder implementation - would extract actual values and analyze
         let dummy_data = vec![1.0, 2.0, 3.0, 100.0, 4.0, 5.0]; // Simulated data with outlier
-        
+
         let mut all_anomalies = Vec::new();
         let mut methods_used = Vec::new();
-        
+
         for method in &self.config.methods {
             let outliers = match method {
                 StatisticalMethod::ZScore => {
                     methods_used.push(method.clone());
                     OutlierDetection::z_score_method(&dummy_data, 2.0)
-                },
+                }
                 StatisticalMethod::IQR => {
                     methods_used.push(method.clone());
                     OutlierDetection::iqr_method(&dummy_data)
-                },
+                }
                 _ => Vec::new(), // Placeholder for other methods
             };
-            
+
             for outlier_idx in outliers {
                 all_anomalies.push(AnomalyInfo {
                     anomaly_type: AnomalyType::StatisticalOutlier,
@@ -247,10 +248,10 @@ impl AnomalyDetector {
                 });
             }
         }
-        
+
         self.stats.total_detections += 1;
         self.stats.total_anomalies += all_anomalies.len();
-        
+
         Ok(AnomalyResult {
             anomalies_found: all_anomalies.len(),
             anomalies: all_anomalies.clone(),
@@ -258,7 +259,7 @@ impl AnomalyDetector {
             methods_used,
         })
     }
-    
+
     /// Get anomaly count
     /// 異常数を取得
     pub fn get_anomaly_count(&self) -> usize {

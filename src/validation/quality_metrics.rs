@@ -292,14 +292,14 @@ impl Default for MetricThresholds {
         dimension_thresholds.insert(QualityDimension::Uniqueness, 0.98);
         dimension_thresholds.insert(QualityDimension::Timeliness, 0.8);
         dimension_thresholds.insert(QualityDimension::Integrity, 0.95);
-        
+
         let mut max_issues = HashMap::new();
         max_issues.insert(IssueSeverity::Critical, 0);
         max_issues.insert(IssueSeverity::High, 2);
         max_issues.insert(IssueSeverity::Medium, 5);
         max_issues.insert(IssueSeverity::Low, 10);
         max_issues.insert(IssueSeverity::Info, 50);
-        
+
         Self {
             min_overall_score: 0.8,
             dimension_thresholds,
@@ -346,70 +346,73 @@ impl QualityMetrics {
 
     /// Assess data quality for a tensor
     /// テンソルのデータ品質を評価
-    pub fn assess_quality<T>(&mut self, tensor: &crate::tensor::Tensor<T>) -> RusTorchResult<DataQualityAssessment>
+    pub fn assess_quality<T>(
+        &mut self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> RusTorchResult<DataQualityAssessment>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let start_time = Instant::now();
-        
+
         // Collect basic data characteristics
         let characteristics = self.collect_data_characteristics(tensor);
-        
+
         // Assess each quality dimension
         let mut dimensions = HashMap::new();
-        
+
         // Completeness assessment
         dimensions.insert(
             QualityDimension::Completeness,
-            self.assess_completeness(tensor, &characteristics)?
+            self.assess_completeness(tensor, &characteristics)?,
         );
-        
+
         // Accuracy assessment
         dimensions.insert(
             QualityDimension::Accuracy,
-            self.assess_accuracy(tensor, &characteristics)?
+            self.assess_accuracy(tensor, &characteristics)?,
         );
-        
+
         // Consistency assessment
         dimensions.insert(
             QualityDimension::Consistency,
-            self.assess_consistency(tensor, &characteristics)?
+            self.assess_consistency(tensor, &characteristics)?,
         );
-        
+
         // Validity assessment
         dimensions.insert(
             QualityDimension::Validity,
-            self.assess_validity(tensor, &characteristics)?
+            self.assess_validity(tensor, &characteristics)?,
         );
-        
+
         // Uniqueness assessment
         dimensions.insert(
             QualityDimension::Uniqueness,
-            self.assess_uniqueness(tensor, &characteristics)?
+            self.assess_uniqueness(tensor, &characteristics)?,
         );
-        
+
         // Timeliness assessment
         dimensions.insert(
             QualityDimension::Timeliness,
-            self.assess_timeliness(&characteristics)?
+            self.assess_timeliness(&characteristics)?,
         );
-        
+
         // Integrity assessment
         dimensions.insert(
             QualityDimension::Integrity,
-            self.assess_integrity(tensor, &characteristics)?
+            self.assess_integrity(tensor, &characteristics)?,
         );
-        
+
         // Calculate overall score
         let overall_score = self.calculate_overall_score(&dimensions);
-        
+
         // Analyze trends if history exists
         let trends = if self.history.len() > 2 {
             Some(self.analyze_trends(&overall_score))
         } else {
             None
         };
-        
+
         let assessment = DataQualityAssessment {
             overall_score,
             dimensions,
@@ -417,31 +420,37 @@ impl QualityMetrics {
             characteristics,
             trends,
         };
-        
+
         // Update history
         self.history.push_back(assessment.clone());
         if self.history.len() > self.max_history_size {
             self.history.pop_front();
         }
-        
+
         // Update aggregated statistics
         self.update_aggregated_stats(&assessment);
-        
-        println!("📊 Quality assessment completed in {:.2}ms, score: {:.3}", 
-                 start_time.elapsed().as_secs_f64() * 1000.0, overall_score);
-        
+
+        println!(
+            "📊 Quality assessment completed in {:.2}ms, score: {:.3}",
+            start_time.elapsed().as_secs_f64() * 1000.0,
+            overall_score
+        );
+
         Ok(assessment)
     }
 
     /// Collect basic data characteristics
     /// 基本データ特性を収集
-    fn collect_data_characteristics<T>(&self, tensor: &crate::tensor::Tensor<T>) -> DataCharacteristics
+    fn collect_data_characteristics<T>(
+        &self,
+        tensor: &crate::tensor::Tensor<T>,
+    ) -> DataCharacteristics
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         let shape = tensor.shape();
         let total_points = shape.iter().product();
-        
+
         // Placeholder distribution stats - would implement actual calculation
         let distribution_stats = DistributionStats {
             mean: 0.0,
@@ -460,7 +469,7 @@ impl QualityMetrics {
             skewness: 0.0,
             kurtosis: 3.0,
         };
-        
+
         DataCharacteristics {
             total_points,
             data_type: std::any::type_name::<T>().to_string(),
@@ -472,7 +481,11 @@ impl QualityMetrics {
 
     /// Assess data completeness
     /// データ完全性を評価
-    fn assess_completeness<T>(&self, _tensor: &crate::tensor::Tensor<T>, characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_completeness<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -484,25 +497,29 @@ impl QualityMetrics {
         } else {
             1.0
         };
-        
+
         let mut metrics = HashMap::new();
         metrics.insert("completeness_ratio".to_string(), completeness_ratio);
         metrics.insert("missing_values".to_string(), nan_count as f64);
-        
+
         let mut issues = Vec::new();
-        if completeness_ratio < self.thresholds.dimension_thresholds[&QualityDimension::Completeness] {
+        if completeness_ratio
+            < self.thresholds.dimension_thresholds[&QualityDimension::Completeness]
+        {
             issues.push(QualityIssue {
                 category: IssueCategory::MissingData,
                 severity: IssueSeverity::Medium,
-                description: format!("Completeness ratio {:.3} below threshold {:.3}", 
-                                   completeness_ratio, 
-                                   self.thresholds.dimension_thresholds[&QualityDimension::Completeness]),
+                description: format!(
+                    "Completeness ratio {:.3} below threshold {:.3}",
+                    completeness_ratio,
+                    self.thresholds.dimension_thresholds[&QualityDimension::Completeness]
+                ),
                 affected_range: None,
                 remediation: Some("Consider imputation or data cleaning".to_string()),
                 impact_score: 1.0 - completeness_ratio,
             });
         }
-        
+
         Ok(QualityScore {
             score: completeness_ratio,
             max_score: 1.0,
@@ -514,7 +531,11 @@ impl QualityMetrics {
 
     /// Assess data accuracy
     /// データ正確性を評価
-    fn assess_accuracy<T>(&self, _tensor: &crate::tensor::Tensor<T>, characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_accuracy<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -522,12 +543,12 @@ impl QualityMetrics {
         let stats = &characteristics.distribution_stats;
         let range_violations = 0; // Would implement actual range checking
         let accuracy_score = 1.0 - (range_violations as f64 / characteristics.total_points as f64);
-        
+
         let mut metrics = HashMap::new();
         metrics.insert("accuracy_score".to_string(), accuracy_score);
         metrics.insert("range_violations".to_string(), range_violations as f64);
         metrics.insert("value_range_width".to_string(), stats.max - stats.min);
-        
+
         Ok(QualityScore {
             score: accuracy_score,
             max_score: 1.0,
@@ -539,16 +560,20 @@ impl QualityMetrics {
 
     /// Assess data consistency
     /// データ整合性を評価
-    fn assess_consistency<T>(&self, _tensor: &crate::tensor::Tensor<T>, _characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_consistency<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        _characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         // Placeholder implementation - would check for internal contradictions
         let consistency_score = 0.95; // Placeholder
-        
+
         let mut metrics = HashMap::new();
         metrics.insert("consistency_score".to_string(), consistency_score);
-        
+
         Ok(QualityScore {
             score: consistency_score,
             max_score: 1.0,
@@ -560,17 +585,24 @@ impl QualityMetrics {
 
     /// Assess data validity
     /// データ有効性を評価
-    fn assess_validity<T>(&self, _tensor: &crate::tensor::Tensor<T>, characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_validity<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         // Check for valid tensor shape and type
         let has_valid_shape = !characteristics.shape.is_empty();
         let validity_score = if has_valid_shape { 1.0 } else { 0.0 };
-        
+
         let mut metrics = HashMap::new();
-        metrics.insert("valid_shape".to_string(), if has_valid_shape { 1.0 } else { 0.0 });
-        
+        metrics.insert(
+            "valid_shape".to_string(),
+            if has_valid_shape { 1.0 } else { 0.0 },
+        );
+
         Ok(QualityScore {
             score: validity_score,
             max_score: 1.0,
@@ -582,7 +614,11 @@ impl QualityMetrics {
 
     /// Assess data uniqueness
     /// データ一意性を評価
-    fn assess_uniqueness<T>(&self, _tensor: &crate::tensor::Tensor<T>, characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_uniqueness<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
@@ -593,11 +629,11 @@ impl QualityMetrics {
         } else {
             1.0
         };
-        
+
         let mut metrics = HashMap::new();
         metrics.insert("uniqueness_score".to_string(), uniqueness_score);
         metrics.insert("duplicate_count".to_string(), duplicates as f64);
-        
+
         Ok(QualityScore {
             score: uniqueness_score,
             max_score: 1.0,
@@ -609,13 +645,16 @@ impl QualityMetrics {
 
     /// Assess data timeliness
     /// データ適時性を評価
-    fn assess_timeliness(&self, _characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore> {
+    fn assess_timeliness(
+        &self,
+        _characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore> {
         // Placeholder implementation - would check data freshness
         let timeliness_score = 0.9; // Assume relatively fresh data
-        
+
         let mut metrics = HashMap::new();
         metrics.insert("timeliness_score".to_string(), timeliness_score);
-        
+
         Ok(QualityScore {
             score: timeliness_score,
             max_score: 1.0,
@@ -627,18 +666,25 @@ impl QualityMetrics {
 
     /// Assess data integrity
     /// データ整合性を評価
-    fn assess_integrity<T>(&self, _tensor: &crate::tensor::Tensor<T>, characteristics: &DataCharacteristics) -> RusTorchResult<QualityScore>
+    fn assess_integrity<T>(
+        &self,
+        _tensor: &crate::tensor::Tensor<T>,
+        characteristics: &DataCharacteristics,
+    ) -> RusTorchResult<QualityScore>
     where
         T: num_traits::Float + std::fmt::Debug + Clone + Send + Sync + 'static,
     {
         // Check structural integrity
-        let has_valid_structure = !characteristics.shape.is_empty() && 
-                                characteristics.total_points > 0;
+        let has_valid_structure =
+            !characteristics.shape.is_empty() && characteristics.total_points > 0;
         let integrity_score = if has_valid_structure { 1.0 } else { 0.0 };
-        
+
         let mut metrics = HashMap::new();
-        metrics.insert("structural_integrity".to_string(), if has_valid_structure { 1.0 } else { 0.0 });
-        
+        metrics.insert(
+            "structural_integrity".to_string(),
+            if has_valid_structure { 1.0 } else { 0.0 },
+        );
+
         Ok(QualityScore {
             score: integrity_score,
             max_score: 1.0,
@@ -659,18 +705,21 @@ impl QualityMetrics {
             (QualityDimension::Uniqueness, 0.1),
             (QualityDimension::Timeliness, 0.1),
             (QualityDimension::Integrity, 0.1),
-        ].iter().cloned().collect();
-        
+        ]
+        .iter()
+        .cloned()
+        .collect();
+
         let mut weighted_sum = 0.0;
         let mut total_weight = 0.0;
-        
+
         for (dimension, score) in dimensions {
             if let Some(&weight) = weights.get(dimension) {
                 weighted_sum += score.score * weight;
                 total_weight += weight;
             }
         }
-        
+
         if total_weight > 0.0 {
             weighted_sum / total_weight
         } else {
@@ -695,15 +744,14 @@ impl QualityMetrics {
     /// 集計統計を更新
     fn update_aggregated_stats(&mut self, assessment: &DataQualityAssessment) {
         self.aggregated_stats.total_assessments += 1;
-        
+
         let count = self.aggregated_stats.total_assessments as f64;
         let old_mean = self.aggregated_stats.average_overall_score;
         let new_score = assessment.overall_score;
-        
+
         // Update running average
-        self.aggregated_stats.average_overall_score = 
-            old_mean + (new_score - old_mean) / count;
-        
+        self.aggregated_stats.average_overall_score = old_mean + (new_score - old_mean) / count;
+
         // Update best/worst scores
         if self.aggregated_stats.total_assessments == 1 {
             self.aggregated_stats.best_score = new_score;
@@ -712,15 +760,15 @@ impl QualityMetrics {
             self.aggregated_stats.best_score = self.aggregated_stats.best_score.max(new_score);
             self.aggregated_stats.worst_score = self.aggregated_stats.worst_score.min(new_score);
         }
-        
+
         // Update variance (simplified calculation)
-        let variance_delta = (new_score - old_mean) * (new_score - self.aggregated_stats.average_overall_score);
-        self.aggregated_stats.score_variance = 
+        let variance_delta =
+            (new_score - old_mean) * (new_score - self.aggregated_stats.average_overall_score);
+        self.aggregated_stats.score_variance =
             (self.aggregated_stats.score_variance * (count - 1.0) + variance_delta) / count;
-        
+
         // Update stability measure
-        self.aggregated_stats.stability_measure = 
-            1.0 - self.aggregated_stats.score_variance.sqrt();
+        self.aggregated_stats.stability_measure = 1.0 - self.aggregated_stats.score_variance.sqrt();
     }
 
     /// Get quality metrics history
@@ -758,7 +806,8 @@ impl DataQualityAssessment {
 
 impl fmt::Display for DataQualityAssessment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f,
+        write!(
+            f,
             "📊 Data Quality Assessment\n\
              ==========================\n\
              Overall Score: {:.3} (Grade: {})\n\

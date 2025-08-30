@@ -220,7 +220,7 @@ pub enum RusTorchError {
         /// データ検証エラーの説明
         message: String,
     },
-    
+
     /// Debug system and logging errors
     /// デバッグシステム・ログエラー
     #[error("Debug system error: {message}")]

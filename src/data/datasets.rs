@@ -282,7 +282,13 @@ impl<T: Float + num_traits::FromPrimitive + 'static> ImageDataset<T> {
             }
         }
 
-        Ok(Self::new(image_paths, labels, class_names, image_size, channels)?)
+        Ok(Self::new(
+            image_paths,
+            labels,
+            class_names,
+            image_size,
+            channels,
+        )?)
     }
 
     /// Set image transform function
@@ -321,7 +327,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> ImageDataset<T> {
         // Reshape to expected dimensions
         let expected_size = self.channels * self.image_size.0 * self.image_size.1;
         let mut final_data = image_data;
-        
+
         // Resize or pad data to expected size
         final_data.resize(expected_size, T::zero());
 
@@ -362,11 +368,7 @@ pub struct TextDataset<T: Float> {
 impl<T: Float + num_traits::FromPrimitive + 'static> TextDataset<T> {
     /// Create a new text dataset
     /// 新しいテキストデータセットを作成
-    pub fn new(
-        texts: Vec<String>,
-        labels: Vec<usize>,
-        max_length: usize,
-    ) -> Result<Self, String> {
+    pub fn new(texts: Vec<String>, labels: Vec<usize>, max_length: usize) -> Result<Self, String> {
         if texts.len() != labels.len() {
             return Err("Texts and labels must have the same length".to_string());
         }
@@ -390,9 +392,10 @@ impl<T: Float + num_traits::FromPrimitive + 'static> TextDataset<T> {
         // Add frequent words to vocabulary
         let mut sorted_words: Vec<_> = word_count.into_iter().collect();
         sorted_words.sort_by(|a, b| b.1.cmp(&a.1));
-        
+
         for (word, _) in sorted_words {
-            if vocab.len() < 10000 { // Limit vocabulary size
+            if vocab.len() < 10000 {
+                // Limit vocabulary size
                 vocab.insert(word, vocab.len());
             }
         }
@@ -589,12 +592,9 @@ mod tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_image_dataset() {
-        let image_paths = vec![
-            PathBuf::from("test1.jpg"),
-            PathBuf::from("test2.jpg"),
-        ];
+        let image_paths = vec![PathBuf::from("test1.jpg"), PathBuf::from("test2.jpg")];
         let labels = vec![0, 1];
         let class_names = vec!["cat".to_string(), "dog".to_string()];
 
@@ -604,7 +604,8 @@ mod tests {
             class_names.clone(),
             (224, 224), // image size
             3,          // channels (RGB)
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(dataset.len(), 2);
         assert_eq!(dataset.class_names(), &class_names);
@@ -625,7 +626,7 @@ mod tests {
         temp_file.flush().unwrap();
 
         let dataset = MemoryMappedDataset::<f32>::new(temp_file.path(), 10).unwrap();
-        
+
         assert_eq!(dataset.len(), 100); // 1000 elements / 10 per sample
 
         // Test sample access (placeholder implementation)

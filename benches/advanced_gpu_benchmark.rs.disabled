@@ -1,0 +1,574 @@
+//! Advanced GPU Performance Benchmark Suite
+//!
+//! Comprehensive benchmarks for advanced GPU operations including memory management,
+//! kernel execution, multi-GPU coordination, and end-to-end performance testing.
+
+use criterion::{
+    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+};
+use rustorch::gpu::{
+    device::*, memory::*, performance_benchmark::*,
+};
+use rustorch::memory::{MemoryPool, pressure_monitor::*};
+use rustorch::tensor::Tensor;
+use std::sync::Arc;
+use std::time::Instant;
+
+/// Benchmark GPU executor operation submission throughput
+fn bench_gpu_executor_throughput(c: &mut Criterion) {
+    let executor = match create_advanced_executor() {
+        Ok(exec) => exec,
+        Err(_) => {
+            eprintln!("GPU executor not available - benchmark skipped");
+            return;
+        }
+    };
+
+    let mut group = c.benchmark_group("gpu_executor_throughput");
+
+    for batch_size in [10, 100, 1000].iter() {
+        group.throughput(Throughput::Elements(*batch_size));
+        group.bench_with_input(
+            BenchmarkId::new("submit_operations", batch_size),
+            batch_size,
+            |b, &batch_size| {
+                b.iter_batched(
+                    || {
+                        // Setup: Create operations to submit
+                        (0..batch_size)
+                            .map(|i| GpuOperation {
+                                op_type: GpuOperationType::ElementWise,
+                                inputs: vec![],
+                                output: None,
+                                hints: OptimizationHints::default(),
+                                priority: ExecutionPriority::Normal,
+                                metadata: OperationMetadata {
+                                    id: i as u64,
+                                    created_at: Instant::now(),
+                                    estimated_flops: 1000,
+                                    memory_required: 1024,
+                                    dependencies: vec![],
+                                    profiling_info: None,
+                                },
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |operations| {
+                        // Benchmark: Submit all operations
+                        for operation in operations {
+                            black_box(executor.submit(operation).ok());
+                        }
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark GPU memory allocation and deallocation
+fn bench_gpu_memory_operations(c: &mut Criterion) {
+    let pool = Arc::new(MemoryPool::new(Default::default()));
+    let allocator = GpuMemoryAllocator::new(0, 1024 * 1024 * 1024, pool); // 1GB
+
+    let mut group = c.benchmark_group("gpu_memory_operations");
+
+    // Test different allocation sizes
+    for size_kb in [1, 4, 16, 64, 256, 1024, 4096].iter() {
+        let size_bytes = size_kb * 1024;
+
+        group.throughput(Throughput::Bytes(size_bytes as u64));
+        group.bench_with_input(
+            BenchmarkId::new("allocate_deallocate", format!("{}KB", size_kb)),
+            &size_bytes,
+            |b, &size| {
+                b.iter(|| {
+                    if let Ok(allocation) = allocator.allocate(size) {
+                        black_box(&allocation);
+                        let _ = allocator.deallocate(allocation.id);
+                    }
+                });
+            },
+        );
+    }
+
+    // Test allocation persistence
+    group.bench_function("allocation_persistence", |b| {
+        b.iter_batched(
+            || Vec::new(),
+            |mut allocations: Vec<GpuAllocation>| {
+                // Allocate multiple blocks
+                for _ in 0..10 {
+                    if let Ok(alloc) = allocator.allocate(1024 * 1024) {
+                        allocations.push(alloc);
+                    }
+                }
+
+                // Deallocate all
+                for alloc in allocations {
+                    let _ = allocator.deallocate(alloc.id);
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.finish();
+}
+
+/// Benchmark transfer optimization
+fn bench_transfer_optimization(c: &mut Criterion) {
+    let optimizer = TransferOptimizer::new(TransferConfig::default());
+
+    let mut group = c.benchmark_group("transfer_optimization");
+
+    for size_mb in [1, 4, 16, 64, 256].iter() {
+        let size_bytes = size_mb * 1024 * 1024;
+
+        group.throughput(Throughput::Bytes(size_bytes as u64));
+        group.bench_with_input(
+            BenchmarkId::new("optimize_transfer", format!("{}MB", size_mb)),
+            &size_bytes,
+            |b, &size| {
+                b.iter(|| {
+                    let request = TransferRequest {
+                        id: 1,
+                        source: MemoryLocation::Host,
+                        destination: MemoryLocation::Device(0),
+                        size,
+                        priority: TransferPriority::Normal,
+                        is_async: true,
+                        callback: None,
+                    };
+
+                    black_box(optimizer.optimize_and_execute(request).ok());
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark kernel compilation across backends
+fn bench_kernel_compilation(c: &mut Criterion) {
+    let kernel = MatMulKernel::new(16, false);
+    let backends = [GpuBackend::Cuda, GpuBackend::Metal, GpuBackend::OpenCL];
+
+    let mut group = c.benchmark_group("kernel_compilation");
+
+    for backend in backends.iter() {
+        group.bench_with_input(
+            BenchmarkId::new("compile_matmul", format!("{:?}", backend)),
+            backend,
+            |b, &backend| {
+                b.iter(|| {
+                    black_box(kernel.compile(backend).ok());
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark kernel manager operations
+fn bench_kernel_manager(c: &mut Criterion) {
+    let manager = create_kernel_manager(GpuBackend::Cuda);
+
+    let mut group = c.benchmark_group("kernel_manager");
+
+    // Benchmark kernel retrieval (with caching)
+    group.bench_function("get_kernel_cached", |b| {
+        b.iter(|| {
+            black_box(manager.get_kernel("matmul").ok());
+        });
+    });
+
+    // Benchmark launch configuration generation
+    group.bench_function("launch_config_generation", |b| {
+        let kernel = MatMulKernel::new(16, false);
+        let problem_size = ProblemSize {
+            total_elements: 1024 * 1024,
+            input_dims: vec![vec![1024, 1024], vec![1024, 1024]],
+            output_dims: vec![1024, 1024],
+            batch_size: None,
+        };
+
+        b.iter(|| {
+            black_box(kernel.launch_config(problem_size.clone()));
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark multi-GPU coordination
+fn bench_multi_gpu_coordination(c: &mut Criterion) {
+    let device_ids = vec![0, 1];
+    let context = match create_multi_gpu_context(device_ids, ParallelismStrategy::DataParallel) {
+        Ok(ctx) => ctx,
+        Err(_) => {
+            eprintln!("Multi-GPU context not available - benchmark skipped");
+            return;
+        }
+    };
+
+    let mut group = c.benchmark_group("multi_gpu_coordination");
+
+    // Benchmark parallel execution
+    group.bench_function("parallel_execution", |b| {
+        b.iter(|| {
+            let result = context.execute(|gpu_id| {
+                // Simulate light computation
+                let tensor = Tensor::<f32>::ones(&[100, 100]);
+                Ok(tensor * (gpu_id as f32 + 1.0))
+            });
+            black_box(result.ok());
+        });
+    });
+
+    // Benchmark collective operations
+    group.bench_function("all_reduce", |b| {
+        let tensors = vec![
+            Tensor::<f32>::ones(&[256, 256]),
+            Tensor::<f32>::ones(&[256, 256]) * 2.0,
+        ];
+
+        b.iter(|| {
+            black_box(context.all_reduce(tensors.clone()).ok());
+        });
+    });
+
+    group.bench_function("broadcast", |b| {
+        let tensor = Tensor::<f32>::ones(&[256, 256]);
+
+        b.iter(|| {
+            black_box(context.broadcast(tensor.clone(), 0).ok());
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark load balancing
+fn bench_load_balancing(c: &mut Criterion) {
+    let balancer = LoadBalancer::new(8, BalancingStrategy::Dynamic);
+
+    let mut group = c.benchmark_group("load_balancing");
+
+    // Setup some load distribution
+    for i in 0..8 {
+        balancer.update_load(i, (i as f64 + 1.0) * 0.1);
+    }
+
+    group.bench_function("get_next_gpu", |b| {
+        b.iter(|| {
+            black_box(balancer.get_next_gpu());
+        });
+    });
+
+    group.bench_function("needs_rebalancing", |b| {
+        b.iter(|| {
+            black_box(balancer.needs_rebalancing());
+        });
+    });
+
+    group.bench_function("update_load", |b| {
+        b.iter(|| {
+            balancer.update_load(0, fastrand::f64());
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark data parallel operations
+fn bench_data_parallel_training(c: &mut Criterion) {
+    let trainer = DataParallelTrainer::new(4);
+
+    let mut group = c.benchmark_group("data_parallel_training");
+
+    // Benchmark batch splitting
+    for batch_size in [32, 64, 128, 256].iter() {
+        let batch = Tensor::<f32>::zeros(&[*batch_size, 224, 224, 3]);
+
+        group.throughput(Throughput::Elements(*batch_size as u64));
+        group.bench_with_input(
+            BenchmarkId::new("split_batch", batch_size),
+            &batch,
+            |b, batch| {
+                b.iter(|| {
+                    black_box(trainer.split_batch(batch));
+                });
+            },
+        );
+    }
+
+    // Benchmark gradient aggregation
+    group.bench_function("aggregate_gradients", |b| {
+        let gradients = vec![
+            Tensor::<f32>::randn(&[1000, 1000]),
+            Tensor::<f32>::randn(&[1000, 1000]),
+            Tensor::<f32>::randn(&[1000, 1000]),
+            Tensor::<f32>::randn(&[1000, 1000]),
+        ];
+
+        b.iter(|| {
+            black_box(trainer.aggregate_gradients(gradients.clone()));
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark pipeline scheduling
+fn bench_pipeline_scheduling(c: &mut Criterion) {
+    let scheduler = PipelineScheduler::new(4, 8);
+
+    let mut group = c.benchmark_group("pipeline_scheduling");
+
+    for num_microbatches in [8, 16, 32, 64].iter() {
+        group.bench_with_input(
+            BenchmarkId::new("generate_schedule", num_microbatches),
+            num_microbatches,
+            |b, &num_microbatches| {
+                b.iter(|| {
+                    black_box(scheduler.generate_schedule(num_microbatches));
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+/// Benchmark unified memory operations
+fn bench_unified_memory(c: &mut Criterion) {
+    let manager = create_unified_memory_manager();
+
+    let mut group = c.benchmark_group("unified_memory");
+
+    group.bench_function("allocate_unified", |b| {
+        b.iter_batched(
+            || 1024 * 1024, // 1MB
+            |size| {
+                if let Ok(allocation) = manager.allocate(size) {
+                    black_box(allocation);
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.bench_function("page_fault_handling", |b| {
+        b.iter(|| {
+            // Simulate page fault
+            black_box(manager.handle_fault(0x1000, true).ok());
+        });
+    });
+
+    group.finish();
+}
+
+/// Benchmark communication manager operations
+fn bench_communication_manager(c: &mut Criterion) {
+    let comm_manager = CommunicationManager::new(CommBackend::P2P);
+
+    // Create test topology
+    let topology = GpuTopology {
+        num_gpus: 4,
+        device_ids: vec![0, 1, 2, 3],
+        p2p_matrix: vec![
+            vec![false, true, true, true],
+            vec![true, false, true, true],
+            vec![true, true, false, true],
+            vec![true, true, true, false],
+        ],
+        bandwidth_matrix: vec![vec![25.0; 4]; 4],
+        compute_capabilities: vec![(8, 0); 4],
+        memory_per_gpu: vec![16 * 1024 * 1024 * 1024; 4],
+    };
+
+    let mut group = c.benchmark_group("communication_manager");
+
+    group.bench_function("create_group", |b| {
+        let mut counter = 0;
+        b.iter(|| {
+            let group_name = format!("test_group_{}", counter);
+            counter += 1;
+            black_box(comm_manager.create_group(group_name, vec![0, 1, 2, 3]).ok());
+        });
+    });
+
+    // Benchmark collective operations
+    let tensors = vec![
+        Tensor::<f32>::ones(&[1024, 1024]),
+        Tensor::<f32>::ones(&[1024, 1024]),
+        Tensor::<f32>::ones(&[1024, 1024]),
+        Tensor::<f32>::ones(&[1024, 1024]),
+    ];
+
+    group.bench_function("all_reduce_p2p", |b| {
+        b.iter(|| {
+            black_box(comm_manager.all_reduce(tensors.clone(), &topology).ok());
+        });
+    });
+
+    group.bench_function("broadcast_p2p", |b| {
+        b.iter(|| {
+            black_box(
+                comm_manager
+                    .broadcast(tensors[0].clone(), 0, &topology)
+                    .ok(),
+            );
+        });
+    });
+
+    group.finish();
+}
+
+/// End-to-end performance benchmark
+fn bench_end_to_end_performance(c: &mut Criterion) {
+    let executor = match create_advanced_executor() {
+        Ok(exec) => exec,
+        Err(_) => {
+            eprintln!("GPU executor not available - end-to-end benchmark skipped");
+            return;
+        }
+    };
+
+    let kernel_manager = create_kernel_manager(GpuBackend::Cuda);
+    let memory_manager = create_unified_memory_manager();
+
+    let mut group = c.benchmark_group("end_to_end");
+
+    group.bench_function("complete_workflow", |b| {
+        b.iter_batched(
+            || {
+                // Setup: Create operation
+                GpuOperation {
+                    op_type: GpuOperationType::MatMul,
+                    inputs: vec![],
+                    output: None,
+                    hints: OptimizationHints {
+                        block_size: Some(16),
+                        grid_size: Some(64),
+                        use_shared_memory: true,
+                        use_tensor_cores: true,
+                        memory_pattern: MemoryAccessPattern::Coalesced,
+                        fusion_candidates: vec![],
+                    },
+                    priority: ExecutionPriority::High,
+                    metadata: OperationMetadata {
+                        id: fastrand::u64(..),
+                        created_at: Instant::now(),
+                        estimated_flops: 1000000,
+                        memory_required: 1024 * 1024,
+                        dependencies: vec![],
+                        profiling_info: None,
+                    },
+                }
+            },
+            |operation| {
+                // Benchmark: Complete workflow
+
+                // 1. Submit operation
+                if let Ok(_) = executor.submit(operation) {
+                    // 2. Get kernel
+                    if let Ok(_) = kernel_manager.get_kernel("matmul") {
+                        // 3. Allocate unified memory
+                        if let Ok(_) = memory_manager.allocate(1024 * 1024) {
+                            // 4. Execute operations
+                            let _ = executor.execute();
+                        }
+                    }
+                }
+            },
+            BatchSize::SmallInput,
+        );
+    });
+
+    group.finish();
+}
+
+/// Scalability benchmark - test performance with increasing load
+fn bench_scalability(c: &mut Criterion) {
+    let executor = match create_advanced_executor() {
+        Ok(exec) => exec,
+        Err(_) => {
+            eprintln!("GPU executor not available - scalability benchmark skipped");
+            return;
+        }
+    };
+
+    let mut group = c.benchmark_group("scalability");
+
+    for concurrent_ops in [1, 10, 100, 1000].iter() {
+        group.throughput(Throughput::Elements(*concurrent_ops));
+        group.bench_with_input(
+            BenchmarkId::new("concurrent_operations", concurrent_ops),
+            concurrent_ops,
+            |b, &num_ops| {
+                b.iter_batched(
+                    || {
+                        // Setup: Create multiple operations
+                        (0..num_ops)
+                            .map(|i| GpuOperation {
+                                op_type: if i % 2 == 0 {
+                                    GpuOperationType::MatMul
+                                } else {
+                                    GpuOperationType::ElementWise
+                                },
+                                inputs: vec![],
+                                output: None,
+                                hints: OptimizationHints::default(),
+                                priority: ExecutionPriority::Normal,
+                                metadata: OperationMetadata {
+                                    id: i as u64,
+                                    created_at: Instant::now(),
+                                    estimated_flops: 10000,
+                                    memory_required: 4096,
+                                    dependencies: vec![],
+                                    profiling_info: None,
+                                },
+                            })
+                            .collect::<Vec<_>>()
+                    },
+                    |operations| {
+                        // Benchmark: Submit all operations concurrently
+                        for operation in operations {
+                            let _ = executor.submit(operation);
+                        }
+                        // Execute batch
+                        let _ = executor.execute();
+                    },
+                    BatchSize::SmallInput,
+                );
+            },
+        );
+    }
+
+    group.finish();
+}
+
+criterion_group!(
+    gpu_benches,
+    bench_gpu_executor_throughput,
+    bench_gpu_memory_operations,
+    bench_transfer_optimization,
+    bench_kernel_compilation,
+    bench_kernel_manager,
+    bench_multi_gpu_coordination,
+    bench_load_balancing,
+    bench_data_parallel_training,
+    bench_pipeline_scheduling,
+    bench_unified_memory,
+    bench_communication_manager,
+    bench_end_to_end_performance,
+    bench_scalability
+);
+
+criterion_main!(gpu_benches);

@@ -17,11 +17,11 @@ pub trait Transform<T: Float + 'static> {
     /// Apply transformation to input data
     /// 入力データに変換を適用
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String>;
-    
+
     /// Get transformation name
     /// 変換名を取得
     fn name(&self) -> &str;
-    
+
     /// Get transformation parameters
     /// 変換パラメータを取得
     fn parameters(&self) -> HashMap<String, String> {
@@ -42,7 +42,7 @@ impl<T: Float + 'static> Compose<T> {
     pub fn new(transforms: Vec<Box<dyn Transform<T> + Send + Sync>>) -> Self {
         let names: Vec<String> = transforms.iter().map(|t| t.name().to_string()).collect();
         let name = format!("Compose[{}]", names.join(", "));
-        
+
         Self { transforms, name }
     }
 }
@@ -53,7 +53,7 @@ impl<T: Float + 'static> Transform<T> for Compose<T> {
             .iter()
             .try_fold(data.clone(), |acc, transform| transform.apply(&acc))
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -118,7 +118,7 @@ impl<T: Float + 'static> Transform<T> for RandomChoice<T> {
         // Fallback to last transform
         self.transforms.last().unwrap().apply(data)
     }
-    
+
     fn name(&self) -> &str {
         &self.name
     }
@@ -194,7 +194,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> No
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for Normalize<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for Normalize<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         if self.mean.is_empty() || self.std.is_empty() {
             return Ok(data.clone());
@@ -220,13 +222,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                     let channels = shape[0];
                     let height = shape[1];
                     let width = shape[2];
-                    
+
                     for c in 0..channels {
                         let mean_idx = c.min(self.mean.len() - 1);
                         let std_idx = c.min(self.std.len() - 1);
                         let mean_val = self.mean[mean_idx];
                         let std_val = self.std[std_idx];
-                        
+
                         for h in 0..height {
                             for w in 0..width {
                                 let idx = c * height * width + h * width + w;
@@ -254,11 +256,11 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
             Err("Cannot access tensor data for normalization".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "Normalize"
     }
-    
+
     fn parameters(&self) -> HashMap<String, String> {
         let mut params = HashMap::new();
         params.insert("channels".to_string(), self.mean.len().to_string());
@@ -285,7 +287,12 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mi
         if target_min >= target_max {
             return Err("target_min must be less than target_max".to_string());
         }
-        Ok(Self { min_val, max_val, target_min, target_max })
+        Ok(Self {
+            min_val,
+            max_val,
+            target_min,
+            target_max,
+        })
     }
 
     /// Create standard [0, 1] normalizer
@@ -295,11 +302,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Mi
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for MinMaxNormalize<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for MinMaxNormalize<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         let range = self.max_val - self.min_val;
         let target_range = self.target_max - self.target_min;
-        
+
         if let Some(data_slice) = data.as_slice() {
             let normalized_data: Vec<T> = data_slice
                 .iter()
@@ -309,13 +318,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                     scaled.max(self.target_min).min(self.target_max) // Clamp to target range
                 })
                 .collect();
-            
+
             Ok(Tensor::from_vec(normalized_data, data.shape().to_vec()))
         } else {
             Err("Cannot access tensor data for min-max normalization".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "MinMaxNormalize"
     }
@@ -341,7 +350,9 @@ impl<T: Float + 'static> RandomHorizontalFlip<T> {
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for RandomHorizontalFlip<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for RandomHorizontalFlip<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         if rand::thread_rng().gen::<f64>() > self.probability {
             return Ok(data.clone());
@@ -362,7 +373,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                         let original_idx = c * height * width + h * width + w;
                         let flipped_w = width - 1 - w;
                         let flipped_idx = c * height * width + h * width + flipped_w;
-                        
+
                         if original_idx < data_slice.len() {
                             flipped_data.push(data_slice[original_idx]);
                         } else {
@@ -377,7 +388,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
             Err("Cannot access tensor data for horizontal flip".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "RandomHorizontalFlip"
     }
@@ -401,11 +412,13 @@ impl<T: Float + 'static> RandomRotation<T> {
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for RandomRotation<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for RandomRotation<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         let angle = rand::thread_rng().gen_range(-self.max_angle..=self.max_angle);
         let shape = data.shape();
-        
+
         if shape.len() != 3 {
             return Err("RandomRotation requires 3D tensor (C, H, W)".to_string());
         }
@@ -420,11 +433,11 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
             Ok(data.clone())
         }
     }
-    
+
     fn name(&self) -> &str {
         "RandomRotation"
     }
-    
+
     fn parameters(&self) -> HashMap<String, String> {
         let mut params = HashMap::new();
         params.insert("max_angle".to_string(), self.max_angle.to_string());
@@ -450,7 +463,9 @@ impl<T: Float + 'static> CenterCrop<T> {
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for CenterCrop<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for CenterCrop<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         let shape = data.shape();
         if shape.len() != 3 {
@@ -491,11 +506,11 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
             Err("Cannot access tensor data for center crop".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "CenterCrop"
     }
-    
+
     fn parameters(&self) -> HashMap<String, String> {
         let mut params = HashMap::new();
         params.insert("height".to_string(), self.output_size.0.to_string());
@@ -521,7 +536,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Ad
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for AddGaussianNoise<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for AddGaussianNoise<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         if let Some(data_slice) = data.as_slice() {
             let mut rng = rand::thread_rng();
@@ -532,9 +549,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                     let u1: f64 = rng.gen();
                     let u2: f64 = rng.gen();
                     let noise = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
-                    
-                    if let (Some(noise_t), Some(mean_f), Some(std_f)) = 
-                        (T::from_f64(noise), self.mean.to_f64(), self.std.to_f64()) {
+
+                    if let (Some(noise_t), Some(mean_f), Some(std_f)) =
+                        (T::from_f64(noise), self.mean.to_f64(), self.std.to_f64())
+                    {
                         let scaled_noise = T::from_f64(noise * std_f + mean_f).unwrap_or(T::zero());
                         val + scaled_noise
                     } else {
@@ -542,13 +560,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                     }
                 })
                 .collect();
-            
+
             Ok(Tensor::from_vec(noisy_data, data.shape().to_vec()))
         } else {
             Err("Cannot access tensor data for adding noise".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "AddGaussianNoise"
     }
@@ -571,30 +589,31 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Ra
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for RandomBrightness<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for RandomBrightness<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         let factor = {
             let mut rng = rand::thread_rng();
-            if let (Some(min), Some(max)) = (self.factor_range.0.to_f64(), self.factor_range.1.to_f64()) {
+            if let (Some(min), Some(max)) =
+                (self.factor_range.0.to_f64(), self.factor_range.1.to_f64())
+            {
                 let random_factor = rng.gen_range(min..=max);
                 T::from_f64(random_factor).unwrap_or(T::one())
             } else {
                 T::one()
             }
         };
-        
+
         if let Some(data_slice) = data.as_slice() {
-            let brightened_data: Vec<T> = data_slice
-                .iter()
-                .map(|&val| val * factor)
-                .collect();
-            
+            let brightened_data: Vec<T> = data_slice.iter().map(|&val| val * factor).collect();
+
             Ok(Tensor::from_vec(brightened_data, data.shape().to_vec()))
         } else {
             Err("Cannot access tensor data for brightness adjustment".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "RandomBrightness"
     }
@@ -620,7 +639,9 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> To
     }
 }
 
-impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T> for TokenDropout<T> {
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Transform<T>
+    for TokenDropout<T>
+{
     fn apply(&self, data: &Tensor<T>) -> Result<Tensor<T>, String> {
         if let Some(data_slice) = data.as_slice() {
             let mut rng = rand::thread_rng();
@@ -634,13 +655,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
                     }
                 })
                 .collect();
-            
+
             Ok(Tensor::from_vec(dropped_data, data.shape().to_vec()))
         } else {
             Err("Cannot access tensor data for token dropout".to_string())
         }
     }
-    
+
     fn name(&self) -> &str {
         "TokenDropout"
     }
@@ -654,10 +675,10 @@ mod tests {
     fn test_normalize() {
         let data = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
         let normalize = Normalize::new(vec![2.5], vec![1.5]).unwrap();
-        
+
         let result = normalize.apply(&data).unwrap();
         let result_data = result.as_slice().unwrap();
-        
+
         // Expected: [(1-2.5)/1.5, (2-2.5)/1.5, (3-2.5)/1.5, (4-2.5)/1.5]
         //         = [-1.0, -1/3, 1/3, 1.0]
         assert!((result_data[0] - (-1.0)).abs() < 1e-6);
@@ -668,10 +689,10 @@ mod tests {
     fn test_minmax_normalize() {
         let data = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
         let normalize = MinMaxNormalize::zero_one(1.0, 4.0).unwrap();
-        
+
         let result = normalize.apply(&data).unwrap();
         let result_data = result.as_slice().unwrap();
-        
+
         // Expected: [0.0, 1/3, 2/3, 1.0]
         assert!((result_data[0] - 0.0).abs() < 1e-6);
         assert!((result_data[3] - 1.0).abs() < 1e-6);
@@ -680,15 +701,15 @@ mod tests {
     #[test]
     fn test_compose() {
         let data = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
-        
+
         let transforms: Vec<Box<dyn Transform<f32> + Send + Sync>> = vec![
             Box::new(MinMaxNormalize::zero_one(1.0, 4.0).unwrap()),
             Box::new(AddGaussianNoise::new(0.0, 0.01)),
         ];
-        
+
         let compose = Compose::new(transforms);
         let result = compose.apply(&data).unwrap();
-        
+
         assert_eq!(result.shape(), data.shape());
         assert_eq!(compose.name(), "Compose[MinMaxNormalize, AddGaussianNoise]");
     }
@@ -696,15 +717,15 @@ mod tests {
     #[test]
     fn test_random_choice() {
         let data = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
-        
+
         let transforms: Vec<Box<dyn Transform<f32> + Send + Sync>> = vec![
             Box::new(MinMaxNormalize::zero_one(1.0, 4.0).unwrap()),
             Box::new(AddGaussianNoise::new(0.0, 0.1)),
         ];
-        
+
         let random_choice = RandomChoice::new(transforms, Some(vec![0.5, 0.5])).unwrap();
         let result = random_choice.apply(&data).unwrap();
-        
+
         assert_eq!(result.shape(), data.shape());
     }
 
@@ -712,12 +733,12 @@ mod tests {
     fn test_center_crop() {
         let data = Tensor::from_vec(
             vec![1.0; 3 * 4 * 4], // 3 channels, 4x4 image
-            vec![3, 4, 4]
+            vec![3, 4, 4],
         );
-        
+
         let crop = CenterCrop::new((2, 2));
         let result = crop.apply(&data).unwrap();
-        
+
         assert_eq!(result.shape(), &[3, 2, 2]);
     }
 
@@ -725,12 +746,12 @@ mod tests {
     fn test_random_horizontal_flip() {
         let data = Tensor::from_vec(
             (0..12).map(|i| i as f32).collect(), // 1 channel, 3x4 image
-            vec![1, 3, 4]
+            vec![1, 3, 4],
         );
-        
+
         let flip = RandomHorizontalFlip::new(1.0); // Always flip
         let result = flip.apply(&data).unwrap();
-        
+
         assert_eq!(result.shape(), data.shape());
     }
 
@@ -738,12 +759,12 @@ mod tests {
     fn test_token_dropout() {
         let data = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0], vec![5]);
         let dropout = TokenDropout::new(0.5, 0.0); // 50% dropout, replace with 0
-        
+
         let result = dropout.apply(&data).unwrap();
         let result_data = result.as_slice().unwrap();
-        
+
         // Some tokens should be dropped (replaced with 0)
         let zero_count = result_data.iter().filter(|&&x| x == 0.0).count();
-        assert!(zero_count >= 0); // At least some might be dropped
+        assert!(zero_count > 0); // At least some should be dropped
     }
 }

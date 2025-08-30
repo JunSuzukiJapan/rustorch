@@ -8,10 +8,10 @@
 //! - System memory integration
 
 use crate::error::{RusTorchError, RusTorchResult};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use std::collections::VecDeque;
 
 /// Memory pressure levels
 /// メモリプレッシャーレベル
@@ -89,9 +89,9 @@ impl GcStrategy {
     /// この戦略の回収間隔を取得
     pub fn collection_interval(&self) -> Duration {
         match self {
-            GcStrategy::Lazy => Duration::from_secs(300),        // 5 minutes
+            GcStrategy::Lazy => Duration::from_secs(300), // 5 minutes
             GcStrategy::Conservative => Duration::from_secs(60), // 1 minute
-            GcStrategy::Aggressive => Duration::from_secs(10),   // 10 seconds
+            GcStrategy::Aggressive => Duration::from_secs(10), // 10 seconds
             GcStrategy::Emergency => Duration::from_millis(100), // 100ms
         }
     }
@@ -276,7 +276,9 @@ impl AdaptivePressureMonitor {
         })?;
 
         if *running {
-            return Err(RusTorchError::MemoryError("Monitor already running".to_string()));
+            return Err(RusTorchError::MemoryError(
+                "Monitor already running".to_string(),
+            ));
         }
 
         *running = true;
@@ -290,7 +292,14 @@ impl AdaptivePressureMonitor {
         let stats = Arc::new(RwLock::new(MonitorStats::default()));
 
         let handle = thread::spawn(move || {
-            Self::monitor_loop(running_flag, config, current_snapshot, history, gc_strategy, stats);
+            Self::monitor_loop(
+                running_flag,
+                config,
+                current_snapshot,
+                history,
+                gc_strategy,
+                stats,
+            );
         });
 
         let mut handle_guard = self.monitor_handle.lock().map_err(|_| {
@@ -334,7 +343,7 @@ impl AdaptivePressureMonitor {
         let snapshot = self.current_snapshot.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire snapshot read lock".to_string())
         })?;
-        
+
         Ok(snapshot.clone())
     }
 
@@ -344,7 +353,7 @@ impl AdaptivePressureMonitor {
         let strategy = self.gc_strategy.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire strategy read lock".to_string())
         })?;
-        
+
         Ok(*strategy)
     }
 
@@ -354,7 +363,7 @@ impl AdaptivePressureMonitor {
         let stats = self.stats.read().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire stats read lock".to_string())
         })?;
-        
+
         Ok(stats.clone())
     }
 
@@ -389,7 +398,7 @@ impl AdaptivePressureMonitor {
         for (i, snapshot) in recent_data.iter().enumerate() {
             let x = i as f64;
             let y = snapshot.pressure_ratio;
-            
+
             sum_x += x;
             sum_y += y;
             sum_xy += x * y;
@@ -402,20 +411,20 @@ impl AdaptivePressureMonitor {
         // Calculate correlation coefficient for confidence
         let mean_x = sum_x / n;
         let mean_y = sum_y / n;
-        
+
         let mut numerator = 0.0;
         let mut denom_x = 0.0;
         let mut denom_y = 0.0;
-        
+
         for (i, snapshot) in recent_data.iter().enumerate() {
             let x = i as f64;
             let y = snapshot.pressure_ratio;
-            
+
             numerator += (x - mean_x) * (y - mean_y);
             denom_x += (x - mean_x).powi(2);
             denom_y += (y - mean_y).powi(2);
         }
-        
+
         let correlation = numerator / (denom_x * denom_y).sqrt();
         let confidence = correlation.abs();
 
@@ -475,17 +484,17 @@ impl AdaptivePressureMonitor {
         // In a real implementation, we would query system memory information
         // For now, we'll simulate with basic process information
         let timestamp = SystemTime::now();
-        
+
         // Simulated system memory (in real implementation, use system APIs)
         let system_total = 16 * 1024 * 1024 * 1024; // 16GB
         let system_available = 8 * 1024 * 1024 * 1024; // 8GB available
-        
+
         // Simulated process memory (in real implementation, query process stats)
         let process_used = 1024 * 1024 * 1024; // 1GB
-        
+
         // Simulated RusTorch memory (would be tracked by our memory pools)
         let rustorch_used = 512 * 1024 * 1024; // 512MB
-        
+
         let pressure_ratio = rustorch_used as f64 / config.rustorch_memory_limit as f64;
         let pressure_level = PressureLevel::from_ratio(pressure_ratio);
 
@@ -506,9 +515,9 @@ impl AdaptivePressureMonitor {
         stats: &Arc<RwLock<MonitorStats>>,
     ) {
         let new_strategy = snapshot.pressure_level.gc_strategy();
-        
-        if let (Ok(mut current_strategy), Ok(mut stat_guard)) = 
-            (gc_strategy.write(), stats.write()) {
+
+        if let (Ok(mut current_strategy), Ok(mut stat_guard)) = (gc_strategy.write(), stats.write())
+        {
             if *current_strategy != new_strategy {
                 *current_strategy = new_strategy;
                 stat_guard.strategy_changes += 1;
@@ -520,12 +529,12 @@ impl AdaptivePressureMonitor {
         if let Ok(mut stat_guard) = stats.write() {
             stat_guard.total_snapshots += 1;
             stat_guard.pressure_distribution[snapshot.pressure_level as usize] += 1;
-            
+
             // Update average pressure (exponential moving average)
             let alpha = 0.1; // Smoothing factor
-            stat_guard.avg_pressure = 
+            stat_guard.avg_pressure =
                 alpha * snapshot.pressure_ratio + (1.0 - alpha) * stat_guard.avg_pressure;
-            
+
             if snapshot.pressure_ratio > stat_guard.peak_pressure {
                 stat_guard.peak_pressure = snapshot.pressure_ratio;
             }
@@ -553,16 +562,24 @@ mod tests {
 
     #[test]
     fn test_gc_strategy_intervals() {
-        assert!(GcStrategy::Emergency.collection_interval() < GcStrategy::Aggressive.collection_interval());
-        assert!(GcStrategy::Aggressive.collection_interval() < GcStrategy::Conservative.collection_interval());
-        assert!(GcStrategy::Conservative.collection_interval() < GcStrategy::Lazy.collection_interval());
+        assert!(
+            GcStrategy::Emergency.collection_interval()
+                < GcStrategy::Aggressive.collection_interval()
+        );
+        assert!(
+            GcStrategy::Aggressive.collection_interval()
+                < GcStrategy::Conservative.collection_interval()
+        );
+        assert!(
+            GcStrategy::Conservative.collection_interval() < GcStrategy::Lazy.collection_interval()
+        );
     }
 
     #[test]
     fn test_monitor_creation() {
         let config = MonitorConfig::default();
         let monitor = AdaptivePressureMonitor::new(config);
-        
+
         let strategy = monitor.get_gc_strategy().unwrap();
         assert_eq!(strategy, GcStrategy::Conservative);
     }
@@ -574,16 +591,16 @@ mod tests {
             ..MonitorConfig::default()
         };
         let monitor = AdaptivePressureMonitor::new(config);
-        
+
         // Start monitoring
         monitor.start_monitoring().unwrap();
-        
+
         // Let it run briefly
         thread::sleep(Duration::from_millis(50));
-        
+
         // Stop monitoring
         monitor.stop_monitoring().unwrap();
-        
+
         let stats = monitor.get_stats().unwrap();
         assert!(stats.total_snapshots > 0);
     }
@@ -595,7 +612,7 @@ mod tests {
             ..MonitorConfig::default()
         };
         let monitor = AdaptivePressureMonitor::new(config);
-        
+
         let trend = monitor.analyze_trend().unwrap();
         assert!(trend.is_none()); // Should be None due to insufficient data
     }

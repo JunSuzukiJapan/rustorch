@@ -53,7 +53,12 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
         expanded_data.reserve(total_elements);
 
         // Generate all indices for the target shape
-        self.expand_recursive(&mut expanded_data, target_shape, &vec![0; target_shape.len()], 0)?;
+        self.expand_recursive(
+            &mut expanded_data,
+            target_shape,
+            &vec![0; target_shape.len()],
+            0,
+        )?;
 
         Ok(Tensor::from_vec(expanded_data, target_shape.to_vec()))
     }
@@ -69,7 +74,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
             // Map target indices to source indices
             let self_shape = self.shape();
             let ndim_diff = target_shape.len() - self_shape.len();
-            
+
             let mut source_indices = Vec::new();
             for (i, &target_idx) in current_indices.iter().enumerate() {
                 if i < ndim_diff {
@@ -78,7 +83,11 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
                 } else {
                     let self_dim_idx = i - ndim_diff;
                     if self_dim_idx < self_shape.len() {
-                        let source_idx = if self_shape[self_dim_idx] == 1 { 0 } else { target_idx };
+                        let source_idx = if self_shape[self_dim_idx] == 1 {
+                            0
+                        } else {
+                            target_idx
+                        };
                         source_indices.push(source_idx);
                     }
                 }
@@ -126,7 +135,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
         let total_elements: usize = target_shape.iter().product();
         result_data.reserve(total_elements);
 
-        self.repeat_recursive(&mut result_data, &target_shape, repeats, &vec![0; target_shape.len()], 0)?;
+        self.repeat_recursive(
+            &mut result_data,
+            &target_shape,
+            repeats,
+            &vec![0; target_shape.len()],
+            0,
+        )?;
 
         Ok(Tensor::from_vec(result_data, target_shape))
     }
@@ -143,7 +158,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
             // Map target indices to source indices
             let self_shape = self.shape();
             let mut source_indices = Vec::new();
-            
+
             for (i, &target_idx) in current_indices.iter().enumerate() {
                 let source_idx = target_idx % self_shape[i];
                 source_indices.push(source_idx);
@@ -175,16 +190,16 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
 
         let self_shape = self.shape();
         let max_ndim = std::cmp::max(self_shape.len(), reps.len());
-        
+
         // Pad shapes with 1s if needed
         let mut padded_self_shape = vec![1; max_ndim];
         let mut padded_reps = vec![1; max_ndim];
-        
+
         // Copy original shape to the end
         for (i, &dim) in self_shape.iter().enumerate() {
             padded_self_shape[max_ndim - self_shape.len() + i] = dim;
         }
-        
+
         // Copy reps to the end
         for (i, &rep) in reps.iter().enumerate() {
             padded_reps[max_ndim - reps.len() + i] = rep;
@@ -244,7 +259,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// テンソルの次元を順列
     pub fn permute(&self, dims: &[usize]) -> RusTorchResult<Self> {
         let self_shape = self.shape();
-        
+
         if dims.len() != self_shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "permute".to_string(),
@@ -272,7 +287,13 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
         let mut result_data = Vec::with_capacity(self.numel());
 
         // Generate all possible indices for the result tensor
-        self.permute_recursive(&mut result_data, &new_shape, dims, &vec![0; new_shape.len()], 0)?;
+        self.permute_recursive(
+            &mut result_data,
+            &new_shape,
+            dims,
+            &vec![0; new_shape.len()],
+            0,
+        )?;
 
         Ok(Tensor::from_vec(result_data, new_shape))
     }
@@ -313,11 +334,14 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 次元をソース位置からデスティネーション位置に移動
     pub fn movedim(&self, source: usize, destination: usize) -> RusTorchResult<Self> {
         let ndim = self.shape().len();
-        
+
         if source >= ndim || destination >= ndim {
             return Err(RusTorchError::InvalidOperation {
                 operation: "movedim".to_string(),
-                message: format!("Dimension out of range: source={}, destination={}, ndim={}", source, destination, ndim),
+                message: format!(
+                    "Dimension out of range: source={}, destination={}, ndim={}",
+                    source, destination, ndim
+                ),
             });
         }
 
@@ -340,11 +364,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 特定の次元から開始してテンソルをフラット化
     pub fn flatten_from(&self, start_dim: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if start_dim >= shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "flatten_from".to_string(),
-                message: format!("start_dim {} is out of range for tensor with {} dimensions", start_dim, shape.len()),
+                message: format!(
+                    "start_dim {} is out of range for tensor with {} dimensions",
+                    start_dim,
+                    shape.len()
+                ),
             });
         }
 
@@ -363,11 +391,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 1つの次元を複数の次元に非フラット化
     pub fn unflatten(&self, dim: usize, unflattened_size: &[usize]) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if dim >= shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "unflatten".to_string(),
-                message: format!("Dimension {} is out of range for tensor with {} dimensions", dim, shape.len()),
+                message: format!(
+                    "Dimension {} is out of range for tensor with {} dimensions",
+                    dim,
+                    shape.len()
+                ),
             });
         }
 
@@ -403,11 +435,14 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 2つの次元を交換
     pub fn swapaxes(&self, axis1: usize, axis2: usize) -> RusTorchResult<Self> {
         let ndim = self.shape().len();
-        
+
         if axis1 >= ndim || axis2 >= ndim {
             return Err(RusTorchError::InvalidOperation {
                 operation: "swapaxes".to_string(),
-                message: format!("Axes out of range: axis1={}, axis2={}, ndim={}", axis1, axis2, ndim),
+                message: format!(
+                    "Axes out of range: axis1={}, axis2={}, ndim={}",
+                    axis1, axis2, ndim
+                ),
             });
         }
 
@@ -425,11 +460,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 指定軸に沿って要素の順序を逆転
     pub fn flip(&self, axis: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if axis >= shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "flip".to_string(),
-                message: format!("Axis {} is out of range for tensor with {} dimensions", axis, shape.len()),
+                message: format!(
+                    "Axis {} is out of range for tensor with {} dimensions",
+                    axis,
+                    shape.len()
+                ),
             });
         }
 
@@ -473,11 +512,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
     /// 軸に沿って要素をロール
     pub fn roll(&self, shifts: isize, axis: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if axis >= shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "roll".to_string(),
-                message: format!("Axis {} is out of range for tensor with {} dimensions", axis, shape.len()),
+                message: format!(
+                    "Axis {} is out of range for tensor with {} dimensions",
+                    axis,
+                    shape.len()
+                ),
             });
         }
 
@@ -489,7 +532,14 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
         }
 
         let mut result_data = Vec::with_capacity(self.numel());
-        self.roll_recursive(&mut result_data, shape, axis, normalized_shifts as usize, &vec![0; shape.len()], 0)?;
+        self.roll_recursive(
+            &mut result_data,
+            shape,
+            axis,
+            normalized_shifts as usize,
+            &vec![0; shape.len()],
+            0,
+        )?;
 
         Ok(Tensor::from_vec(result_data, shape.to_vec()))
     }
@@ -507,7 +557,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + C
             // Map rolled indices to original indices
             let mut source_indices = current_indices.to_vec();
             let axis_size = shape[roll_axis];
-            source_indices[roll_axis] = (current_indices[roll_axis] + axis_size - shifts) % axis_size;
+            source_indices[roll_axis] =
+                (current_indices[roll_axis] + axis_size - shifts) % axis_size;
 
             if let Some(value) = self.data.get(IxDyn(&source_indices)) {
                 output.push(*value);
@@ -535,25 +586,31 @@ mod tests {
     fn test_expand() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2, 1]);
         let expanded = tensor.expand(&[2, 3]).unwrap();
-        
+
         assert_eq!(expanded.shape(), &[2, 3]);
-        assert_eq!(expanded.as_slice().unwrap(), &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]);
+        assert_eq!(
+            expanded.as_slice().unwrap(),
+            &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+        );
     }
 
     #[test]
     fn test_repeat() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let repeated = tensor.repeat(&[3]).unwrap();
-        
+
         assert_eq!(repeated.shape(), &[6]);
-        assert_eq!(repeated.as_slice().unwrap(), &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]);
+        assert_eq!(
+            repeated.as_slice().unwrap(),
+            &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+        );
     }
 
     #[test]
     fn test_tile() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let tiled = tensor.tile(&[3]).unwrap();
-        
+
         assert_eq!(tiled.shape(), &[6]);
         assert_eq!(tiled.as_slice().unwrap(), &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
     }
@@ -562,7 +619,7 @@ mod tests {
     fn test_squeeze_all() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
         let squeezed = tensor.squeeze_all();
-        
+
         assert_eq!(squeezed.shape(), &[3]);
         assert_eq!(squeezed.as_slice().unwrap(), &[1.0, 2.0, 3.0]);
     }
@@ -571,18 +628,21 @@ mod tests {
     fn test_permute() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let permuted = tensor.permute(&[1, 0]).unwrap();
-        
+
         assert_eq!(permuted.shape(), &[3, 2]);
         // Original: [[1, 2, 3], [4, 5, 6]]
         // Permuted: [[1, 4], [2, 5], [3, 6]]
-        assert_eq!(permuted.as_slice().unwrap(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
+        assert_eq!(
+            permuted.as_slice().unwrap(),
+            &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]
+        );
     }
 
     #[test]
     fn test_movedim() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let moved = tensor.movedim(0, 1).unwrap();
-        
+
         assert_eq!(moved.shape(), &[3, 2]);
         assert_eq!(moved.as_slice().unwrap(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
     }
@@ -591,7 +651,7 @@ mod tests {
     fn test_flatten_from() {
         let tensor = Tensor::from_vec((1..=24).map(|x| x as f64).collect(), vec![2, 3, 4]);
         let flattened = tensor.flatten_from(1).unwrap();
-        
+
         assert_eq!(flattened.shape(), &[2, 12]);
     }
 
@@ -599,7 +659,7 @@ mod tests {
     fn test_unflatten() {
         let tensor = Tensor::from_vec((1..=12).map(|x| x as f64).collect(), vec![12]);
         let unflattened = tensor.unflatten(0, &[3, 4]).unwrap();
-        
+
         assert_eq!(unflattened.shape(), &[3, 4]);
     }
 
@@ -607,7 +667,7 @@ mod tests {
     fn test_swapaxes() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let swapped = tensor.swapaxes(0, 1).unwrap();
-        
+
         assert_eq!(swapped.shape(), &[3, 2]);
         assert_eq!(swapped.as_slice().unwrap(), &[1.0, 4.0, 2.0, 5.0, 3.0, 6.0]);
     }
@@ -616,7 +676,7 @@ mod tests {
     fn test_flip() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
         let flipped = tensor.flip(0).unwrap();
-        
+
         assert_eq!(flipped.shape(), &[4]);
         assert_eq!(flipped.as_slice().unwrap(), &[4.0, 3.0, 2.0, 1.0]);
     }
@@ -625,10 +685,10 @@ mod tests {
     fn test_roll() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
         let rolled = tensor.roll(2, 0).unwrap();
-        
+
         assert_eq!(rolled.shape(), &[4]);
         assert_eq!(rolled.as_slice().unwrap(), &[3.0, 4.0, 1.0, 2.0]);
-        
+
         // Test negative roll
         let rolled_neg = tensor.roll(-1, 0).unwrap();
         assert_eq!(rolled_neg.as_slice().unwrap(), &[2.0, 3.0, 4.0, 1.0]);
@@ -638,7 +698,7 @@ mod tests {
     fn test_unsqueeze_multiple() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         let unsqueezed = tensor.unsqueeze_multiple(&[0, 2]).unwrap();
-        
+
         assert_eq!(unsqueezed.shape(), &[1, 2, 1]);
     }
 }

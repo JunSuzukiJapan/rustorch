@@ -1,6 +1,6 @@
 //! Enhanced Memory Pool with Intelligent Allocation
 //! インテリジェント割り当てを持つ高度メモリプール
-//! 
+//!
 //! Features:
 //! - NUMA-aware allocation strategies
 //! - Memory pressure monitoring
@@ -126,7 +126,7 @@ impl SizeClass {
             262145..=1048576 => 7,
             _ => 8,
         };
-        
+
         let dim_class = match self.dimensions {
             1 => 0,
             2 => 10,
@@ -134,7 +134,7 @@ impl SizeClass {
             4 => 30,
             _ => 40,
         };
-        
+
         element_class + dim_class
     }
 }
@@ -360,11 +360,11 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
 
             for (_, pool) in pools.iter_mut() {
                 let original_size = pool.len();
-                
+
                 // Remove entries that haven't been accessed recently
                 let cutoff_time = Instant::now() - Duration::from_secs(300); // 5 minutes
                 pool.retain(|block| block.last_accessed > cutoff_time);
-                
+
                 memory_reclaimed += (original_size - pool.len()) * std::mem::size_of::<ArrayD<T>>();
             }
         }
@@ -393,8 +393,7 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
         if let Ok(mut stats) = self.stats.write() {
             stats.gc_stats.gc_runs += 1;
             stats.gc_stats.memory_reclaimed += memory_reclaimed;
-            stats.gc_stats.avg_gc_duration = 
-                (stats.gc_stats.avg_gc_duration + gc_duration) / 2;
+            stats.gc_stats.avg_gc_duration = (stats.gc_stats.avg_gc_duration + gc_duration) / 2;
             stats.gc_stats.last_gc_time = Some(Instant::now());
         }
 
@@ -425,7 +424,11 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
 
     // Private helper methods
 
-    fn allocate_from_pool(&self, class_index: usize, shape: &[usize]) -> RusTorchResult<Option<ArrayD<T>>> {
+    fn allocate_from_pool(
+        &self,
+        class_index: usize,
+        shape: &[usize],
+    ) -> RusTorchResult<Option<ArrayD<T>>> {
         let mut pools = self.pools.write().map_err(|_| {
             RusTorchError::MemoryError("Failed to acquire pool write lock".to_string())
         })?;
@@ -437,7 +440,7 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
                     let mut block = pool.remove(i).unwrap();
                     block.last_accessed = Instant::now();
                     block.access_count += 1;
-                    
+
                     // Zero out the array for reuse
                     block.data.fill(T::zero());
                     return Ok(Some(block.data));
@@ -449,7 +452,7 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
                 let total_elements: usize = shape.iter().product();
                 if pool[i].data.len() == total_elements {
                     let block = pool.remove(i).unwrap();
-                    
+
                     // Try to reshape
                     if let Ok(reshaped) = block.data.into_shape_with_order(IxDyn(shape)) {
                         return Ok(Some(reshaped));
@@ -463,11 +466,9 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
 
     fn allocate_new(&self, shape: &[usize]) -> RusTorchResult<ArrayD<T>> {
         match self.config.strategy {
-            AllocationStrategy::FirstFit | 
-            AllocationStrategy::BestFit | 
-            AllocationStrategy::SizeClass => {
-                Ok(ArrayD::zeros(IxDyn(shape)))
-            }
+            AllocationStrategy::FirstFit
+            | AllocationStrategy::BestFit
+            | AllocationStrategy::SizeClass => Ok(ArrayD::zeros(IxDyn(shape))),
             AllocationStrategy::NumaAware => {
                 // For NUMA-aware allocation, we could implement numa-aware allocation here
                 // For now, fall back to standard allocation
@@ -479,16 +480,17 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
     fn check_memory_pressure(&self) -> RusTorchResult<()> {
         if let Ok(mut monitor) = self.pressure_monitor.lock() {
             let now = Instant::now();
-            
+
             if now.duration_since(monitor.last_check) > self.config.monitor_interval {
                 // Simple memory pressure calculation based on pool usage
                 let current_usage = self.calculate_current_usage()?;
-                monitor.current_pressure = current_usage as f64 / self.config.max_pool_memory as f64;
-                
+                monitor.current_pressure =
+                    current_usage as f64 / self.config.max_pool_memory as f64;
+
                 if current_usage > monitor.peak_usage {
                     monitor.peak_usage = current_usage;
                 }
-                
+
                 monitor.last_check = now;
 
                 // Trigger GC if pressure is high
@@ -519,7 +521,7 @@ impl<T: Float + Clone + Send + Sync + 'static> EnhancedMemoryPool<T> {
     fn calculate_cache_hit_ratio(&self) -> f64 {
         if let Ok(stats) = self.stats.read() {
             if stats.total_allocations > 0 {
-                return (stats.total_allocations - stats.total_deallocations) as f64 
+                return (stats.total_allocations - stats.total_deallocations) as f64
                     / stats.total_allocations as f64;
             }
         }
@@ -586,8 +588,16 @@ impl std::fmt::Display for EnhancedPoolStats {
         writeln!(f, "  Cache Hit Ratio: {:.2}%", self.cache_hit_ratio * 100.0)?;
         writeln!(f, "  Memory Pressure: {:.2}%", self.memory_pressure * 100.0)?;
         writeln!(f, "  GC Runs: {}", self.gc_stats.gc_runs)?;
-        writeln!(f, "  Memory Reclaimed: {} bytes", self.gc_stats.memory_reclaimed)?;
-        writeln!(f, "  Deduplication Hits: {}", self.dedup_stats.duplicates_found)?;
+        writeln!(
+            f,
+            "  Memory Reclaimed: {} bytes",
+            self.gc_stats.memory_reclaimed
+        )?;
+        writeln!(
+            f,
+            "  Deduplication Hits: {}",
+            self.dedup_stats.duplicates_found
+        )?;
         writeln!(f, "  Memory Saved: {} bytes", self.dedup_stats.memory_saved)?;
         Ok(())
     }

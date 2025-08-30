@@ -298,15 +298,15 @@ impl Tensor<f64> {
     pub fn gamma(&self) -> Self {
         // Implementation with libm::tgamma
     }
-    
+
     pub fn lgamma(&self) -> Self {
-        // Implementation with libm::lgamma  
+        // Implementation with libm::lgamma
     }
-    
+
     pub fn erf(&self) -> Self {
         // Implementation with libm::erf
     }
-    
+
     pub fn erfc(&self) -> Self {
         // Implementation with libm::erfc
     }
@@ -316,15 +316,15 @@ impl Tensor<f32> {
     pub fn gamma(&self) -> Self {
         // Implementation with libm::tgammaf
     }
-    
+
     pub fn lgamma(&self) -> Self {
         // Implementation with libm::lgammaf
     }
-    
+
     pub fn erf(&self) -> Self {
         // Implementation with libm::erff
     }
-    
+
     pub fn erfc(&self) -> Self {
         // Implementation with libm::erfcf
     }
@@ -349,7 +349,9 @@ mod tests {
         assert_eq!(tanh_result.as_slice().unwrap()[0], 0.0);
 
         // Test that sinh(-x) = -sinh(x)
-        assert!((sinh_result.as_slice().unwrap()[1] + sinh_result.as_slice().unwrap()[2]).abs() < 1e-10);
+        assert!(
+            (sinh_result.as_slice().unwrap()[1] + sinh_result.as_slice().unwrap()[2]).abs() < 1e-10
+        );
     }
 
     #[test]
@@ -390,7 +392,10 @@ mod tests {
 
         assert_eq!(sqrt_result.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0]);
         assert_eq!(square_result.as_slice().unwrap(), &[1.0, 16.0, 81.0, 256.0]);
-        assert_eq!(pow_result.as_slice().unwrap(), sqrt_result.as_slice().unwrap());
+        assert_eq!(
+            pow_result.as_slice().unwrap(),
+            sqrt_result.as_slice().unwrap()
+        );
     }
 
     #[test]
@@ -413,7 +418,10 @@ mod tests {
         let sign_result = tensor.sign();
 
         assert_eq!(clamped.as_slice().unwrap(), &[-1.0, -0.5, 0.0, 0.5, 1.0]);
-        assert_eq!(sign_result.as_slice().unwrap(), &[-1.0, -1.0, 0.0, 1.0, 1.0]);
+        assert_eq!(
+            sign_result.as_slice().unwrap(),
+            &[-1.0, -1.0, 0.0, 1.0, 1.0]
+        );
     }
 
     #[test]

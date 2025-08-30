@@ -33,7 +33,7 @@ impl<
     /// 新しいストリーミングデータセットを作成
     pub fn new(dataset: D, buffer_size: usize, prefetch_threads: usize) -> Self {
         let inner_dataset = Arc::new(dataset);
-        
+
         StreamingDataset {
             inner_dataset,
             buffer_size: buffer_size.max(1),
@@ -75,8 +75,10 @@ impl<
                             {
                                 let loaded_guard = loaded_indices.lock().unwrap();
                                 let buffer_guard = buffer.lock().unwrap();
-                                
-                                if loaded_guard.contains(&index) || buffer_guard.len() >= buffer_size {
+
+                                if loaded_guard.contains(&index)
+                                    || buffer_guard.len() >= buffer_size
+                                {
                                     thread::sleep(Duration::from_millis(10));
                                     continue;
                                 }
@@ -86,8 +88,10 @@ impl<
                             if let Some(data) = dataset.get(index) {
                                 let mut buffer_guard = buffer.lock().unwrap();
                                 let mut loaded_guard = loaded_indices.lock().unwrap();
-                                
-                                if buffer_guard.len() < buffer_size && !loaded_guard.contains(&index) {
+
+                                if buffer_guard.len() < buffer_size
+                                    && !loaded_guard.contains(&index)
+                                {
                                     buffer_guard.push_back((index, data));
                                     loaded_guard.insert(index);
                                 }
@@ -197,7 +201,7 @@ impl<
     ) -> Self {
         let dataset_arc = Arc::new(dataset);
         let mut indices: Vec<usize> = (0..dataset_arc.len()).collect();
-        
+
         if shuffle {
             use rand::seq::SliceRandom;
             indices.shuffle(&mut rand::thread_rng());
@@ -227,13 +231,11 @@ impl<
     fn adjust_batch_size(&mut self, memory_used: usize) {
         if memory_used > self.memory_threshold {
             // Reduce batch size
-            self.current_batch_size = 
-                (self.current_batch_size as f64 * 0.8) as usize;
+            self.current_batch_size = (self.current_batch_size as f64 * 0.8) as usize;
             self.current_batch_size = self.current_batch_size.max(self.min_batch_size);
         } else if memory_used < self.memory_threshold / 2 {
             // Increase batch size
-            self.current_batch_size = 
-                (self.current_batch_size as f64 * 1.2) as usize;
+            self.current_batch_size = (self.current_batch_size as f64 * 1.2) as usize;
             self.current_batch_size = self.current_batch_size.min(self.max_batch_size);
         }
     }
@@ -259,7 +261,7 @@ impl<
             if let Some((feature, target)) = self.dataset.get(index) {
                 total_memory += self.estimate_memory_usage(&feature);
                 total_memory += self.estimate_memory_usage(&target);
-                
+
                 batch_features.push(feature);
                 batch_targets.push(target);
             }
@@ -384,13 +386,13 @@ impl<
 
                     if !can_make_batch {
                         thread::sleep(Duration::from_millis(10));
-                        
+
                         // Check if we should stop (no more data)
                         let should_stop = {
                             let indices_guard = indices.lock().unwrap();
                             indices_guard.is_empty()
                         };
-                        
+
                         if should_stop {
                             break;
                         }
@@ -524,7 +526,7 @@ mod tests {
 
         let (buffer_size, loaded_size) = streaming_dataset.buffer_stats();
         assert!(buffer_size <= 2); // Buffer size limit
-        assert!(loaded_size > 0);  // Something should be loaded
+        assert!(loaded_size > 0); // Something should be loaded
     }
 
     #[test]
@@ -545,15 +547,14 @@ mod tests {
 
         let dataset = TensorDataset::new(features, targets).unwrap();
         let mut loader = DynamicBatchLoader::new(
-            dataset,
-            1,      // min_batch_size
-            4,      // max_batch_size
-            8000,   // memory_threshold (8KB)
-            false,  // shuffle
+            dataset, 1,     // min_batch_size
+            4,     // max_batch_size
+            8000,  // memory_threshold (8KB)
+            false, // shuffle
         );
 
         let initial_batch_size = loader.current_batch_size();
-        
+
         // Get first batch - should adjust batch size due to large tensors
         if let Some(_) = loader.next_batch() {
             // Batch size might change based on memory usage
@@ -585,10 +586,9 @@ mod tests {
 
         let dataset = TensorDataset::new(features, targets).unwrap();
         let mut async_loader = AsyncDataLoader::new(
-            dataset,
-            2, // batch_size
-            3, // buffer_size
-            2, // num_workers
+            dataset, 2,     // batch_size
+            3,     // buffer_size
+            2,     // num_workers
             false, // shuffle
         );
 
@@ -600,7 +600,7 @@ mod tests {
             assert_eq!(batch_features.batch_size(), 2);
             assert_eq!(batch_targets.batch_size(), 2);
             batches_received += 1;
-            
+
             // Don't wait forever
             if batches_received >= 3 {
                 break;
@@ -615,13 +615,13 @@ mod tests {
         let features = vec![Tensor::from_vec(vec![1.0f32; 100], vec![100])];
         let targets = vec![Tensor::from_vec(vec![0.0f32], vec![1])];
         let dataset = TensorDataset::new(features, targets).unwrap();
-        
+
         let loader = DynamicBatchLoader::new(dataset, 1, 2, 1000, false);
-        
+
         let test_tensor = Tensor::from_vec(vec![1.0f32; 100], vec![100]);
         let estimated_size = loader.estimate_memory_usage(&test_tensor);
         let expected_size = 100 * std::mem::size_of::<f32>();
-        
+
         assert_eq!(estimated_size, expected_size);
     }
 }

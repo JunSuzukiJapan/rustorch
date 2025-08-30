@@ -92,7 +92,7 @@ impl SystemProfiler {
             available_memory_bytes: self.get_available_memory()?,
             total_memory_bytes: self.get_total_memory()?,
             load_average_1min: self.get_load_average()?,
-            disk_read_bytes_per_sec: 0, // Placeholder
+            disk_read_bytes_per_sec: 0,  // Placeholder
             disk_write_bytes_per_sec: 0, // Placeholder
             network_rx_bytes_per_sec: 0, // Placeholder
             network_tx_bytes_per_sec: 0, // Placeholder
@@ -130,10 +130,14 @@ impl SystemProfiler {
         }
 
         let cpu_values: Vec<f64> = self.history.iter().map(|m| m.cpu_usage_percent).collect();
-        let memory_usage_values: Vec<f64> = self.history.iter()
+        let memory_usage_values: Vec<f64> = self
+            .history
+            .iter()
             .map(|m| {
                 if m.total_memory_bytes > 0 {
-                    ((m.total_memory_bytes - m.available_memory_bytes) as f64 / m.total_memory_bytes as f64) * 100.0
+                    ((m.total_memory_bytes - m.available_memory_bytes) as f64
+                        / m.total_memory_bytes as f64)
+                        * 100.0
                 } else {
                     0.0
                 }
@@ -143,14 +147,15 @@ impl SystemProfiler {
         SystemSummary {
             avg_cpu_usage: cpu_values.iter().sum::<f64>() / cpu_values.len() as f64,
             max_cpu_usage: cpu_values.iter().fold(0.0, |a, &b| a.max(b)),
-            avg_memory_usage_percent: memory_usage_values.iter().sum::<f64>() / memory_usage_values.len() as f64,
+            avg_memory_usage_percent: memory_usage_values.iter().sum::<f64>()
+                / memory_usage_values.len() as f64,
             max_memory_usage_percent: memory_usage_values.iter().fold(0.0, |a, &b| a.max(b)),
             sample_count: self.history.len(),
         }
     }
 
     // Private helper methods (simplified implementations)
-    
+
     fn get_cpu_usage(&self) -> RusTorchResult<f64> {
         // Simplified CPU usage - in production would use system APIs
         Ok(0.0)
@@ -242,7 +247,7 @@ mod tests {
     #[test]
     fn test_system_summary() {
         let mut profiler = SystemProfiler::new();
-        
+
         // Collect some metrics
         for _ in 0..3 {
             let _ = profiler.collect_metrics();

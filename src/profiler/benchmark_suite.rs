@@ -335,7 +335,13 @@ impl AdvancedBenchmarkSuite {
 
     /// Run a benchmark with custom configuration
     /// カスタム設定でベンチマークを実行
-    pub fn benchmark<F, T>(&mut self, name: &str, category: BenchmarkCategory, config: Option<BenchmarkConfiguration>, mut operation: F) -> RusTorchResult<()>
+    pub fn benchmark<F, T>(
+        &mut self,
+        name: &str,
+        category: BenchmarkCategory,
+        config: Option<BenchmarkConfiguration>,
+        mut operation: F,
+    ) -> RusTorchResult<()>
     where
         F: FnMut() -> RusTorchResult<T>,
     {
@@ -349,24 +355,31 @@ impl AdvancedBenchmarkSuite {
         self.metrics_collector.register_metric(timing_metric)?;
 
         if config.enable_memory_profiling {
-            let memory_metric = CustomMetric::new(format!("{}_memory", name), MetricType::MemoryBytes);
+            let memory_metric =
+                CustomMetric::new(format!("{}_memory", name), MetricType::MemoryBytes);
             self.metrics_collector.register_metric(memory_metric)?;
         }
 
         // Warmup phase
-        println!("  🔥 Warmup phase ({} iterations)...", config.warmup_iterations);
+        println!(
+            "  🔥 Warmup phase ({} iterations)...",
+            config.warmup_iterations
+        );
         for _ in 0..config.warmup_iterations {
             let _ = operation(); // Ignore warmup results
         }
 
         // Measurement phase
-        println!("  📊 Measurement phase ({} iterations)...", config.measurement_iterations);
+        println!(
+            "  📊 Measurement phase ({} iterations)...",
+            config.measurement_iterations
+        );
         let mut timings = Vec::with_capacity(config.measurement_iterations);
         let mut failed_iterations = 0;
 
         for i in 0..config.measurement_iterations {
             let iteration_start = Instant::now();
-            
+
             match operation() {
                 Ok(_) => {
                     let elapsed = iteration_start.elapsed();
@@ -374,12 +387,14 @@ impl AdvancedBenchmarkSuite {
                     timings.push(elapsed_ms);
 
                     // Record timing metric
-                    self.metrics_collector.record_timing(&format!("{}_timing", name), elapsed)?;
+                    self.metrics_collector
+                        .record_timing(&format!("{}_timing", name), elapsed)?;
 
                     // Collect memory metrics if enabled
                     if config.enable_memory_profiling {
                         // In a real implementation, this would collect actual memory usage
-                        self.metrics_collector.update_metric(&format!("{}_memory", name), 0.0)?;
+                        self.metrics_collector
+                            .update_metric(&format!("{}_memory", name), 0.0)?;
                     }
                 }
                 Err(e) => {
@@ -397,26 +412,32 @@ impl AdvancedBenchmarkSuite {
 
         // Check if we have enough successful samples
         if timings.len() < config.measurement_iterations / 2 {
-            let error_msg = format!("Too many failed iterations: {}/{}", failed_iterations, config.measurement_iterations);
-            self.results.insert(name.to_string(), BenchmarkResult {
-                name: name.to_string(),
-                category,
-                config,
-                timings_ms: Vec::new(),
-                statistics: BenchmarkStatistics::default(),
-                memory_metrics: None,
-                gpu_metrics: None,
-                system_metrics: None,
-                error: Some(error_msg.clone()),
-                timestamp: start_time,
-            });
+            let error_msg = format!(
+                "Too many failed iterations: {}/{}",
+                failed_iterations, config.measurement_iterations
+            );
+            self.results.insert(
+                name.to_string(),
+                BenchmarkResult {
+                    name: name.to_string(),
+                    category,
+                    config,
+                    timings_ms: Vec::new(),
+                    statistics: BenchmarkStatistics::default(),
+                    memory_metrics: None,
+                    gpu_metrics: None,
+                    system_metrics: None,
+                    error: Some(error_msg.clone()),
+                    timestamp: start_time,
+                },
+            );
             self.suite_metadata.benchmarks_failed += 1;
             return Err(RusTorchError::Profiling { message: error_msg });
         }
 
         // Calculate statistics
         let statistics = Self::calculate_statistics(&timings, &config);
-        
+
         // Collect additional metrics
         let memory_metrics = if config.enable_memory_profiling {
             Some(self.collect_memory_metrics(name)?)
@@ -455,18 +476,28 @@ impl AdvancedBenchmarkSuite {
         self.suite_metadata.benchmarks_run += 1;
 
         let total_time = start_time.elapsed();
-        println!("  ✅ Benchmark completed in {:.2}s", total_time.as_secs_f64());
-        println!("     Mean: {:.3}ms, Median: {:.3}ms, StdDev: {:.3}ms", 
-                 self.results[name].statistics.mean_ms,
-                 self.results[name].statistics.median_ms,
-                 self.results[name].statistics.std_dev_ms);
+        println!(
+            "  ✅ Benchmark completed in {:.2}s",
+            total_time.as_secs_f64()
+        );
+        println!(
+            "     Mean: {:.3}ms, Median: {:.3}ms, StdDev: {:.3}ms",
+            self.results[name].statistics.mean_ms,
+            self.results[name].statistics.median_ms,
+            self.results[name].statistics.std_dev_ms
+        );
 
         Ok(())
     }
 
     /// Run benchmark with default configuration
     /// デフォルト設定でベンチマークを実行
-    pub fn benchmark_default<F, T>(&mut self, name: &str, category: BenchmarkCategory, operation: F) -> RusTorchResult<()>
+    pub fn benchmark_default<F, T>(
+        &mut self,
+        name: &str,
+        category: BenchmarkCategory,
+        operation: F,
+    ) -> RusTorchResult<()>
     where
         F: FnMut() -> RusTorchResult<T>,
     {
@@ -488,7 +519,8 @@ impl AdvancedBenchmarkSuite {
     /// Get results by category
     /// カテゴリ別結果を取得
     pub fn get_results_by_category(&self, category: &BenchmarkCategory) -> Vec<&BenchmarkResult> {
-        self.results.values()
+        self.results
+            .values()
             .filter(|result| &result.category == category)
             .collect()
     }
@@ -503,50 +535,86 @@ impl AdvancedBenchmarkSuite {
 
         // Suite metadata
         report.push_str("🏆 Suite Summary:\n");
-        report.push_str(&format!("  Benchmarks Run: {}\n", self.suite_metadata.benchmarks_run));
-        report.push_str(&format!("  Benchmarks Failed: {}\n", self.suite_metadata.benchmarks_failed));
-        report.push_str(&format!("  Success Rate: {:.1}%\n", 
+        report.push_str(&format!(
+            "  Benchmarks Run: {}\n",
+            self.suite_metadata.benchmarks_run
+        ));
+        report.push_str(&format!(
+            "  Benchmarks Failed: {}\n",
+            self.suite_metadata.benchmarks_failed
+        ));
+        report.push_str(&format!(
+            "  Success Rate: {:.1}%\n",
             if self.suite_metadata.benchmarks_run > 0 {
-                (self.suite_metadata.benchmarks_run - self.suite_metadata.benchmarks_failed) as f64 
-                / self.suite_metadata.benchmarks_run as f64 * 100.0
+                (self.suite_metadata.benchmarks_run - self.suite_metadata.benchmarks_failed) as f64
+                    / self.suite_metadata.benchmarks_run as f64
+                    * 100.0
             } else {
                 0.0
-            }));
-        report.push_str(&format!("  Total Execution Time: {:.2}s\n\n", 
-                                self.suite_metadata.total_execution_time.as_secs_f64()));
+            }
+        ));
+        report.push_str(&format!(
+            "  Total Execution Time: {:.2}s\n\n",
+            self.suite_metadata.total_execution_time.as_secs_f64()
+        ));
 
         // System information
         report.push_str("💻 System Information:\n");
-        report.push_str(&format!("  CPU: {}\n", self.suite_metadata.system_info.cpu_model));
-        report.push_str(&format!("  Cores: {}\n", self.suite_metadata.system_info.cpu_cores));
-        report.push_str(&format!("  Memory: {:.2} GB\n", 
-                                self.suite_metadata.system_info.total_memory_bytes as f64 / (1024.0 * 1024.0 * 1024.0)));
-        report.push_str(&format!("  OS: {}\n", self.suite_metadata.system_info.os_version));
+        report.push_str(&format!(
+            "  CPU: {}\n",
+            self.suite_metadata.system_info.cpu_model
+        ));
+        report.push_str(&format!(
+            "  Cores: {}\n",
+            self.suite_metadata.system_info.cpu_cores
+        ));
+        report.push_str(&format!(
+            "  Memory: {:.2} GB\n",
+            self.suite_metadata.system_info.total_memory_bytes as f64 / (1024.0 * 1024.0 * 1024.0)
+        ));
+        report.push_str(&format!(
+            "  OS: {}\n",
+            self.suite_metadata.system_info.os_version
+        ));
         if let Some(ref gpu_info) = self.suite_metadata.system_info.gpu_info {
             report.push_str(&format!("  GPU: {}\n", gpu_info));
         }
         report.push_str("\n");
 
         // Results by category
-        let categories: std::collections::HashSet<_> = self.results.values().map(|r| &r.category).collect();
+        let categories: std::collections::HashSet<_> =
+            self.results.values().map(|r| &r.category).collect();
         for category in categories {
             let category_results = self.get_results_by_category(category);
             if !category_results.is_empty() {
                 report.push_str(&format!("📈 {:?} Results:\n", category));
-                report.push_str(&format!("{:<30} {:>10} {:>10} {:>10} {:>10} {:>15}\n", 
-                                "Benchmark", "Mean(ms)", "Median(ms)", "StdDev(ms)", "P99(ms)", "Throughput(ops/s)"));
+                report.push_str(&format!(
+                    "{:<30} {:>10} {:>10} {:>10} {:>10} {:>15}\n",
+                    "Benchmark",
+                    "Mean(ms)",
+                    "Median(ms)",
+                    "StdDev(ms)",
+                    "P99(ms)",
+                    "Throughput(ops/s)"
+                ));
                 report.push_str(&"-".repeat(100));
                 report.push_str("\n");
 
                 for result in category_results {
                     if result.error.is_none() {
-                        report.push_str(&format!("{:<30} {:>10.3} {:>10.3} {:>10.3} {:>10.3} {:>15.2}\n",
-                            if result.name.len() > 29 { &result.name[..29] } else { &result.name },
+                        report.push_str(&format!(
+                            "{:<30} {:>10.3} {:>10.3} {:>10.3} {:>10.3} {:>15.2}\n",
+                            if result.name.len() > 29 {
+                                &result.name[..29]
+                            } else {
+                                &result.name
+                            },
                             result.statistics.mean_ms,
                             result.statistics.median_ms,
                             result.statistics.std_dev_ms,
                             result.statistics.p99_ms,
-                            result.statistics.throughput_ops_per_sec));
+                            result.statistics.throughput_ops_per_sec
+                        ));
                     } else {
                         report.push_str(&format!("{:<30} {:>50}\n", result.name, "❌ FAILED"));
                     }
@@ -581,7 +649,10 @@ impl AdvancedBenchmarkSuite {
 
     // Private helper methods
 
-    fn calculate_statistics(timings: &[f64], config: &BenchmarkConfiguration) -> BenchmarkStatistics {
+    fn calculate_statistics(
+        timings: &[f64],
+        config: &BenchmarkConfiguration,
+    ) -> BenchmarkStatistics {
         if timings.is_empty() {
             return BenchmarkStatistics::default();
         }
@@ -592,16 +663,15 @@ impl AdvancedBenchmarkSuite {
         let sample_count = timings.len();
         let sum: f64 = timings.iter().sum();
         let mean_ms = sum / sample_count as f64;
-        
+
         let median_ms = if sample_count % 2 == 0 {
             (sorted_timings[sample_count / 2 - 1] + sorted_timings[sample_count / 2]) / 2.0
         } else {
             sorted_timings[sample_count / 2]
         };
 
-        let variance = timings.iter()
-            .map(|&t| (t - mean_ms).powi(2))
-            .sum::<f64>() / sample_count as f64;
+        let variance =
+            timings.iter().map(|&t| (t - mean_ms).powi(2)).sum::<f64>() / sample_count as f64;
         let std_dev_ms = variance.sqrt();
 
         let min_ms = sorted_timings[0];
@@ -613,7 +683,11 @@ impl AdvancedBenchmarkSuite {
         let p99_index = ((sample_count as f64) * 0.99) as usize;
         let p99_ms = sorted_timings[p99_index.min(sample_count - 1)];
 
-        let coefficient_of_variation = if mean_ms > 0.0 { std_dev_ms / mean_ms } else { 0.0 };
+        let coefficient_of_variation = if mean_ms > 0.0 {
+            std_dev_ms / mean_ms
+        } else {
+            0.0
+        };
         let throughput_ops_per_sec = if mean_ms > 0.0 { 1000.0 / mean_ms } else { 0.0 };
 
         // Confidence interval (95% using t-distribution approximation)
@@ -690,7 +764,9 @@ impl AdvancedBenchmarkSuite {
     }
 
     fn generate_insights(&self, report: &mut String) {
-        let successful_results: Vec<_> = self.results.values()
+        let successful_results: Vec<_> = self
+            .results
+            .values()
             .filter(|r| r.error.is_none())
             .collect();
 
@@ -701,27 +777,49 @@ impl AdvancedBenchmarkSuite {
 
         // Find fastest and slowest benchmarks
         if let (Some(fastest), Some(slowest)) = (
-            successful_results.iter().min_by(|a, b| a.statistics.mean_ms.partial_cmp(&b.statistics.mean_ms).unwrap()),
-            successful_results.iter().max_by(|a, b| a.statistics.mean_ms.partial_cmp(&b.statistics.mean_ms).unwrap()),
+            successful_results.iter().min_by(|a, b| {
+                a.statistics
+                    .mean_ms
+                    .partial_cmp(&b.statistics.mean_ms)
+                    .unwrap()
+            }),
+            successful_results.iter().max_by(|a, b| {
+                a.statistics
+                    .mean_ms
+                    .partial_cmp(&b.statistics.mean_ms)
+                    .unwrap()
+            }),
         ) {
-            report.push_str(&format!("  🚀 Fastest: {} ({:.3}ms)\n", fastest.name, fastest.statistics.mean_ms));
-            report.push_str(&format!("  🐌 Slowest: {} ({:.3}ms)\n", slowest.name, slowest.statistics.mean_ms));
-            
+            report.push_str(&format!(
+                "  🚀 Fastest: {} ({:.3}ms)\n",
+                fastest.name, fastest.statistics.mean_ms
+            ));
+            report.push_str(&format!(
+                "  🐌 Slowest: {} ({:.3}ms)\n",
+                slowest.name, slowest.statistics.mean_ms
+            ));
+
             if fastest.statistics.mean_ms > 0.0 {
                 let speedup = slowest.statistics.mean_ms / fastest.statistics.mean_ms;
-                report.push_str(&format!("  📊 Performance Range: {:.1}x difference\n", speedup));
+                report.push_str(&format!(
+                    "  📊 Performance Range: {:.1}x difference\n",
+                    speedup
+                ));
             }
         }
 
         // Stability analysis
-        let unstable_count = successful_results.iter()
+        let unstable_count = successful_results
+            .iter()
             .filter(|r| !r.statistics.is_stable)
             .count();
-        
+
         if unstable_count > 0 {
-            report.push_str(&format!("  ⚠️  {} benchmarks show high variance (>{}%)\n", 
-                                   unstable_count, 
-                                   self.default_config.variance_threshold * 100.0));
+            report.push_str(&format!(
+                "  ⚠️  {} benchmarks show high variance (>{}%)\n",
+                unstable_count,
+                self.default_config.variance_threshold * 100.0
+            ));
         }
 
         report.push_str("\n");
@@ -762,7 +860,7 @@ mod tests {
     #[test]
     fn test_simple_benchmark() {
         let mut suite = AdvancedBenchmarkSuite::new("test".to_string());
-        
+
         let config = BenchmarkConfiguration {
             warmup_iterations: 2,
             measurement_iterations: 5,
@@ -776,11 +874,11 @@ mod tests {
             || -> RusTorchResult<()> {
                 thread::sleep(Duration::from_millis(10));
                 Ok(())
-            }
+            },
         );
 
         assert!(result.is_ok());
-        
+
         let benchmark_result = suite.get_result("sleep_test").unwrap();
         assert_eq!(benchmark_result.name, "sleep_test");
         assert!(benchmark_result.error.is_none());
@@ -804,7 +902,7 @@ mod tests {
     #[test]
     fn test_benchmark_categories() {
         let mut suite = AdvancedBenchmarkSuite::new("category_test".to_string());
-        
+
         let config = BenchmarkConfiguration {
             warmup_iterations: 1,
             measurement_iterations: 2,
@@ -812,8 +910,19 @@ mod tests {
         };
 
         // Add benchmarks in different categories
-        suite.benchmark("tensor_op", BenchmarkCategory::TensorOps, Some(config.clone()), || Ok(())).unwrap();
-        suite.benchmark("memory_op", BenchmarkCategory::Memory, Some(config), || Ok(())).unwrap();
+        suite
+            .benchmark(
+                "tensor_op",
+                BenchmarkCategory::TensorOps,
+                Some(config.clone()),
+                || Ok(()),
+            )
+            .unwrap();
+        suite
+            .benchmark("memory_op", BenchmarkCategory::Memory, Some(config), || {
+                Ok(())
+            })
+            .unwrap();
 
         let tensor_results = suite.get_results_by_category(&BenchmarkCategory::TensorOps);
         let memory_results = suite.get_results_by_category(&BenchmarkCategory::Memory);
@@ -827,7 +936,7 @@ mod tests {
     #[test]
     fn test_failed_benchmark() {
         let mut suite = AdvancedBenchmarkSuite::new("fail_test".to_string());
-        
+
         let config = BenchmarkConfiguration {
             warmup_iterations: 1,
             measurement_iterations: 3,
@@ -839,12 +948,14 @@ mod tests {
             BenchmarkCategory::System,
             Some(config),
             || -> RusTorchResult<()> {
-                Err(RusTorchError::Profiling { message: "Intentional failure".to_string() })
-            }
+                Err(RusTorchError::Profiling {
+                    message: "Intentional failure".to_string(),
+                })
+            },
         );
 
         assert!(result.is_err());
-        
+
         let benchmark_result = suite.get_result("failing_test").unwrap();
         assert!(benchmark_result.error.is_some());
         assert_eq!(suite.suite_metadata.benchmarks_failed, 1);
@@ -853,15 +964,17 @@ mod tests {
     #[test]
     fn test_report_generation() {
         let mut suite = AdvancedBenchmarkSuite::new("report_test".to_string());
-        
+
         let config = BenchmarkConfiguration {
             warmup_iterations: 1,
             measurement_iterations: 2,
             ..Default::default()
         };
 
-        suite.benchmark("test1", BenchmarkCategory::System, Some(config), || Ok(())).unwrap();
-        
+        suite
+            .benchmark("test1", BenchmarkCategory::System, Some(config), || Ok(()))
+            .unwrap();
+
         let report = suite.generate_report();
         assert!(report.contains("Benchmark Suite Report"));
         assert!(report.contains("test1"));

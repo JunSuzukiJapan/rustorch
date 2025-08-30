@@ -25,10 +25,10 @@ pub struct LBFGS {
     line_search_fn: LineSearchMethod,
     step_count: usize,
     // L-BFGS memory storage
-    s_history: HashMap<usize, VecDeque<Tensor<f32>>>,  // Parameter changes
-    y_history: HashMap<usize, VecDeque<Tensor<f32>>>,  // Gradient changes
-    rho_history: HashMap<usize, VecDeque<f32>>,        // 1 / (y^T * s)
-    prev_grad: HashMap<usize, Tensor<f32>>,            // Previous gradients
+    s_history: HashMap<usize, VecDeque<Tensor<f32>>>, // Parameter changes
+    y_history: HashMap<usize, VecDeque<Tensor<f32>>>, // Gradient changes
+    rho_history: HashMap<usize, VecDeque<f32>>,       // 1 / (y^T * s)
+    prev_grad: HashMap<usize, Tensor<f32>>,           // Previous gradients
 }
 
 /// Line search methods for L-BFGS
@@ -52,15 +52,15 @@ impl LBFGS {
     pub fn new(learning_rate: f32) -> Self {
         Self::with_params(
             learning_rate,
-            20,        // max_iter
-            20,        // max_eval
-            1e-5,      // tolerance_grad
-            1e-9,      // tolerance_change
-            10,        // history_size
+            20,   // max_iter
+            20,   // max_eval
+            1e-5, // tolerance_grad
+            1e-9, // tolerance_change
+            10,   // history_size
             LineSearchMethod::StrongWolfe,
         )
     }
-    
+
     /// Create L-BFGS optimizer with custom parameters
     /// カスタムパラメータでL-BFGSオプティマイザーを作成
     pub fn with_params(
@@ -87,60 +87,60 @@ impl LBFGS {
             prev_grad: HashMap::new(),
         }
     }
-    
+
     /// Set maximum number of iterations
     /// 最大反復回数を設定
     pub fn set_max_iter(&mut self, max_iter: usize) {
         self.max_iter = max_iter;
     }
-    
+
     /// Set gradient tolerance for convergence
     /// 収束用勾配許容誤差を設定
     pub fn set_tolerance_grad(&mut self, tolerance: f32) {
         self.tolerance_grad = tolerance;
     }
-    
+
     /// Set L-BFGS memory history size
     /// L-BFGSメモリ履歴サイズを設定
     pub fn set_history_size(&mut self, size: usize) {
         self.history_size = size.max(1);
     }
-    
+
     /// Compute L-BFGS search direction using two-loop recursion
     /// 二重ループ再帰を使用してL-BFGS探索方向を計算
     fn compute_search_direction(&self, param_id: usize, grad: &Tensor<f32>) -> Tensor<f32> {
         let s_hist = self.s_history.get(&param_id);
         let y_hist = self.y_history.get(&param_id);
         let rho_hist = self.rho_history.get(&param_id);
-        
+
         if s_hist.is_none() || y_hist.is_none() || rho_hist.is_none() {
             // First iteration: use steepest descent
             return grad.clone() * (-1.0);
         }
-        
+
         let s_hist = s_hist.unwrap();
         let y_hist = y_hist.unwrap();
         let rho_hist = rho_hist.unwrap();
-        
+
         if s_hist.is_empty() {
             return grad.clone() * (-1.0);
         }
-        
+
         let mut q = grad.clone();
         let mut alphas = Vec::new();
-        
+
         // First loop: backward pass
         for i in (0..s_hist.len()).rev() {
             if i < rho_hist.len() {
                 let rho = rho_hist[i];
                 let s = &s_hist[i];
-                
+
                 // α_i = ρ_i * s_i^T * q
                 // Simplified dot product using element-wise multiplication and sum
                 let s_q_product = s * &q;
                 let alpha = rho * s_q_product.sum();
                 alphas.push(alpha);
-                
+
                 // q = q - α_i * y_i
                 if i < y_hist.len() {
                     let y_term = &y_hist[i] * alpha;
@@ -148,7 +148,7 @@ impl LBFGS {
                 }
             }
         }
-        
+
         // Apply initial Hessian approximation (H_0 = γI)
         // γ = (s^T * y) / (y^T * y) from the most recent update
         let gamma = if let (Some(s_last), Some(y_last)) = (s_hist.back(), y_hist.back()) {
@@ -156,7 +156,7 @@ impl LBFGS {
             let s_dot_y = s_y_product.sum();
             let y_squared = y_last * y_last;
             let y_dot_y = y_squared.sum();
-            
+
             let s_dot_y_f32 = s_dot_y;
             let y_dot_y_f32 = y_dot_y;
             if y_dot_y_f32 > 0.0 {
@@ -167,58 +167,65 @@ impl LBFGS {
         } else {
             1.0
         };
-        
+
         let mut r = &q * gamma;
         alphas.reverse();
-        
+
         // Second loop: forward pass
         for (i, alpha) in alphas.iter().enumerate() {
             if i < s_hist.len() && i < y_hist.len() && i < rho_hist.len() {
                 let rho = rho_hist[i];
                 let s = &s_hist[i];
                 let y = &y_hist[i];
-                
+
                 // β = ρ_i * y_i^T * r
                 // Simplified dot product
                 let y_r_product = y * &r;
                 let beta = rho * y_r_product.sum();
-                
+
                 // r = r + s_i * (α_i - β)
                 let s_term = s * (alpha - beta);
                 r = &r + &s_term;
             }
         }
-        
+
         // Return negative search direction (for minimization)
         r * (-1.0)
     }
-    
+
     /// Simple backtracking line search
     /// 単純なバックトラッキング線形探索
-    fn backtracking_line_search(&self, _param: &Tensor<f32>, _grad: &Tensor<f32>, _direction: &Tensor<f32>) -> f32 {
+    fn backtracking_line_search(
+        &self,
+        _param: &Tensor<f32>,
+        _grad: &Tensor<f32>,
+        _direction: &Tensor<f32>,
+    ) -> f32 {
         // Simplified line search - in practice, this would evaluate the objective function
         // 簡略化された線形探索 - 実際には目的関数を評価する
-        let alpha: f32 = 1.0;
+        let mut alpha: f32 = 1.0;
         let c1 = 1e-4; // Armijo constant
         let rho = 0.5; // Backtracking factor
-        
+
         // For now, we'll use a simple heuristic
         // 現在は、簡単なヒューリスティクスを使用
-        for _ in 0..10 {
-            if alpha < 1e-8 {
-                break;
-            }
-            // In a full implementation, we'd check Armijo condition here
-            // 完全な実装では、ここでArmijo条件をチェック
-            break; // For simplicity, return first alpha
+        if alpha < 1e-8 {
+            alpha = 1e-8; // Set minimum alpha
         }
-        
+        // In a full implementation, we'd check Armijo condition here
+        // 完全な実装では、ここでArmijo条件をチェック
+
         alpha.max(1e-8)
     }
-    
+
     /// Update L-BFGS memory with new gradient and parameter information
     /// 新しい勾配とパラメータ情報でL-BFGSメモリを更新
-    fn update_memory(&mut self, param_id: usize, param_change: Tensor<f32>, grad_change: Tensor<f32>) {
+    fn update_memory(
+        &mut self,
+        param_id: usize,
+        param_change: Tensor<f32>,
+        grad_change: Tensor<f32>,
+    ) {
         // Compute ρ = 1 / (y^T * s)
         // Simplified dot product
         let grad_param_product = &grad_change * &param_change;
@@ -227,17 +234,20 @@ impl LBFGS {
             return; // Skip update if curvature condition is not satisfied
         }
         let rho = 1.0 / y_dot_s;
-        
+
         // Get or create history for this parameter
         let s_hist = self.s_history.entry(param_id).or_insert_with(VecDeque::new);
         let y_hist = self.y_history.entry(param_id).or_insert_with(VecDeque::new);
-        let rho_hist = self.rho_history.entry(param_id).or_insert_with(VecDeque::new);
-        
+        let rho_hist = self
+            .rho_history
+            .entry(param_id)
+            .or_insert_with(VecDeque::new);
+
         // Add new information
         s_hist.push_back(param_change);
         y_hist.push_back(grad_change);
         rho_hist.push_back(rho);
-        
+
         // Maintain history size limit
         while s_hist.len() > self.history_size {
             s_hist.pop_front();
@@ -255,10 +265,10 @@ impl Optimizer for LBFGS {
     fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
         let param_id = param.as_ptr() as usize;
         self.step_count += 1;
-        
+
         // Store current parameter values
         let old_param = param.clone();
-        
+
         // Check for convergence based on gradient norm
         // Simplified norm calculation
         let grad_squared = grad * grad;
@@ -266,10 +276,10 @@ impl Optimizer for LBFGS {
         if grad_norm < self.tolerance_grad {
             return; // Converged
         }
-        
+
         // Compute search direction using L-BFGS
         let search_direction = self.compute_search_direction(param_id, grad);
-        
+
         // Perform line search to determine step size
         let alpha = match self.line_search_fn {
             LineSearchMethod::Backtracking => {
@@ -279,23 +289,21 @@ impl Optimizer for LBFGS {
                 // Simplified - would implement strong Wolfe conditions in practice
                 self.learning_rate
             }
-            LineSearchMethod::None => {
-                self.learning_rate
-            }
+            LineSearchMethod::None => self.learning_rate,
         };
-        
+
         // Update parameters
         let step = &search_direction * alpha;
         let new_param = &old_param + &step;
         param.copy_from(&new_param);
-        
+
         // Update L-BFGS memory if we have previous gradient
         if let Some(prev_grad) = self.prev_grad.get(&param_id) {
             let param_change = &new_param - &old_param;
             let grad_change = grad - prev_grad;
             self.update_memory(param_id, param_change, grad_change);
         }
-        
+
         // Store current gradient for next iteration
         self.prev_grad.insert(param_id, grad.clone());
     }
@@ -360,7 +368,15 @@ mod tests {
 
     #[test]
     fn test_lbfgs_with_params() {
-        let optimizer = LBFGS::with_params(0.01, 50, 100, 1e-6, 1e-10, 15, LineSearchMethod::Backtracking);
+        let optimizer = LBFGS::with_params(
+            0.01,
+            50,
+            100,
+            1e-6,
+            1e-10,
+            15,
+            LineSearchMethod::Backtracking,
+        );
         assert_eq!(optimizer.learning_rate(), 0.01);
         assert_eq!(optimizer.max_iter, 50);
         assert_eq!(optimizer.max_eval, 100);
@@ -375,16 +391,16 @@ mod tests {
         let grad = Tensor::<f32>::ones(&[3, 3]) * 0.1;
 
         let initial_param = param.clone();
-        
+
         // First step should work (steepest descent)
         optimizer.step(&param, &grad);
         assert_eq!(optimizer.step_count, 1);
-        
+
         // Parameters should have changed
         let updated_data = param.data.as_slice().unwrap();
         let initial_data = initial_param.data.as_slice().unwrap();
         assert_ne!(updated_data[0], initial_data[0]);
-        
+
         // Second step should use L-BFGS information
         let grad2 = Tensor::<f32>::ones(&[3, 3]) * 0.05;
         optimizer.step(&param, &grad2);
@@ -395,17 +411,17 @@ mod tests {
     fn test_lbfgs_memory_management() {
         let mut optimizer = LBFGS::new(0.1);
         optimizer.set_history_size(3);
-        
+
         let param = Tensor::<f32>::ones(&[2, 2]);
         let param_id = param.as_ptr() as usize;
-        
+
         // Simulate multiple updates to fill memory
         for i in 0..5 {
             let param_change = Tensor::<f32>::ones(&[2, 2]) * (i as f32 * 0.1);
             let grad_change = Tensor::<f32>::ones(&[2, 2]) * (i as f32 * 0.05);
             optimizer.update_memory(param_id, param_change, grad_change);
         }
-        
+
         // History should be limited to set size
         if let Some(s_hist) = optimizer.s_history.get(&param_id) {
             assert!(s_hist.len() <= 3);
@@ -417,14 +433,14 @@ mod tests {
         let optimizer = LBFGS::new(0.1);
         let grad = Tensor::<f32>::ones(&[2, 2]);
         let param_id = 12345;
-        
+
         // First call should return negative gradient (steepest descent)
         let direction = optimizer.compute_search_direction(param_id, &grad);
         let expected = grad.clone() * (-1.0);
-        
+
         let dir_data = direction.data.as_slice().unwrap();
         let exp_data = expected.data.as_slice().unwrap();
-        
+
         for (d, e) in dir_data.iter().zip(exp_data.iter()) {
             assert!((d - e).abs() < 1e-6);
         }
@@ -434,7 +450,7 @@ mod tests {
     fn test_lbfgs_state_dict() {
         let optimizer = LBFGS::with_params(0.05, 25, 50, 1e-4, 1e-8, 8, LineSearchMethod::None);
         let state = optimizer.state_dict();
-        
+
         assert_eq!(state["learning_rate"], 0.05);
         assert_eq!(state["max_iter"], 25.0);
         assert_eq!(state["tolerance_grad"], 1e-4);
@@ -445,18 +461,18 @@ mod tests {
     fn test_lbfgs_convergence_check() {
         let mut optimizer = LBFGS::new(0.1);
         optimizer.set_tolerance_grad(1e-2);
-        
+
         let param = Tensor::<f32>::ones(&[2, 2]);
         let small_grad = Tensor::<f32>::ones(&[2, 2]) * 1e-3;
         let initial_param = param.clone();
-        
+
         // Should converge immediately with small gradient
         optimizer.step(&param, &small_grad);
-        
+
         // Parameters should not change due to convergence
         let updated_data = param.data.as_slice().unwrap();
         let initial_data = initial_param.data.as_slice().unwrap();
-        
+
         for (u, i) in updated_data.iter().zip(initial_data.iter()) {
             assert!((u - i).abs() < 1e-6);
         }
