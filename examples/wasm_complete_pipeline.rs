@@ -349,7 +349,10 @@ fn generate_sensor_data(minutes: usize) -> Vec<f32> {
 }
 
 /// Clean outliers from data using statistical analysis
-fn clean_outliers(tensor: &WasmTensor, math: &WasmAdvancedMath, analyzer: &WasmStatisticalAnalyzer) -> Vec<f32> {
+#[cfg(feature = "wasm")]
+fn clean_outliers(tensor: &rustorch::wasm::tensor::WasmTensor, 
+                 math: &rustorch::wasm::advanced_math::WasmAdvancedMath, 
+                 analyzer: &rustorch::wasm::statistical_analysis::WasmStatisticalAnalyzer) -> Vec<f32> {
     // Get outliers
     let outliers = analyzer.detect_outliers(tensor).unwrap_or_default();
     let outlier_indices: std::collections::HashSet<usize> = outliers.iter()

@@ -164,6 +164,18 @@ pub mod validation;
 /// GPU vs CPU検証テスト
 pub mod verification_tests;
 
+/// Multi-GPU distributed processing and communication
+/// マルチGPU分散処理と通信
+pub mod multi_gpu;
+
+/// GPU synchronization primitives for multi-GPU operations
+/// マルチGPU操作用GPU同期プリミティブ
+pub mod sync_primitives;
+
+/// Distributed training infrastructure for multi-GPU learning
+/// マルチGPU学習用分散学習インフラストラクチャ
+pub mod distributed_training;
+
 use std::fmt;
 // use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
 
