@@ -212,6 +212,24 @@ pub enum RusTorchError {
         message: String,
     },
 
+    /// Data validation and quality assurance errors
+    /// データ検証・品質保証エラー
+    #[error("Validation error: {message}")]
+    Validation {
+        /// Data validation error description
+        /// データ検証エラーの説明
+        message: String,
+    },
+    
+    /// Debug system and logging errors
+    /// デバッグシステム・ログエラー
+    #[error("Debug system error: {message}")]
+    Debug {
+        /// Debug system error description
+        /// デバッグシステムエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]

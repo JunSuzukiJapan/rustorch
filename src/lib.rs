@@ -60,11 +60,12 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 
 //!
-//! **A production-ready deep learning library in Rust with PyTorch-like API, unified error handling, and 100% test success**
+//! **A production-ready deep learning library in Rust with PyTorch-like API, data validation, debugging tools, and enterprise-grade reliability**
 //!
-//! RusTorch v0.4.0 is a fully functional deep learning library that leverages Rust's safety and performance,
+//! RusTorch v0.5.2 is a fully functional deep learning library that leverages Rust's safety and performance,
 //! providing comprehensive tensor operations, automatic differentiation, neural network layers,
-//! transformer architectures, GPU acceleration, unified error handling system, and advanced memory optimization features.
+//! transformer architectures, GPU acceleration, unified error handling system, advanced memory optimization features,
+//! data validation & quality assurance, and comprehensive debug & logging systems.
 //!
 //! ## ✨ Key Features
 //!
@@ -80,6 +81,8 @@
 //! - **🔧 Safe Operations**: Type-safe tensor operations with comprehensive error handling and ReLU activation
 //! - **⚙️ Shared Base Traits**: Reusable convolution and pooling base implementations for code efficiency
 //! - **🌐 WebAssembly Support**: Browser-compatible WASM bindings with optimized performance
+//! - **🔍 Data Validation & Quality Assurance**: Statistical analysis, anomaly detection, consistency checking, real-time monitoring
+//! - **🐛 Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
 //!
 //! ## 🚀 Quick Start
 //!
@@ -316,6 +319,14 @@ pub mod vision;
 /// Visualization tools for plots, graphs, and data analysis
 /// プロット、グラフ、データ解析用の可視化ツール
 pub mod visualization;
+
+/// Data validation and quality assurance system
+/// データ検証・品質保証システム
+pub mod validation;
+
+/// Debug and logging system
+/// デバッグ・ログシステム
+pub mod debug;
 
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
