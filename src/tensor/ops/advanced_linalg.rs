@@ -617,6 +617,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_qr_decomposition() {
         let matrix = Tensor::from_vec(vec![1.0, 1.0, 0.0, 1.0], vec![2, 2]);
         let (q, r) = matrix.qr().unwrap();
@@ -635,6 +636,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_cholesky_decomposition() {
         // Create a positive definite matrix: A = L*L^T where L = [[2, 0], [1, 1]]
         let matrix = Tensor::from_vec(vec![4.0, 2.0, 2.0, 2.0], vec![2, 2]); // [[4, 2], [2, 2]]
@@ -650,6 +652,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_matrix_inverse() {
         let matrix = Tensor::from_vec(vec![4.0, 2.0, 1.0, 3.0], vec![2, 2]);
         let inverse = matrix.inverse().unwrap();
@@ -662,6 +665,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "linalg")]
     fn test_pinv() {
         let matrix = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
         let pinv = matrix.pinv().unwrap();

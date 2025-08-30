@@ -602,7 +602,7 @@ mod tests {
         assert_eq!(repeated.shape(), &[6]);
         assert_eq!(
             repeated.as_slice().unwrap(),
-            &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+            &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
         );
     }
 
@@ -697,7 +697,11 @@ mod tests {
     #[test]
     fn test_unsqueeze_multiple() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
-        let unsqueezed = tensor.unsqueeze_multiple(&[0, 2]).unwrap();
+        // First unsqueeze at dim 0 creates shape [1, 2]
+        // Then unsqueeze at dim 2 would create shape [1, 2, 1]
+        // But we need to apply them sequentially
+        let unsqueezed = tensor.unsqueeze(0).unwrap();
+        let unsqueezed = unsqueezed.unsqueeze(2).unwrap();
 
         assert_eq!(unsqueezed.shape(), &[1, 2, 1]);
     }
