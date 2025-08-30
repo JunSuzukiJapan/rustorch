@@ -41,3 +41,13 @@ pub mod preprocessing; // Data preprocessing utilities
 pub mod tensor_ops; // Advanced tensor operations
 #[cfg(feature = "wasm")]
 pub mod vision; // Vision and image processing functions
+
+// Enhanced WASM features (v0.5.2+)
+#[cfg(feature = "wasm")]
+pub mod data_transforms; // Advanced data preprocessing
+#[cfg(feature = "wasm")]
+pub mod quality_metrics; // Data quality assessment
+#[cfg(feature = "wasm")]
+pub mod advanced_math; // Advanced mathematical functions
+#[cfg(feature = "wasm")]
+pub mod anomaly_detection; // Anomaly detection and monitoring
