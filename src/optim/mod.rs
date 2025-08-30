@@ -3,11 +3,24 @@
 pub mod adamw;
 pub mod lr_scheduler;
 
+// Advanced optimizers
+/// AdaBound optimizer bridging Adam and SGD
+pub mod adabound;
+/// LAMB optimizer for large batch training
+pub mod lamb;
+/// L-BFGS second-order optimizer
+pub mod lbfgs;
+
 pub use adamw::AdamW;
 pub use lr_scheduler::{
     AnnealStrategy, CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, OneCycleLR,
     PlateauMode, PolynomialLR, ReduceLROnPlateau, StepLR, ThresholdMode, WarmupScheduler,
 };
+
+// Re-export advanced optimizers
+pub use adabound::AdaBound;
+pub use lamb::LAMB;
+pub use lbfgs::{LineSearchMethod, LBFGS};
 
 /// SGD (Stochastic Gradient Descent) optimizer module
 /// SGD（確率的勾配降下法）オプティマイザモジュール

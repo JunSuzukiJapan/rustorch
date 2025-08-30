@@ -83,6 +83,7 @@ impl AutoSimd {
 }
 
 impl SimdElementwise<f32> for AutoSimd {
+    #[allow(unused_unsafe)]
     fn simd_add(a: &[f32], b: &[f32], result: &mut [f32]) {
         use crate::simd::vectorized;
         if a.len() < 32 {
@@ -104,6 +105,7 @@ impl SimdElementwise<f32> for AutoSimd {
         }
     }
 
+    #[allow(unused_unsafe)]
     fn simd_mul(a: &[f32], b: &[f32], result: &mut [f32]) {
         use crate::simd::vectorized;
         if a.len() < 32 {
@@ -125,6 +127,7 @@ impl SimdElementwise<f32> for AutoSimd {
         }
     }
 
+    #[allow(unused_unsafe)]
     fn scalar_mul(a: &[f32], scalar: f32, result: &mut [f32]) {
         use crate::simd::vectorized;
         if a.len() < 32 {
@@ -142,6 +145,7 @@ impl SimdElementwise<f32> for AutoSimd {
         }
     }
 
+    #[allow(unused_unsafe)]
     fn dot(a: &[f32], b: &[f32]) -> f32 {
         use crate::simd::vectorized;
         if a.len() < 32 {

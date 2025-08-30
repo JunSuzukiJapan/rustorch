@@ -9,7 +9,7 @@
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
 **本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPI、GPU加速、エンタープライズグレードパフォーマンス**
 
-RusTorch is a fully functional deep learning library that leverages Rust's safety and performance, providing comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, and enterprise-grade memory management features.
+RusTorch is a fully functional deep learning library that leverages Rust's safety and performance, providing comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, enterprise-grade memory management, data validation & quality assurance, and comprehensive debug & logging systems.
 
 ## ✨ Features
 
@@ -26,6 +26,8 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
 - 🔧 **Advanced Operator Overloads**: Full operator support for tensors with scalar operations and in-place assignments
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
+- 🔍 **Data Validation & Quality Assurance**: Statistical analysis, anomaly detection, consistency checking, real-time monitoring
+- 🐛 **Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
 
 For detailed features, see [Features Documentation](docs/features.md).
 
@@ -37,7 +39,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.0"
+rustorch = "0.5.2"
 
 # Optional features
 [features]
@@ -133,6 +135,8 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 - **[WebAssembly Guide](docs/wasm/README.md)** - Browser ML with WASM bindings
 - **[GPU Acceleration Guide](docs/GPU_ACCELERATION_GUIDE.md)** - GPU setup and usage
 - **[Production Guide](docs/PRODUCTION_GUIDE.md)** - Deployment and scaling
+- **[Data Validation Guide](docs/DATA_VALIDATION_GUIDE.md)** - Quality assurance and validation
+- **[Debug & Logging Guide](docs/DEBUG_GUIDE.md)** - Comprehensive debugging tools
 
 ## 📊 Performance
 

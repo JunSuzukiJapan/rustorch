@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.5.1"
+version = "0.5.2"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -46,6 +46,7 @@ num_cpus = "1.16"
 rand = { version = "0.8.5", features = ["std", "std_rng"] }
 rand_distr = "0.4.3"
 rayon = { version = "1.10.0" }
+regex = "1.11.2"
 serde = { version = "1.0.202", features = ["derive", "rc"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
@@ -139,6 +140,7 @@ wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_er
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
 onnx = ["dep:ort"]
+ci-fast = []
 
 [profile.release]
 opt-level = 3

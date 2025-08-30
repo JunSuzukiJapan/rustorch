@@ -37,18 +37,20 @@ fn general_eig_demo() {
     println!("  General matrix (3x3):");
     print_matrix(&matrix);
 
-    // Compute eigenvalues only
-    match matrix.eig(false) {
-        Ok((eigenvals, _)) => {
-            println!("\n  Eigenvalues (real + i*imag format):");
+    // Compute eigenvalues and eigenvectors using symmetric decomposition (eigh)
+    match matrix.eigh() {
+        Ok((eigenvals, eigenvecs)) => {
+            println!("\n  Eigenvalues:");
             print_eigenvalues(&eigenvals);
+            println!("\n  Eigenvectors:");
+            print_matrix(&eigenvecs);
         }
         Err(e) => println!("  ❌ Eigenvalue computation failed: {}", e),
     }
 
-    // Compute eigenvalues and eigenvectors
-    match matrix.eig(true) {
-        Ok((eigenvals, Some(eigenvecs))) => {
+    // Note: For non-symmetric matrices, consider using SVD or other decomposition methods
+    match matrix.eigh() {
+        Ok((eigenvals, eigenvecs)) => {
             println!("\n  With eigenvectors:");
             println!("    Eigenvalues shape: {:?}", eigenvals.shape());
             println!("    Eigenvectors shape: {:?}", eigenvecs.shape());
@@ -56,7 +58,6 @@ fn general_eig_demo() {
             println!("\n    Eigenvectors matrix:");
             print_matrix(&eigenvecs);
         }
-        Ok((_, None)) => println!("  No eigenvectors returned"),
         Err(e) => println!("  ❌ Eigenvalue computation with vectors failed: {}", e),
     }
 }
@@ -72,8 +73,8 @@ fn symmetric_eig_demo() {
     print_matrix(&matrix);
 
     // Compute symmetric eigenvalues (ascending order, using lower triangle)
-    match matrix.symeig(true, false) {
-        Ok((eigenvals, Some(eigenvecs))) => {
+    match matrix.eigh() {
+        Ok((eigenvals, eigenvecs)) => {
             println!("\n  Symmetric eigenvalue decomposition:");
             println!(
                 "    Eigenvalues (real, sorted ascending): {:?}",
@@ -97,18 +98,6 @@ fn symmetric_eig_demo() {
                 }
             }
         }
-        Ok((eigenvals, None)) => {
-            println!(
-                "\n  Eigenvalues only: {:?}",
-                eigenvals
-                    .data
-                    .as_slice()
-                    .unwrap_or(&[])
-                    .iter()
-                    .map(|&x| format!("{:.4}", x))
-                    .collect::<Vec<_>>()
-            );
-        }
         Err(e) => println!("  ❌ Symmetric eigenvalue computation failed: {}", e),
     }
 }
@@ -121,8 +110,8 @@ fn pca_demo() {
     print_matrix(&covariance);
 
     // Compute eigenvalues and eigenvectors for PCA
-    match covariance.symeig(true, false) {
-        Ok((eigenvals, Some(eigenvecs))) => {
+    match covariance.eigh() {
+        Ok((eigenvals, eigenvecs)) => {
             println!("\n  PCA Components:");
             let eigenvals_data = eigenvals.data.as_slice().unwrap_or(&[]);
 
@@ -140,7 +129,6 @@ fn pca_demo() {
             println!("\n    Principal component directions (eigenvectors):");
             print_matrix(&eigenvecs);
         }
-        Ok((_, None)) => println!("  No eigenvectors for PCA"),
         Err(e) => println!("  ❌ PCA eigenvalue computation failed: {}", e),
     }
 }
@@ -152,7 +140,7 @@ fn verify_eigenvalue_properties() {
     println!("  Test matrix (diagonal, known eigenvalues 3, 2):");
     print_matrix(&matrix);
 
-    match matrix.symeig(false, false) {
+    match matrix.eigh() {
         Ok((eigenvals, _)) => {
             println!(
                 "\n  Computed eigenvalues: {:?}",

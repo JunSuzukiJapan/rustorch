@@ -1,16 +1,44 @@
-//! Performance profiler for RusTorch operations
-//! RusTorch操作のパフォーマンスプロファイラー
+//! Performance Profiling & Benchmarking Framework (Phase 1 Component 5)
+//! パフォーマンスプロファイリング・ベンチマーキングフレームワーク（フェーズ1コンポーネント5）
+//!
+//! Enterprise-grade profiling and performance analysis system with:
+//! - Real-time performance monitoring and metrics collection
+//! - Advanced benchmarking with statistical analysis
+//! - Memory and GPU profiling integration
+//! - Performance trend analysis and optimization recommendations
+//! - Chrome tracing export and timeline visualization
+//! - Multi-threaded profiling with call stack tracking
 
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+// Enhanced module structure
+pub mod benchmark_suite;
+pub mod core;
 pub mod kernel_profiler;
 pub mod memory_profiler;
+pub mod metrics_collector;
+pub mod performance_analyzer;
+pub mod real_time_monitor;
+pub mod system_profiler;
 pub mod timeline;
 
+// Enhanced re-exports for the new profiling system
+pub use benchmark_suite::{
+    AdvancedBenchmarkSuite, BenchmarkCategory, BenchmarkConfiguration, BenchmarkResult,
+};
+pub use core::{ProfilerConfig, ProfilerCore, ProfilingLevel, ProfilingSession, SessionSnapshot};
+pub use metrics_collector::{CustomMetric, MetricStatistics, MetricType, MetricsCollector};
+pub use performance_analyzer::{
+    OptimizationRecommendation, PerformanceAnalyzer, PerformanceTrend, RecommendationPriority,
+    RecommendationType, TrendAnalysis,
+};
+
+// Legacy imports for backward compatibility
 use self::kernel_profiler::KernelProfiler;
 use self::memory_profiler::MemoryProfiler;
 use self::timeline::Timeline;

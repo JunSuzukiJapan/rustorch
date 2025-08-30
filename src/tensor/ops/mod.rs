@@ -24,6 +24,13 @@ pub mod signal; // Signal processing functions
 pub mod statistical; // Re-enabled - essential statistical operations
 pub mod utilities; // Re-enabled - essential utility operations
 
+// Advanced operations modules
+// 高度操作モジュール
+pub mod advanced_linalg;
+pub mod advanced_math; // Advanced mathematical functions (hyperbolic, inverse trig, special functions)
+pub mod advanced_shape; // Advanced shape operations (expand, repeat, permute)
+pub mod advanced_stats; // Advanced statistical functions (variance, quantiles, correlations) // Advanced linear algebra (SVD, eigenvalues, norms)
+
 // Re-export commonly used functions for convenience
 // よく使用される関数を利便性のために再エクスポート
 // Note: Specific re-exports will be enabled when legacy migration is complete

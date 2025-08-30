@@ -1771,7 +1771,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "approx",
@@ -1816,6 +1816,7 @@ dependencies = [
  "rand 0.8.5",
  "rand_distr 0.4.3",
  "rayon",
+ "regex",
  "safetensors",
  "serde",
  "serde_json",

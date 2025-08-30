@@ -38,7 +38,7 @@ fn basic_svd_demo() {
     print_matrix(&matrix);
 
     // Perform SVD
-    match matrix.svd(true) {
+    match matrix.svd() {
         Ok((u, s, v)) => {
             println!("\n  SVD Results:");
             println!("    U (left singular vectors) shape: {:?}", u.shape());
@@ -74,7 +74,7 @@ fn rectangular_svd_demo() {
     println!("  Original matrix (4x3):");
     print_matrix(&matrix);
 
-    match matrix.svd(true) {
+    match matrix.svd() {
         Ok((u, s, v)) => {
             println!("\n  SVD Results:");
             println!("    U shape: {:?}", u.shape());
@@ -102,7 +102,7 @@ fn verify_svd_properties() {
     println!("  Test matrix (2x2):");
     print_matrix(&matrix);
 
-    match matrix.svd(false) {
+    match matrix.svd() {
         Ok((u, _, v)) => {
             println!("\n  Verification:");
 
@@ -138,7 +138,7 @@ fn rank_deficient_svd_demo() {
     println!("  Rank-deficient matrix (all rows are multiples of [1,2,3]):");
     print_matrix(&matrix);
 
-    match matrix.svd(true) {
+    match matrix.svd() {
         Ok((_, s, _)) => {
             println!("\n  SVD of rank-deficient matrix:");
             println!(
