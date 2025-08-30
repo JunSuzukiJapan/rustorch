@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dataloader","parallel_dataloader"],"struct":["TensorDataset"],"trait":["Dataset"]};
+window.SIDEBAR_ITEMS = {"mod":["dataloader","datasets","parallel_dataloader","streaming","transforms"],"struct":["TensorDataset"],"trait":["Dataset"]};

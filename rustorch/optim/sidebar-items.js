@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["adamw","lr_scheduler","sgd"],"struct":["AdaGrad","Adam","RMSprop","SGD"],"trait":["Optimizer"]};
+window.SIDEBAR_ITEMS = {"mod":["adabound","adamw","lamb","lbfgs","lr_scheduler","sgd"],"struct":["AdaGrad","Adam","RMSprop","SGD"],"trait":["Optimizer"]};

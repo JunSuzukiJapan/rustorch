@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["arithmetic","mathematical","matrix","signal","statistical","utilities"]};
+window.SIDEBAR_ITEMS = {"mod":["advanced_linalg","advanced_math","advanced_shape","advanced_stats","arithmetic","mathematical","matrix","signal","statistical","utilities"]};
