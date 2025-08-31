@@ -208,14 +208,17 @@ required-features = ["linalg"]
 
 [[example]]
 name = "metal_performance_demo"
+path = "examples/metal_performance_demo.rs"
 required-features = ["metal"]
 
 [[example]]
 name = "cuda_performance_demo"
+path = "examples/cuda_performance_demo.rs"
 required-features = ["cuda"]
 
 [[example]]
 name = "opencl_performance_demo"
+path = "examples/opencl_performance_demo.rs"
 required-features = ["opencl"]
 
 [[example]]
