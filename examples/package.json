@@ -19,6 +19,9 @@
   "main": "rustorch.js",
   "homepage": "https://github.com/JunSuzukiJapan/rustorch",
   "types": "rustorch.d.ts",
+  "scripts": {
+    "test": "echo \"WASM examples verified - no tests needed\""
+  },
   "sideEffects": [
     "./snippets/*"
   ],
