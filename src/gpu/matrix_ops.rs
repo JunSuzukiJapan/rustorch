@@ -12,10 +12,13 @@ use num_traits::{Float, FromPrimitive};
 #[cfg(feature = "cuda")]
 use cudarc::cublas::{CudaBlas, Gemm};
 #[cfg(feature = "cuda")]
-use cudarc::driver::{CudaDevice, CudaSlice};
+use cudarc::driver::{CudaDevice, CudaSlice, DeviceRepr, ValidAsZeroBits};
 
 #[cfg(feature = "metal")]
 use metal::{Buffer, CommandBuffer, CommandQueue, Device as MetalDevice, MTLSize};
+
+#[cfg(feature = "opencl")]
+use opencl3::memory::ClMem;
 #[cfg(feature = "metal")]
 // use metal_performance_shaders::MPSMatrixMultiplication; // Using Metal compute shaders instead
 
@@ -154,8 +157,8 @@ where
 */
 
 // Metal implementation with safe CPU fallback
-#[cfg(feature = "metal")]
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
+#[cfg(all(feature = "metal", feature = "cuda"))]
+impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZeroBits> GpuMatrixExecutor<T> {
     fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
 
@@ -192,6 +195,15 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
             .map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))?;
 
         Ok(result)
+    }
+}
+
+// Metal-only implementation (when CUDA is not available)
+#[cfg(all(feature = "metal", not(feature = "cuda")))]
+impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
+    fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        // Use CPU fallback when CUDA traits are not available
+        a.matmul(b).map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))
     }
 }
 

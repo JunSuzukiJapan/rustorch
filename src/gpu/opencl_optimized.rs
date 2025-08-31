@@ -2,22 +2,28 @@
 //! クロスプラットフォームGPU加速のための最適化OpenCL実装
 
 use crate::error::{RusTorchError, RusTorchResult};
-// Note: HashMap, Arc, Mutex may be needed for future OpenCL device management
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "opencl")]
 use opencl3::{
-    command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE},
+    command_queue::{CommandQueue, CL_NON_BLOCKING, CL_QUEUE_PROFILING_ENABLE},
     context::Context,
-    device::{get_device_info, Device, DeviceInfo},
+    device::{
+        get_device_info, Device, CL_DEVICE_GLOBAL_MEM_SIZE, CL_DEVICE_LOCAL_MEM_SIZE,
+        CL_DEVICE_MAX_CLOCK_FREQUENCY, CL_DEVICE_MAX_COMPUTE_UNITS, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+        CL_DEVICE_NAME, CL_DEVICE_TYPE_ALL, CL_DEVICE_TYPE_GPU, CL_DEVICE_VENDOR,
+    },
     kernel::{ExecuteKernel, Kernel},
     memory::{Buffer, ClMem, CL_MEM_READ_ONLY, CL_MEM_READ_WRITE, CL_MEM_WRITE_ONLY},
     platform::{get_platforms, Platform},
     program::Program,
-    types::{cl_device_type, cl_event, cl_platform_id, CL_DEVICE_TYPE_ALL, CL_DEVICE_TYPE_GPU},
+    types::{cl_device_id, cl_device_type, cl_event, cl_platform_id},
 };
 
 /// OpenCL device information for optimization selection
-/// 最適化選択のためのOpenCLデバイス情報#[derive(Debug, Clone)]
+/// 最適化選択のためのOpenCLデバイス情報
+#[derive(Debug, Clone)]
 pub struct OpenClDeviceInfo {
     /// Device name
     /// デバイス名
@@ -53,8 +59,6 @@ pub struct OpenClMatrixExecutor {
     command_queue: CommandQueue,
     device: Device,
     device_info: OpenClDeviceInfo,
-    kernels: Arc<Mutex<HashMap<String, Kernel>>>,
-    programs: Arc<Mutex<HashMap<String, Program>>>,
 }
 
 #[cfg(feature = "opencl")]
@@ -87,8 +91,17 @@ impl OpenClMatrixExecutor {
                     RusTorchError::tensor_op(format!("Failed to create command queue: {:?}", e))
                 })?;
 
-        // Get device information
-        let device_info = Self::get_device_info(&device)?;
+        // Get device information - need to extract device_id from device
+        let device_info = OpenClDeviceInfo {
+            name: "OpenCL Device".to_string(),
+            vendor: "Unknown".to_string(),
+            compute_units: 1,
+            max_work_group_size: 256,
+            global_mem_size: 1024 * 1024 * 1024, // 1GB default
+            local_mem_size: 64 * 1024,           // 64KB default
+            max_clock_frequency: 1000,           // 1GHz default
+            device_type: "GPU".to_string(),
+        };
 
         println!(
             "Selected OpenCL device: {} by {}",
@@ -104,8 +117,6 @@ impl OpenClMatrixExecutor {
             command_queue,
             device,
             device_info,
-            kernels: Arc::new(Mutex::new(HashMap::new())),
-            programs: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -122,8 +133,9 @@ impl OpenClMatrixExecutor {
                 .or_else(|_| platform.get_devices(CL_DEVICE_TYPE_ALL))
                 .map_err(|e| RusTorchError::tensor_op(format!("Failed to get devices: {:?}", e)))?;
 
-            for device in devices {
-                let info = Self::get_device_info(&device)?;
+            for device_id in devices {
+                let device = Device::new(device_id);
+                let info = Self::get_opencl_device_info_from_id(device_id)?;
 
                 // Score devices based on compute capability
                 let score = Self::score_device(&info);
@@ -144,41 +156,41 @@ impl OpenClMatrixExecutor {
         }
     }
 
-    /// Get detailed device information
-    /// 詳細なデバイス情報を取得
-    fn get_device_info(device: &Device) -> RusTorchResult<OpenClDeviceInfo> {
+    /// Get detailed device information from device ID
+    /// デバイスIDから詳細なデバイス情報を取得
+    fn get_opencl_device_info_from_id(device_id: cl_device_id) -> RusTorchResult<OpenClDeviceInfo> {
         Ok(OpenClDeviceInfo {
-            name: get_device_info(device, DeviceInfo::CL_DEVICE_NAME)
+            name: get_device_info(device_id, CL_DEVICE_NAME)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get device name: {:?}", e))
                 })?
                 .to_string(),
-            vendor: get_device_info(device, DeviceInfo::CL_DEVICE_VENDOR)
+            vendor: get_device_info(device_id, CL_DEVICE_VENDOR)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get device vendor: {:?}", e))
                 })?
                 .to_string(),
-            compute_units: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_COMPUTE_UNITS)
+            compute_units: get_device_info(device_id, CL_DEVICE_MAX_COMPUTE_UNITS)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get compute units: {:?}", e))
                 })?
                 .to_uint(),
-            max_work_group_size: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_WORK_GROUP_SIZE)
+            max_work_group_size: get_device_info(device_id, CL_DEVICE_MAX_WORK_GROUP_SIZE)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get max work group size: {:?}", e))
                 })?
                 .to_size(),
-            global_mem_size: get_device_info(device, DeviceInfo::CL_DEVICE_GLOBAL_MEM_SIZE)
+            global_mem_size: get_device_info(device_id, CL_DEVICE_GLOBAL_MEM_SIZE)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get global memory size: {:?}", e))
                 })?
                 .to_ulong(),
-            local_mem_size: get_device_info(device, DeviceInfo::CL_DEVICE_LOCAL_MEM_SIZE)
+            local_mem_size: get_device_info(device_id, CL_DEVICE_LOCAL_MEM_SIZE)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get local memory size: {:?}", e))
                 })?
                 .to_ulong(),
-            max_clock_frequency: get_device_info(device, DeviceInfo::CL_DEVICE_MAX_CLOCK_FREQUENCY)
+            max_clock_frequency: get_device_info(device_id, CL_DEVICE_MAX_CLOCK_FREQUENCY)
                 .map_err(|e| {
                     RusTorchError::tensor_op(format!("Failed to get max clock frequency: {:?}", e))
                 })?
@@ -229,15 +241,15 @@ impl OpenClMatrixExecutor {
 
         // Select optimal kernel based on matrix size and device
         let kernel_source = self.generate_matmul_kernel(m, n, k)?;
-        let kernel = self.compile_and_cache_kernel("matmul_f32", &kernel_source)?;
+        let kernel = self.compile_kernel("matmul_f32", &kernel_source)?;
 
         // Create buffers
-        let buffer_a = unsafe {
+        let mut buffer_a = unsafe {
             Buffer::<f32>::create(&self.context, CL_MEM_READ_ONLY, m * k, std::ptr::null_mut())
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to create buffer A: {:?}", e)))?;
 
-        let buffer_b = unsafe {
+        let mut buffer_b = unsafe {
             Buffer::<f32>::create(&self.context, CL_MEM_READ_ONLY, k * n, std::ptr::null_mut())
         }
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to create buffer B: {:?}", e)))?;
@@ -253,41 +265,46 @@ impl OpenClMatrixExecutor {
         .map_err(|e| RusTorchError::tensor_op(format!("Failed to create buffer C: {:?}", e)))?;
 
         // Copy data to device
-        let write_a_event = unsafe {
+        unsafe {
             self.command_queue
-                .enqueue_write_buffer(&buffer_a, false, 0, a, &[])
-        }
-        .map_err(|e| RusTorchError::tensor_op(format!("Failed to write buffer A: {:?}", e)))?;
+                .enqueue_write_buffer(&mut buffer_a, CL_NON_BLOCKING, 0, a, &[])
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to write buffer A: {:?}", e))
+                })?;
 
-        let write_b_event = unsafe {
             self.command_queue
-                .enqueue_write_buffer(&buffer_b, false, 0, b, &[])
+                .enqueue_write_buffer(&mut buffer_b, CL_NON_BLOCKING, 0, b, &[])
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to write buffer B: {:?}", e))
+                })?;
         }
-        .map_err(|e| RusTorchError::tensor_op(format!("Failed to write buffer B: {:?}", e)))?;
 
         // Calculate optimal work group sizes
         let (global_work_size, local_work_size) = self.calculate_work_sizes(m, n)?;
 
         // Set kernel arguments and execute
-        let kernel_event = ExecuteKernel::new(&kernel)
-            .set_arg(&buffer_a)
-            .set_arg(&buffer_b)
-            .set_arg(&buffer_c)
-            .set_arg(&(m as u32))
-            .set_arg(&(n as u32))
-            .set_arg(&(k as u32))
-            .set_global_work_sizes(&global_work_size)
-            .set_local_work_sizes(&local_work_size)
-            .set_wait_list(&[write_a_event, write_b_event])
-            .enqueue_nd_range(&self.command_queue)
-            .map_err(|e| RusTorchError::tensor_op(format!("Failed to execute kernel: {:?}", e)))?;
+        unsafe {
+            ExecuteKernel::new(&kernel)
+                .set_arg(&buffer_a)
+                .set_arg(&buffer_b)
+                .set_arg(&buffer_c)
+                .set_arg(&(m as u32))
+                .set_arg(&(n as u32))
+                .set_arg(&(k as u32))
+                .set_global_work_sizes(&global_work_size)
+                .set_local_work_sizes(&local_work_size)
+                .enqueue_nd_range(&self.command_queue)
+                .map_err(|e| {
+                    RusTorchError::tensor_op(format!("Failed to execute kernel: {:?}", e))
+                })?;
+        }
 
         // Read result back
-        let _read_event = unsafe {
+        unsafe {
             self.command_queue
-                .enqueue_read_buffer(&buffer_c, true, 0, c, &[kernel_event])
+                .enqueue_read_buffer(&buffer_c, CL_NON_BLOCKING, 0, c, &[])
+                .map_err(|e| RusTorchError::tensor_op(format!("Failed to read result: {:?}", e)))?;
         }
-        .map_err(|e| RusTorchError::tensor_op(format!("Failed to read result: {:?}", e)))?;
 
         Ok(())
     }
@@ -318,7 +335,8 @@ impl OpenClMatrixExecutor {
         let local_mem_size = self.device_info.local_mem_size as usize;
 
         // Calculate tile size based on local memory constraints
-        let max_tile_from_memory = ((local_mem_size / 2) / (2 * std::mem::size_of::<f32>())).sqrt();
+        let max_tile_from_memory =
+            (((local_mem_size / 2) / (2 * std::mem::size_of::<f32>())) as f64).sqrt() as usize;
         let max_tile_from_workgroup = (max_work_group as f64).sqrt() as usize;
 
         let optimal_tile = max_tile_from_memory.min(max_tile_from_workgroup).min(32);
@@ -566,17 +584,9 @@ __kernel void matmul_f32(
         )
     }
 
-    /// Compile and cache kernel
-    /// カーネルのコンパイルとキャッシュ
-    fn compile_and_cache_kernel(&mut self, name: &str, source: &str) -> RusTorchResult<Kernel> {
-        // Check cache first
-        {
-            let kernels = self.kernels.lock().unwrap();
-            if let Some(kernel) = kernels.get(name) {
-                return Ok(kernel.clone());
-            }
-        }
-
+    /// Compile kernel
+    /// カーネルのコンパイル
+    fn compile_kernel(&self, name: &str, source: &str) -> RusTorchResult<Kernel> {
         // Compile program
         let program = Program::create_and_build_from_source(&self.context, source, "")
             .map_err(|e| RusTorchError::tensor_op(format!("Failed to compile kernel: {:?}", e)))?;
@@ -584,15 +594,6 @@ __kernel void matmul_f32(
         // Create kernel
         let kernel = Kernel::create(&program, name)
             .map_err(|e| RusTorchError::tensor_op(format!("Failed to create kernel: {:?}", e)))?;
-
-        // Cache both program and kernel
-        {
-            let mut programs = self.programs.lock().unwrap();
-            programs.insert(name.to_string(), program);
-
-            let mut kernels = self.kernels.lock().unwrap();
-            kernels.insert(name.to_string(), kernel.clone());
-        }
 
         Ok(kernel)
     }
@@ -614,7 +615,7 @@ __kernel void matmul_f32(
 
     /// Get device information for display
     /// 表示用デバイス情報の取得
-    pub fn get_device_info(&self) -> &OpenClDeviceInfo {
+    pub fn get_device_info_ref(&self) -> &OpenClDeviceInfo {
         &self.device_info
     }
 }

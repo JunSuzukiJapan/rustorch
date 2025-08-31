@@ -11,13 +11,13 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     fn log_demo(s: &str);
-    
+
     #[wasm_bindgen(js_namespace = console, js_name = log)]
     fn log_demo_main(s: &str);
-    
+
     #[wasm_bindgen(js_namespace = console)]
     fn time(name: &str);
-    
+
     #[wasm_bindgen(js_namespace = console)]
     fn time_end(name: &str);
 }
@@ -40,7 +40,7 @@ impl WebGPUSimpleDemo {
     #[wasm_bindgen(constructor)]
     pub fn new() -> WebGPUSimpleDemo {
         demo_log!("🚀 WebGPU Simple Demo initialized");
-        
+
         WebGPUSimpleDemo {
             engine: None,
             results: Vec::new(),
@@ -50,7 +50,7 @@ impl WebGPUSimpleDemo {
     #[wasm_bindgen]
     pub async fn initialize(&mut self) -> Result<String, JsValue> {
         let mut engine = WebGPUSimple::new();
-        
+
         match engine.initialize().await {
             Ok(message) => {
                 demo_log!("✅ Engine initialized: {}", message);
@@ -67,7 +67,9 @@ impl WebGPUSimpleDemo {
 
     #[wasm_bindgen]
     pub fn run_tensor_addition_demo(&mut self) -> Result<String, JsValue> {
-        let engine = self.engine.as_ref()
+        let engine = self
+            .engine
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Engine not initialized"))?;
 
         demo_log!("🧮 Running tensor addition demo...");
@@ -75,10 +77,10 @@ impl WebGPUSimpleDemo {
 
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let b = vec![0.5, 1.5, 2.5, 3.5, 4.5];
-        
+
         let result = engine.tensor_add_cpu(a.clone(), b.clone())?;
         let expected = vec![1.5, 3.5, 5.5, 7.5, 9.5];
-        
+
         time_end("tensor_add_demo");
 
         let message = format!(
@@ -86,7 +88,7 @@ impl WebGPUSimpleDemo {
             a, b, result, expected,
             result.iter().zip(expected.iter()).all(|(x, y)| (x - y).abs() < 1e-6)
         );
-        
+
         demo_log!("{}", message);
         self.results.push(message.clone());
         Ok(message)
@@ -94,7 +96,9 @@ impl WebGPUSimpleDemo {
 
     #[wasm_bindgen]
     pub fn run_matrix_multiplication_demo(&mut self) -> Result<String, JsValue> {
-        let engine = self.engine.as_ref()
+        let engine = self
+            .engine
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Engine not initialized"))?;
 
         demo_log!("🧮 Running matrix multiplication demo...");
@@ -103,10 +107,10 @@ impl WebGPUSimpleDemo {
         // 2x3 × 3x2 = 2x2
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0]; // [[1,2,3], [4,5,6]]
         let b = vec![7.0, 8.0, 9.0, 10.0, 11.0, 12.0]; // [[7,8], [9,10], [11,12]]
-        
+
         let result = engine.matrix_multiply_cpu(a.clone(), b.clone(), 2, 2, 3)?;
         let expected = vec![58.0, 64.0, 139.0, 154.0]; // Manually calculated
-        
+
         time_end("matrix_mul_demo");
 
         let message = format!(
@@ -114,7 +118,7 @@ impl WebGPUSimpleDemo {
             a, b, result, expected,
             result.iter().zip(expected.iter()).all(|(x, y)| (x - y).abs() < 1e-6)
         );
-        
+
         demo_log!("{}", message);
         self.results.push(message.clone());
         Ok(message)
@@ -122,22 +126,22 @@ impl WebGPUSimpleDemo {
 
     #[wasm_bindgen]
     pub fn run_activation_functions_demo(&mut self) -> Result<String, JsValue> {
-        let engine = self.engine.as_ref()
+        let engine = self
+            .engine
+            .as_ref()
             .ok_or_else(|| JsValue::from_str("Engine not initialized"))?;
 
         demo_log!("🧮 Running activation functions demo...");
         time("activation_demo");
 
         let input = vec![-2.0, -1.0, 0.0, 1.0, 2.0];
-        
+
         let relu_result = engine.relu_cpu(input.clone());
         let sigmoid_result = engine.sigmoid_cpu(input.clone());
-        
+
         let expected_relu = vec![0.0, 0.0, 0.0, 1.0, 2.0];
-        let expected_sigmoid: Vec<f32> = input.iter()
-            .map(|&x| 1.0 / (1.0 + (-x).exp()))
-            .collect();
-        
+        let expected_sigmoid: Vec<f32> = input.iter().map(|&x| 1.0 / (1.0 + (-x).exp())).collect();
+
         time_end("activation_demo");
 
         let message = format!(
@@ -146,7 +150,7 @@ impl WebGPUSimpleDemo {
             relu_result.iter().zip(expected_relu.iter()).all(|(x, y)| (x - y).abs() < 1e-6),
             sigmoid_result.iter().zip(expected_sigmoid.iter()).all(|(x, y)| (x - y).abs() < 1e-6)
         );
-        
+
         demo_log!("{}", message);
         self.results.push(message.clone());
         Ok(message)
@@ -155,16 +159,16 @@ impl WebGPUSimpleDemo {
     #[wasm_bindgen]
     pub fn run_performance_benchmark(&mut self) -> Result<String, JsValue> {
         demo_log!("📊 Running performance benchmark...");
-        
+
         let test_sizes = vec![100, 1000, 10000];
         let mut benchmark_results = Vec::new();
 
         for size in test_sizes {
             demo_log!("🔬 Testing size: {}", size);
-            
+
             let estimate_add = calculate_performance_estimate("add", size);
             let estimate_matmul = calculate_performance_estimate("matmul", size);
-            
+
             let result = format!(
                 "  Size {}: Add {}x, MatMul {}x speedup estimate",
                 size, estimate_add, estimate_matmul
@@ -177,7 +181,7 @@ impl WebGPUSimpleDemo {
             "📊 Performance Estimates (WebGPU vs CPU):\n{}",
             benchmark_results.join("\n")
         );
-        
+
         demo_log!("{}", message);
         self.results.push(message.clone());
         Ok(message)
@@ -186,7 +190,7 @@ impl WebGPUSimpleDemo {
     #[wasm_bindgen]
     pub async fn run_comprehensive_demo(&mut self) -> Result<String, JsValue> {
         demo_log!("🎯 Starting comprehensive WebGPU demo...");
-        
+
         let init_result = self.initialize().await?;
         let add_result = self.run_tensor_addition_demo()?;
         let matmul_result = self.run_matrix_multiplication_demo()?;
@@ -198,7 +202,13 @@ impl WebGPUSimpleDemo {
 
         let summary = format!(
             "🎉 WebGPU Chrome Demo Complete!\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}\n\n{}",
-            info, browser_info, init_result, add_result, matmul_result, activation_result, benchmark_result
+            info,
+            browser_info,
+            init_result,
+            add_result,
+            matmul_result,
+            activation_result,
+            benchmark_result
         );
 
         demo_log!("{}", summary);
@@ -233,7 +243,7 @@ fn main() {
         // WASM initialization is handled by wasm_main
         return;
     }
-    
+
     #[cfg(not(all(feature = "webgpu", target_arch = "wasm32")))]
     {
         println!("❌ This demo requires WebGPU feature and WASM target.");

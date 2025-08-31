@@ -179,16 +179,16 @@ impl OpenClKernelExecutor {
             )));
         }
 
-        let device = devices[device_id];
+        let device_id = devices[device_id];
+        let device = opencl3::device::Device::new(device_id);
 
         // Create OpenCL context
         let context = opencl3::context::Context::from_device(&device)
             .map_err(|e| RusTorchError::gpu(format!("Failed to create OpenCL context: {:?}", e)))?;
 
         // Create command queue
-        let queue = opencl3::command_queue::CommandQueue::create_command_queue_with_properties(
+        let queue = opencl3::command_queue::CommandQueue::create_default_with_properties(
             &context,
-            device,
             opencl3::command_queue::CL_QUEUE_PROFILING_ENABLE,
             0,
         )
@@ -242,28 +242,34 @@ impl OpenClKernelExecutor {
         }
 
         // Create OpenCL buffers
-        let a_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
-            size,
-            a.as_ptr() as *mut f32,
-        )
+        let a_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
+                size,
+                a.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer A: {:?}", e)))?;
 
-        let b_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
-            size,
-            b.as_ptr() as *mut f32,
-        )
+        let b_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
+                size,
+                b.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer B: {:?}", e)))?;
 
-        let c_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_WRITE_ONLY,
-            size,
-            std::ptr::null_mut(),
-        )
+        let c_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_WRITE_ONLY,
+                size,
+                std::ptr::null_mut(),
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer C: {:?}", e)))?;
 
         // Get kernel
@@ -274,43 +280,35 @@ impl OpenClKernelExecutor {
                 RusTorchError::KernelExecutionError("ElementWise kernel not found".to_string())
             })?;
 
-        // Set kernel arguments
-        kernel.set_arg(0, &a_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 0: {:?}", e))
-        })?;
-        kernel.set_arg(1, &b_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 1: {:?}", e))
-        })?;
-        kernel.set_arg(2, &c_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 2: {:?}", e))
-        })?;
-        kernel.set_arg(3, &(size as u32)).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 3: {:?}", e))
-        })?;
-
         // Execute kernel
-        let global_work_size = [size, 0, 0];
-        let local_work_size = [256.min(size), 0, 0];
+        let global_work_size = [size];
+        let local_work_size = [256.min(size)];
 
-        self.queue
-            .enqueue_nd_range_kernel(
-                kernel,
-                1,
-                None,
-                &global_work_size,
-                Some(&local_work_size),
-                &[],
-            )
-            .map_err(|e| {
-                RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
-            })?;
+        unsafe {
+            opencl3::kernel::ExecuteKernel::new(kernel)
+                .set_arg(&a_buffer)
+                .set_arg(&b_buffer)
+                .set_arg(&c_buffer)
+                .set_arg(&(size as u32))
+                .set_global_work_sizes(&global_work_size)
+                .set_local_work_sizes(&local_work_size)
+                .enqueue_nd_range(&self.queue)
+        }
+        .map_err(|e| {
+            RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
+        })?;
 
         // Read result back
-        self.queue
-            .enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
-            .map_err(|e| {
-                RusTorchError::invalid_params("matmul", format!("Failed to read result: {:?}", e))
-            })?;
+        unsafe {
+            self.queue
+                .enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
+                .map_err(|e| {
+                    RusTorchError::invalid_params(
+                        "matmul",
+                        format!("Failed to read result: {:?}", e),
+                    )
+                })?;
+        }
 
         Ok(())
     }
@@ -327,28 +325,34 @@ impl OpenClKernelExecutor {
         k: usize,
     ) -> RusTorchResult<()> {
         // Create OpenCL buffers
-        let a_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
-            m * k,
-            a.as_ptr() as *mut f32,
-        )
+        let a_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
+                m * k,
+                a.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer A: {:?}", e)))?;
 
-        let b_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
-            k * n,
-            b.as_ptr() as *mut f32,
-        )
+        let b_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
+                k * n,
+                b.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer B: {:?}", e)))?;
 
-        let c_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_WRITE_ONLY,
-            m * n,
-            std::ptr::null_mut(),
-        )
+        let c_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_WRITE_ONLY,
+                m * n,
+                std::ptr::null_mut(),
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create buffer C: {:?}", e)))?;
 
         // Get kernel
@@ -356,49 +360,37 @@ impl OpenClKernelExecutor {
             RusTorchError::KernelExecutionError("MatMul kernel not found".to_string())
         })?;
 
-        // Set kernel arguments
-        kernel.set_arg(0, &a_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 0: {:?}", e))
-        })?;
-        kernel.set_arg(1, &b_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 1: {:?}", e))
-        })?;
-        kernel.set_arg(2, &c_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 2: {:?}", e))
-        })?;
-        kernel.set_arg(3, &(m as u32)).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 3: {:?}", e))
-        })?;
-        kernel.set_arg(4, &(n as u32)).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 4: {:?}", e))
-        })?;
-        kernel.set_arg(5, &(k as u32)).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 5: {:?}", e))
-        })?;
-
         // Execute kernel
-        let global_work_size = [n, m, 0];
-        let local_work_size = [16.min(n), 16.min(m), 0];
+        let global_work_size = [n, m];
+        let local_work_size = [16.min(n), 16.min(m)];
 
-        self.queue
-            .enqueue_nd_range_kernel(
-                kernel,
-                2,
-                None,
-                &global_work_size,
-                Some(&local_work_size),
-                &[],
-            )
-            .map_err(|e| {
-                RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
-            })?;
+        unsafe {
+            opencl3::kernel::ExecuteKernel::new(kernel)
+                .set_arg(&a_buffer)
+                .set_arg(&b_buffer)
+                .set_arg(&c_buffer)
+                .set_arg(&(m as u32))
+                .set_arg(&(n as u32))
+                .set_arg(&(k as u32))
+                .set_global_work_sizes(&global_work_size)
+                .set_local_work_sizes(&local_work_size)
+                .enqueue_nd_range(&self.queue)
+        }
+        .map_err(|e| {
+            RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
+        })?;
 
         // Read result back
-        self.queue
-            .enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
-            .map_err(|e| {
-                RusTorchError::invalid_params("matmul", format!("Failed to read result: {:?}", e))
-            })?;
+        unsafe {
+            self.queue
+                .enqueue_read_buffer(&c_buffer, opencl3::types::CL_TRUE, 0, c, &[])
+                .map_err(|e| {
+                    RusTorchError::invalid_params(
+                        "matmul",
+                        format!("Failed to read result: {:?}", e),
+                    )
+                })?;
+        }
 
         Ok(())
     }
@@ -412,20 +404,24 @@ impl OpenClKernelExecutor {
         let num_groups = global_size / local_size;
 
         // Create OpenCL buffers
-        let input_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
-            size,
-            input.as_ptr() as *mut f32,
-        )
+        let input_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_READ_ONLY | opencl3::memory::CL_MEM_COPY_HOST_PTR,
+                size,
+                input.as_ptr() as *mut std::ffi::c_void,
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create input buffer: {:?}", e)))?;
 
-        let output_buffer = opencl3::memory::Buffer::<f32>::create(
-            &self.context,
-            opencl3::memory::CL_MEM_WRITE_ONLY,
-            num_groups,
-            std::ptr::null_mut(),
-        )
+        let output_buffer = unsafe {
+            opencl3::memory::Buffer::<f32>::create(
+                &self.context,
+                opencl3::memory::CL_MEM_WRITE_ONLY,
+                num_groups,
+                std::ptr::null_mut(),
+            )
+        }
         .map_err(|e| RusTorchError::gpu(format!("Failed to create output buffer: {:?}", e)))?;
 
         // Get kernel
@@ -436,53 +432,41 @@ impl OpenClKernelExecutor {
                 RusTorchError::KernelExecutionError("Reduction kernel not found".to_string())
             })?;
 
-        // Set kernel arguments
-        kernel.set_arg(0, &input_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 0: {:?}", e))
-        })?;
-        kernel.set_arg(1, &output_buffer).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 1: {:?}", e))
-        })?;
-        kernel.set_arg_local::<f32>(2, local_size).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set local arg 2: {:?}", e))
-        })?;
-        kernel.set_arg(3, &(size as u32)).map_err(|e| {
-            RusTorchError::KernelExecutionError(format!("Failed to set arg 3: {:?}", e))
-        })?;
-
         // Execute kernel
-        let global_work_size = [global_size, 0, 0];
-        let local_work_size = [local_size, 0, 0];
+        let global_work_size = [global_size];
+        let local_work_size = [local_size];
 
-        self.queue
-            .enqueue_nd_range_kernel(
-                kernel,
-                1,
-                None,
-                &global_work_size,
-                Some(&local_work_size),
-                &[],
-            )
-            .map_err(|e| {
-                RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
-            })?;
+        unsafe {
+            opencl3::kernel::ExecuteKernel::new(kernel)
+                .set_arg(&input_buffer)
+                .set_arg(&output_buffer)
+                .set_arg(&(size as u32))
+                .set_global_work_sizes(&global_work_size)
+                .set_local_work_sizes(&local_work_size)
+                .enqueue_nd_range(&self.queue)
+        }
+        .map_err(|e| {
+            RusTorchError::KernelExecutionError(format!("Kernel execution failed: {:?}", e))
+        })?;
 
         // Read partial results back
         let mut partial_results = vec![0.0f32; num_groups];
-        self.queue
-            .enqueue_read_buffer(
-                &output_buffer,
-                opencl3::types::CL_TRUE,
-                0,
-                &mut partial_results,
-                &[],
-            )
-            .map_err(|e| {
-                RusTorchError::invalid_params(
-                    "matmul",
-                    format!("Failed to read partial results: {:?}", e),
+        unsafe {
+            self.queue
+                .enqueue_read_buffer(
+                    &output_buffer,
+                    opencl3::types::CL_TRUE,
+                    0,
+                    &mut partial_results,
+                    &[],
                 )
-            })?;
+                .map_err(|e| {
+                    RusTorchError::invalid_params(
+                        "matmul",
+                        format!("Failed to read partial results: {:?}", e),
+                    )
+                })?;
+        }
 
         Ok(partial_results.iter().sum())
     }

@@ -112,7 +112,10 @@ impl PlatformOptimizer {
         // Windows support would require winapi crate
 
         // Default fallback: 8GB
-        8_usize.saturating_mul(1024).saturating_mul(1024).saturating_mul(1024)
+        8_usize
+            .saturating_mul(1024)
+            .saturating_mul(1024)
+            .saturating_mul(1024)
     }
 
     /// Detect cache line size

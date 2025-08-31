@@ -749,7 +749,7 @@ impl RusTorchProfiler {
             .multi_gpu_profiler
             .as_ref()
             .map(|p| p.generate_report());
-        
+
         #[cfg(target_arch = "wasm32")]
         let multi_gpu_report = None::<String>;
 

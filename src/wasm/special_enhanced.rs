@@ -1,8 +1,8 @@
 //! Enhanced special mathematical functions for WebAssembly
 //! WebAssembly向け強化特殊数学関数
 
+use crate::special::{bessel, error, gamma};
 use wasm_bindgen::prelude::*;
-use crate::special::{gamma, bessel, error};
 
 #[wasm_bindgen]
 extern "C" {
@@ -160,15 +160,15 @@ impl SpecialFunctionsBatch {
 // Mathematical constants / 数学定数
 #[wasm_bindgen]
 pub fn euler_gamma() -> f64 {
-    0.5772156649015329  // Euler-Mascheroni constant
+    0.5772156649015329 // Euler-Mascheroni constant
 }
 
 #[wasm_bindgen]
 pub fn sqrt_2pi() -> f64 {
-    2.5066282746310005  // sqrt(2π)
+    2.5066282746310005 // sqrt(2π)
 }
 
 #[wasm_bindgen]
 pub fn log_sqrt_2pi() -> f64 {
-    0.9189385332046727  // log(sqrt(2π))
+    0.9189385332046727 // log(sqrt(2π))
 }

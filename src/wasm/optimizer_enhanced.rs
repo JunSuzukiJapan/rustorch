@@ -1,9 +1,9 @@
 //! Enhanced optimizers for WebAssembly  
 //! WebAssembly向け強化最適化アルゴリズム
 
-use wasm_bindgen::prelude::*;
 use crate::optim::*;
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
 
 // WASM-compatible optimizer implementations / WASM互換最適化実装
 
@@ -20,7 +20,13 @@ pub struct SGDWasm {
 #[wasm_bindgen]
 impl SGDWasm {
     #[wasm_bindgen(constructor)]
-    pub fn new(learning_rate: f64, momentum: f64, dampening: f64, weight_decay: f64, nesterov: bool) -> SGDWasm {
+    pub fn new(
+        learning_rate: f64,
+        momentum: f64,
+        dampening: f64,
+        weight_decay: f64,
+        nesterov: bool,
+    ) -> SGDWasm {
         SGDWasm {
             learning_rate,
             momentum,
@@ -38,12 +44,14 @@ impl SGDWasm {
         }
 
         // Get or initialize velocity
-        let velocity = self.velocity.entry(param_name.to_string())
+        let velocity = self
+            .velocity
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
 
         for i in 0..params.len() {
             let mut grad = gradients[i];
-            
+
             // Apply weight decay
             if self.weight_decay != 0.0 {
                 grad += self.weight_decay * params[i];
@@ -52,7 +60,7 @@ impl SGDWasm {
             // Apply momentum
             if self.momentum != 0.0 {
                 velocity[i] = self.momentum * velocity[i] + (1.0 - self.dampening) * grad;
-                
+
                 if self.nesterov {
                     grad = grad + self.momentum * velocity[i];
                 } else {
@@ -96,7 +104,13 @@ pub struct AdamWasm {
 #[wasm_bindgen]
 impl AdamWasm {
     #[wasm_bindgen(constructor)]
-    pub fn new(learning_rate: f64, beta1: f64, beta2: f64, epsilon: f64, weight_decay: f64) -> AdamWasm {
+    pub fn new(
+        learning_rate: f64,
+        beta1: f64,
+        beta2: f64,
+        epsilon: f64,
+        weight_decay: f64,
+    ) -> AdamWasm {
         AdamWasm {
             learning_rate,
             beta1,
@@ -118,14 +132,18 @@ impl AdamWasm {
         self.step_count += 1;
 
         // Get or initialize moments
-        let m = self.m.entry(param_name.to_string())
+        let m = self
+            .m
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
-        let v = self.v.entry(param_name.to_string())
+        let v = self
+            .v
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
 
         for i in 0..params.len() {
             let mut grad = gradients[i];
-            
+
             // Apply weight decay
             if self.weight_decay != 0.0 {
                 grad += self.weight_decay * params[i];
@@ -133,13 +151,13 @@ impl AdamWasm {
 
             // Update biased first moment estimate
             m[i] = self.beta1 * m[i] + (1.0 - self.beta1) * grad;
-            
+
             // Update biased second raw moment estimate
             v[i] = self.beta2 * v[i] + (1.0 - self.beta2) * grad * grad;
 
             // Compute bias-corrected first moment estimate
             let m_hat = m[i] / (1.0 - self.beta1.powi(self.step_count as i32));
-            
+
             // Compute bias-corrected second raw moment estimate
             let v_hat = v[i] / (1.0 - self.beta2.powi(self.step_count as i32));
 
@@ -185,7 +203,13 @@ pub struct RMSpropWasm {
 #[wasm_bindgen]
 impl RMSpropWasm {
     #[wasm_bindgen(constructor)]
-    pub fn new(learning_rate: f64, alpha: f64, epsilon: f64, weight_decay: f64, momentum: f64) -> RMSpropWasm {
+    pub fn new(
+        learning_rate: f64,
+        alpha: f64,
+        epsilon: f64,
+        weight_decay: f64,
+        momentum: f64,
+    ) -> RMSpropWasm {
         RMSpropWasm {
             learning_rate,
             alpha,
@@ -204,14 +228,18 @@ impl RMSpropWasm {
         }
 
         // Get or initialize state
-        let v = self.v.entry(param_name.to_string())
+        let v = self
+            .v
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
-        let momentum_buffer = self.momentum_buffer.entry(param_name.to_string())
+        let momentum_buffer = self
+            .momentum_buffer
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
 
         for i in 0..params.len() {
             let mut grad = gradients[i];
-            
+
             // Apply weight decay
             if self.weight_decay != 0.0 {
                 grad += self.weight_decay * params[i];
@@ -221,7 +249,8 @@ impl RMSpropWasm {
             v[i] = self.alpha * v[i] + (1.0 - self.alpha) * grad * grad;
 
             let update = if self.momentum > 0.0 {
-                momentum_buffer[i] = self.momentum * momentum_buffer[i] + grad / (v[i].sqrt() + self.epsilon);
+                momentum_buffer[i] =
+                    self.momentum * momentum_buffer[i] + grad / (v[i].sqrt() + self.epsilon);
                 momentum_buffer[i]
             } else {
                 grad / (v[i].sqrt() + self.epsilon)
@@ -276,12 +305,14 @@ impl AdaGradWasm {
         }
 
         // Get or initialize accumulated squared gradients
-        let sum_sq = self.sum_sq_gradients.entry(param_name.to_string())
+        let sum_sq = self
+            .sum_sq_gradients
+            .entry(param_name.to_string())
             .or_insert_with(|| vec![0.0; params.len()]);
 
         for i in 0..params.len() {
             let mut grad = gradients[i];
-            
+
             // Apply weight decay
             if self.weight_decay != 0.0 {
                 grad += self.weight_decay * params[i];
@@ -313,12 +344,20 @@ impl AdaGradWasm {
 
 // Optimizer utility functions / 最適化ユーティリティ関数
 #[wasm_bindgen]
-pub fn learning_rate_schedule_wasm(initial_lr: f64, step: u64, decay_rate: f64, decay_steps: u64) -> f64 {
+pub fn learning_rate_schedule_wasm(
+    initial_lr: f64,
+    step: u64,
+    decay_rate: f64,
+    decay_steps: u64,
+) -> f64 {
     initial_lr * decay_rate.powi((step / decay_steps) as i32)
 }
 
 #[wasm_bindgen]
 pub fn cosine_annealing_wasm(initial_lr: f64, current_step: u64, total_steps: u64) -> f64 {
     let min_lr = initial_lr * 0.01;
-    min_lr + (initial_lr - min_lr) * 0.5 * (1.0 + ((current_step as f64 * std::f64::consts::PI) / total_steps as f64).cos())
+    min_lr
+        + (initial_lr - min_lr)
+            * 0.5
+            * (1.0 + ((current_step as f64 * std::f64::consts::PI) / total_steps as f64).cos())
 }

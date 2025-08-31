@@ -1,8 +1,8 @@
 //! Simplified automatic differentiation for WebAssembly
 //! WebAssembly向け簡素化自動微分
 
-use wasm_bindgen::prelude::*;
 use std::collections::HashMap;
+use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct VariableWasm {
@@ -71,11 +71,11 @@ impl VariableWasm {
     pub fn sum(&self) -> VariableWasm {
         let sum_value = self.data.iter().sum::<f64>();
         let mut result = VariableWasm::new(vec![sum_value], vec![1], self.requires_grad);
-        
+
         if self.requires_grad {
             result.grad_fn_type = Some("Sum".to_string());
         }
-        
+
         result
     }
 
@@ -83,11 +83,11 @@ impl VariableWasm {
     pub fn mean(&self) -> VariableWasm {
         let mean_value = self.data.iter().sum::<f64>() / self.data.len() as f64;
         let mut result = VariableWasm::new(vec![mean_value], vec![1], self.requires_grad);
-        
+
         if self.requires_grad {
             result.grad_fn_type = Some("Mean".to_string());
         }
-        
+
         result
     }
 
@@ -95,11 +95,11 @@ impl VariableWasm {
     pub fn pow(&self, exponent: f64) -> VariableWasm {
         let result_data: Vec<f64> = self.data.iter().map(|&x| x.powf(exponent)).collect();
         let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
-        
+
         if self.requires_grad {
             result.grad_fn_type = Some("Pow".to_string());
         }
-        
+
         result
     }
 }
@@ -121,13 +121,18 @@ impl ComputationGraphWasm {
     }
 
     #[wasm_bindgen]
-    pub fn create_variable(&mut self, data: Vec<f64>, shape: Vec<usize>, requires_grad: bool) -> String {
+    pub fn create_variable(
+        &mut self,
+        data: Vec<f64>,
+        shape: Vec<usize>,
+        requires_grad: bool,
+    ) -> String {
         let id = format!("var_{}", self.variable_counter);
         self.variable_counter += 1;
-        
+
         let variable = VariableWasm::new(data, shape, requires_grad);
         self.variables.insert(id.clone(), variable);
-        
+
         id
     }
 
@@ -145,19 +150,21 @@ impl ComputationGraphWasm {
     pub fn add_variables(&mut self, id1: &str, id2: &str) -> Option<String> {
         let var1 = self.variables.get(id1)?;
         let var2 = self.variables.get(id2)?;
-        
+
         if var1.data.len() != var2.data.len() {
             return None;
         }
 
-        let result_data: Vec<f64> = var1.data.iter()
+        let result_data: Vec<f64> = var1
+            .data
+            .iter()
             .zip(var2.data.iter())
             .map(|(a, b)| a + b)
             .collect();
 
         let requires_grad = var1.requires_grad || var2.requires_grad;
         let mut result = VariableWasm::new(result_data, var1.shape.clone(), requires_grad);
-        
+
         if requires_grad {
             result.grad_fn_type = Some("Add".to_string());
             result.grad_fn_inputs = vec![id1.to_string(), id2.to_string()];
@@ -166,7 +173,7 @@ impl ComputationGraphWasm {
         let result_id = format!("var_{}", self.variable_counter);
         self.variable_counter += 1;
         self.variables.insert(result_id.clone(), result);
-        
+
         Some(result_id)
     }
 
@@ -174,19 +181,21 @@ impl ComputationGraphWasm {
     pub fn mul_variables(&mut self, id1: &str, id2: &str) -> Option<String> {
         let var1 = self.variables.get(id1)?;
         let var2 = self.variables.get(id2)?;
-        
+
         if var1.data.len() != var2.data.len() {
             return None;
         }
 
-        let result_data: Vec<f64> = var1.data.iter()
+        let result_data: Vec<f64> = var1
+            .data
+            .iter()
             .zip(var2.data.iter())
             .map(|(a, b)| a * b)
             .collect();
 
         let requires_grad = var1.requires_grad || var2.requires_grad;
         let mut result = VariableWasm::new(result_data, var1.shape.clone(), requires_grad);
-        
+
         if requires_grad {
             result.grad_fn_type = Some("Mul".to_string());
             result.grad_fn_inputs = vec![id1.to_string(), id2.to_string()];
@@ -195,7 +204,7 @@ impl ComputationGraphWasm {
         let result_id = format!("var_{}", self.variable_counter);
         self.variable_counter += 1;
         self.variables.insert(result_id.clone(), result);
-        
+
         Some(result_id)
     }
 
@@ -247,7 +256,7 @@ impl LinearLayerWasm {
                 random * scale
             })
             .collect();
-        
+
         let bias = vec![0.0; output_size];
 
         LinearLayerWasm {
@@ -265,7 +274,7 @@ impl LinearLayerWasm {
         }
 
         let mut output = vec![0.0; self.output_size];
-        
+
         for i in 0..self.output_size {
             let mut sum = self.bias[i];
             for j in 0..self.input_size {
@@ -344,6 +353,6 @@ pub fn softmax_wasm(values: &[f64]) -> Vec<f64> {
     let max_val = values.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
     let exp_values: Vec<f64> = values.iter().map(|&x| (x - max_val).exp()).collect();
     let sum_exp: f64 = exp_values.iter().sum();
-    
+
     exp_values.iter().map(|&x| x / sum_exp).collect()
 }

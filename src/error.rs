@@ -230,6 +230,15 @@ pub enum RusTorchError {
         message: String,
     },
 
+    /// Kernel compilation error for GPU operations
+    /// GPU操作のカーネルコンパイルエラー
+    #[error("Kernel compilation error: {message}")]
+    KernelCompilation {
+        /// Kernel compilation error description
+        /// カーネルコンパイルエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]
@@ -320,6 +329,13 @@ impl RusTorchError {
         RusTorchError::MemoryAllocation {
             size,
             device: device.into(),
+        }
+    }
+
+    /// Create kernel compilation error
+    pub fn kernel_compilation(message: impl Into<String>) -> Self {
+        RusTorchError::KernelCompilation {
+            message: message.into(),
         }
     }
 

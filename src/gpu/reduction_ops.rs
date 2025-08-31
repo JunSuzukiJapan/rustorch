@@ -76,7 +76,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
             super::DeviceType::Cpu => self.cpu_reduce(input, op, dim),
 
             #[cfg(feature = "cuda")]
-            super::DeviceType::Cuda(device_id) => self.cuda_reduce(input, op, dim, device_id),
+            super::DeviceType::Cuda(device_id) => {
+                // For now, use CPU fallback until full CUDA implementation
+                self.cpu_reduce(input, op, dim)
+            }
 
             #[cfg(feature = "metal")]
             super::DeviceType::Metal(_) => self.metal_reduce(input, op, dim),
@@ -257,7 +260,12 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
 #[cfg(feature = "cuda")]
 impl<T> GpuReductionExecutor<T>
 where
-    T: Float + FromPrimitive + ScalarOperand + 'static + cudarc::driver::DeviceRepr,
+    T: Float
+        + FromPrimitive
+        + ScalarOperand
+        + 'static
+        + cudarc::driver::DeviceRepr
+        + cudarc::driver::ValidAsZeroBits,
 {
     fn cuda_reduce(
         &self,
@@ -266,7 +274,7 @@ where
         dim: Option<usize>,
         device_id: usize,
     ) -> RusTorchResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
+        use crate::gpu::memory_ops::manager::GpuMemoryManager;
 
         // Initialize CUDA device
         let _device = CudaDevice::new(device_id)
@@ -286,7 +294,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuReductionExecutor<T>
         op: ReductionOp,
         dim: Option<usize>,
     ) -> RusTorchResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
+        use crate::gpu::memory_ops::manager::GpuMemoryManager;
 
         // Get Metal device
         let _device = MetalDevice::system_default()

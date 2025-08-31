@@ -243,18 +243,20 @@ impl PerformanceBenchmark {
         b: &[f32],
         size: usize,
     ) -> RusTorchResult<f64> {
-        use crate::gpu::cuda_simple::SimpleCudaExecutor;
+        use crate::gpu::cuda_kernels::CudaKernelExecutor;
 
-        let executor = SimpleCudaExecutor::new(0)?;
+        let executor = CudaKernelExecutor::new(0)?;
 
         // Warmup
         for _ in 0..self.config.warmup_iterations {
-            let _ = executor.elementwise_add(a, b)?;
+            let mut c = vec![0.0f32; size];
+            let _ = executor.elementwise_add_f32(a, b, &mut c)?;
         }
 
         let start = Instant::now();
         for _ in 0..self.config.measurement_iterations {
-            let _ = executor.elementwise_add(a, b)?;
+            let mut c = vec![0.0f32; size];
+            let _ = executor.elementwise_add_f32(a, b, &mut c)?;
         }
         let elapsed = start.elapsed();
 

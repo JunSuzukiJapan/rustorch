@@ -1,10 +1,13 @@
 //! Enhanced statistical distributions for WebAssembly
 //! WebAssembly向け強化統計分布
 
-use wasm_bindgen::prelude::*;
+use crate::distributions::{
+    bernoulli::Bernoulli, beta::Beta, exponential::Exponential, gamma::Gamma, normal::Normal,
+    uniform::Uniform, DistributionTrait,
+};
 use crate::tensor::Tensor;
-use crate::distributions::{DistributionTrait, normal::Normal, uniform::Uniform, exponential::Exponential, gamma::Gamma, beta::Beta, bernoulli::Bernoulli};
 use num_traits::Float;
+use wasm_bindgen::prelude::*;
 
 // Enhanced distribution implementations / 強化分布実装
 
@@ -35,10 +38,12 @@ impl NormalDistributionWasm {
         let mean_tensor = Tensor::from_vec(vec![self.mean], vec![1]);
         let std_tensor = Tensor::from_vec(vec![self.std], vec![1]);
         let normal = Normal::new(mean_tensor, std_tensor, false).unwrap();
-        (0..n).map(|_| {
-            let sample_tensor = normal.sample(Some(&[1])).unwrap();
-            sample_tensor.data[0]
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let sample_tensor = normal.sample(Some(&[1])).unwrap();
+                sample_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -56,11 +61,14 @@ impl NormalDistributionWasm {
         let mean_tensor = Tensor::from_vec(vec![self.mean], vec![1]);
         let std_tensor = Tensor::from_vec(vec![self.std], vec![1]);
         let normal = Normal::new(mean_tensor, std_tensor, false).unwrap();
-        values.iter().map(|&x| {
-            let x_tensor = Tensor::from_vec(vec![x], vec![1]);
-            let log_prob_tensor = normal.log_prob(&x_tensor).unwrap();
-            log_prob_tensor.data[0]
-        }).collect()
+        values
+            .iter()
+            .map(|&x| {
+                let x_tensor = Tensor::from_vec(vec![x], vec![1]);
+                let log_prob_tensor = normal.log_prob(&x_tensor).unwrap();
+                log_prob_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -106,10 +114,12 @@ impl UniformDistributionWasm {
         let low_tensor = Tensor::from_vec(vec![self.low], vec![1]);
         let high_tensor = Tensor::from_vec(vec![self.high], vec![1]);
         let uniform = Uniform::new(low_tensor, high_tensor, false).unwrap();
-        (0..n).map(|_| {
-            let sample_tensor = uniform.sample(Some(&[1])).unwrap();
-            sample_tensor.data[0]
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let sample_tensor = uniform.sample(Some(&[1])).unwrap();
+                sample_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -158,10 +168,12 @@ impl ExponentialDistributionWasm {
     pub fn sample_array(&self, n: usize) -> Vec<f64> {
         let rate_tensor = Tensor::from_vec(vec![self.rate], vec![1]);
         let exp = Exponential::new(rate_tensor, false).unwrap();
-        (0..n).map(|_| {
-            let sample_tensor = exp.sample(Some(&[1])).unwrap();
-            sample_tensor.data[0]
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let sample_tensor = exp.sample(Some(&[1])).unwrap();
+                sample_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -211,10 +223,12 @@ impl GammaDistributionWasm {
         let shape_tensor = Tensor::from_vec(vec![self.shape], vec![1]);
         let scale_tensor = Tensor::from_vec(vec![self.scale], vec![1]);
         let gamma = Gamma::from_concentration_scale(shape_tensor, scale_tensor, false).unwrap();
-        (0..n).map(|_| {
-            let sample_tensor = gamma.sample(Some(&[1])).unwrap();
-            sample_tensor.data[0]
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let sample_tensor = gamma.sample(Some(&[1])).unwrap();
+                sample_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -265,10 +279,12 @@ impl BetaDistributionWasm {
         let alpha_tensor = Tensor::from_vec(vec![self.alpha], vec![1]);
         let beta_tensor = Tensor::from_vec(vec![self.beta], vec![1]);
         let beta = Beta::new(alpha_tensor, beta_tensor, false).unwrap();
-        (0..n).map(|_| {
-            let sample_tensor = beta.sample(Some(&[1])).unwrap();
-            sample_tensor.data[0]
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let sample_tensor = beta.sample(Some(&[1])).unwrap();
+                sample_tensor.data[0]
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -314,25 +330,41 @@ impl BernoulliDistributionWasm {
 
     #[wasm_bindgen]
     pub fn sample_array(&self, n: usize) -> Vec<u8> {
-        (0..n).map(|_| {
-            let bernoulli = Bernoulli::from_scalar_prob(self.p, false).unwrap();
-            let sample_tensor = bernoulli.sample(Some(&[1])).unwrap();
-            if sample_tensor.data[0] > 0.5 { 1u8 } else { 0u8 }
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let bernoulli = Bernoulli::from_scalar_prob(self.p, false).unwrap();
+                let sample_tensor = bernoulli.sample(Some(&[1])).unwrap();
+                if sample_tensor.data[0] > 0.5 {
+                    1u8
+                } else {
+                    0u8
+                }
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
     pub fn sample_f64(&self) -> f64 {
-        if self.sample() { 1.0 } else { 0.0 }
+        if self.sample() {
+            1.0
+        } else {
+            0.0
+        }
     }
 
     #[wasm_bindgen]
     pub fn sample_f64_array(&self, n: usize) -> Vec<f64> {
-        (0..n).map(|_| {
-            let bernoulli = Bernoulli::from_scalar_prob(self.p, false).unwrap();
-            let sample_tensor = bernoulli.sample(Some(&[1])).unwrap();
-            if sample_tensor.data[0] > 0.5 { 1.0 } else { 0.0 }
-        }).collect()
+        (0..n)
+            .map(|_| {
+                let bernoulli = Bernoulli::from_scalar_prob(self.p, false).unwrap();
+                let sample_tensor = bernoulli.sample(Some(&[1])).unwrap();
+                if sample_tensor.data[0] > 0.5 {
+                    1.0
+                } else {
+                    0.0
+                }
+            })
+            .collect()
     }
 
     #[wasm_bindgen]
@@ -379,31 +411,34 @@ pub fn quick_stats_wasm(values: &[f64]) -> Vec<f64> {
 
     let n = values.len() as f64;
     let mean = values.iter().sum::<f64>() / n;
-    
-    let variance = values.iter()
-        .map(|&x| (x - mean) * (x - mean))
-        .sum::<f64>() / (n - 1.0);
-    
+
+    let variance = values.iter().map(|&x| (x - mean) * (x - mean)).sum::<f64>() / (n - 1.0);
+
     let std_dev = variance.sqrt();
-    
+
     let skewness = if std_dev > 0.0 {
-        values.iter()
+        values
+            .iter()
             .map(|&x| {
                 let z = (x - mean) / std_dev;
                 z * z * z
             })
-            .sum::<f64>() / n
+            .sum::<f64>()
+            / n
     } else {
         0.0
     };
-    
+
     let kurtosis = if std_dev > 0.0 {
-        values.iter()
+        values
+            .iter()
             .map(|&x| {
                 let z = (x - mean) / std_dev;
                 z * z * z * z
             })
-            .sum::<f64>() / n - 3.0  // Excess kurtosis
+            .sum::<f64>()
+            / n
+            - 3.0 // Excess kurtosis
     } else {
         0.0
     };
@@ -414,11 +449,7 @@ pub fn quick_stats_wasm(values: &[f64]) -> Vec<f64> {
 // Performance testing utilities / パフォーマンステストユーティリティ
 #[wasm_bindgen]
 pub fn benchmark_special_functions_wasm(iterations: usize) -> Vec<f64> {
-    let start = web_sys::window()
-        .unwrap()
-        .performance()
-        .unwrap()
-        .now();
+    let start = web_sys::window().unwrap().performance().unwrap().now();
 
     // Benchmark gamma function
     let gamma_start = web_sys::window().unwrap().performance().unwrap().now();

@@ -119,7 +119,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                         let c_f32 = unsafe {
                             std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
                         };
-                        cuda_elementwise_add_f32(a_f32, b_f32, c_f32)
+                        crate::gpu::cuda_kernels::cuda_elementwise_add_f32(a_f32, b_f32, c_f32)
                             .map_err(|e| RusTorchError::gpu(format!("CUDA add failed: {:?}", e)))?;
                     } else {
                         return Err(RusTorchError::gpu("CUDA only supports f32 currently"));
@@ -281,9 +281,10 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                         let c_f32 = unsafe {
                             std::slice::from_raw_parts_mut(c.as_mut_ptr() as *mut f32, c.len())
                         };
-                        cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n).map_err(|e| {
-                            RusTorchError::gpu(format!("CUDA matmul failed: {:?}", e))
-                        })?;
+                        crate::gpu::cuda_kernels::cuda_matmul_f32(a_f32, b_f32, c_f32, n, n, n)
+                            .map_err(|e| {
+                                RusTorchError::gpu(format!("CUDA matmul failed: {:?}", e))
+                            })?;
                     } else {
                         return Err(RusTorchError::gpu("CUDA only supports f32 currently"));
                     }

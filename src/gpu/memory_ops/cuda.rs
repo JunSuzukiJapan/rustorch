@@ -4,7 +4,7 @@
 #[cfg(feature = "cuda")]
 use crate::error::{RusTorchError, RusTorchResult};
 #[cfg(feature = "cuda")]
-use cudarc::driver::{CudaDevice as CudarcDevice, CudaSlice};
+use cudarc::driver::{CudaDevice as CudarcDevice, CudaSlice, DeviceSlice, LaunchAsync};
 #[cfg(feature = "cuda")]
 use num_traits::Float;
 #[cfg(feature = "cuda")]
@@ -24,24 +24,22 @@ impl CudaOperations {
     /// データをCUDAデバイスに転送
     pub fn transfer_to_device<T>(data: Vec<T>, device_id: usize) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         use cudarc::driver::CudaDevice;
 
         // Initialize CUDA device
-        let device = CudaDevice::new(device_id)
+        let cuda_device = CudaDevice::new(device_id)
             .map_err(|e| RusTorchError::gpu(&format!("CUDA init failed: {}", e)))?;
 
-        let device = Arc::new(device);
-
         // Allocate device memory and copy data
-        let gpu_buffer = device
+        let gpu_buffer = cuda_device
             .htod_sync_copy(&data)
             .map_err(|e| RusTorchError::gpu(&format!("CUDA transfer failed: {}", e)))?;
 
         Ok(GpuBuffer::Cuda {
             data: Arc::new(gpu_buffer),
-            device,
+            device: cuda_device,
         })
     }
 
@@ -56,7 +54,7 @@ impl CudaOperations {
 
         // Synchronize and copy data back
         let cpu_data = device
-            .dtoh_sync_copy(cuda_slice)
+            .dtoh_sync_copy(cuda_slice.as_ref())
             .map_err(|e| RusTorchError::gpu(&format!("CUDA transfer to CPU failed: {}", e)))?;
 
         Ok(cpu_data)
@@ -72,7 +70,7 @@ impl CudaOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         // Try to use CUDA kernels for common operations
         let result = if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
@@ -95,7 +93,7 @@ impl CudaOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         let size = lhs.len();
 
@@ -105,7 +103,7 @@ impl CudaOperations {
             .map_err(|e| RusTorchError::gpu(&format!("CUDA allocation failed: {}", e)))?;
 
         // Determine operation type and use appropriate kernel
-        unsafe {
+        {
             use cudarc::driver::LaunchConfig;
 
             // Create temporary test tensors to determine operation type
@@ -188,7 +186,7 @@ impl CudaOperations {
                     .load_ptx(ptx, "elementwise", &["elementwise_add_f32"])
                     .is_ok()
                 {
-                    if let Ok(func) = device.get_func("elementwise", "elementwise_add_f32") {
+                    if let Some(func) = device.get_func("elementwise", "elementwise_add_f32") {
                         let threads_per_block = 256;
                         let blocks = size.div_ceil(threads_per_block);
 
@@ -198,7 +196,13 @@ impl CudaOperations {
                             shared_mem_bytes: 0,
                         };
 
-                        let _ = func.launch(config, (lhs, rhs, &mut result_slice, size as i32));
+                        // Use unsafe launch for kernel execution
+                        let _ = unsafe {
+                            func.launch(
+                                config,
+                                (lhs.as_ref(), rhs.as_ref(), &mut result_slice, size as i32),
+                            )
+                        };
                     }
                 }
             }
@@ -221,7 +225,7 @@ impl CudaOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         // CPU fallback implementation
         let lhs_cpu = Self::transfer_to_cpu(lhs)?;
@@ -234,7 +238,7 @@ impl CudaOperations {
             .collect();
 
         // Transfer result back to CUDA
-        let device_id = device.device_id() as usize;
+        let device_id = 0; // Use default device for now
         Self::transfer_to_device(result, device_id)
     }
 
@@ -246,14 +250,20 @@ impl CudaOperations {
         epsilon: T,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         let size = data.len();
-        let mut result_slice = device.alloc_zeros::<T>(size)?;
+        let mut result_slice = device
+            .alloc_zeros::<T>(size)
+            .map_err(|e| RusTorchError::gpu(&format!("CUDA allocation failed: {}", e)))?;
 
         // Calculate mean and variance on GPU
-        let mut mean_slice = device.alloc_zeros::<T>(1)?;
-        let mut variance_slice = device.alloc_zeros::<T>(1)?;
+        let _mean_slice = device
+            .alloc_zeros::<T>(1)
+            .map_err(|e| RusTorchError::gpu(&format!("CUDA allocation failed: {}", e)))?;
+        let _variance_slice = device
+            .alloc_zeros::<T>(1)
+            .map_err(|e| RusTorchError::gpu(&format!("CUDA allocation failed: {}", e)))?;
 
         // Use simplified CPU fallback for batch normalization
         // In a production implementation, this would use optimized CUDA kernels
@@ -300,7 +310,7 @@ impl CudaOperations {
         device: &Arc<CudarcDevice>,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: cudarc::driver::DeviceRepr + Float + 'static,
+        T: cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits + Float + 'static,
     {
         // For now, use CPU fallback for attention mechanism
         // In a production implementation, this would use optimized CUDA kernels
@@ -331,8 +341,8 @@ impl CudaOperations {
             .map(|(&w, &v)| w * v)
             .collect();
 
-        // Transfer result back to GPU
-        let device_id = device.device_id() as usize;
+        // Transfer result back to GPU using device index
+        let device_id = 0; // Use default device for now
         Self::transfer_to_device(result, device_id)
     }
 }

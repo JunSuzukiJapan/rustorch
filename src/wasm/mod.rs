@@ -58,13 +58,13 @@ pub mod quality_metrics; // Data quality assessment // Anomaly detection and mon
 
 // Enhanced WASM implementations (v0.5.3+)
 #[cfg(feature = "wasm")]
-pub mod special_enhanced; // Complete special functions with performance optimization
+pub mod autograd_simplified;
 #[cfg(feature = "wasm")]
 pub mod distributions_enhanced; // Enhanced statistical distributions with full API
 #[cfg(feature = "wasm")]
 pub mod optimizer_enhanced; // Production-ready optimizers for small-scale models
 #[cfg(feature = "wasm")]
-pub mod autograd_simplified; // Simplified autograd for single-threaded WASM environment
+pub mod special_enhanced; // Complete special functions with performance optimization // Simplified autograd for single-threaded WASM environment
 
 // WebGPU backend for Chrome browser acceleration (v0.5.3+)
 // #[cfg(feature = "webgpu")]
