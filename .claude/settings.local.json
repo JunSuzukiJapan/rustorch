@@ -39,7 +39,9 @@
       "Bash(python3:*)",
       "mcp__playwright__browser_navigate",
       "mcp__playwright__browser_click",
-      "mcp__playwright__browser_close"
+      "mcp__playwright__browser_close",
+      "Bash(timeout 30 cargo test --lib)",
+      "Bash(RUST_TEST_THREADS=1 timeout 60 cargo test --lib)"
     ],
     "deny": [],
     "ask": [],

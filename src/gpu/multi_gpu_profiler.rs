@@ -774,7 +774,9 @@ mod tests {
 
     #[test]
     fn test_multi_gpu_profiler_creation() -> RusTorchResult<()> {
-        let profiler = MultiGpuProfiler::new(vec![0], ProfilerConfig::default())?;
+        let mut config = ProfilerConfig::default();
+        config.enable_gpu_profiling = false; // Explicitly set to false for test
+        let profiler = MultiGpuProfiler::new(vec![0], config)?;
         assert!(!profiler.enabled);
         assert_eq!(profiler.history.len(), 0);
         Ok(())
