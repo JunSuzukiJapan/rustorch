@@ -10,7 +10,6 @@ use rustorch::gpu::multi_gpu::{ParallelismStrategy, GradientCompression};
 use rustorch::gpu::multi_gpu_profiler::MultiGpuProfiler;
 use rustorch::profiler::ProfilerConfig;
 use rustorch::profiler::{RusTorchProfiler, ProfileContext, enable_profiler, disable_profiler, clear_profiler};
-use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -87,21 +86,21 @@ fn test_multi_gpu_profiler_standalone() -> RusTorchResult<()> {
     let profiler = MultiGpuProfiler::new(vec![0, 1], config)?;
     
     // Record some mock training steps
-    profiler.record_training_step(
+    let _ = profiler.record_training_step(
         Duration::from_millis(50),  // forward
         Duration::from_millis(30),  // backward
         Duration::from_millis(10),  // update
         Duration::from_millis(20),  // sync
         100.0                       // throughput
     );
-    profiler.record_training_step(
+    let _ = profiler.record_training_step(
         Duration::from_millis(55),  // forward
         Duration::from_millis(35),  // backward
         Duration::from_millis(12),  // update
         Duration::from_millis(25),  // sync
         110.0                       // throughput
     );
-    profiler.record_training_step(
+    let _ = profiler.record_training_step(
         Duration::from_millis(45),  // forward
         Duration::from_millis(28),  // backward
         Duration::from_millis(8),   // update
@@ -253,7 +252,7 @@ fn test_automated_performance_testing() -> RusTorchResult<()> {
         export_json: true,
     };
     
-    let mut profiler = RusTorchProfiler::new(config);
+    let profiler = RusTorchProfiler::new(config);
     
     // Simulate automated test workflow
     let test_operations = vec![

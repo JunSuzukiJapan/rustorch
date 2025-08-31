@@ -62,11 +62,9 @@ fn test_stream_manager_basic() -> RusTorchResult<()> {
     
     // Test stream creation
     let stream_id = manager.create_stream(0, StreamPriority::Normal)?;
-    assert!(stream_id >= 0);
     
     // Test event creation
     let event_id = manager.create_event(0)?;
-    assert!(event_id >= 0);
     
     // Test event recording
     manager.record_event(stream_id, event_id)?;

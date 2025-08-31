@@ -1,7 +1,6 @@
 //! Comprehensive Data Validation & Quality Assurance Tests
 //! データ検証・品質保証包括的テスト
 
-use rustorch::error::RusTorchResult;
 use std::time::Duration;
 
 // Basic validation framework tests
@@ -91,10 +90,8 @@ mod basic_validation_tests {
         // Simulate streaming validation results
         for i in 1..=10 {
             let validation_result = ValidationResult {
-                id: i,
                 quality_score: 0.8 + (i as f64 * 0.02),
                 is_valid: true,
-                processing_time_ms: i * 10,
             };
 
             // Add to buffer
@@ -213,10 +210,8 @@ mod basic_validation_tests {
 
     #[derive(Debug, Clone)]
     struct ValidationResult {
-        id: usize,
         quality_score: f64,
         is_valid: bool,
-        processing_time_ms: usize,
     }
 
     #[derive(Debug)]
@@ -280,7 +275,6 @@ mod basic_validation_tests {
 #[cfg(test)]
 mod advanced_validation_tests {
     use super::*;
-    use std::collections::VecDeque;
 
     /// Test advanced quality metrics calculation
     #[test]
@@ -436,8 +430,6 @@ mod advanced_validation_tests {
     struct CycleResult {
         success: bool,
         quality_score: f64,
-        validations_in_cycle: usize,
-        anomalies_found: usize,
     }
 
     struct FrameworkStatistics {
@@ -445,7 +437,6 @@ mod advanced_validation_tests {
         total_validations: usize,
         average_quality: f64,
         anomalies_detected: usize,
-        consistency_violations: usize,
     }
 
     impl ValidationFrameworkSimulator {
@@ -462,7 +453,7 @@ mod advanced_validation_tests {
         fn run_validation_cycle(&mut self, cycle: usize) -> CycleResult {
             let validations_in_cycle = 50 + (cycle * 10);
             let mut cycle_quality_scores = Vec::new();
-            let mut cycle_anomalies = 0;
+            let mut _cycle_anomalies = 0;
 
             for _ in 0..validations_in_cycle {
                 // Simulate validation with slight quality degradation over cycles
@@ -476,7 +467,7 @@ mod advanced_validation_tests {
 
                 // Simulate occasional anomalies
                 if rand::random::<f64>() < 0.02 {
-                    cycle_anomalies += 1;
+                    _cycle_anomalies += 1;
                     self.anomalies_detected += 1;
                 }
 
@@ -493,8 +484,6 @@ mod advanced_validation_tests {
             CycleResult {
                 success: cycle_avg_quality > 0.7,
                 quality_score: cycle_avg_quality,
-                validations_in_cycle,
-                anomalies_found: cycle_anomalies,
             }
         }
 
@@ -510,7 +499,6 @@ mod advanced_validation_tests {
                 total_validations: self.total_validations,
                 average_quality,
                 anomalies_detected: self.anomalies_detected,
-                consistency_violations: self.consistency_violations,
             }
         }
     }

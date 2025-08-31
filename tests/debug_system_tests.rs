@@ -59,12 +59,10 @@ mod debug_system_tests {
         let log_levels = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
         let mut log_entries = Vec::new();
 
-        for (i, &level) in log_levels.iter().enumerate() {
+        for (_i, &level) in log_levels.iter().enumerate() {
             let entry = LogEntry {
                 level: level.to_string(),
-                message: format!("Test message {}", i),
                 metadata: create_test_metadata(level),
-                timestamp: std::time::SystemTime::now(),
             };
             log_entries.push(entry);
         }
@@ -112,7 +110,6 @@ mod debug_system_tests {
             operation_times.push(ProfileEntry {
                 operation_name: op_name.to_string(),
                 duration_ms: elapsed.as_millis() as f64,
-                timestamp: std::time::SystemTime::now(),
             });
         }
 
@@ -260,9 +257,6 @@ mod debug_system_tests {
                 .map(|n| n.get())
                 .unwrap_or(1),
             available_memory_mb: estimate_memory_mb(),
-            rust_version: "1.70.0".to_string(), // Simulated
-            debug_build: cfg!(debug_assertions),
-            environment_vars: collect_relevant_env_vars(),
         };
 
         // Test system info validation
@@ -275,7 +269,6 @@ mod debug_system_tests {
         let mut diagnostic_context = DiagnosticContext {
             operation_name: "tensor_multiply".to_string(),
             parameters: HashMap::new(),
-            system_info: system_info.clone(),
             error_context: None,
         };
 
@@ -355,16 +348,13 @@ mod debug_system_tests {
     #[derive(Debug, Clone)]
     struct LogEntry {
         level: String,
-        message: String,
         metadata: HashMap<String, String>,
-        timestamp: std::time::SystemTime,
     }
 
     #[derive(Debug, Clone)]
     struct ProfileEntry {
         operation_name: String,
         duration_ms: f64,
-        timestamp: std::time::SystemTime,
     }
 
     #[derive(Debug, Clone)]
@@ -373,16 +363,12 @@ mod debug_system_tests {
         architecture: String,
         cpu_count: usize,
         available_memory_mb: usize,
-        rust_version: String,
-        debug_build: bool,
-        environment_vars: HashMap<String, String>,
     }
 
     #[derive(Debug)]
     struct DiagnosticContext {
         operation_name: String,
         parameters: HashMap<String, String>,
-        system_info: SystemInfo,
         error_context: Option<String>,
     }
 
@@ -471,6 +457,7 @@ mod debug_system_tests {
         }
     }
 
+    #[allow(dead_code)]
     fn collect_relevant_env_vars() -> HashMap<String, String> {
         let mut env_vars = HashMap::new();
 

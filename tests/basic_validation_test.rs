@@ -87,10 +87,8 @@ mod basic_validation_tests {
         // Simulate streaming validation results
         for i in 1..=10 {
             let validation_result = ValidationResult {
-                id: i,
                 quality_score: 0.8 + (i as f64 * 0.02),
                 is_valid: true,
-                processing_time_ms: i * 10,
             };
 
             // Add to buffer
@@ -270,10 +268,8 @@ mod basic_validation_tests {
 
     #[derive(Debug, Clone)]
     struct ValidationResult {
-        id: usize,
         quality_score: f64,
         is_valid: bool,
-        processing_time_ms: usize,
     }
 
     #[derive(Debug)]

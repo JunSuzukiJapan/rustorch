@@ -1,7 +1,7 @@
 //! Comprehensive tests for dynamic execution engine
 //! 動的実行エンジンの包括的テスト
 
-use rustorch::execution::{RuntimeEngine, RuntimeConfig, DynamicOp, GraphBuilder};
+use rustorch::execution::{RuntimeEngine, RuntimeConfig, DynamicOp};
 use rustorch::tensor::Tensor;
 use std::time::Duration;
 
@@ -180,8 +180,8 @@ fn test_parallel_execution() {
     let output = result.unwrap();
     assert_eq!(output.shape(), &[8, 8]);
 
-    let metrics = engine.get_metrics();
-    assert!(metrics.parallel_stats.parallel_opportunities >= 0);
+    let _metrics = engine.get_metrics();
+    // Parallel opportunities is always non-negative by type definition
 }
 
 #[test]
@@ -488,9 +488,9 @@ fn test_execution_plan_optimization() {
 
     assert!(result.is_ok());
     
-    let metrics = engine.get_metrics();
+    let _metrics = engine.get_metrics();
     if engine.config.enable_parallel {
-        assert!(metrics.parallel_stats.parallel_opportunities >= 0);
+        // Parallel opportunities is always non-negative by type definition
     }
 }
 
