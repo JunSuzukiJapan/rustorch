@@ -119,16 +119,8 @@ impl ProcessGroup {
     }
 
     fn init_mpi(&self) -> crate::error::RusTorchResult<()> {
-        // MPI initialization implementation
-        // MPI初期化実装
-        #[cfg(feature = "mpi")]
-        {
-            Ok(())
-        }
-        #[cfg(not(feature = "mpi"))]
-        {
-            Err(crate::error::RusTorchError::distributed("MPI not compiled"))
-        }
+        // MPI not supported - use TCP or NCCL instead
+        Err(crate::error::RusTorchError::distributed("MPI not supported - use TCP or NCCL"))
     }
 
     fn init_tcp(&self) -> crate::error::RusTorchResult<()> {

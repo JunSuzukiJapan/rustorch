@@ -115,7 +115,6 @@ objc = { version = "0.2", optional = true }
 opencl3 = { version = "0.9", optional = true }
 
 # Distributed computing dependencies
-mpi = { version = "0.6", optional = true }
 nccl = { version = "0.6", optional = true }
 
 # BLAS dependencies - High Performance Linear Algebra
@@ -154,7 +153,6 @@ wasm-safe = []
 cuda = ["dep:cudarc", "dep:bytemuck"]
 opencl = ["dep:opencl3"]
 metal = ["dep:metal", "dep:objc"]
-mpi = ["dep:mpi"]
 nccl = ["dep:nccl"]
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 webgpu = ["wasm", "dep:wgpu", "dep:wgpu-hal", "dep:wgpu-core", "dep:wgpu-types", "dep:bytemuck"]
