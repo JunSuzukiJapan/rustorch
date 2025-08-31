@@ -69,7 +69,6 @@ impl<
         R: Send + 'static,
     {
         let batches: Vec<_> = self.iter().collect();
-
         batches.into_par_iter().map(processor).collect()
     }
 
