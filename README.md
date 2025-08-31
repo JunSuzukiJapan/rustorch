@@ -214,17 +214,6 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 
 For detailed performance analysis, see [Performance Documentation](docs/performance.md).
 
-## ⚠️ 後方互換性について (Backward Compatibility)
-
-**v0.5.0での重要な変更 / Important Changes in v0.5.0:**
-
-この版では、メソッド統合リファクタリングにより、従来の`_v2`バージョンと古いバージョンのメソッドが統一されました。以下の点にご注意ください：
-
-- **メソッド名の変更**: `_v2`接尾辞が削除され、最適化版が標準になりました
-- **統一されたAPI**: 旧バージョンと`_v2`バージョンが単一の最適化版に統合されました  
-- **移行の必要性**: 旧APIを使用している場合は、新しいメソッド名への移行が必要です
-
-詳細な移行ガイドについては、[CHANGELOG.md](CHANGELOG.md)のv0.5.0セクションをご参照ください。
 
 ## 🧪 Testing
 
