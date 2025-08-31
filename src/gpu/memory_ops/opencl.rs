@@ -10,9 +10,11 @@ use std::sync::Arc;
 
 #[cfg(feature = "opencl")]
 use opencl3::{
-    command_queue::CommandQueue as CLCommandQueue,
+    command_queue::{CommandQueue as CLCommandQueue, CL_NON_BLOCKING, CL_QUEUE_PROFILING_ENABLE},
     context::Context as CLContext,
-    memory::{Buffer as CLBuffer, CL_MEM_READ_WRITE},
+    device::{get_all_devices, Device, CL_DEVICE_TYPE_GPU},
+    memory::{Buffer as CLBuffer, ClMem, CL_MEM_READ_WRITE},
+    platform::get_platforms,
 };
 
 #[cfg(feature = "opencl")]
@@ -29,39 +31,49 @@ impl OpenCLOperations {
     /// データをOpenCLデバイスに転送
     pub fn transfer_to_device<T>(data: Vec<T>, _device_id: usize) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
-        use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
-        use opencl3::context::Context;
-        use opencl3::device::{get_all_devices, CL_DEVICE_TYPE_GPU};
-
         // Get OpenCL device
-        let device_id = get_all_devices(CL_DEVICE_TYPE_GPU)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL device error: {}", e)))?
-            .into_iter()
-            .next()
-            .ok_or_else(|| RusTorchError::gpu("No OpenCL GPU device found"))?;
+        let platforms = get_platforms()
+            .map_err(|e| RusTorchError::gpu(&format!("OpenCL platforms error: {}", e)))?;
+
+        let mut device = None;
+        for platform in platforms {
+            if let Ok(device_ids) = platform.get_devices(CL_DEVICE_TYPE_GPU) {
+                if !device_ids.is_empty() {
+                    device = Some(Device::new(device_ids[0]));
+                    break;
+                }
+            }
+        }
+
+        let device = device.ok_or_else(|| RusTorchError::gpu("No OpenCL GPU device found"))?;
 
         // Create context and command queue
-        let context = Context::from_device(&device_id)
+        let context = CLContext::from_device(&device)
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL context error: {}", e)))?;
 
         let context = Arc::new(context);
-        let queue = CommandQueue::create_default(&context, CL_QUEUE_PROFILING_ENABLE)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
+        let queue =
+            CLCommandQueue::create_default_with_properties(&context, CL_QUEUE_PROFILING_ENABLE, 0)
+                .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
 
         // Create buffer and copy data
-        let mut buffer = CLBuffer::<T>::create(
-            &context,
-            CL_MEM_READ_WRITE,
-            data.len(),
-            std::ptr::null_mut(),
-        )
+        let mut buffer = unsafe {
+            CLBuffer::<T>::create(
+                &context,
+                CL_MEM_READ_WRITE,
+                data.len(),
+                std::ptr::null_mut(),
+            )
+        }
         .map_err(|e| RusTorchError::gpu(&format!("OpenCL buffer creation failed: {}", e)))?;
 
-        queue
-            .enqueue_write_buffer(&mut buffer, true, 0, &data, &[])
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL write failed: {}", e)))?;
+        unsafe {
+            queue
+                .enqueue_write_buffer(&mut buffer, CL_NON_BLOCKING, 0, &data, &[])
+                .map_err(|e| RusTorchError::gpu(&format!("OpenCL write failed: {}", e)))?;
+        }
 
         Ok(GpuBuffer::OpenCL {
             buffer: Arc::new(buffer),
@@ -76,19 +88,21 @@ impl OpenCLOperations {
         context: &Arc<CLContext>,
     ) -> RusTorchResult<Vec<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
-        use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
+        // Create command queue from context
+        let queue =
+            CLCommandQueue::create_default_with_properties(context, CL_QUEUE_PROFILING_ENABLE, 0)
+                .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
 
-        let queue = CommandQueue::create_default(context, CL_QUEUE_PROFILING_ENABLE)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
-
-        let size = cl_buffer.size() / std::mem::size_of::<T>();
+        let size = cl_buffer.size().unwrap_or(0) / std::mem::size_of::<T>();
         let mut cpu_data = vec![T::zero(); size];
 
-        queue
-            .enqueue_read_buffer(cl_buffer, true, 0, &mut cpu_data, &[])
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL read failed: {}", e)))?;
+        unsafe {
+            queue
+                .enqueue_read_buffer(cl_buffer, CL_NON_BLOCKING, 0, &mut cpu_data, &[])
+                .map_err(|e| RusTorchError::gpu(&format!("OpenCL read failed: {}", e)))?;
+        }
 
         Ok(cpu_data)
     }
@@ -103,14 +117,14 @@ impl OpenCLOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
         use opencl3::kernel::{ExecuteKernel, Kernel};
         use opencl3::memory::{Buffer as CLBuffer, CL_MEM_READ_WRITE};
         use opencl3::program::Program;
 
-        let size = lhs.size() / std::mem::size_of::<T>();
+        let size = lhs.size().unwrap_or(0) / std::mem::size_of::<T>();
 
         // Create test values to determine operation type
         let test_a = T::from(2.0).unwrap();
@@ -146,7 +160,7 @@ impl OpenCLOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         let lhs_cpu = Self::transfer_to_cpu(lhs, context)?;
         let rhs_cpu = Self::transfer_to_cpu(rhs, context)?;
@@ -169,9 +183,9 @@ impl OpenCLOperations {
         epsilon: T,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
-        let size = buffer.size() / std::mem::size_of::<T>();
+        let size = buffer.size().unwrap_or(0) / std::mem::size_of::<T>();
 
         // For now, use CPU fallback for batch normalization
         // In a production implementation, this would use OpenCL kernels
@@ -211,7 +225,7 @@ impl OpenCLOperations {
         context: &Arc<CLContext>,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         // For now, fall back to CPU implementation
         // TODO: Implement actual OpenCL kernel for attention

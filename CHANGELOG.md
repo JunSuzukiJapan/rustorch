@@ -5,6 +5,27 @@ All notable changes to RusTorch will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] - 2025-08-31
+
+### 🏁 Comprehensive Benchmark Suite & API Standardization / 包括的ベンチマークスイート・API標準化
+
+#### Performance Benchmarking / パフォーマンスベンチマーク
+- **Complete Benchmark Suite**: 25個のベンチマーク実行完了
+  - テンソル作成: 9.2μs (100要素)
+  - GPU行列乗算: 56ms (大行列、Metal対応)
+  - SIMD演算: 1.0μs-11.5μs (128-2048要素)
+  - SVD分解: 424μs-255ms (4x4-64x64行列)
+  - 正規分布サンプリング: 1.77μs (100サンプル)
+  - FFT: 1.0μs-61.9μs (4-128点)
+- **Matrix Decomposition API**: svd(), qr(), eigh()メソッドに統一
+- **OpenCL Compatibility**: ClMem trait問題解決、Float + Clone trait使用
+
+#### Code Quality Improvements / コード品質改善
+- **Zero Warnings**: すべてのコンパイル警告を除去
+- **Test Success Rate**: 1094テスト 100%成功
+- **Dynamic Execution**: Conv2d操作サポート追加
+- **JIT Compilation**: メトリクス追跡とメモリ統計強化
+
 ## [0.5.2] - 2025-08-30
 
 ### 🎯 Phase 1 Completion: Enterprise-Grade Systems / フェーズ1完了: エンタープライズグレードシステム

@@ -6,13 +6,16 @@ use num_traits::Float;
 use std::sync::Arc;
 
 #[cfg(feature = "cuda")]
-use cudarc::driver::{CudaDevice as CudarcDevice, CudaSlice};
+use cudarc::driver::{CudaDevice as CudarcDevice, CudaSlice, DeviceSlice};
 
 #[cfg(feature = "metal")]
 use metal::{Buffer, Device as MetalDeviceType};
 
 #[cfg(feature = "opencl")]
-use opencl3::{context::Context as CLContext, memory::Buffer as CLBuffer};
+use opencl3::{
+    context::Context as CLContext,
+    memory::{Buffer as CLBuffer, ClMem},
+};
 
 /// GPU memory buffer abstraction
 /// GPUメモリバッファの抽象化
@@ -92,11 +95,13 @@ impl<T> GpuBuffer<T> {
         match self {
             GpuBuffer::Cpu(data) => data.len(),
             #[cfg(feature = "cuda")]
-            GpuBuffer::Cuda { data, .. } => data.len(),
+            GpuBuffer::Cuda { data, .. } => data.num_bytes() / std::mem::size_of::<T>(),
             #[cfg(feature = "metal")]
             GpuBuffer::Metal { buffer, .. } => buffer.length() as usize / std::mem::size_of::<T>(),
             #[cfg(feature = "opencl")]
-            GpuBuffer::OpenCL { buffer, .. } => buffer.size() / std::mem::size_of::<T>(),
+            GpuBuffer::OpenCL { buffer, .. } => {
+                buffer.size().unwrap_or(0) / std::mem::size_of::<T>()
+            }
         }
     }
 
@@ -139,8 +144,8 @@ impl<T: std::fmt::Debug> std::fmt::Debug for GpuBuffer<T> {
             #[cfg(feature = "cuda")]
             GpuBuffer::Cuda { data, device } => f
                 .debug_struct("GpuBuffer::Cuda")
-                .field("len", &data.len())
-                .field("device_id", &device.device_id())
+                .field("len", &(data.num_bytes() / std::mem::size_of::<T>()))
+                .field("device", &"CUDA")
                 .finish(),
             #[cfg(feature = "metal")]
             GpuBuffer::Metal { buffer, .. } => f
@@ -153,7 +158,10 @@ impl<T: std::fmt::Debug> std::fmt::Debug for GpuBuffer<T> {
             #[cfg(feature = "opencl")]
             GpuBuffer::OpenCL { buffer, .. } => f
                 .debug_struct("GpuBuffer::OpenCL")
-                .field("len", &(buffer.size() / std::mem::size_of::<T>()))
+                .field(
+                    "len",
+                    &(buffer.size().unwrap_or(0) / std::mem::size_of::<T>()),
+                )
                 .finish(),
         }
     }

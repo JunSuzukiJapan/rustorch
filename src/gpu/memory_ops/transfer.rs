@@ -10,6 +10,95 @@ use std::sync::Arc;
 use super::buffer::GpuBuffer;
 use super::manager::GpuMemoryManager;
 
+#[cfg(feature = "cuda")]
+impl<T: Float + 'static + cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZeroBits>
+    GpuMemoryManager<T>
+{
+    /// Transfer tensor from CPU to GPU
+    /// テンソルをCPUからGPUに転送
+    pub fn to_device(
+        tensor: &Tensor<T>,
+        device: &crate::gpu::DeviceType,
+    ) -> RusTorchResult<GpuBuffer<T>> {
+        // Get tensor data as contiguous slice
+        let data = if let Some(slice) = tensor.data.as_slice() {
+            slice.to_vec()
+        } else {
+            // Handle non-contiguous tensor
+            tensor.data.iter().cloned().collect()
+        };
+
+        match device {
+            crate::gpu::DeviceType::Cpu => Ok(GpuBuffer::Cpu(Arc::new(data))),
+
+            #[cfg(feature = "cuda")]
+            crate::gpu::DeviceType::Cuda(device_id) => {
+                use super::cuda::CudaOperations;
+                CudaOperations::transfer_to_device(data, *device_id)
+            }
+
+            #[cfg(feature = "metal")]
+            crate::gpu::DeviceType::Metal(_device_id) => {
+                use super::metal::MetalOperations;
+                MetalOperations::transfer_to_device(data)
+            }
+
+            #[cfg(feature = "opencl")]
+            crate::gpu::DeviceType::OpenCL(device_id) => {
+                use super::opencl::OpenCLOperations;
+                OpenCLOperations::transfer_to_device(data, *device_id)
+            }
+
+            #[allow(unreachable_patterns)]
+            _ => Err(RusTorchError::gpu("Unsupported device type")),
+        }
+    }
+
+    /// Transfer GPU buffer back to CPU tensor
+    /// GPUバッファをCPUテンソルに転送
+    pub fn to_cpu(buffer: &GpuBuffer<T>, shape: &[usize]) -> RusTorchResult<Tensor<T>> {
+        let data = match buffer {
+            GpuBuffer::Cpu(data) => (**data).clone(),
+
+            #[cfg(feature = "cuda")]
+            GpuBuffer::Cuda { data, device: _ } => {
+                use super::cuda::CudaOperations;
+                CudaOperations::transfer_to_cpu(data)?
+            }
+
+            #[cfg(feature = "metal")]
+            GpuBuffer::Metal { buffer, device: _ } => {
+                use super::metal::MetalOperations;
+                MetalOperations::transfer_to_cpu(buffer, shape)?
+            }
+
+            #[cfg(feature = "opencl")]
+            GpuBuffer::OpenCL { buffer, context } => {
+                use super::opencl::OpenCLOperations;
+                OpenCLOperations::transfer_to_cpu(buffer, context)?
+            }
+        };
+
+        // Validate shape matches data length
+        let expected_len: usize = shape.iter().product();
+        if data.len() != expected_len {
+            return Err(RusTorchError::gpu(format!(
+                "Shape mismatch: expected {} elements for shape {:?}, but got {}",
+                expected_len,
+                shape,
+                data.len()
+            )));
+        }
+
+        // Convert Vec to ArrayD
+        let array = ArrayD::from_shape_vec(IxDyn(shape), data)
+            .map_err(|e| RusTorchError::gpu(format!("Failed to create array: {}", e)))?;
+
+        Ok(Tensor::from_ndarray(array))
+    }
+}
+
+#[cfg(all(not(feature = "cuda"), feature = "opencl"))]
 impl<T: Float + 'static> GpuMemoryManager<T> {
     /// Transfer tensor from CPU to GPU
     /// テンソルをCPUからGPUに転送
@@ -92,6 +181,49 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
             .map_err(|e| RusTorchError::gpu(format!("Failed to create array: {}", e)))?;
 
         Ok(Tensor::from_ndarray(array))
+    }
+}
+
+#[cfg(all(not(feature = "cuda"), not(feature = "opencl")))]
+impl<T: Float + 'static> GpuMemoryManager<T> {
+    /// Transfer tensor from CPU to GPU (fallback implementation)
+    pub fn to_device(
+        tensor: &Tensor<T>,
+        device: &crate::gpu::DeviceType,
+    ) -> RusTorchResult<GpuBuffer<T>> {
+        match device {
+            crate::gpu::DeviceType::Cpu => {
+                let data = tensor.data.as_slice().unwrap_or(&[]).to_vec();
+                Ok(GpuBuffer::Cpu(Arc::new(data)))
+            }
+            _ => Err(RusTorchError::UnsupportedDevice(
+                "No GPU backends available".to_string(),
+            )),
+        }
+    }
+
+    /// Transfer data from GPU to CPU (fallback implementation)
+    pub fn to_cpu(buffer: &GpuBuffer<T>, shape: &[usize]) -> RusTorchResult<Tensor<T>> {
+        match buffer {
+            GpuBuffer::Cpu(data) => {
+                let expected_len = shape.iter().product::<usize>();
+                if data.len() != expected_len {
+                    return Err(RusTorchError::shape_mismatch(
+                        &[data.len()],
+                        &[expected_len],
+                    ));
+                }
+
+                let array = ArrayD::from_shape_vec(IxDyn(shape), data.as_ref().clone())
+                    .map_err(|e| RusTorchError::gpu(format!("Failed to create array: {}", e)))?;
+
+                Ok(Tensor::from_ndarray(array))
+            }
+            #[allow(unreachable_patterns)]
+            _ => Err(RusTorchError::UnsupportedDevice(
+                "No GPU backends available".to_string(),
+            )),
+        }
     }
 }
 

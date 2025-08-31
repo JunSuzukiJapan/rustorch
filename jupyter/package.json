@@ -1,0 +1,51 @@
+{
+  "name": "rustorch-jupyter",
+  "version": "0.5.3",
+  "description": "Jupyter Lab integration for RusTorch WASM - Interactive machine learning in browser environments",
+  "main": "rustorch_jupyter.js",
+  "type": "module",
+  "keywords": [
+    "rustorch",
+    "jupyter",
+    "wasm",
+    "webgpu",
+    "machine-learning",
+    "tensor",
+    "deep-learning",
+    "notebook"
+  ],
+  "author": "Jun Suzuki <jun.suzuki.japan@gmail.com>",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JunSuzukiJapan/rustorch",
+    "directory": "jupyter"
+  },
+  "homepage": "https://github.com/JunSuzukiJapan/rustorch/tree/main/jupyter",
+  "files": [
+    "rustorch_jupyter.js",
+    "README.md",
+    "examples/*.ipynb"
+  ],
+  "scripts": {
+    "build": "cd .. && wasm-pack build --target web --features wasm,webgpu",
+    "copy-wasm": "cp ../pkg/rustorch.js . && cp ../pkg/rustorch_bg.wasm . && cp ../pkg/rustorch.d.ts .",
+    "prepare": "npm run build && npm run copy-wasm",
+    "test": "echo \"Open examples/*.ipynb in Jupyter Lab for interactive testing\"",
+    "clean": "rm -f rustorch.js rustorch_bg.wasm rustorch.d.ts"
+  },
+  "dependencies": {},
+  "peerDependencies": {
+    "@jupyterlab/application": ">=3.0.0",
+    "@jupyterlab/notebook": ">=3.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "browserslist": [
+    "Chrome >= 69",
+    "Firefox >= 52", 
+    "Safari >= 11",
+    "Edge >= 79"
+  ]
+}

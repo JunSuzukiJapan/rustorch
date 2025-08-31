@@ -115,10 +115,8 @@ fn collect_system_info() -> SystemInfo {
 
     #[cfg(feature = "metal")]
     gpu_available.push("Metal".to_string());
-
     #[cfg(feature = "cuda")]
     gpu_available.push("CUDA".to_string());
-
     #[cfg(feature = "opencl")]
     gpu_available.push("OpenCL".to_string());
 
@@ -218,7 +216,7 @@ fn benchmark_cpu_openblas(size: usize) -> Result<BenchmarkResult, Box<dyn std::e
 #[cfg(feature = "metal")]
 fn benchmark_metal(size: usize) -> BenchmarkResult {
     match MetalKernelExecutor::new() {
-        Ok(mut executor) => {
+        Ok(executor) => {
             let m = size;
             let n = size;
             let k = size;
@@ -376,7 +374,7 @@ fn benchmark_cuda(_size: usize) -> BenchmarkResult {
 #[cfg(feature = "opencl")]
 fn benchmark_opencl(size: usize) -> BenchmarkResult {
     match OpenClMatrixExecutor::new() {
-        Ok(mut executor) => {
+        Ok(executor) => {
             let m = size;
             let n = size;
             let k = size;

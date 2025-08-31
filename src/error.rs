@@ -230,6 +230,15 @@ pub enum RusTorchError {
         message: String,
     },
 
+    /// Kernel compilation error for GPU operations
+    /// GPU操作のカーネルコンパイルエラー
+    #[error("Kernel compilation error: {message}")]
+    KernelCompilation {
+        /// Kernel compilation error description
+        /// カーネルコンパイルエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]
@@ -320,6 +329,13 @@ impl RusTorchError {
         RusTorchError::MemoryAllocation {
             size,
             device: device.into(),
+        }
+    }
+
+    /// Create kernel compilation error
+    pub fn kernel_compilation(message: impl Into<String>) -> Self {
+        RusTorchError::KernelCompilation {
+            message: message.into(),
         }
     }
 
@@ -727,6 +743,26 @@ impl RusTorchError {
     /// Create invalid rank error
     pub fn InvalidRank(message: impl Into<String>) -> Self {
         RusTorchError::distributed(format!("Invalid rank: {}", message.into()))
+    }
+
+    /// Create deserialization error
+    pub fn DeserializationError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Deserialization error: {}", message.into()))
+    }
+
+    /// Create download error
+    pub fn DownloadError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Download error: {}", message.into()))
+    }
+
+    /// Create model not found error
+    pub fn ModelNotFound(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Model not found: {}", message.into()))
+    }
+
+    /// Create verification error
+    pub fn VerificationError(message: impl Into<String>) -> Self {
+        RusTorchError::model_io(format!("Verification error: {}", message.into()))
     }
 }
 

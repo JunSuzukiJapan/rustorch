@@ -200,7 +200,7 @@ pub trait GpuParallelOp<T: Float + Send + Sync + Clone + 'static>: ParallelOp<T>
     /// Parallel element-wise operations on GPU
     fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
-        F: Fn(T, T) -> T + Send + Sync + Clone;
+        F: Fn(T, T) -> T + Send + Sync + Clone + 'static;
 
     /// GPU上での並列行列乗算
     /// Parallel matrix multiplication on GPU
@@ -337,6 +337,7 @@ impl GpuParallelContext {
 
 /// GPU統合並列テンソル操作の実装
 /// Implementation of GPU-integrated parallel tensor operations
+#[cfg(feature = "cuda")]
 impl<T> GpuParallelOp<T> for Tensor<T>
 where
     T: Float
@@ -346,11 +347,13 @@ where
         + 'static
         + std::fmt::Debug
         + num_traits::FromPrimitive
-        + ndarray::ScalarOperand,
+        + ndarray::ScalarOperand
+        + cudarc::driver::DeviceRepr
+        + cudarc::driver::ValidAsZeroBits,
 {
     fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
     where
-        F: Fn(T, T) -> T + Send + Sync + Clone,
+        F: Fn(T, T) -> T + Send + Sync + Clone + 'static,
     {
         // 形状チェック
         if self.shape() != other.shape() {
@@ -439,7 +442,7 @@ where
     }
 
     fn to_device(&self, device: DeviceType) -> ParallelResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
+        use crate::gpu::memory_ops::manager::GpuMemoryManager;
 
         match device {
             DeviceType::Cpu => {
@@ -486,6 +489,7 @@ pub trait GpuBatchParallelOp<T: Float + Send + Sync + Clone + 'static>: GpuParal
     fn gpu_batch_attention(&self, key: &Tensor<T>, value: &Tensor<T>) -> ParallelResult<Tensor<T>>;
 }
 
+#[cfg(feature = "cuda")]
 impl<T> GpuBatchParallelOp<T> for Tensor<T>
 where
     T: Float
@@ -495,7 +499,9 @@ where
         + 'static
         + std::fmt::Debug
         + num_traits::FromPrimitive
-        + ndarray::ScalarOperand,
+        + ndarray::ScalarOperand
+        + cudarc::driver::DeviceRepr
+        + cudarc::driver::ValidAsZeroBits,
 {
     fn gpu_batch_normalize(&self, epsilon: T) -> ParallelResult<Tensor<T>> {
         let ctx = GpuParallelContext::default();
@@ -565,8 +571,8 @@ where
     }
 }
 
-// Helper function for GPU element-wise operations
-impl<T> Tensor<T>
+#[cfg(not(feature = "cuda"))]
+impl<T> GpuParallelOp<T> for Tensor<T>
 where
     T: Float
         + Send
@@ -577,6 +583,95 @@ where
         + num_traits::FromPrimitive
         + ndarray::ScalarOperand,
 {
+    fn gpu_elementwise_op<F>(&self, other: &Tensor<T>, op: F) -> ParallelResult<Tensor<T>>
+    where
+        F: Fn(T, T) -> T + Send + Sync + Clone + 'static,
+    {
+        // Without CUDA, fall back to CPU
+        self.batch_elementwise_op(other, op)
+    }
+
+    fn gpu_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, fall back to CPU
+        self.matmul(other).map_err(|e| e.into())
+    }
+
+    fn gpu_reduce<F, R>(&self, dim: usize, init: R, op: F) -> ParallelResult<Tensor<T>>
+    where
+        F: Fn(R, T) -> R + Send + Sync + Clone,
+        R: Send + Sync + Clone + Into<T>,
+    {
+        // Without CUDA, fall back to CPU reduction
+        Err(crate::error::RusTorchError::tensor_op(
+            "GPU reduce not available without CUDA".to_string(),
+        )
+        .into())
+    }
+
+    fn to_device(&self, _device: DeviceType) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, just return self
+        Ok(self.clone())
+    }
+
+    fn to_cpu(&self) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, already on CPU
+        Ok(self.clone())
+    }
+}
+
+#[cfg(not(feature = "cuda"))]
+impl<T> GpuBatchParallelOp<T> for Tensor<T>
+where
+    T: Float
+        + Send
+        + Sync
+        + Clone
+        + 'static
+        + std::fmt::Debug
+        + num_traits::FromPrimitive
+        + ndarray::ScalarOperand,
+{
+    fn gpu_batch_normalize(&self, epsilon: T) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, fall back to CPU batch normalize
+        Ok(self.batch_normalize(epsilon))
+    }
+
+    fn gpu_batch_conv2d(
+        &self,
+        kernel: &Tensor<T>,
+        stride: usize,
+        padding: usize,
+    ) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, use CPU fallback
+        Err(crate::error::RusTorchError::tensor_op(
+            "GPU conv2d not available without CUDA".to_string(),
+        )
+        .into())
+    }
+
+    fn gpu_batch_attention(&self, key: &Tensor<T>, value: &Tensor<T>) -> ParallelResult<Tensor<T>> {
+        // Without CUDA, fall back to CPU
+        let scores = self.matmul(key)?;
+        let attention_weights = self.apply_softmax(&scores)?;
+        attention_weights.matmul(value)
+    }
+}
+
+// Helper function for GPU element-wise operations
+#[cfg(feature = "cuda")]
+impl<T> Tensor<T>
+where
+    T: Float
+        + Send
+        + Sync
+        + Clone
+        + 'static
+        + std::fmt::Debug
+        + num_traits::FromPrimitive
+        + ndarray::ScalarOperand
+        + cudarc::driver::DeviceRepr
+        + cudarc::driver::ValidAsZeroBits,
+{
     /// GPU element-wise operation implementation (internal helper)
     fn try_gpu_elementwise_op<F>(
         &self,
@@ -584,9 +679,9 @@ where
         op: F,
     ) -> Result<Tensor<T>, crate::error::RusTorchError>
     where
-        F: Fn(T, T) -> T + Send + Sync,
+        F: Fn(T, T) -> T + Send + Sync + Clone + 'static,
     {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
+        use crate::gpu::memory_ops::manager::GpuMemoryManager;
         use ndarray::ArrayD;
 
         // Get available devices
@@ -675,7 +770,7 @@ where
         &self,
         epsilon: T,
     ) -> Result<Tensor<T>, crate::error::RusTorchError> {
-        use crate::gpu::{memory_transfer::GpuMemoryManager, DeviceManager};
+        use crate::gpu::{memory_ops::manager::GpuMemoryManager, DeviceManager};
 
         let manager = DeviceManager::new();
         let devices = manager.available_devices();
@@ -706,7 +801,7 @@ where
         key: &Tensor<T>,
         value: &Tensor<T>,
     ) -> Result<Tensor<T>, crate::error::RusTorchError> {
-        use crate::gpu::{memory_transfer::GpuMemoryManager, DeviceManager};
+        use crate::gpu::{memory_ops::manager::GpuMemoryManager, DeviceManager};
 
         let manager = DeviceManager::new();
         let devices = manager.available_devices();
@@ -760,6 +855,82 @@ where
             .map_err(|e| {
             crate::error::RusTorchError::tensor_op(format!("Shape error: {}", e))
         })?;
+
+        Ok(Tensor::from_ndarray(array))
+    }
+}
+
+// Helper function for GPU element-wise operations (non-CUDA version)
+#[cfg(not(feature = "cuda"))]
+impl<T> Tensor<T>
+where
+    T: Float
+        + Send
+        + Sync
+        + Clone
+        + 'static
+        + std::fmt::Debug
+        + num_traits::FromPrimitive
+        + ndarray::ScalarOperand,
+{
+    /// GPU element-wise operation implementation (CPU fallback)
+    fn try_gpu_elementwise_op<F>(
+        &self,
+        other: &Tensor<T>,
+        op: F,
+    ) -> Result<Tensor<T>, crate::error::RusTorchError>
+    where
+        F: Fn(T, T) -> T + Send + Sync + Clone + 'static,
+    {
+        // Without CUDA, fall back to CPU
+        self.batch_elementwise_op(other, op)
+    }
+
+    /// GPU batch normalization implementation (CPU fallback)
+    fn try_gpu_batch_normalize(
+        &self,
+        epsilon: T,
+    ) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        // Without CUDA, fall back to CPU batch normalize
+        Ok(self.batch_normalize(epsilon))
+    }
+
+    /// GPU batch attention implementation (CPU fallback)
+    fn try_gpu_batch_attention(
+        &self,
+        key: &Tensor<T>,
+        value: &Tensor<T>,
+    ) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        // Without CUDA, fall back to CPU
+        let scores = self.matmul(key)?;
+        let attention_weights = self.apply_softmax(&scores)?;
+        attention_weights.matmul(value)
+    }
+
+    /// Apply softmax function (CPU implementation)
+    fn apply_softmax(&self, tensor: &Tensor<T>) -> Result<Tensor<T>, crate::error::RusTorchError> {
+        let data = tensor.data.as_slice().ok_or_else(|| {
+            crate::error::RusTorchError::tensor_op(
+                "Non-contiguous tensor not supported for softmax",
+            )
+        })?;
+
+        // Calculate max for numerical stability
+        let max_val = data
+            .iter()
+            .fold(T::neg_infinity(), |max, &x| if x > max { x } else { max });
+
+        // Calculate exp and sum
+        let exp_values: Vec<T> = data.iter().map(|&x| (x - max_val).exp()).collect();
+        let sum_exp = exp_values.iter().fold(T::zero(), |acc, &x| acc + x);
+
+        // Normalize
+        let softmax_values: Vec<T> = exp_values.iter().map(|&x| x / sum_exp).collect();
+
+        let array = ndarray::ArrayD::from_shape_vec(tensor.data.raw_dim(), softmax_values)
+            .map_err(|e| {
+                crate::error::RusTorchError::tensor_op(format!("Softmax shape error: {}", e))
+            })?;
 
         Ok(Tensor::from_ndarray(array))
     }

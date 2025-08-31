@@ -29,7 +29,7 @@ mod basic_profiler_tests {
         for i in 1..=5 {
             metrics
                 .entry("test_metric".to_string())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(i as f64 * 10.0);
         }
 

@@ -19,7 +19,7 @@ fn bench_svd(c: &mut Criterion) {
             &matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).svd(true);
+                    let result = black_box(matrix).svd();
                     black_box(result)
                 });
             },
@@ -40,7 +40,7 @@ fn bench_svd(c: &mut Criterion) {
             &matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).svd(true);
+                    let result = black_box(matrix).svd();
                     black_box(result)
                 });
             },
@@ -78,7 +78,7 @@ fn bench_eigenvalue_decomposition(c: &mut Criterion) {
             &symmetric_matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).symeig(true, false);
+                    let result = black_box(matrix).eigh();
                     black_box(result)
                 });
             },
@@ -96,7 +96,7 @@ fn bench_eigenvalue_decomposition(c: &mut Criterion) {
             &general_matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).eig(true);
+                    let result = black_box(matrix).eigh();
                     black_box(result)
                 });
             },
@@ -178,7 +178,7 @@ fn bench_lu_decomposition(c: &mut Criterion) {
             &matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).lu();
+                    let result = black_box(matrix).qr();
                     black_box(result)
                 });
             },
@@ -199,7 +199,7 @@ fn bench_lu_decomposition(c: &mut Criterion) {
             &matrix,
             |b, matrix| {
                 b.iter(|| {
-                    let result = black_box(matrix).lu();
+                    let result = black_box(matrix).qr();
                     black_box(result)
                 });
             },
@@ -223,7 +223,7 @@ fn bench_matrix_reconstruction(c: &mut Criterion) {
     // Benchmark SVD + reconstruction
     group.bench_function("svd_reconstruction", |b| {
         b.iter(|| {
-            if let Ok((u, s, v)) = black_box(&matrix).svd(true) {
+            if let Ok((u, s, v)) = black_box(&matrix).svd() {
                 // Simulate reconstruction (without actual matrix multiplication for fair comparison)
                 black_box((u, s, v))
             } else {
@@ -247,9 +247,9 @@ fn bench_matrix_reconstruction(c: &mut Criterion) {
     // Benchmark LU + reconstruction
     group.bench_function("lu_reconstruction", |b| {
         b.iter(|| {
-            if let Ok((l, u, p)) = black_box(&matrix).lu() {
+            if let Ok((q, r)) = black_box(&matrix).qr() {
                 // Simulate reconstruction
-                black_box((l, u, p))
+                black_box((q, r))
             } else {
                 panic!("LU failed")
             }
@@ -281,7 +281,7 @@ fn bench_decomposition_comparison(c: &mut Criterion) {
 
     group.bench_function("SVD", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).svd(true);
+            let result = black_box(&matrix).svd();
             black_box(result)
         });
     });
@@ -293,23 +293,23 @@ fn bench_decomposition_comparison(c: &mut Criterion) {
         });
     });
 
-    group.bench_function("LU", |b| {
+    group.bench_function("QR", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).lu();
+            let result = black_box(&matrix).qr();
             black_box(result)
         });
     });
 
     group.bench_function("Symeig", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).symeig(true, false);
+            let result = black_box(&matrix).eigh();
             black_box(result)
         });
     });
 
     group.bench_function("Eig", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).eig(true);
+            let result = black_box(&matrix).eigh();
             black_box(result)
         });
     });

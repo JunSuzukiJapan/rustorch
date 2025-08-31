@@ -68,8 +68,11 @@ mod tests {
             .execute_elementwise(&lhs, &rhs, |a, b| a + b)
             .unwrap();
 
-        let GpuBuffer::Cpu(data) = result;
-        assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]);
+        match result {
+            GpuBuffer::Cpu(data) => assert_eq!(data.as_ref(), &vec![5.0, 7.0, 9.0]),
+            #[cfg(any(feature = "cuda", feature = "metal", feature = "opencl"))]
+            _ => panic!("Expected CPU buffer from integration test"),
+        }
     }
 
     #[test]
@@ -80,7 +83,11 @@ mod tests {
 
         let result = manager.execute_batch_normalize(&data, epsilon).unwrap();
 
-        let GpuBuffer::Cpu(normalized_data) = result;
+        let normalized_data = match result {
+            GpuBuffer::Cpu(data) => data,
+            #[cfg(any(feature = "cuda", feature = "metal", feature = "opencl"))]
+            _ => panic!("Expected CPU buffer from integration test"),
+        };
         // Check that the normalized data has approximately zero mean
         let mean: f32 = normalized_data.iter().sum::<f32>() / normalized_data.len() as f32;
         assert!(
@@ -99,7 +106,11 @@ mod tests {
 
         let result = manager.execute_attention(&query, &key, &value).unwrap();
 
-        let GpuBuffer::Cpu(attention_result) = result;
+        let attention_result = match result {
+            GpuBuffer::Cpu(data) => data,
+            #[cfg(any(feature = "cuda", feature = "metal", feature = "opencl"))]
+            _ => panic!("Expected CPU buffer from integration test"),
+        };
         assert_eq!(attention_result.len(), 2);
         assert!(attention_result.iter().all(|&x| x.is_finite()));
     }

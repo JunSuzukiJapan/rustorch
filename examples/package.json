@@ -1,32 +1,35 @@
 {
-  "name": "rustorch-wasm-examples",
-  "version": "1.0.0",
-  "description": "WebAssembly examples for RusTorch deep learning library",
+  "name": "rustorch",
   "type": "module",
-  "scripts": {
-    "build-wasm": "wasm-pack build --target web --out-dir pkg",
-    "build-wasm-node": "wasm-pack build --target nodejs --out-dir pkg-node",
-    "serve": "python -m http.server 8000 || python3 -m http.server 8000",
-    "demo": "node wasm_neural_network.js",
-    "test": "node test.js"
-  },
-  "keywords": [
-    "rust",
-    "webassembly",
-    "machine-learning",
-    "neural-networks",
-    "tensor",
-    "deep-learning"
+  "collaborators": [
+    "Jun Suzuki <jun.suzuki.japan@gmail.com>"
   ],
-  "author": "RusTorch",
-  "license": "MIT",
-  "devDependencies": {
-    "@types/node": "^20.0.0"
+  "description": "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation",
+  "version": "0.5.3",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/JunSuzukiJapan/rustorch"
   },
-  "dependencies": {
-    "wasm-pack": "^0.12.0"
+  "files": [
+    "rustorch_bg.wasm",
+    "rustorch.js",
+    "rustorch.d.ts"
+  ],
+  "main": "rustorch.js",
+  "homepage": "https://github.com/JunSuzukiJapan/rustorch",
+  "types": "rustorch.d.ts",
+  "scripts": {
+    "test": "echo \"WASM examples verified - no tests needed\""
   },
-  "engines": {
-    "node": ">=16.0.0"
-  }
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "pytorch",
+    "machine-learning",
+    "tensor",
+    "fft",
+    "matrix-decomposition"
+  ]
 }

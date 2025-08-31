@@ -8,6 +8,9 @@ use std::marker::PhantomData;
 
 use super::buffer::GpuBuffer;
 
+#[cfg(feature = "cuda")]
+use cudarc::driver::{DeviceRepr, ValidAsZeroBits};
+
 /// GPU memory manager for tensor operations
 /// テンソル演算用GPUメモリマネージャー
 #[derive(Default)]
@@ -15,7 +18,8 @@ pub struct GpuMemoryManager<T: Float> {
     _phantom: PhantomData<T>,
 }
 
-impl<T: Float + 'static> GpuMemoryManager<T> {
+#[cfg(feature = "cuda")]
+impl<T: Float + 'static + DeviceRepr + ValidAsZeroBits> GpuMemoryManager<T> {
     /// Create new GPU memory manager
     /// 新しいGPUメモリマネージャーを作成
     pub fn new() -> Self {
@@ -182,6 +186,61 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
                 CpuFallback::execute_attention(query, key, value)
             }
         }
+    }
+}
+
+#[cfg(not(feature = "cuda"))]
+impl<T: Float + 'static> GpuMemoryManager<T> {
+    /// Create new GPU memory manager (CPU fallback)
+    /// 新しいGPUメモリマネージャーを作成（CPUフォールバック）
+    pub fn new() -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Execute element-wise operation on GPU buffers (CPU fallback)
+    pub fn execute_elementwise(
+        &self,
+        lhs: &GpuBuffer<T>,
+        rhs: &GpuBuffer<T>,
+        op: impl Fn(T, T) -> T + Clone + Send + Sync + 'static,
+    ) -> RusTorchResult<GpuBuffer<T>> {
+        use super::cpu_fallback::CpuFallback;
+        CpuFallback::execute_elementwise(lhs, rhs, &op)
+    }
+
+    /// Execute batch normalization on GPU buffer (CPU fallback)
+    pub fn execute_batch_normalize(
+        &self,
+        tensor: &GpuBuffer<T>,
+        epsilon: T,
+    ) -> RusTorchResult<GpuBuffer<T>> {
+        use super::cpu_fallback::CpuFallback;
+        #[cfg(feature = "cuda")]
+        {
+            match tensor {
+                GpuBuffer::Cuda { data, .. } => CpuFallback::execute_batch_normalize(data, epsilon),
+                _ => Err(RusTorchError::gpu(
+                    "Unsupported buffer type for batch normalize",
+                )),
+            }
+        }
+        #[cfg(not(feature = "cuda"))]
+        {
+            Err(RusTorchError::gpu("CUDA feature not enabled"))
+        }
+    }
+
+    /// Execute attention operation (CPU fallback)
+    pub fn execute_attention(
+        &self,
+        query: &GpuBuffer<T>,
+        key: &GpuBuffer<T>,
+        value: &GpuBuffer<T>,
+    ) -> RusTorchResult<GpuBuffer<T>> {
+        use super::cpu_fallback::CpuFallback;
+        CpuFallback::execute_attention(query, key, value)
     }
 }
 

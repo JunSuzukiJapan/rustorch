@@ -265,6 +265,10 @@ pub mod linalg;
 /// メモリ管理とプーリングユーティリティ
 #[cfg(not(target_arch = "wasm32"))]
 pub mod memory;
+/// Model hub for downloading and managing pretrained models
+/// 事前学習済みモデルのダウンロードと管理用モデルハブ
+#[cfg(feature = "model-hub")]
+pub mod model_hub;
 /// Model import functionality for PyTorch and ONNX models
 /// PyTorchとONNXモデルのインポート機能
 pub mod model_import;
@@ -328,6 +332,15 @@ pub mod validation;
 /// デバッグ・ログシステム
 pub mod debug;
 
+/// Dynamic execution engine for runtime graph optimization
+/// 実行時グラフ最適化のための動的実行エンジン
+#[cfg(not(target_arch = "wasm32"))]
+pub mod execution;
+
+/// Cross-platform optimization module
+/// クロスプラットフォーム最適化モジュール
+pub mod optimization;
+
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
 #[cfg(feature = "wasm")]
@@ -349,6 +362,8 @@ pub mod prelude {
         Bernoulli, Beta, Categorical, Exponential, Gamma, Normal, Uniform,
     };
     pub use crate::distributions::{Distribution, DistributionError, DistributionTrait};
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use crate::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
     pub use crate::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
     pub use crate::models::{
         CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,

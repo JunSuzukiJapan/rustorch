@@ -43,6 +43,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Performance comparison
     performance_comparison()?;
 
+    // Optional: Metal specific demo
+    #[cfg(feature = "metal")]
+    demo_metal_specific()?;
+
     Ok(())
 }
 
@@ -239,7 +243,7 @@ fn demo_metal_specific() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=== Metal Specific Demo ===");
 
-    if let Ok(executor) = MetalKernelExecutor::new() {
+    if let Ok(_executor) = MetalKernelExecutor::new() {
         let size = 1024;
         let a = vec![1.0f32; size];
         let b = vec![2.0f32; size];

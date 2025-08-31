@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-739%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1094%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
@@ -17,12 +17,14 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🤖 **Transformer Architecture**: Complete transformer implementation with multi-head attention
 - 🧮 **Matrix Decomposition**: Complete SVD, QR, LU decomposition and eigenvalue solver with PyTorch compatibility
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation
+- 🚀 **Dynamic Execution Engine**: JIT compilation and runtime optimization
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more
-- ⚡ **SIMD Optimizations**: AVX2/SSE4.1 vectorized operations for high performance
+- ⚡ **Cross-Platform Optimizations**: SIMD (AVX2/SSE/NEON), platform-specific, and hardware-aware optimizations
 - 🎮 **GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
 - 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
+- 🎮 **WebGPU Integration**: Chrome-optimized GPU acceleration with CPU fallback for cross-browser compatibility
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- ✅ **Production Ready**: 739 tests passing (99.7% success rate), unified error handling system
+- ✅ **Production Ready**: 1094 tests passing (100% success rate), unified error handling system
 - 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
 - 🔧 **Advanced Operator Overloads**: Full operator support for tensors with scalar operations and in-place assignments
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
@@ -39,7 +41,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.2"
+rustorch = "0.5.3"
 
 # Optional features
 [features]
@@ -50,6 +52,8 @@ metal = ["rustorch/metal"]
 opencl = ["rustorch/opencl"]
 safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
+wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML
+webgpu = ["rustorch/webgpu"]            # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
 rustorch = { version = "0.5.0", default-features = false }
@@ -112,6 +116,18 @@ async function browserML() {
     const linear = new rustorch.WasmLinear(784, 10, true);
     const conv = new rustorch.WasmConv2d(3, 32, 3, 1, 1, true);
     
+    // Enhanced mathematical functions
+    const gamma_result = rustorch.WasmSpecial.gamma_batch([1.5, 2.0, 2.5]);
+    const bessel_result = rustorch.WasmSpecial.bessel_i_batch(0, [0.5, 1.0, 1.5]);
+    
+    // Statistical distributions
+    const normal_dist = new rustorch.WasmDistributions();
+    const samples = normal_dist.normal_sample_batch(100, 0.0, 1.0);
+    
+    // Optimizers for training
+    const sgd = new rustorch.WasmOptimizer();
+    sgd.sgd_init(0.01, 0.9); // learning_rate, momentum
+    
     // Image processing
     const resized = rustorch.WasmVision.resize(image, 256, 256, 224, 224, 3);
     const normalized = rustorch.WasmVision.normalize(resized, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225], 3);
@@ -122,7 +138,47 @@ async function browserML() {
 }
 ```
 
-For more examples, see [Getting Started Guide](docs/getting-started.md) and [WebAssembly Guide](docs/wasm/README.md).
+### WebGPU Acceleration (Chrome Optimized)
+
+For Chrome browsers with WebGPU support:
+
+```javascript
+import init, * as rustorch from './pkg/rustorch.js';
+
+async function webgpuML() {
+    await init();
+    
+    // Initialize WebGPU engine
+    const webgpu = new rustorch.WebGPUSimple();
+    await webgpu.initialize();
+    
+    // Check WebGPU support
+    const supported = await webgpu.check_webgpu_support();
+    if (supported) {
+        console.log('🚀 WebGPU acceleration enabled');
+        
+        // High-performance tensor operations
+        const a = [1, 2, 3, 4];
+        const b = [5, 6, 7, 8];
+        const result = webgpu.tensor_add_cpu(a, b);
+        
+        // Matrix multiplication with GPU optimization
+        const matrix_a = new Array(256 * 256).fill(0).map(() => Math.random());
+        const matrix_b = new Array(256 * 256).fill(0).map(() => Math.random());
+        const matrix_result = webgpu.matrix_multiply_cpu(matrix_a, matrix_b, 256, 256, 256);
+        
+        console.log('WebGPU accelerated computation complete');
+    } else {
+        console.log('⚠️ WebGPU not supported, using CPU fallback');
+    }
+    
+    // Interactive demo interface
+    const demo = new rustorch.WebGPUSimpleDemo();
+    demo.create_interface(); // Creates browser UI for testing
+}
+```
+
+For more examples, see [Getting Started Guide](docs/getting-started.md) and [WebAssembly Guide](docs/WASM_GUIDE.md).
 
 ## 📚 Documentation
 
@@ -132,7 +188,14 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 - **[Architecture](docs/architecture.md)** - System design and project structure
 - **[Examples](docs/examples.md)** - Comprehensive code examples
 - **[API Documentation](https://docs.rs/rustorch)** - Detailed API reference
-- **[WebAssembly Guide](docs/wasm/README.md)** - Browser ML with WASM bindings
+
+### WebAssembly & Browser ML
+- **[WebAssembly Guide](docs/WASM_GUIDE.md)** - Complete WASM integration and API reference
+- **[WebGPU Integration](docs/WEBGPU_INTEGRATION.md)** - Chrome-optimized GPU acceleration
+- **[Browser Compatibility](docs/BROWSER_COMPATIBILITY.md)** - Cross-browser support matrix
+- **[WASM Performance](docs/WASM_PERFORMANCE.md)** - Benchmarking and optimization strategies
+
+### Production & Operations
 - **[GPU Acceleration Guide](docs/GPU_ACCELERATION_GUIDE.md)** - GPU setup and usage
 - **[Production Guide](docs/PRODUCTION_GUIDE.md)** - Deployment and scaling
 - **[Data Validation Guide](docs/DATA_VALIDATION_GUIDE.md)** - Quality assurance and validation
@@ -151,17 +214,6 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 
 For detailed performance analysis, see [Performance Documentation](docs/performance.md).
 
-## ⚠️ 後方互換性について (Backward Compatibility)
-
-**v0.5.0での重要な変更 / Important Changes in v0.5.0:**
-
-この版では、メソッド統合リファクタリングにより、従来の`_v2`バージョンと古いバージョンのメソッドが統一されました。以下の点にご注意ください：
-
-- **メソッド名の変更**: `_v2`接尾辞が削除され、最適化版が標準になりました
-- **統一されたAPI**: 旧バージョンと`_v2`バージョンが単一の最適化版に統合されました  
-- **移行の必要性**: 旧APIを使用している場合は、新しいメソッド名への移行が必要です
-
-詳細な移行ガイドについては、[CHANGELOG.md](CHANGELOG.md)のv0.5.0セクションをご参照ください。
 
 ## 🧪 Testing
 
