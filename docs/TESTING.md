@@ -28,7 +28,7 @@ Run all doctests:
 cargo test --doc
 ```
 
-**Current Status**: ✅ **19 doctests passing**
+**Current Status**: ✅ **19 doctests passing** (最終確認: 2025年8月31日)
 
 ### 3. Integration Tests / 統合テスト
 
