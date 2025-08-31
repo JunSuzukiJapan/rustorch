@@ -199,12 +199,33 @@ jupyter lab
 
 ### ステップ4: 動作確認
 
-#### 4.1 新しいNotebookを作成
+#### 4.1 ブラウザでJupyterを開く
+
+Jupyterサーバーを起動すると、自動的にブラウザが開きます。開かない場合は：
+
+1. **ターミナルに表示されたURLをコピー**
+   ```
+   [I 12:34:56.789 NotebookApp] Serving notebooks from local directory: /Users/username/rustorch-jupyter
+   [I 12:34:56.789 NotebookApp] Jupyter Notebook 6.4.12 is running at:
+   [I 12:34:56.789 NotebookApp] Local URL: http://localhost:8888/?token=abc123...
+   ```
+
+2. **ブラウザで手動で開く**
+   - URLをコピーしてブラウザのアドレスバーに貼り付け
+   - または `http://localhost:8888` にアクセスしてトークンを入力
+
+3. **推奨ブラウザ**
+   - **Chrome**: WASMとWebGPUの最高サポート ✅
+   - **Firefox**: 安定したWASMサポート ✅
+   - **Safari**: 基本的なWASMサポート ⚠️
+   - **Edge**: Chromiumベースで良好なサポート ✅
+
+#### 4.2 新しいNotebookを作成
 
 1. Jupyterのブラウザ画面で「New」→「Python 3」をクリック
 2. 新しいNotebookが開きます
 
-#### 4.2 RusTorch WASMの初期化
+#### 4.3 RusTorch WASMの初期化
 
 最初のセルに以下のコードを入力して実行（Shift + Enter）:
 

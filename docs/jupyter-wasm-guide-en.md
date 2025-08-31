@@ -199,12 +199,33 @@ jupyter lab
 
 ### Step 4: Verify Installation
 
-#### 4.1 Create New Notebook
+#### 4.1 Open Jupyter in Browser
+
+When you start the Jupyter server, it should automatically open in your browser. If not:
+
+1. **Copy the URL displayed in terminal**
+   ```
+   [I 12:34:56.789 NotebookApp] Serving notebooks from local directory: /Users/username/rustorch-jupyter
+   [I 12:34:56.789 NotebookApp] Jupyter Notebook 6.4.12 is running at:
+   [I 12:34:56.789 NotebookApp] Local URL: http://localhost:8888/?token=abc123...
+   ```
+
+2. **Manually open in browser**
+   - Copy the URL and paste it into your browser's address bar
+   - Or navigate to `http://localhost:8888` and enter the token
+
+3. **Recommended Browsers**
+   - **Chrome**: Best WASM and WebGPU support ✅
+   - **Firefox**: Stable WASM support ✅
+   - **Safari**: Basic WASM support ⚠️
+   - **Edge**: Good support (Chromium-based) ✅
+
+#### 4.2 Create New Notebook
 
 1. Click "New" → "Python 3" in Jupyter browser interface
 2. A new notebook will open
 
-#### 4.2 Initialize RusTorch WASM
+#### 4.3 Initialize RusTorch WASM
 
 Enter the following code in the first cell and execute (Shift + Enter):
 
