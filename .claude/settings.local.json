@@ -59,7 +59,9 @@
       "Bash(timeout 30 cargo run --example vision_pipeline_demo --no-default-features)",
       "Bash(timeout 30 cargo run --example boston_housing_regression --no-default-features)",
       "Bash(timeout 15 cargo run --example activation_demo --no-default-features)",
-      "Bash(timeout 15 cargo run --example embedding_demo --no-default-features)"
+      "Bash(timeout 15 cargo run --example embedding_demo --no-default-features)",
+      "Bash(git branch:*)",
+      "Bash(cargo publish:*)"
     ],
     "deny": [],
     "ask": [],
