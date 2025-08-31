@@ -151,7 +151,7 @@ linalg-system = ["dep:ndarray-linalg", "dep:blas", "dep:lapack"]
 blas-optimized = ["dep:blas", "dep:lapack", "dep:openblas-src", "dep:cblas-sys"]
 # WASM-safe default with core tensor operations
 wasm-safe = []
-cuda = ["dep:cudarc"]
+cuda = ["dep:cudarc", "dep:bytemuck"]
 opencl = ["dep:opencl3"]
 metal = ["dep:metal", "dep:objc"]
 mpi = ["dep:mpi"]
