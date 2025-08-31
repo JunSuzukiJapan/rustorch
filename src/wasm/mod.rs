@@ -55,3 +55,13 @@ pub mod anomaly_detection;
 pub mod data_transforms; // Advanced data preprocessing
 #[cfg(feature = "wasm")]
 pub mod quality_metrics; // Data quality assessment // Anomaly detection and monitoring
+
+// Enhanced WASM implementations (v0.5.3+)
+#[cfg(feature = "wasm")]
+pub mod special_enhanced; // Complete special functions with performance optimization
+#[cfg(feature = "wasm")]
+pub mod distributions_enhanced; // Enhanced statistical distributions with full API
+#[cfg(feature = "wasm")]
+pub mod optimizer_enhanced; // Production-ready optimizers for small-scale models
+#[cfg(feature = "wasm")]
+pub mod autograd_simplified; // Simplified autograd for single-threaded WASM environment
