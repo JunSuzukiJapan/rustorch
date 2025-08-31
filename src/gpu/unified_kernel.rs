@@ -148,8 +148,7 @@ pub struct CudaUnifiedExecutor {
 impl CudaUnifiedExecutor {
     pub fn new(device_id: usize) -> RusTorchResult<Self> {
         // Validate CUDA device
-        use crate::gpu::cuda_kernels::CudaKernelExecutor;
-        let _executor = CudaKernelExecutor::new(device_id)
+        let _executor = SimpleCudaExecutor::new(device_id)
             .map_err(|_| RusTorchError::DeviceNotFound(device_id))?;
 
         Ok(Self {

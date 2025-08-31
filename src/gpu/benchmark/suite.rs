@@ -243,9 +243,9 @@ impl PerformanceBenchmark {
         b: &[f32],
         size: usize,
     ) -> RusTorchResult<f64> {
-        use crate::gpu::cuda_kernels::CudaKernelExecutor;
+        use crate::gpu::cuda_simple::SimpleCudaExecutor;
 
-        let executor = CudaKernelExecutor::new(0)?;
+        let executor = SimpleCudaExecutor::new(0)?;
 
         // Warmup
         for _ in 0..self.config.warmup_iterations {

@@ -108,7 +108,7 @@ impl<T: Float> GpuKernel<T> for AddKernel {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    use crate::gpu::cuda_kernels::cuda_elementwise_add_f32;
+                    // use crate::gpu::cuda_kernels // Temporarily disabled::cuda_elementwise_add_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
                         let a_f32 = unsafe {
                             std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())
@@ -270,7 +270,7 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    use crate::gpu::cuda_kernels::cuda_matmul_f32;
+                    // use crate::gpu::cuda_kernels // Temporarily disabled::cuda_matmul_f32;
                     if std::mem::size_of::<T>() == std::mem::size_of::<f32>() {
                         let a_f32 = unsafe {
                             std::slice::from_raw_parts(a.as_ptr() as *const f32, a.len())

@@ -222,7 +222,7 @@ impl GpuValidator {
 
     #[cfg(feature = "cuda")]
     fn validate_cuda_memory(&self) -> ValidationResult {
-        use crate::gpu::cuda_kernels::CudaBuffer;
+        // use crate::gpu::cuda_kernels // Temporarily disabled::CudaBuffer;
 
         let start_time = std::time::Instant::now();
         let size = 1024;

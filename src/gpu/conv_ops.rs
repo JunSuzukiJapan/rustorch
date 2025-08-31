@@ -11,7 +11,8 @@ use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
 
 #[cfg(feature = "cuda")]
-use cudarc::cudnn::{ConvForward, CudnnHandle};
+use cudarc::cudnn::ConvForward;
+// Note: CudnnHandle removed - not available in current cudarc version
 #[cfg(feature = "cuda")]
 use cudarc::driver::CudaDevice;
 

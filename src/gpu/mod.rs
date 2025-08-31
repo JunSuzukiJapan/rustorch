@@ -117,10 +117,10 @@ pub mod benchmark;
 /// GPU convolution operations and cuDNN/MPS integration
 /// GPU畳み込み演算とcuDNN/MPS統合
 pub mod conv_ops;
-pub mod cuda_enhanced;
-/// CUDA kernel implementations
-/// CUDAカーネル実装
-pub mod cuda_kernels;
+// Note: Complex CUDA modules temporarily disabled due to cudarc API changes
+// pub mod cuda_enhanced;
+pub mod cuda_simple;
+// pub mod cuda_kernels;
 pub mod custom_kernels;
 /// Device management module for GPU operations
 /// GPU操作のためのデバイス管理モジュール
@@ -222,8 +222,8 @@ impl DeviceType {
             DeviceType::Cuda(_) => {
                 #[cfg(feature = "cuda")]
                 {
-                    use crate::gpu::cuda_kernels::CudaKernelExecutor;
-                    CudaKernelExecutor::new(0).is_ok()
+                    // use crate::gpu::cuda_kernels // Temporarily disabled::SimpleCudaExecutor;
+                    SimpleCudaExecutor::new(0).is_ok()
                 }
                 #[cfg(not(feature = "cuda"))]
                 false
@@ -474,10 +474,10 @@ impl DeviceManager {
 
     #[cfg(feature = "cuda")]
     fn get_cuda_device_count() -> usize {
-        use crate::gpu::cuda_kernels::CudaKernelExecutor;
+        // use crate::gpu::cuda_kernels // Temporarily disabled::SimpleCudaExecutor;
         // Try to create CUDA executors for devices 0-7 and count successful ones
         (0..8)
-            .filter(|&i| CudaKernelExecutor::new(i).is_ok())
+            .filter(|&i| SimpleCudaExecutor::new(i).is_ok())
             .count()
     }
 }

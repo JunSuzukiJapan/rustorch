@@ -192,7 +192,7 @@ impl<T> Drop for CudaBuffer<T> {
 #[cfg(feature = "cuda")]
 pub struct CudaKernelExecutor {
     device: CudaDevice,
-    cublas: CudaBlas<f32>,
+    cublas: CudaBlas,
     device_id: usize,
 }
 
