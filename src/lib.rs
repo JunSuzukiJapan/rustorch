@@ -337,6 +337,10 @@ pub mod debug;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod execution;
 
+/// Cross-platform optimization module
+/// クロスプラットフォーム最適化モジュール
+pub mod optimization;
+
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
 #[cfg(feature = "wasm")]
