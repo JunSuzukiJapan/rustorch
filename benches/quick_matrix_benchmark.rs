@@ -18,7 +18,7 @@ fn bench_matrix_decompositions(c: &mut Criterion) {
     // SVD benchmark
     group.bench_function("SVD_16x16", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).svd(true);
+            let result = black_box(&matrix).svd();
             black_box(result)
         });
     });
@@ -34,7 +34,7 @@ fn bench_matrix_decompositions(c: &mut Criterion) {
     // LU benchmark
     group.bench_function("LU_16x16", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).lu();
+            let result = black_box(&matrix).qr();
             black_box(result)
         });
     });
@@ -57,7 +57,7 @@ fn bench_matrix_decompositions(c: &mut Criterion) {
     // Symmetric eigenvalue benchmark
     group.bench_function("Symeig_16x16", |b| {
         b.iter(|| {
-            let result = black_box(&sym_matrix).symeig(true, false);
+            let result = black_box(&sym_matrix).eigh();
             black_box(result)
         });
     });
@@ -65,7 +65,7 @@ fn bench_matrix_decompositions(c: &mut Criterion) {
     // General eigenvalue benchmark
     group.bench_function("Eig_16x16", |b| {
         b.iter(|| {
-            let result = black_box(&matrix).eig(true);
+            let result = black_box(&matrix).eigh();
             black_box(result)
         });
     });
@@ -86,7 +86,7 @@ fn bench_matrix_sizes(c: &mut Criterion) {
 
         group.bench_function(&format!("SVD_{}x{}", size, size), |b| {
             b.iter(|| {
-                let result = black_box(&matrix).svd(false); // No eigenvectors for speed
+                let result = black_box(&matrix).svd(); // SVD decomposition
                 black_box(result)
             });
         });
@@ -110,7 +110,7 @@ fn bench_rectangular_matrices(c: &mut Criterion) {
 
         group.bench_function(&format!("SVD_{}", label), |b| {
             b.iter(|| {
-                let result = black_box(&matrix).svd(false);
+                let result = black_box(&matrix).svd();
                 black_box(result)
             });
         });

@@ -16,6 +16,12 @@ pub struct NCCLBackend {
 }
 
 #[cfg(feature = "nccl")]
+unsafe impl Send for NCCLBackend {}
+
+#[cfg(feature = "nccl")]
+unsafe impl Sync for NCCLBackend {}
+
+#[cfg(feature = "nccl")]
 impl NCCLBackend {
     pub fn new(process_group: ProcessGroup) -> RusTorchResult<Self> {
         Ok(Self {

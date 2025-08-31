@@ -186,15 +186,20 @@ impl GpuValidator {
             DeviceType::Cuda(_) => {
                 results.push(self.validate_cuda_memory());
             }
+            #[cfg(not(feature = "cuda"))]
+            DeviceType::Cuda(_) => {}
             #[cfg(feature = "metal")]
             DeviceType::Metal(_) => {
                 results.push(self.validate_metal_memory());
             }
+            #[cfg(not(feature = "metal"))]
+            DeviceType::Metal(_) => {}
             #[cfg(feature = "opencl")]
             DeviceType::OpenCL(_) => {
                 results.push(self.validate_opencl_memory());
             }
-            _ => {}
+            #[cfg(not(feature = "opencl"))]
+            DeviceType::OpenCL(_) => {}
         }
 
         results

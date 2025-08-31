@@ -607,6 +607,7 @@ impl CommunicationManager {
                 }
 
                 // Create result tensor with reduced data
+                #[allow(unused_mut)]
                 let mut result_tensor = tensor.clone();
                 unsafe {
                     std::ptr::copy_nonoverlapping(

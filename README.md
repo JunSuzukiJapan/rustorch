@@ -191,6 +191,8 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 
 ### WebAssembly & Browser ML
 - **[WebAssembly Guide](docs/WASM_GUIDE.md)** - Complete WASM integration and API reference
+- **[Jupyter WASM Guide](docs/jupyter-wasm-guide.md)** - Step-by-step Jupyter Notebook setup (日本語)
+- **[Jupyter WASM Guide (English)](docs/jupyter-wasm-guide-en.md)** - Step-by-step Jupyter Notebook setup
 - **[WebGPU Integration](docs/WEBGPU_INTEGRATION.md)** - Chrome-optimized GPU acceleration
 - **[Browser Compatibility](docs/BROWSER_COMPATIBILITY.md)** - Cross-browser support matrix
 - **[WASM Performance](docs/WASM_PERFORMANCE.md)** - Benchmarking and optimization strategies

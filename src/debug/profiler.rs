@@ -10,6 +10,10 @@ use std::time::{Duration, Instant};
 
 use crate::error::{RusTorchError, RusTorchResult};
 
+// Performance analysis constants
+const MS_PER_SECOND: f64 = 1000.0;
+const BOTTLENECK_THRESHOLD_MS: f64 = 50.0;
+
 /// Performance profile entry
 #[derive(Debug, Clone)]
 pub struct ProfileEntry {
@@ -49,7 +53,7 @@ impl ProfileEntry {
 
     /// Duration in milliseconds
     pub fn duration_ms(&self) -> f64 {
-        self.duration.as_secs_f64() * 1000.0
+        self.duration.as_secs_f64() * MS_PER_SECOND
     }
 
     /// Duration in microseconds
@@ -297,11 +301,11 @@ impl DebugProfiler {
         };
 
         // Calculate standard deviation
-        let mean_ms = average_duration.as_secs_f64() * 1000.0;
+        let mean_ms = average_duration.as_secs_f64() * MS_PER_SECOND;
         let variance = durations
             .iter()
             .map(|d| {
-                let diff = (d.as_secs_f64() * 1000.0) - mean_ms;
+                let diff = (d.as_secs_f64() * MS_PER_SECOND) - mean_ms;
                 diff * diff
             })
             .sum::<f64>()
@@ -312,10 +316,12 @@ impl DebugProfiler {
         let p95_index = ((sorted_durations.len() as f64 - 1.0) * 0.95).round() as usize;
         let p99_index = ((sorted_durations.len() as f64 - 1.0) * 0.99).round() as usize;
 
-        let percentile_95_ms =
-            sorted_durations[p95_index.min(sorted_durations.len() - 1)].as_secs_f64() * 1000.0;
-        let percentile_99_ms =
-            sorted_durations[p99_index.min(sorted_durations.len() - 1)].as_secs_f64() * 1000.0;
+        let percentile_95_ms = sorted_durations[p95_index.min(sorted_durations.len() - 1)]
+            .as_secs_f64()
+            * MS_PER_SECOND;
+        let percentile_99_ms = sorted_durations[p99_index.min(sorted_durations.len() - 1)]
+            .as_secs_f64()
+            * MS_PER_SECOND;
 
         // Find slowest and fastest operations
         let slowest_entry = self
@@ -353,10 +359,10 @@ impl DebugProfiler {
                     stats.average_duration().as_secs_f64() * 1000.0,
                 )
             })
-            .filter(|(_, avg_ms)| *avg_ms > 50.0) // Bottleneck threshold: 50ms
+            .filter(|(_, avg_ms)| *avg_ms > BOTTLENECK_THRESHOLD_MS)
             .collect();
 
-        bottlenecks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        bottlenecks.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
         let bottlenecks: Vec<String> = bottlenecks
             .into_iter()
             .take(5) // Top 5 bottlenecks
@@ -391,14 +397,14 @@ impl DebugProfiler {
     }
 
     /// Get recent entries (last n entries)
-    pub fn get_recent_entries(&self, n: usize) -> Vec<&ProfileEntry> {
+    pub fn get_recent_entries(&self, n: usize) -> &[ProfileEntry] {
         let start = if self.entries.len() > n {
             self.entries.len() - n
         } else {
             0
         };
 
-        self.entries[start..].iter().collect()
+        &self.entries[start..]
     }
 
     /// Get entries for specific operation
