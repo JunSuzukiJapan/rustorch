@@ -46,7 +46,10 @@
       "Bash(git stash:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
-      "Bash(git rebase:*)"
+      "Bash(git rebase:*)",
+      "mcp__serena__list_memories",
+      "Bash(git tag:*)",
+      "Bash(cargo publish:*)"
     ],
     "deny": [],
     "ask": [],
