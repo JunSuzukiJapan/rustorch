@@ -2,21 +2,30 @@
 
 このディレクトリには、RusTorchライブラリの性能測定用ベンチマークが含まれています。
 
+## 📊 最新ベンチマーク結果 (2025年8月31日実行)
+
+### 🚀 パフォーマンス概要
+- **テンソル作成**: 9.2μs (100要素)
+- **GPU行列乗算**: 56ms (大行列、Metal対応)
+- **SIMD演算**: 1.0μs-11.5μs (128-2048要素)
+- **SVD分解**: 424μs-255ms (4x4-64x64行列)
+- **ガンマ関数**: 660-690ns (スカラー演算)
+- **正規分布サンプリング**: 1.77μs (100サンプル)
+- **FFT**: 1.0μs-61.9μs (4-128点)
+- **スループット**: 7800万要素/秒 (マイクロ分布)
+
 ## 構造
 
-### 共通ユーティリティ (`common/`)
-- `mod.rs` - 共通の設定、サイズ定義、ヘルパー関数
-- `tensor_ops.rs` - 基本的なテンソル操作のベンチマーク関数
-- `simd_ops.rs` - SIMD最適化操作のベンチマーク関数  
-- `memory_ops.rs` - メモリ管理とゼロコピー操作のベンチマーク関数
-
-### リファクタリング済みベンチマーク
-- `tensor_performance_refactored.rs` - 基本的なテンソル操作の性能測定
-- `simd_performance_refactored.rs` - SIMD最適化の性能測定
-- `memory_performance_refactored.rs` - メモリ戦略の性能測定
-
-### レガシーベンチマーク
-既存のベンチマークファイルは互換性のために保持されていますが、新しいリファクタリング版の使用を推奨します。
+### アクティブベンチマーク (25個)
+- `tensor_ops.rs` - 基本テンソル操作
+- `optimization_benchmark.rs` - SIMD最適化演算
+- `matrix_decomposition_benchmark.rs` - 行列分解 (SVD/QR/固有値)
+- `distributions_benchmark.rs` - 統計分布サンプリング
+- `fft_benchmark.rs` - 高速フーリエ変換
+- `special_functions_benchmark.rs` - 特殊数学関数
+- `nn_benchmark.rs` - ニューラルネットワーク演算
+- `multi_gpu_benchmark.rs` - マルチGPU処理
+- `memory_pool.rs` - メモリプール管理
 
 ## 実行方法
 

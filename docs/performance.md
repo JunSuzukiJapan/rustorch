@@ -17,16 +17,17 @@ RusTorch delivers high-performance tensor operations with comprehensive benchmar
 
 ### Matrix Decomposition Performance
 
-**Pure Rust implementation benchmarks (100 iterations):**
+**実測ベンチマーク結果 (2025年8月31日実行):**
 
-| Matrix Size | SVD | QR | LU | Symeig | Eig |
-|-------------|-----|----|----|---------|-----|
-| **4×4** | 0.96 μs | 0.56 μs | 1.12 μs | 0.51 μs | 0.70 μs |
-| **8×8** | 1.38 μs | 1.17 μs | 1.65 μs | 0.47 μs | 0.71 μs |
-| **16×16** | 3.02 μs | 4.98 μs | 3.60 μs | 0.43 μs | 0.71 μs |
-| **32×32** | 9.92 μs | 33.41 μs | 11.81 μs | 0.54 μs | 0.78 μs |
+| Matrix Size | SVD | QR | 固有値分解 | 実行成功率 |
+|-------------|-----|----|---------|---------| 
+| **4×4** | 424μs | 対応 | eigh() | 100% |
+| **8×8** | 1.4ms | 対応 | eigh() | 100% |
+| **16×16** | 4.9ms | 対応 | eigh() | 100% |
+| **32×32** | 32.8ms | 対応 | eigh() | 100% |
+| **64×64** | 255ms | 対応 | eigh() | 100% |
 
-**✅ 100% Success Rate**: All matrix sizes and algorithms achieve perfect reliability.
+**✅ API統一**: svd(), qr(), eigh()メソッドで統一されたインターフェース
 
 ### Detailed Performance Breakdown
 
