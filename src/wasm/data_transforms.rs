@@ -1,13 +1,12 @@
 //! WASM bindings for data transformations - Refactored
 //! データ変換のWASMバインディング - リファクタリング版
 
-use wasm_bindgen::prelude::*;
-use crate::wasm::tensor::WasmTensor;
 use crate::wasm::common::{
-    WasmError, WasmResult, WasmValidation, WasmVersion, 
-    MemoryManager, PooledBuffer, WasmParamValidator, WasmNaming,
-    WasmTransform, WasmImageOperation, WasmOperation
+    MemoryManager, PooledBuffer, WasmError, WasmImageOperation, WasmNaming, WasmOperation,
+    WasmParamValidator, WasmResult, WasmTransform, WasmValidation, WasmVersion,
 };
+use crate::wasm::tensor::WasmTensor;
+use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for Normalize transformation
 #[wasm_bindgen]
@@ -24,11 +23,11 @@ impl WasmNormalize {
         if mean.len() != std.len() {
             return Err(WasmError::size_mismatch(mean.len(), std.len()));
         }
-        
+
         if mean.is_empty() {
             return Err(WasmError::empty_tensor());
         }
-        
+
         Ok(WasmNormalize {
             mean: mean.to_vec(),
             std: std.to_vec(),
@@ -38,16 +37,16 @@ impl WasmNormalize {
     /// Apply normalization to tensor
     pub fn apply(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
         tensor.validate_non_empty()?;
-        
+
         let data = tensor.data();
         let shape = tensor.shape();
-        
+
         let mut result_buffer = MemoryManager::get_buffer(data.len());
         result_buffer.extend(data.iter().enumerate().map(|(i, &x)| {
             let channel = i % self.mean.len();
             (x - self.mean[channel]) / self.std[channel]
         }));
-        
+
         Ok(WasmTensor::new(result_buffer, shape))
     }
 
@@ -71,12 +70,18 @@ impl WasmResize {
     #[wasm_bindgen(constructor)]
     pub fn new(height: usize, width: usize, interpolation: &str) -> WasmResult<WasmResize> {
         WasmParamValidator::validate_dimensions(width, height, "dimensions")?;
-        
+
         match interpolation {
-            "nearest" | "bilinear" | "bicubic" => {},
-            _ => return Err(WasmError::invalid_param("interpolation", interpolation, "must be nearest, bilinear, or bicubic")),
+            "nearest" | "bilinear" | "bicubic" => {}
+            _ => {
+                return Err(WasmError::invalid_param(
+                    "interpolation",
+                    interpolation,
+                    "must be nearest, bilinear, or bicubic",
+                ))
+            }
         }
-        
+
         Ok(WasmResize {
             height,
             width,
@@ -88,10 +93,10 @@ impl WasmResize {
     pub fn apply(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
         let (old_h, old_w) = crate::wasm::common::WasmValidator::validate_image_tensor(tensor)?;
         let (new_h, new_w) = (self.height, self.width);
-        
+
         let data = tensor.data();
         let mut result_buffer = MemoryManager::get_buffer(new_h * new_w);
-        
+
         // Optimized nearest neighbor interpolation
         for i in 0..new_h {
             for j in 0..new_w {
@@ -101,12 +106,12 @@ impl WasmResize {
                 result_buffer.push(data[idx]);
             }
         }
-        
+
         let mut new_shape = tensor.shape();
         let shape_len = new_shape.len();
-        new_shape[shape_len-2] = new_h;
-        new_shape[shape_len-1] = new_w;
-        
+        new_shape[shape_len - 2] = new_h;
+        new_shape[shape_len - 1] = new_w;
+
         Ok(WasmTensor::new(result_buffer, new_shape))
     }
 
@@ -129,32 +134,36 @@ impl WasmCenterCrop {
     #[wasm_bindgen(constructor)]
     pub fn new(height: usize, width: usize) -> WasmResult<WasmCenterCrop> {
         WasmParamValidator::validate_dimensions(width, height, "dimensions")?;
-        
+
         Ok(WasmCenterCrop { height, width })
     }
 
     /// Apply center crop to tensor
     pub fn apply(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
-        let (img_h, img_w) = crate::wasm::common::WasmValidator::validate_crop_params(tensor, self.height, self.width)?;
-        
+        let (img_h, img_w) = crate::wasm::common::WasmValidator::validate_crop_params(
+            tensor,
+            self.height,
+            self.width,
+        )?;
+
         let start_h = (img_h - self.height) / 2;
         let start_w = (img_w - self.width) / 2;
-        
+
         let data = tensor.data();
         let mut result_buffer = MemoryManager::get_buffer(self.height * self.width);
-        
+
         for i in 0..self.height {
             for j in 0..self.width {
                 let idx = (start_h + i) * img_w + (start_w + j);
                 result_buffer.push(data[idx]);
             }
         }
-        
+
         let mut new_shape = tensor.shape();
         let shape_len = new_shape.len();
-        new_shape[shape_len-2] = self.height;
-        new_shape[shape_len-1] = self.width;
-        
+        new_shape[shape_len - 2] = self.height;
+        new_shape[shape_len - 1] = self.width;
+
         Ok(WasmTensor::new(result_buffer, new_shape))
     }
 
@@ -178,34 +187,42 @@ impl WasmRandomCrop {
     #[wasm_bindgen(constructor)]
     pub fn new(height: usize, width: usize, padding: Option<usize>) -> WasmResult<WasmRandomCrop> {
         WasmParamValidator::validate_dimensions(width, height, "dimensions")?;
-        
-        Ok(WasmRandomCrop { height, width, padding })
+
+        Ok(WasmRandomCrop {
+            height,
+            width,
+            padding,
+        })
     }
 
     /// Apply random crop to tensor
     pub fn apply(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
-        let (img_h, img_w) = crate::wasm::common::WasmValidator::validate_crop_params(tensor, self.height, self.width)?;
-        
+        let (img_h, img_w) = crate::wasm::common::WasmValidator::validate_crop_params(
+            tensor,
+            self.height,
+            self.width,
+        )?;
+
         let max_start_h = img_h - self.height;
         let max_start_w = img_w - self.width;
         let start_h = (js_sys::Math::random() * max_start_h as f64) as usize;
         let start_w = (js_sys::Math::random() * max_start_w as f64) as usize;
-        
+
         let data = tensor.data();
         let mut result_buffer = MemoryManager::get_buffer(self.height * self.width);
-        
+
         for i in 0..self.height {
             for j in 0..self.width {
                 let idx = (start_h + i) * img_w + (start_w + j);
                 result_buffer.push(data[idx]);
             }
         }
-        
+
         let mut new_shape = tensor.shape();
         let shape_len = new_shape.len();
-        new_shape[shape_len-2] = self.height;
-        new_shape[shape_len-1] = self.width;
-        
+        new_shape[shape_len - 2] = self.height;
+        new_shape[shape_len - 1] = self.width;
+
         Ok(WasmTensor::new(result_buffer, new_shape))
     }
 
@@ -228,29 +245,44 @@ pub struct WasmColorJitter {
 impl WasmColorJitter {
     /// Create new color jitter transform
     #[wasm_bindgen(constructor)]
-    pub fn new(brightness: f32, contrast: f32, saturation: f32, hue: f32) -> WasmResult<WasmColorJitter> {
+    pub fn new(
+        brightness: f32,
+        contrast: f32,
+        saturation: f32,
+        hue: f32,
+    ) -> WasmResult<WasmColorJitter> {
         // Validate parameters are within reasonable ranges
         if brightness < 0.0 || contrast < 0.0 || saturation < 0.0 || hue < 0.0 {
-            return Err(WasmError::invalid_param("jitter_params", "negative values", "all parameters must be non-negative"));
+            return Err(WasmError::invalid_param(
+                "jitter_params",
+                "negative values",
+                "all parameters must be non-negative",
+            ));
         }
-        
-        Ok(WasmColorJitter { brightness, contrast, saturation, hue })
+
+        Ok(WasmColorJitter {
+            brightness,
+            contrast,
+            saturation,
+            hue,
+        })
     }
 
     /// Apply color jitter to tensor
     pub fn apply(&self, tensor: &WasmTensor) -> WasmResult<WasmTensor> {
         tensor.validate_non_empty()?;
-        
+
         let brightness_factor = 1.0 + (js_sys::Math::random() as f32 - 0.5) * self.brightness;
         let contrast_factor = 1.0 + (js_sys::Math::random() as f32 - 0.5) * self.contrast;
-        
+
         let data = tensor.data();
         let mut result_buffer = MemoryManager::get_buffer(data.len());
-        
-        result_buffer.extend(data.iter().map(|&x| {
-            ((x * brightness_factor) * contrast_factor).clamp(0.0, 1.0)
-        }));
-        
+
+        result_buffer.extend(
+            data.iter()
+                .map(|&x| ((x * brightness_factor) * contrast_factor).clamp(0.0, 1.0)),
+        );
+
         Ok(WasmTensor::new(result_buffer, tensor.shape()))
     }
 

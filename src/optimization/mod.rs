@@ -1,13 +1,13 @@
 //! Cross-platform optimization module
 //! クロスプラットフォーム最適化モジュール
 
-pub mod simd;
-pub mod platform;
 pub mod hardware;
+pub mod platform;
+pub mod simd;
 
-pub use simd::{SimdOptimizer, SimdBackend, VectorizedOperation};
-pub use platform::{PlatformOptimizer, PlatformFeatures, OptimizationLevel};
-pub use hardware::{HardwareOptimizer, HardwareCapabilities, AcceleratorType};
+pub use hardware::{AcceleratorType, HardwareCapabilities, HardwareOptimizer};
+pub use platform::{OptimizationLevel, PlatformFeatures, PlatformOptimizer};
+pub use simd::{SimdBackend, SimdOptimizer, VectorizedOperation};
 
 /// Cross-platform optimization configuration
 /// クロスプラットフォーム最適化設定

@@ -1,14 +1,13 @@
 //! WASM bindings for data quality metrics - Refactored
 //! データ品質メトリクスのWASMバインディング - リファクタリング版
 
-use wasm_bindgen::prelude::*;
-use crate::wasm::tensor::WasmTensor;
 use crate::wasm::common::{
-    WasmError, WasmResult, WasmValidation, WasmVersion,
-    WasmStats, JsonFormatter, JsObjectBuilder, JsArrayBuilder,
-    WasmParamValidator, WasmAnalyzer, WasmQualityAssessment, WasmOperation
+    JsArrayBuilder, JsObjectBuilder, JsonFormatter, WasmAnalyzer, WasmError, WasmOperation,
+    WasmParamValidator, WasmQualityAssessment, WasmResult, WasmStats, WasmValidation, WasmVersion,
 };
+use crate::wasm::tensor::WasmTensor;
 use js_sys::Array;
+use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for Quality Metrics
 #[wasm_bindgen]
@@ -22,7 +21,7 @@ impl WasmQualityMetrics {
     #[wasm_bindgen(constructor)]
     pub fn new(threshold: f32) -> WasmResult<WasmQualityMetrics> {
         WasmParamValidator::validate_probability_range(threshold, "threshold")?;
-        
+
         Ok(WasmQualityMetrics { threshold })
     }
 
@@ -38,11 +37,18 @@ impl WasmQualityMetrics {
     pub fn accuracy(&self, tensor: &WasmTensor, min_val: f32, max_val: f32) -> WasmResult<f32> {
         tensor.validate_non_empty()?;
         if min_val > max_val {
-            return Err(WasmError::invalid_param("range", format!("{}..{}", min_val, max_val), "min must be <= max"));
+            return Err(WasmError::invalid_param(
+                "range",
+                format!("{}..{}", min_val, max_val),
+                "min must be <= max",
+            ));
         }
-        
+
         let data = tensor.data();
-        let valid_count = data.iter().filter(|&&x| x >= min_val && x <= max_val).count();
+        let valid_count = data
+            .iter()
+            .filter(|&&x| x >= min_val && x <= max_val)
+            .count();
         Ok((valid_count as f32 / data.len() as f32) * 100.0)
     }
 
@@ -50,10 +56,10 @@ impl WasmQualityMetrics {
     pub fn consistency(&self, tensor: &WasmTensor) -> WasmResult<f32> {
         tensor.validate_non_empty()?;
         let data = tensor.data();
-        
+
         let mean = WasmStats::mean(&data);
         let std_dev = WasmStats::std_dev(&data, Some(mean));
-        
+
         Ok(100.0 - std_dev.min(100.0))
     }
 
@@ -69,11 +75,11 @@ impl WasmQualityMetrics {
     pub fn uniqueness(&self, tensor: &WasmTensor) -> WasmResult<f32> {
         tensor.validate_non_empty()?;
         let data = tensor.data();
-        
+
         let mut sorted_data = data.clone();
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         sorted_data.dedup();
-        
+
         Ok((sorted_data.len() as f32 / data.len() as f32) * 100.0)
     }
 
@@ -83,7 +89,7 @@ impl WasmQualityMetrics {
         let validity = self.validity(tensor)?;
         let consistency = self.consistency(tensor)?;
         let uniqueness = self.uniqueness(tensor)?;
-        
+
         Ok(completeness * 0.3 + validity * 0.3 + consistency * 0.2 + uniqueness * 0.2)
     }
 
@@ -94,8 +100,14 @@ impl WasmQualityMetrics {
         let consistency = self.consistency(tensor)?;
         let uniqueness = self.uniqueness(tensor)?;
         let overall = self.overall_quality(tensor)?;
-        
-        Ok(JsonFormatter::quality_json(completeness, validity, consistency, uniqueness, overall))
+
+        Ok(JsonFormatter::quality_json(
+            completeness,
+            validity,
+            consistency,
+            uniqueness,
+            overall,
+        ))
     }
 }
 
@@ -115,13 +127,19 @@ impl WasmStatisticalAnalyzer {
     pub fn basic_stats(&self, tensor: &WasmTensor) -> WasmResult<String> {
         tensor.validate_non_empty()?;
         let data = tensor.data();
-        
+
         let mean = WasmStats::mean(&data);
         let std_dev = WasmStats::std_dev(&data, Some(mean));
         let min = WasmStats::min(&data);
         let max = WasmStats::max(&data);
-        
-        Ok(JsonFormatter::stats_json(mean, std_dev, min, max, data.len()))
+
+        Ok(JsonFormatter::stats_json(
+            mean,
+            std_dev,
+            min,
+            max,
+            data.len(),
+        ))
     }
 
     /// Calculate percentiles
@@ -130,10 +148,10 @@ impl WasmStatisticalAnalyzer {
         if percentiles.is_empty() {
             return Err(WasmError::empty_tensor());
         }
-        
+
         let mut data = tensor.data().clone();
         data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let mut builder = JsArrayBuilder::with_capacity(percentiles.len());
         for &p in percentiles {
             if p < 0.0 || p > 100.0 {
@@ -143,7 +161,7 @@ impl WasmStatisticalAnalyzer {
             let value = data[index.min(data.len() - 1)];
             builder = builder.push_f32(value);
         }
-        
+
         Ok(builder.build())
     }
 
@@ -151,23 +169,23 @@ impl WasmStatisticalAnalyzer {
     pub fn detect_outliers(&self, tensor: &WasmTensor) -> WasmResult<Array> {
         tensor.validate_non_empty()?;
         let data = tensor.data();
-        
+
         if data.len() < 4 {
             return Ok(JsArrayBuilder::new().build());
         }
-        
+
         let mut sorted_data = data.clone();
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let q1_idx = sorted_data.len() / 4;
         let q3_idx = (3 * sorted_data.len()) / 4;
         let q1 = sorted_data[q1_idx];
         let q3 = sorted_data[q3_idx];
         let iqr = q3 - q1;
-        
+
         let lower_bound = q1 - 1.5 * iqr;
         let upper_bound = q3 + 1.5 * iqr;
-        
+
         let mut builder = JsArrayBuilder::new();
         for (i, &value) in data.iter().enumerate() {
             if value < lower_bound || value > upper_bound {
@@ -178,7 +196,7 @@ impl WasmStatisticalAnalyzer {
                 builder = builder.push_object(outlier_obj);
             }
         }
-        
+
         Ok(builder.build())
     }
 }
@@ -203,7 +221,7 @@ pub fn quick_quality_assessment(tensor: &WasmTensor) -> WasmResult<String> {
     let validity = metrics.validity(tensor)?;
     let consistency = metrics.consistency(tensor)?;
     let overall = metrics.overall_quality(tensor)?;
-    
+
     let recommendation = if overall > 80.0 {
         "High quality data - ready for training"
     } else if overall > 60.0 {
@@ -211,7 +229,7 @@ pub fn quick_quality_assessment(tensor: &WasmTensor) -> WasmResult<String> {
     } else {
         "Low quality data - requires cleaning"
     };
-    
+
     let timestamp = js_sys::Date::now();
     Ok(format!(
         "{{\"completeness\":{:.2},\"validity\":{:.2},\"consistency\":{:.2},\"overall_quality\":{:.2},\"timestamp\":{:.0},\"recommendation\":\"{}\"}}", 

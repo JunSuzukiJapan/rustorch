@@ -13,19 +13,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("==================================");
 
     let mut hub = ModelHub::new()?;
-    
+
     // Test with a small model first - MobileNet V2 (13MB)
     println!("\n📥 Downloading MobileNet V2 (smallest model)");
     println!("----------------------------------------------");
-    
+
     match hub.load_model("mobilenet_v2").await {
         Ok(model) => {
             println!("✅ Successfully downloaded and loaded MobileNet V2");
             println!("   Model name: {}", model.metadata.name);
             println!("   Model version: {}", model.metadata.version);
-            println!("   Architecture: {} layers", model.architecture.layers.len());
+            println!(
+                "   Architecture: {} layers",
+                model.architecture.layers.len()
+            );
             println!("   Weights loaded: {} tensors", model.weights.len());
-            
+
             // Verify cache is working
             let (count, size) = hub.cache_stats();
             println!("   Cache: {} models, {} bytes", count, format_bytes(size));
@@ -62,12 +65,12 @@ fn format_bytes(bytes: u64) -> String {
     const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
     let mut size = bytes as f64;
     let mut unit_index = 0;
-    
+
     while size >= 1024.0 && unit_index < UNITS.len() - 1 {
         size /= 1024.0;
         unit_index += 1;
     }
-    
+
     if unit_index == 0 {
         format!("{} {}", bytes, UNITS[unit_index])
     } else {

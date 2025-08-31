@@ -1,8 +1,8 @@
 //! Shared behavior patterns and utilities
 //! 共有動作パターンとユーティリティ
 
-use wasm_bindgen::prelude::*;
 use crate::wasm::common::{WasmError, WasmResult, WasmVersion};
+use wasm_bindgen::prelude::*;
 
 /// Standard parameter validation patterns
 pub struct WasmParamValidator;
@@ -14,7 +14,7 @@ impl WasmParamValidator {
             Err(WasmError::invalid_param(
                 param_name,
                 format!("{}x{}", width, height),
-                "dimensions must be non-zero"
+                "dimensions must be non-zero",
             ))
         } else {
             Ok(())
@@ -42,7 +42,11 @@ impl WasmParamValidator {
     /// Validate positive value
     pub fn validate_positive(value: f32, param_name: &str) -> WasmResult<()> {
         if value <= 0.0 {
-            Err(WasmError::invalid_param(param_name, value, "must be positive"))
+            Err(WasmError::invalid_param(
+                param_name,
+                value,
+                "must be positive",
+            ))
         } else {
             Ok(())
         }
@@ -51,14 +55,22 @@ impl WasmParamValidator {
     /// Validate non-zero usize
     pub fn validate_non_zero_usize(value: usize, param_name: &str) -> WasmResult<()> {
         if value == 0 {
-            Err(WasmError::invalid_param(param_name, value, "must be non-zero"))
+            Err(WasmError::invalid_param(
+                param_name,
+                value,
+                "must be non-zero",
+            ))
         } else {
             Ok(())
         }
     }
 
     /// Validate array length
-    pub fn validate_array_length(length: usize, min_length: usize, param_name: &str) -> WasmResult<()> {
+    pub fn validate_array_length(
+        length: usize,
+        min_length: usize,
+        param_name: &str,
+    ) -> WasmResult<()> {
         if length < min_length {
             Err(WasmError::insufficient_data(param_name, min_length, length))
         } else {
@@ -76,7 +88,8 @@ impl WasmNaming {
         if params.is_empty() {
             base_name.to_string()
         } else {
-            let param_str = params.iter()
+            let param_str = params
+                .iter()
                 .map(|(k, v)| format!("{}={}", k, v))
                 .collect::<Vec<_>>()
                 .join(",");
@@ -106,19 +119,19 @@ pub struct WasmConfig;
 impl WasmConfig {
     /// Default quality threshold
     pub const DEFAULT_QUALITY_THRESHOLD: f32 = 0.8;
-    
+
     /// Default anomaly threshold (Z-score)
     pub const DEFAULT_ANOMALY_THRESHOLD: f32 = 2.0;
-    
+
     /// Default memory pool size
     pub const DEFAULT_POOL_SIZE: usize = 100;
-    
+
     /// Default batch size
     pub const DEFAULT_BATCH_SIZE: usize = 32;
-    
+
     /// Default window size for streaming operations
     pub const DEFAULT_WINDOW_SIZE: usize = 50;
-    
+
     /// Create standard configuration JSON
     pub fn standard_config() -> String {
         format!(
@@ -193,7 +206,10 @@ macro_rules! impl_wasm_transform {
         impl_wasm_standard!($type, $name, $module);
 
         impl crate::wasm::common::WasmTransform for $type {
-            fn apply(&self, tensor: &crate::wasm::tensor::WasmTensor) -> crate::wasm::common::WasmResult<crate::wasm::tensor::WasmTensor> {
+            fn apply(
+                &self,
+                tensor: &crate::wasm::tensor::WasmTensor,
+            ) -> crate::wasm::common::WasmResult<crate::wasm::tensor::WasmTensor> {
                 self.apply(tensor)
             }
         }
@@ -207,7 +223,10 @@ macro_rules! impl_wasm_analyzer {
         impl_wasm_standard!($type, $name, $module);
 
         impl crate::wasm::common::WasmAnalyzer for $type {
-            fn analyze(&self, tensor: &crate::wasm::tensor::WasmTensor) -> crate::wasm::common::WasmResult<String> {
+            fn analyze(
+                &self,
+                tensor: &crate::wasm::tensor::WasmTensor,
+            ) -> crate::wasm::common::WasmResult<String> {
                 self.basic_stats(tensor)
             }
 

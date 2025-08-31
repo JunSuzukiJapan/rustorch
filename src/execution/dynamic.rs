@@ -1,10 +1,10 @@
 //! Dynamic computation graph execution engine
 //! 動的計算グラフ実行エンジン
 
-use crate::autograd::graph::{ComputationGraph, GraphNode};
 use crate::autograd::function::Function;
-use crate::tensor::Tensor;
+use crate::autograd::graph::{ComputationGraph, GraphNode};
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, RwLock, Weak};
@@ -25,9 +25,16 @@ pub enum DynamicOp {
     /// Sigmoid activation
     Sigmoid,
     /// Convolution operation
-    Conv2d { kernel_size: (usize, usize), stride: (usize, usize), padding: (usize, usize) },
+    Conv2d {
+        kernel_size: (usize, usize),
+        stride: (usize, usize),
+        padding: (usize, usize),
+    },
     /// Linear transformation
-    Linear { in_features: usize, out_features: usize },
+    Linear {
+        in_features: usize,
+        out_features: usize,
+    },
     /// Batch normalization
     BatchNorm { num_features: usize },
     /// Dropout
@@ -127,8 +134,8 @@ pub struct DynamicExecutionStats {
     pub jit_compilations: usize,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
-    DynamicExecutionContext<T> 
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    DynamicExecutionContext<T>
 {
     /// Create new dynamic execution context
     pub fn new() -> Self {
@@ -175,7 +182,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         // Create leaf node
         let dynamic_node = DynamicNode::new(DynamicOp::Custom("leaf".to_string()), vec![], node_id);
         dynamic_node.set_cached_output(tensor);
-        
+
         self.dynamic_nodes.insert(node_id, dynamic_node);
 
         Ok(node_id)
@@ -193,7 +200,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         // Build execution order if not cached
         self.build_execution_order(output_node_id)?;
 
-        let execution_order = self.execution_order.read().unwrap().clone()
+        let execution_order = self
+            .execution_order
+            .read()
+            .unwrap()
+            .clone()
             .ok_or_else(|| RusTorchError::tensor_op("Failed to build execution order"))?;
 
         // Execute nodes in order
@@ -205,9 +216,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                     self.stats.total_ops += 1;
                 } else {
                     // Cache hit
-                    self.stats.cache_hit_rate = 
-                        (self.stats.cache_hit_rate * (self.stats.total_ops as f64) + 1.0) / 
-                        (self.stats.total_ops as f64 + 1.0);
+                    self.stats.cache_hit_rate =
+                        (self.stats.cache_hit_rate * (self.stats.total_ops as f64) + 1.0)
+                            / (self.stats.total_ops as f64 + 1.0);
                 }
             }
         }
@@ -217,7 +228,8 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
         // Get final output
         if let Some(output_node) = self.dynamic_nodes.get(&output_node_id) {
-            output_node.get_cached_output()
+            output_node
+                .get_cached_output()
                 .ok_or_else(|| RusTorchError::tensor_op("Output node has no result"))
         } else {
             Err(RusTorchError::tensor_op("Output node not found"))
@@ -234,9 +246,10 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             if let Some(tensor) = input_node.get_cached_output() {
                 input_tensors.push(tensor);
             } else {
-                return Err(RusTorchError::tensor_op(
-                    format!("Input node {} has no cached output", input_node.id)
-                ));
+                return Err(RusTorchError::tensor_op(format!(
+                    "Input node {} has no cached output",
+                    input_node.id
+                )));
             }
         }
 
@@ -247,64 +260,72 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
                     return Err(RusTorchError::tensor_op("Add requires 2 inputs"));
                 }
                 &input_tensors[0] + &input_tensors[1]
-            },
+            }
             DynamicOp::Mul => {
                 if input_tensors.len() != 2 {
                     return Err(RusTorchError::tensor_op("Mul requires 2 inputs"));
                 }
                 &input_tensors[0] * &input_tensors[1]
-            },
+            }
             DynamicOp::MatMul => {
                 if input_tensors.len() != 2 {
                     return Err(RusTorchError::tensor_op("MatMul requires 2 inputs"));
                 }
                 input_tensors[0].matmul(&input_tensors[1])?
-            },
+            }
             DynamicOp::ReLU => {
                 if input_tensors.len() != 1 {
                     return Err(RusTorchError::tensor_op("ReLU requires 1 input"));
                 }
                 // Use element-wise operations instead of missing relu method
                 let input_data = &input_tensors[0].data;
-                let relu_data: Vec<T> = input_data.iter()
+                let relu_data: Vec<T> = input_data
+                    .iter()
                     .map(|&x| if x > T::zero() { x } else { T::zero() })
                     .collect();
                 Tensor::from_vec(relu_data, input_tensors[0].shape().to_vec())
-            },
+            }
             DynamicOp::Sigmoid => {
                 if input_tensors.len() != 1 {
                     return Err(RusTorchError::tensor_op("Sigmoid requires 1 input"));
                 }
                 // Use element-wise operations for sigmoid
                 let input_data = &input_tensors[0].data;
-                let sigmoid_data: Vec<T> = input_data.iter()
+                let sigmoid_data: Vec<T> = input_data
+                    .iter()
                     .map(|&x| T::one() / (T::one() + (-x).exp()))
                     .collect();
                 Tensor::from_vec(sigmoid_data, input_tensors[0].shape().to_vec())
-            },
+            }
             DynamicOp::Reshape { shape } => {
                 if input_tensors.len() != 1 {
                     return Err(RusTorchError::tensor_op("Reshape requires 1 input"));
                 }
                 input_tensors[0].reshape(shape)?
-            },
-            DynamicOp::Linear { in_features: _, out_features: _ } => {
+            }
+            DynamicOp::Linear {
+                in_features: _,
+                out_features: _,
+            } => {
                 if input_tensors.len() < 2 || input_tensors.len() > 3 {
-                    return Err(RusTorchError::tensor_op("Linear requires 2-3 inputs (input, weight, [bias])"));
+                    return Err(RusTorchError::tensor_op(
+                        "Linear requires 2-3 inputs (input, weight, [bias])",
+                    ));
                 }
                 self.execute_linear(&input_tensors)?
-            },
+            }
             _ => {
-                return Err(RusTorchError::tensor_op(
-                    format!("Operation {:?} not implemented yet", node.op)
-                ));
-            },
+                return Err(RusTorchError::tensor_op(format!(
+                    "Operation {:?} not implemented yet",
+                    node.op
+                )));
+            }
         };
 
         // Record execution metrics
         let execution_time = start_time.elapsed();
         *node.execution_time.write().unwrap() = Some(execution_time);
-        
+
         // Estimate memory usage
         let memory_usage = output.data.len() * std::mem::size_of::<T>();
         *node.memory_usage.write().unwrap() = Some(memory_usage);
@@ -336,7 +357,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         let mut order = Vec::new();
 
         self.topological_sort(output_node_id, &mut visited, &mut temp_visited, &mut order)?;
-        
+
         *self.execution_order.write().unwrap() = Some(order);
         Ok(())
     }
@@ -388,15 +409,15 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// Create execution plan with memory optimization
     pub fn create_execution_plan(&self, output_node_id: usize) -> RusTorchResult<ExecutionPlan<T>> {
         let mut plan = ExecutionPlan::new();
-        
+
         // Build dependency graph
         let mut visited = std::collections::HashSet::new();
         self.build_execution_plan_recursive(output_node_id, &mut visited, &mut plan)?;
-        
+
         // Optimize plan
         plan.optimize_memory_usage();
         plan.optimize_execution_order();
-        
+
         Ok(plan)
     }
 
@@ -418,8 +439,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             }
 
             // Add this node to plan
-            plan.add_operation(node_id, node.op.clone(), 
-                node.inputs.iter().map(|n| n.id).collect());
+            plan.add_operation(
+                node_id,
+                node.op.clone(),
+                node.inputs.iter().map(|n| n.id).collect(),
+            );
             visited.insert(node_id);
         }
 
@@ -512,7 +536,7 @@ impl<T: Float + Send + Sync + 'static> ExecutionPlan<T> {
     pub fn optimize_memory_usage(&mut self) {
         // Analyze when each tensor is last used
         let mut last_use = HashMap::new();
-        
+
         for (op_idx, op) in self.operations.iter().enumerate() {
             for &input_id in &op.input_ids {
                 last_use.insert(input_id, op_idx);
@@ -535,7 +559,7 @@ impl<T: Float + Send + Sync + 'static> ExecutionPlan<T> {
     pub fn optimize_execution_order(&mut self) {
         // Group operations that can run in parallel
         let mut current_group = Vec::new();
-        
+
         for (idx, op) in self.operations.iter().enumerate() {
             // Check if this operation depends on any operation in current group
             let has_dependency = current_group.iter().any(|&group_idx: &usize| {
@@ -549,7 +573,7 @@ impl<T: Float + Send + Sync + 'static> ExecutionPlan<T> {
                     current_group.clear();
                 }
             }
-            
+
             current_group.push(idx);
         }
 
@@ -561,16 +585,17 @@ impl<T: Float + Send + Sync + 'static> ExecutionPlan<T> {
     /// Get estimated total execution time
     pub fn estimated_execution_time(&self) -> std::time::Duration {
         let mut total_time = std::time::Duration::default();
-        
+
         for group in &self.parallel_groups {
             // For parallel group, take the maximum time
-            let group_time = group.iter()
+            let group_time = group
+                .iter()
                 .filter_map(|&idx| self.operations[idx].estimated_time)
                 .max()
                 .unwrap_or_default();
             total_time += group_time;
         }
-        
+
         total_time
     }
 
@@ -603,7 +628,9 @@ pub struct JitStats {
     pub average_speedup: f64,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> JitCompiler<T> {
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    JitCompiler<T>
+{
     /// Create new JIT compiler
     pub fn new() -> Self {
         JitCompiler {
@@ -613,25 +640,28 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 
     /// Compile a sequence of operations into optimized function
-    pub fn compile_operations(&mut self, ops: &[DynamicOp]) -> RusTorchResult<Arc<dyn Function<T>>> {
+    pub fn compile_operations(
+        &mut self,
+        ops: &[DynamicOp],
+    ) -> RusTorchResult<Arc<dyn Function<T>>> {
         let ops_key = format!("{:?}", ops);
-        
+
         if let Some(cached) = self.compiled_cache.get(&ops_key) {
             self.compilation_stats.cache_hits += 1;
             return Ok(cached.clone());
         }
 
         let start_time = Instant::now();
-        
+
         // Create fused operation
         let fused_op = self.create_fused_operation(ops)?;
-        
+
         self.compilation_stats.compilations += 1;
         self.compilation_stats.compilation_time += start_time.elapsed();
-        
+
         let fused_fn = Arc::new(fused_op);
         self.compiled_cache.insert(ops_key, fused_fn.clone());
-        
+
         Ok(fused_fn)
     }
 
@@ -663,8 +693,8 @@ impl<T: Float + Send + Sync + 'static> FusedOperation<T> {
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
-    Function<T> for FusedOperation<T> 
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    Function<T> for FusedOperation<T>
 {
     fn forward(&self, inputs: &[&Tensor<T>]) -> Tensor<T> {
         // For simplicity, just return the first input
@@ -690,17 +720,19 @@ mod tests {
     #[test]
     fn test_dynamic_execution_context_creation() {
         let mut ctx = DynamicExecutionContext::<f32>::new();
-        
+
         // Add leaf nodes
         let input1 = Tensor::zeros(&[2, 3]);
         let input2 = Tensor::ones(&[2, 3]);
-        
+
         let leaf1_id = ctx.add_leaf(input1).unwrap();
         let leaf2_id = ctx.add_leaf(input2).unwrap();
-        
+
         // Add operation
-        let add_id = ctx.add_operation(DynamicOp::Add, vec![leaf1_id, leaf2_id]).unwrap();
-        
+        let add_id = ctx
+            .add_operation(DynamicOp::Add, vec![leaf1_id, leaf2_id])
+            .unwrap();
+
         // Execute
         let result = ctx.execute(add_id).unwrap();
         assert_eq!(result.shape(), &[2, 3]);
@@ -711,7 +743,7 @@ mod tests {
         let mut plan = ExecutionPlan::<f32>::new();
         plan.add_operation(0, DynamicOp::Add, vec![]);
         plan.add_operation(1, DynamicOp::ReLU, vec![0]);
-        
+
         plan.optimize_execution_order();
         assert!(!plan.parallel_groups.is_empty());
     }
@@ -719,10 +751,10 @@ mod tests {
     #[test]
     fn test_jit_compiler() {
         let mut compiler = JitCompiler::<f32>::new();
-        
+
         let ops = vec![DynamicOp::Add, DynamicOp::ReLU];
         let compiled = compiler.compile_operations(&ops).unwrap();
-        
+
         // Test cache hit
         let compiled2 = compiler.compile_operations(&ops).unwrap();
         assert_eq!(compiler.get_stats().cache_hits, 1);
@@ -731,16 +763,16 @@ mod tests {
     #[test]
     fn test_relu_operation() {
         let mut ctx = DynamicExecutionContext::<f32>::new();
-        
+
         // Test ReLU with mixed positive/negative values
         let input_data = vec![-1.0, 0.0, 1.0, 2.0];
         let input = Tensor::from_vec(input_data, vec![4]);
         let leaf_id = ctx.add_leaf(input).unwrap();
         let relu_id = ctx.add_operation(DynamicOp::ReLU, vec![leaf_id]).unwrap();
-        
+
         let result = ctx.execute(relu_id).unwrap();
         let expected = vec![0.0, 0.0, 1.0, 2.0];
-        
+
         if let Some(slice) = result.as_slice() {
             for (actual, expected) in slice.iter().zip(expected.iter()) {
                 assert!((actual - expected).abs() < 1e-6);
@@ -751,13 +783,15 @@ mod tests {
     #[test]
     fn test_sigmoid_operation() {
         let mut ctx = DynamicExecutionContext::<f32>::new();
-        
+
         let input = Tensor::from_vec(vec![0.0], vec![1]);
         let leaf_id = ctx.add_leaf(input).unwrap();
-        let sigmoid_id = ctx.add_operation(DynamicOp::Sigmoid, vec![leaf_id]).unwrap();
-        
+        let sigmoid_id = ctx
+            .add_operation(DynamicOp::Sigmoid, vec![leaf_id])
+            .unwrap();
+
         let result = ctx.execute(sigmoid_id).unwrap();
-        
+
         // sigmoid(0) should be 0.5
         if let Some(slice) = result.as_slice() {
             assert!((slice[0] - 0.5).abs() < 1e-6);
@@ -767,23 +801,28 @@ mod tests {
     #[test]
     fn test_linear_operation() {
         let mut ctx = DynamicExecutionContext::<f32>::new();
-        
+
         let input = Tensor::ones(&[2, 3]);
         let weight = Tensor::ones(&[4, 3]); // 3 -> 4 features
         let bias = Tensor::zeros(&[4]);
-        
+
         let input_id = ctx.add_leaf(input).unwrap();
         let weight_id = ctx.add_leaf(weight).unwrap();
         let bias_id = ctx.add_leaf(bias).unwrap();
-        
-        let linear_id = ctx.add_operation(
-            DynamicOp::Linear { in_features: 3, out_features: 4 },
-            vec![input_id, weight_id, bias_id]
-        ).unwrap();
-        
+
+        let linear_id = ctx
+            .add_operation(
+                DynamicOp::Linear {
+                    in_features: 3,
+                    out_features: 4,
+                },
+                vec![input_id, weight_id, bias_id],
+            )
+            .unwrap();
+
         let result = ctx.execute(linear_id).unwrap();
         assert_eq!(result.shape(), &[2, 4]);
-        
+
         // With all ones input and weight, output should be 3.0 for each element
         if let Some(slice) = result.as_slice() {
             for &value in slice {

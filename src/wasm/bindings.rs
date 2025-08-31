@@ -554,10 +554,10 @@ impl WasmModel {
 
 // Enhanced WASM features (v0.5.2+)
 #[cfg(feature = "wasm")]
-pub use crate::wasm::data_transforms::*;
-#[cfg(feature = "wasm")]
-pub use crate::wasm::quality_metrics::*;
-#[cfg(feature = "wasm")]
 pub use crate::wasm::advanced_math::*;
 #[cfg(feature = "wasm")]
 pub use crate::wasm::anomaly_detection::*;
+#[cfg(feature = "wasm")]
+pub use crate::wasm::data_transforms::*;
+#[cfg(feature = "wasm")]
+pub use crate::wasm::quality_metrics::*;

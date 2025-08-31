@@ -4,12 +4,14 @@
 //! Comprehensive benchmarking suite for multi-GPU operations including
 //! distributed training, communication primitives, and synchronization.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use rustorch::error::RusTorchResult;
-use rustorch::gpu::multi_gpu::{MultiGpuContext, ParallelismStrategy, GradientCompression};
-use rustorch::gpu::sync_primitives::{StreamManager, MultiGpuBarrier, StreamPriority};
-use rustorch::gpu::distributed_training::{DistributedTrainer, TrainingConfig, LearningRateSchedule, FaultToleranceConfig};
-use rustorch::gpu::multi_gpu_profiler::{MultiGpuProfiler, profile_multi_gpu_operation};
+use rustorch::gpu::distributed_training::{
+    DistributedTrainer, FaultToleranceConfig, LearningRateSchedule, TrainingConfig,
+};
+use rustorch::gpu::multi_gpu::{GradientCompression, MultiGpuContext, ParallelismStrategy};
+use rustorch::gpu::multi_gpu_profiler::profile_multi_gpu_operation;
+use rustorch::gpu::sync_primitives::{MultiGpuBarrier, StreamManager, StreamPriority};
 use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -26,8 +28,8 @@ fn bench_multi_gpu_context(c: &mut Criterion) {
             |b, &gpu_count| {
                 b.iter(|| {
                     let gpu_ids: Vec<usize> = (0..gpu_count).collect();
-                    let context = MultiGpuContext::new(black_box(gpu_ids));
-                    black_box(context)
+                    let _context = MultiGpuContext::new(black_box(gpu_ids));
+                    black_box(_context)
                 });
             },
         );
@@ -47,11 +49,9 @@ fn bench_multi_gpu_context(c: &mut Criterion) {
             strategy,
             |b, &strategy| {
                 b.iter(|| {
-                    let context = MultiGpuContext::new_with_strategy(
-                        black_box(vec![0]),
-                        black_box(strategy),
-                    );
-                    black_box(context)
+                    let _context =
+                        MultiGpuContext::new_with_strategy(black_box(vec![0]), black_box(strategy));
+                    black_box(_context)
                 });
             },
         );
@@ -140,7 +140,7 @@ fn bench_distributed_training(c: &mut Criterion) {
             |b, &compression| {
                 let mut config = config.clone();
                 config.compression = compression;
-                
+
                 b.iter(|| {
                     let trainer = DistributedTrainer::new(
                         vec![0],
@@ -198,19 +198,14 @@ fn bench_communication_patterns(c: &mut Criterion) {
     let mut group = c.benchmark_group("Communication Patterns");
 
     // Setup test context
-    let setup = || -> RusTorchResult<MultiGpuContext> {
-        MultiGpuContext::new(vec![0])
-    };
+    let setup = || -> RusTorchResult<MultiGpuContext> { MultiGpuContext::new(vec![0]) };
 
     group.bench_function("p2p_communication_setup", |b| {
         b.iter(|| {
-            let context = setup().unwrap();
+            let _context = setup().unwrap();
             let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
-            let result = context.test_p2p_communication(
-                black_box(0),
-                black_box(0),
-                black_box(&tensor),
-            );
+            let result =
+                _context.test_p2p_communication(black_box(0), black_box(0), black_box(&tensor));
             black_box(result)
         });
     });
@@ -218,38 +213,37 @@ fn bench_communication_patterns(c: &mut Criterion) {
     // Benchmark all-reduce operations with different tensor sizes
     let tensor_sizes = [10, 100, 1000];
     for size in tensor_sizes.iter() {
-        group.bench_with_input(
-            BenchmarkId::new("all_reduce", size),
-            size,
-            |b, &size| {
-                b.iter(|| {
-                    let context = setup().unwrap();
-                    let tensors: Vec<Tensor<f32>> = (0..1).map(|_| {
+        group.bench_with_input(BenchmarkId::new("all_reduce", size), size, |b, &size| {
+            b.iter(|| {
+                let _context = setup().unwrap();
+                let tensors: Vec<Tensor<f32>> = (0..1)
+                    .map(|_| {
                         let data: Vec<f32> = (0..size).map(|i| i as f32).collect();
                         Tensor::<f32>::from_vec(data, vec![size])
-                    }).collect();
-                    
-                    let result = context.all_reduce(black_box(tensors));
-                    black_box(result)
-                });
-            },
-        );
+                    })
+                    .collect();
+
+                let result = _context.all_reduce(black_box(tensors));
+                black_box(result)
+            });
+        });
     }
 
     group.finish();
 }
 
 /// Benchmark performance profiling overhead
+#[allow(dead_code)]
 fn bench_profiling_overhead(c: &mut Criterion) {
     let mut group = c.benchmark_group("Profiling Overhead");
 
     // Benchmark with profiling disabled
     group.bench_function("operation_without_profiling", |b| {
         b.iter(|| {
-            let context = MultiGpuContext::new(vec![0]).unwrap();
+            let _context = MultiGpuContext::new(vec![0]).unwrap();
             let tensor = Tensor::<f32>::from_vec(vec![1.0; 1000], vec![1000]);
             let tensors = vec![tensor];
-            let result = context.all_reduce(black_box(tensors));
+            let result = _context.all_reduce(black_box(tensors));
             black_box(result)
         });
     });
@@ -257,16 +251,12 @@ fn bench_profiling_overhead(c: &mut Criterion) {
     // Benchmark with profiling enabled
     group.bench_function("operation_with_profiling", |b| {
         b.iter(|| {
-            let result = profile_multi_gpu_operation(
-                "benchmark_operation",
-                &[0],
-                || {
-                    let context = MultiGpuContext::new(vec![0])?;
-                    let tensor = Tensor::<f32>::from_vec(vec![1.0; 1000], vec![1000]);
-                    let tensors = vec![tensor];
-                    context.all_reduce(tensors)
-                }
-            );
+            let result = profile_multi_gpu_operation("benchmark_operation", &[0], || {
+                let _context = MultiGpuContext::new(vec![0])?;
+                let tensor = Tensor::<f32>::from_vec(vec![1.0; 1000], vec![1000]);
+                let tensors = vec![tensor];
+                _context.all_reduce(tensors)
+            });
             black_box(result)
         });
     });
@@ -275,6 +265,7 @@ fn bench_profiling_overhead(c: &mut Criterion) {
 }
 
 /// Benchmark different gradient compression methods
+#[allow(dead_code)]
 fn bench_gradient_compression(c: &mut Criterion) {
     let mut group = c.benchmark_group("Gradient Compression");
 
@@ -321,6 +312,7 @@ fn bench_gradient_compression(c: &mut Criterion) {
 }
 
 /// Benchmark training step performance
+#[allow(dead_code)]
 fn bench_training_step_performance(c: &mut Criterion) {
     let mut group = c.benchmark_group("Training Step Performance");
 
@@ -346,37 +338,42 @@ fn bench_training_step_performance(c: &mut Criterion) {
     // Benchmark different parameter sizes
     let param_sizes = [100, 1000, 5000];
     for size in param_sizes.iter() {
-        group.bench_with_input(
-            BenchmarkId::new("training_step", size),
-            size,
-            |b, &size| {
-                b.iter(|| {
-                    let mut trainer = setup_trainer().unwrap();
-                    
-                    // Create mock parameters and gradients
-                    let mut parameters = HashMap::new();
-                    let mut gradients = HashMap::new();
-                    
-                    for i in 0..5 { // 5 parameters
-                        let param_name = format!("param_{}", i);
-                        let param_data: Vec<f32> = (0..size).map(|j| (i * size + j) as f32 * 0.01).collect();
-                        let grad_data: Vec<f32> = (0..size).map(|j| (j as f32 * 0.001)).collect();
-                        
-                        parameters.insert(param_name.clone(), Tensor::<f32>::from_vec(param_data, vec![size]));
-                        gradients.insert(param_name, vec![Tensor::<f32>::from_vec(grad_data, vec![size])]);
-                    }
-                    
-                    let result = trainer.training_step(black_box(&parameters), black_box(gradients));
-                    black_box(result)
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("training_step", size), size, |b, &size| {
+            b.iter(|| {
+                let mut trainer = setup_trainer().unwrap();
+
+                // Create mock parameters and gradients
+                let mut parameters = HashMap::new();
+                let mut gradients = HashMap::new();
+
+                for i in 0..5 {
+                    // 5 parameters
+                    let param_name = format!("param_{}", i);
+                    let param_data: Vec<f32> =
+                        (0..size).map(|j| (i * size + j) as f32 * 0.01).collect();
+                    let grad_data: Vec<f32> = (0..size).map(|j| (j as f32 * 0.001)).collect();
+
+                    parameters.insert(
+                        param_name.clone(),
+                        Tensor::<f32>::from_vec(param_data, vec![size]),
+                    );
+                    gradients.insert(
+                        param_name,
+                        vec![Tensor::<f32>::from_vec(grad_data, vec![size])],
+                    );
+                }
+
+                let result = trainer.training_step(black_box(&parameters), black_box(gradients));
+                black_box(result)
+            });
+        });
     }
 
     group.finish();
 }
 
 /// Benchmark stream priority performance
+#[allow(dead_code)]
 fn bench_stream_priorities(c: &mut Criterion) {
     let mut group = c.benchmark_group("Stream Priorities");
 
@@ -410,10 +407,10 @@ fn bench_profiler_impact(c: &mut Criterion) {
 
     // Create test operation
     let test_operation = || -> RusTorchResult<()> {
-        let context = MultiGpuContext::new(vec![0])?;
+        let _context = MultiGpuContext::new(vec![0])?;
         let tensor = Tensor::<f32>::from_vec(vec![1.0; 1000], vec![1000]);
         let tensors = vec![tensor];
-        let _result = context.all_reduce(tensors)?;
+        let _result = _context.all_reduce(tensors)?;
         Ok(())
     };
 
@@ -428,11 +425,7 @@ fn bench_profiler_impact(c: &mut Criterion) {
     // Benchmark with profiling
     group.bench_function("with_profiling", |b| {
         b.iter(|| {
-            let result = profile_multi_gpu_operation(
-                "benchmark_test",
-                &[0],
-                || test_operation()
-            );
+            let result = profile_multi_gpu_operation("benchmark_test", &[0], || test_operation());
             black_box(result)
         });
     });
@@ -452,8 +445,8 @@ fn bench_comprehensive_multi_gpu(c: &mut Criterion) {
                 &[0],
                 || -> RusTorchResult<f32> {
                     // Create context
-                    let context = MultiGpuContext::new(vec![0])?;
-                    
+                    let _context = MultiGpuContext::new(vec![0])?;
+
                     // Create trainer
                     let config = TrainingConfig {
                         sync_frequency: 1,
@@ -468,7 +461,7 @@ fn bench_comprehensive_multi_gpu(c: &mut Criterion) {
                         },
                         communication_timeout: Duration::from_secs(10),
                     };
-                    
+
                     let mut trainer = DistributedTrainer::new(
                         vec![0],
                         ParallelismStrategy::DataParallel,
@@ -478,15 +471,21 @@ fn bench_comprehensive_multi_gpu(c: &mut Criterion) {
                     // Simulate training step
                     let mut parameters = HashMap::new();
                     let mut gradients = HashMap::new();
-                    
-                    parameters.insert("weight".to_string(), Tensor::<f32>::from_vec(vec![1.0; 100], vec![100]));
-                    gradients.insert("weight".to_string(), vec![Tensor::<f32>::from_vec(vec![0.01; 100], vec![100])]);
-                    
+
+                    parameters.insert(
+                        "weight".to_string(),
+                        Tensor::<f32>::from_vec(vec![1.0; 100], vec![100]),
+                    );
+                    gradients.insert(
+                        "weight".to_string(),
+                        vec![Tensor::<f32>::from_vec(vec![0.01; 100], vec![100])],
+                    );
+
                     let _updated_params = trainer.training_step(&parameters, gradients)?;
-                    
+
                     // Return performance score
                     Ok(95.5)
-                }
+                },
             );
             black_box(result)
         });

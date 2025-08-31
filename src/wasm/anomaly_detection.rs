@@ -1,15 +1,14 @@
 //! WASM bindings for anomaly detection - Refactored
 //! 異常検出のWASMバインディング - リファクタリング版
 
-use wasm_bindgen::prelude::*;
-use crate::wasm::tensor::WasmTensor;
 use crate::wasm::common::{
-    WasmError, WasmResult, WasmValidation, WasmVersion,
-    WasmStats, JsonFormatter, JsObjectBuilder, JsArrayBuilder,
-    WasmParamValidator, WasmNaming, WasmOperation, WasmDetector,
-    WasmAnalyzer, WasmRealtime, WasmTimeSeries
+    JsArrayBuilder, JsObjectBuilder, JsonFormatter, WasmAnalyzer, WasmDetector, WasmError,
+    WasmNaming, WasmOperation, WasmParamValidator, WasmRealtime, WasmResult, WasmStats,
+    WasmTimeSeries, WasmValidation, WasmVersion,
 };
+use crate::wasm::tensor::WasmTensor;
 use js_sys::Array;
+use wasm_bindgen::prelude::*;
 
 /// WASM wrapper for Anomaly Detector
 #[wasm_bindgen]
@@ -26,7 +25,7 @@ impl WasmAnomalyDetector {
     pub fn new(threshold: f32, window_size: usize) -> WasmResult<WasmAnomalyDetector> {
         WasmParamValidator::validate_positive(threshold, "threshold")?;
         WasmParamValidator::validate_non_zero_usize(window_size, "window_size")?;
-        
+
         Ok(WasmAnomalyDetector {
             threshold,
             window_size,
@@ -38,47 +37,52 @@ impl WasmAnomalyDetector {
     pub fn detect_statistical(&mut self, data: &WasmTensor) -> WasmResult<Array> {
         data.validate_non_empty()?;
         let values = data.data();
-        
+
         if values.len() < 3 {
             return Ok(JsArrayBuilder::new().build());
         }
-        
+
         let mean = WasmStats::mean(&values);
         let std_dev = WasmStats::std_dev(&values, Some(mean));
-        
+
         let mut builder = JsArrayBuilder::new();
         for (i, &value) in values.iter().enumerate() {
             let z_score = (value - mean) / std_dev;
             if z_score.abs() > self.threshold {
-                let anomaly_obj = JsonFormatter::anomaly_object(i, value, z_score.abs(), "Statistical")?;
+                let anomaly_obj =
+                    JsonFormatter::anomaly_object(i, value, z_score.abs(), "Statistical")?;
                 builder = builder.push_object(anomaly_obj);
             }
         }
-        
+
         Ok(builder.build())
     }
 
     /// Detect anomalies using isolation forest method (simplified)
-    pub fn detect_isolation_forest(&mut self, data: &WasmTensor, _n_trees: usize) -> WasmResult<Array> {
+    pub fn detect_isolation_forest(
+        &mut self,
+        data: &WasmTensor,
+        _n_trees: usize,
+    ) -> WasmResult<Array> {
         data.validate_non_empty()?;
         let values = data.data();
-        
+
         if values.len() < 10 {
             return Ok(JsArrayBuilder::new().build());
         }
-        
+
         let mut sorted_values = values.clone();
         sorted_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let q1_idx = values.len() / 4;
         let q3_idx = (3 * values.len()) / 4;
         let q1 = sorted_values[q1_idx];
         let q3 = sorted_values[q3_idx];
         let iqr = q3 - q1;
-        
+
         let lower_bound = q1 - 1.5 * iqr;
         let upper_bound = q3 + 1.5 * iqr;
-        
+
         let mut builder = JsArrayBuilder::new();
         for (i, &value) in values.iter().enumerate() {
             if value < lower_bound || value > upper_bound {
@@ -87,12 +91,13 @@ impl WasmAnomalyDetector {
                 } else {
                     (value - upper_bound) / iqr
                 };
-                
-                let anomaly_obj = JsonFormatter::anomaly_object(i, value, isolation_score, "Isolation")?;
+
+                let anomaly_obj =
+                    JsonFormatter::anomaly_object(i, value, isolation_score, "Isolation")?;
                 builder = builder.push_object(anomaly_obj);
             }
         }
-        
+
         Ok(builder.build())
     }
 
@@ -101,24 +106,29 @@ impl WasmAnomalyDetector {
         if !value.is_finite() {
             return Err(WasmError::invalid_param("value", value, "must be finite"));
         }
-        
+
         self.history.push(value);
-        
+
         if self.history.len() > self.window_size {
             self.history.remove(0);
         }
-        
+
         if self.history.len() < 3 {
             return Ok(JsValue::NULL);
         }
-        
+
         let mean = WasmStats::mean(&self.history);
         let std_dev = WasmStats::std_dev(&self.history, Some(mean));
-        
+
         let z_score = (value - mean) / std_dev;
-        
+
         if z_score.abs() > self.threshold {
-            let anomaly_obj = JsonFormatter::anomaly_object(self.history.len() - 1, value, z_score.abs(), "Realtime")?;
+            let anomaly_obj = JsonFormatter::anomaly_object(
+                self.history.len() - 1,
+                value,
+                z_score.abs(),
+                "Realtime",
+            )?;
             Ok(anomaly_obj.into())
         } else {
             Ok(JsValue::NULL)
@@ -130,17 +140,17 @@ impl WasmAnomalyDetector {
         if self.history.is_empty() {
             return Ok("{\"count\":0}".to_string());
         }
-        
+
         let mean = WasmStats::mean(&self.history);
         let std_dev = WasmStats::std_dev(&self.history, Some(mean));
         let min = WasmStats::min(&self.history);
         let max = WasmStats::max(&self.history);
-        
+
         let stats = format!(
             "{{\"count\":{},\"mean\":{:.6},\"std\":{:.6},\"min\":{:.6},\"max\":{:.6},\"threshold\":{:.2},\"window_size\":{}}}",
             self.history.len(), mean, std_dev, min, max, self.threshold, self.window_size
         );
-        
+
         Ok(stats)
     }
 
@@ -175,9 +185,12 @@ pub struct WasmTimeSeriesDetector {
 impl WasmTimeSeriesDetector {
     /// Create new time series anomaly detector
     #[wasm_bindgen(constructor)]
-    pub fn new(window_size: usize, seasonal_period: Option<usize>) -> WasmResult<WasmTimeSeriesDetector> {
+    pub fn new(
+        window_size: usize,
+        seasonal_period: Option<usize>,
+    ) -> WasmResult<WasmTimeSeriesDetector> {
         WasmParamValidator::validate_non_zero_usize(window_size, "window_size")?;
-        
+
         Ok(WasmTimeSeriesDetector {
             window_size,
             seasonal_period,
@@ -191,24 +204,24 @@ impl WasmTimeSeriesDetector {
         if !value.is_finite() {
             return Err(WasmError::invalid_param("value", value, "must be finite"));
         }
-        
+
         self.timestamps.push(timestamp);
         self.values.push(value);
-        
+
         if self.values.len() > self.window_size {
             self.timestamps.remove(0);
             self.values.remove(0);
         }
-        
+
         if self.values.len() < 5 {
             return Ok(JsValue::NULL);
         }
-        
-        let recent_mean = WasmStats::mean(&self.values[self.values.len()-5..]);
-        let historical_mean = WasmStats::mean(&self.values[..self.values.len()-5]);
-        
+
+        let recent_mean = WasmStats::mean(&self.values[self.values.len() - 5..]);
+        let historical_mean = WasmStats::mean(&self.values[..self.values.len() - 5]);
+
         let deviation = (value - recent_mean).abs() / historical_mean.abs().max(1e-6);
-        
+
         if deviation > 2.0 {
             let anomaly_obj = JsObjectBuilder::new()
                 .set_f64("timestamp", timestamp)?
@@ -227,19 +240,26 @@ impl WasmTimeSeriesDetector {
         if self.values.len() < 10 {
             return Ok("{\"trend\":\"insufficient_data\"}".to_string());
         }
-        
+
         let half = self.values.len() / 2;
         let first_half_mean = WasmStats::mean(&self.values[..half]);
         let second_half_mean = WasmStats::mean(&self.values[half..]);
-        
-        let trend_direction = if second_half_mean > first_half_mean { "increasing" } else { "decreasing" };
-        let trend_strength = ((second_half_mean - first_half_mean) / first_half_mean.abs().max(1e-6)).abs();
-        
+
+        let trend_direction = if second_half_mean > first_half_mean {
+            "increasing"
+        } else {
+            "decreasing"
+        };
+        let trend_strength =
+            ((second_half_mean - first_half_mean) / first_half_mean.abs().max(1e-6)).abs();
+
         let trend = format!(
             "{{\"direction\":\"{}\",\"strength\":{:.4},\"confidence\":{:.2}}}",
-            trend_direction, trend_strength, trend_strength.min(1.0) * 100.0
+            trend_direction,
+            trend_strength,
+            trend_strength.min(1.0) * 100.0
         );
-        
+
         Ok(trend)
     }
 
@@ -249,27 +269,28 @@ impl WasmTimeSeriesDetector {
             Some(period) if self.values.len() >= period * 2 => {
                 let mut seasonal_variance = 0.0;
                 let cycles = self.values.len() / period;
-                
+
                 for i in 0..period {
-                    let cycle_values: Vec<f32> = (0..cycles)
-                        .map(|c| self.values[c * period + i])
-                        .collect();
-                    
+                    let cycle_values: Vec<f32> =
+                        (0..cycles).map(|c| self.values[c * period + i]).collect();
+
                     let cycle_mean = WasmStats::mean(&cycle_values);
                     let cycle_var = WasmStats::variance(&cycle_values, Some(cycle_mean));
                     seasonal_variance += cycle_var;
                 }
-                
+
                 seasonal_variance /= period as f32;
-                
+
                 let seasonal = format!(
                     "{{\"period\":{},\"variance\":{:.6},\"seasonality_strength\":{:.2}}}",
-                    period, seasonal_variance, (1.0 - seasonal_variance).max(0.0) * 100.0
+                    period,
+                    seasonal_variance,
+                    (1.0 - seasonal_variance).max(0.0) * 100.0
                 );
-                
+
                 Ok(seasonal)
             }
-            _ => Ok("{\"seasonality\":\"insufficient_data\"}".to_string())
+            _ => Ok("{\"seasonality\":\"insufficient_data\"}".to_string()),
         }
     }
 }
@@ -298,7 +319,7 @@ pub fn detect_anomalies_batch(data: &[f32], threshold: f32) -> WasmResult<Array>
     if data.is_empty() {
         return Err(WasmError::empty_tensor());
     }
-    
+
     let tensor = WasmTensor::new(data.to_vec(), vec![data.len()]);
     let mut detector = WasmAnomalyDetector::new(threshold, data.len().min(100))?;
     detector.detect_statistical(&tensor)

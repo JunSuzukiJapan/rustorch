@@ -1,10 +1,10 @@
 //! Model cache management
 //! モデルキャッシュ管理
 
-use std::path::{Path, PathBuf};
-use std::collections::HashMap;
 use crate::error::{RusTorchError, RusTorchResult};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 /// Cache configuration
 /// キャッシュ設定
@@ -82,7 +82,7 @@ impl ModelCache {
     pub fn new<P: Into<PathBuf>>(cache_dir: P) -> RusTorchResult<Self> {
         let cache_dir = cache_dir.into();
         let metadata_file = cache_dir.join("cache_metadata.json");
-        
+
         // Create cache directory
         std::fs::create_dir_all(&cache_dir)?;
 
@@ -107,10 +107,13 @@ impl ModelCache {
 
     /// Create cache with custom configuration
     /// カスタム設定でキャッシュを作成
-    pub fn with_config<P: Into<PathBuf>>(cache_dir: P, config: CacheConfig) -> RusTorchResult<Self> {
+    pub fn with_config<P: Into<PathBuf>>(
+        cache_dir: P,
+        config: CacheConfig,
+    ) -> RusTorchResult<Self> {
         let cache_dir = cache_dir.into();
         let metadata_file = cache_dir.join("cache_metadata.json");
-        
+
         std::fs::create_dir_all(&cache_dir)?;
 
         let mut cache = Self {
@@ -156,7 +159,11 @@ impl ModelCache {
 
     /// Cache a downloaded model
     /// ダウンロードしたモデルをキャッシュ
-    pub fn cache_model<P: AsRef<Path>>(&mut self, model_name: &str, source_path: P) -> RusTorchResult<PathBuf> {
+    pub fn cache_model<P: AsRef<Path>>(
+        &mut self,
+        model_name: &str,
+        source_path: P,
+    ) -> RusTorchResult<PathBuf> {
         let source_path = source_path.as_ref();
         let target_path = self.get_download_path(model_name);
 
@@ -168,7 +175,7 @@ impl ModelCache {
         // Get file metadata
         let metadata = std::fs::metadata(&target_path)?;
         let file_size = metadata.len();
-        
+
         // Calculate checksum
         let checksum = self.calculate_checksum(&target_path)?;
 
@@ -216,7 +223,7 @@ impl ModelCache {
                 std::fs::remove_file(&entry.file_path).ok();
             }
         }
-        
+
         self.entries.clear();
         self.save_metadata()?;
         Ok(())
@@ -262,7 +269,7 @@ impl ModelCache {
     fn save_metadata(&self) -> RusTorchResult<()> {
         let content = serde_json::to_string_pretty(&self.entries)
             .map_err(|e| RusTorchError::SerializationError(e.to_string()))?;
-        
+
         std::fs::write(&self.metadata_file, content)?;
         Ok(())
     }
@@ -271,7 +278,7 @@ impl ModelCache {
     /// ファイルチェックサムを計算（SHA-256）
     fn calculate_checksum<P: AsRef<Path>>(&self, path: P) -> RusTorchResult<String> {
         use std::io::Read;
-        
+
         let mut file = std::fs::File::open(path)?;
         let mut hasher = sha2::Sha256::new();
         let mut buffer = [0; 8192];
@@ -292,10 +299,11 @@ impl ModelCache {
     /// Cleanup expired cache entries
     /// 期限切れキャッシュエントリをクリーンアップ
     fn cleanup_expired(&mut self) -> RusTorchResult<()> {
-        let expiration_threshold = chrono::Utc::now() 
-            - chrono::Duration::days(self.config.expiration_days as i64);
+        let expiration_threshold =
+            chrono::Utc::now() - chrono::Duration::days(self.config.expiration_days as i64);
 
-        let expired_models: Vec<String> = self.entries
+        let expired_models: Vec<String> = self
+            .entries
             .iter()
             .filter(|(_, entry)| entry.last_accessed < expiration_threshold)
             .map(|(name, _)| name.clone())
@@ -314,7 +322,7 @@ impl ModelCache {
     fn enforce_cache_limits(&mut self) -> RusTorchResult<()> {
         // Check total size
         let total_size: u64 = self.entries.values().map(|e| e.file_size).sum();
-        
+
         if total_size > self.config.max_size_bytes || self.entries.len() > self.config.max_models {
             // Remove least recently used models
             let mut entries_by_access: Vec<_> = self.entries.iter().collect();
@@ -324,7 +332,9 @@ impl ModelCache {
             let mut current_count = self.entries.len();
 
             for (model_name, entry) in entries_by_access {
-                if current_size <= self.config.max_size_bytes && current_count <= self.config.max_models {
+                if current_size <= self.config.max_size_bytes
+                    && current_count <= self.config.max_models
+                {
                     break;
                 }
 
@@ -332,7 +342,7 @@ impl ModelCache {
                 if entry.file_path.exists() {
                     std::fs::remove_file(&entry.file_path).ok();
                 }
-                
+
                 current_size -= entry.file_size;
                 current_count -= 1;
             }
@@ -349,8 +359,8 @@ impl ModelCache {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::io::Write;
+    use tempfile::TempDir;
 
     #[test]
     fn test_cache_config_default() {
@@ -366,7 +376,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let cache = ModelCache::new(temp_dir.path());
         assert!(cache.is_ok());
-        
+
         let cache = cache.unwrap();
         assert_eq!(cache.stats(), (0, 0));
     }
@@ -380,10 +390,10 @@ mod tests {
             expiration_days: 7,
             auto_cleanup: false,
         };
-        
+
         let cache = ModelCache::with_config(temp_dir.path(), config.clone());
         assert!(cache.is_ok());
-        
+
         let cache = cache.unwrap();
         assert_eq!(cache.config.max_size_bytes, 1024 * 1024);
         assert_eq!(cache.config.max_models, 5);
@@ -462,7 +472,9 @@ mod tests {
         for i in 0..3 {
             let test_file = temp_dir.path().join(format!("model_{}.pth", i));
             std::fs::write(&test_file, b"test data").unwrap();
-            cache.cache_model(&format!("model_{}", i), &test_file).unwrap();
+            cache
+                .cache_model(&format!("model_{}", i), &test_file)
+                .unwrap();
         }
 
         let models = cache.list_cached_models();
@@ -481,7 +493,9 @@ mod tests {
         for i in 0..3 {
             let test_file = temp_dir.path().join(format!("model_{}.pth", i));
             std::fs::write(&test_file, b"test data").unwrap();
-            cache.cache_model(&format!("model_{}", i), &test_file).unwrap();
+            cache
+                .cache_model(&format!("model_{}", i), &test_file)
+                .unwrap();
         }
 
         assert_eq!(cache.stats().0, 3);
@@ -494,7 +508,7 @@ mod tests {
     #[test]
     fn test_cache_persistence() {
         let temp_dir = TempDir::new().unwrap();
-        
+
         // Create cache and add model
         {
             let mut cache = ModelCache::new(temp_dir.path()).unwrap();

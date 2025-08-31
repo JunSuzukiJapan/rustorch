@@ -1,11 +1,11 @@
 //! Model file verification and integrity checking
 //! モデルファイル検証と整合性チェック
 
-use std::path::Path;
-use std::io::Read;
 use crate::error::{RusTorchError, RusTorchResult};
-use serde::{Serialize, Deserialize};
 use digest::Digest;
+use serde::{Deserialize, Serialize};
+use std::io::Read;
+use std::path::Path;
 
 /// Checksum types for model verification
 /// モデル検証用チェックサムタイプ
@@ -51,41 +51,42 @@ impl ModelVerifier {
     /// Create new verifier
     /// 新しい検証器を作成
     pub fn new() -> Self {
-        Self {
-            strict_mode: true,
-        }
+        Self { strict_mode: true }
     }
 
     /// Create verifier with strict mode disabled
     /// 厳密モード無効で検証器を作成
     pub fn with_relaxed_mode() -> Self {
-        Self {
-            strict_mode: false,
-        }
+        Self { strict_mode: false }
     }
 
     /// Verify file against expected checksum
     /// 期待されるチェックサムに対してファイルを検証
     pub fn verify_file<P: AsRef<Path>>(&self, path: P, expected: &Checksum) -> RusTorchResult<()> {
         let path = path.as_ref();
-        
+
         if !path.exists() {
-            return Err(RusTorchError::FileNotFound(
-                format!("File not found: {}", path.display())
-            ));
+            return Err(RusTorchError::FileNotFound(format!(
+                "File not found: {}",
+                path.display()
+            )));
         }
 
         let calculated = self.calculate_checksum(path, expected)?;
-        
+
         if !self.checksums_match(&calculated, expected) {
             if self.strict_mode {
-                return Err(RusTorchError::VerificationError(
-                    format!("Checksum mismatch for {}: expected {:?}, got {:?}", 
-                           path.display(), expected, calculated)
-                ));
+                return Err(RusTorchError::VerificationError(format!(
+                    "Checksum mismatch for {}: expected {:?}, got {:?}",
+                    path.display(),
+                    expected,
+                    calculated
+                )));
             } else {
-                println!("Warning: Checksum mismatch for {} (continuing in relaxed mode)", 
-                        path.display());
+                println!(
+                    "Warning: Checksum mismatch for {} (continuing in relaxed mode)",
+                    path.display()
+                );
             }
         }
 
@@ -94,7 +95,11 @@ impl ModelVerifier {
 
     /// Calculate checksum for file
     /// ファイルのチェックサムを計算
-    pub fn calculate_checksum<P: AsRef<Path>>(&self, path: P, checksum_type: &Checksum) -> RusTorchResult<Checksum> {
+    pub fn calculate_checksum<P: AsRef<Path>>(
+        &self,
+        path: P,
+        checksum_type: &Checksum,
+    ) -> RusTorchResult<Checksum> {
         let path = path.as_ref();
         let mut file = std::fs::File::open(path)?;
 
@@ -165,7 +170,7 @@ impl ModelVerifier {
         let path = path.as_ref();
         let mut file = std::fs::File::open(path)?;
         let mut header = [0u8; 4];
-        
+
         file.read_exact(&mut header)?;
 
         // Check for pickle magic number or ZIP magic (PyTorch uses both)
@@ -174,7 +179,7 @@ impl ModelVerifier {
 
         if !is_pickle && !is_zip {
             return Err(RusTorchError::InvalidModel(
-                "File does not appear to be a valid PyTorch model (not pickle or ZIP format)"
+                "File does not appear to be a valid PyTorch model (not pickle or ZIP format)",
             ));
         }
 
@@ -187,7 +192,7 @@ impl ModelVerifier {
         let path = path.as_ref();
         let mut file = std::fs::File::open(path)?;
         let mut header = [0u8; 8];
-        
+
         file.read_exact(&mut header)?;
 
         // ONNX files are protobuf format, check for protobuf magic
@@ -196,16 +201,18 @@ impl ModelVerifier {
             // Common ONNX patterns in protobuf
             window == b"\x08\x01\x12" || // Common field encoding
             window == b"\x0a\x02\x08" || // Another common pattern
-            window == b"ONNX"            // Sometimes contains literal "ONNX"
+            window == b"ONNX" // Sometimes contains literal "ONNX"
         });
 
         if !has_onnx_pattern {
             if self.strict_mode {
                 return Err(RusTorchError::InvalidModel(
-                    "File does not appear to be a valid ONNX model"
+                    "File does not appear to be a valid ONNX model",
                 ));
             } else {
-                println!("Warning: ONNX format verification uncertain (continuing in relaxed mode)");
+                println!(
+                    "Warning: ONNX format verification uncertain (continuing in relaxed mode)"
+                );
             }
         }
 
@@ -216,10 +223,10 @@ impl ModelVerifier {
     /// ファイルが破損していないことを検証（基本チェック）
     pub fn verify_file_integrity<P: AsRef<Path>>(&self, path: P) -> RusTorchResult<()> {
         let path = path.as_ref();
-        
+
         // Check file exists and is readable
         let metadata = std::fs::metadata(path)?;
-        
+
         // Check file is not empty
         if metadata.len() == 0 {
             return Err(RusTorchError::InvalidModel("File is empty"));
@@ -228,7 +235,9 @@ impl ModelVerifier {
         // Check file is not too small to be a valid model
         if metadata.len() < 1024 {
             if self.strict_mode {
-                return Err(RusTorchError::InvalidModel("File too small to be a valid model"));
+                return Err(RusTorchError::InvalidModel(
+                    "File too small to be a valid model",
+                ));
             } else {
                 println!("Warning: File seems very small for a model (continuing in relaxed mode)");
             }
@@ -238,9 +247,9 @@ impl ModelVerifier {
         let mut file = std::fs::File::open(path)?;
         let mut first_byte = [0u8; 1];
         let mut last_byte = [0u8; 1];
-        
+
         file.read_exact(&mut first_byte)?;
-        
+
         if metadata.len() > 1 {
             use std::io::Seek;
             file.seek(std::io::SeekFrom::End(-1))?;
@@ -260,8 +269,8 @@ impl Default for ModelVerifier {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::io::Write;
+    use tempfile::TempDir;
 
     #[test]
     fn test_checksum_creation() {
@@ -293,11 +302,14 @@ mod tests {
         let verifier = ModelVerifier::new();
         let expected = Checksum::Sha256("dummy".to_string());
         let result = verifier.calculate_checksum(&test_file, &expected);
-        
+
         assert!(result.is_ok());
         if let Ok(Checksum::Sha256(hash)) = result {
             // "hello world" SHA-256 is known
-            assert_eq!(hash, "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
+            assert_eq!(
+                hash,
+                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+            );
         }
     }
 
@@ -310,7 +322,7 @@ mod tests {
         let verifier = ModelVerifier::new();
         let expected = Checksum::Crc32(0);
         let result = verifier.calculate_checksum(&test_file, &expected);
-        
+
         assert!(result.is_ok());
         if let Ok(Checksum::Crc32(hash)) = result {
             // "hello world" CRC32 is known
@@ -379,9 +391,10 @@ mod tests {
         std::fs::write(&test_file, b"hello world").unwrap();
 
         let verifier = ModelVerifier::new();
-        
+
         // Test with correct SHA-256
-        let correct_sha256 = Checksum::sha256("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
+        let correct_sha256 =
+            Checksum::sha256("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9");
         assert!(verifier.verify_file(&test_file, &correct_sha256).is_ok());
 
         // Test with incorrect SHA-256
@@ -404,9 +417,11 @@ mod tests {
         std::fs::write(&test_file, b"hello world").unwrap();
 
         let relaxed_verifier = ModelVerifier::with_relaxed_mode();
-        
+
         // Test with incorrect checksum in relaxed mode (should not fail)
         let incorrect_sha256 = Checksum::sha256("incorrect_hash");
-        assert!(relaxed_verifier.verify_file(&test_file, &incorrect_sha256).is_ok());
+        assert!(relaxed_verifier
+            .verify_file(&test_file, &incorrect_sha256)
+            .is_ok());
     }
 }

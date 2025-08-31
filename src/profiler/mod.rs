@@ -703,25 +703,26 @@ impl RusTorchProfiler {
             session_start: Instant::now(),
         }
     }
-    
+
     /// Enable multi-GPU profiling
     pub fn enable_multi_gpu_profiling(&mut self, gpu_ids: Vec<usize>) -> RusTorchResult<()> {
         let profiler = MultiGpuProfiler::new(gpu_ids, self.config.clone())?;
         self.multi_gpu_profiler = Some(Arc::new(profiler));
         Ok(())
     }
-    
+
     /// Record operation timing
     pub fn record_operation(&self, operation_name: &str, duration: Duration) {
         let mut metrics = self.operation_metrics.write().unwrap();
-        metrics.operation_times
+        metrics
+            .operation_times
             .entry(operation_name.to_string())
             .or_insert_with(Vec::new)
             .push(duration);
         metrics.total_operations += 1;
         metrics.session_duration = self.session_start.elapsed();
     }
-    
+
     /// Take memory snapshot
     pub fn take_memory_snapshot(&self, memory_usage: usize, gpu_memory: HashMap<usize, usize>) {
         let mut metrics = self.operation_metrics.write().unwrap();
@@ -733,14 +734,15 @@ impl RusTorchProfiler {
         };
         metrics.memory_snapshots.push(snapshot);
     }
-    
+
     /// Generate comprehensive performance report
     pub fn generate_report(&self) -> ProfilingReport {
         let operation_metrics = self.operation_metrics.read().unwrap();
-        let multi_gpu_report = self.multi_gpu_profiler
+        let multi_gpu_report = self
+            .multi_gpu_profiler
             .as_ref()
             .map(|p| p.generate_report());
-        
+
         ProfilingReport {
             session_duration: self.session_start.elapsed(),
             total_operations: operation_metrics.total_operations,
@@ -750,7 +752,7 @@ impl RusTorchProfiler {
             recommendations: self.generate_recommendations(&operation_metrics),
         }
     }
-    
+
     /// Summarize operation performance
     fn summarize_operations(&self, metrics: &OperationMetrics) -> OperationSummary {
         let mut summary = OperationSummary {
@@ -758,58 +760,65 @@ impl RusTorchProfiler {
             total_time: Duration::ZERO,
             slowest_operation: None,
         };
-        
+
         for (op_name, durations) in &metrics.operation_times {
             let total: Duration = durations.iter().sum();
             let average = total / durations.len() as u32;
             let min = durations.iter().min().copied().unwrap_or(Duration::ZERO);
             let max = durations.iter().max().copied().unwrap_or(Duration::ZERO);
-            
-            summary.operations.insert(op_name.clone(), OperationStats {
-                name: op_name.clone(),
-                count: durations.len(),
-                total_time: total,
-                avg_time: average,
-                min_time: min,
-                max_time: max,
-                memory_allocated: 0,
-                memory_freed: 0,
-                cuda_time: None,
-                self_cpu_time: total,
-                children: Vec::new(),
-            });
-            
+
+            summary.operations.insert(
+                op_name.clone(),
+                OperationStats {
+                    name: op_name.clone(),
+                    count: durations.len(),
+                    total_time: total,
+                    avg_time: average,
+                    min_time: min,
+                    max_time: max,
+                    memory_allocated: 0,
+                    memory_freed: 0,
+                    cuda_time: None,
+                    self_cpu_time: total,
+                    children: Vec::new(),
+                },
+            );
+
             summary.total_time += total;
-            
+
             let should_update = if let Some((_, current_max)) = &summary.slowest_operation {
                 max > *current_max
             } else {
                 true
             };
-            
+
             if should_update {
                 summary.slowest_operation = Some((op_name.clone(), max));
             }
         }
-        
+
         summary
     }
-    
+
     /// Analyze memory usage patterns
     fn analyze_memory(&self, metrics: &OperationMetrics) -> MemoryAnalysis {
         if metrics.memory_snapshots.is_empty() {
             return MemoryAnalysis::default();
         }
-        
-        let total_memory: usize = metrics.memory_snapshots.iter()
+
+        let total_memory: usize = metrics
+            .memory_snapshots
+            .iter()
             .map(|s| s.memory_usage)
             .sum();
         let avg_memory = total_memory / metrics.memory_snapshots.len();
-        let peak_memory = metrics.memory_snapshots.iter()
+        let peak_memory = metrics
+            .memory_snapshots
+            .iter()
             .map(|s| s.memory_usage)
             .max()
             .unwrap_or(0);
-        
+
         MemoryAnalysis {
             average_usage: avg_memory,
             peak_usage: peak_memory,
@@ -817,23 +826,27 @@ impl RusTorchProfiler {
             memory_trend: self.calculate_memory_trend(&metrics.memory_snapshots),
         }
     }
-    
+
     /// Calculate memory usage trend
     fn calculate_memory_trend(&self, snapshots: &[MemorySnapshot]) -> MemoryTrend {
         if snapshots.len() < 2 {
             return MemoryTrend::Stable;
         }
-        
-        let first_half_avg = snapshots[..snapshots.len()/2].iter()
+
+        let first_half_avg = snapshots[..snapshots.len() / 2]
+            .iter()
             .map(|s| s.memory_usage as f64)
-            .sum::<f64>() / (snapshots.len() / 2) as f64;
-        
-        let second_half_avg = snapshots[snapshots.len()/2..].iter()
+            .sum::<f64>()
+            / (snapshots.len() / 2) as f64;
+
+        let second_half_avg = snapshots[snapshots.len() / 2..]
+            .iter()
             .map(|s| s.memory_usage as f64)
-            .sum::<f64>() / (snapshots.len() - snapshots.len() / 2) as f64;
-        
+            .sum::<f64>()
+            / (snapshots.len() - snapshots.len() / 2) as f64;
+
         let change_ratio = (second_half_avg - first_half_avg) / first_half_avg;
-        
+
         if change_ratio > 0.1 {
             MemoryTrend::Increasing
         } else if change_ratio < -0.1 {
@@ -842,39 +855,43 @@ impl RusTorchProfiler {
             MemoryTrend::Stable
         }
     }
-    
+
     /// Generate optimization recommendations
     fn generate_recommendations(&self, metrics: &OperationMetrics) -> Vec<String> {
         let mut recommendations = Vec::new();
-        
+
         // Check for slow operations
         for (op_name, durations) in &metrics.operation_times {
             if let Some(max_duration) = durations.iter().max() {
                 if max_duration.as_millis() > 1000 {
                     recommendations.push(format!(
                         "Operation '{}' has slow instances (max: {}ms) - consider optimization",
-                        op_name, max_duration.as_millis()
+                        op_name,
+                        max_duration.as_millis()
                     ));
                 }
             }
         }
-        
+
         // Memory usage recommendations
         if !metrics.memory_snapshots.is_empty() {
             let memory_analysis = self.analyze_memory(metrics);
             match memory_analysis.memory_trend {
                 MemoryTrend::Increasing => {
-                    recommendations.push("Memory usage is increasing - check for memory leaks".to_string());
+                    recommendations
+                        .push("Memory usage is increasing - check for memory leaks".to_string());
                 }
                 MemoryTrend::Stable => {
-                    recommendations.push("Memory usage is stable - good memory management".to_string());
+                    recommendations
+                        .push("Memory usage is stable - good memory management".to_string());
                 }
                 MemoryTrend::Decreasing => {
-                    recommendations.push("Memory usage is decreasing - efficient memory usage".to_string());
+                    recommendations
+                        .push("Memory usage is decreasing - efficient memory usage".to_string());
                 }
             }
         }
-        
+
         recommendations
     }
 }
@@ -906,7 +923,6 @@ pub struct OperationSummary {
     /// Slowest operation info
     pub slowest_operation: Option<(String, Duration)>,
 }
-
 
 /// Memory usage analysis
 #[derive(Debug, Clone, Default)]

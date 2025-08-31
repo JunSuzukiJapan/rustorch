@@ -20,7 +20,7 @@ impl WasmTensorPool {
     pub fn with_capacity(max_pool_size: usize) -> Self {
         Self {
             small_buffers: VecDeque::new(),
-            medium_buffers: VecDeque::new(), 
+            medium_buffers: VecDeque::new(),
             large_buffers: VecDeque::new(),
             max_pool_size,
             total_allocations: 0,
@@ -28,11 +28,11 @@ impl WasmTensorPool {
             memory_saved_bytes: 0,
         }
     }
-    
+
     /// Get buffer from pool or create new one with optimization tracking
     pub fn get_buffer(&mut self, size: usize) -> Vec<f32> {
         self.total_allocations += 1;
-        
+
         let pool = self.select_pool_mut(size);
         if let Some(mut buf) = pool.pop_front() {
             self.cache_hits += 1;
@@ -44,30 +44,30 @@ impl WasmTensorPool {
             Vec::with_capacity(size)
         }
     }
-    
+
     /// Return buffer to pool for reuse
     pub fn return_buffer(&mut self, mut buffer: Vec<f32>) {
         if buffer.capacity() == 0 {
             return;
         }
-        
+
         buffer.clear();
         let capacity = buffer.capacity();
         let max_size = self.max_pool_size;
         let pool = self.select_pool_mut(capacity);
-        
+
         if pool.len() < max_size {
             pool.push_back(buffer);
         }
     }
-    
+
     /// Clear all pools
     pub fn clear(&mut self) {
         self.small_buffers.clear();
         self.medium_buffers.clear();
         self.large_buffers.clear();
     }
-    
+
     /// Get pool statistics with performance metrics
     pub fn stats(&self) -> String {
         let hit_rate = if self.total_allocations > 0 {
@@ -75,7 +75,7 @@ impl WasmTensorPool {
         } else {
             0.0
         };
-        
+
         format!(
             "{{\"small\":{},\"medium\":{},\"large\":{},\"max_size\":{},\"total_allocations\":{},\"cache_hits\":{},\"hit_rate\":{:.2},\"memory_saved_bytes\": {}}}",
             self.small_buffers.len(),
@@ -88,7 +88,7 @@ impl WasmTensorPool {
             self.memory_saved_bytes
         )
     }
-    
+
     /// Get cache hit rate percentage
     pub fn hit_rate(&self) -> f32 {
         if self.total_allocations > 0 {
@@ -97,20 +97,20 @@ impl WasmTensorPool {
             0.0
         }
     }
-    
+
     /// Reset performance counters
     pub fn reset_counters(&mut self) {
         self.total_allocations = 0;
         self.cache_hits = 0;
         self.memory_saved_bytes = 0;
     }
-    
+
     /// Force garbage collection of unused buffers
     pub fn gc(&mut self) {
         // Remove buffers that are too large for their pools
         self.small_buffers.retain(|buf| buf.capacity() < 512);
         self.medium_buffers.retain(|buf| buf.capacity() < 524288);
-        
+
         // Limit pool sizes more aggressively
         let aggressive_limit = self.max_pool_size / 2;
         while self.small_buffers.len() > aggressive_limit {
@@ -123,11 +123,13 @@ impl WasmTensorPool {
             self.large_buffers.pop_back();
         }
     }
-    
+
     fn select_pool_mut(&mut self, size: usize) -> &mut VecDeque<Vec<f32>> {
-        if size < 256 {      // < 1KB (optimized threshold)
+        if size < 256 {
+            // < 1KB (optimized threshold)
             &mut self.small_buffers
-        } else if size < 262144 { // < 1MB
+        } else if size < 262144 {
+            // < 1MB
             &mut self.medium_buffers
         } else {
             &mut self.large_buffers
@@ -158,7 +160,7 @@ impl MemoryManager {
         let mut pool = GLOBAL_POOL.lock().unwrap();
         *pool = Some(WasmTensorPool::with_capacity(max_size));
     }
-    
+
     /// Get buffer from global pool with optimization
     pub fn get_buffer(size: usize) -> Vec<f32> {
         let mut pool = GLOBAL_POOL.lock().unwrap();
@@ -170,10 +172,10 @@ impl MemoryManager {
                 Self::init_pool(100); // Default pool size
                 let mut pool = GLOBAL_POOL.lock().unwrap();
                 pool.as_mut().unwrap().get_buffer(size)
-            },
+            }
         }
     }
-    
+
     /// Return buffer to global pool
     pub fn return_buffer(buffer: Vec<f32>) {
         let mut pool = GLOBAL_POOL.lock().unwrap();
@@ -181,7 +183,7 @@ impl MemoryManager {
             p.return_buffer(buffer);
         }
     }
-    
+
     /// Get global pool performance statistics
     pub fn get_stats() -> String {
         let pool = GLOBAL_POOL.lock().unwrap();
@@ -190,7 +192,7 @@ impl MemoryManager {
             None => "{\"status\":\"uninitialized\"}".to_string(),
         }
     }
-    
+
     /// Force garbage collection on global pool
     pub fn gc() {
         let mut pool = GLOBAL_POOL.lock().unwrap();
@@ -198,25 +200,31 @@ impl MemoryManager {
             p.gc();
         }
     }
-    
+
     /// Get cache efficiency metrics
     pub fn cache_efficiency() -> String {
         let pool = GLOBAL_POOL.lock().unwrap();
         match pool.as_ref() {
             Some(p) => {
                 let hit_rate = p.hit_rate();
-                format!("{{\"hit_rate\":{:.2},\"efficiency\":\"{}\"}}", 
+                format!(
+                    "{{\"hit_rate\":{:.2},\"efficiency\":\"{}\"}}",
                     hit_rate,
-                    if hit_rate > 80.0 { "excellent" } 
-                    else if hit_rate > 60.0 { "good" }
-                    else if hit_rate > 40.0 { "fair" }
-                    else { "poor" }
+                    if hit_rate > 80.0 {
+                        "excellent"
+                    } else if hit_rate > 60.0 {
+                        "good"
+                    } else if hit_rate > 40.0 {
+                        "fair"
+                    } else {
+                        "poor"
+                    }
                 )
-            },
+            }
             None => "{\"status\":\"uninitialized\"}".to_string(),
         }
     }
-    
+
     /// Get pool statistics as struct
     pub fn pool_stats() -> Option<PoolStats> {
         let pool = GLOBAL_POOL.lock().unwrap();

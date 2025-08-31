@@ -1,15 +1,15 @@
 //! Model Hub - Pretrained model download and management
 //! モデルハブ - 事前学習済みモデルのダウンロードと管理
 
+pub mod cache;
 pub mod downloader;
 pub mod registry;
-pub mod cache;
 pub mod verification;
 
-pub use downloader::{ModelDownloader, DownloadProgress, DownloadError};
-pub use registry::{ModelRegistry, ModelInfo, ModelSource};
-pub use cache::{ModelCache, CacheConfig};
-pub use verification::{ModelVerifier, Checksum};
+pub use cache::{CacheConfig, ModelCache};
+pub use downloader::{DownloadError, DownloadProgress, ModelDownloader};
+pub use registry::{ModelInfo, ModelRegistry, ModelSource};
+pub use verification::{Checksum, ModelVerifier};
 
 use crate::error::RusTorchResult;
 use crate::model_import::ImportedModel;
@@ -75,18 +75,16 @@ impl ModelHub {
 
         // Get model info from registry
         let model_info = self.registry.get_model_info(model_name)?;
-        
+
         // Download model
         println!("Downloading model: {} from {}", model_name, model_info.url);
         let download_path = self.cache.get_download_path(model_name);
-        
-        self.downloader.download_with_progress(
-            &model_info.url,
-            &download_path,
-            |progress| {
+
+        self.downloader
+            .download_with_progress(&model_info.url, &download_path, |progress| {
                 println!("Download progress: {:.1}%", progress.percentage());
-            }
-        ).await?;
+            })
+            .await?;
 
         // Verify checksum if available
         if let Some(expected_hash) = &model_info.checksum {
@@ -97,7 +95,7 @@ impl ModelHub {
 
         // Cache the model
         let cached_path = self.cache.cache_model(model_name, &download_path)?;
-        
+
         // Import the model
         println!("Importing model...");
         crate::model_import::pytorch::import_pytorch_model(&cached_path)
@@ -167,11 +165,11 @@ mod tests {
         // For now, it tests the structure
         let temp_dir = TempDir::new().unwrap();
         let mut hub = ModelHub::with_cache_dir(temp_dir.path()).unwrap();
-        
+
         // Test would download and load actual model
         // let result = hub.load_model("resnet18").await;
         // assert!(result.is_ok());
-        
+
         // For now, just test that the structure works
         assert!(hub.list_models().contains(&"resnet18"));
     }

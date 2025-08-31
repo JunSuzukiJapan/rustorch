@@ -59,7 +59,7 @@ mod debug_system_tests {
         let log_levels = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "CRITICAL"];
         let mut log_entries = Vec::new();
 
-        for (_i, &level) in log_levels.iter().enumerate() {
+        for &level in log_levels.iter() {
             let entry = LogEntry {
                 level: level.to_string(),
                 metadata: create_test_metadata(level),

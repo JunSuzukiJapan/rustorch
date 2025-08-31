@@ -55,7 +55,7 @@ impl PlatformOptimizer {
         let features = Self::detect_features();
         let optimization_level = OptimizationLevel::Standard;
         let thread_pool_size = Self::calculate_optimal_threads(&features);
-        
+
         PlatformOptimizer {
             features,
             optimization_level,
@@ -86,14 +86,14 @@ impl PlatformOptimizer {
             // Linux memory detection would require sys-info crate
             return 8 * 1024 * 1024 * 1024;
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             unsafe {
                 let mut size: usize = std::mem::size_of::<i64>();
                 let mut total_mem: i64 = 0;
                 let mut mib = [6i32, 0i32]; // CTL_HW, HW_MEMSIZE
-                
+
                 libc::sysctl(
                     mib.as_mut_ptr(),
                     2,
@@ -102,15 +102,15 @@ impl PlatformOptimizer {
                     std::ptr::null_mut(),
                     0,
                 );
-                
+
                 if total_mem > 0 {
                     return total_mem as usize;
                 }
             }
         }
-        
+
         // Windows support would require winapi crate
-        
+
         // Default fallback: 8GB
         8 * 1024 * 1024 * 1024
     }
@@ -123,13 +123,13 @@ impl PlatformOptimizer {
             // Most x86/x86_64 processors have 64-byte cache lines
             64
         }
-        
+
         #[cfg(target_arch = "aarch64")]
         {
             // Most ARM64 processors have 64 or 128-byte cache lines
             64
         }
-        
+
         #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
         {
             // Conservative default
@@ -142,17 +142,15 @@ impl PlatformOptimizer {
     fn get_page_size() -> usize {
         #[cfg(unix)]
         {
-            unsafe {
-                libc::sysconf(libc::_SC_PAGESIZE) as usize
-            }
+            unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             // Windows support would require winapi crate
             4096
         }
-        
+
         #[cfg(not(any(unix, windows)))]
         {
             // Default page size
@@ -167,7 +165,7 @@ impl PlatformOptimizer {
         {
             std::path::Path::new("/sys/kernel/mm/transparent_hugepage/enabled").exists()
         }
-        
+
         #[cfg(not(target_os = "linux"))]
         {
             false
@@ -181,12 +179,12 @@ impl PlatformOptimizer {
         {
             true // x86/x86_64 generally supports prefetch
         }
-        
+
         #[cfg(target_arch = "aarch64")]
         {
             true // ARM64 supports prefetch
         }
-        
+
         #[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
         {
             false
@@ -210,14 +208,14 @@ impl PlatformOptimizer {
 
     /// Allocate aligned memory
     /// アライメント済みメモリ割り当て
-    pub fn allocate_aligned<T>(&self, count: usize) -> RusTorchResult<Vec<T>> 
-    where 
+    pub fn allocate_aligned<T>(&self, count: usize) -> RusTorchResult<Vec<T>>
+    where
         T: Default + Clone,
     {
         let size = count * std::mem::size_of::<T>();
         let aligned_size = self.align_memory(size);
         let aligned_count = aligned_size / std::mem::size_of::<T>();
-        
+
         Ok(vec![T::default(); aligned_count])
     }
 
@@ -271,7 +269,9 @@ impl PlatformOptimizer {
         match level {
             OptimizationLevel::None => self.thread_pool_size = 1,
             OptimizationLevel::Basic => self.thread_pool_size = self.features.cpu_cores / 2,
-            OptimizationLevel::Standard => self.thread_pool_size = Self::calculate_optimal_threads(&self.features),
+            OptimizationLevel::Standard => {
+                self.thread_pool_size = Self::calculate_optimal_threads(&self.features)
+            }
             OptimizationLevel::Aggressive => self.thread_pool_size = self.features.cpu_cores,
         }
     }
@@ -291,17 +291,20 @@ mod tests {
     fn test_platform_detection() {
         let optimizer = PlatformOptimizer::new();
         let features = optimizer.features();
-        
+
         println!("Platform features:");
         println!("  OS: {}", features.os);
         println!("  Architecture: {}", features.arch);
         println!("  CPU cores: {}", features.cpu_cores);
-        println!("  Total memory: {} GB", features.total_memory / (1024 * 1024 * 1024));
+        println!(
+            "  Total memory: {} GB",
+            features.total_memory / (1024 * 1024 * 1024)
+        );
         println!("  Cache line size: {} bytes", features.cache_line_size);
         println!("  Page size: {} bytes", features.page_size);
         println!("  Huge pages: {}", features.supports_huge_pages);
         println!("  Prefetch: {}", features.supports_prefetch);
-        
+
         assert!(features.cpu_cores > 0);
         assert!(features.cache_line_size > 0);
         assert!(features.page_size > 0);
@@ -310,10 +313,10 @@ mod tests {
     #[test]
     fn test_memory_alignment() {
         let optimizer = PlatformOptimizer::new();
-        
+
         let unaligned = 100;
         let aligned = optimizer.align_memory(unaligned);
-        
+
         assert!(aligned >= unaligned);
         assert_eq!(aligned % optimizer.features().cache_line_size, 0);
     }
@@ -321,10 +324,10 @@ mod tests {
     #[test]
     fn test_optimization_levels() {
         let mut optimizer = PlatformOptimizer::new();
-        
+
         optimizer.set_optimization_level(OptimizationLevel::None);
         assert_eq!(optimizer.thread_pool_size(), 1);
-        
+
         optimizer.set_optimization_level(OptimizationLevel::Aggressive);
         assert_eq!(optimizer.thread_pool_size(), optimizer.features().cpu_cores);
     }

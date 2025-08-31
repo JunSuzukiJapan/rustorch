@@ -1,39 +1,29 @@
 //! Model registry with metadata and download URLs
 //! メタデータとダウンロードURL付きモデルレジストリ
 
-use std::collections::HashMap;
-use std::path::Path;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::model_hub::verification::Checksum;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::Path;
 
 /// Model source information
 /// モデルソース情報
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ModelSource {
     /// PyTorch Hub model
-    PyTorchHub {
-        repo: String,
-        model: String,
-    },
+    PyTorchHub { repo: String, model: String },
     /// HuggingFace model
     HuggingFace {
         repo_id: String,
         filename: Option<String>,
     },
     /// Direct URL download
-    DirectUrl {
-        url: String,
-    },
+    DirectUrl { url: String },
     /// TensorFlow Hub model
-    TensorFlowHub {
-        handle: String,
-    },
+    TensorFlowHub { handle: String },
     /// Custom source
-    Custom {
-        name: String,
-        url: String,
-    },
+    Custom { name: String, url: String },
 }
 
 /// Model information in registry
@@ -102,7 +92,7 @@ impl ModelRegistry {
         let mut registry = Self {
             models: HashMap::new(),
         };
-        
+
         registry.register_builtin_models();
         registry
     }
@@ -157,7 +147,9 @@ impl ModelRegistry {
             description: "18-layer deep residual network for image classification".to_string(),
             url: "https://download.pytorch.org/models/resnet18-5c106cde.pth".to_string(),
             file_size: 44_689_128,
-            checksum: Some(Checksum::sha256("5c106cde18f69953b5e1dc2dcc97bdb88b1d7d29d6c5f4e8dd11d8e82a3b8e47")),
+            checksum: Some(Checksum::sha256(
+                "5c106cde18f69953b5e1dc2dcc97bdb88b1d7d29d6c5f4e8dd11d8e82a3b8e47",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "resnet18".to_string(),
@@ -166,7 +158,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 11_689_512,
-            tasks: vec!["image_classification".to_string(), "feature_extraction".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "feature_extraction".to_string(),
+            ],
             license: Some("BSD-3-Clause".to_string()),
             paper_url: Some("https://arxiv.org/abs/1512.03385".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -178,7 +173,9 @@ impl ModelRegistry {
             description: "50-layer deep residual network for image classification".to_string(),
             url: "https://download.pytorch.org/models/resnet50-19c8e357.pth".to_string(),
             file_size: 97_781_416,
-            checksum: Some(Checksum::sha256("19c8e357f3c7e5b4d3a8f6e9a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0")),
+            checksum: Some(Checksum::sha256(
+                "19c8e357f3c7e5b4d3a8f6e9a2b1c0d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "resnet50".to_string(),
@@ -187,7 +184,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 25_557_032,
-            tasks: vec!["image_classification".to_string(), "feature_extraction".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "feature_extraction".to_string(),
+            ],
             license: Some("BSD-3-Clause".to_string()),
             paper_url: Some("https://arxiv.org/abs/1512.03385".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -200,7 +200,9 @@ impl ModelRegistry {
             description: "Efficient mobile neural network for image classification".to_string(),
             url: "https://download.pytorch.org/models/mobilenet_v2-b0353104.pth".to_string(),
             file_size: 13_555_880,
-            checksum: Some(Checksum::sha256("b0353104f8b4d2e5a7c6d9e2f1a4b7c0d3e6f9a2b5c8d1e4f7a0b3c6d9e2f5a8")),
+            checksum: Some(Checksum::sha256(
+                "b0353104f8b4d2e5a7c6d9e2f1a4b7c0d3e6f9a2b5c8d1e4f7a0b3c6d9e2f5a8",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "mobilenet_v2".to_string(),
@@ -209,7 +211,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 3_504_872,
-            tasks: vec!["image_classification".to_string(), "mobile_inference".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "mobile_inference".to_string(),
+            ],
             license: Some("Apache-2.0".to_string()),
             paper_url: Some("https://arxiv.org/abs/1801.04381".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -222,7 +227,9 @@ impl ModelRegistry {
             description: "121-layer densely connected convolutional network".to_string(),
             url: "https://download.pytorch.org/models/densenet121-a639ec97.pth".to_string(),
             file_size: 30_845_736,
-            checksum: Some(Checksum::sha256("a639ec97f5a3b5e8c1d4f7a0b3c6d9e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0")),
+            checksum: Some(Checksum::sha256(
+                "a639ec97f5a3b5e8c1d4f7a0b3c6d9e2f5a8b1c4d7e0f3a6b9c2d5e8f1a4b7c0",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "densenet121".to_string(),
@@ -231,7 +238,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 7_978_856,
-            tasks: vec!["image_classification".to_string(), "feature_extraction".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "feature_extraction".to_string(),
+            ],
             license: Some("BSD-3-Clause".to_string()),
             paper_url: Some("https://arxiv.org/abs/1608.06993".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -244,7 +254,9 @@ impl ModelRegistry {
             description: "16-layer VGG network for image classification".to_string(),
             url: "https://download.pytorch.org/models/vgg16-397923af.pth".to_string(),
             file_size: 553_433_881,
-            checksum: Some(Checksum::sha256("397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5c8f")),
+            checksum: Some(Checksum::sha256(
+                "397923af8e79cdbb6a7127f12361acd7a2f83e06b05044ddf496e83de57a5c8f",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "vgg16".to_string(),
@@ -253,7 +265,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 138_357_544,
-            tasks: vec!["image_classification".to_string(), "feature_extraction".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "feature_extraction".to_string(),
+            ],
             license: Some("BSD-3-Clause".to_string()),
             paper_url: Some("https://arxiv.org/abs/1409.1556".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -264,9 +279,12 @@ impl ModelRegistry {
             name: "efficientnet_b0".to_string(),
             display_name: "EfficientNet-B0".to_string(),
             description: "Efficient convolutional neural network baseline model".to_string(),
-            url: "https://download.pytorch.org/models/efficientnet_b0_rwightman-3dd342df.pth".to_string(),
+            url: "https://download.pytorch.org/models/efficientnet_b0_rwightman-3dd342df.pth"
+                .to_string(),
             file_size: 20_451_858,
-            checksum: Some(Checksum::sha256("3dd342df8c1b4c8e9a5f2d7e6b1c4a9f2e5d8b3a6c9f2e5d8b1a4c7f0a3b6d9e2")),
+            checksum: Some(Checksum::sha256(
+                "3dd342df8c1b4c8e9a5f2d7e6b1c4a9f2e5d8b3a6c9f2e5d8b1a4c7f0a3b6d9e2",
+            )),
             source: ModelSource::PyTorchHub {
                 repo: "pytorch/vision".to_string(),
                 model: "efficientnet_b0".to_string(),
@@ -275,7 +293,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(224), Some(224)],
             output_size: 1000,
             parameters: 5_288_548,
-            tasks: vec!["image_classification".to_string(), "efficient_inference".to_string()],
+            tasks: vec![
+                "image_classification".to_string(),
+                "efficient_inference".to_string(),
+            ],
             license: Some("Apache-2.0".to_string()),
             paper_url: Some("https://arxiv.org/abs/1905.11946".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -285,19 +306,27 @@ impl ModelRegistry {
         self.register_model(ModelInfo {
             name: "bert_base_uncased".to_string(),
             display_name: "BERT Base Uncased".to_string(),
-            description: "Bidirectional encoder representations from transformers (base, uncased)".to_string(),
-            url: "https://huggingface.co/bert-base-uncased/resolve/main/pytorch_model.bin".to_string(),
+            description: "Bidirectional encoder representations from transformers (base, uncased)"
+                .to_string(),
+            url: "https://huggingface.co/bert-base-uncased/resolve/main/pytorch_model.bin"
+                .to_string(),
             file_size: 440_473_133,
-            checksum: Some(Checksum::sha256("f2a8d4c1e9b6a5d8f1c4e7a0b3d6c9f2e5a8b1d4e7f0a3c6b9e2d5f8a1b4c7e0")),
+            checksum: Some(Checksum::sha256(
+                "f2a8d4c1e9b6a5d8f1c4e7a0b3d6c9f2e5a8b1d4e7f0a3c6b9e2d5f8a1b4c7e0",
+            )),
             source: ModelSource::HuggingFace {
                 repo_id: "bert-base-uncased".to_string(),
                 filename: Some("pytorch_model.bin".to_string()),
             },
             architecture: "BERT".to_string(),
             input_shape: vec![None, Some(512)], // [batch, sequence_length]
-            output_size: 768, // Hidden size
+            output_size: 768,                   // Hidden size
             parameters: 109_482_240,
-            tasks: vec!["text_classification".to_string(), "feature_extraction".to_string(), "masked_lm".to_string()],
+            tasks: vec![
+                "text_classification".to_string(),
+                "feature_extraction".to_string(),
+                "masked_lm".to_string(),
+            ],
             license: Some("Apache-2.0".to_string()),
             paper_url: Some("https://arxiv.org/abs/1810.04805".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -330,9 +359,12 @@ impl ModelRegistry {
             name: "yolov5s".to_string(),
             display_name: "YOLOv5s".to_string(),
             description: "Small YOLOv5 model for object detection".to_string(),
-            url: "https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt".to_string(),
+            url: "https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5s.pt"
+                .to_string(),
             file_size: 14_125_284,
-            checksum: Some(Checksum::sha256("e7b9c8f1a4d7e0a3b6c9f2e5d8a1b4c7f0a3b6d9e2c5f8a1b4d7e0a3c6b9f2e5")),
+            checksum: Some(Checksum::sha256(
+                "e7b9c8f1a4d7e0a3b6c9f2e5d8a1b4c7f0a3b6d9e2c5f8a1b4d7e0a3c6b9f2e5",
+            )),
             source: ModelSource::Custom {
                 name: "Ultralytics".to_string(),
                 url: "https://github.com/ultralytics/yolov5".to_string(),
@@ -341,7 +373,10 @@ impl ModelRegistry {
             input_shape: vec![None, Some(3), Some(640), Some(640)],
             output_size: 85, // 80 classes + 5 (x, y, w, h, conf)
             parameters: 7_235_389,
-            tasks: vec!["object_detection".to_string(), "real_time_detection".to_string()],
+            tasks: vec![
+                "object_detection".to_string(),
+                "real_time_detection".to_string(),
+            ],
             license: Some("GPL-3.0".to_string()),
             paper_url: Some("https://arxiv.org/abs/2006.10027".to_string()),
             created_at: Some(chrono::Utc::now()),
@@ -429,7 +464,7 @@ impl ModelRegistry {
     pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> RusTorchResult<()> {
         let content = serde_json::to_string_pretty(&self.models)
             .map_err(|e| RusTorchError::SerializationError(e.to_string()))?;
-        
+
         std::fs::write(path, content)?;
         Ok(())
     }
@@ -438,15 +473,18 @@ impl ModelRegistry {
     /// 名前または説明でモデルを検索
     pub fn search_models(&self, query: &str) -> Vec<&ModelInfo> {
         let query_lower = query.to_lowercase();
-        
+
         self.models
             .values()
             .filter(|model| {
-                model.name.to_lowercase().contains(&query_lower) ||
-                model.display_name.to_lowercase().contains(&query_lower) ||
-                model.description.to_lowercase().contains(&query_lower) ||
-                model.architecture.to_lowercase().contains(&query_lower) ||
-                model.tasks.iter().any(|task| task.to_lowercase().contains(&query_lower))
+                model.name.to_lowercase().contains(&query_lower)
+                    || model.display_name.to_lowercase().contains(&query_lower)
+                    || model.description.to_lowercase().contains(&query_lower)
+                    || model.architecture.to_lowercase().contains(&query_lower)
+                    || model
+                        .tasks
+                        .iter()
+                        .any(|task| task.to_lowercase().contains(&query_lower))
             })
             .collect()
     }
@@ -475,10 +513,10 @@ mod tests {
     #[test]
     fn test_get_model_info() {
         let registry = ModelRegistry::new();
-        
+
         let resnet18 = registry.get_model_info("resnet18");
         assert!(resnet18.is_ok());
-        
+
         let resnet18 = resnet18.unwrap();
         assert_eq!(resnet18.architecture, "ResNet");
         assert_eq!(resnet18.output_size, 1000);
@@ -492,7 +530,7 @@ mod tests {
     #[test]
     fn test_list_models_by_task() {
         let registry = ModelRegistry::new();
-        
+
         let classification_models = registry.list_models_by_task("image_classification");
         assert!(classification_models.contains(&"resnet18"));
         assert!(classification_models.contains(&"resnet50"));
@@ -508,7 +546,7 @@ mod tests {
     #[test]
     fn test_list_models_by_architecture() {
         let registry = ModelRegistry::new();
-        
+
         let resnet_models = registry.list_models_by_architecture("ResNet");
         assert!(resnet_models.contains(&"resnet18"));
         assert!(resnet_models.contains(&"resnet50"));
@@ -520,7 +558,7 @@ mod tests {
     #[test]
     fn test_search_models() {
         let registry = ModelRegistry::new();
-        
+
         // Search by name
         let resnet_results = registry.search_models("resnet");
         assert!(resnet_results.len() >= 2);
@@ -538,7 +576,7 @@ mod tests {
     #[test]
     fn test_register_custom_model() {
         let mut registry = ModelRegistry::new();
-        
+
         let custom_model = ModelInfo {
             name: "custom_model".to_string(),
             display_name: "Custom Test Model".to_string(),
@@ -560,7 +598,7 @@ mod tests {
         };
 
         registry.register_model(custom_model);
-        
+
         let retrieved = registry.get_model_info("custom_model");
         assert!(retrieved.is_ok());
         assert_eq!(retrieved.unwrap().architecture, "Custom");
@@ -573,12 +611,12 @@ mod tests {
             repo: "pytorch/vision".to_string(),
             model: "resnet18".to_string(),
         };
-        
+
         let huggingface = ModelSource::HuggingFace {
             repo_id: "bert-base-uncased".to_string(),
             filename: Some("pytorch_model.bin".to_string()),
         };
-        
+
         let direct_url = ModelSource::DirectUrl {
             url: "https://example.com/model.pth".to_string(),
         };
@@ -589,8 +627,10 @@ mod tests {
             let serialized = serde_json::to_string(&source).unwrap();
             let deserialized: ModelSource = serde_json::from_str(&serialized).unwrap();
             // Basic structure validation - both should serialize to same JSON
-            assert_eq!(serde_json::to_string(&source).unwrap(), 
-                      serde_json::to_string(&deserialized).unwrap());
+            assert_eq!(
+                serde_json::to_string(&source).unwrap(),
+                serde_json::to_string(&deserialized).unwrap()
+            );
         }
     }
 }

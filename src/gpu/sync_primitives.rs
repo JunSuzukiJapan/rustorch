@@ -6,7 +6,7 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, Condvar, Barrier};
+use std::sync::{Arc, Barrier, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 /// GPU event for synchronization
@@ -65,17 +65,11 @@ pub enum StreamOperation {
         block_size: (u32, u32, u32),
     },
     /// Synchronization barrier
-    Barrier {
-        group_name: String,
-    },
+    Barrier { group_name: String },
     /// Event recording
-    EventRecord {
-        event_id: u64,
-    },
+    EventRecord { event_id: u64 },
     /// Wait for event
-    EventWait {
-        event_id: u64,
-    },
+    EventWait { event_id: u64 },
 }
 
 /// Multi-GPU barrier for synchronization
@@ -97,11 +91,11 @@ impl MultiGpuBarrier {
     pub fn new(gpu_ids: Vec<usize>, timeout: Duration) -> Self {
         let num_gpus = gpu_ids.len();
         let mut gpu_barriers = HashMap::new();
-        
+
         for gpu_id in gpu_ids {
             gpu_barriers.insert(gpu_id, Arc::new(Barrier::new(1)));
         }
-        
+
         Self {
             num_gpus,
             gpu_barriers,
@@ -110,21 +104,21 @@ impl MultiGpuBarrier {
             timeout,
         }
     }
-    
+
     /// Wait for all GPUs to reach barrier
     pub fn wait(&self, gpu_id: usize) -> RusTorchResult<()> {
         let start_time = Instant::now();
-        
+
         // Local GPU barrier
         if let Some(barrier) = self.gpu_barriers.get(&gpu_id) {
             barrier.wait();
         }
-        
+
         // Global completion tracking
         {
             let mut counter = self.completion_counter.lock().unwrap();
             *counter += 1;
-            
+
             if *counter >= self.num_gpus {
                 // All GPUs reached barrier
                 self.completion_cv.notify_all();
@@ -132,38 +126,37 @@ impl MultiGpuBarrier {
                 return Ok(());
             }
         }
-        
+
         // Wait for other GPUs with timeout
         let cv = &*self.completion_cv;
         let mut completed = self.completion_counter.lock().unwrap();
-        
+
         loop {
             let elapsed = start_time.elapsed();
             if elapsed >= self.timeout {
-                return Err(RusTorchError::gpu(
-                    format!("Multi-GPU barrier timeout after {:?}", elapsed)
-                ));
+                return Err(RusTorchError::gpu(format!(
+                    "Multi-GPU barrier timeout after {:?}",
+                    elapsed
+                )));
             }
-            
+
             let remaining = self.timeout - elapsed;
             let (_guard, timeout_result) = cv.wait_timeout(completed, remaining).unwrap();
             completed = self.completion_counter.lock().unwrap();
-            
+
             if timeout_result.timed_out() {
-                return Err(RusTorchError::gpu(
-                    "Multi-GPU barrier wait timeout"
-                ));
+                return Err(RusTorchError::gpu("Multi-GPU barrier wait timeout"));
             }
-            
+
             // Check if all GPUs completed
             if *completed >= self.num_gpus {
                 break;
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Reset barrier state
     pub fn reset(&self) {
         let mut counter = self.completion_counter.lock().unwrap();
@@ -193,14 +186,18 @@ impl StreamManager {
             next_event_id: Arc::new(Mutex::new(0)),
         }
     }
-    
+
     /// Create new stream on device
-    pub fn create_stream(&mut self, device_id: usize, priority: StreamPriority) -> RusTorchResult<u64> {
+    pub fn create_stream(
+        &mut self,
+        device_id: usize,
+        priority: StreamPriority,
+    ) -> RusTorchResult<u64> {
         let mut stream_id_guard = self.next_stream_id.lock().unwrap();
         let stream_id = *stream_id_guard;
         *stream_id_guard += 1;
         drop(stream_id_guard);
-        
+
         let stream = GpuStream {
             id: stream_id,
             device_id,
@@ -208,18 +205,21 @@ impl StreamManager {
             events: Vec::new(),
             operation_queue: Arc::new(Mutex::new(Vec::new())),
         };
-        
-        self.streams.entry(device_id).or_insert_with(Vec::new).push(stream);
+
+        self.streams
+            .entry(device_id)
+            .or_insert_with(Vec::new)
+            .push(stream);
         Ok(stream_id)
     }
-    
+
     /// Create new event
     pub fn create_event(&mut self, device_id: usize) -> RusTorchResult<u64> {
         let mut event_id_guard = self.next_event_id.lock().unwrap();
         let event_id = *event_id_guard;
         *event_id_guard += 1;
         drop(event_id_guard);
-        
+
         let event = GpuEvent {
             id: event_id,
             device_id,
@@ -227,50 +227,52 @@ impl StreamManager {
             completed: Arc::new(Mutex::new(false)),
             completion_notifier: Arc::new((Mutex::new(false), Condvar::new())),
         };
-        
+
         self.events.insert(event_id, event);
         Ok(event_id)
     }
-    
+
     /// Record event on stream
     pub fn record_event(&mut self, stream_id: u64, event_id: u64) -> RusTorchResult<()> {
         if let Some(event) = self.events.get(&event_id) {
             // Mark event as completed
             let mut completed = event.completed.lock().unwrap();
             *completed = true;
-            
+
             // Notify waiters
             let (lock, cv) = &*event.completion_notifier;
             let mut notified = lock.lock().unwrap();
             *notified = true;
             cv.notify_all();
         }
-        
+
         Ok(())
     }
-    
+
     /// Wait for event completion
     pub fn wait_event(&self, event_id: u64, timeout: Option<Duration>) -> RusTorchResult<()> {
         if let Some(event) = self.events.get(&event_id) {
             let (lock, cv) = &*event.completion_notifier;
             let notified = lock.lock().unwrap();
-            
+
             if let Some(timeout_duration) = timeout {
-                let (_notified, timeout_result) = cv.wait_timeout(notified, timeout_duration).unwrap();
-                
+                let (_notified, timeout_result) =
+                    cv.wait_timeout(notified, timeout_duration).unwrap();
+
                 if timeout_result.timed_out() {
-                    return Err(RusTorchError::gpu(
-                        format!("Event {} wait timeout", event_id)
-                    ));
+                    return Err(RusTorchError::gpu(format!(
+                        "Event {} wait timeout",
+                        event_id
+                    )));
                 }
             } else {
                 let _notified = cv.wait(notified).unwrap();
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Synchronize all streams on device
     pub fn synchronize_device(&self, device_id: usize) -> RusTorchResult<()> {
         if let Some(streams) = self.streams.get(&device_id) {
@@ -289,10 +291,10 @@ impl StreamManager {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Query event status
     pub fn query_event(&self, event_id: u64) -> bool {
         if let Some(event) = self.events.get(&event_id) {

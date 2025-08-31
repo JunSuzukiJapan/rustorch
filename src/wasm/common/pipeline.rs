@@ -1,10 +1,10 @@
 //! Simplified transformation pipeline for WASM operations
 //! WASM操作の簡単化変換パイプライン
 
-use wasm_bindgen::prelude::*;
-use crate::wasm::tensor::WasmTensor;
 use crate::wasm::common::{WasmError, WasmResult, WasmValidation};
+use crate::wasm::tensor::WasmTensor;
 use js_sys::Array;
+use wasm_bindgen::prelude::*;
 
 /// Simple pipeline for chaining transformations
 #[wasm_bindgen]
@@ -27,9 +27,13 @@ impl WasmTransformPipeline {
     /// Add transform to pipeline
     pub fn add_transform(&mut self, transform_name: &str) -> WasmResult<()> {
         if transform_name.is_empty() {
-            return Err(WasmError::invalid_param("transform_name", transform_name, "cannot be empty"));
+            return Err(WasmError::invalid_param(
+                "transform_name",
+                transform_name,
+                "cannot be empty",
+            ));
         }
-        
+
         self.transforms.push(transform_name.to_string());
         Ok(())
     }
@@ -47,7 +51,7 @@ impl WasmTransformPipeline {
     /// Execute pipeline on tensor (simplified)
     pub fn execute(&self, input: &WasmTensor) -> WasmResult<WasmTensor> {
         input.validate_non_empty()?;
-        
+
         // Return input unchanged for now (placeholder)
         Ok(WasmTensor::new(input.data(), input.shape()))
     }
@@ -83,9 +87,13 @@ impl WasmProcessingPipeline {
     /// Add operation to pipeline
     pub fn add_operation(&mut self, operation_name: &str) -> WasmResult<()> {
         if operation_name.is_empty() {
-            return Err(WasmError::invalid_param("operation_name", operation_name, "cannot be empty"));
+            return Err(WasmError::invalid_param(
+                "operation_name",
+                operation_name,
+                "cannot be empty",
+            ));
         }
-        
+
         self.operations.push(operation_name.to_string());
         Ok(())
     }

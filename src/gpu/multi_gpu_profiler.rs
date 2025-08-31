@@ -5,15 +5,15 @@
 //! Provides detailed performance metrics, bottleneck identification, and optimization recommendations.
 
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::profiler::ProfilerConfig;
-use crate::gpu::multi_gpu::{MultiGpuContext, ParallelismStrategy};
-use crate::gpu::sync_primitives::{StreamManager, MultiGpuBarrier};
 use crate::gpu::distributed_training::{DistributedTrainer, TrainingMetrics};
+use crate::gpu::multi_gpu::{MultiGpuContext, ParallelismStrategy};
+use crate::gpu::sync_primitives::{MultiGpuBarrier, StreamManager};
+use crate::profiler::ProfilerConfig;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 
 /// Multi-GPU performance profiler
 #[derive(Debug)]
@@ -218,7 +218,7 @@ impl MultiGpuProfiler {
         for gpu_id in gpu_ids {
             gpu_metrics_map.insert(gpu_id, GpuMetrics::new(gpu_id));
         }
-        
+
         Ok(Self {
             gpu_metrics: Arc::new(RwLock::new(gpu_metrics_map)),
             comm_metrics: Arc::new(RwLock::new(CommunicationMetrics::new())),
@@ -241,7 +241,11 @@ impl MultiGpuProfiler {
     }
 
     /// Start profiling a multi-GPU operation
-    pub fn start_operation(&mut self, operation_name: &str, gpu_ids: &[usize]) -> RusTorchResult<()> {
+    pub fn start_operation(
+        &mut self,
+        operation_name: &str,
+        gpu_ids: &[usize],
+    ) -> RusTorchResult<()> {
         if !self.enabled {
             return Ok(());
         }
@@ -253,7 +257,10 @@ impl MultiGpuProfiler {
         }
 
         // Record operation start
-        println!("🔍 Profiling started: {} (GPUs: {:?})", operation_name, gpu_ids);
+        println!(
+            "🔍 Profiling started: {} (GPUs: {:?})",
+            operation_name, gpu_ids
+        );
         Ok(())
     }
 
@@ -270,7 +277,9 @@ impl MultiGpuProfiler {
 
         if let Ok(mut gpu_metrics) = self.gpu_metrics.write() {
             if let Some(metrics) = gpu_metrics.get_mut(&gpu_id) {
-                metrics.kernel_times.insert(kernel_name.to_string(), execution_time);
+                metrics
+                    .kernel_times
+                    .insert(kernel_name.to_string(), execution_time);
             }
         }
 
@@ -291,13 +300,15 @@ impl MultiGpuProfiler {
         if let Ok(mut comm_metrics) = self.comm_metrics.write() {
             match operation_type {
                 "allreduce" => {
-                    comm_metrics.allreduce_times
+                    comm_metrics
+                        .allreduce_times
                         .entry("default".to_string())
                         .or_insert_with(Vec::new)
                         .push(duration);
                 }
                 "broadcast" => {
-                    comm_metrics.broadcast_times
+                    comm_metrics
+                        .broadcast_times
                         .entry("default".to_string())
                         .or_insert_with(Vec::new)
                         .push(duration);
@@ -339,8 +350,9 @@ impl MultiGpuProfiler {
 
             // Calculate average step time
             let total_step_time = forward_time + backward_time + update_time + sync_time;
-            training_metrics.avg_step_time = 
-                (training_metrics.avg_step_time * (training_metrics.total_steps - 1) as u32 + total_step_time) 
+            training_metrics.avg_step_time = (training_metrics.avg_step_time
+                * (training_metrics.total_steps - 1) as u32
+                + total_step_time)
                 / training_metrics.total_steps as u32;
         }
 
@@ -361,7 +373,8 @@ impl MultiGpuProfiler {
         let training_metrics = self.training_metrics.read().unwrap();
 
         // Calculate overall performance score
-        let overall_score = self.calculate_overall_score(&gpu_metrics, &comm_metrics, &training_metrics);
+        let overall_score =
+            self.calculate_overall_score(&gpu_metrics, &comm_metrics, &training_metrics);
 
         // Calculate GPU efficiency scores
         let mut gpu_efficiency = HashMap::new();
@@ -391,10 +404,10 @@ impl MultiGpuProfiler {
             trends,
             session_duration: self.start_time.elapsed(),
             total_training_steps: training_metrics.total_steps,
-            avg_step_time: if training_metrics.total_steps > 0 { 
-                training_metrics.avg_step_time 
-            } else { 
-                Duration::ZERO 
+            avg_step_time: if training_metrics.total_steps > 0 {
+                training_metrics.avg_step_time
+            } else {
+                Duration::ZERO
             },
             communication_overhead_ratio: comm_metrics.overhead_percentage / 100.0,
         }
@@ -416,9 +429,11 @@ impl MultiGpuProfiler {
         let mut scores = Vec::new();
 
         // GPU utilization score (weight: 40%)
-        let avg_gpu_utilization: f32 = gpu_metrics.values()
+        let avg_gpu_utilization: f32 = gpu_metrics
+            .values()
             .map(|m| m.compute_utilization)
-            .sum::<f32>() / gpu_metrics.len() as f32;
+            .sum::<f32>()
+            / gpu_metrics.len() as f32;
         scores.push(avg_gpu_utilization * 0.4);
 
         // Communication efficiency score (weight: 30%)
@@ -435,8 +450,12 @@ impl MultiGpuProfiler {
     fn calculate_gpu_efficiency(&self, metrics: &GpuMetrics) -> f32 {
         let compute_score = metrics.compute_utilization;
         let memory_score = 100.0 - metrics.memory_utilization; // Lower memory usage is better
-        let thermal_score = if metrics.temperature < 80.0 { 100.0 } else { 100.0 - (metrics.temperature - 80.0) * 2.0 };
-        
+        let thermal_score = if metrics.temperature < 80.0 {
+            100.0
+        } else {
+            100.0 - (metrics.temperature - 80.0) * 2.0
+        };
+
         (compute_score + memory_score + thermal_score) / 3.0
     }
 
@@ -444,7 +463,7 @@ impl MultiGpuProfiler {
     fn calculate_communication_efficiency(&self, metrics: &CommunicationMetrics) -> f32 {
         let overhead_score = 100.0 - metrics.overhead_percentage;
         let bandwidth_score = metrics.bandwidth_utilization;
-        
+
         (overhead_score + bandwidth_score) / 2.0
     }
 
@@ -463,7 +482,10 @@ impl MultiGpuProfiler {
                 bottlenecks.push(PerformanceBottleneck {
                     bottleneck_type: BottleneckType::ComputeBound,
                     severity: metrics.compute_utilization,
-                    description: format!("GPU {} is compute bound ({}% utilization)", gpu_id, metrics.compute_utilization),
+                    description: format!(
+                        "GPU {} is compute bound ({}% utilization)",
+                        gpu_id, metrics.compute_utilization
+                    ),
                     affected_components: vec![format!("GPU {}", gpu_id)],
                     performance_impact: (metrics.compute_utilization - 80.0) / 20.0 * 100.0,
                 });
@@ -473,7 +495,10 @@ impl MultiGpuProfiler {
                 bottlenecks.push(PerformanceBottleneck {
                     bottleneck_type: BottleneckType::MemoryBound,
                     severity: metrics.memory_utilization,
-                    description: format!("GPU {} is memory bound ({}% utilization)", gpu_id, metrics.memory_utilization),
+                    description: format!(
+                        "GPU {} is memory bound ({}% utilization)",
+                        gpu_id, metrics.memory_utilization
+                    ),
                     affected_components: vec![format!("GPU {} memory", gpu_id)],
                     performance_impact: (metrics.memory_utilization - 80.0) / 20.0 * 100.0,
                 });
@@ -485,7 +510,10 @@ impl MultiGpuProfiler {
             bottlenecks.push(PerformanceBottleneck {
                 bottleneck_type: BottleneckType::CommunicationBound,
                 severity: comm_metrics.overhead_percentage,
-                description: format!("High communication overhead ({}%)", comm_metrics.overhead_percentage),
+                description: format!(
+                    "High communication overhead ({}%)",
+                    comm_metrics.overhead_percentage
+                ),
                 affected_components: vec!["Multi-GPU communication".to_string()],
                 performance_impact: comm_metrics.overhead_percentage,
             });
@@ -524,7 +552,8 @@ impl MultiGpuProfiler {
                         priority: 9,
                         expected_gain: 25.0,
                         complexity: 4,
-                        description: "Optimize memory usage to reduce pressure on GPU memory".to_string(),
+                        description: "Optimize memory usage to reduce pressure on GPU memory"
+                            .to_string(),
                         actions: vec![
                             "Implement gradient checkpointing".to_string(),
                             "Use mixed precision training".to_string(),
@@ -538,7 +567,8 @@ impl MultiGpuProfiler {
                         priority: 7,
                         expected_gain: 20.0,
                         complexity: 5,
-                        description: "Optimize communication patterns to reduce overhead".to_string(),
+                        description: "Optimize communication patterns to reduce overhead"
+                            .to_string(),
                         actions: vec![
                             "Implement gradient compression".to_string(),
                             "Use NCCL for optimized all-reduce".to_string(),
@@ -551,19 +581,25 @@ impl MultiGpuProfiler {
         }
 
         // Load balancing recommendations
-        let utilizations: Vec<f32> = gpu_metrics.values()
+        let utilizations: Vec<f32> = gpu_metrics
+            .values()
             .map(|m| m.compute_utilization)
             .collect();
-        
-        if let (Some(&min_util), Some(&max_util)) = (utilizations.iter().min_by(|a, b| a.partial_cmp(b).unwrap()), 
-                                                     utilizations.iter().max_by(|a, b| a.partial_cmp(b).unwrap())) {
+
+        if let (Some(&min_util), Some(&max_util)) = (
+            utilizations.iter().min_by(|a, b| a.partial_cmp(b).unwrap()),
+            utilizations.iter().max_by(|a, b| a.partial_cmp(b).unwrap()),
+        ) {
             if max_util - min_util > 20.0 {
                 recommendations.push(OptimizationRecommendation {
                     recommendation_type: RecommendationType::LoadBalancing,
                     priority: 8,
                     expected_gain: (max_util - min_util) / 2.0,
                     complexity: 7,
-                    description: format!("Load imbalance detected: {:.1}% - {:.1}% utilization range", min_util, max_util),
+                    description: format!(
+                        "Load imbalance detected: {:.1}% - {:.1}% utilization range",
+                        min_util, max_util
+                    ),
                     actions: vec![
                         "Implement dynamic load balancing".to_string(),
                         "Adjust work distribution across GPUs".to_string(),
@@ -604,36 +640,51 @@ impl MultiGpuProfiler {
         let mut data = HashMap::new();
 
         // Export GPU metrics
-        let gpu_data: HashMap<String, serde_json::Value> = self.gpu_metrics.read().unwrap()
+        let gpu_data: HashMap<String, serde_json::Value> = self
+            .gpu_metrics
+            .read()
+            .unwrap()
             .iter()
             .map(|(&gpu_id, metrics)| {
-                (format!("gpu_{}", gpu_id), serde_json::json!({
-                    "compute_utilization": metrics.compute_utilization,
-                    "memory_utilization": metrics.memory_utilization,
-                    "temperature": metrics.temperature,
-                    "power_consumption": metrics.power_consumption,
-                }))
+                (
+                    format!("gpu_{}", gpu_id),
+                    serde_json::json!({
+                        "compute_utilization": metrics.compute_utilization,
+                        "memory_utilization": metrics.memory_utilization,
+                        "temperature": metrics.temperature,
+                        "power_consumption": metrics.power_consumption,
+                    }),
+                )
             })
             .collect();
-        data.insert("gpu_metrics".to_string(), serde_json::Value::Object(gpu_data.into_iter().collect()));
+        data.insert(
+            "gpu_metrics".to_string(),
+            serde_json::Value::Object(gpu_data.into_iter().collect()),
+        );
 
         // Export communication metrics
         if let Ok(comm_metrics) = self.comm_metrics.read() {
-            data.insert("communication_metrics".to_string(), serde_json::json!({
-                "overhead_percentage": comm_metrics.overhead_percentage,
-                "bandwidth_utilization": comm_metrics.bandwidth_utilization,
-                "barrier_count": comm_metrics.barrier_times.len(),
-            }));
+            data.insert(
+                "communication_metrics".to_string(),
+                serde_json::json!({
+                    "overhead_percentage": comm_metrics.overhead_percentage,
+                    "bandwidth_utilization": comm_metrics.bandwidth_utilization,
+                    "barrier_count": comm_metrics.barrier_times.len(),
+                }),
+            );
         }
 
         // Export training metrics
         if let Ok(training_metrics) = self.training_metrics.read() {
-            data.insert("training_metrics".to_string(), serde_json::json!({
-                "total_steps": training_metrics.total_steps,
-                "avg_step_time_ms": training_metrics.avg_step_time.as_millis(),
-                "throughput": training_metrics.throughput,
-                "efficiency_score": training_metrics.efficiency_score,
-            }));
+            data.insert(
+                "training_metrics".to_string(),
+                serde_json::json!({
+                    "total_steps": training_metrics.total_steps,
+                    "avg_step_time_ms": training_metrics.avg_step_time.as_millis(),
+                    "throughput": training_metrics.throughput,
+                    "efficiency_score": training_metrics.efficiency_score,
+                }),
+            );
         }
 
         data
@@ -642,7 +693,8 @@ impl MultiGpuProfiler {
 
 impl Default for MultiGpuProfiler {
     fn default() -> Self {
-        Self::new(vec![0], ProfilerConfig::default()).unwrap_or_else(|_| panic!("Failed to create default profiler"))
+        Self::new(vec![0], ProfilerConfig::default())
+            .unwrap_or_else(|_| panic!("Failed to create default profiler"))
     }
 }
 
@@ -731,10 +783,10 @@ mod tests {
     #[test]
     fn test_profiler_enable_disable() -> RusTorchResult<()> {
         let mut profiler = MultiGpuProfiler::new(vec![0], ProfilerConfig::default())?;
-        
+
         profiler.enable();
         assert!(profiler.enabled);
-        
+
         profiler.disable();
         assert!(!profiler.enabled);
         Ok(())
@@ -744,7 +796,7 @@ mod tests {
     fn test_kernel_execution_recording() -> RusTorchResult<()> {
         let mut profiler = MultiGpuProfiler::new(vec![0], ProfilerConfig::default())?;
         profiler.enable();
-        
+
         let result = profiler.record_kernel_execution(0, "test_kernel", Duration::from_millis(10));
         assert!(result.is_ok());
         Ok(())
@@ -754,7 +806,7 @@ mod tests {
     fn test_communication_recording() -> RusTorchResult<()> {
         let mut profiler = MultiGpuProfiler::new(vec![0, 1], ProfilerConfig::default())?;
         profiler.enable();
-        
+
         let result = profiler.record_communication("allreduce", Duration::from_millis(5), 1024);
         assert!(result.is_ok());
         Ok(())
@@ -764,7 +816,7 @@ mod tests {
     fn test_training_step_recording() -> RusTorchResult<()> {
         let mut profiler = MultiGpuProfiler::new(vec![0, 1], ProfilerConfig::default())?;
         profiler.enable();
-        
+
         let result = profiler.record_training_step(
             Duration::from_millis(10),
             Duration::from_millis(15),
@@ -778,15 +830,11 @@ mod tests {
 
     #[test]
     fn test_profile_multi_gpu_operation() -> RusTorchResult<()> {
-        let result = profile_multi_gpu_operation(
-            "test_operation",
-            &[0],
-            || {
-                std::thread::sleep(Duration::from_millis(10));
-                Ok(42)
-            }
-        );
-        
+        let result = profile_multi_gpu_operation("test_operation", &[0], || {
+            std::thread::sleep(Duration::from_millis(10));
+            Ok(42)
+        });
+
         assert!(result.is_ok());
         let (value, _report) = result.unwrap();
         assert_eq!(value, 42);

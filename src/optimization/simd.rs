@@ -1,8 +1,8 @@
 //! SIMD optimizations for vector operations
 //! ベクトル演算のためのSIMD最適化
 
-use crate::tensor::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 use num_traits::Float;
 #[cfg(target_arch = "x86_64")]
 use std::arch::x86_64::*;
@@ -65,7 +65,7 @@ impl SimdOptimizer {
         let capabilities = Self::detect_capabilities();
         let backend = Self::select_best_backend(&capabilities);
         let (vector_width, alignment) = Self::get_backend_params(backend);
-        
+
         SimdOptimizer {
             backend,
             vector_width,
@@ -79,7 +79,7 @@ impl SimdOptimizer {
     pub fn with_backend(backend: SimdBackend) -> Self {
         let capabilities = Self::detect_capabilities();
         let (vector_width, alignment) = Self::get_backend_params(backend);
-        
+
         SimdOptimizer {
             backend,
             vector_width,
@@ -101,7 +101,7 @@ impl SimdOptimizer {
                 has_neon: false,
             }
         }
-        
+
         #[cfg(target_arch = "aarch64")]
         {
             SimdCapabilities {
@@ -112,7 +112,7 @@ impl SimdOptimizer {
                 has_neon: true,
             }
         }
-        
+
         #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
         {
             SimdCapabilities {
@@ -146,10 +146,10 @@ impl SimdOptimizer {
     fn get_backend_params(backend: SimdBackend) -> (usize, usize) {
         match backend {
             SimdBackend::Scalar => (1, 8),
-            SimdBackend::SSE2 => (4, 16),  // 128-bit vectors, 4 f32s
-            SimdBackend::AVX2 => (8, 32),  // 256-bit vectors, 8 f32s
+            SimdBackend::SSE2 => (4, 16),    // 128-bit vectors, 4 f32s
+            SimdBackend::AVX2 => (8, 32),    // 256-bit vectors, 8 f32s
             SimdBackend::AVX512 => (16, 64), // 512-bit vectors, 16 f32s
-            SimdBackend::NEON => (4, 16),  // 128-bit vectors, 4 f32s
+            SimdBackend::NEON => (4, 16),    // 128-bit vectors, 4 f32s
             SimdBackend::Auto => (1, 8),
         }
     }
@@ -158,22 +158,22 @@ impl SimdOptimizer {
     /// f32のベクトル化加算
     #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
     pub unsafe fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
-            let len = a.len();
-            let simd_len = len - (len % 8);
-            
-            for i in (0..simd_len).step_by(8) {
-                let va = _mm256_loadu_ps(a.as_ptr().add(i));
-                let vb = _mm256_loadu_ps(b.as_ptr().add(i));
-                let vr = _mm256_add_ps(va, vb);
-                _mm256_storeu_ps(result.as_mut_ptr().add(i), vr);
-            }
-            
-            // Handle remaining elements
-            for i in simd_len..len {
-                result[i] = a[i] + b[i];
-            }
+        let len = a.len();
+        let simd_len = len - (len % 8);
+
+        for i in (0..simd_len).step_by(8) {
+            let va = _mm256_loadu_ps(a.as_ptr().add(i));
+            let vb = _mm256_loadu_ps(b.as_ptr().add(i));
+            let vr = _mm256_add_ps(va, vb);
+            _mm256_storeu_ps(result.as_mut_ptr().add(i), vr);
+        }
+
+        // Handle remaining elements
+        for i in simd_len..len {
+            result[i] = a[i] + b[i];
+        }
     }
-    
+
     #[cfg(not(all(target_arch = "x86_64", target_feature = "avx2")))]
     pub unsafe fn add_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
         for i in 0..a.len() {
@@ -185,22 +185,22 @@ impl SimdOptimizer {
     /// f32のベクトル化乗算
     #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
     pub unsafe fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
-            let len = a.len();
-            let simd_len = len - (len % 8);
-            
-            for i in (0..simd_len).step_by(8) {
-                let va = _mm256_loadu_ps(a.as_ptr().add(i));
-                let vb = _mm256_loadu_ps(b.as_ptr().add(i));
-                let vr = _mm256_mul_ps(va, vb);
-                _mm256_storeu_ps(result.as_mut_ptr().add(i), vr);
-            }
-            
-            // Handle remaining elements
-            for i in simd_len..len {
-                result[i] = a[i] * b[i];
-            }
+        let len = a.len();
+        let simd_len = len - (len % 8);
+
+        for i in (0..simd_len).step_by(8) {
+            let va = _mm256_loadu_ps(a.as_ptr().add(i));
+            let vb = _mm256_loadu_ps(b.as_ptr().add(i));
+            let vr = _mm256_mul_ps(va, vb);
+            _mm256_storeu_ps(result.as_mut_ptr().add(i), vr);
+        }
+
+        // Handle remaining elements
+        for i in simd_len..len {
+            result[i] = a[i] * b[i];
+        }
     }
-    
+
     #[cfg(not(all(target_arch = "x86_64", target_feature = "avx2")))]
     pub unsafe fn mul_f32_avx2(a: &[f32], b: &[f32], result: &mut [f32]) {
         for i in 0..a.len() {
@@ -211,30 +211,29 @@ impl SimdOptimizer {
     /// Vectorized dot product for f32
     /// f32のベクトル化内積
     #[cfg(all(target_arch = "x86_64", target_feature = "avx2"))]
-    pub unsafe fn dot_f32_avx2(a: &[f32], b: &[f32]) -> f32
-        {
-            let len = a.len();
-            let simd_len = len - (len % 8);
-            let mut sum = _mm256_setzero_ps();
-            
-            for i in (0..simd_len).step_by(8) {
-                let va = _mm256_loadu_ps(a.as_ptr().add(i));
-                let vb = _mm256_loadu_ps(b.as_ptr().add(i));
-                sum = _mm256_add_ps(sum, _mm256_mul_ps(va, vb));
-            }
-            
-            // Horizontal sum of AVX2 register
-            let sum_array: [f32; 8] = std::mem::transmute(sum);
-            let mut result = sum_array.iter().sum::<f32>();
-            
-            // Handle remaining elements
-            for i in simd_len..len {
-                result += a[i] * b[i];
-            }
-            
-            result
+    pub unsafe fn dot_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
+        let len = a.len();
+        let simd_len = len - (len % 8);
+        let mut sum = _mm256_setzero_ps();
+
+        for i in (0..simd_len).step_by(8) {
+            let va = _mm256_loadu_ps(a.as_ptr().add(i));
+            let vb = _mm256_loadu_ps(b.as_ptr().add(i));
+            sum = _mm256_add_ps(sum, _mm256_mul_ps(va, vb));
+        }
+
+        // Horizontal sum of AVX2 register
+        let sum_array: [f32; 8] = std::mem::transmute(sum);
+        let mut result = sum_array.iter().sum::<f32>();
+
+        // Handle remaining elements
+        for i in simd_len..len {
+            result += a[i] * b[i];
+        }
+
+        result
     }
-    
+
     #[cfg(not(all(target_arch = "x86_64", target_feature = "avx2")))]
     pub unsafe fn dot_f32_avx2(a: &[f32], b: &[f32]) -> f32 {
         a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
@@ -242,12 +241,19 @@ impl SimdOptimizer {
 
     /// Vectorized matrix multiplication kernel
     /// ベクトル化行列乗算カーネル
-    pub fn matmul_kernel<T: Float>(&self, a: &[T], b: &[T], c: &mut [T], 
-                                   m: usize, n: usize, k: usize) {
+    pub fn matmul_kernel<T: Float>(
+        &self,
+        a: &[T],
+        b: &[T],
+        c: &mut [T],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) {
         match self.backend {
             SimdBackend::AVX2 | SimdBackend::AVX512 => {
                 self.matmul_blocked(a, b, c, m, n, k);
-            },
+            }
             _ => {
                 self.matmul_naive(a, b, c, m, n, k);
             }
@@ -256,17 +262,24 @@ impl SimdOptimizer {
 
     /// Blocked matrix multiplication for cache efficiency
     /// キャッシュ効率のためのブロック行列乗算
-    fn matmul_blocked<T: Float>(&self, a: &[T], b: &[T], c: &mut [T], 
-                                m: usize, n: usize, k: usize) {
+    fn matmul_blocked<T: Float>(
+        &self,
+        a: &[T],
+        b: &[T],
+        c: &mut [T],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) {
         const BLOCK_SIZE: usize = 64;
-        
+
         for i_block in (0..m).step_by(BLOCK_SIZE) {
             for j_block in (0..n).step_by(BLOCK_SIZE) {
                 for k_block in (0..k).step_by(BLOCK_SIZE) {
                     let i_end = (i_block + BLOCK_SIZE).min(m);
                     let j_end = (j_block + BLOCK_SIZE).min(n);
                     let k_end = (k_block + BLOCK_SIZE).min(k);
-                    
+
                     for i in i_block..i_end {
                         for j in j_block..j_end {
                             let mut sum = c[i * n + j];
@@ -283,8 +296,7 @@ impl SimdOptimizer {
 
     /// Naive matrix multiplication fallback
     /// ナイーブ行列乗算フォールバック
-    fn matmul_naive<T: Float>(&self, a: &[T], b: &[T], c: &mut [T], 
-                              m: usize, n: usize, k: usize) {
+    fn matmul_naive<T: Float>(&self, a: &[T], b: &[T], c: &mut [T], m: usize, n: usize, k: usize) {
         for i in 0..m {
             for j in 0..n {
                 let mut sum = T::zero();
@@ -298,82 +310,106 @@ impl SimdOptimizer {
 
     /// Apply vectorized operation to tensors
     /// テンソルにベクトル化演算を適用
-    pub fn apply_vectorized<T: Float + Send + Sync + 'static>(&self, op: VectorizedOperation, 
-                                      a: &Tensor<T>, b: Option<&Tensor<T>>) 
-                                      -> RusTorchResult<Tensor<T>> {
+    pub fn apply_vectorized<T: Float + Send + Sync + 'static>(
+        &self,
+        op: VectorizedOperation,
+        a: &Tensor<T>,
+        b: Option<&Tensor<T>>,
+    ) -> RusTorchResult<Tensor<T>> {
         match op {
             VectorizedOperation::Add => {
                 let b = b.ok_or_else(|| RusTorchError::tensor_op("Add requires two operands"))?;
                 self.vectorized_add(a, b)
-            },
+            }
             VectorizedOperation::Multiply => {
-                let b = b.ok_or_else(|| RusTorchError::tensor_op("Multiply requires two operands"))?;
+                let b =
+                    b.ok_or_else(|| RusTorchError::tensor_op("Multiply requires two operands"))?;
                 self.vectorized_mul(a, b)
-            },
+            }
             VectorizedOperation::MatMul => {
-                let b = b.ok_or_else(|| RusTorchError::tensor_op("MatMul requires two operands"))?;
+                let b =
+                    b.ok_or_else(|| RusTorchError::tensor_op("MatMul requires two operands"))?;
                 self.vectorized_matmul(a, b)
-            },
+            }
             _ => Err(RusTorchError::tensor_op("Operation not yet implemented")),
         }
     }
 
     /// Vectorized element-wise addition
     /// ベクトル化要素毎加算
-    fn vectorized_add<T: Float + Send + Sync + 'static>(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+    fn vectorized_add<T: Float + Send + Sync + 'static>(
+        &self,
+        a: &Tensor<T>,
+        b: &Tensor<T>,
+    ) -> RusTorchResult<Tensor<T>> {
         if a.shape() != b.shape() {
             return Err(RusTorchError::tensor_op("Shape mismatch for addition"));
         }
-        
-        let result_data: Vec<T> = a.data.iter()
+
+        let result_data: Vec<T> = a
+            .data
+            .iter()
             .zip(b.data.iter())
             .map(|(x, y)| *x + *y)
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, a.shape().to_vec()))
     }
 
     /// Vectorized element-wise multiplication
     /// ベクトル化要素毎乗算
-    fn vectorized_mul<T: Float + Send + Sync + 'static>(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+    fn vectorized_mul<T: Float + Send + Sync + 'static>(
+        &self,
+        a: &Tensor<T>,
+        b: &Tensor<T>,
+    ) -> RusTorchResult<Tensor<T>> {
         if a.shape() != b.shape() {
-            return Err(RusTorchError::tensor_op("Shape mismatch for multiplication"));
+            return Err(RusTorchError::tensor_op(
+                "Shape mismatch for multiplication",
+            ));
         }
-        
-        let result_data: Vec<T> = a.data.iter()
+
+        let result_data: Vec<T> = a
+            .data
+            .iter()
             .zip(b.data.iter())
             .map(|(x, y)| *x * *y)
             .collect();
-        
+
         Ok(Tensor::from_vec(result_data, a.shape().to_vec()))
     }
 
     /// Vectorized matrix multiplication
     /// ベクトル化行列乗算
-    fn vectorized_matmul<T: Float + Send + Sync + 'static>(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+    fn vectorized_matmul<T: Float + Send + Sync + 'static>(
+        &self,
+        a: &Tensor<T>,
+        b: &Tensor<T>,
+    ) -> RusTorchResult<Tensor<T>> {
         let a_shape = a.shape();
         let b_shape = b.shape();
-        
+
         if a_shape.len() != 2 || b_shape.len() != 2 {
             return Err(RusTorchError::tensor_op("MatMul requires 2D tensors"));
         }
-        
+
         if a_shape[1] != b_shape[0] {
-            return Err(RusTorchError::tensor_op(
-                format!("Inner dimensions must match: {} vs {}", a_shape[1], b_shape[0])
-            ));
+            return Err(RusTorchError::tensor_op(format!(
+                "Inner dimensions must match: {} vs {}",
+                a_shape[1], b_shape[0]
+            )));
         }
-        
+
         let m = a_shape[0];
         let n = b_shape[1];
         let k = a_shape[1];
-        
+
         let mut result = vec![T::zero(); m * n];
-        
+
         if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
             self.matmul_kernel(a_slice, b_slice, &mut result, m, n, k);
         }
-        
+
         Ok(Tensor::from_vec(result, vec![m, n]))
     }
 
@@ -407,10 +443,12 @@ mod tests {
         let optimizer = SimdOptimizer::new();
         let a = Tensor::<f32>::ones(&[4, 4]);
         let b = Tensor::<f32>::ones(&[4, 4]);
-        
-        let result = optimizer.apply_vectorized(VectorizedOperation::Add, &a, Some(&b)).unwrap();
+
+        let result = optimizer
+            .apply_vectorized(VectorizedOperation::Add, &a, Some(&b))
+            .unwrap();
         assert_eq!(result.shape(), &[4, 4]);
-        
+
         if let Some(data) = result.as_slice() {
             for val in data {
                 assert!((val - 2.0).abs() < 1e-6);
@@ -423,10 +461,12 @@ mod tests {
         let optimizer = SimdOptimizer::new();
         let a = Tensor::<f32>::ones(&[3, 4]);
         let b = Tensor::<f32>::ones(&[4, 5]);
-        
-        let result = optimizer.apply_vectorized(VectorizedOperation::MatMul, &a, Some(&b)).unwrap();
+
+        let result = optimizer
+            .apply_vectorized(VectorizedOperation::MatMul, &a, Some(&b))
+            .unwrap();
         assert_eq!(result.shape(), &[3, 5]);
-        
+
         if let Some(data) = result.as_slice() {
             for val in data {
                 assert!((val - 4.0).abs() < 1e-6);

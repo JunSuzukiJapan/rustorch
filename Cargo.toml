@@ -101,7 +101,7 @@ js-sys = { version = "0.3", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }
 
 # GPU dependencies
-cudarc = { version = "0.11", optional = true, features = ["f16", "cublas"] }
+cudarc = { version = "0.11", optional = true, features = ["f16", "cublas", "cuda-12050"] }
 metal = { version = "0.32", optional = true }
 objc = { version = "0.2", optional = true }
 # objc_exception は macOS 専用の依存関係として後で追加します
@@ -271,6 +271,10 @@ harness = false
 
 [[bench]]
 name = "simple_gpu_bench"
+harness = false
+
+[[bench]]
+name = "optimization_benchmark"
 harness = false
 
 [[example]]

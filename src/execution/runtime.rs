@@ -2,8 +2,8 @@
 //! JITコンパイルと最適化を持つ実行時実行エンジン
 
 use super::dynamic::{DynamicExecutionContext, DynamicOp, ExecutionPlan, JitCompiler};
-use crate::tensor::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -133,8 +133,8 @@ pub struct ParallelExecutionMetrics {
     pub parallel_efficiency: f64,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
-    RuntimeEngine<T> 
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    RuntimeEngine<T>
 {
     /// Create new runtime engine
     pub fn new(config: RuntimeConfig) -> Self {
@@ -148,30 +148,31 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 
     /// Execute a computation graph with runtime optimization
-    pub fn execute_graph(&mut self, graph_builder: impl FnOnce(&mut GraphBuilder<T>) -> RusTorchResult<usize>) 
-        -> RusTorchResult<Tensor<T>> 
-    {
+    pub fn execute_graph(
+        &mut self,
+        graph_builder: impl FnOnce(&mut GraphBuilder<T>) -> RusTorchResult<usize>,
+    ) -> RusTorchResult<Tensor<T>> {
         let start_time = Instant::now();
-        
+
         // Build graph using builder pattern
         let mut builder = GraphBuilder::new(&mut self.context);
         let output_node_id = graph_builder(&mut builder)?;
 
         // Check cache for similar execution pattern
         let pattern_key = self.generate_pattern_key(output_node_id)?;
-        
+
         if self.execution_cache.contains_key(&pattern_key) {
             // Update cache statistics
             if let Some(cached) = self.execution_cache.get_mut(&pattern_key) {
                 cached.hit_count += 1;
                 cached.last_used = Instant::now();
             }
-            
+
             // Update metrics
             let mut metrics = self.metrics.write().unwrap();
-            metrics.cache_hit_rate = 
-                (metrics.cache_hit_rate * metrics.total_executions as f64 + 1.0) / 
-                (metrics.total_executions as f64 + 1.0);
+            metrics.cache_hit_rate = (metrics.cache_hit_rate * metrics.total_executions as f64
+                + 1.0)
+                / (metrics.total_executions as f64 + 1.0);
         }
 
         // Create execution plan
@@ -188,9 +189,10 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         // Update metrics
         let mut metrics = self.metrics.write().unwrap();
         metrics.total_executions += 1;
-        metrics.avg_execution_time = 
-            (metrics.avg_execution_time * (metrics.total_executions - 1) as u32 + start_time.elapsed()) / 
-            metrics.total_executions as u32;
+        metrics.avg_execution_time = (metrics.avg_execution_time
+            * (metrics.total_executions - 1) as u32
+            + start_time.elapsed())
+            / metrics.total_executions as u32;
 
         Ok(result)
     }
@@ -199,7 +201,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     fn generate_pattern_key(&self, output_node_id: usize) -> RusTorchResult<String> {
         // Create a simplified pattern representation
         let mut pattern_parts = Vec::new();
-        self.collect_pattern_recursive(output_node_id, &mut pattern_parts, &mut std::collections::HashSet::new())?;
+        self.collect_pattern_recursive(
+            output_node_id,
+            &mut pattern_parts,
+            &mut std::collections::HashSet::new(),
+        )?;
         Ok(pattern_parts.join("->"))
     }
 
@@ -218,7 +224,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         if let Some(node) = self.context.get_dynamic_node(&node_id) {
             // Add operation to pattern
             pattern.push(format!("{:?}", node.op));
-            
+
             // Process inputs
             for input_node in &node.inputs {
                 self.collect_pattern_recursive(input_node.id, pattern, visited)?;
@@ -232,17 +238,18 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     fn apply_jit_compilation(&mut self, plan: &ExecutionPlan<T>) -> RusTorchResult<()> {
         // Extract operation sequences for JIT compilation
         let ops: Vec<DynamicOp> = plan.operations.iter().map(|op| op.op.clone()).collect();
-        
+
         if ops.len() >= self.config.jit_threshold {
             let start_time = Instant::now();
             let _compiled_fn = self.jit_compiler.compile_operations(&ops)?;
-            
+
             // Update JIT metrics
             let mut metrics = self.metrics.write().unwrap();
             metrics.jit_stats.total_compilations += 1;
-            metrics.jit_stats.avg_compilation_time = 
-                (metrics.jit_stats.avg_compilation_time * (metrics.jit_stats.total_compilations - 1) as u32 + 
-                 start_time.elapsed()) / metrics.jit_stats.total_compilations as u32;
+            metrics.jit_stats.avg_compilation_time = (metrics.jit_stats.avg_compilation_time
+                * (metrics.jit_stats.total_compilations - 1) as u32
+                + start_time.elapsed())
+                / metrics.jit_stats.total_compilations as u32;
         }
 
         Ok(())
@@ -262,8 +269,21 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     pub fn warmup(&mut self) -> RusTorchResult<()> {
         // Pre-compile common operation patterns
         let common_patterns = vec![
-            vec![DynamicOp::Linear { in_features: 784, out_features: 128 }, DynamicOp::ReLU],
-            vec![DynamicOp::Conv2d { kernel_size: (3, 3), stride: (1, 1), padding: (1, 1) }, DynamicOp::ReLU],
+            vec![
+                DynamicOp::Linear {
+                    in_features: 784,
+                    out_features: 128,
+                },
+                DynamicOp::ReLU,
+            ],
+            vec![
+                DynamicOp::Conv2d {
+                    kernel_size: (3, 3),
+                    stride: (1, 1),
+                    padding: (1, 1),
+                },
+                DynamicOp::ReLU,
+            ],
             vec![DynamicOp::Add, DynamicOp::ReLU],
             vec![DynamicOp::MatMul, DynamicOp::Sigmoid],
         ];
@@ -280,19 +300,20 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         let now = Instant::now();
         let max_age = std::time::Duration::from_secs(3600); // 1 hour
 
-        self.execution_cache.retain(|_, cached| {
-            now.duration_since(cached.last_used) < max_age
-        });
+        self.execution_cache
+            .retain(|_, cached| now.duration_since(cached.last_used) < max_age);
 
         // Limit cache size
         if self.execution_cache.len() > self.config.max_cache_size {
             // Remove least recently used entries
-            let entries: Vec<_> = self.execution_cache.iter()
+            let entries: Vec<_> = self
+                .execution_cache
+                .iter()
                 .map(|(k, v)| (k.clone(), v.last_used))
                 .collect();
             let mut sorted_entries = entries;
             sorted_entries.sort_by_key(|(_, last_used)| *last_used);
-            
+
             let to_remove = sorted_entries.len() - self.config.max_cache_size;
             for (key, _) in sorted_entries.into_iter().take(to_remove) {
                 self.execution_cache.remove(&key);
@@ -303,45 +324,56 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// Profile execution and suggest optimizations
     pub fn profile_execution(&mut self, iterations: usize) -> RusTorchResult<ProfileResult> {
         let mut profile_result = ProfileResult::new();
-        
+
         for i in 0..iterations {
             let start_time = Instant::now();
-            
+
             // Create a sample graph for profiling
             let result = self.execute_graph(|builder| {
                 let input1 = builder.add_input(Tensor::ones(&[32, 784]))?;
                 let weight1 = builder.add_parameter(Tensor::ones(&[128, 784]))?;
                 let bias1 = builder.add_parameter(Tensor::ones(&[128]))?;
-                
+
                 let linear1 = builder.add_operation(
-                    DynamicOp::Linear { in_features: 784, out_features: 128 },
-                    vec![input1, weight1, bias1]
+                    DynamicOp::Linear {
+                        in_features: 784,
+                        out_features: 128,
+                    },
+                    vec![input1, weight1, bias1],
                 )?;
-                
+
                 let relu1 = builder.add_operation(DynamicOp::ReLU, vec![linear1])?;
-                
+
                 let weight2 = builder.add_parameter(Tensor::ones(&[10, 128]))?;
                 let bias2 = builder.add_parameter(Tensor::ones(&[10]))?;
-                
+
                 let output = builder.add_operation(
-                    DynamicOp::Linear { in_features: 128, out_features: 10 },
-                    vec![relu1, weight2, bias2]
+                    DynamicOp::Linear {
+                        in_features: 128,
+                        out_features: 10,
+                    },
+                    vec![relu1, weight2, bias2],
                 )?;
-                
+
                 Ok(output)
             })?;
 
             let execution_time = start_time.elapsed();
             profile_result.add_execution_time(execution_time);
-            
+
             if i % 100 == 0 {
-                println!("Profile iteration {}/{}: {:?}", i + 1, iterations, execution_time);
+                println!(
+                    "Profile iteration {}/{}: {:?}",
+                    i + 1,
+                    iterations,
+                    execution_time
+                );
             }
         }
 
         // Analyze metrics and generate recommendations
         profile_result.analyze_performance(&self.get_metrics());
-        
+
         Ok(profile_result)
     }
 }
@@ -352,8 +384,8 @@ pub struct GraphBuilder<'a, T: Float + Send + Sync + 'static> {
     context: &'a mut DynamicExecutionContext<T>,
 }
 
-impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
-    GraphBuilder<'a, T> 
+impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    GraphBuilder<'a, T>
 {
     /// Create new graph builder
     pub fn new(context: &'a mut DynamicExecutionContext<T>) -> Self {
@@ -376,48 +408,60 @@ impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits:
     }
 
     /// Add linear layer
-    pub fn linear(&mut self, input: usize, weight: usize, bias: Option<usize>) -> RusTorchResult<usize> {
+    pub fn linear(
+        &mut self,
+        input: usize,
+        weight: usize,
+        bias: Option<usize>,
+    ) -> RusTorchResult<usize> {
         let inputs = if let Some(b) = bias {
             vec![input, weight, b]
         } else {
             vec![input, weight]
         };
-        
+
         // Infer dimensions from weight tensor
         if let Some(weight_node) = self.context.get_dynamic_node(&weight) {
             if let Some(weight_tensor) = weight_node.get_cached_output() {
                 let shape = weight_tensor.shape();
                 if shape.len() == 2 && shape[0] > 0 && shape[1] > 0 {
                     return self.add_operation(
-                        DynamicOp::Linear { 
-                            in_features: shape[1], 
-                            out_features: shape[0] 
-                        }, 
-                        inputs
+                        DynamicOp::Linear {
+                            in_features: shape[1],
+                            out_features: shape[0],
+                        },
+                        inputs,
                     );
                 }
             }
         }
-        
+
         // Fallback to default sizes
         self.add_operation(
-            DynamicOp::Linear { in_features: 784, out_features: 128 }, 
-            inputs
+            DynamicOp::Linear {
+                in_features: 784,
+                out_features: 128,
+            },
+            inputs,
         )
     }
 
     /// Add conv2d layer
     pub fn conv2d(
-        &mut self, 
-        input: usize, 
-        weight: usize, 
+        &mut self,
+        input: usize,
+        weight: usize,
         kernel_size: (usize, usize),
         stride: (usize, usize),
-        padding: (usize, usize)
+        padding: (usize, usize),
     ) -> RusTorchResult<usize> {
         self.add_operation(
-            DynamicOp::Conv2d { kernel_size, stride, padding },
-            vec![input, weight]
+            DynamicOp::Conv2d {
+                kernel_size,
+                stride,
+                padding,
+            },
+            vec![input, weight],
         )
     }
 
@@ -489,37 +533,54 @@ impl ProfileResult {
     pub fn analyze_performance(&mut self, metrics: &RuntimeMetrics) {
         // Calculate statistics
         let avg_time = if !self.execution_times.is_empty() {
-            self.execution_times.iter().sum::<std::time::Duration>() / 
-            self.execution_times.len() as u32
+            self.execution_times.iter().sum::<std::time::Duration>()
+                / self.execution_times.len() as u32
         } else {
             std::time::Duration::default()
         };
-        let min_time = self.execution_times.iter().min().copied().unwrap_or_default();
-        let max_time = self.execution_times.iter().max().copied().unwrap_or_default();
+        let min_time = self
+            .execution_times
+            .iter()
+            .min()
+            .copied()
+            .unwrap_or_default();
+        let max_time = self
+            .execution_times
+            .iter()
+            .max()
+            .copied()
+            .unwrap_or_default();
 
         // Generate recommendations based on analysis
         if metrics.cache_hit_rate < 0.5 {
-            self.recommendations.push("Consider increasing cache size or improving cache key generation".to_string());
+            self.recommendations.push(
+                "Consider increasing cache size or improving cache key generation".to_string(),
+            );
         }
 
         if metrics.jit_stats.avg_speedup < 2.0 {
-            self.recommendations.push("JIT compilation showing limited benefit, consider disabling".to_string());
+            self.recommendations
+                .push("JIT compilation showing limited benefit, consider disabling".to_string());
         }
 
         if metrics.memory_stats.memory_efficiency < 0.7 {
-            self.recommendations.push("Memory efficiency low, consider memory pooling optimization".to_string());
+            self.recommendations
+                .push("Memory efficiency low, consider memory pooling optimization".to_string());
         }
 
         if metrics.parallel_stats.parallel_efficiency < 0.6 {
-            self.recommendations.push("Parallel execution efficiency low, review operation dependencies".to_string());
+            self.recommendations.push(
+                "Parallel execution efficiency low, review operation dependencies".to_string(),
+            );
         }
 
         // Identify bottlenecks
         if max_time > avg_time * 2 {
             self.bottlenecks.push(BottleneckInfo {
                 operation: "Variable execution time".to_string(),
-                time_percentage: ((max_time.as_nanos() - min_time.as_nanos()) as f64 / 
-                                max_time.as_nanos() as f64) * 100.0,
+                time_percentage: ((max_time.as_nanos() - min_time.as_nanos()) as f64
+                    / max_time.as_nanos() as f64)
+                    * 100.0,
                 recommendation: "Investigate inconsistent operation performance".to_string(),
             });
         }
@@ -528,7 +589,8 @@ impl ProfileResult {
     /// Get performance summary
     pub fn summary(&self) -> String {
         let avg_time = if !self.execution_times.is_empty() {
-            self.execution_times.iter().sum::<std::time::Duration>() / self.execution_times.len() as u32
+            self.execution_times.iter().sum::<std::time::Duration>()
+                / self.execution_times.len() as u32
         } else {
             std::time::Duration::default()
         };
@@ -570,7 +632,7 @@ mod tests {
         });
 
         match result {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => panic!("Test failed with error: {:?}", e),
         }
     }
@@ -581,7 +643,7 @@ mod tests {
         let mut engine = RuntimeEngine::<f32>::new(config);
 
         engine.warmup().unwrap();
-        
+
         // Should have compiled common patterns
         assert!(engine.jit_compiler.get_stats().compilations > 0);
     }
@@ -594,11 +656,13 @@ mod tests {
 
         // Fill cache beyond limit
         for i in 0..5 {
-            let _result = engine.execute_graph(|builder| {
-                let input = builder.add_input(Tensor::ones(&[i + 1, 3]))?;
-                let output = builder.relu(input)?;
-                Ok(output)
-            }).unwrap();
+            let _result = engine
+                .execute_graph(|builder| {
+                    let input = builder.add_input(Tensor::ones(&[i + 1, 3]))?;
+                    let output = builder.relu(input)?;
+                    Ok(output)
+                })
+                .unwrap();
         }
 
         engine.cleanup_cache();
@@ -612,7 +676,7 @@ mod tests {
 
         let profile_result = engine.profile_execution(3).unwrap();
         let summary = profile_result.summary();
-        
+
         assert!(summary.contains("Executions: 3"));
     }
 }

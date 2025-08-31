@@ -1,10 +1,10 @@
 //! HTTP model downloader with progress tracking
 //! 進捗追跡付きHTTPモデルダウンローダー
 
-use std::path::{Path, PathBuf};
-use std::io::Write;
-use std::time::Instant;
 use crate::error::{RusTorchError, RusTorchResult};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 /// Download progress information
 /// ダウンロード進捗情報
@@ -137,7 +137,7 @@ impl ModelDownloader {
         P: AsRef<Path>,
     {
         let output_path = output_path.as_ref();
-        
+
         // Create parent directory if it doesn't exist
         if let Some(parent) = output_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -147,14 +147,19 @@ impl ModelDownloader {
         let mut last_error = None;
 
         while attempts <= self.max_retries {
-            match self.try_download_with_progress(url, output_path, &mut progress_callback).await {
+            match self
+                .try_download_with_progress(url, output_path, &mut progress_callback)
+                .await
+            {
                 Ok(()) => return Ok(()),
                 Err(e) => {
                     last_error = Some(e);
                     attempts += 1;
                     if attempts <= self.max_retries {
-                        println!("Download attempt {} failed, retrying... ({}/{})", 
-                                attempts, attempts, self.max_retries);
+                        println!(
+                            "Download attempt {} failed, retrying... ({}/{})",
+                            attempts, attempts, self.max_retries
+                        );
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                     }
                 }
@@ -176,7 +181,8 @@ impl ModelDownloader {
         F: FnMut(DownloadProgress),
         P: AsRef<Path>,
     {
-        let response = self.client
+        let response = self
+            .client
             .get(url)
             .send()
             .await
@@ -186,7 +192,10 @@ impl ModelDownloader {
             return Err(DownloadError::HttpError(format!(
                 "HTTP {}: {}",
                 response.status(),
-                response.status().canonical_reason().unwrap_or("Unknown error")
+                response
+                    .status()
+                    .canonical_reason()
+                    .unwrap_or("Unknown error")
             )));
         }
 
@@ -201,10 +210,14 @@ impl ModelDownloader {
         while let Some(chunk) = stream.next().await {
             let chunk = chunk.map_err(|e| DownloadError::HttpError(e.to_string()))?;
             file.write_all(&chunk)?;
-            
+
             downloaded += chunk.len() as u64;
             let elapsed = start_time.elapsed().as_secs_f64();
-            let speed = if elapsed > 0.0 { downloaded as f64 / elapsed } else { 0.0 };
+            let speed = if elapsed > 0.0 {
+                downloaded as f64 / elapsed
+            } else {
+                0.0
+            };
             let eta = if speed > 0.0 && total_size > 0 {
                 (total_size - downloaded) as f64 / speed
             } else {
@@ -227,14 +240,19 @@ impl ModelDownloader {
 
     /// Simple download without progress tracking
     /// 進捗追跡なしのシンプルダウンロード
-    pub async fn download<P: AsRef<Path>>(&self, url: &str, output_path: P) -> Result<(), DownloadError> {
+    pub async fn download<P: AsRef<Path>>(
+        &self,
+        url: &str,
+        output_path: P,
+    ) -> Result<(), DownloadError> {
         self.download_with_progress(url, output_path, |_| {}).await
     }
 
     /// Check if URL is accessible
     /// URLがアクセス可能かチェック
     pub async fn check_url(&self, url: &str) -> Result<(u16, u64), DownloadError> {
-        let response = self.client
+        let response = self
+            .client
             .head(url)
             .send()
             .await
@@ -289,11 +307,11 @@ mod tests {
     #[tokio::test]
     async fn test_url_check() {
         let downloader = ModelDownloader::new();
-        
+
         // Test with a reliable URL (Google's public DNS)
         // This should work in most environments
         let result = downloader.check_url("https://www.google.com").await;
-        
+
         // Don't assert success since network conditions vary
         // Just ensure the function doesn't panic
         let _ = result;
@@ -315,9 +333,9 @@ mod tests {
         // Test with a small, reliable URL
         // Using httpbin.org which provides reliable test endpoints
         let url = "https://httpbin.org/bytes/1024"; // 1KB test file
-        
+
         let result = downloader.download(url, &output_path).await;
-        
+
         // Don't assert success since network conditions vary
         // Just ensure the function doesn't panic and creates file structure
         if result.is_ok() {

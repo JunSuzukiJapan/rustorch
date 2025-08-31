@@ -459,7 +459,7 @@ mod advanced_validation_tests {
                 // Simulate validation with slight quality degradation over cycles
                 let base_quality = 0.9 - (cycle as f64 * 0.01);
                 let noise = (rand::random::<f64>() - 0.5) * 0.1;
-                let quality_score = (base_quality + noise).max(0.5).min(1.0);
+                let quality_score = (base_quality + noise).clamp(0.5, 1.0);
 
                 cycle_quality_scores.push(quality_score);
                 self.quality_scores.push(quality_score);
