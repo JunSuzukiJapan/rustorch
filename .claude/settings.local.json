@@ -43,7 +43,10 @@
       "Bash(timeout 30 cargo test --lib)",
       "Bash(RUST_TEST_THREADS=1 timeout 60 cargo test --lib)",
       "Bash(git pull:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)"
     ],
     "deny": [],
     "ask": [],
