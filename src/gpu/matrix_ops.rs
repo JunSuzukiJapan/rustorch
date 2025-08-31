@@ -211,7 +211,8 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
 }
 
 /// Batch matrix multiplication for multiple matrices with GPU acceleration
-pub struct GpuBatchMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> {
+pub struct GpuBatchMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static>
+{
     device_type: super::DeviceType,
     context: Option<super::GpuContext>,
     _phantom: std::marker::PhantomData<T>,
@@ -307,7 +308,9 @@ pub trait GpuLinearAlgebra<T: Float + FromPrimitive + ScalarOperand + 'static> {
     fn gpu_matvec(&self, vector: &Self) -> RusTorchResult<Tensor<T>>;
 }
 
-impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuLinearAlgebra<T> for Tensor<T> {
+impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuLinearAlgebra<T>
+    for Tensor<T>
+{
     fn gpu_matmul(&self, other: &Self) -> RusTorchResult<Tensor<T>> {
         // Auto-select best available GPU device
         let device_type = if super::DeviceManager::is_cuda_available() {

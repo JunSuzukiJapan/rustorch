@@ -319,8 +319,9 @@ impl DebugProfiler {
         let percentile_95_ms = sorted_durations[p95_index.min(sorted_durations.len() - 1)]
             .as_secs_f64()
             * MS_PER_SECOND;
-        let percentile_99_ms =
-            sorted_durations[p99_index.min(sorted_durations.len() - 1)].as_secs_f64() * MS_PER_SECOND;
+        let percentile_99_ms = sorted_durations[p99_index.min(sorted_durations.len() - 1)]
+            .as_secs_f64()
+            * MS_PER_SECOND;
 
         // Find slowest and fastest operations
         let slowest_entry = self

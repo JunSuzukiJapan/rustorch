@@ -164,7 +164,7 @@ mod tests {
         // This test would work with actual models
         // For now, it tests the structure
         let temp_dir = TempDir::new().unwrap();
-        let _hub = ModelHub::with_cache_dir(temp_dir.path()).unwrap();
+        let hub = ModelHub::with_cache_dir(temp_dir.path()).unwrap();
 
         // Test would download and load actual model
         // let result = hub.load_model("resnet18").await;
