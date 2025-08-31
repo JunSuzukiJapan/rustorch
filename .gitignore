@@ -58,3 +58,5 @@ node_modules/
 !examples/*.json
 !examples/*.wasm
 !examples/*.d.tsruns/
+dashboard.html
+profile_trace.json
