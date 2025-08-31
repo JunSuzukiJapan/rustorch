@@ -186,9 +186,11 @@ impl OpenClKernelExecutor {
             .map_err(|e| RusTorchError::gpu(format!("Failed to create OpenCL context: {:?}", e)))?;
 
         // Create command queue
-        let queue = opencl3::command_queue::CommandQueue::create_default(
+        let queue = opencl3::command_queue::CommandQueue::create_command_queue_with_properties(
             &context,
+            device,
             opencl3::command_queue::CL_QUEUE_PROFILING_ENABLE,
+            0,
         )
         .map_err(|e| {
             RusTorchError::gpu(format!("Failed to create OpenCL command queue: {:?}", e))

@@ -47,8 +47,13 @@ impl OpenCLOperations {
             .map_err(|e| RusTorchError::gpu(&format!("OpenCL context error: {}", e)))?;
 
         let context = Arc::new(context);
-        let queue = CommandQueue::create_default(&context, CL_QUEUE_PROFILING_ENABLE)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
+        let queue = CommandQueue::create_command_queue_with_properties(
+            &context,
+            device_id,
+            CL_QUEUE_PROFILING_ENABLE,
+            0,
+        )
+        .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
 
         // Create buffer and copy data
         let mut buffer = CLBuffer::<T>::create(
@@ -80,8 +85,19 @@ impl OpenCLOperations {
     {
         use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
 
-        let queue = CommandQueue::create_default(context, CL_QUEUE_PROFILING_ENABLE)
-            .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
+        // Get first device from context for queue creation
+        let devices = context.devices()
+            .map_err(|e| RusTorchError::gpu(&format!("OpenCL device error: {}", e)))?;
+        let device_id = devices.first()
+            .ok_or_else(|| RusTorchError::gpu("No OpenCL device found"))?;
+        
+        let queue = CommandQueue::create_command_queue_with_properties(
+            context,
+            *device_id,
+            CL_QUEUE_PROFILING_ENABLE,
+            0,
+        )
+        .map_err(|e| RusTorchError::gpu(&format!("OpenCL queue error: {}", e)))?;
 
         let size = cl_buffer.size() / std::mem::size_of::<T>();
         let mut cpu_data = vec![T::zero(); size];

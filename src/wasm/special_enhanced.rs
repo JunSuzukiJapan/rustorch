@@ -10,9 +10,8 @@ extern "C" {
     fn log(s: &str);
 }
 
-macro_rules! console_log {
-    ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
-}
+// Note: console_log macro removed as it was unused
+// Use web_sys::console::log_1() directly if logging is needed
 
 // Gamma Functions / ガンマ関数
 #[wasm_bindgen]
