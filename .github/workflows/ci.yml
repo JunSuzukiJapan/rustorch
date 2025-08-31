@@ -288,7 +288,7 @@ jobs:
         with:
           name: RusTorch Benchmarks
           tool: cargo
-          output-file-path: target/criterion/reports/index.html
+          output-file-path: target/criterion/*/bench.json
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
 
