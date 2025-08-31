@@ -34,7 +34,12 @@
       "Bash(cargo bench:*)",
       "Bash(RUST_LOG=debug cargo bench --bench optimization_benchmark)",
       "Bash(cargo clippy:*)",
-      "Bash(cargo fmt:*)"
+      "Bash(cargo fmt:*)",
+      "Bash(wasm-pack build:*)",
+      "Bash(python3:*)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_close"
     ],
     "deny": [],
     "ask": [],

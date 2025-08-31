@@ -65,3 +65,11 @@ pub mod distributions_enhanced; // Enhanced statistical distributions with full 
 pub mod optimizer_enhanced; // Production-ready optimizers for small-scale models
 #[cfg(feature = "wasm")]
 pub mod autograd_simplified; // Simplified autograd for single-threaded WASM environment
+
+// WebGPU backend for Chrome browser acceleration (v0.5.3+)
+// #[cfg(feature = "webgpu")]
+// pub mod webgpu_backend; // Chrome-optimized WebGPU backend with compute shaders (temporarily disabled)
+// #[cfg(feature = "webgpu")]
+// pub mod webgpu_tensor; // WebGPU tensor operations integration with RusTorch API (temporarily disabled)
+#[cfg(feature = "webgpu")]
+pub mod webgpu_simple; // Simplified WebGPU implementation for basic operations

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>RusTorch WebGPU Chrome Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #4a5568;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .demo-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f7fafc;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+        .status.error {
+            background: #fed7d7;
+            color: #822727;
+            border: 1px solid #feb2b2;
+        }
+        .status.info {
+            background: #bee3f8;
+            color: #2a4365;
+            border: 1px solid #90cdf4;
+        }
+        button {
+            background: #4299e1;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #3182ce;
+        }
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+        .console-output {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .requirement {
+            background: #ffeaa7;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .chrome-logo {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="%234285f4"/><circle cx="12" cy="12" r="4" fill="white"/></svg>') no-repeat center;
+            background-size: contain;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="chrome-logo"></span>RusTorch WebGPU Chrome Demo</h1>
+        
+        <div class="requirement">
+            <strong>📋 Requirements:</strong>
+            <ul>
+                <li>Google Chrome 113+ with WebGPU enabled</li>
+                <li>Hardware GPU acceleration enabled</li>
+                <li>Local web server (not file:// protocol)</li>
+            </ul>
+            <p><strong>🔧 To enable WebGPU in Chrome:</strong><br>
+            Navigate to <code>chrome://flags/#enable-unsafe-webgpu</code> and enable "Unsafe WebGPU"</p>
+        </div>
+
+        <div class="demo-section">
+            <h3>🎮 WebGPU Initialization</h3>
+            <button id="initBtn" onclick="initializeWebGPU()">Initialize WebGPU Engine</button>
+            <div id="initStatus"></div>
+        </div>
+
+        <div class="demo-section">
+            <h3>🧮 Tensor Operations</h3>
+            <button id="addBtn" onclick="runTensorAddDemo()" disabled>Tensor Addition</button>
+            <button id="matmulBtn" onclick="runMatMulDemo()" disabled>Matrix Multiplication</button>
+            <button id="activationBtn" onclick="runActivationDemo()" disabled>Activation Functions</button>
+            <div id="tensorStatus"></div>
+        </div>
+
+        <div class="demo-section">
+            <h3>📊 Performance Benchmark</h3>
+            <button id="benchBtn" onclick="runBenchmark()" disabled>Run Benchmark</button>
+            <div id="benchStatus"></div>
+        </div>
+
+        <div class="demo-section">
+            <h3>🧹 Cleanup</h3>
+            <button id="cleanupBtn" onclick="cleanup()" disabled>Cleanup Resources</button>
+        </div>
+
+        <div class="console-output" id="console"></div>
+    </div>
+
+    <script type="module">
+        import init, { WebGPUChromeDemoRunner } from './pkg/rustorch.js';
+
+        let demoRunner = null;
+        let consoleDiv = document.getElementById('console');
+
+        // Override console.log to display in our custom console
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            const message = args.join(' ');
+            const div = document.createElement('div');
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleDiv.appendChild(div);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        };
+
+        async function initWasm() {
+            try {
+                await init();
+                console.log('🚀 WASM module loaded successfully');
+                demoRunner = new WebGPUChromeDemoRunner();
+                console.log('🎮 Demo runner created');
+            } catch (e) {
+                console.log('❌ Failed to initialize WASM:', e);
+                showStatus('initStatus', 'Failed to initialize WASM module', 'error');
+            }
+        }
+
+        window.initializeWebGPU = async function() {
+            if (!demoRunner) {
+                showStatus('initStatus', 'WASM not loaded yet', 'error');
+                return;
+            }
+
+            try {
+                showStatus('initStatus', 'Initializing WebGPU...', 'info');
+                const result = await demoRunner.initialize();
+                showStatus('initStatus', result, 'success');
+                
+                // Enable other demo buttons
+                ['addBtn', 'matmulBtn', 'activationBtn', 'benchBtn', 'cleanupBtn'].forEach(id => {
+                    document.getElementById(id).disabled = false;
+                });
+            } catch (e) {
+                console.log('❌ WebGPU initialization failed:', e);
+                showStatus('initStatus', `WebGPU initialization failed: ${e}`, 'error');
+            }
+        };
+
+        window.runTensorAddDemo = async function() {
+            try {
+                showStatus('tensorStatus', 'Running tensor addition demo...', 'info');
+                const result = await demoRunner.run_tensor_add_demo();
+                showStatus('tensorStatus', result, 'success');
+            } catch (e) {
+                console.log('❌ Tensor add demo failed:', e);
+                showStatus('tensorStatus', `Demo failed: ${e}`, 'error');
+            }
+        };
+
+        window.runMatMulDemo = async function() {
+            try {
+                showStatus('tensorStatus', 'Running matrix multiplication demo...', 'info');
+                const result = await demoRunner.run_matrix_multiplication_demo();
+                showStatus('tensorStatus', result, 'success');
+            } catch (e) {
+                console.log('❌ Matrix multiplication demo failed:', e);
+                showStatus('tensorStatus', `Demo failed: ${e}`, 'error');
+            }
+        };
+
+        window.runActivationDemo = async function() {
+            try {
+                showStatus('tensorStatus', 'Running activation functions demo...', 'info');
+                const result = await demoRunner.run_activation_functions_demo();
+                showStatus('tensorStatus', result, 'success');
+            } catch (e) {
+                console.log('❌ Activation functions demo failed:', e);
+                showStatus('tensorStatus', `Demo failed: ${e}`, 'error');
+            }
+        };
+
+        window.runBenchmark = async function() {
+            try {
+                showStatus('benchStatus', 'Running performance benchmark...', 'info');
+                const result = await demoRunner.run_performance_benchmark();
+                showStatus('benchStatus', result, 'success');
+            } catch (e) {
+                console.log('❌ Benchmark failed:', e);
+                showStatus('benchStatus', `Benchmark failed: ${e}`, 'error');
+            }
+        };
+
+        window.cleanup = function() {
+            try {
+                if (demoRunner) {
+                    demoRunner.cleanup();
+                    showStatus('initStatus', 'Resources cleaned up', 'info');
+                }
+            } catch (e) {
+                console.log('❌ Cleanup failed:', e);
+            }
+        };
+
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Initialize when page loads
+        initWasm();
+    </script>
+</body>
+</html>

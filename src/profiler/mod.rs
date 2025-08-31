@@ -38,7 +38,8 @@ pub use performance_analyzer::{
     RecommendationType, TrendAnalysis,
 };
 
-// Multi-GPU profiler integration
+// Multi-GPU profiler integration (only for non-WASM targets)
+#[cfg(not(target_arch = "wasm32"))]
 pub use crate::gpu::multi_gpu_profiler::{MultiGpuProfiler, PerformanceReport as MultiGpuReport};
 
 // Legacy imports for backward compatibility
@@ -658,6 +659,7 @@ mod tests {
 /// Central profiling coordinator for all RusTorch operations
 pub struct RusTorchProfiler {
     /// Multi-GPU profiler for distributed operations
+    #[cfg(not(target_arch = "wasm32"))]
     multi_gpu_profiler: Option<Arc<MultiGpuProfiler>>,
     /// General operation metrics
     operation_metrics: Arc<RwLock<OperationMetrics>>,
@@ -697,6 +699,7 @@ impl RusTorchProfiler {
     /// Create new profiler instance
     pub fn new(config: ProfilerConfig) -> Self {
         Self {
+            #[cfg(not(target_arch = "wasm32"))]
             multi_gpu_profiler: None,
             operation_metrics: Arc::new(RwLock::new(OperationMetrics::new())),
             config,
@@ -706,8 +709,11 @@ impl RusTorchProfiler {
 
     /// Enable multi-GPU profiling
     pub fn enable_multi_gpu_profiling(&mut self, gpu_ids: Vec<usize>) -> RusTorchResult<()> {
-        let profiler = MultiGpuProfiler::new(gpu_ids, self.config.clone())?;
-        self.multi_gpu_profiler = Some(Arc::new(profiler));
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let profiler = MultiGpuProfiler::new(gpu_ids, self.config.clone())?;
+            self.multi_gpu_profiler = Some(Arc::new(profiler));
+        }
         Ok(())
     }
 
@@ -738,16 +744,21 @@ impl RusTorchProfiler {
     /// Generate comprehensive performance report
     pub fn generate_report(&self) -> ProfilingReport {
         let operation_metrics = self.operation_metrics.read().unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
         let multi_gpu_report = self
             .multi_gpu_profiler
             .as_ref()
             .map(|p| p.generate_report());
+        
+        #[cfg(target_arch = "wasm32")]
+        let multi_gpu_report = None::<String>;
 
         ProfilingReport {
             session_duration: self.session_start.elapsed(),
             total_operations: operation_metrics.total_operations,
             operation_summary: self.summarize_operations(&operation_metrics),
             memory_analysis: self.analyze_memory(&operation_metrics),
+            #[cfg(not(target_arch = "wasm32"))]
             multi_gpu_analysis: multi_gpu_report,
             recommendations: self.generate_recommendations(&operation_metrics),
         }
@@ -908,6 +919,7 @@ pub struct ProfilingReport {
     /// Memory usage analysis
     pub memory_analysis: MemoryAnalysis,
     /// Multi-GPU specific analysis
+    #[cfg(not(target_arch = "wasm32"))]
     pub multi_gpu_analysis: Option<MultiGpuReport>,
     /// Optimization recommendations
     pub recommendations: Vec<String>,
