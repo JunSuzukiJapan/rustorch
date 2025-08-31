@@ -57,4 +57,4 @@ node_modules/
 !examples/wasm_*.html
 !examples/*.json
 !examples/*.wasm
-!examples/*.d.ts
+!examples/*.d.tsruns/
