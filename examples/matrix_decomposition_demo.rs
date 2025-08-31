@@ -139,22 +139,3 @@ fn print_matrix(tensor: &Tensor<f32>) {
         println!("]");
     }
 }
-
-fn calculate_matrix_error(a: &Tensor<f32>, b: &Tensor<f32>) -> f32 {
-    let a_data = a.data.as_slice().unwrap_or(&[]);
-    let b_data = b.data.as_slice().unwrap_or(&[]);
-
-    if a_data.len() != b_data.len() {
-        return f32::INFINITY;
-    }
-
-    let mut max_error = 0.0f32;
-    for (a_val, b_val) in a_data.iter().zip(b_data.iter()) {
-        let error = (a_val - b_val).abs();
-        if error > max_error {
-            max_error = error;
-        }
-    }
-
-    max_error
-}

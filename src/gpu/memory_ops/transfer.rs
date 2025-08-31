@@ -99,7 +99,7 @@ impl<T: Float + 'static + cudarc::driver::DeviceRepr + cudarc::driver::ValidAsZe
 }
 
 #[cfg(all(not(feature = "cuda"), feature = "opencl"))]
-impl<T: Float + 'static + opencl3::memory::ClMem> GpuMemoryManager<T> {
+impl<T: Float + 'static> GpuMemoryManager<T> {
     /// Transfer tensor from CPU to GPU
     /// テンソルをCPUからGPUに転送
     pub fn to_device(

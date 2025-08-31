@@ -31,7 +31,7 @@ impl OpenCLOperations {
     /// データをOpenCLデバイスに転送
     pub fn transfer_to_device<T>(data: Vec<T>, _device_id: usize) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         // Get OpenCL device
         let platforms = get_platforms()
@@ -88,7 +88,7 @@ impl OpenCLOperations {
         context: &Arc<CLContext>,
     ) -> RusTorchResult<Vec<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         // Create command queue from context
         let queue =
@@ -117,7 +117,7 @@ impl OpenCLOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         use opencl3::command_queue::{CommandQueue, CL_QUEUE_PROFILING_ENABLE};
         use opencl3::kernel::{ExecuteKernel, Kernel};
@@ -160,7 +160,7 @@ impl OpenCLOperations {
     ) -> RusTorchResult<GpuBuffer<T>>
     where
         F: Fn(T, T) -> T + Send + Sync,
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         let lhs_cpu = Self::transfer_to_cpu(lhs, context)?;
         let rhs_cpu = Self::transfer_to_cpu(rhs, context)?;
@@ -183,7 +183,7 @@ impl OpenCLOperations {
         epsilon: T,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         let size = buffer.size().unwrap_or(0) / std::mem::size_of::<T>();
 
@@ -225,7 +225,7 @@ impl OpenCLOperations {
         context: &Arc<CLContext>,
     ) -> RusTorchResult<GpuBuffer<T>>
     where
-        T: opencl3::memory::ClMem + Float + 'static,
+        T: Float + 'static + Clone,
     {
         // For now, fall back to CPU implementation
         // TODO: Implement actual OpenCL kernel for attention

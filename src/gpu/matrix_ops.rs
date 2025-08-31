@@ -158,7 +158,9 @@ where
 
 // Metal implementation with safe CPU fallback
 #[cfg(all(feature = "metal", feature = "cuda"))]
-impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZeroBits> GpuMatrixExecutor<T> {
+impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZeroBits>
+    GpuMatrixExecutor<T>
+{
     fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::memory_transfer::GpuMemoryManager;
 
@@ -203,7 +205,8 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZe
 impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
     fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Use CPU fallback when CUDA traits are not available
-        a.matmul(b).map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))
+        a.matmul(b)
+            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))
     }
 }
 

@@ -189,6 +189,18 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         // Update metrics
         let mut metrics = self.metrics.write().unwrap();
         metrics.total_executions += 1;
+        metrics.memory_stats.allocations += 1;
+
+        // Update peak memory (estimate based on tensor size)
+        let estimated_memory = result.data.len() * std::mem::size_of::<T>();
+        if estimated_memory > metrics.memory_stats.peak_memory {
+            metrics.memory_stats.peak_memory = estimated_memory;
+        }
+
+        // Calculate memory efficiency (simple heuristic)
+        metrics.memory_stats.memory_efficiency =
+            metrics.memory_stats.allocations as f64 / (metrics.total_executions as f64 + 1.0);
+
         metrics.avg_execution_time = (metrics.avg_execution_time
             * (metrics.total_executions - 1) as u32
             + start_time.elapsed())
@@ -290,6 +302,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
         for pattern in common_patterns {
             self.jit_compiler.compile_operations(&pattern)?;
+
+            // Update JIT metrics
+            let mut metrics = self.metrics.write().unwrap();
+            metrics.jit_stats.total_compilations += 1;
+            metrics.jit_stats.successful_compilations += 1;
         }
 
         Ok(())
@@ -477,7 +494,41 @@ impl<'a, T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits:
 
     /// Add element-wise addition
     pub fn add(&mut self, input1: usize, input2: usize) -> RusTorchResult<usize> {
+        // Validate input shapes for compatibility
+        if let (Some(node1), Some(node2)) = (
+            self.context.get_dynamic_node(&input1),
+            self.context.get_dynamic_node(&input2),
+        ) {
+            if let (Some(tensor1), Some(tensor2)) =
+                (node1.get_cached_output(), node2.get_cached_output())
+            {
+                let shape1 = tensor1.shape();
+                let shape2 = tensor2.shape();
+
+                // Check for exact shape match or broadcasting compatibility
+                if shape1 != shape2 && !Self::can_broadcast(shape1, shape2) {
+                    return Err(RusTorchError::shape_mismatch(shape1, shape2));
+                }
+            }
+        }
+
         self.add_operation(DynamicOp::Add, vec![input1, input2])
+    }
+
+    /// Check if two shapes can be broadcast together
+    fn can_broadcast(shape1: &[usize], shape2: &[usize]) -> bool {
+        let (s1, s2) = if shape1.len() > shape2.len() {
+            (shape1, shape2)
+        } else {
+            (shape2, shape1)
+        };
+
+        for (i, (&dim2, &dim1)) in s2.iter().rev().zip(s1.iter().rev()).enumerate() {
+            if dim2 != 1 && dim1 != 1 && dim2 != dim1 {
+                return false;
+            }
+        }
+        true
     }
 
     /// Add matrix multiplication
