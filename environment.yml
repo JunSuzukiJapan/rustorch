@@ -1,0 +1,20 @@
+name: rustorch-binder
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.9
+  - pip
+  - jupyter
+  - jupyterlab
+  - matplotlib
+  - pandas
+  - numpy
+  - rust
+  - pkg-config
+  - cmake
+  - build-essential
+  - git
+  - pip:
+    - maturin
+    - ipywidgets

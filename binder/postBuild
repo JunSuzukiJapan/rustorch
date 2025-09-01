@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Binder post-build script for RusTorch
+set -e
+
+echo "🔧 Building RusTorch Python bindings for Binder..."
+
+# Build with minimal features for Binder (no GPU dependencies)
+maturin develop --release
+
+# Test the installation
+python3 -c "
+import rustorch
+print('✅ RusTorch successfully installed in Binder!')
+"
+
+echo "✅ RusTorch Binder setup complete!"

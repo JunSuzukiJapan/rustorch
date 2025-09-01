@@ -1,0 +1,16 @@
+name: rustorch
+channels:
+  - conda-forge
+dependencies:
+  - python=3.9
+  - pip
+  - jupyter
+  - jupyterlab>=3.0
+  - matplotlib
+  - pandas
+  - numpy
+  - rust
+  - cmake
+  - pkg-config
+  - pip:
+    - maturin>=1.0
