@@ -48,6 +48,8 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ## 🚀 Quick Start
 
+**📓 For complete Jupyter setup guide, see [README_JUPYTER.md](README_JUPYTER.md)**
+
 ### Python Jupyter Lab Demo
 
 #### Standard CPU Demo
