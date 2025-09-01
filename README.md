@@ -52,6 +52,8 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ### Python Jupyter Lab Demo
 
+📓 **[Complete Jupyter Setup Guide](README_JUPYTER.md)** | **[Jupyter Guide (日本語)](docs/jupyter-wasm-guide.md)**
+
 #### Standard CPU Demo
 Launch RusTorch with Jupyter Lab in one command:
 
@@ -77,6 +79,19 @@ Both scripts will:
 - ⚡ High-performance matrix operations in browser
 - 🔄 Automatic fallback to CPU when GPU unavailable
 - 🎯 Chrome/Edge optimized (recommended browsers)
+
+#### Rust Kernel for Jupyter
+Launch native Rust kernel in Jupyter (evcxr_jupyter):
+
+```bash
+./quick_start_rust_kernel.sh
+```
+
+This will:
+- 🦀 Install evcxr_jupyter Rust kernel
+- 📓 Create Rust kernel demo notebook
+- 🚀 Launch Jupyter with native Rust support
+- 📍 Direct tensor operations in Rust
 
 ### Installation
 

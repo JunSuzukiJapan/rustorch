@@ -36,6 +36,8 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 
 ### Python Jupyter Lab演示
 
+📓 **[完整Jupyter设置指南](../../README_JUPYTER.md)** | **[Jupyter指南](jupyter-guide.md)**
+
 #### 标准CPU演示
 一键启动Jupyter Lab中的RusTorch：
 
@@ -61,6 +63,19 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 - ⚡ 浏览器中的高性能矩阵运算
 - 🔄 GPU不可用时自动回退到CPU
 - 🎯 Chrome/Edge优化（推荐浏览器）
+
+#### Jupyter的Rust内核
+在Jupyter中启动原生Rust内核（evcxr_jupyter）：
+
+```bash
+./quick_start_rust_kernel.sh
+```
+
+这将：
+- 🦀 安装evcxr_jupyter Rust内核
+- 📓 创建Rust内核演示笔记本
+- 🚀 启动支持原生Rust的Jupyter
+- 📍 直接在Rust中进行张量操作
 
 ### 安装
 

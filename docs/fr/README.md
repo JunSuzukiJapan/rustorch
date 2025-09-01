@@ -36,6 +36,8 @@ RusTorch est une bibliothèque d'apprentissage profond entièrement fonctionnell
 
 ### Démo Python Jupyter Lab
 
+📓 **[Guide Complet Jupyter](../../README_JUPYTER.md)** | **[Guide Jupyter](jupyter-guide.md)**
+
 #### Démo CPU Standard
 Lancez RusTorch avec Jupyter Lab en une commande :
 
@@ -61,6 +63,19 @@ Les deux scripts vont :
 - ⚡ Opérations matricielles haute performance dans le navigateur
 - 🔄 Repli automatique vers CPU quand GPU indisponible
 - 🎯 Optimisé Chrome/Edge (navigateurs recommandés)
+
+#### Noyau Rust pour Jupyter
+Lancez le noyau Rust natif dans Jupyter (evcxr_jupyter) :
+
+```bash
+./quick_start_rust_kernel.sh
+```
+
+Cela va :
+- 🦀 Installer le noyau Rust evcxr_jupyter
+- 📓 Créer un notebook de démo Rust kernel
+- 🚀 Lancer Jupyter avec support Rust natif
+- 📍 Opérations tensorielles directes en Rust
 
 ### Installation
 

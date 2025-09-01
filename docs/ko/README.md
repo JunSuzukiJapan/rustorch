@@ -36,6 +36,8 @@ RusTorch는 Rust의 안전성과 성능을 활용하여 포괄적인 텐서 연�
 
 ### Python Jupyter Lab 데모
 
+📓 **[완전한 Jupyter 설정 가이드](../../README_JUPYTER.md)** | **[Jupyter 가이드](jupyter-guide.md)**
+
 #### 표준 CPU 데모
 한 명령으로 Jupyter Lab과 함께 RusTorch 실행:
 
@@ -61,6 +63,19 @@ RusTorch는 Rust의 안전성과 성능을 활용하여 포괄적인 텐서 연�
 - ⚡ 브라우저에서 고성능 행렬 연산
 - 🔄 GPU 사용 불가 시 CPU로 자동 폴백
 - 🎯 Chrome/Edge 최적화(권장 브라우저)
+
+#### Jupyter용 Rust 커널
+Jupyter에서 네이티브 Rust 커널 실행 (evcxr_jupyter):
+
+```bash
+./quick_start_rust_kernel.sh
+```
+
+이것은:
+- 🦀 evcxr_jupyter Rust 커널 설치
+- 📓 Rust 커널 데모 노트북 생성
+- 🚀 네이티브 Rust 지원으로 Jupyter 실행
+- 📍 Rust에서 직접 텐서 연산
 
 ### 설치
 
