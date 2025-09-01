@@ -102,7 +102,7 @@ echo ":cache 500" > ~/.config/evcxr/init.evcxr
 - 2回目以降：依存ライブラリの再コンパイルなし（数倍高速）
 - `rustorch`ライブラリも初回後はキャッシュされます
 
-**注意：** ライブラリ更新後は`:clear_cache`でキャッシュクリア推奨
+**注意：** ライブラリ更新後はJupyterのRustセルで`:clear_cache`実行を推奨
 
 ### Rustがインストールされていない場合
 ```bash
