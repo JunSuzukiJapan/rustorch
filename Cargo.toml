@@ -293,18 +293,22 @@ harness = false
 
 [[example]]
 name = "model_hub_demo"
+path = "examples/model_hub_demo.rs"
 required-features = ["model-hub"]
 
 [[example]]
 name = "test_actual_download"
+path = "examples/test_actual_download.rs"
 required-features = ["model-hub"]
 
 [[example]]
 name = "webgpu_chrome_demo"
+path = "examples/webgpu_chrome_demo.rs"
 required-features = ["webgpu"]
 
 [[example]]
 name = "webgpu_simple_demo"
+path = "examples/webgpu_simple_demo.rs"
 required-features = ["webgpu"]
 
 [lints.clippy]
