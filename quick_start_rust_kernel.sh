@@ -286,7 +286,7 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
    "outputs": [],
    "source": [
     "// Matrix multiplication\n",
-    "let result = a.matmul(&b);\n",
+    "let result = a.matmul(&b).expect(\"Matrix multiplication failed\");\n",
     "println!(\"Matrix multiplication result: {:?}\", result);\n",
     "\n",
     "// Element-wise operations\n",
@@ -382,7 +382,7 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
     "println!(\"🏁 Benchmarking {}x{} matrix multiplication...\", size, size);\n",
     "\n",
     "let start = Instant::now();\n",
-    "let result = a.matmul(&b);\n",
+    "let result = a.matmul(&b).expect(\"Matrix multiplication failed\");\n",
     "let duration = start.elapsed();\n",
     "\n",
     "println!(\"✅ Completed in: {:?}\", duration);\n",
