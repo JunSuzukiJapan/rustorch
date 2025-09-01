@@ -2,7 +2,7 @@
 # Multi-stage build for optimized production image
 
 # Build stage
-FROM rust:1.75-slim as builder
+FROM rust:1.81-slim as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -19,12 +19,12 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /usr/src/rustorch
 
 # Copy manifests first for better caching
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 
 # Create src directory and add dummy main to build dependencies
 RUN mkdir -p src && echo "fn main() {}" > src/main.rs
 
-# Build dependencies
+# Build dependencies (this will generate a new Cargo.lock compatible with container's Cargo version)
 RUN cargo build --release && rm -rf src
 
 # Copy source code
