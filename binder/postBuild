@@ -5,13 +5,28 @@ set -e
 
 echo "🔧 Building RusTorch Python bindings for Binder..."
 
-# Build with minimal features for Binder (no GPU dependencies)
-maturin develop --release
+# Set conda environment variables for maturin
+export CONDA_PREFIX=${NB_PYTHON_PREFIX}
+export VIRTUAL_ENV=${NB_PYTHON_PREFIX}
+
+# Build wheel and install (compatible with conda environment)
+echo "📦 Building wheel..."
+maturin build --release --out dist
+
+# Install the built wheel
+echo "📥 Installing wheel..."
+pip install dist/*.whl
 
 # Test the installation
+echo "🧪 Testing installation..."
 python3 -c "
-import rustorch
-print('✅ RusTorch successfully installed in Binder!')
+try:
+    import rustorch
+    print('✅ RusTorch successfully installed in Binder!')
+    print('✅ RusTorch Binderインストール成功！')
+except ImportError as e:
+    print(f'❌ Import failed: {e}')
+    exit(1)
 "
 
 echo "✅ RusTorch Binder setup complete!"

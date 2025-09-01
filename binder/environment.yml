@@ -10,7 +10,11 @@ dependencies:
   - pandas
   - numpy
   - rust
+  - cargo
   - cmake
   - pkg-config
+  - gcc_linux-64
+  - gxx_linux-64
   - pip:
     - maturin>=1.0
+    - wheel
