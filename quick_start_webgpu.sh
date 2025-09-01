@@ -1,21 +1,125 @@
 #!/bin/bash
 
-# RusTorch WebGPU Quick Start Script
-# RusTorch WebGPU クイックスタートスクリプト
+# RusTorch WebGPU Quick Start Script - Multilingual Support
+# Auto-detects system language for international users
+# Supports: English, Japanese, Spanish, French, German, Chinese, Korean
 # 
 # Usage: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
 # 使用法: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
 
 set -e
 
-echo "🚀 RusTorch WebGPU Quick Start"
-echo "🚀 RusTorch WebGPU クイックスタート"
+# Language Detection and Message System
+detect_language() {
+    local lang_code
+    
+    # Try multiple methods to detect language
+    if [[ -n "${LC_ALL:-}" ]]; then
+        lang_code="${LC_ALL%.*}"
+    elif [[ -n "${LC_MESSAGES:-}" ]]; then
+        lang_code="${LC_MESSAGES%.*}"
+    elif [[ -n "${LANG:-}" ]]; then
+        lang_code="${LANG%.*}"
+    else
+        lang_code="en_US"
+    fi
+    
+    # Extract language prefix
+    lang_code="${lang_code%_*}"
+    
+    case "$lang_code" in
+        ja) echo "ja" ;;
+        es) echo "es" ;;
+        fr) echo "fr" ;;
+        de) echo "de" ;;
+        zh|zh_CN|zh_TW) echo "zh" ;;
+        ko) echo "ko" ;;
+        *) echo "en" ;;
+    esac
+}
+
+# Multilingual message function for WebGPU
+msg() {
+    local key="$1"
+    local lang="${DETECTED_LANG:-en}"
+    
+    case "$key" in
+        "welcome_title")
+            case "$lang" in
+                en) echo "🚀 RusTorch WebGPU Quick Start" ;;
+                ja) echo "🚀 RusTorch WebGPU クイックスタート" ;;
+                es) echo "🚀 Inicio Rápido RusTorch WebGPU" ;;
+                fr) echo "🚀 Démarrage Rapide RusTorch WebGPU" ;;
+                de) echo "🚀 RusTorch WebGPU Schnellstart" ;;
+                zh) echo "🚀 RusTorch WebGPU 快速开始" ;;
+                ko) echo "🚀 RusTorch WebGPU 빠른 시작" ;;
+            esac ;;
+        "webgpu_requirements")
+            case "$lang" in
+                en) echo "🔍 Checking system requirements for WebGPU..." ;;
+                ja) echo "🔍 WebGPU用システム要件を確認中..." ;;
+                es) echo "🔍 Verificando requisitos del sistema para WebGPU..." ;;
+                fr) echo "🔍 Vérification des prérequis pour WebGPU..." ;;
+                de) echo "🔍 Systemanforderungen für WebGPU prüfen..." ;;
+                zh) echo "🔍 检查 WebGPU 系统要求..." ;;
+                ko) echo "🔍 WebGPU 시스템 요구사항 확인 중..." ;;
+            esac ;;
+        "webgpu_setup_complete")
+            case "$lang" in
+                en) echo "🎉 WebGPU Setup Complete!" ;;
+                ja) echo "🎉 WebGPUセットアップ完了！" ;;
+                es) echo "🎉 ¡Configuración WebGPU Completa!" ;;
+                fr) echo "🎉 Configuration WebGPU Terminée!" ;;
+                de) echo "🎉 WebGPU Setup Abgeschlossen!" ;;
+                zh) echo "🎉 WebGPU 设置完成！" ;;
+                ko) echo "🎉 WebGPU 설정 완료！" ;;
+            esac ;;
+        "webgpu_services")
+            case "$lang" in
+                en) echo "📊 Available Services:" ;;
+                ja) echo "📊 利用可能なサービス:" ;;
+                es) echo "📊 Servicios Disponibles:" ;;
+                fr) echo "📊 Services Disponibles:" ;;
+                de) echo "📊 Verfügbare Services:" ;;
+                zh) echo "📊 可用服务：" ;;
+                ko) echo "📊 사용 가능한 서비스:" ;;
+            esac ;;
+        "webgpu_status_enabled")
+            case "$lang" in
+                en) echo "🚀 WebGPU Status: ENABLED" ;;
+                ja) echo "🚀 WebGPUステータス: 有効" ;;
+                es) echo "🚀 Estado WebGPU: HABILITADO" ;;
+                fr) echo "🚀 Statut WebGPU: ACTIVÉ" ;;
+                de) echo "🚀 WebGPU Status: AKTIVIERT" ;;
+                zh) echo "🚀 WebGPU 状态: 启用" ;;
+                ko) echo "🚀 WebGPU 상태: 활성화" ;;
+            esac ;;
+        "stop_all_services")
+            case "$lang" in
+                en) echo "🛑 Press Ctrl+C to stop all services" ;;
+                ja) echo "🛑 すべてのサービスを停止するにはCtrl+Cを押してください" ;;
+                es) echo "🛑 Presiona Ctrl+C para detener todos los servicios" ;;
+                fr) echo "🛑 Appuyez sur Ctrl+C pour arrêter tous les services" ;;
+                de) echo "🛑 Drücken Sie Ctrl+C zum Stoppen aller Services" ;;
+                zh) echo "🛑 按 Ctrl+C 停止所有服务" ;;
+                ko) echo "🛑 모든 서비스를 중지하려면 Ctrl+C를 누르세요" ;;
+            esac ;;
+    esac
+}
+
+# Detect system language
+DETECTED_LANG=$(detect_language)
+
+# Display welcome message in user's language
+echo "$(msg "welcome_title")"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🌍 Language detected: $DETECTED_LANG"
+echo ""
 
 # Create temporary directory for RusTorch WebGPU
 RUSTORCH_DIR="$HOME/rustorch-webgpu"
 echo "📁 Creating RusTorch WebGPU workspace: $RUSTORCH_DIR"
-echo "📁 RusTorch WebGPUワークスペースを作成: $RUSTORCH_DIR"
 
 if [ -d "$RUSTORCH_DIR" ]; then
     echo "⚠️  Directory exists. Updating..."
@@ -546,16 +650,13 @@ echo "🌐 WebGPUデモサーバーを起動中..."
 if [ "$WEBGPU_ENABLED" = true ]; then
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "🎉 WebGPU Setup Complete!"
-    echo "🎉 WebGPUセットアップ完了！"
+    echo "$(msg "webgpu_setup_complete")"
     echo ""
-    echo "📊 Available Services:"
-    echo "📊 利用可能なサービス:"
+    echo "$(msg "webgpu_services")"
     echo "  • WebGPU Demo: http://localhost:8080/webgpu_demo.html"
     echo "  • Jupyter Lab: http://localhost:8888"
     echo ""
-    echo "🚀 WebGPU Status: ENABLED"
-    echo "🚀 WebGPUステータス: 有効"
+    echo "$(msg "webgpu_status_enabled")"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 else
     echo ""
@@ -571,8 +672,7 @@ else
 fi
 
 echo ""
-echo "🛑 Press Ctrl+C to stop all services"
-echo "🛑 すべてのサービスを停止するにはCtrl+Cを押してください"
+echo "$(msg "stop_all_services")"
 
 # Start the WebGPU server
 python3 start_webgpu_server.py

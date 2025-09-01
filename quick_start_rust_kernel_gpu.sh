@@ -1,16 +1,111 @@
 #!/bin/bash
 
-# RusTorch GPU-Enabled Rust Kernel Quick Start Script
-# RusTorch GPU対応 Rust カーネル クイックスタートスクリプト
+# RusTorch GPU-Enabled Rust Kernel Quick Start Script - Multilingual Support
+# Auto-detects system language for international users
+# Supports: English, Japanese, Spanish, French, German, Chinese, Korean
 # 
 # Usage: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel_gpu.sh | bash
 # 使用法: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel_gpu.sh | bash
 
 set -e
 
-echo "🦀🚀 RusTorch GPU-Enabled Rust Kernel Quick Start"
-echo "🦀🚀 RusTorch GPU対応 Rust カーネル クイックスタート"
+# Language Detection and Message System
+detect_language() {
+    local lang_code
+    
+    # Try multiple methods to detect language
+    if [[ -n "${LC_ALL:-}" ]]; then
+        lang_code="${LC_ALL%.*}"
+    elif [[ -n "${LC_MESSAGES:-}" ]]; then
+        lang_code="${LC_MESSAGES%.*}"
+    elif [[ -n "${LANG:-}" ]]; then
+        lang_code="${LANG%.*}"
+    else
+        lang_code="en_US"
+    fi
+    
+    # Extract language prefix
+    lang_code="${lang_code%_*}"
+    
+    case "$lang_code" in
+        ja) echo "ja" ;;
+        es) echo "es" ;;
+        fr) echo "fr" ;;
+        de) echo "de" ;;
+        zh|zh_CN|zh_TW) echo "zh" ;;
+        ko) echo "ko" ;;
+        *) echo "en" ;;
+    esac
+}
+
+# Multilingual message function for GPU Rust Kernel
+msg() {
+    local key="$1"
+    local lang="${DETECTED_LANG:-en}"
+    
+    case "$key" in
+        "welcome_title")
+            case "$lang" in
+                en) echo "🦀🚀 RusTorch GPU-Enabled Rust Kernel Quick Start" ;;
+                ja) echo "🦀🚀 RusTorch GPU対応 Rust カーネル クイックスタート" ;;
+                es) echo "🦀🚀 Inicio Rápido Kernel Rust GPU RusTorch" ;;
+                fr) echo "🦀🚀 Démarrage Rapide Noyau Rust GPU RusTorch" ;;
+                de) echo "🦀🚀 RusTorch GPU Rust Kernel Schnellstart" ;;
+                zh) echo "🦀🚀 RusTorch GPU Rust 内核快速开始" ;;
+                ko) echo "🦀🚀 RusTorch GPU Rust 커널 빠른 시작" ;;
+            esac ;;
+        "gpu_detection")
+            case "$lang" in
+                en) echo "🎮 Detecting GPU capabilities..." ;;
+                ja) echo "🎮 GPU性能を検出中..." ;;
+                es) echo "🎮 Detectando capacidades de GPU..." ;;
+                fr) echo "🎮 Détection des capacités GPU..." ;;
+                de) echo "🎮 GPU-Fähigkeiten erkennen..." ;;
+                zh) echo "🎮 检测 GPU 功能..." ;;
+                ko) echo "🎮 GPU 기능 감지 중..." ;;
+            esac ;;
+        "gpu_kernel_complete")
+            case "$lang" in
+                en) echo "🎉 GPU-Enabled Rust Kernel Setup Complete!" ;;
+                ja) echo "🎉 GPU対応Rustカーネルセットアップ完了！" ;;
+                es) echo "🎉 ¡Configuración Kernel Rust GPU Completa!" ;;
+                fr) echo "🎉 Configuration Noyau Rust GPU Terminée!" ;;
+                de) echo "🎉 GPU Rust Kernel Setup Abgeschlossen!" ;;
+                zh) echo "🎉 GPU Rust 内核设置完成！" ;;
+                ko) echo "🎉 GPU Rust 커널 설정 완료！" ;;
+            esac ;;
+        "detected_gpu_features")
+            case "$lang" in
+                en) echo "🎮 Detected GPU features:" ;;
+                ja) echo "🎮 検出されたGPU機能:" ;;
+                es) echo "🎮 Características GPU detectadas:" ;;
+                fr) echo "🎮 Fonctionnalités GPU détectées:" ;;
+                de) echo "🎮 Erkannte GPU-Features:" ;;
+                zh) echo "🎮 检测到的 GPU 功能：" ;;
+                ko) echo "🎮 감지된 GPU 기능:" ;;
+            esac ;;
+        "gpu_demo_loaded")
+            case "$lang" in
+                en) echo "📝 GPU Demo notebook loaded automatically" ;;
+                ja) echo "📝 GPUデモノートブック自動読み込み済み" ;;
+                es) echo "📝 Notebook demo GPU cargado automáticamente" ;;
+                fr) echo "📝 Notebook de démo GPU chargé automatiquement" ;;
+                de) echo "📝 GPU-Demo-Notebook automatisch geladen" ;;
+                zh) echo "📝 GPU 演示笔记本自动加载" ;;
+                ko) echo "📝 GPU 데모 노트북 자동 로드됨" ;;
+            esac ;;
+    esac
+}
+
+# Detect system language
+DETECTED_LANG=$(detect_language)
+
+# Display welcome message in user's language
+echo "$(msg "welcome_title")"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🌍 Language detected: $DETECTED_LANG"
+echo ""
 
 # Create workspace
 RUSTORCH_DIR="$HOME/rustorch-gpu-rust-kernel"
@@ -51,7 +146,7 @@ fi
 
 # GPU Detection and Feature Configuration
 echo ""
-echo "🎮 Detecting GPU capabilities..."
+echo "$(msg "gpu_detection")"
 
 GPU_FEATURES=""
 GPU_FOUND=false
@@ -511,24 +606,16 @@ jupyter lab --port=8889 --no-browser notebooks/rustorch_gpu_rust_kernel_demo.ipy
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🎉 GPU-Enabled Rust Kernel Setup Complete!"
-echo "🎉 GPU対応Rustカーネルセットアップ完了！"
+echo "$(msg "gpu_kernel_complete")"
 echo ""
-echo "📋 How to use:"
-echo "📋 使用方法:"
-echo "  1. Select 'Rust' kernel in Jupyter"
-echo "  1. Jupyterで'Rust'カーネルを選択"
-echo "  2. Write Rust code directly in cells"
-echo "  2. セル内に直接Rustコードを記述"
+echo "$(msg "how_to_use")"
+echo "  $(msg "select_rust_kernel")"
+echo "  $(msg "write_rust_code")"
 echo "  3. Use GPU features with detected capabilities"
-echo "  3. 検出されたGPU機能を使用"
 echo ""
-echo "🎮 Detected GPU features: $GPU_FEATURES"
-echo "🎮 検出されたGPU機能: $GPU_FEATURES"
+echo "$(msg "detected_gpu_features") $GPU_FEATURES"
 echo ""
-echo "🚀 Available at: http://localhost:8889"
-echo "🚀 利用可能: http://localhost:8889"
+echo "$(msg "available_at")"
 echo ""
-echo "📝 GPU Demo notebook loaded automatically"
-echo "📝 GPUデモノートブック自動読み込み済み"
+echo "$(msg "gpu_demo_loaded")"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

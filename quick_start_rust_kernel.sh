@@ -1,16 +1,131 @@
 #!/bin/bash
 
-# RusTorch Rust Kernel Quick Start Script
-# RusTorch Rust カーネル クイックスタートスクリプト
+# RusTorch Rust Kernel Quick Start Script - Multilingual Support
+# Auto-detects system language for international users
+# Supports: English, Japanese, Spanish, French, German, Chinese, Korean
 # 
 # Usage: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
 # 使用法: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
 
 set -e
 
-echo "🦀 RusTorch Rust Kernel Quick Start"
-echo "🦀 RusTorch Rust カーネル クイックスタート"
+# Language Detection and Message System
+detect_language() {
+    local lang_code
+    
+    # Try multiple methods to detect language
+    if [[ -n "${LC_ALL:-}" ]]; then
+        lang_code="${LC_ALL%.*}"
+    elif [[ -n "${LC_MESSAGES:-}" ]]; then
+        lang_code="${LC_MESSAGES%.*}"
+    elif [[ -n "${LANG:-}" ]]; then
+        lang_code="${LANG%.*}"
+    else
+        lang_code="en_US"
+    fi
+    
+    # Extract language prefix
+    lang_code="${lang_code%_*}"
+    
+    case "$lang_code" in
+        ja) echo "ja" ;;
+        es) echo "es" ;;
+        fr) echo "fr" ;;
+        de) echo "de" ;;
+        zh|zh_CN|zh_TW) echo "zh" ;;
+        ko) echo "ko" ;;
+        *) echo "en" ;;
+    esac
+}
+
+# Multilingual message function for Rust Kernel
+msg() {
+    local key="$1"
+    local lang="${DETECTED_LANG:-en}"
+    
+    case "$key" in
+        "welcome_title")
+            case "$lang" in
+                en) echo "🦀 RusTorch Rust Kernel Quick Start" ;;
+                ja) echo "🦀 RusTorch Rust カーネル クイックスタート" ;;
+                es) echo "🦀 Inicio Rápido Kernel Rust RusTorch" ;;
+                fr) echo "🦀 Démarrage Rapide Noyau Rust RusTorch" ;;
+                de) echo "🦀 RusTorch Rust Kernel Schnellstart" ;;
+                zh) echo "🦀 RusTorch Rust 内核快速开始" ;;
+                ko) echo "🦀 RusTorch Rust 커널 빠른 시작" ;;
+            esac ;;
+        "rust_kernel_complete")
+            case "$lang" in
+                en) echo "🎉 Rust Kernel Setup Complete!" ;;
+                ja) echo "🎉 Rustカーネルセットアップ完了！" ;;
+                es) echo "🎉 ¡Configuración Kernel Rust Completa!" ;;
+                fr) echo "🎉 Configuration Noyau Rust Terminée!" ;;
+                de) echo "🎉 Rust Kernel Setup Abgeschlossen!" ;;
+                zh) echo "🎉 Rust 内核设置完成！" ;;
+                ko) echo "🎉 Rust 커널 설정 완료！" ;;
+            esac ;;
+        "how_to_use")
+            case "$lang" in
+                en) echo "📋 How to use:" ;;
+                ja) echo "📋 使用方法:" ;;
+                es) echo "📋 Cómo usar:" ;;
+                fr) echo "📋 Comment utiliser:" ;;
+                de) echo "📋 Verwendung:" ;;
+                zh) echo "📋 使用方法：" ;;
+                ko) echo "📋 사용 방법:" ;;
+            esac ;;
+        "select_rust_kernel")
+            case "$lang" in
+                en) echo "1. Select 'Rust' kernel in Jupyter" ;;
+                ja) echo "1. Jupyterで'Rust'カーネルを選択" ;;
+                es) echo "1. Selecciona el kernel 'Rust' en Jupyter" ;;
+                fr) echo "1. Sélectionnez le noyau 'Rust' dans Jupyter" ;;
+                de) echo "1. Wählen Sie 'Rust' Kernel in Jupyter" ;;
+                zh) echo "1. 在 Jupyter 中选择 'Rust' 内核" ;;
+                ko) echo "1. Jupyter에서 'Rust' 커널을 선택" ;;
+            esac ;;
+        "write_rust_code")
+            case "$lang" in
+                en) echo "2. Write Rust code directly in cells" ;;
+                ja) echo "2. セル内に直接Rustコードを記述" ;;
+                es) echo "2. Escribe código Rust directamente en las celdas" ;;
+                fr) echo "2. Écrivez du code Rust directement dans les cellules" ;;
+                de) echo "2. Schreiben Sie Rust-Code direkt in Zellen" ;;
+                zh) echo "2. 在单元格中直接编写 Rust 代码" ;;
+                ko) echo "2. 셀에 직접 Rust 코드를 작성" ;;
+            esac ;;
+        "add_rustorch")
+            case "$lang" in
+                en) echo "3. Use :dep rustorch = \"0.5.7\" to add RusTorch" ;;
+                ja) echo "3. :dep rustorch = \"0.5.7\" でRusTorchを追加" ;;
+                es) echo "3. Usa :dep rustorch = \"0.5.7\" para añadir RusTorch" ;;
+                fr) echo "3. Utilisez :dep rustorch = \"0.5.7\" pour ajouter RusTorch" ;;
+                de) echo "3. Verwenden Sie :dep rustorch = \"0.5.7\" um RusTorch hinzuzufügen" ;;
+                zh) echo "3. 使用 :dep rustorch = \"0.5.7\" 添加 RusTorch" ;;
+                ko) echo "3. :dep rustorch = \"0.5.7\"를 사용하여 RusTorch 추가" ;;
+            esac ;;
+        "available_at")
+            case "$lang" in
+                en) echo "🚀 Available at: http://localhost:8888" ;;
+                ja) echo "🚀 利用可能: http://localhost:8888" ;;
+                es) echo "🚀 Disponible en: http://localhost:8888" ;;
+                fr) echo "🚀 Disponible à: http://localhost:8888" ;;
+                de) echo "🚀 Verfügbar unter: http://localhost:8888" ;;
+                zh) echo "🚀 可用地址: http://localhost:8888" ;;
+                ko) echo "🚀 사용 가능: http://localhost:8888" ;;
+            esac ;;
+    esac
+}
+
+# Detect system language
+DETECTED_LANG=$(detect_language)
+
+# Display welcome message in user's language
+echo "$(msg "welcome_title")"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🌍 Language detected: $DETECTED_LANG"
+echo ""
 
 # Create workspace
 RUSTORCH_DIR="$HOME/rustorch-rust-kernel"
@@ -322,18 +437,12 @@ jupyter lab --port=8888 --no-browser notebooks/rustorch_rust_kernel_demo.ipynb
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "🎉 Rust Kernel Setup Complete!"
-echo "🎉 Rustカーネルセットアップ完了！"
+echo "$(msg "rust_kernel_complete")"
 echo ""
-echo "📋 How to use:"
-echo "📋 使用方法:"
-echo "  1. Select 'Rust' kernel in Jupyter"
-echo "  1. Jupyterで'Rust'カーネルを選択"
-echo "  2. Write Rust code directly in cells"
-echo "  2. セル内に直接Rustコードを記述"
-echo "  3. Use :dep rustorch = \"0.5.7\" to add RusTorch"
-echo "  3. :dep rustorch = \"0.5.7\" でRusTorchを追加"
+echo "$(msg "how_to_use")"
+echo "  $(msg "select_rust_kernel")"
+echo "  $(msg "write_rust_code")"
+echo "  $(msg "add_rustorch")"
 echo ""
-echo "🚀 Available at: http://localhost:8888"
-echo "🚀 利用可能: http://localhost:8888"
+echo "$(msg "available_at")"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

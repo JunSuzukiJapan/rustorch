@@ -86,7 +86,10 @@
       "Bash(cargo deny:*)",
       "Bash(cargo:*)",
       "Bash(chmod:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(bash:*)",
+      "Bash(LANG=en_US.UTF-8 bash -c 'source ./quick_start.sh')",
+      "Bash(LANG=es_ES.UTF-8 bash -c 'source ./quick_start.sh')"
     ],
     "deny": [],
     "ask": [],
