@@ -187,6 +187,22 @@ window.RusTorchReady.then(async (rt) => {
 
 ## Risoluzione Problemi
 
+### 🚀 Accelerare Kernel Rust (Raccomandato)
+Se l'esecuzione iniziale è lenta, abilita la cache per miglioramento significativo delle prestazioni:
+
+```bash
+# Creare directory cache
+mkdir -p ~/.config/evcxr
+
+# Abilitare cache 500MB
+echo ":cache 500" > ~/.config/evcxr/init.evcxr
+```
+
+**Effetti:**
+- Prima volta: Tempo di compilazione normale
+- Esecuzioni successive: Nessuna ricompilazione delle dipendenze (diverse volte più veloce)
+- La libreria `rustorch` viene anche memorizzata nella cache dopo il primo uso
+
 ### Errori Comuni
 
 #### Errore "RusTorch is not defined"

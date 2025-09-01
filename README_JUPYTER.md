@@ -86,6 +86,22 @@ cd rustorch
 
 ## 💡 トラブルシューティング
 
+### 🚀 Rustカーネルを高速化（推奨）
+初回実行が遅い場合、キャッシュを有効化すると大幅に高速化されます：
+
+```bash
+# キャッシュディレクトリを作成
+mkdir -p ~/.config/evcxr
+
+# 500MBキャッシュを有効化
+echo ":cache 500" > ~/.config/evcxr/init.evcxr
+```
+
+**効果：**
+- 初回：通常通りのコンパイル時間
+- 2回目以降：依存ライブラリの再コンパイルなし（数倍高速）
+- `rustorch`ライブラリも初回後はキャッシュされます
+
 ### Rustがインストールされていない場合
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

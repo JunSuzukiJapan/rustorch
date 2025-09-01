@@ -187,6 +187,22 @@ window.RusTorchReady.then(async (rt) => {
 
 ## 故障排除
 
+### 🚀 加速Rust内核（推荐）
+如果初始执行较慢，启用缓存可显著提高性能：
+
+```bash
+# 创建缓存目录
+mkdir -p ~/.config/evcxr
+
+# 启用500MB缓存
+echo ":cache 500" > ~/.config/evcxr/init.evcxr
+```
+
+**效果：**
+- 第一次：正常编译时间
+- 后续运行：无需重新编译依赖项（快数倍）
+- `rustorch`库在首次使用后也会被缓存
+
 ### 常见错误
 
 #### "RusTorch is not defined" 错误

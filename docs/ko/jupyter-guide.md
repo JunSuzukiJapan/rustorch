@@ -187,6 +187,22 @@ window.RusTorchReady.then(async (rt) => {
 
 ## 문제 해결
 
+### 🚀 Rust 커널 가속화 (권장)
+초기 실행이 느린 경우, 캐싱을 활성화하여 성능을 크게 향상시킬 수 있습니다:
+
+```bash
+# 캐시 디렉토리 생성
+mkdir -p ~/.config/evcxr
+
+# 500MB 캐시 활성화
+echo ":cache 500" > ~/.config/evcxr/init.evcxr
+```
+
+**효과:**
+- 첫 번째: 일반적인 컴파일 시간
+- 후속 실행: 의존성 재컴파일 없음 (몇 배 빠름)
+- `rustorch` 라이브러리도 첫 사용 후 캐시됨
+
 ### 일반적인 오류
 
 #### "RusTorch is not defined" 오류
