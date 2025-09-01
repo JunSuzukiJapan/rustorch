@@ -294,6 +294,9 @@ jobs:
       - name: Generate benchmark JSON
         if: github.ref == 'refs/heads/main'
         run: |
+          # Stash any local changes to avoid gh-pages conflicts
+          git stash --include-untracked || true
+          
           # Create benchmark results directory
           mkdir -p benchmark-results
           
@@ -341,6 +344,7 @@ jobs:
           auto-push: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
+          skip-fetch-gh-pages: false
 
   # Feature-enabled benchmarks (with linalg)
   benchmark_linalg:
