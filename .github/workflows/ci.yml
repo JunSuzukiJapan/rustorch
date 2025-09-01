@@ -294,9 +294,8 @@ jobs:
       - name: Generate benchmark JSON
         if: github.ref == 'refs/heads/main'
         run: |
-          # Create benchmark results in JSON format for github-action-benchmark
+          # Create benchmark results in correct array format for github-action-benchmark
           mkdir -p benchmark-results
-          echo '{"framework":"criterion","results":[' > benchmark-results/bench.json
           
           # Run a simple benchmark and capture timing
           TIME_START=$(date +%s%N)
@@ -305,10 +304,17 @@ jobs:
           DURATION_NS=$((TIME_END - TIME_START))
           DURATION_MS=$((DURATION_NS / 1000000))
           
-          # Create JSON result
-          cat >> benchmark-results/bench.json << EOF
-          {"name":"quick_benchmark","value":${DURATION_MS},"unit":"ms","range":"±0","extra":"duration"}
-          ]}
+          # Create JSON array format (not object with results array)
+          cat > benchmark-results/bench.json << EOF
+          [
+            {
+              "name": "quick_benchmark",
+              "value": ${DURATION_MS},
+              "unit": "ms",
+              "range": "±0",
+              "extra": "duration"
+            }
+          ]
           EOF
         shell: bash
 
