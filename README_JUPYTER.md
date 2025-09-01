@@ -19,6 +19,11 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
 ```
 
+**🦀🚀 GPU対応Rustカーネル版（GPU加速 + Jupyter内で直接Rust実行）:**
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel_gpu.sh | bash
+```
+
 **標準版の特徴:**
 - Python bindingsでJupyter使用
 - CPU専用だが高速セットアップ
@@ -35,6 +40,14 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 - ネイティブRustパフォーマンス
 - 型安全性とゼロコスト抽象化
 - 必要環境: Python 3.8+, Git, Rust（自動インストール）
+
+**GPU対応Rustカーネル版の特徴:**
+- 🎮 自動GPU検出（CUDA/Metal/OpenCL）
+- 🚀 GPU加速されたテンソル演算
+- 🧠 GPU対応ニューラルネットワーク
+- ⚡ CPUとGPUの性能比較ベンチマーク
+- 🔧 GPU機能の自動設定
+- 必要環境: Python 3.8+, Git, Rust, GPU（自動検出）
 
 ---
 

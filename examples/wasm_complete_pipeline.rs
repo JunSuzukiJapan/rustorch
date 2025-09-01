@@ -34,7 +34,7 @@ fn main() {
 
     // Stage 1: Data Generation and Initial Assessment
     println!("\n🏗️  STAGE 1: DATA GENERATION AND ASSESSMENT");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     let raw_data = generate_sensor_data(1440); // 24 hours of minute-by-minute data
     let raw_tensor = WasmTensor::new(raw_data, vec![1440]);
@@ -55,7 +55,7 @@ fn main() {
 
     // Stage 2: Data Cleaning and Transformation
     println!("\n🧹 STAGE 2: DATA CLEANING AND TRANSFORMATION");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     // Remove outliers using advanced math
     let cleaned_data = clean_outliers(&raw_tensor, &math, &stats_analyzer);
@@ -91,7 +91,7 @@ fn main() {
 
     // Stage 3: Advanced Statistical Analysis
     println!("\n📊 STAGE 3: ADVANCED STATISTICAL ANALYSIS");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     // Percentile analysis
     let percentiles = vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0];
@@ -138,7 +138,7 @@ fn main() {
 
     // Stage 4: Anomaly Detection Analysis
     println!("\n🚨 STAGE 4: ANOMALY DETECTION ANALYSIS");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     // Batch anomaly detection
     if let Ok(statistical_anomalies) = anomaly_detector.detect_statistical(&normalized_tensor) {
@@ -194,7 +194,7 @@ fn main() {
 
     // Stage 5: Pipeline Processing
     println!("\n🔄 STAGE 5: PIPELINE PROCESSING");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     // Create comprehensive processing pipeline
     let transform_pipeline = WasmTransformPipeline::new(true).expect("Failed to create pipeline");
@@ -242,7 +242,7 @@ fn main() {
 
     // Stage 6: Performance and Memory Analysis
     println!("\n⚡ STAGE 6: PERFORMANCE AND MEMORY ANALYSIS");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     let total_time = start_time.elapsed();
     println!("🕐 Total execution time: {:?}", total_time);
@@ -283,7 +283,7 @@ fn main() {
 
     // Stage 7: Comprehensive Report Generation
     println!("\n📋 STAGE 7: COMPREHENSIVE REPORT");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     if let Ok(quality_report) = quality.quality_report(&normalized_tensor) {
         println!("📄 Quality Report:");
@@ -335,7 +335,7 @@ fn main() {
 
     // Cleanup and final statistics
     println!("\n🧹 CLEANUP AND FINAL STATISTICS");
-    println!("─".repeat(60));
+    println!("{}", "─".repeat(60));
 
     // Force garbage collection to see cleanup effectiveness
     MemoryManager::gc();
