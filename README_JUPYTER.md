@@ -14,6 +14,11 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
 ```
 
+**🦀 Rustカーネル版（Jupyter内で直接Rust実行）:**
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
+```
+
 **標準版の特徴:**
 - Python bindingsでJupyter使用
 - CPU専用だが高速セットアップ
@@ -24,6 +29,12 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 - インタラクティブなWebGPUデモ
 - Jupyter Lab + WebGPUデモサーバー
 - 必要環境: Python 3.8+, Git, Rust, wasm-pack（自動インストール）
+
+**Rustカーネル版の特徴:**
+- Jupyter内で直接Rustコード実行
+- ネイティブRustパフォーマンス
+- 型安全性とゼロコスト抽象化
+- 必要環境: Python 3.8+, Git, Rust（自動インストール）
 
 ---
 
