@@ -102,6 +102,8 @@ echo ":cache 500" > ~/.config/evcxr/init.evcxr
 - 2回目以降：依存ライブラリの再コンパイルなし（数倍高速）
 - `rustorch`ライブラリも初回後はキャッシュされます
 
+**注意：** ライブラリ更新後は`:clear_cache`でキャッシュクリア推奨
+
 ### Rustがインストールされていない場合
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh

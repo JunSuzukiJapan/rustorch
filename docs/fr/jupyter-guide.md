@@ -203,6 +203,8 @@ echo ":cache 500" > ~/.config/evcxr/init.evcxr
 - Exécutions suivantes : Pas de recompilation des dépendances (plusieurs fois plus rapide)
 - La bibliothèque `rustorch` est aussi mise en cache après la première utilisation
 
+**Note :** Après les mises à jour de bibliothèque, exécutez `:clear_cache` pour actualiser le cache
+
 ### Erreurs Communes
 
 #### Erreur "RusTorch is not defined"

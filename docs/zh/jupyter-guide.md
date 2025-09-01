@@ -203,6 +203,8 @@ echo ":cache 500" > ~/.config/evcxr/init.evcxr
 - 后续运行：无需重新编译依赖项（快数倍）
 - `rustorch`库在首次使用后也会被缓存
 
+**注意：** 库更新后运行 `:clear_cache` 刷新缓存
+
 ### 常见错误
 
 #### "RusTorch is not defined" 错误

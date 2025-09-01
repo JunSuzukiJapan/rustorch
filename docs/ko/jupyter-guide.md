@@ -203,6 +203,8 @@ echo ":cache 500" > ~/.config/evcxr/init.evcxr
 - 후속 실행: 의존성 재컴파일 없음 (몇 배 빠름)
 - `rustorch` 라이브러리도 첫 사용 후 캐시됨
 
+**참고:** 라이브러리 업데이트 후 `:clear_cache`로 캐시 새로고침 권장
+
 ### 일반적인 오류
 
 #### "RusTorch is not defined" 오류
