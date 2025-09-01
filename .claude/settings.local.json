@@ -81,7 +81,8 @@
       "Bash(rustc:*)",
       "Bash(./debug_complex:*)",
       "Bash(RUST_BACKTRACE=1 cargo test --no-default-features complex::tests::test_complex_matrix_transpose -- --exact)",
-      "Bash(RUST_BACKTRACE=1 cargo test --no-default-features --lib tensor::complex::tests::test_complex_matrix_transpose)"
+      "Bash(RUST_BACKTRACE=1 cargo test --no-default-features --lib tensor::complex::tests::test_complex_matrix_transpose)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "ask": [],
