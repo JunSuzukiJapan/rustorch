@@ -227,6 +227,7 @@ required-features = ["opencl"]
 
 [[example]]
 name = "comprehensive_gpu_benchmark"
+path = "examples/comprehensive_gpu_benchmark.rs"
 required-features = []  # Runs with any available features
 
 [[bench]]
