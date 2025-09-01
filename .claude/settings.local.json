@@ -91,7 +91,8 @@
       "Bash(LANG=en_US.UTF-8 bash -c 'source ./quick_start.sh')",
       "Bash(LANG=es_ES.UTF-8 bash -c 'source ./quick_start.sh')",
       "WebFetch(domain:github.com)",
-      "Bash(pip3 install:*)"
+      "Bash(pip3 install:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": [],

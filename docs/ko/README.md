@@ -32,6 +32,8 @@ RusTorch는 Rust의 안전성과 성능을 활용하여 포괄적인 텐서 연�
 
 ## 🚀 빠른 시작
 
+**📓 완전한 Jupyter 설정 가이드는 [README_JUPYTER.md](../../README_JUPYTER.md)를 참조하세요**
+
 ### Python Jupyter Lab 데모
 
 #### 표준 CPU 데모

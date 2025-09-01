@@ -32,6 +32,8 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 
 ## 🚀 Quick Start
 
+**📓 For complete Jupyter setup guide, see [README_JUPYTER.md](../../README_JUPYTER.md)**
+
 ### Python Jupyter Lab Demo
 
 #### Standard CPU Demo

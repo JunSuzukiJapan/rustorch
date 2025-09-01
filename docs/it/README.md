@@ -32,6 +32,8 @@ RusTorch è una libreria di deep learning completamente funzionale che sfrutta l
 
 ## 🚀 Avvio Rapido
 
+**📓 Per la guida completa alla configurazione di Jupyter, vedere [README_JUPYTER.md](../../README_JUPYTER.md)**
+
 ### Demo Python Jupyter Lab
 
 #### Demo CPU Standard

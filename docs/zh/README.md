@@ -32,6 +32,8 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 
 ## 🚀 快速开始
 
+**📓 完整的Jupyter设置指南，请参见 [README_JUPYTER.md](../../README_JUPYTER.md)**
+
 ### Python Jupyter Lab演示
 
 #### 标准CPU演示
