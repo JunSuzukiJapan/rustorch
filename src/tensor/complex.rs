@@ -250,7 +250,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Complex tensor indexing needs ndarray compatibility fix"]
     fn test_complex_matrix_multiplication() {
         // Create 2x2 complex matrices
         let a_data = vec![
@@ -272,17 +271,16 @@ mod tests {
         let result = a.matmul(&b).unwrap();
         assert_eq!(result.shape(), &[2, 2]);
 
-        // Verify matrix multiplication result
+        // Verify matrix multiplication result using proper ndarray indexing
         // [1+i, 2] * [1, i] = [1+i+2+2i, i-1+2] = [3+3i, 1+i]
         // [i, 1-i]   [1+i, 1]   [i+1-i-i^2, -1+i] = [1+i, -1+i]
-        assert_relative_eq!(result.data[0].real(), 3.0, epsilon = 1e-10); // [0,0]
-        assert_relative_eq!(result.data[0].imag(), 3.0, epsilon = 1e-10); // [0,0]
-        assert_relative_eq!(result.data[1].real(), 1.0, epsilon = 1e-10); // [0,1]
-        assert_relative_eq!(result.data[1].imag(), 1.0, epsilon = 1e-10); // [0,1]
+        assert_relative_eq!(result.data[[0, 0]].real(), 3.0, epsilon = 1e-10); // [0,0]
+        assert_relative_eq!(result.data[[0, 0]].imag(), 3.0, epsilon = 1e-10); // [0,0]
+        assert_relative_eq!(result.data[[0, 1]].real(), 1.0, epsilon = 1e-10); // [0,1]
+        assert_relative_eq!(result.data[[0, 1]].imag(), 1.0, epsilon = 1e-10); // [0,1]
     }
 
     #[test]
-    #[ignore = "Complex tensor indexing needs ndarray compatibility fix"]
     fn test_complex_matrix_transpose() {
         let data = vec![
             Complex::new(1.0, 2.0),
@@ -295,15 +293,14 @@ mod tests {
         let transposed = matrix.transpose().unwrap();
         assert_eq!(transposed.shape(), &[2, 2]);
 
-        // Check transposition
-        assert_eq!(transposed.data[0], Complex::new(1.0, 2.0)); // [0,0] -> [0,0]
-        assert_eq!(transposed.data[1], Complex::new(5.0, 6.0)); // [1,0] -> [0,1]
-        assert_eq!(transposed.data[2], Complex::new(3.0, 4.0)); // [0,1] -> [1,0]
-        assert_eq!(transposed.data[3], Complex::new(7.0, 8.0)); // [1,1] -> [1,1]
+        // Check transposition using proper ndarray indexing
+        assert_eq!(transposed.data[[0, 0]], Complex::new(1.0, 2.0)); // [0,0] -> [0,0]
+        assert_eq!(transposed.data[[0, 1]], Complex::new(5.0, 6.0)); // [1,0] -> [0,1]
+        assert_eq!(transposed.data[[1, 0]], Complex::new(3.0, 4.0)); // [0,1] -> [1,0]
+        assert_eq!(transposed.data[[1, 1]], Complex::new(7.0, 8.0)); // [1,1] -> [1,1]
     }
 
     #[test]
-    #[ignore = "Complex tensor indexing needs ndarray compatibility fix"]
     fn test_complex_matrix_conjugate_transpose() {
         let data = vec![
             Complex::new(1.0, 2.0),
@@ -316,15 +313,14 @@ mod tests {
         let conj_transposed = matrix.conj_transpose().unwrap();
         assert_eq!(conj_transposed.shape(), &[2, 2]);
 
-        // Check conjugate transposition
-        assert_eq!(conj_transposed.data[0], Complex::new(1.0, -2.0)); // [0,0] -> conj([0,0])
-        assert_eq!(conj_transposed.data[1], Complex::new(5.0, -6.0)); // [1,0] -> conj([0,1])
-        assert_eq!(conj_transposed.data[2], Complex::new(3.0, -4.0)); // [0,1] -> conj([1,0])
-        assert_eq!(conj_transposed.data[3], Complex::new(7.0, -8.0)); // [1,1] -> conj([1,1])
+        // Check conjugate transposition using proper ndarray indexing
+        assert_eq!(conj_transposed.data[[0, 0]], Complex::new(1.0, -2.0)); // [0,0] -> conj([0,0])
+        assert_eq!(conj_transposed.data[[0, 1]], Complex::new(5.0, -6.0)); // [1,0] -> conj([0,1])
+        assert_eq!(conj_transposed.data[[1, 0]], Complex::new(3.0, -4.0)); // [0,1] -> conj([1,0])
+        assert_eq!(conj_transposed.data[[1, 1]], Complex::new(7.0, -8.0)); // [1,1] -> conj([1,1])
     }
 
     #[test]
-    #[ignore = "Complex tensor indexing needs ndarray compatibility fix"]
     fn test_complex_matrix_trace() {
         let data = vec![
             Complex::new(1.0, 1.0),
@@ -341,7 +337,6 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "Complex tensor indexing needs ndarray compatibility fix"]
     fn test_complex_matrix_determinant() {
         let data = vec![
             Complex::new(1.0, 1.0),

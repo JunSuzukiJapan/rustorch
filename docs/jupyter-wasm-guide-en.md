@@ -27,7 +27,20 @@ A step-by-step guide to easily use RusTorch WASM in Jupyter Notebook, designed f
 
 ## Setup Instructions
 
-### Step 1: Install Basic Tools
+### 🚀 Quick Start (Recommended)
+
+**Easiest method**: Launch Jupyter Lab with one command
+```bash
+./start_jupyter.sh
+```
+
+This script automatically:
+- Creates and activates virtual environment
+- Installs dependencies (numpy, jupyter, matplotlib)
+- Builds RusTorch Python bindings
+- Launches Jupyter Lab with demo notebook open
+
+### Step 1: Install Basic Tools (Manual Setup)
 
 #### 1.1 Verify Python and pip
 ```bash

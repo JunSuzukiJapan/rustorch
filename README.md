@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-1094%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-968%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
@@ -15,7 +15,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 
 - 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, and statistics
 - 🤖 **Transformer Architecture**: Complete transformer implementation with multi-head attention
-- 🧮 **Matrix Decomposition**: Complete SVD, QR, LU decomposition and eigenvalue solver with PyTorch compatibility
+- 🧮 **Matrix Decomposition**: SVD, QR, eigenvalue decomposition with PyTorch compatibility
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation
 - 🚀 **Dynamic Execution Engine**: JIT compilation and runtime optimization
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more
@@ -24,7 +24,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
 - 🎮 **WebGPU Integration**: Chrome-optimized GPU acceleration with CPU fallback for cross-browser compatibility
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- ✅ **Production Ready**: 1094 tests passing (100% success rate), unified error handling system
+- ✅ **Production Ready**: 968 tests passing, unified error handling system
 - 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
 - 🔧 **Advanced Operator Overloads**: Full operator support for tensors with scalar operations and in-place assignments
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
@@ -35,18 +35,46 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ## 🚀 Quick Start
 
+### Python Jupyter Lab Demo
+
+#### Standard CPU Demo
+Launch RusTorch with Jupyter Lab in one command:
+
+```bash
+./start_jupyter.sh
+```
+
+#### WebGPU Accelerated Demo
+Launch RusTorch with WebGPU support for browser-based GPU acceleration:
+
+```bash
+./start_jupyter_webgpu.sh
+```
+
+Both scripts will:
+- 📦 Create virtual environment automatically
+- 🔧 Build RusTorch Python bindings
+- 🚀 Launch Jupyter Lab with demo notebook
+- 📍 Open demo notebook ready to run
+
+**WebGPU Features:**
+- 🌐 Browser-based GPU acceleration
+- ⚡ High-performance matrix operations in browser
+- 🔄 Automatic fallback to CPU when GPU unavailable
+- 🎯 Chrome/Edge optimized (recommended browsers)
+
 ### Installation
 
 Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.3"
+rustorch = "0.5.5"
 
 # Optional features
 [features]
 default = ["linalg"]
-linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, LU, eigenvalue)
+linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, eigenvalue)
 cuda = ["rustorch/cuda"]
 metal = ["rustorch/metal"] 
 opencl = ["rustorch/opencl"]
@@ -56,7 +84,7 @@ wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML
 webgpu = ["rustorch/webgpu"]            # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.5.0", default-features = false }
+rustorch = { version = "0.5.5", default-features = false }
 ```
 
 ### Basic Usage
@@ -88,6 +116,14 @@ fn main() {
     
     // Matrix operations
     let matmul_result = a.matmul(&b);  // Matrix multiplication
+    
+    // Linear algebra operations (requires linalg feature)
+    #[cfg(feature = "linalg")]
+    {
+        let svd_result = a.svd();       // SVD decomposition
+        let qr_result = a.qr();         // QR decomposition  
+        let eig_result = a.eigh();      // Eigenvalue decomposition
+    }
     
     // Advanced optimizers with learning rate scheduling
     let optimizer = SGD::new(0.01);
@@ -178,6 +214,29 @@ async function webgpuML() {
 }
 ```
 
+**Run examples:**
+```bash
+# Basic functionality examples
+cargo run --example activation_demo --no-default-features
+cargo run --example complex_tensor_demo --no-default-features  
+cargo run --example neural_network_demo --no-default-features
+cargo run --example autograd_demo --no-default-features
+
+# Machine learning examples
+cargo run --example boston_housing_regression --no-default-features
+cargo run --example vision_pipeline_demo --no-default-features
+cargo run --example embedding_demo --no-default-features
+
+# Linear algebra examples (requires linalg feature)
+cargo run --example eigenvalue_demo --features linalg
+cargo run --example svd_demo --features linalg
+cargo run --example matrix_decomposition_demo --features linalg
+
+# Mathematical functions
+cargo run --example special_functions_demo --no-default-features
+cargo run --example fft_demo --no-default-features
+```
+
 For more examples, see [Getting Started Guide](docs/getting-started.md) and [WebAssembly Guide](docs/WASM_GUIDE.md).
 
 ## 📚 Documentation
@@ -209,24 +268,45 @@ For more examples, see [Getting Started Guide](docs/getting-started.md) and [Web
 
 | Operation | Performance | Details |
 |-----------|-------------|---------|
-| **Tensor Addition** | 34K - 2.3M ops/sec | ✅ Broadcasting support |
-| **Tensor Sum** | 52M+ ops/sec | ✅ Consistently high performance |
-| **Matrix Multiplication** | 0.71 - 0.77 GFLOPS | ✅ Stable scaling |
-| **Neural Network Inference** | 15 - 60 inferences/sec | ✅ Batch processing |
+| **SVD Decomposition** | ~1ms (8x8 matrix) | ✅ LAPACK-based |
+| **QR Decomposition** | ~24μs (8x8 matrix) | ✅ Fast decomposition |
+| **Eigenvalue** | ~165μs (8x8 matrix) | ✅ Symmetric matrices |
+| **Complex FFT** | 10-312μs (8-64 samples) | ✅ Cooley-Tukey optimized |
+| **Neural Network** | 1-7s training | ✅ Boston housing demo |
+| **Activation Functions** | <1μs | ✅ ReLU, Sigmoid, Tanh |
+
+**Run benchmarks:**
+```bash
+# Basic benchmarks (no external dependencies)
+cargo bench --no-default-features
+
+# Linear algebra benchmarks (requires linalg feature) 
+cargo bench --features linalg
+
+# Quick manual benchmark
+cargo run --bin manual_quick_bench
+```
 
 For detailed performance analysis, see [Performance Documentation](docs/performance.md).
 
 
 ## 🧪 Testing
 
-**All 739 tests passing** - Production-ready quality assurance with unified error handling system.
+**968 tests passing** - Production-ready quality assurance with unified error handling system.
 
 ```bash
-# Run all tests
-cargo test
+# Run all tests (recommended for CI/development)
+cargo test --no-default-features
 
-# Run with release optimizations
-cargo test --release
+# Run tests with linear algebra features
+cargo test --features linalg
+
+# Run doctests
+cargo test --doc --no-default-features
+
+# Test specific modules
+cargo test --no-default-features tensor::
+cargo test --no-default-features complex::
 ```
 
 ## 🚀 Production Deployment

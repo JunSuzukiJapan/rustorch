@@ -11,7 +11,7 @@ Comprehensive examples demonstrating RusTorch capabilities across different doma
 - **[Statistical Operations](#statistical-operations)** - Mean, variance, quantiles
 
 ### 🧮 Matrix Operations
-- **[Matrix Decomposition](#matrix-decomposition)** - SVD, QR, LU decomposition
+- **[Matrix Decomposition](#matrix-decomposition)** - SVD, QR decomposition
 - **[Eigenvalue Computation](#eigenvalue-decomposition)** - Symmetric and general eigenvalue problems
 - **[Linear Algebra](#linear-algebra-operations)** - Advanced matrix operations
 

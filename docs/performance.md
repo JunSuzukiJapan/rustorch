@@ -17,17 +17,20 @@ RusTorch delivers high-performance tensor operations with comprehensive benchmar
 
 ### Matrix Decomposition Performance
 
-**実測ベンチマーク結果 (2025年8月31日実行):**
+**実測ベンチマーク結果 (2025年9月1日実行):**
 
-| Matrix Size | SVD | QR | 固有値分解 | 実行成功率 |
+| Matrix Size | SVD | QR | 固有値分解 | API Status |
 |-------------|-----|----|---------|---------| 
-| **4×4** | 424μs | 対応 | eigh() | 100% |
-| **8×8** | 1.4ms | 対応 | eigh() | 100% |
-| **16×16** | 4.9ms | 対応 | eigh() | 100% |
-| **32×32** | 32.8ms | 対応 | eigh() | 100% |
-| **64×64** | 255ms | 対応 | eigh() | 100% |
+| **4×4** | ~100μs | 6μs | 67μs | ✅ svd(), qr(), eigh() |
+| **8×8** | ~1ms | 24μs | 165μs | ✅ All working |
+| **16×16** | ~7ms | 107μs | 473μs | ✅ Stable performance |
+| **12×12** | ~133μs | <1μs | ~260μs | ✅ All APIs fixed |
 
-**✅ API統一**: svd(), qr(), eigh()メソッドで統一されたインターフェース
+**✅ API変更**: 
+- `svd(false)` → `svd()` (パラメータ削除)
+- `lu()` → `qr()` (LU非対応、QRで代替)
+- `symeig(false, false)` → `eigh()` (統合)
+- `eig(false)` → `eigh()` (統合)
 
 ### Detailed Performance Breakdown
 

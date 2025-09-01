@@ -2,7 +2,7 @@
 
 ## 🚀 Production-Ready Features
 
-RusTorch v0.3.8 includes comprehensive production deployment capabilities:
+RusTorch v0.5.5 includes comprehensive production deployment capabilities:
 
 ### 🏗️ Infrastructure Components
 

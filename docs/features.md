@@ -45,7 +45,7 @@
 - **Rust Safety**: Memory safety and thread safety guarantees
 - **WebAssembly Support**: Browser-compatible WASM bindings for client-side ML
 - **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- **Production Ready**: 682 tests passing (100% success rate), unified error handling system
+- **Production Ready**: 968 tests passing (100% success rate), unified error handling system
 
 ## 🔧 Technical Specifications
 

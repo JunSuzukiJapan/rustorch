@@ -332,6 +332,11 @@ pub mod validation;
 /// デバッグ・ログシステム
 pub mod debug;
 
+/// Python bindings
+/// Pythonバインディング
+#[cfg(feature = "python")]
+pub mod python_bindings;
+
 /// Dynamic execution engine for runtime graph optimization
 /// 実行時グラフ最適化のための動的実行エンジン
 #[cfg(not(target_arch = "wasm32"))]

@@ -4,28 +4,41 @@
 
 This document provides comprehensive API documentation for RusTorch, organized by module and functionality.
 
-## ⚠️ v0.5.0 Breaking Changes & Migration / v0.5.0 破壊的変更と移行
+## ⚠️ v0.5.5 Breaking Changes & Migration / v0.5.5 破壊的変更と移行
 
 ### Method Consolidation Impact / メソッド統合の影響
 
-**Important**: v0.5.0 introduces breaking changes due to method consolidation. All `_v2` methods have been unified with their base versions.
-**重要**: v0.5.0はメソッド統合により破壊的変更を導入します。すべての`_v2`メソッドは基本版と統合されました。
+**Important**: v0.5.5 introduces breaking changes due to matrix decomposition API simplification and method consolidation.
+**重要**: v0.5.5は行列分解API簡素化とメソッド統合により破壊的変更を導入します。
 
 #### Affected APIs / 影響を受けるAPI
 - All tensor operations with `_v2` suffixes → unified to base method names
+- Matrix decomposition methods simplified (parameters removed)
+- LU decomposition removed (use QR instead)
+- Eigenvalue methods unified to `eigh()`
 - すべての`_v2`接尾辞付きテンソル演算 → 基本メソッド名に統合
+- 行列分解メソッド簡素化（パラメータ削除）
+- LU分解削除（QRで代替）
+- 固有値メソッドは`eigh()`に統合
 
 #### Migration Examples / 移行例
 ```rust
-// Before v0.5.0 / v0.5.0以前
+// Before v0.5.5 / v0.5.5以前
 tensor.add_v2(&other);     // ❌ Removed
 tensor.mul_v2(&other);     // ❌ Removed
 tensor.matmul_v2(&other);  // ❌ Removed
+tensor.svd(false);         // ❌ Parameter removed
+tensor.lu();               // ❌ Method removed
+tensor.symeig(false, false); // ❌ Method renamed
+tensor.eig(false);         // ❌ Method renamed
 
-// v0.5.0+ / v0.5.0以降  
+// v0.5.5+ / v0.5.5以降  
 tensor.add(&other);        // ✅ Unified optimized version
 tensor.mul(&other);        // ✅ Unified optimized version
 tensor.matmul(&other);     // ✅ Unified optimized version
+tensor.svd();              // ✅ Simplified API
+tensor.qr();               // ✅ Use QR instead of LU
+tensor.eigh();             // ✅ Unified eigenvalue method
 ```
 
 #### Benefits / 利点

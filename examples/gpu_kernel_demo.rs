@@ -1,5 +1,6 @@
 /// GPU kernel demonstration and validation example
 /// GPUカーネルデモンストレーションと検証例
+#[cfg(not(target_arch = "wasm32"))]
 use rustorch::gpu::{
     kernels::{AddKernel, KernelExecutor, MatMulKernel},
     validation::print_gpu_validation_report,
@@ -9,26 +10,35 @@ use rustorch::gpu::{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== RusTorch GPU Kernel Demo ===\n");
 
-    // Print available devices
-    println!("Available GPU devices:");
-    let devices = vec![
-        DeviceType::Cpu,
-        #[cfg(feature = "cuda")]
-        DeviceType::Cuda(0),
-        #[cfg(feature = "metal")]
-        DeviceType::Metal(0),
-        #[cfg(feature = "opencl")]
-        DeviceType::OpenCL(0),
-    ];
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Print available devices
+        println!("Available GPU devices:");
+        let devices = vec![
+            DeviceType::Cpu,
+            #[cfg(feature = "cuda")]
+            DeviceType::Cuda(0),
+            #[cfg(feature = "metal")]
+            DeviceType::Metal(0),
+            #[cfg(feature = "opencl")]
+            DeviceType::OpenCL(0),
+        ];
 
-    for device in &devices {
-        if device.is_available() {
-            println!("  ✓ {}", device);
-        } else {
-            println!("  ✗ {} (not available)", device);
+        for device in &devices {
+            if device.is_available() {
+                println!("  ✓ {}", device);
+            } else {
+                println!("  ✗ {} (not available)", device);
+            }
         }
+        println!();
     }
-    println!();
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        println!("GPU operations are not available in WASM target.");
+        println!("This demo shows CPU-based operations only.\n");
+    }
 
     // Demonstrate element-wise addition
     demo_elementwise_addition()?;
@@ -36,16 +46,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Demonstrate matrix multiplication
     demo_matrix_multiplication()?;
 
-    // Run comprehensive validation
-    println!("=== Running GPU Validation ===");
-    print_gpu_validation_report();
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        // Run comprehensive validation
+        println!("=== Running GPU Validation ===");
+        print_gpu_validation_report();
 
-    // Performance comparison
-    performance_comparison()?;
+        // Performance comparison
+        performance_comparison()?;
 
-    // Optional: Metal specific demo
-    #[cfg(feature = "metal")]
-    demo_metal_specific()?;
+        // Optional: Metal specific demo
+        #[cfg(feature = "metal")]
+        demo_metal_specific()?;
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        println!("=== WASM CPU Performance Demo ===");
+        wasm_cpu_performance_demo()?;
+    }
 
     Ok(())
 }
@@ -58,36 +77,59 @@ fn demo_elementwise_addition() -> Result<(), Box<dyn std::error::Error>> {
     let b = vec![2.0f32; size];
     let mut c = vec![0.0f32; size];
 
-    let kernel = AddKernel;
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let kernel = AddKernel;
 
-    for device in &[DeviceType::Cpu] {
-        if !device.is_available() {
-            continue;
+        for device in &[DeviceType::Cpu] {
+            if !device.is_available() {
+                continue;
+            }
+
+            let executor = KernelExecutor::new(*device);
+            let start_time = std::time::Instant::now();
+
+            let inputs = [a.as_slice(), b.as_slice()];
+            let mut outputs = [c.as_mut_slice()];
+
+            executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+
+            let elapsed = start_time.elapsed();
+
+            // Verify results
+            let correct = c.iter().all(|&x| (x - 3.0).abs() < 1e-6);
+
+            println!(
+                "  {}: {} ({:.2}ms) - {}",
+                device,
+                if correct { "✓" } else { "✗" },
+                elapsed.as_secs_f64() * 1000.0,
+                if correct { "PASS" } else { "FAIL" }
+            );
+
+            // Reset output for next device
+            c.fill(0.0);
         }
+    }
 
-        let executor = KernelExecutor::new(*device);
+    #[cfg(target_arch = "wasm32")]
+    {
         let start_time = std::time::Instant::now();
 
-        let inputs = [a.as_slice(), b.as_slice()];
-        let mut outputs = [c.as_mut_slice()];
-
-        executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+        // CPU implementation for WASM
+        for i in 0..size {
+            c[i] = a[i] + b[i];
+        }
 
         let elapsed = start_time.elapsed();
-
-        // Verify results
         let correct = c.iter().all(|&x| (x - 3.0).abs() < 1e-6);
 
         println!(
-            "  {}: {} ({:.2}ms) - {}",
-            device,
+            "  CPU (WASM): {} ({:.2}ms) - {}",
             if correct { "✓" } else { "✗" },
             elapsed.as_secs_f64() * 1000.0,
             if correct { "PASS" } else { "FAIL" }
         );
-
-        // Reset output for next device
-        c.fill(0.0);
     }
 
     println!();
@@ -113,20 +155,59 @@ fn demo_matrix_multiplication() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let mut c = vec![0.0f32; size];
-    let kernel = MatMulKernel;
 
-    for device in &[DeviceType::Cpu] {
-        if !device.is_available() {
-            continue;
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let kernel = MatMulKernel;
+
+        for device in &[DeviceType::Cpu] {
+            if !device.is_available() {
+                continue;
+            }
+
+            let executor = KernelExecutor::new(*device);
+            let start_time = std::time::Instant::now();
+
+            let inputs = [a.as_slice(), b.as_slice()];
+            let mut outputs = [c.as_mut_slice()];
+
+            executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+
+            let elapsed = start_time.elapsed();
+
+            // Verify results (A * I = A)
+            let correct = a
+                .iter()
+                .zip(c.iter())
+                .all(|(expected, actual)| (expected - actual).abs() < 1e-5);
+
+            println!(
+                "  {} ({}x{}): {} ({:.2}ms) - {}",
+                device,
+                n,
+                n,
+                if correct { "✓" } else { "✗" },
+                elapsed.as_secs_f64() * 1000.0,
+                if correct { "PASS" } else { "FAIL" }
+            );
+
+            // Reset output for next device
+            c.fill(0.0);
         }
+    }
 
-        let executor = KernelExecutor::new(*device);
+    #[cfg(target_arch = "wasm32")]
+    {
         let start_time = std::time::Instant::now();
 
-        let inputs = [a.as_slice(), b.as_slice()];
-        let mut outputs = [c.as_mut_slice()];
-
-        executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+        // CPU matrix multiplication for WASM (A * B = C)
+        for i in 0..n {
+            for j in 0..n {
+                for k in 0..n {
+                    c[i * n + j] += a[i * n + k] * b[k * n + j];
+                }
+            }
+        }
 
         let elapsed = start_time.elapsed();
 
@@ -137,27 +218,26 @@ fn demo_matrix_multiplication() -> Result<(), Box<dyn std::error::Error>> {
             .all(|(expected, actual)| (expected - actual).abs() < 1e-5);
 
         println!(
-            "  {} ({}x{}): {} ({:.2}ms) - {}",
-            device,
+            "  CPU (WASM) ({}x{}): {} ({:.2}ms) - {}",
             n,
             n,
             if correct { "✓" } else { "✗" },
             elapsed.as_secs_f64() * 1000.0,
             if correct { "PASS" } else { "FAIL" }
         );
-
-        // Reset output for next device
-        c.fill(0.0);
     }
 
     println!();
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn performance_comparison() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Performance Comparison ===");
 
     let sizes = vec![1024, 4096, 16384];
+
+    #[cfg(not(target_arch = "wasm32"))]
     let kernel = AddKernel;
 
     for size in sizes {
@@ -167,26 +247,58 @@ fn performance_comparison() -> Result<(), Box<dyn std::error::Error>> {
         let b = vec![2.0f32; size];
         let mut c = vec![0.0f32; size];
 
-        for device in &[DeviceType::Cpu] {
-            if !device.is_available() {
-                continue;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            for device in &[DeviceType::Cpu] {
+                if !device.is_available() {
+                    continue;
+                }
+
+                let executor = KernelExecutor::new(*device);
+
+                // Warmup
+                let inputs = [a.as_slice(), b.as_slice()];
+                let mut outputs = [c.as_mut_slice()];
+                executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+
+                // Benchmark
+                let iterations = 10;
+                let start_time = std::time::Instant::now();
+
+                for _ in 0..iterations {
+                    let inputs = [a.as_slice(), b.as_slice()];
+                    let mut outputs = [c.as_mut_slice()];
+                    executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+                }
+
+                let elapsed = start_time.elapsed();
+                let avg_time = elapsed.as_secs_f64() / iterations as f64;
+                let throughput = size as f64 / avg_time / 1e6; // Million elements per second
+
+                println!(
+                    "  {}: {:.2}ms avg, {:.1} Melem/s",
+                    device,
+                    avg_time * 1000.0,
+                    throughput
+                );
             }
+        }
 
-            let executor = KernelExecutor::new(*device);
-
+        #[cfg(target_arch = "wasm32")]
+        {
             // Warmup
-            let inputs = [a.as_slice(), b.as_slice()];
-            let mut outputs = [c.as_mut_slice()];
-            executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+            for i in 0..size {
+                c[i] = a[i] + b[i];
+            }
 
             // Benchmark
             let iterations = 10;
             let start_time = std::time::Instant::now();
 
             for _ in 0..iterations {
-                let inputs = [a.as_slice(), b.as_slice()];
-                let mut outputs = [c.as_mut_slice()];
-                executor.execute_kernel(&kernel, &inputs, &mut outputs)?;
+                for i in 0..size {
+                    c[i] = a[i] + b[i];
+                }
             }
 
             let elapsed = start_time.elapsed();
@@ -194,8 +306,7 @@ fn performance_comparison() -> Result<(), Box<dyn std::error::Error>> {
             let throughput = size as f64 / avg_time / 1e6; // Million elements per second
 
             println!(
-                "  {}: {:.2}ms avg, {:.1} Melem/s",
-                device,
+                "  CPU (WASM): {:.2}ms avg, {:.1} Melem/s",
                 avg_time * 1000.0,
                 throughput
             );
@@ -203,6 +314,56 @@ fn performance_comparison() -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn wasm_cpu_performance_demo() -> Result<(), Box<dyn std::error::Error>> {
+    println!("=== WASM CPU Performance Demo ===");
+
+    let sizes = vec![128, 512, 1024];
+
+    for size in sizes {
+        println!("Matrix size: {}x{}", size, size);
+
+        // Create test matrices
+        let a: Vec<f32> = (0..size * size)
+            .map(|i| (i as f32) / (size * size) as f32)
+            .collect();
+        let b: Vec<f32> = (0..size * size)
+            .map(|i| ((i * 2) as f32) / (size * size) as f32)
+            .collect();
+        let mut c = vec![0.0f32; size * size];
+
+        let start_time = std::time::Instant::now();
+
+        // Matrix multiplication: C = A * B
+        for i in 0..size {
+            for j in 0..size {
+                for k in 0..size {
+                    c[i * size + j] += a[i * size + k] * b[k * size + j];
+                }
+            }
+        }
+
+        let elapsed = start_time.elapsed();
+
+        // Calculate GFLOPS
+        let flops = 2.0 * (size * size * size) as f64;
+        let gflops = flops / (elapsed.as_secs_f64() * 1e9);
+
+        println!(
+            "  CPU: {:.3}ms ({:.2} GFLOPS)",
+            elapsed.as_secs_f64() * 1000.0,
+            gflops
+        );
+
+        // Verify some results are non-zero
+        let non_zero_count = c.iter().filter(|&&x| x.abs() > 1e-6).count();
+        println!("  Non-zero results: {}/{}", non_zero_count, size * size);
+    }
+
+    println!();
     Ok(())
 }
 

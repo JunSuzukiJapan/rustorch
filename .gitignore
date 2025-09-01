@@ -11,6 +11,9 @@
 *.swo
 *~
 
+# mcp
+.mcp.json
+
 # OS generated files
 .DS_Store
 .DS_Store?

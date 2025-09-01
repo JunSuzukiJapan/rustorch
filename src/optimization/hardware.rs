@@ -207,6 +207,7 @@ impl HardwareOptimizer {
     /// Detect CPU extensions
     /// CPU拡張機能検出
     fn detect_cpu_extensions() -> Vec<String> {
+        #[allow(unused_mut)]
         let mut extensions = Vec::new();
 
         #[cfg(target_arch = "x86_64")]
@@ -255,6 +256,7 @@ impl HardwareOptimizer {
     /// Detect available accelerators
     /// 利用可能アクセラレータ検出
     fn detect_accelerators() -> Vec<AcceleratorInfo> {
+        #[allow(unused_mut)]
         let mut accelerators = Vec::new();
 
         // Check for CUDA devices

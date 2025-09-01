@@ -8,22 +8,22 @@ Add RusTorch to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.4.0"
+rustorch = "0.5.5"
 
 # Optional features
 [features]
 default = ["linalg"]
-linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, LU, eigenvalue)
+linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, eigenvalue)
 cuda = ["rustorch/cuda"]
 metal = ["rustorch/metal"] 
 opencl = ["rustorch/opencl"]
 safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
-all-gpu = ["cuda", "metal", "opencl"]
-all-formats = ["safetensors", "onnx"]
+wasm = ["rustorch/wasm"]               # WebAssembly support for browser ML
+webgpu = ["rustorch/webgpu"]           # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.4.0", default-features = false }
+rustorch = { version = "0.5.5", default-features = false }
 ```
 
 ### Basic Tensor Operations
@@ -102,13 +102,15 @@ fn main() {
 
 ## 🧮 Matrix Decomposition
 
+**⚠️ v0.5.5 API Changes**: Matrix decomposition API has been simplified in v0.5.5. All parameters have been removed for cleaner usage.
+
 **Important Note**: Matrix decomposition features require the `linalg` feature (enabled by default). On some systems, this may require OpenBLAS/LAPACK libraries. To avoid these dependencies:
 
 ```toml
-rustorch = { version = "0.4.0", default-features = false }
+rustorch = { version = "0.5.5", default-features = false }
 ```
 
-### SVD, QR, LU and Eigenvalue Decomposition
+### SVD, QR and Eigenvalue Decomposition
 
 ```rust
 use rustorch::tensor::Tensor;
@@ -120,29 +122,27 @@ fn main() {
         vec![3, 3]
     );
     
-    // Singular Value Decomposition (torch.svd compatible)
-    let (u, s, v) = matrix.svd(false).unwrap();
+    // Singular Value Decomposition (simplified API)
+    let (u, s, v) = matrix.svd().unwrap();
     println!("SVD - U: {:?}, S: {:?}, V: {:?}", u.shape(), s.shape(), v.shape());
     
     // QR decomposition
     let (q, r) = matrix.qr().unwrap();
     println!("QR - Q: {:?}, R: {:?}", q.shape(), r.shape());
     
-    // LU decomposition with partial pivoting
-    let (l, u, p) = matrix.lu().unwrap();
-    println!("LU - L: {:?}, U: {:?}, P: {:?}", l.shape(), u.shape(), p.shape());
-    
     // Create symmetric matrix for eigenvalue decomposition
     let sym_data = vec![4.0f32, 2.0, 1.0, 2.0, 3.0, 0.5, 1.0, 0.5, 1.0];
     let sym_matrix = Tensor::from_vec(sym_data, vec![3, 3]);
     
-    // Symmetric eigenvalue decomposition (torch.symeig compatible)
-    let (eigenvals, eigenvecs) = sym_matrix.symeig(true, true).unwrap();
-    println!("Symeig - Values: {:?}, Vectors: {:?}", eigenvals.shape(), eigenvecs.shape());
+    // Unified eigenvalue decomposition (simplified API)
+    let (eigenvals, eigenvecs) = sym_matrix.eigh().unwrap();
+    println!("Eigenvalue - Values: {:?}, Vectors: {:?}", eigenvals.shape(), eigenvecs.shape());
     
-    // General eigenvalue decomposition (torch.eig compatible)
-    let (eig_vals, eig_vecs) = matrix.eig(true).unwrap();
-    println!("Eig - Values: {:?}, Vectors: {:?}", eig_vals.shape(), eig_vecs.unwrap().shape());
+    // Additional linear algebra operations
+    let chol = sym_matrix.cholesky().unwrap();
+    let inv = matrix.inverse().unwrap();
+    let pinv = matrix.pinv().unwrap();
+    println!("Cholesky: {:?}", chol.shape());
 }
 ```
 
@@ -343,7 +343,7 @@ If you encounter linking issues with LAPACK/BLAS:
 
 ```toml
 # Disable linear algebra features
-rustorch = { version = "0.4.0", default-features = false }
+rustorch = { version = "0.5.5", default-features = false }
 ```
 
 ### GPU Support

@@ -59,7 +59,7 @@ fn display_device_info(executor: &OpenClMatrixExecutor) -> Result<(), Box<dyn st
     println!("\n📊 OpenCL Device Information");
     println!("-----------------------------");
 
-    let info = executor.get_device_info();
+    let info = executor.get_device_info_ref();
 
     println!("Device Name: {}", info.name);
     println!("Vendor: {}", info.vendor);
@@ -167,7 +167,7 @@ fn test_vendor_optimizations(
     println!("\n🔧 Testing Vendor-Specific Optimizations");
     println!("----------------------------------------");
 
-    let info = executor.get_device_info();
+    let info = executor.get_device_info_ref();
 
     println!("Testing optimizations for: {}", info.vendor);
 
@@ -221,7 +221,7 @@ fn test_cross_platform_compatibility(
     println!("\n🔧 Testing Cross-Platform Compatibility");
     println!("--------------------------------------");
 
-    let info = executor.get_device_info();
+    let info = executor.get_device_info_ref();
 
     // Test various scenarios that might behave differently across platforms
     let test_scenarios = [
@@ -298,7 +298,7 @@ fn benchmark_opencl_performance(
     println!("\n🚀 OpenCL Performance Benchmark");
     println!("===============================");
 
-    let info = executor.get_device_info();
+    let info = executor.get_device_info_ref();
 
     // Estimate theoretical peak performance
     let theoretical_gflops =

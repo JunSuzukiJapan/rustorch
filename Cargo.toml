@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.5.4"
+version = "0.5.5"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -84,6 +84,9 @@ digest = { version = "0.10", optional = true }
 # Directory utilities
 dirs = { version = "5.0", optional = true }
 
+# Python bindings
+pyo3 = { version = "0.22", optional = true, features = ["extension-module"] }
+
 # Safetensors and ONNX dependencies
 safetensors = { version = "0.4", optional = true }
 memmap2 = { version = "0.9", optional = true }
@@ -160,6 +163,7 @@ model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-type
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
 onnx = ["dep:ort"]
 model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
+python = ["dep:pyo3"]
 ci-fast = []
 
 [profile.release]

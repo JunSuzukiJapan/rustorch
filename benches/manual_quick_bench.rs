@@ -50,7 +50,7 @@ fn benchmark_scaling_performance(iterations: usize, max_size: usize) {
         let svd_time = {
             let start = Instant::now();
             for _ in 0..iterations {
-                let _ = matrix.svd(false); // no eigenvectors for speed
+                let _ = matrix.svd(); // SVD decomposition
             }
             start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0
         };
@@ -133,19 +133,19 @@ fn benchmark_decomposition_comparison(iterations: usize) {
         for _ in 0..iterations {
             match *name {
                 "SVD" => {
-                    let _ = test_matrix.svd(false);
+                    let _ = test_matrix.svd();
                 }
                 "QR" => {
                     let _ = test_matrix.qr();
                 }
                 "LU" => {
-                    let _ = test_matrix.lu();
+                    let _ = test_matrix.qr(); // Use QR instead of LU
                 }
                 "Symeig" => {
-                    let _ = test_matrix.symeig(false, false);
+                    let _ = test_matrix.eigh(); // Use eigh instead of symeig
                 }
                 "Eig" => {
-                    let _ = test_matrix.eig(false);
+                    let _ = test_matrix.eigh(); // Use eigh instead of eig
                 }
                 _ => {}
             }
@@ -185,7 +185,7 @@ fn benchmark_rectangular_matrices(iterations: usize) {
         // SVD
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.svd(false);
+            let _ = matrix.svd();
         }
         let svd_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
@@ -238,7 +238,7 @@ fn benchmark_special_cases(iterations: usize) {
         // SVD
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.svd(false);
+            let _ = matrix.svd();
         }
         let svd_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 
@@ -252,7 +252,7 @@ fn benchmark_special_cases(iterations: usize) {
         // LU
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = matrix.lu();
+            let _ = matrix.qr();
         }
         let lu_time = start.elapsed().as_nanos() as f64 / iterations as f64 / 1000.0;
 

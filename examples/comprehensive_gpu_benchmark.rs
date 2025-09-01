@@ -374,7 +374,7 @@ fn benchmark_cuda(_size: usize) -> BenchmarkResult {
 #[cfg(feature = "opencl")]
 fn benchmark_opencl(size: usize) -> BenchmarkResult {
     match OpenClMatrixExecutor::new() {
-        Ok(executor) => {
+        Ok(mut executor) => {
             let m = size;
             let n = size;
             let k = size;

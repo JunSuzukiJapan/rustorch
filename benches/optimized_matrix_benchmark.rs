@@ -31,7 +31,7 @@ fn bench_matrix_decomposition_fast(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("SVD", size),
             &matrix,
-            |b, m| b.iter(|| black_box(m.svd(false))), // eigenvectors無しで高速化
+            |b, m| b.iter(|| black_box(m.svd())), // eigenvectors無しで高速化
         );
     }
 
@@ -54,11 +54,11 @@ fn bench_comparison_lightweight(c: &mut Criterion) {
     let matrix = Tensor::from_vec(matrix_data, vec![size, size]);
 
     // 各分解を個別にベンチマーク
-    group.bench_function("SVD_8x8", |b| b.iter(|| black_box(&matrix).svd(false)));
+    group.bench_function("SVD_8x8", |b| b.iter(|| black_box(&matrix).svd()));
 
     group.bench_function("QR_8x8", |b| b.iter(|| black_box(&matrix).qr()));
 
-    group.bench_function("LU_8x8", |b| b.iter(|| black_box(&matrix).lu()));
+    group.bench_function("QR_8x8_alt", |b| b.iter(|| black_box(&matrix).qr()));
 
     // 対称行列を作成
     let mut sym_data = vec![0.0f32; size * size];
@@ -75,11 +75,11 @@ fn bench_comparison_lightweight(c: &mut Criterion) {
     let sym_matrix = Tensor::from_vec(sym_data, vec![size, size]);
 
     group.bench_function("Symeig_8x8", |b| {
-        b.iter(|| black_box(&sym_matrix).symeig(false, false)) // eigenvectors無し
+        b.iter(|| black_box(&sym_matrix).eigh()) // eigenvectors無し
     });
 
     group.bench_function("Eig_8x8", |b| {
-        b.iter(|| black_box(&matrix).eig(false)) // eigenvectors無し
+        b.iter(|| black_box(&matrix).eigh()) // eigenvectors無し
     });
 
     group.finish();
@@ -102,7 +102,7 @@ fn bench_rectangular_matrices_fast(c: &mut Criterion) {
 
         // SVDとQRのみ（LUは正方行列向け）
         group.bench_with_input(BenchmarkId::new("SVD", label), &matrix, |b, m| {
-            b.iter(|| black_box(m.svd(false)))
+            b.iter(|| black_box(m.svd()))
         });
 
         group.bench_with_input(BenchmarkId::new("QR", label), &matrix, |b, m| {
@@ -130,7 +130,7 @@ fn bench_scaling_analysis(c: &mut Criterion) {
 
         // 最も使用頻度の高いSVDのみでスケーリング測定
         group.bench_with_input(BenchmarkId::new("SVD_scaling", size), &matrix, |b, m| {
-            b.iter(|| black_box(m.svd(false)))
+            b.iter(|| black_box(m.svd()))
         });
     }
 
@@ -155,7 +155,7 @@ fn bench_with_timeout_protection(c: &mut Criterion) {
     group.bench_function("safe_svd", |b| {
         b.iter(|| {
             // タイムアウト回避のため結果をすぐにdrop
-            let result = black_box(&matrix).svd(false);
+            let result = black_box(&matrix).svd();
             drop(result);
         })
     });

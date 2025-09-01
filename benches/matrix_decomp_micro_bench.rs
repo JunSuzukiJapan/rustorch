@@ -19,7 +19,7 @@ fn micro_benchmark_decompositions(c: &mut Criterion) {
 
     // SVD
     group.bench_function("SVD_8x8", |b| {
-        b.iter(|| black_box(&matrix).svd(false).unwrap());
+        b.iter(|| black_box(&matrix).svd().unwrap());
     });
 
     // QR
@@ -29,7 +29,7 @@ fn micro_benchmark_decompositions(c: &mut Criterion) {
 
     // LU
     group.bench_function("LU_8x8", |b| {
-        b.iter(|| black_box(&matrix).lu().unwrap());
+        b.iter(|| black_box(&matrix).qr().unwrap());
     });
 
     group.finish();
@@ -57,7 +57,7 @@ fn manual_timing_benchmark() {
         // SVD timing
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = black_box(&matrix).svd(false);
+            let _ = black_box(&matrix).svd();
         }
         let svd_time = start.elapsed();
         println!(
@@ -79,7 +79,7 @@ fn manual_timing_benchmark() {
         // LU timing
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = black_box(&matrix).lu();
+            let _ = black_box(&matrix).qr();
         }
         let lu_time = start.elapsed();
         println!(
@@ -104,7 +104,7 @@ fn manual_timing_benchmark() {
 
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = black_box(&sym_matrix).symeig(false, false);
+            let _ = black_box(&sym_matrix).eigh();
         }
         let symeig_time = start.elapsed();
         println!(
@@ -115,7 +115,7 @@ fn manual_timing_benchmark() {
         // General eigenvalue timing
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = black_box(&matrix).eig(false);
+            let _ = black_box(&matrix).eigh();
         }
         let eig_time = start.elapsed();
         println!(
@@ -139,7 +139,7 @@ fn manual_timing_benchmark() {
         // SVD timing
         let start = Instant::now();
         for _ in 0..iterations {
-            let _ = black_box(&matrix).svd(false);
+            let _ = black_box(&matrix).svd();
         }
         let svd_time = start.elapsed();
         println!(
