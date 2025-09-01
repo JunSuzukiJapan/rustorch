@@ -311,16 +311,18 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
    "metadata": {},
    "outputs": [],
    "source": [
-    "// Create a random tensor\n",
-    "let random_tensor: Tensor<f32> = Tensor::randn(&[3, 3]);\n",
-    "println!(\"Random tensor: {:?}\", random_tensor);\n",
+    "// Create special tensors (with explicit type annotations)\n",
+    "let zeros: Tensor<f32> = Tensor::zeros(&[3, 3]);\n",
+    "let ones: Tensor<f32> = Tensor::ones(&[3, 3]);\n",
+    "let random: Tensor<f32> = Tensor::randn(&[3, 3]);\n",
+    "\n",
+    "println!(\"Zeros tensor: {:?}\", zeros);\n",
+    "println!(\"Ones tensor: {:?}\", ones);\n",
+    "println!(\"Random tensor: {:?}\", random);\n",
     "\n",
     "// Apply activation functions\n",
-    "let relu_result = random_tensor.relu();\n",
-    "println!(\"ReLU result: {:?}\", relu_result);\n",
-    "\n",
-    "let sigmoid_result = random_tensor.sigmoid();\n",
-    "println!(\"Sigmoid result: {:?}\", sigmoid_result);"
+    "let relu_result = random.relu();\n",
+    "println!(\"ReLU result: {:?}\", relu_result);"
    ]
   },
   {
