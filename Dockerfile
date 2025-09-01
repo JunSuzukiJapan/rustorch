@@ -21,8 +21,8 @@ WORKDIR /usr/src/rustorch
 # Copy manifests first for better caching
 COPY Cargo.toml ./
 
-# Create src directory and add dummy main to build dependencies
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs
+# Create src directory and add dummy lib.rs to build dependencies
+RUN mkdir -p src && echo "// Dummy lib for dependency compilation" > src/lib.rs
 
 # Build dependencies (this will generate a new Cargo.lock compatible with container's Cargo version)
 RUN cargo build --release && rm -rf src
