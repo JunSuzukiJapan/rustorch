@@ -96,13 +96,13 @@ msg() {
             esac ;;
         "add_rustorch")
             case "$lang" in
-                en) echo "3. Use :dep rustorch = \"0.5.10\" to add RusTorch" ;;
-                ja) echo "3. :dep rustorch = \"0.5.10\" でRusTorchを追加" ;;
-                es) echo "3. Usa :dep rustorch = \"0.5.10\" para añadir RusTorch" ;;
-                fr) echo "3. Utilisez :dep rustorch = \"0.5.10\" pour ajouter RusTorch" ;;
-                de) echo "3. Verwenden Sie :dep rustorch = \"0.5.10\" um RusTorch hinzuzufügen" ;;
-                zh) echo "3. 使用 :dep rustorch = \"0.5.10\" 添加 RusTorch" ;;
-                ko) echo "3. :dep rustorch = \"0.5.10\"를 사용하여 RusTorch 추가" ;;
+                en) echo "3. Use :dep rustorch = \"0.5.11\" to add RusTorch" ;;
+                ja) echo "3. :dep rustorch = \"0.5.11\" でRusTorchを追加" ;;
+                es) echo "3. Usa :dep rustorch = \"0.5.11\" para añadir RusTorch" ;;
+                fr) echo "3. Utilisez :dep rustorch = \"0.5.11\" pour ajouter RusTorch" ;;
+                de) echo "3. Verwenden Sie :dep rustorch = \"0.5.11\" um RusTorch hinzuzufügen" ;;
+                zh) echo "3. 使用 :dep rustorch = \"0.5.11\" 添加 RusTorch" ;;
+                ko) echo "3. :dep rustorch = \"0.5.11\"를 사용하여 RusTorch 추가" ;;
             esac ;;
         "available_at")
             case "$lang" in
@@ -251,7 +251,7 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
    "metadata": {},
    "outputs": [],
    "source": [
-    ":dep rustorch = \"0.5.10\"\n",
+    ":dep rustorch = \"0.5.11\"\n",
     ":dep ndarray = \"0.16\""
    ]
   },
@@ -269,12 +269,11 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
    "metadata": {},
    "outputs": [],
    "source": [
-    "use rustorch::*;\n",
-    "use ndarray::prelude::*;\n",
+    "use rustorch::prelude::*;\n",
     "\n",
     "// Create tensors\n",
-    "let a = Tensor::from_array(array![[1.0, 2.0], [3.0, 4.0]]);\n",
-    "let b = Tensor::from_array(array![[5.0, 6.0], [7.0, 8.0]]);\n",
+    "let a = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);\n",
+    "let b = Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]);\n",
     "\n",
     "println!(\"Tensor a: {:?}\", a);\n",
     "println!(\"Tensor b: {:?}\", b);"
