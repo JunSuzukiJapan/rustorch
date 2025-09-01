@@ -92,7 +92,13 @@
       "Bash(LANG=es_ES.UTF-8 bash -c 'source ./quick_start.sh')",
       "WebFetch(domain:github.com)",
       "Bash(pip3 install:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(jupyter:*)",
+      "Bash(rustc:*)",
+      "Bash(./test_rust_kernel)",
+      "Bash(./start_jupyter_webgpu.sh:*)",
+      "Bash(evcxr_jupyter:*)",
+      "Read(/Users/suzukijun/.config/**)"
     ],
     "deny": [],
     "ask": [],
