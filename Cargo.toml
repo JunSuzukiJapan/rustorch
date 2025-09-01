@@ -232,63 +232,77 @@ required-features = []  # Runs with any available features
 
 [[bench]]
 name = "quick_benchmark"
+path = "benches/quick_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "matrix_decomposition_benchmark"
+path = "benches/matrix_decomposition_benchmark.rs"
 harness = false
 required-features = ["linalg"]
 
 [[bench]]
 name = "quick_matrix_benchmark"
+path = "benches/quick_matrix_benchmark.rs"
 harness = false
 required-features = ["linalg"]
 
 [[bench]]
 name = "matrix_decomp_micro_bench"
+path = "benches/matrix_decomp_micro_bench.rs"
 harness = false
 required-features = ["linalg"]
 
 [[bench]]
 name = "optimized_matrix_benchmark"
+path = "benches/optimized_matrix_benchmark.rs"
 harness = false
 required-features = ["linalg"]
 
 [[bench]]
 name = "manual_quick_bench"
+path = "benches/manual_quick_bench.rs"
 harness = false
 required-features = ["linalg"]
 
 [[bench]]
 name = "fft_benchmark"
+path = "benches/fft_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "distributions_benchmark"
+path = "benches/distributions_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "quick_distributions_benchmark"
+path = "benches/quick_distributions_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "micro_distributions_benchmark"
+path = "benches/micro_distributions_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "simple_distributions_bench"
+path = "benches/simple_distributions_bench.rs"
 harness = false
 
 [[bench]]
 name = "special_functions_benchmark"
+path = "benches/special_functions_benchmark.rs"
 harness = false
 
 [[bench]]
 name = "simple_gpu_bench"
+path = "benches/simple_gpu_bench.rs"
 harness = false
 
 [[bench]]
 name = "optimization_benchmark"
+path = "benches/optimization_benchmark.rs"
 harness = false
 
 [[example]]

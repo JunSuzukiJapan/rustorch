@@ -311,20 +311,20 @@ jobs:
           fi
           
           # Create valid JSON array with proper escaping
-          python3 -c "
-import json
-benchmark_data = [
-    {
-        'name': 'RusTorch Quick Benchmark',
-        'value': $DURATION_MS,
-        'unit': 'ms',
-        'range': '±5%',
-        'extra': 'Rust tensor operations benchmark'
-    }
-]
-with open('benchmark-results/bench.json', 'w') as f:
-    json.dump(benchmark_data, f, indent=2)
-"
+          cat > benchmark-results/bench.json << 'JSONEOF'
+          [
+            {
+              "name": "RusTorch Quick Benchmark",
+              "value": DURATION_PLACEHOLDER,
+              "unit": "ms",
+              "range": "±5%",
+              "extra": "Rust tensor operations benchmark"
+            }
+          ]
+          JSONEOF
+          
+          # Replace placeholder with actual value
+          sed -i "s/DURATION_PLACEHOLDER/$DURATION_MS/g" benchmark-results/bench.json
           
           echo "Generated benchmark JSON:"
           cat benchmark-results/bench.json
