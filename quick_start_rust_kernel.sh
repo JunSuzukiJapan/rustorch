@@ -349,7 +349,7 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
     "println!(\"Neural network created with {} parameters\", network.num_parameters());\n",
     "\n",
     "// Create sample input\n",
-    "let input = Tensor::randn(&[1, 784]); // Batch size 1, 784 features\n",
+    "let input: Tensor<f32> = Tensor::randn(&[1, 784]); // Batch size 1, 784 features\n",
     "let output = network.forward(&input);\n",
     "\n",
     "println!(\"Input shape: {:?}\", input.shape());\n",
