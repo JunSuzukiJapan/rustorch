@@ -98,7 +98,8 @@
       "Bash(./test_rust_kernel)",
       "Bash(./start_jupyter_webgpu.sh:*)",
       "Bash(evcxr_jupyter:*)",
-      "Read(/Users/suzukijun/.config/**)"
+      "Read(/Users/suzukijun/.config/**)",
+      "Bash(./quick_start_rust_kernel.sh:*)"
     ],
     "deny": [],
     "ask": [],
