@@ -4,20 +4,26 @@
 
 ## 🎯 Option 1: ワンライナーセットアップ（推奨）
 
+**標準版（Python bindings + Jupyter）:**
 ```bash
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start.sh | bash
 ```
 
-**何が起こる？**
-- 自動でRusTorchをダウンロード
-- Python仮想環境を作成
-- Jupyter Labをインストール・起動
-- デモノートブックを開く
+**🌟 WebGPU対応版（ブラウザGPU加速 + Jupyter）:**
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
+```
 
-**必要な環境:**
-- Python 3.8+
-- Git
-- インターネット接続
+**標準版の特徴:**
+- Python bindingsでJupyter使用
+- CPU専用だが高速セットアップ
+- 必要環境: Python 3.8+, Git
+
+**WebGPU版の特徴:**
+- ブラウザでGPU加速
+- インタラクティブなWebGPUデモ
+- Jupyter Lab + WebGPUデモサーバー
+- 必要環境: Python 3.8+, Git, Rust, wasm-pack（自動インストール）
 
 ---
 
