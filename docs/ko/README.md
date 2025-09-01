@@ -66,7 +66,7 @@ RusTorch는 Rust의 안전성과 성능을 활용하여 포괄적인 텐서 연�
 
 ```toml
 [dependencies]
-rustorch = "0.5.5"
+rustorch = "0.5.10"
 
 # 선택적 기능
 [features]
@@ -81,7 +81,7 @@ wasm = ["rustorch/wasm"]                # 브라우저 ML용 WebAssembly 지원
 webgpu = ["rustorch/webgpu"]            # Chrome 최적화 WebGPU 가속
 
 # linalg 기능을 비활성화하려면(OpenBLAS/LAPACK 의존성 회피):
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### 기본 사용법

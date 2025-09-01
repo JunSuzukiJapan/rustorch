@@ -40,7 +40,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.3"
+rustorch = "0.5.10"
 
 # Optional features
 [features]
@@ -53,7 +53,7 @@ safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.5.0", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### Basic Usage

@@ -552,7 +552,7 @@ impl WasmModel {
     }
 }
 
-// Enhanced WASM features (v0.5.2+)
+// Enhanced WASM features (v0.5.10+)
 #[cfg(feature = "wasm")]
 pub use crate::wasm::advanced_math::*;
 #[cfg(feature = "wasm")]

@@ -8,7 +8,7 @@ Add RusTorch to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.5"
+rustorch = "0.5.10"
 
 # Optional features
 [features]
@@ -23,7 +23,7 @@ wasm = ["rustorch/wasm"]               # WebAssembly support for browser ML
 webgpu = ["rustorch/webgpu"]           # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### Basic Tensor Operations
@@ -102,12 +102,12 @@ fn main() {
 
 ## 🧮 Matrix Decomposition
 
-**⚠️ v0.5.5 API Changes**: Matrix decomposition API has been simplified in v0.5.5. All parameters have been removed for cleaner usage.
+**⚠️ v0.5.10 API Changes**: Matrix decomposition API has been simplified in v0.5.10. All parameters have been removed for cleaner usage.
 
 **Important Note**: Matrix decomposition features require the `linalg` feature (enabled by default). On some systems, this may require OpenBLAS/LAPACK libraries. To avoid these dependencies:
 
 ```toml
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### SVD, QR and Eigenvalue Decomposition
@@ -343,7 +343,7 @@ If you encounter linking issues with LAPACK/BLAS:
 
 ```toml
 # Disable linear algebra features
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### GPU Support

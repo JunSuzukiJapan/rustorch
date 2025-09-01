@@ -96,13 +96,13 @@ msg() {
             esac ;;
         "add_rustorch")
             case "$lang" in
-                en) echo "3. Use :dep rustorch = \"0.5.7\" to add RusTorch" ;;
-                ja) echo "3. :dep rustorch = \"0.5.7\" でRusTorchを追加" ;;
-                es) echo "3. Usa :dep rustorch = \"0.5.7\" para añadir RusTorch" ;;
-                fr) echo "3. Utilisez :dep rustorch = \"0.5.7\" pour ajouter RusTorch" ;;
-                de) echo "3. Verwenden Sie :dep rustorch = \"0.5.7\" um RusTorch hinzuzufügen" ;;
-                zh) echo "3. 使用 :dep rustorch = \"0.5.7\" 添加 RusTorch" ;;
-                ko) echo "3. :dep rustorch = \"0.5.7\"를 사용하여 RusTorch 추가" ;;
+                en) echo "3. Use :dep rustorch = \"0.5.10\" to add RusTorch" ;;
+                ja) echo "3. :dep rustorch = \"0.5.10\" でRusTorchを追加" ;;
+                es) echo "3. Usa :dep rustorch = \"0.5.10\" para añadir RusTorch" ;;
+                fr) echo "3. Utilisez :dep rustorch = \"0.5.10\" pour ajouter RusTorch" ;;
+                de) echo "3. Verwenden Sie :dep rustorch = \"0.5.10\" um RusTorch hinzuzufügen" ;;
+                zh) echo "3. 使用 :dep rustorch = \"0.5.10\" 添加 RusTorch" ;;
+                ko) echo "3. :dep rustorch = \"0.5.10\"를 사용하여 RusTorch 추가" ;;
             esac ;;
         "available_at")
             case "$lang" in
@@ -251,7 +251,7 @@ cat > notebooks/rustorch_rust_kernel_demo.ipynb << 'EOF'
    "metadata": {},
    "outputs": [],
    "source": [
-    ":dep rustorch = \"0.5.7\"\n",
+    ":dep rustorch = \"0.5.10\"\n",
     ":dep ndarray = \"0.16\""
    ]
   },

@@ -4,12 +4,12 @@
 
 This document provides comprehensive API documentation for RusTorch, organized by module and functionality.
 
-## ⚠️ v0.5.5 Breaking Changes & Migration / v0.5.5 破壊的変更と移行
+## ⚠️ v0.5.10 Breaking Changes & Migration / v0.5.10 破壊的変更と移行
 
 ### Method Consolidation Impact / メソッド統合の影響
 
-**Important**: v0.5.5 introduces breaking changes due to matrix decomposition API simplification and method consolidation.
-**重要**: v0.5.5は行列分解API簡素化とメソッド統合により破壊的変更を導入します。
+**Important**: v0.5.10 introduces breaking changes due to matrix decomposition API simplification and method consolidation.
+**重要**: v0.5.10は行列分解API簡素化とメソッド統合により破壊的変更を導入します。
 
 #### Affected APIs / 影響を受けるAPI
 - All tensor operations with `_v2` suffixes → unified to base method names
@@ -23,7 +23,7 @@ This document provides comprehensive API documentation for RusTorch, organized b
 
 #### Migration Examples / 移行例
 ```rust
-// Before v0.5.5 / v0.5.5以前
+// Before v0.5.10 / v0.5.10以前
 tensor.add_v2(&other);     // ❌ Removed
 tensor.mul_v2(&other);     // ❌ Removed
 tensor.matmul_v2(&other);  // ❌ Removed
@@ -32,7 +32,7 @@ tensor.lu();               // ❌ Method removed
 tensor.symeig(false, false); // ❌ Method renamed
 tensor.eig(false);         // ❌ Method renamed
 
-// v0.5.5+ / v0.5.5以降  
+// v0.5.10+ / v0.5.10以降  
 tensor.add(&other);        // ✅ Unified optimized version
 tensor.mul(&other);        // ✅ Unified optimized version
 tensor.matmul(&other);     // ✅ Unified optimized version

@@ -66,7 +66,7 @@ Añade esto a tu `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.5"
+rustorch = "0.5.10"
 
 # Características opcionales
 [features]
@@ -81,7 +81,7 @@ wasm = ["rustorch/wasm"]                # Soporte WebAssembly para ML navegador
 webgpu = ["rustorch/webgpu"]            # Aceleración WebGPU optimizada Chrome
 
 # Para desactivar características linalg (evitar dependencias OpenBLAS/LAPACK):
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### Uso Básico

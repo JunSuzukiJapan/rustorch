@@ -42,11 +42,11 @@ pub mod tensor_ops; // Advanced tensor operations
 #[cfg(feature = "wasm")]
 pub mod vision; // Vision and image processing functions
 
-// Common utilities (v0.5.2+)
+// Common utilities (v0.5.10+)
 #[cfg(feature = "wasm")]
 pub mod common; // Shared utilities and abstractions
 
-// Enhanced WASM features (v0.5.2+)
+// Enhanced WASM features (v0.5.10+)
 #[cfg(feature = "wasm")]
 pub mod advanced_math; // Advanced mathematical functions
 #[cfg(feature = "wasm")]
@@ -56,7 +56,7 @@ pub mod data_transforms; // Advanced data preprocessing
 #[cfg(feature = "wasm")]
 pub mod quality_metrics; // Data quality assessment // Anomaly detection and monitoring
 
-// Enhanced WASM implementations (v0.5.3+)
+// Enhanced WASM implementations (v0.5.10+)
 #[cfg(feature = "wasm")]
 pub mod autograd_simplified;
 #[cfg(feature = "wasm")]
@@ -66,7 +66,7 @@ pub mod optimizer_enhanced; // Production-ready optimizers for small-scale model
 #[cfg(feature = "wasm")]
 pub mod special_enhanced; // Complete special functions with performance optimization // Simplified autograd for single-threaded WASM environment
 
-// WebGPU backend for Chrome browser acceleration (v0.5.3+)
+// WebGPU backend for Chrome browser acceleration (v0.5.10+)
 // #[cfg(feature = "webgpu")]
 // pub mod webgpu_backend; // Chrome-optimized WebGPU backend with compute shaders (temporarily disabled)
 // #[cfg(feature = "webgpu")]

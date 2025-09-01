@@ -694,19 +694,19 @@ export default {
 
 ## Changelog / 変更履歴
 
-### v0.5.3+ - WebGPU Integration / WebGPU統合
+### v0.5.10+ - WebGPU Integration / WebGPU統合
 - ✅ Chrome-optimized WebGPU backend
 - ✅ Interactive browser demos
 - ✅ CPU fallback mechanisms
 - ✅ Performance estimation system
 
-### v0.5.3 - Enhanced WASM Features / 強化WASM機能
+### v0.5.10 - Enhanced WASM Features / 強化WASM機能
 - ✅ Special mathematical functions (Gamma, Bessel, Error)
 - ✅ Statistical distributions (Normal, Gamma, Beta, etc.)
 - ✅ Neural network optimizers (SGD, Adam, RMSprop)
 - ✅ Simplified autograd for single-threaded environments
 
-### v0.5.2 - Production WASM / 本番WASM
+### v0.5.10 - Production WASM / 本番WASM
 - ✅ Comprehensive tensor operations
 - ✅ Computer vision pipelines
 - ✅ Quality assessment tools

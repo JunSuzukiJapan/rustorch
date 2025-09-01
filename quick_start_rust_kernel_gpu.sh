@@ -291,7 +291,7 @@ cat > notebooks/rustorch_gpu_rust_kernel_demo.ipynb << 'EOF'
    "outputs": [],
    "source": [
     "// Check which GPU features are available on this system\n",
-    ":dep rustorch = { version = \"0.5.9\", features = [\"cuda\", \"metal\", \"opencl\"] }\n",
+    ":dep rustorch = { version = \"0.5.10\", features = [\"cuda\", \"metal\", \"opencl\"] }\n",
     ":dep ndarray = \"0.16\""
    ]
   },

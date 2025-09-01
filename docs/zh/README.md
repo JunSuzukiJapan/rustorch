@@ -66,7 +66,7 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 
 ```toml
 [dependencies]
-rustorch = "0.5.5"
+rustorch = "0.5.10"
 
 # 可选特性
 [features]
@@ -81,7 +81,7 @@ wasm = ["rustorch/wasm"]                # 浏览器机器学习的WebAssembly支
 webgpu = ["rustorch/webgpu"]            # Chrome优化的WebGPU加速
 
 # 禁用linalg特性（避免OpenBLAS/LAPACK依赖）：
-rustorch = { version = "0.5.5", default-features = false }
+rustorch = { version = "0.5.10", default-features = false }
 ```
 
 ### 基本用法

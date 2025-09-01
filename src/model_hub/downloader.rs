@@ -97,7 +97,7 @@ impl ModelDownloader {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(300)) // 5 minutes default
-            .user_agent("RusTorch/0.5.2")
+            .user_agent("RusTorch/0.5.10")
             .build()
             .expect("Failed to create HTTP client");
 
@@ -113,7 +113,7 @@ impl ModelDownloader {
     pub fn with_config(max_retries: usize, timeout_seconds: u64) -> Self {
         let client = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(timeout_seconds))
-            .user_agent("RusTorch/0.5.2")
+            .user_agent("RusTorch/0.5.10")
             .build()
             .expect("Failed to create HTTP client");
 

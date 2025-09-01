@@ -62,7 +62,7 @@
 //!
 //! **A production-ready deep learning library in Rust with PyTorch-like API, data validation, debugging tools, and enterprise-grade reliability**
 //!
-//! RusTorch v0.5.2 is a fully functional deep learning library that leverages Rust's safety and performance,
+//! RusTorch v0.5.10 is a fully functional deep learning library that leverages Rust's safety and performance,
 //! providing comprehensive tensor operations, automatic differentiation, neural network layers,
 //! transformer architectures, GPU acceleration, unified error handling system, advanced memory optimization features,
 //! data validation & quality assurance, and comprehensive debug & logging systems.
