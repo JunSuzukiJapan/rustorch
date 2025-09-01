@@ -5,13 +5,25 @@ set -e
 
 echo "🔧 Building RusTorch Python bindings for Binder..."
 
+# Setup Rust environment
+echo "🦀 Setting up Rust environment..."
+export PATH="${HOME}/.cargo/bin:${PATH}"
+
+# Verify Rust is available
+if command -v rustc &> /dev/null; then
+    echo "✅ Rust compiler found: $(rustc --version)"
+else
+    echo "❌ Rust compiler not found"
+    exit 1
+fi
+
 # Set conda environment variables for maturin
 export CONDA_PREFIX=${NB_PYTHON_PREFIX}
 export VIRTUAL_ENV=${NB_PYTHON_PREFIX}
 
 # Build wheel and install (compatible with conda environment)
 echo "📦 Building wheel..."
-maturin build --release --out dist
+maturin build --release --out dist --compatibility linux
 
 # Install the built wheel
 echo "📥 Installing wheel..."
