@@ -15,6 +15,7 @@
 .mcp.json
 
 #
+.serena/
 pr-audit-report.json
 
 # OS generated files

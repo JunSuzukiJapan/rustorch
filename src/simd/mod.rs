@@ -51,7 +51,7 @@ mod tests {
             let b = vec![5.0, 6.0, 7.0, 8.0];
             let expected = 1.0 * 5.0 + 2.0 * 6.0 + 3.0 * 7.0 + 4.0 * 8.0; // = 70.0
 
-            let result = unsafe { vectorized::dot_product_f32_avx2(&a, &b) };
+            let result = vectorized::dot_product_f32_avx2(&a, &b);
             assert!((result - expected).abs() < 1e-6);
         }
     }
