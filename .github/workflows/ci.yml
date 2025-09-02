@@ -291,12 +291,16 @@ jobs:
               --bench manual_quick_bench || echo "Compatible benchmarks completed"
           fi
 
+      - name: Clean working directory
+        if: github.ref == 'refs/heads/main'
+        run: |
+          # Clean any changes from benchmark runs
+          git checkout -- Cargo.lock || true
+          git clean -fd || true
+          
       - name: Generate benchmark JSON
         if: github.ref == 'refs/heads/main'
         run: |
-          # Stash any local changes to avoid gh-pages conflicts
-          git stash --include-untracked || true
-          
           # Create benchmark results directory
           mkdir -p benchmark-results
           
@@ -331,6 +335,10 @@ jobs:
           
           echo "Generated benchmark JSON:"
           cat benchmark-results/bench.json
+          
+          # Clean working directory again before gh-pages switch
+          git checkout -- Cargo.lock || true
+          git clean -fd || true
         shell: bash
 
       - name: Store benchmark results
