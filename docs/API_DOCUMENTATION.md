@@ -91,6 +91,61 @@ let result = tensor.unsqueeze(1);                   // Add dimension at index
 let result = tensor.permute(vec![1, 0, 2]);         // Permute dimensions
 let result = tensor.expand(vec![10, 10, 5]);        // Expand tensor dimensions
 
+// Advanced shape operations (Phase 1)
+let result = tensor.squeeze_dim(1);                 // Remove specific size-1 dimension
+let result = tensor.flatten_owned();                // Flatten to 1D tensor
+let result = tensor.flatten_range(1, Some(3));      // Flatten dimensions 1-3
+let result = tensor.unflatten(0, &[2, 3]);         // Reverse flatten operation
+let result = tensor.expand_as(&other_tensor);       // Expand to match another tensor
+let result = tensor.repeat(&[2, 3, 1]);            // Repeat tensor along dimensions
+let result = tensor.repeat_interleave_scalar(3, Some(0)); // Interleave elements
+let result = tensor.roll_1d(2, Some(1));           // Roll elements along dimension
+let result = tensor.rot90(1, &[0, 1]);             // Rotate 90 degrees
+let result = tensor.flip(&[0]);                    // Flip along dimensions
+let result = tensor.fliplr();                      // Flip left-right
+let result = tensor.flipud();                      // Flip up-down
+let result = tensor.view_shape(&[6, 4]);           // Create view with different shape
+
+// Builder Pattern for Chainable Operations (NEW)
+use rustorch::tensor::ops::shape_operations::{ShapeOps, shape_ops};
+
+// Method 1: Builder pattern with explicit calls
+let result = tensor
+    .shape_builder()
+    .squeeze().unwrap()                          // Remove singleton dimensions  
+    .unsqueeze(1).unwrap()                       // Add dimension at index 1
+    .flatten().unwrap()                          // Flatten to 1D
+    .build();
+
+// Method 2: Fluent interface
+let result = tensor
+    .shapes()                                    // Start fluent operations
+    .squeeze().unwrap()
+    .expand(&[10, 5]).unwrap()
+    .flip(&[0]).unwrap()
+    .build();
+
+// Method 3: Macro for concise chaining
+let result = shape_ops!(tensor,
+    squeeze,                                     // Operations without parameters
+    unsqueeze(1),                                // Operations with parameters
+    flatten
+).unwrap();
+
+// Builder pattern supports all shape operations:
+let advanced_result = tensor
+    .shape_builder()
+    .squeeze_dim(2).unwrap()                     // Remove specific dimension
+    .repeat(&[2, 1, 3]).unwrap()                // Repeat along dimensions
+    .rot90(1, &[0, 1]).unwrap()                 // Rotate 90 degrees
+    .flip(&[0, 2]).unwrap()                     // Flip along multiple dimensions
+    .build();
+
+// Peek at intermediate results without consuming builder
+let builder = tensor.shape_builder().squeeze().unwrap();
+println!("Intermediate shape: {:?}", builder.current_shape());
+let final_result = builder.flatten().unwrap().build();
+
 // Indexing and slicing
 let result = tensor.slice(0, 1, 3);                 // Slice along dimension
 let result = tensor.index_select(0, &indices);      // Select indices
@@ -1073,7 +1128,7 @@ fn gpu_training() -> Result<()> {
 
 | Module | Description | Key Features |
 |--------|-------------|--------------|
-| `tensor` | Core tensor operations | Creation, arithmetic, mathematical functions, shape manipulation |
+| `tensor` | Core tensor operations | Creation, arithmetic, mathematical functions, **advanced shape operations with builder pattern** |
 | `nn` | Neural network layers | Linear, Conv, RNN, LSTM, GRU, activations, normalization, loss functions |
 | `autograd` | Automatic differentiation | Variables, gradients, custom functions, computation graphs |
 | `optim` | Optimizers and schedulers | SGD, Adam, AdamW, RMSprop, learning rate scheduling |
@@ -1100,6 +1155,96 @@ fn gpu_training() -> Result<()> {
 | `safetensors` | SafeTensors format support | Memory mapping |
 | `onnx` | ONNX model import/export | ONNX Runtime |
 | `python` | Python bindings | PyO3 |
+
+## 🆕 New Features in v0.5.12
+
+### Enhanced Shape Operations with Builder Pattern
+
+The latest release introduces a comprehensive refactoring of shape operations with significant improvements:
+
+#### Key Enhancements
+
+- **Builder Pattern**: Chainable operations for complex tensor transformations
+- **Fluent Interface**: Ergonomic API for intuitive operation sequencing  
+- **Macro Support**: Concise syntax for common operation patterns
+- **Enhanced Error Handling**: Detailed error messages with proper context
+- **Performance Optimizations**: Generic recursive processing and helper functions
+- **Zero-Copy Views**: Optimized memory usage where possible
+
+#### Complete Shape Operations API
+
+```rust
+use rustorch::tensor::ops::shape_operations::{ShapeOps, ShapeMode, shape_ops};
+
+// All available shape operations:
+let tensor = tensor
+    .shape_builder()
+    .squeeze()                              // Remove all size-1 dimensions
+    .squeeze_dim(1)?                        // Remove specific size-1 dimension
+    .unsqueeze(0)?                          // Add dimension at position
+    .flatten()?                             // Flatten to 1D
+    .flatten_range(1, Some(3))?             // Flatten specific range
+    .unflatten(0, &[2, 3])?                 // Reverse flatten
+    .expand(&[10, 6])?                      // Expand to target shape
+    .expand_as(&other_tensor)?              // Expand to match tensor
+    .repeat(&[2, 1])?                       // Repeat along dimensions
+    .repeat_interleave(3, Some(0))?         // Interleave elements
+    .roll(2, Some(1))?                      // Roll elements
+    .rot90(1, &[0, 1])?                     // 90-degree rotation
+    .flip(&[0])?                            // Flip along dimensions
+    .fliplr()?                              // Flip left-right
+    .flipud()?                              // Flip up-down
+    .view_shape(&[4, 15])?                  // Create view
+    .build();
+```
+
+#### Advanced Usage Patterns
+
+```rust
+// Ownership control with ShapeMode
+let result = tensor.squeeze_with_mode(ShapeMode::ViewOnly)?;  // Zero-copy guarantee
+let result = tensor.expand_lazy(&[10, 10])?;                 // Lazy evaluation
+
+// Intermediate inspection
+let builder = tensor.shape_builder().squeeze().unwrap();
+println!("Shape after squeeze: {:?}", builder.current_shape());
+let final_tensor = builder.flatten().unwrap().build();
+
+// Error handling with context
+match tensor.unsqueeze(10) {
+    Ok(result) => println!("Success"),
+    Err(RusTorchError::InvalidDimension(msg)) => {
+        eprintln!("Dimension error: {}", msg);  // Detailed context provided
+    }
+}
+```
+
+#### Migration Guide
+
+**Before (v0.5.11 and earlier):**
+```rust
+let tensor = tensor.squeeze();
+let tensor = tensor.unsqueeze(1).unwrap();
+let tensor = tensor.flatten_owned();
+```
+
+**After (v0.5.12 - Recommended):**
+```rust
+// More readable and maintainable
+let result = tensor
+    .shape_builder()
+    .squeeze().unwrap()
+    .unsqueeze(1).unwrap()
+    .flatten().unwrap()
+    .build();
+
+// Or use the macro for brevity
+let result = shape_ops!(tensor, squeeze, unsqueeze(1), flatten).unwrap();
+```
+
+### Backward Compatibility
+
+All existing APIs remain fully functional. The new builder pattern and enhanced operations are additive features that don't break existing code.
 
 For complete documentation and examples, visit the [examples directory](../examples/) or generate local docs:
 
