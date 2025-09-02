@@ -10,9 +10,9 @@ use std::collections::HashMap;
 /// データ読み込みエラータイプ
 pub type DataError = RusTorchError;
 
-/// Core Dataset trait following PyTorch API (Phase 5)
-/// PyTorch APIに従うコアDatasetトレイト（フェーズ5）
-pub trait DatasetV2<T> {
+/// Core Dataset trait following PyTorch API (Phase 5 - Main API)
+/// PyTorch APIに従うコアDatasetトレイト（フェーズ5 - メインAPI）
+pub trait Dataset<T> {
     /// Returns the number of samples in the dataset
     /// データセット内のサンプル数を返す
     fn len(&self) -> usize;
@@ -107,7 +107,7 @@ impl<T: Float + 'static> TensorDataset<T> {
     }
 }
 
-impl<T: Float + Clone + 'static> DatasetV2<Vec<Tensor<T>>> for TensorDataset<T> {
+impl<T: Float + Clone + 'static> Dataset<Vec<Tensor<T>>> for TensorDataset<T> {
     fn len(&self) -> usize {
         if self.tensors.is_empty() {
             0
@@ -158,7 +158,7 @@ impl<T: Float + Clone + 'static> DatasetV2<Vec<Tensor<T>>> for TensorDataset<T> 
 
 // Backward compatibility: implement legacy Dataset trait
 // 後方互換性：レガシーDatasetトレイトを実装
-impl<T: Float + Clone + 'static> crate::data::Dataset<T> for TensorDataset<T> {
+impl<T: Float + Clone + 'static> crate::data::LegacyDataset<T> for TensorDataset<T> {
     fn len(&self) -> usize {
         if self.tensors.is_empty() {
             0
@@ -168,7 +168,7 @@ impl<T: Float + Clone + 'static> crate::data::Dataset<T> for TensorDataset<T> {
     }
     
     fn get(&self, index: usize) -> Option<(crate::tensor::Tensor<T>, crate::tensor::Tensor<T>)> {
-        if index >= crate::data::Dataset::len(self) {
+        if index >= crate::data::LegacyDataset::len(self) {
             return None;
         }
         
@@ -217,14 +217,14 @@ impl<T: Float + Clone + 'static> crate::data::Dataset<T> for TensorDataset<T> {
 /// Concatenated dataset implementation
 /// 連結データセット実装
 pub struct ConcatDataset<T> {
-    datasets: Vec<Box<dyn DatasetV2<T>>>,
+    datasets: Vec<Box<dyn Dataset<T>>>,
     cumulative_sizes: Vec<usize>,
 }
 
 impl<T> ConcatDataset<T> {
     /// Create new concatenated dataset
     /// 新しい連結データセットを作成
-    pub fn new(datasets: Vec<Box<dyn DatasetV2<T>>>) -> Result<Self, DataError> {
+    pub fn new(datasets: Vec<Box<dyn Dataset<T>>>) -> Result<Self, DataError> {
         if datasets.is_empty() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "ConcatDataset::new".to_string(),
@@ -271,7 +271,7 @@ impl<T> ConcatDataset<T> {
     }
 }
 
-impl<T> DatasetV2<T> for ConcatDataset<T> {
+impl<T> Dataset<T> for ConcatDataset<T> {
     fn len(&self) -> usize {
         self.cumulative_sizes.last().copied().unwrap_or(0)
     }

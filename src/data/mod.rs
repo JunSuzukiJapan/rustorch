@@ -30,7 +30,8 @@ use num_traits::Float;
 
 /// Legacy Dataset trait for backward compatibility
 /// 後方互換性のためのレガシーDatasetトレイト
-pub trait Dataset<T: Float> {
+#[deprecated(since = "0.6.0", note = "Use `Dataset` trait from Phase 5 API instead")]
+pub trait LegacyDataset<T: Float> {
     /// Returns the number of samples in the dataset
     /// データセット内のサンプル数を返します
     fn len(&self) -> usize;
@@ -62,11 +63,12 @@ pub trait Dataset<T: Float> {
 }
 
 // Re-export Phase 5 components (priority)
-pub use dataset::{DatasetV2, IterableDataset, TensorDataset, ConcatDataset, DataError};
+pub use dataset::{Dataset, IterableDataset, TensorDataset, ConcatDataset, DataError};
 pub use sampler::{Sampler, SequentialSampler, RandomSampler, BatchSampler, WeightedRandomSampler, SubsetRandomSampler};
 
-// Re-export legacy components (maintained for backward compatibility)
-pub use dataloader::{Compose, DataLoader, Normalize, RandomHorizontalFlip, Transform, Phase5DataLoader};
+// Re-export legacy components (maintained for backward compatibility)  
+pub use dataloader::{Compose, LegacyDataLoader, Normalize, RandomHorizontalFlip, Transform, DataLoader};
+// Re-export legacy trait - no need for pub use since it's defined above
 pub use datasets::{CSVDataset, ImageDataset, MemoryMappedDataset, TextDataset};
 pub use parallel_dataloader::{ParallelBatchIterator, ParallelBatchProcessor, ParallelDataLoader};
 pub use streaming::{AsyncDataLoader, DynamicBatchLoader, StreamingDataset};

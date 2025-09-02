@@ -4,7 +4,7 @@
 //! Keras風の高レベルインターフェース（fit, evaluate, predict）を提供
 
 use crate::autograd::Variable;
-use crate::data::{DataLoader, Dataset};
+use crate::data::{LegacyDataLoader, LegacyDataset};
 use crate::models::sequential::Sequential;
 use crate::nn::Module;
 use crate::training::TrainerConfig;
@@ -30,20 +30,20 @@ where
     /// Train the model
     fn fit<D>(
         &mut self,
-        train_data: &mut DataLoader<T, D>,
-        validation_data: Option<&mut DataLoader<T, D>>,
+        train_data: &mut LegacyDataLoader<T, D>,
+        validation_data: Option<&mut LegacyDataLoader<T, D>>,
         epochs: usize,
         batch_size: usize,
         verbose: bool,
     ) -> Result<TrainingHistory<T>>
     where
-        D: Dataset<T>;
+        D: LegacyDataset<T>;
 
     /// モデルを評価
     /// Evaluate the model
-    fn evaluate<D>(&mut self, data: &mut DataLoader<T, D>) -> Result<HashMap<String, f64>>
+    fn evaluate<D>(&mut self, data: &mut LegacyDataLoader<T, D>) -> Result<HashMap<String, f64>>
     where
-        D: Dataset<T>;
+        D: LegacyDataset<T>;
 
     /// 予測を実行
     /// Make predictions
@@ -51,9 +51,9 @@ where
 
     /// バッチ予測を実行
     /// Make batch predictions
-    fn predict_batch<D>(&self, data: &mut DataLoader<T, D>) -> Result<Vec<Variable<T>>>
+    fn predict_batch<D>(&self, data: &mut LegacyDataLoader<T, D>) -> Result<Vec<Variable<T>>>
     where
-        D: Dataset<T>;
+        D: LegacyDataset<T>;
 
     /// モデルを保存
     /// Save the model
@@ -210,14 +210,14 @@ where
     /// Train the model
     fn fit<D>(
         &mut self,
-        _train_data: &mut DataLoader<T, D>,
-        validation_data: Option<&mut DataLoader<T, D>>,
+        _train_data: &mut LegacyDataLoader<T, D>,
+        validation_data: Option<&mut LegacyDataLoader<T, D>>,
         epochs: usize,
-        _batch_size: usize, // DataLoaderで既に設定されていると仮定
+        _batch_size: usize, // LegacyDataLoaderで既に設定されていると仮定
         verbose: bool,
     ) -> Result<TrainingHistory<T>>
     where
-        D: Dataset<T>,
+        D: LegacyDataset<T>,
     {
         if !self.is_compiled() {
             return Err(anyhow::anyhow!("Model must be compiled before training"));
@@ -272,9 +272,9 @@ where
 
     /// モデルを評価
     /// Evaluate the model
-    fn evaluate<D>(&mut self, data: &mut DataLoader<T, D>) -> Result<HashMap<String, f64>>
+    fn evaluate<D>(&mut self, data: &mut LegacyDataLoader<T, D>) -> Result<HashMap<String, f64>>
     where
-        D: Dataset<T>,
+        D: LegacyDataset<T>,
     {
         if !self.is_compiled() {
             return Err(anyhow::anyhow!("Model must be compiled before evaluation"));
@@ -316,9 +316,9 @@ where
 
     /// バッチ予測を実行
     /// Make batch predictions
-    fn predict_batch<D>(&self, data: &mut DataLoader<T, D>) -> Result<Vec<Variable<T>>>
+    fn predict_batch<D>(&self, data: &mut LegacyDataLoader<T, D>) -> Result<Vec<Variable<T>>>
     where
-        D: Dataset<T>,
+        D: LegacyDataset<T>,
     {
         let mut predictions = Vec::new();
 

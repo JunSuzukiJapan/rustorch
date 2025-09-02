@@ -4,7 +4,7 @@
 //! This module provides various dataset types for different data formats
 //! このモジュールは様々なデータ形式に対応するデータセットタイプを提供します
 
-use super::Dataset;
+use super::LegacyDataset;
 use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 /// CSV Dataset for loading tabular data
 /// 表形式データを読み込むためのCSVデータセット
+#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
 pub struct CSVDataset<T: Float + num_traits::FromPrimitive> {
     features: Vec<Tensor<T>>,
     targets: Vec<Tensor<T>>,
@@ -180,7 +181,7 @@ impl<T: Float + num_traits::FromPrimitive + std::str::FromStr + 'static> CSVData
     }
 }
 
-impl<T: Float + num_traits::FromPrimitive> Dataset<T> for CSVDataset<T> {
+impl<T: Float + num_traits::FromPrimitive> LegacyDataset<T> for CSVDataset<T> {
     fn len(&self) -> usize {
         self.features.len()
     }
@@ -196,6 +197,7 @@ impl<T: Float + num_traits::FromPrimitive> Dataset<T> for CSVDataset<T> {
 
 /// Image dataset for computer vision tasks
 /// コンピュータビジョンタスク用画像データセット
+#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
 pub struct ImageDataset<T: Float> {
     image_paths: Vec<PathBuf>,
     labels: Vec<Tensor<T>>,
@@ -338,7 +340,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> ImageDataset<T> {
     }
 }
 
-impl<T: Float + num_traits::FromPrimitive + 'static> Dataset<T> for ImageDataset<T> {
+impl<T: Float + num_traits::FromPrimitive + 'static> LegacyDataset<T> for ImageDataset<T> {
     fn len(&self) -> usize {
         self.image_paths.len()
     }
@@ -357,6 +359,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> Dataset<T> for ImageDataset
 
 /// Text dataset for NLP tasks
 /// NLPタスク用テキストデータセット
+#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
 pub struct TextDataset<T: Float> {
     texts: Vec<String>,
     labels: Vec<Tensor<T>>,
@@ -459,7 +462,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> TextDataset<T> {
     }
 }
 
-impl<T: Float + num_traits::FromPrimitive + 'static> Dataset<T> for TextDataset<T> {
+impl<T: Float + num_traits::FromPrimitive + 'static> LegacyDataset<T> for TextDataset<T> {
     fn len(&self) -> usize {
         self.texts.len()
     }
@@ -477,6 +480,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> Dataset<T> for TextDataset<
 
 /// Memory-mapped dataset for large files
 /// 大容量ファイル用メモリマップドデータセット
+#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
 pub struct MemoryMappedDataset<T: Float> {
     _file_path: PathBuf,
     _data_type: std::marker::PhantomData<T>,
@@ -509,7 +513,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> MemoryMappedDataset<T> {
     }
 }
 
-impl<T: Float + num_traits::FromPrimitive + 'static> Dataset<T> for MemoryMappedDataset<T> {
+impl<T: Float + num_traits::FromPrimitive + 'static> LegacyDataset<T> for MemoryMappedDataset<T> {
     fn len(&self) -> usize {
         self._num_samples
     }

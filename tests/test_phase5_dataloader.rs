@@ -1,9 +1,8 @@
 //! Phase 5 DataLoader System Integration Tests
 //! フェーズ5 DataLoaderシステム統合テスト
 
-use rustorch::data::dataset::{DatasetV2, TensorDataset, ConcatDataset};
+use rustorch::data::dataset::{Dataset, TensorDataset, ConcatDataset};
 use rustorch::data::sampler::{Sampler, SequentialSampler, RandomSampler, BatchSampler, WeightedRandomSampler};
-use rustorch::data::dataloader::Phase5DataLoader;
 use rustorch::tensor::Tensor;
 use rustorch::error::RusTorchError;
 
@@ -209,7 +208,7 @@ mod phase5_tests {
         let dataset1 = TensorDataset::new(features1).unwrap();
         let dataset2 = TensorDataset::new(features2).unwrap();
         
-        let datasets: Vec<Box<dyn DatasetV2<Vec<Tensor<f32>>>>> = vec![
+        let datasets: Vec<Box<dyn Dataset<Vec<Tensor<f32>>>>> = vec![
             Box::new(dataset1),
             Box::new(dataset2),
         ];
@@ -291,7 +290,7 @@ mod phase5_tests {
         // Verify all Phase 5 roadmap requirements are met
         
         // 1. Dataset traits implemented
-        let _: &dyn DatasetV2<Vec<Tensor<f32>>> = &TensorDataset::new(vec![
+        let _: &dyn Dataset<Vec<Tensor<f32>>> = &TensorDataset::new(vec![
             Tensor::from_vec(vec![1.0f32], vec![1, 1])
         ]).unwrap();
         
