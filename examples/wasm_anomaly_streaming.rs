@@ -39,7 +39,7 @@ fn main() {
             + i;
 
         // Generate synthetic streaming data
-        let base_value = generate_synthetic_value(i);
+        let base_value = generate_synthetic_value(i as usize);
 
         // Add occasional anomalies
         let value = if i % 47 == 0 {
@@ -53,7 +53,7 @@ fn main() {
         };
 
         // Real-time statistical detection
-        if let Ok(Some(anomaly)) = statistical_detector.detect_realtime(value) {
+        if let Ok(anomaly) = statistical_detector.detect_realtime(value) {
             anomaly_count += 1;
             println!(
                 "🚨 Statistical anomaly at step {}: value={:.3}, anomaly={:?}",
@@ -64,7 +64,7 @@ fn main() {
         }
 
         // Time series detection
-        if let Ok(Some(ts_anomaly)) = timeseries_detector.add_point(timestamp, value) {
+        if let Ok(ts_anomaly) = timeseries_detector.add_point(timestamp as f64, value) {
             time_anomaly_count += 1;
             println!(
                 "📈 Time series anomaly at step {}: ts={}, value={:.3}, anomaly={:?}",

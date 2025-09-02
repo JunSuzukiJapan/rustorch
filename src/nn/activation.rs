@@ -309,6 +309,88 @@ pub fn mish<
     }
 }
 
+/// GLU (Gated Linear Unit) activation function
+/// GLU（ゲート線形ユニット）活性化関数
+///
+/// Applies the element-wise function: GLU(x) = a ⊙ σ(b)
+/// where x is split into two halves a and b along the last dimension
+/// 要素ごとに関数を適用: GLU(x) = a ⊙ σ(b)
+/// ここで x は最後の次元で半分に分割され a と b になります
+pub fn glu<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Default,
+>(
+    x: &Variable<T>,
+) -> Variable<T> {
+    let input_tensor = x.data();
+    let input_guard = input_tensor.read().unwrap();
+    let input_shape = input_guard.shape();
+    let input_data = input_guard.as_slice().unwrap();
+    
+    // GLU requires even number of elements on the last dimension
+    let last_dim = input_shape[input_shape.len() - 1];
+    assert_eq!(last_dim % 2, 0, "GLU requires even number of elements on last dimension");
+    
+    let half_size = last_dim / 2;
+    let total_elements = input_shape.iter().product::<usize>();
+    let batch_size = total_elements / last_dim;
+    
+    // Create output shape (half the size of last dimension)
+    let mut output_shape = input_shape.to_vec();
+    let last_dim_idx = output_shape.len() - 1;
+    output_shape[last_dim_idx] = half_size;
+    let output_size = output_shape.iter().product::<usize>();
+    let mut output_data = vec![T::default(); output_size];
+    
+    // Process each batch
+    for batch in 0..batch_size {
+        let input_offset = batch * last_dim;
+        let output_offset = batch * half_size;
+        
+        for i in 0..half_size {
+            let a = input_data[input_offset + i];           // First half (values)
+            let b = input_data[input_offset + half_size + i]; // Second half (gates)
+            
+            // Apply sigmoid to gate and multiply: a * sigmoid(b)
+            let sigmoid_b = T::from_f32(1.0).unwrap() / (T::from_f32(1.0).unwrap() + (-b).exp());
+            output_data[output_offset + i] = a * sigmoid_b;
+        }
+    }
+    
+    let output_tensor = Tensor::from_vec(output_data, output_shape);
+    Variable::new(output_tensor, x.requires_grad())
+}
+
+/// GLU activation layer struct
+/// GLU活性化レイヤー構造体
+#[derive(Debug)]
+pub struct GLU<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive + Default> GLU<T> {
+    /// Create a new GLU activation function
+    /// 新しいGLU活性化関数を作成
+    pub fn new() -> Self {
+        Self {
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive + Default> Module<T> for GLU<T> {
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        glu(input)
+    }
+
+    fn parameters(&self) -> Vec<Variable<T>> {
+        Vec::new()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
 /// Hardswish activation function (used in MobileNetV3)
 /// Hardswish活性化関数（MobileNetV3で使用）
 ///
@@ -849,5 +931,24 @@ mod tests {
         assert_abs_diff_eq!(result_data.as_array()[1], 0.0, epsilon = 1e-6);
         assert_abs_diff_eq!(result_data.as_array()[2], 3.0, epsilon = 1e-6);
         assert_abs_diff_eq!(result_data.as_array()[3], 6.0, epsilon = 1e-6);
+    }
+
+    #[test]
+    fn test_glu() {
+        // Test GLU with 4-element input (2 gates)
+        let input = Variable::new(
+            Tensor::from_vec(vec![1.0, 2.0, 0.5, -1.0], vec![4]), 
+            false
+        );
+
+        let output = glu(&input);
+        let result_binding = output.data();
+        let result_data = result_binding.read().unwrap();
+
+        // GLU splits input in half: gate = sigmoid([0.5, -1.0]), value = [1.0, 2.0]
+        // Expected: [1.0 * sigmoid(0.5), 2.0 * sigmoid(-1.0)]
+        assert_eq!(result_data.shape(), &[2]); // Half the input size
+        assert!(result_data.as_array()[0] > 0.5); // 1.0 * sigmoid(0.5) > 0.5
+        assert!(result_data.as_array()[1] > 0.0 && result_data.as_array()[1] < 1.0); // 2.0 * sigmoid(-1.0)
     }
 }

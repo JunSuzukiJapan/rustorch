@@ -740,6 +740,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_unsafe)]
     fn test_dot_product_simd() {
         let a = vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0];
         let b = vec![8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
@@ -788,6 +789,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_unsafe)]
     fn test_large_arrays() {
         let size = 100; // Reduce size to avoid precision issues
         let a: Vec<f32> = (0..size).map(|i| i as f32).collect();

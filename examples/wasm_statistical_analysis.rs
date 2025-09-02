@@ -40,9 +40,9 @@ fn _disabled_main() {
     ];
 
     for (dataset_name, (data, shape, description)) in datasets {
-        println!("\n" + "=".repeat(60).as_str());
+        println!("\n{}", "=".repeat(60));
         println!("📊 Dataset: {} ({})", dataset_name, description);
-        println!("=".repeat(60));
+        println!("{}", "=".repeat(60));
 
         let tensor = WasmTensor::new(data, shape.clone());
         println!(
@@ -255,13 +255,13 @@ fn _disabled_main() {
             println!("   Statistical power: Low (n < 10)");
         }
 
-        println!("   " + "─".repeat(50).as_str());
+        println!("   {}", "─".repeat(50));
     }
 
     // Comparative analysis
-    println!("\n" + "=".repeat(60).as_str());
+    println!("\n{}", "=".repeat(60));
     println!("📊 COMPARATIVE ANALYSIS");
-    println!("=".repeat(60));
+    println!("{}", "=".repeat(60));
 
     // Compare distributions
     let normal_data = generate_normal_distribution(500, 0.0, 1.0);
