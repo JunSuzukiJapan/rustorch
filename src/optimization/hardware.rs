@@ -339,17 +339,19 @@ impl HardwareOptimizer {
         #[cfg(target_os = "linux")]
         {
             // Linux memory detection would require sys-info crate
-            return 8_usize
+            8_usize
                 .saturating_mul(1024)
                 .saturating_mul(1024)
-                .saturating_mul(1024);
+                .saturating_mul(1024)
         }
-
-        // Default: 8GB
-        8_usize
-            .saturating_mul(1024)
-            .saturating_mul(1024)
-            .saturating_mul(1024)
+        #[cfg(not(target_os = "linux"))]
+        {
+            // Default: 8GB
+            8_usize
+                .saturating_mul(1024)
+                .saturating_mul(1024)
+                .saturating_mul(1024)
+        }
     }
 
     /// Measure interconnect bandwidth

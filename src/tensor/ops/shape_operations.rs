@@ -191,6 +191,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
     ///
     /// // Always safe - creates new tensor
@@ -297,14 +298,15 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
     ///
     /// // Add dimension at start
-    /// let unsqueezed = tensor.unsqueeze(0);
+    /// let unsqueezed = tensor.unsqueeze(0).unwrap();
     /// assert_eq!(unsqueezed.shape(), &[1, 3]);
     ///
     /// // Add dimension at end  
-    /// let unsqueezed = tensor.unsqueeze(1);
+    /// let unsqueezed = tensor.unsqueeze(1).unwrap();
     /// assert_eq!(unsqueezed.shape(), &[3, 1]);
     /// ```
     pub fn unsqueeze(&self, dim: usize) -> RusTorchResult<Self> {
@@ -355,6 +357,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3]);
     ///
     /// // Expand to larger shape
@@ -398,6 +401,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     ///
     /// // Full flatten
@@ -1120,6 +1124,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
     /// let target = Tensor::from_vec(vec![0.0; 6], vec![3, 2]);
     /// let expanded = tensor.expand_as(&target).unwrap();
@@ -1138,6 +1143,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![6]);
     /// let unflattened = tensor.unflatten(0, &[2, 3]).unwrap();
     /// assert_eq!(unflattened.shape(), &[2, 3]);
@@ -1192,9 +1198,10 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
     /// let repeated = tensor.repeat(&[3, 2]).unwrap();
-    /// assert_eq!(repeated.shape(), &[6, 4]); // [3*2, 2*2]
+    /// assert_eq!(repeated.shape(), &[3, 4]); // [3, 2*2]
     /// ```
     pub fn repeat(&self, repeats: &[usize]) -> RusTorchResult<Self> {
         let current_shape = self.shape();
@@ -1246,6 +1253,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
     /// let repeated = tensor.repeat_interleave_scalar(2, Some(0)).unwrap();
     /// assert_eq!(repeated.shape(), &[6]); // Each element repeated twice
@@ -1283,6 +1291,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
     /// let rolled = tensor.roll_1d(1, Some(0)).unwrap();
     /// // Result: [4.0, 1.0, 2.0, 3.0]
@@ -1341,6 +1350,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     /// let rotated = tensor.rot90(1, &[0, 1]).unwrap();
     /// // 90-degree rotation
@@ -1396,6 +1406,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     /// let flipped = tensor.flip(&[0]).unwrap();
     /// // Flip along dimension 0
@@ -1431,6 +1442,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     /// let flipped = tensor.fliplr().unwrap();
     /// ```
@@ -1451,6 +1463,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ///
     /// # Examples
     /// ```rust
+    /// use rustorch::prelude::Tensor;
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
     /// let flipped = tensor.flipud().unwrap();
     /// ```
@@ -1933,16 +1946,16 @@ mod tests {
 ///
 /// # Examples
 /// ```rust
-/// use rustorch::tensor::Tensor;
+/// use rustorch::prelude::Tensor;
 ///
 /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
 ///
 /// // Chain multiple operations efficiently
 /// let result = tensor
 ///     .shape_builder()
-///     .squeeze()
+///     .squeeze().unwrap()
 ///     .unsqueeze(1).unwrap()
-///     .flatten()
+///     .flatten().unwrap()
 ///     .build();
 ///
 /// assert_eq!(result.shape(), &[4]);
@@ -2098,14 +2111,21 @@ impl<T: Float + Clone + 'static> ShapeBuilder<T> {
 ///
 /// # Examples
 /// ```rust
-/// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
+/// use rustorch::prelude::Tensor;
+/// use rustorch::shape_ops;
+/// use rustorch::error::RusTorchResult;
 ///
-/// // Using macro for concise chaining
-/// let result = shape_ops!(tensor,
-///     squeeze,
-///     unsqueeze(1),
-///     flatten
-/// ).unwrap();
+/// fn main() -> RusTorchResult<()> {
+///     let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
+///
+///     // Using macro for concise chaining
+///     let result = shape_ops!(tensor,
+///         squeeze,
+///         unsqueeze(1),
+///         flatten
+///     )?;
+///     Ok(())
+/// }
 /// ```
 #[macro_export]
 macro_rules! shape_ops {
