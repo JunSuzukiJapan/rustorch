@@ -1,7 +1,7 @@
 //! CUDA cuBLAS Performance demonstration for high-end NVIDIA GPUs
 //! 高性能NVIDIA GPU向けCUDA cuBLASパフォーマンスデモンストレーション
 
-use rustorch::gpu::cuda_enhanced::{cuda_batch_matmul_f32, cuda_matmul_f32, CudaMatrixExecutor};
+use rustorch::gpu::cuda_enhanced::CudaMatrixExecutor;
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -174,9 +174,9 @@ fn test_tensor_core_acceleration(
             let sizes = [512, 1024, 2048];
 
             for &size in &sizes {
-                let m = size;
-                let n = size;
-                let k = size;
+                let _m = size;
+                let _n = size;
+                let _k = size;
 
                 // Ensure dimensions are multiples of 8 for Tensor Core efficiency
                 let aligned_size = (size + 7) & !7;

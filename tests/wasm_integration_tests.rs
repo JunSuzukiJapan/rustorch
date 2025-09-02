@@ -119,7 +119,7 @@ mod tests {
             "Clean data should be 100% complete"
         );
         assert!(
-            dirty_completeness >= 60.0 && dirty_completeness <= 80.0,
+            (60.0..=80.0).contains(&dirty_completeness),
             "Dirty data completeness should be 60-80%, got {:.2}%",
             dirty_completeness
         );
@@ -137,7 +137,7 @@ mod tests {
             "Clean data should be 100% valid"
         );
         assert!(
-            dirty_validity >= 60.0 && dirty_validity <= 80.0,
+            (60.0..=80.0).contains(&dirty_validity),
             "Dirty data validity should be 60-80%, got {:.2}%",
             dirty_validity
         );

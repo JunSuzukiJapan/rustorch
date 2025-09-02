@@ -76,7 +76,7 @@ fn main() {
 
         // Mathematical analysis
         let finite_data: Vec<f32> = data.iter().filter(|x| x.is_finite()).cloned().collect();
-        if finite_data.len() > 0 {
+        if !finite_data.is_empty() {
             let mean = finite_data.iter().sum::<f32>() / finite_data.len() as f32;
             let variance = finite_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>()
                 / finite_data.len() as f32;
