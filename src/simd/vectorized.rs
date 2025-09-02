@@ -745,9 +745,9 @@ mod tests {
         let b = vec![8.0, 7.0, 6.0, 5.0, 4.0, 3.0, 2.0, 1.0];
 
         let result = if is_avx2_available() {
-            dot_product_f32_avx2(&a, &b)
+            unsafe { dot_product_f32_avx2(&a, &b) }
         } else if is_sse41_available() {
-            dot_product_f32_sse41(&a, &b)
+            unsafe { dot_product_f32_sse41(&a, &b) }
         } else {
             a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
         };
@@ -794,7 +794,7 @@ mod tests {
         let b: Vec<f32> = (0..size).map(|i| (size - i) as f32).collect();
 
         let result = if is_avx2_available() {
-            dot_product_f32_avx2(&a, &b)
+            unsafe { dot_product_f32_avx2(&a, &b) }
         } else {
             a.iter().zip(b.iter()).map(|(x, y)| x * y).sum()
         };
