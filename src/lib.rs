@@ -1,5 +1,8 @@
 //! # RusTorch 🚀
 //!
+//! ```
+//! # use rustorch::prelude::*;
+//! ```
 
 // Temporary allow attributes for CodeQL compliance
 #![allow(clippy::for_kv_map)]
