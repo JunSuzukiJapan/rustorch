@@ -509,7 +509,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let streaming_dataset = StreamingDataset::new(dataset, 2, 2);
 
         // Start prefetching
@@ -545,7 +545,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut loader = DynamicBatchLoader::new(
             dataset, 1,     // min_batch_size
             4,     // max_batch_size
@@ -584,7 +584,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut async_loader = AsyncDataLoader::new(
             dataset, 2,     // batch_size
             3,     // buffer_size
@@ -614,7 +614,7 @@ mod tests {
     fn test_memory_estimation() {
         let features = vec![Tensor::from_vec(vec![1.0f32; 100], vec![100])];
         let targets = vec![Tensor::from_vec(vec![0.0f32], vec![1])];
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         let loader = DynamicBatchLoader::new(dataset, 1, 2, 1000, false);
 

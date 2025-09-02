@@ -1,19 +1,25 @@
-//! Advanced Data Loading and Processing Utilities
-//! 高度なデータ読み込みと処理のユーティリティ
+//! Phase 5: DataLoader System - PyTorch-compatible data loading
+//! フェーズ5: DataLoaderシステム - PyTorch互換データ読み込み
 //!
 //! This module provides comprehensive data loading capabilities including:
-//! - Basic and advanced dataset types (CSV, Image, Text, Memory-mapped)
-//! - Streaming and dynamic batch loading for large datasets
-//! - Comprehensive data transformation pipeline
-//! - Parallel and async data loading
+//! - Dataset traits and implementations (TensorDataset, ConcatDataset)
+//! - DataLoader with multiprocessing and caching
+//! - Sampling strategies (Random, Sequential, Batch, Weighted)
+//! - Error handling with unified RusTorchError
+//! - Memory-efficient prefetching for GPU optimization
 //!
 //! このモジュールは以下を含む包括的なデータ読み込み機能を提供します：
-//! - 基本・高度なデータセットタイプ（CSV、画像、テキスト、メモリマップド）
-//! - 大規模データセット用ストリーミング・動的バッチ読み込み
-//! - 包括的なデータ変換パイプライン
-//! - 並列・非同期データ読み込み
+//! - データセットトレイトと実装（TensorDataset、ConcatDataset）
+//! - マルチプロセシングとキャッシュ機能付きDataLoader
+//! - サンプリング戦略（ランダム、順次、バッチ、重み付き）
+//! - 統一RusTorchErrorによるエラーハンドリング
+//! - GPU最適化のためのメモリ効率的プリフェッチ
 
+pub mod dataset;
 pub mod dataloader;
+pub mod sampler;
+
+// Legacy modules (Phase 3)
 pub mod datasets;
 pub mod parallel_dataloader;
 pub mod streaming;
@@ -22,8 +28,8 @@ pub mod transforms;
 use crate::tensor::Tensor;
 use num_traits::Float;
 
-/// Core trait for all datasets
-/// すべてのデータセットのコアトレイト
+/// Legacy Dataset trait for backward compatibility
+/// 後方互換性のためのレガシーDatasetトレイト
 pub trait Dataset<T: Float> {
     /// Returns the number of samples in the dataset
     /// データセット内のサンプル数を返します
@@ -35,8 +41,8 @@ pub trait Dataset<T: Float> {
         self.len() == 0
     }
 
-    /// Returns a sample at the given index
-    /// 指定されたインデックスのサンプルを返します
+    /// Returns a sample at the given index (legacy API)
+    /// 指定されたインデックスのサンプルを返します（レガシーAPI）
     fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)>;
 
     /// Get a batch of samples
@@ -55,95 +61,12 @@ pub trait Dataset<T: Float> {
     }
 }
 
-/// Simple tensor dataset
-/// シンプルなテンソルデータセット
-pub struct TensorDataset<T: Float> {
-    features: Vec<Tensor<T>>,
-    targets: Vec<Tensor<T>>,
-}
+// Re-export Phase 5 components (priority)
+pub use dataset::{DatasetV2, IterableDataset, TensorDataset, ConcatDataset, DataError};
+pub use sampler::{Sampler, SequentialSampler, RandomSampler, BatchSampler, WeightedRandomSampler, SubsetRandomSampler};
 
-impl<T: Float> TensorDataset<T> {
-    /// Creates a new tensor dataset
-    /// 新しいテンソルデータセットを作成します
-    pub fn new(features: Vec<Tensor<T>>, targets: Vec<Tensor<T>>) -> Result<Self, String> {
-        if features.len() != targets.len() {
-            return Err("Features and targets must have the same length".to_string());
-        }
-
-        Ok(TensorDataset { features, targets })
-    }
-
-    /// Get features
-    /// 特徴量を取得
-    pub fn features(&self) -> &[Tensor<T>] {
-        &self.features
-    }
-
-    /// Get targets
-    /// ターゲットを取得
-    pub fn targets(&self) -> &[Tensor<T>] {
-        &self.targets
-    }
-
-    /// Split into train and validation sets
-    /// 訓練と検証セットに分割
-    pub fn train_val_split(&self, train_ratio: f64) -> (Self, Self) {
-        let split_idx = (self.features.len() as f64 * train_ratio) as usize;
-
-        let train_features = self.features[..split_idx].to_vec();
-        let train_targets = self.targets[..split_idx].to_vec();
-        let val_features = self.features[split_idx..].to_vec();
-        let val_targets = self.targets[split_idx..].to_vec();
-
-        let train_dataset = TensorDataset {
-            features: train_features,
-            targets: train_targets,
-        };
-
-        let val_dataset = TensorDataset {
-            features: val_features,
-            targets: val_targets,
-        };
-
-        (train_dataset, val_dataset)
-    }
-}
-
-impl<T: Float + 'static> Dataset<T> for TensorDataset<T> {
-    fn len(&self) -> usize {
-        self.features.len()
-    }
-
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        if index < self.len() {
-            Some((self.features[index].clone(), self.targets[index].clone()))
-        } else {
-            None
-        }
-    }
-
-    fn metadata(&self) -> std::collections::HashMap<String, String> {
-        let mut meta = std::collections::HashMap::new();
-        meta.insert("type".to_string(), "tensor".to_string());
-        meta.insert("samples".to_string(), self.len().to_string());
-        if !self.features.is_empty() {
-            meta.insert(
-                "feature_shape".to_string(),
-                format!("{:?}", self.features[0].shape()),
-            );
-        }
-        if !self.targets.is_empty() {
-            meta.insert(
-                "target_shape".to_string(),
-                format!("{:?}", self.targets[0].shape()),
-            );
-        }
-        meta
-    }
-}
-
-// Re-export all public components
-pub use dataloader::{Compose, DataLoader, Normalize, RandomHorizontalFlip, Transform};
+// Re-export legacy components (maintained for backward compatibility)
+pub use dataloader::{Compose, DataLoader, Normalize, RandomHorizontalFlip, Transform, Phase5DataLoader};
 pub use datasets::{CSVDataset, ImageDataset, MemoryMappedDataset, TextDataset};
 pub use parallel_dataloader::{ParallelBatchIterator, ParallelBatchProcessor, ParallelDataLoader};
 pub use streaming::{AsyncDataLoader, DynamicBatchLoader, StreamingDataset};

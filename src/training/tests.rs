@@ -104,7 +104,7 @@ pub fn create_test_dataset(size: usize, input_dim: usize, output_dim: usize) -> 
         .map(|_| Tensor::randn(&[output_dim]))
         .collect();
     
-    TensorDataset::new(features, targets).unwrap()
+    TensorDataset::from_features_targets(features, targets).unwrap()
 }
 
 /// 基本的な学習ループのテスト

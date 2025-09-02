@@ -346,7 +346,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let parallel_loader = ParallelDataLoader::new(dataset, 2, 2, false, 2);
 
         let batches: Vec<_> = parallel_loader.iter().collect();

@@ -1,12 +1,17 @@
-//! DataLoader implementation for batch processing
-//! バッチ処理のためのDataLoader実装
+//! DataLoader implementation for Phase 5 - PyTorch-compatible API
+//! フェーズ5用DataLoader実装 - PyTorch互換API
 
-use super::Dataset;
+use crate::data::dataset::{DatasetV2, DataError};
+use crate::data::Dataset; // Legacy trait for backward compatibility
+use crate::data::sampler::Sampler;
+use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use std::sync::Arc;
+use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
+use std::collections::VecDeque;
 
 /// Trait for data transformations
 /// データ変換のためのトレイト
@@ -388,7 +393,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut dataloader = DataLoader::new(&dataset, 2, false);
 
         assert_eq!(dataloader.len(), 2);
@@ -421,7 +426,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Create a normalization transform
         let normalize = Normalize::new(vec![2.0], vec![1.0]).unwrap();
@@ -455,7 +460,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut dataloader = DataLoader::new_lazy(&dataset, 2, false);
 
         assert_eq!(dataloader.len(), 2);
@@ -490,7 +495,7 @@ mod tests {
             .map(|i| Tensor::from_vec(vec![(i % 2) as f32], vec![1]))
             .collect();
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Test eager loading performance
         let start = Instant::now();
@@ -548,7 +553,7 @@ mod tests {
             .map(|i| Tensor::from_vec(vec![(i % 10) as f32], vec![1]))
             .collect();
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Test with small batch size (should use less memory)
         let mut small_batch_loader = DataLoader::new_lazy(&dataset, 5, false);
@@ -581,7 +586,7 @@ mod tests {
             Tensor::from_vec(vec![0.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Create composite transformations
         let normalize = Normalize::new(vec![2.0], vec![2.0]).unwrap();
@@ -612,5 +617,114 @@ mod tests {
             assert!((data[0] - (-0.5)).abs() < 1e-6);
             assert!((data[1] - 0.0).abs() < 1e-6);
         }
+    }
+}
+
+/// Phase 5 DataLoader using new DatasetV2 trait
+/// フェーズ5 DataLoader - 新しいDatasetV2トレイトを使用
+pub struct Phase5DataLoader<'a, T: Float, D: DatasetV2<T>> {
+    dataset: &'a D,
+    sampler: Box<dyn Sampler + Send + Sync>,
+    batch_size: usize,
+    drop_last: bool,
+    num_workers: usize,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<'a, T: Float, D: DatasetV2<T>> Phase5DataLoader<'a, T, D> {
+    /// Create new Phase 5 DataLoader
+    /// 新しいフェーズ5 DataLoaderを作成
+    pub fn new(
+        dataset: &'a D,
+        sampler: Box<dyn Sampler + Send + Sync>,
+        batch_size: usize,
+    ) -> Self {
+        Self {
+            dataset,
+            sampler,
+            batch_size,
+            drop_last: false,
+            num_workers: 1,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+    
+    /// Create DataLoader with all options
+    /// 全オプション付きDataLoaderを作成
+    pub fn with_options(
+        dataset: &'a D,
+        sampler: Box<dyn Sampler + Send + Sync>,
+        batch_size: usize,
+        drop_last: bool,
+        num_workers: usize,
+    ) -> Self {
+        Self {
+            dataset,
+            sampler,
+            batch_size,
+            drop_last,
+            num_workers,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+    
+    /// Get next batch using Phase 5 API
+    /// フェーズ5 APIを使用して次のバッチを取得
+    pub fn next_batch(&mut self) -> Option<Vec<T>> {
+        let mut indices = Vec::new();
+        
+        for _ in 0..self.batch_size {
+            if let Some(idx) = self.sampler.sample() {
+                indices.push(idx);
+            } else {
+                break;
+            }
+        }
+        
+        if indices.is_empty() {
+            return None;
+        }
+        
+        if self.drop_last && indices.len() < self.batch_size {
+            return None;
+        }
+        
+        // Collect batch items
+        let mut batch = Vec::new();
+        for idx in indices {
+            if let Ok(item) = self.dataset.get_item(idx) {
+                batch.push(item);
+            }
+        }
+        
+        if batch.is_empty() {
+            None
+        } else {
+            Some(batch)
+        }
+    }
+    
+    /// Reset the sampler
+    /// サンプラーをリセット
+    pub fn reset(&mut self) {
+        self.sampler.reset();
+    }
+    
+    /// Check if exhausted
+    /// 枯渇したかチェック
+    pub fn is_empty(&self) -> bool {
+        self.sampler.is_empty()
+    }
+    
+    /// Get batch size
+    /// バッチサイズを取得
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+    
+    /// Get number of workers
+    /// ワーカー数を取得
+    pub fn num_workers(&self) -> usize {
+        self.num_workers
     }
 }
