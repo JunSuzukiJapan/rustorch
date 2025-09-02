@@ -3,19 +3,36 @@
 pub mod adamw;
 pub mod lr_scheduler;
 
+// Phase 2: Advanced Adam-based optimizers
+/// NAdam optimizer - Nesterov-accelerated Adam
+pub mod nadam;
+/// RAdam optimizer - Rectified Adam with variance rectification
+pub mod radam;
+/// Adamax optimizer - Adam with infinity norm
+pub mod adamax;
+
 // Advanced optimizers
 /// AdaBound optimizer bridging Adam and SGD
 pub mod adabound;
 /// LAMB optimizer for large batch training
 pub mod lamb;
-/// L-BFGS second-order optimizer
+/// L-BFGS second-order optimizer with enhanced line search
 pub mod lbfgs;
 
+/// Optimization utilities for memory efficiency and numerical stability
+pub mod utils;
+
+// Standard optimizer exports
 pub use adamw::AdamW;
 pub use lr_scheduler::{
     AnnealStrategy, CosineAnnealingLR, ExponentialLR, LRScheduler, MultiStepLR, OneCycleLR,
     PlateauMode, PolynomialLR, ReduceLROnPlateau, StepLR, ThresholdMode, WarmupScheduler,
 };
+
+// Phase 2 optimizer exports
+pub use nadam::NAdam;
+pub use radam::RAdam;
+pub use adamax::Adamax;
 
 // Re-export advanced optimizers
 pub use adabound::AdaBound;

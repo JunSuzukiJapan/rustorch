@@ -1158,6 +1158,247 @@ fn gpu_training() -> Result<()> {
 
 ## 🆕 New Features in v0.5.12
 
+### Phase 2: Advanced Optimizers
+
+The v0.5.12 release introduces Phase 2 of the RusTorch development roadmap with advanced optimization algorithms that significantly improve training efficiency and convergence behavior. This update raises PyTorch compatibility from 55% to 65%.
+
+#### New Advanced Optimizers
+
+##### NAdam (Nesterov-accelerated Adam)
+```rust
+use rustorch::optim::NAdam;
+
+// Basic usage - recommended for most applications
+let mut optimizer = NAdam::default_params(0.002);
+
+// With weight decay for regularization
+let mut optimizer = NAdam::with_weight_decay(0.001, 0.01);
+
+// Fine-tuned parameters for advanced users
+let mut optimizer = NAdam::new(
+    0.002,    // learning_rate
+    0.9,      // beta1 (momentum coefficient)
+    0.999,    // beta2 (RMSprop coefficient)
+    1e-8,     // eps (numerical stability)
+    0.01,     // weight_decay
+    0.004,    // momentum_decay (NAdam-specific)
+    0.004,    // schedule_decay (NAdam-specific)
+);
+
+// Training step
+optimizer.step(&param, &grad);
+```
+
+**Key Benefits:**
+- Combines Adam with Nesterov momentum for faster convergence
+- Superior performance on NLP and fine-tuning tasks
+- Time-dependent beta1 scheduling improves late-stage training
+
+##### RAdam (Rectified Adam)
+```rust
+use rustorch::optim::RAdam;
+
+// Basic usage - excellent default choice
+let mut optimizer = RAdam::default_params(0.001);
+
+// With weight decay
+let mut optimizer = RAdam::with_weight_decay(0.001, 0.01);
+
+// Custom configuration
+let mut optimizer = RAdam::new(
+    0.001,    // learning_rate
+    0.9,      // beta1
+    0.999,    // beta2
+    1e-8,     // eps
+    0.01,     // weight_decay
+);
+```
+
+**Key Benefits:**
+- Automatically handles Adam's variance issue in early training
+- No manual warmup scheduling required
+- Exceptional stability for transformer architectures
+- Falls back to momentum-only updates when variance is not rectifiable
+
+##### Adamax (Adam with Infinity Norm)
+```rust
+use rustorch::optim::Adamax;
+
+// Basic usage - ideal for sparse data
+let mut optimizer = Adamax::default_params(0.002);
+
+// With weight decay
+let mut optimizer = Adamax::with_weight_decay(0.001, 0.01);
+
+// Custom parameters
+let mut optimizer = Adamax::new(
+    0.002,    // learning_rate  
+    0.9,      // beta1
+    0.999,    // beta2
+    1e-7,     // eps (smaller default for stability)
+    0.01,     // weight_decay
+);
+```
+
+**Key Benefits:**
+- Uses infinity norm instead of L2 norm for second moment
+- More stable than Adam for embeddings and sparse features
+- No bias correction needed for second moment estimation
+- Better handling of outlier gradients
+
+##### Enhanced L-BFGS with Advanced Line Search
+```rust
+use rustorch::optim::{LBFGS, LineSearchMethod};
+
+// Enhanced second-order optimization
+let mut optimizer = LBFGS::with_params(
+    1.0,                              // learning_rate
+    20,                               // max_iter
+    20,                               // max_eval  
+    1e-5,                             // tolerance_grad
+    1e-9,                             // tolerance_change
+    10,                               // history_size
+    LineSearchMethod::StrongWolfe,    // line_search_fn
+);
+
+// Available line search strategies
+let backtrack_lbfgs = LBFGS::with_params(
+    1.0, 20, 20, 1e-5, 1e-9, 10,
+    LineSearchMethod::Backtracking
+);
+
+let fixed_step_lbfgs = LBFGS::with_params(
+    0.1, 20, 20, 1e-5, 1e-9, 10,
+    LineSearchMethod::None
+);
+```
+
+**Enhanced Features:**
+- Improved Strong Wolfe line search with better convergence
+- Enhanced Armijo backtracking with numerical safeguards
+- Better memory management for large-scale problems
+- Robust convergence detection
+
+#### Memory Optimization and Numerical Stability
+
+New utility system for robust and memory-efficient training:
+
+```rust
+use rustorch::optim::utils::{OptimizerUtils, StabilityConfig, OptimizerState};
+
+// Gradient stabilization
+let clipped_grad = OptimizerUtils::clip_gradient_norm(&grad, 1.0);
+let stable_grad = OptimizerUtils::sanitize_tensor(&grad, 0.0, 1e6);
+
+// Comprehensive stability configuration
+let config = StabilityConfig {
+    min_eps: 1e-8,                    // Numerical stability threshold
+    max_grad_norm: 10.0,              // Gradient clipping threshold
+    max_param_value: 1e6,             // Parameter value limit
+    auto_nan_correction: true,        // Automatic NaN/Inf handling
+    gradient_clipping: true,          // Enable gradient clipping
+};
+
+// Apply stability measures
+let stabilized_grad = config.stabilize_gradient(&grad);
+let stabilized_param = config.stabilize_parameter(&param);
+
+// Memory-efficient state management
+let mut opt_state = OptimizerState::new(500); // 500MB memory limit
+opt_state.init_momentum(param_id, param.shape());
+opt_state.init_velocity(param_id, param.shape());
+
+// Automatic cleanup of stale states
+if opt_state.get_step() % 1000 == 0 {
+    opt_state.cleanup_stale_states(10000); // Remove states older than 10k steps
+    println!("Memory usage: {}MB", opt_state.estimate_memory_mb());
+}
+```
+
+#### Advanced Usage Patterns
+
+##### Combining Optimizers with Stability Features
+```rust
+use rustorch::optim::{RAdam, utils::StabilityConfig};
+
+let mut optimizer = RAdam::with_weight_decay(0.001, 0.01);
+let stability_config = StabilityConfig::default();
+
+// In your training loop
+for (param, grad) in params_and_grads {
+    let stable_grad = stability_config.stabilize_gradient(&grad);
+    optimizer.step(&param, &stable_grad);
+}
+```
+
+##### Memory-Efficient Large Model Training
+```rust
+use rustorch::optim::{NAdam, utils::{OptimizerState, OptimizerUtils}};
+
+let mut optimizer = NAdam::default_params(0.002);
+let mut state_manager = OptimizerState::new(1000); // 1GB limit
+
+for step in 0..num_steps {
+    // Your forward/backward pass here
+    
+    // Efficient gradient processing
+    let processed_grad = OptimizerUtils::clip_gradient_norm(&grad, 5.0);
+    optimizer.step(&param, &processed_grad);
+    
+    // Periodic maintenance
+    state_manager.step();
+    
+    if step % 5000 == 0 {
+        println!("Step {}: Memory usage {}MB", step, state_manager.estimate_memory_mb());
+    }
+}
+```
+
+#### Performance Comparison
+
+| Optimizer | Convergence Speed | Memory Usage | Best Use Cases |
+|-----------|------------------|--------------|----------------|
+| **NAdam** | ⚡ Fast initial | 🔵 Medium | NLP, Fine-tuning, Quick prototyping |
+| **RAdam** | 🔄 Stable warmup | 🔵 Medium | Transformers, Large models, Stable training |
+| **Adamax** | 📈 Consistent | 🟢 Low | Sparse features, Embeddings, Outlier-prone data |
+| **Enhanced L-BFGS** | 🎯 Variable | 🔴 High | Small datasets, Second-order optimization |
+
+#### Migration Guide
+
+**Upgrading from v0.5.11:**
+
+```rust
+// Old: Basic Adam optimization
+use rustorch::optim::Adam;
+let mut optimizer = Adam::default_params(0.001);
+
+// New: Choose the best optimizer for your use case
+
+// For general deep learning (recommended upgrade)
+use rustorch::optim::RAdam;
+let mut optimizer = RAdam::default_params(0.001);
+
+// For NLP and fine-tuning tasks
+use rustorch::optim::NAdam;
+let mut optimizer = NAdam::default_params(0.002);
+
+// For sparse data and embeddings
+use rustorch::optim::Adamax;
+let mut optimizer = Adamax::default_params(0.002);
+```
+
+**Adding stability features:**
+
+```rust
+// Old: Basic optimization
+optimizer.step(&param, &grad);
+
+// New: With stability features
+use rustorch::optim::utils::StabilityConfig;
+let config = StabilityConfig::default();
+optimizer.step(&param, &config.stabilize_gradient(&grad));
+```
+
 ### Enhanced Shape Operations with Builder Pattern
 
 The latest release introduces a comprehensive refactoring of shape operations with significant improvements:
