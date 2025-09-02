@@ -84,7 +84,7 @@ impl PlatformOptimizer {
         #[cfg(target_os = "linux")]
         {
             // Linux memory detection would require sys-info crate
-            8 * 1024 * 1024 * 1024
+            return 8 * 1024 * 1024 * 1024;
         }
 
         #[cfg(target_os = "macos")]
