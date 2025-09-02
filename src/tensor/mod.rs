@@ -119,7 +119,7 @@ pub mod operations;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_integration;
 // Enable modules step by step
-mod broadcasting;
+// mod broadcasting; // Temporarily disabled to avoid conflicts with shape_operations
 
 // Re-export important types and functions
 pub use crate::error::RusTorchResult as ParallelResult;

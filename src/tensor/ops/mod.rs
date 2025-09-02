@@ -28,7 +28,8 @@ pub mod utilities; // Re-enabled - essential utility operations
 // 高度操作モジュール
 pub mod advanced_linalg;
 pub mod advanced_math; // Advanced mathematical functions (hyperbolic, inverse trig, special functions)
-pub mod advanced_shape; // Advanced shape operations (expand, repeat, permute)
+// pub mod advanced_shape; // Advanced shape operations (expand, repeat, permute) - superseded by shape_operations
+pub mod shape_operations; // Ownership-aware shape operations (squeeze, unsqueeze, expand, flatten)
 pub mod advanced_stats; // Advanced statistical functions (variance, quantiles, correlations) // Advanced linear algebra (SVD, eigenvalues, norms)
 
 // Re-export commonly used functions for convenience

@@ -376,22 +376,7 @@ impl<T: Float + 'static> Tensor<T> {
 
     /// Creates a view into the tensor.
     /// テンソルのビューを作成します。
-    pub fn view(&self, shape: &[usize]) -> Result<Self, String> {
-        let total_elements = self.data.len();
-        let new_total_elements: usize = shape.iter().product();
-
-        if total_elements != new_total_elements {
-            return Err(format!(
-                "Cannot reshape tensor of {} elements to shape {:?} (requires {} elements)",
-                total_elements, shape, new_total_elements
-            ));
-        }
-
-        match self.data.clone().into_shape_with_order(IxDyn(shape)) {
-            Ok(reshaped) => Ok(Tensor::new(reshaped)),
-            Err(e) => Err(format!("View failed: {}", e)),
-        }
-    }
+    // view() method moved to ops::shape_operations as view_shape() for ownership-aware design
 
     /// Creates a view into the tensor with proper error handling.
     /// 適切なエラーハンドリング付きでテンソルのビューを作成します。
@@ -433,15 +418,7 @@ impl<T: Float + 'static> Tensor<T> {
 
     /// Flattens the tensor to 1D.
     /// テンソルを1次元に平坦化します。
-    pub fn flatten(&self) -> Self {
-        let total_elements = self.data.len();
-        let flattened = self
-            .data
-            .clone()
-            .into_shape_with_order(IxDyn(&[total_elements]))
-            .unwrap();
-        Tensor::new(flattened)
-    }
+    // flatten() method moved to ops::shape_operations for ownership-aware design
 
     /// Returns a reference to the underlying data as a slice.
     /// 基になるデータへのスライス参照を返します。
