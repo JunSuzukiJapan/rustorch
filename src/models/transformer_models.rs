@@ -5,6 +5,7 @@ use crate::autograd::Variable;
 use crate::models::{Model, ModelBuilder, ModelMode};
 use crate::nn::{Dropout, Embedding, LayerNorm, Linear, Module};
 use crate::nn::{PositionalEmbedding, LegacyTransformerEncoder, TransformerEncoderLayer};
+use crate::error::RusTorchResult;
 use num_traits::Float;
 use std::any::Any;
 use std::collections::HashMap;
@@ -72,28 +73,32 @@ where
         num_classes: usize,
         dropout_rate: f64,
         max_seq_length: usize,
-    ) -> Self {
+    ) -> RusTorchResult<Self> {
         let embedding = Embedding::new(vocab_size, d_model, None, None, None);
         let positional_encoding = PositionalEmbedding::new(max_seq_length, d_model);
 
         let _encoder_layer = TransformerEncoderLayer::new(
             d_model,
             nhead,
-            dim_feedforward,
+            Some(dim_feedforward),
             Some(<T as From<f32>>::from(dropout_rate as f32)),
-        );
+            Some("relu".to_string()), // activation
+            Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
+            Some(true),  // batch_first
+            Some(false), // norm_first 
+        )?;
         let encoder = LegacyTransformerEncoder::new(
             num_encoder_layers,
             d_model,
             nhead,
             dim_feedforward,
             Some(<T as From<f32>>::from(dropout_rate as f32)),
-        );
+        )?;
 
         let classifier = Linear::new(d_model, num_classes);
         let dropout = Dropout::new(<T as From<f32>>::from(dropout_rate as f32), false);
 
-        TransformerModel {
+        Ok(TransformerModel {
             embedding,
             positional_encoding,
             encoder,
@@ -103,7 +108,7 @@ where
             vocab_size,
             d_model,
             num_classes,
-        }
+        })
     }
 }
 
@@ -464,22 +469,26 @@ where
 {
     /// 新しい BERT モデルを作成
     /// Create a new BERT model
-    pub fn new(config: BERTConfig) -> Self {
+    pub fn new(config: BERTConfig) -> RusTorchResult<Self> {
         let embeddings = BERTEmbeddings::new(&config);
 
         let _encoder_layer = TransformerEncoderLayer::new(
             config.hidden_size,
             config.num_attention_heads,
-            config.intermediate_size,
+            Some(config.intermediate_size),
             Some(<T as From<f32>>::from(config.dropout_prob as f32)),
-        );
+            Some("relu".to_string()), // activation
+            Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
+            Some(true),  // batch_first
+            Some(false), // norm_first 
+        )?;
         let encoder = LegacyTransformerEncoder::new(
             config.num_hidden_layers,
             config.hidden_size,
             config.num_attention_heads,
             config.intermediate_size,
             Some(<T as From<f32>>::from(config.dropout_prob as f32)),
-        );
+        )?;
 
         let pooler = Linear::new(config.hidden_size, config.hidden_size);
 
@@ -487,19 +496,19 @@ where
             .num_labels
             .map(|num_labels| Linear::new(config.hidden_size, num_labels));
 
-        BERT {
+        Ok(BERT {
             embeddings,
             encoder,
             pooler,
             classifier,
             mode: ModelMode::Train,
             config,
-        }
+        })
     }
 
     /// 事前訓練済み BERT-Base を作成
     /// Create pre-trained BERT-Base
-    pub fn bert_base_uncased(num_labels: Option<usize>) -> Self {
+    pub fn bert_base_uncased(num_labels: Option<usize>) -> RusTorchResult<Self> {
         let mut config = BERTConfig::default();
         config.num_labels = num_labels;
         Self::new(config)
@@ -507,7 +516,7 @@ where
 
     /// 事前訓練済み BERT-Large を作成
     /// Create pre-trained BERT-Large
-    pub fn bert_large_uncased(num_labels: Option<usize>) -> Self {
+    pub fn bert_large_uncased(num_labels: Option<usize>) -> RusTorchResult<Self> {
         let mut config = BERTConfig::default();
         config.hidden_size = 1024;
         config.num_hidden_layers = 24;
@@ -747,7 +756,7 @@ where
 {
     /// 新しい GPT モデルを作成
     /// Create a new GPT model
-    pub fn new(config: GPTConfig) -> Self {
+    pub fn new(config: GPTConfig) -> RusTorchResult<Self> {
         let embeddings = Embedding::new(config.vocab_size, config.n_embd, None, None, None);
         let positional_encoding = PositionalEmbedding::new(config.n_positions, config.n_embd);
 
@@ -756,9 +765,13 @@ where
             decoder_layers.push(TransformerEncoderLayer::new(
                 config.n_embd,
                 config.n_head,
-                config.n_embd * 4, // FFN の次元
+                Some(config.n_embd * 4), // FFN の次元
                 Some(<T as From<f32>>::from(config.dropout as f32)),
-            ));
+                Some("relu".to_string()), // activation
+                Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
+                Some(true),  // batch_first
+                Some(false), // norm_first 
+            )?);
         }
 
         let layer_norm = LayerNorm::new(
@@ -769,7 +782,7 @@ where
         let lm_head = Linear::new(config.n_embd, config.vocab_size);
         let dropout = Dropout::new(<T as From<f32>>::from(config.dropout as f32), false);
 
-        GPT {
+        Ok(GPT {
             embeddings,
             positional_encoding,
             decoder_layers,
@@ -778,18 +791,18 @@ where
             dropout,
             mode: ModelMode::Train,
             config,
-        }
+        })
     }
 
     /// GPT-2 Small を作成
     /// Create GPT-2 Small
-    pub fn gpt2_small() -> Self {
+    pub fn gpt2_small() -> RusTorchResult<Self> {
         Self::new(GPTConfig::default())
     }
 
     /// GPT-2 Medium を作成
     /// Create GPT-2 Medium
-    pub fn gpt2_medium() -> Self {
+    pub fn gpt2_medium() -> RusTorchResult<Self> {
         let config = GPTConfig {
             n_embd: 1024,
             n_layer: 24,
@@ -830,7 +843,7 @@ where
 
         // デコーダー層を順次適用
         for layer in &self.decoder_layers {
-            hidden = layer.forward(&hidden, None);
+            hidden = layer.forward(&hidden, None, None, None).unwrap_or(hidden);
         }
 
         // 最終 Layer Normalization
@@ -1069,7 +1082,7 @@ where
             num_classes,
             self.dropout_rate,
             self.max_seq_length,
-        )
+        ).expect("Failed to create TransformerModel")
     }
 }
 
@@ -1199,6 +1212,6 @@ where
     type Model = BERT<T>;
 
     fn build(self) -> Self::Model {
-        BERT::new(self.config)
+        BERT::new(self.config).expect("Failed to create BERT")
     }
 }

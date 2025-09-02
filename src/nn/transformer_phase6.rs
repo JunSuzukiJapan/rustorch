@@ -2,7 +2,7 @@
 //! フェーズ6 Transformer実装 - PyTorch互換
 
 use crate::autograd::Variable;
-use crate::error::RusTorchError;
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::nn::{Dropout, LayerNorm, Linear, Module};
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
@@ -14,7 +14,7 @@ use std::iter::Sum;
 /// Multi-head Attention layer (Phase 6 - PyTorch compatible)
 /// マルチヘッドアテンション層（フェーズ6 - PyTorch互換）
 #[derive(Debug)]
-pub struct MultiheadAttention<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive> {
+pub struct MultiheadAttention<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
     /// Embedding dimension
     /// 埋め込み次元
     embed_dim: usize,
@@ -63,7 +63,7 @@ pub struct MultiheadAttention<T: Float + Send + Sync + 'static + ScalarOperand +
 impl<T> MultiheadAttention<T>
 where
     T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display,
+        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
 {
     /// Creates a new MultiheadAttention layer
     /// 新しいMultiheadAttention層を作成します
@@ -75,7 +75,7 @@ where
         kdim: Option<usize>,
         vdim: Option<usize>,
         batch_first: Option<bool>,
-    ) -> Result<Self, RusTorchError> {
+    ) -> RusTorchResult<Self> {
         if embed_dim == 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "MultiheadAttention::new".to_string(),
@@ -146,7 +146,7 @@ where
         need_weights: Option<bool>,
         attn_mask: Option<&Variable<T>>,
         average_attn_weights: Option<bool>,
-    ) -> Result<(Variable<T>, Option<Variable<T>>), RusTorchError> {
+    ) -> RusTorchResult<(Variable<T>, Option<Variable<T>>)> {
         let need_weights = need_weights.unwrap_or(true);
         let _average_attn_weights = average_attn_weights.unwrap_or(true);
 
@@ -196,7 +196,7 @@ where
 
     /// Split combined QKV projection into separate Q, K, V tensors
     /// 結合されたQKV射影を別々のQ、K、Vテンソルに分割
-    fn split_qkv(&self, qkv: &Variable<T>) -> Result<(Variable<T>, Variable<T>, Variable<T>), RusTorchError> {
+    fn split_qkv(&self, qkv: &Variable<T>) -> RusTorchResult<(Variable<T>, Variable<T>, Variable<T>)> {
         let qkv_binding = qkv.data();
         let qkv_data = qkv_binding.read().unwrap();
         let qkv_shape = qkv_data.shape();
@@ -220,8 +220,9 @@ where
         }
 
         let qkv_slice = qkv_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get QKV data slice".to_string(),
+                source: None,
             }
         })?;
 
@@ -266,12 +267,13 @@ where
         input: &Variable<T>,
         batch_size: usize,
         seq_length: usize,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get input data slice".to_string(),
+                source: None,
             }
         })?;
 
@@ -303,7 +305,7 @@ where
         value: &Variable<T>,
         attn_mask: Option<&Variable<T>>,
         _key_padding_mask: Option<&Variable<T>>,
-    ) -> Result<(Variable<T>, Variable<T>), RusTorchError> {
+    ) -> RusTorchResult<(Variable<T>, Variable<T>)> {
         // Compute attention scores: Q @ K^T
         let scores = self.batch_matmul(query, key, true)?;
         
@@ -332,7 +334,7 @@ where
 
     /// Batch matrix multiplication with optional transpose
     /// オプションの転置付きバッチ行列乗算
-    fn batch_matmul(&self, a: &Variable<T>, b: &Variable<T>, transpose_b: bool) -> Result<Variable<T>, RusTorchError> {
+    fn batch_matmul(&self, a: &Variable<T>, b: &Variable<T>, transpose_b: bool) -> RusTorchResult<Variable<T>> {
         // Simplified matrix multiplication implementation
         // For production, this should use optimized BLAS routines
         let a_binding = a.data();
@@ -368,12 +370,13 @@ where
 
     /// Scale tensor by a scalar value
     /// テンソルをスカラー値でスケール
-    fn scale_tensor(&self, input: &Variable<T>, scale: T) -> Result<Variable<T>, RusTorchError> {
+    fn scale_tensor(&self, input: &Variable<T>, scale: T) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let input_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get input data slice for scaling".to_string(),
+                source: None,
             }
         })?;
 
@@ -384,21 +387,23 @@ where
 
     /// Apply attention mask
     /// アテンションマスクを適用
-    fn apply_attention_mask(&self, scores: &Variable<T>, mask: &Variable<T>) -> Result<Variable<T>, RusTorchError> {
+    fn apply_attention_mask(&self, scores: &Variable<T>, mask: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let scores_binding = scores.data();
         let scores_data = scores_binding.read().unwrap();
         let mask_binding = mask.data();
         let mask_data = mask_binding.read().unwrap();
 
         let scores_slice = scores_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get scores data slice".to_string(),
+                source: None,
             }
         })?;
 
         let mask_slice = mask_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get mask data slice".to_string(),
+                source: None,
             }
         })?;
 
@@ -421,13 +426,14 @@ where
 
     /// Softmax implementation for attention weights
     /// アテンション重みのSoftmax実装
-    fn softmax(&self, input: &Variable<T>) -> Result<Variable<T>, RusTorchError> {
+    fn softmax(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let input_shape = input_data.shape();
         let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get input data slice for softmax".to_string(),
+                source: None,
             }
         })?;
 
@@ -469,12 +475,13 @@ where
         input: &Variable<T>,
         batch_size: usize,
         seq_length: usize,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get input data slice for reshaping".to_string(),
+                source: None,
             }
         })?;
 
@@ -528,7 +535,7 @@ where
 impl<T> Module<T> for MultiheadAttention<T>
 where
     T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display,
+        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For Module trait, use input as query, key, and value
@@ -557,7 +564,7 @@ where
 /// Positional Encoding for Transformer
 /// Transformer用位置エンコーディング
 #[derive(Debug)]
-pub struct PositionalEncoding<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive> {
+pub struct PositionalEncoding<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
     /// Maximum sequence length
     /// 最大シーケンス長
     max_len: usize,
@@ -574,11 +581,11 @@ pub struct PositionalEncoding<T: Float + Send + Sync + 'static + ScalarOperand +
 impl<T> PositionalEncoding<T>
 where
     T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display,
+        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
 {
     /// Create new positional encoding
     /// 新しい位置エンコーディングを作成
-    pub fn new(d_model: usize, max_len: Option<usize>) -> Result<Self, RusTorchError> {
+    pub fn new(d_model: usize, max_len: Option<usize>) -> RusTorchResult<Self> {
         let max_len = max_len.unwrap_or(5000);
         
         if d_model == 0 {
@@ -619,7 +626,7 @@ where
 
     /// Add positional encoding to input
     /// 入力に位置エンコーディングを追加
-    pub fn forward(&self, input: &Variable<T>) -> Result<Variable<T>, RusTorchError> {
+    pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let input_shape = input_data.shape();
@@ -649,16 +656,18 @@ where
 
         // Add positional encoding (simplified implementation)
         let input_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get input data slice".to_string(),
+                source: None,
             }
         })?;
 
         let pe_binding = self.pe.data();
         let pe_data = pe_binding.read().unwrap();
         let pe_slice = pe_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorError {
+            RusTorchError::TensorOp {
                 message: "Failed to get PE data slice".to_string(),
+                source: None,
             }
         })?;
 
@@ -697,7 +706,7 @@ where
 /// A single layer of the transformer encoder with multi-head self-attention and feed-forward network.
 /// マルチヘッド自己アテンションとフィードフォワードネットワークを持つTransformerエンコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerEncoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive> {
+pub struct TransformerEncoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
     /// Self-attention mechanism
     /// 自己アテンション機構
     self_attn: MultiheadAttention<T>,
@@ -747,7 +756,7 @@ where
         layer_norm_eps: Option<T>,
         batch_first: Option<bool>,
         norm_first: Option<bool>,
-    ) -> Result<Self, RusTorchError> {
+    ) -> RusTorchResult<Self> {
         let dim_feedforward = dim_feedforward.unwrap_or(2048);
         let dropout_p = dropout.unwrap_or_else(|| T::from(0.1).unwrap());
         let activation = activation.unwrap_or_else(|| "relu".to_string());
@@ -775,8 +784,8 @@ where
         let norm2 = LayerNorm::new(vec![d_model], Some(layer_norm_eps), Some(true));
 
         // Create dropout layers
-        let dropout1 = Dropout::new(dropout_p);
-        let dropout2 = Dropout::new(dropout_p);
+        let dropout1 = Dropout::new(dropout_p, false);
+        let dropout2 = Dropout::new(dropout_p, false);
 
         Ok(TransformerEncoderLayer {
             self_attn,
@@ -798,7 +807,7 @@ where
         src_mask: Option<&Variable<T>>,
         src_key_padding_mask: Option<&Variable<T>>,
         is_causal: Option<bool>,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         // Self-attention block
         let (attn_output, _) = self.self_attn.forward(
             src, src, src, 
@@ -832,7 +841,7 @@ where
 
     /// Apply activation function
     /// 活性化関数を適用
-    fn apply_activation(&self, input: &Variable<T>) -> Result<Variable<T>, RusTorchError> {
+    fn apply_activation(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         match self.activation.as_str() {
             "relu" => {
                 // For now, return input as-is until ReLU activation is properly implemented
@@ -844,10 +853,9 @@ where
                 // TODO: Implement proper GELU activation
                 Ok(input.clone())
             },
-            _ => Err(RusTorchError::UnsupportedOperation {
-                operation: format!("activation function: {}", self.activation),
-                details: "Only 'relu' and 'gelu' are supported".to_string(),
-            }),
+            _ => Err(RusTorchError::UnsupportedOperation(
+                format!("activation function '{}': Only 'relu' and 'gelu' are supported", self.activation)
+            )),
         }
     }
 
@@ -870,7 +878,7 @@ where
 /// A single layer of the transformer decoder with self-attention, cross-attention and feed-forward network.
 /// 自己アテンション、クロスアテンション、フィードフォワードネットワークを持つTransformerデコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerDecoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive> {
+pub struct TransformerDecoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
     /// Self-attention mechanism
     /// 自己アテンション機構
     self_attn: MultiheadAttention<T>,
@@ -932,7 +940,7 @@ where
         layer_norm_eps: Option<T>,
         batch_first: Option<bool>,
         norm_first: Option<bool>,
-    ) -> Result<Self, RusTorchError> {
+    ) -> RusTorchResult<Self> {
         let dim_feedforward = dim_feedforward.unwrap_or(2048);
         let dropout_p = dropout.unwrap_or_else(|| T::from(0.1).unwrap());
         let activation = activation.unwrap_or_else(|| "relu".to_string());
@@ -972,9 +980,9 @@ where
         let norm3 = LayerNorm::new(vec![d_model], Some(layer_norm_eps), Some(true));
 
         // Create dropout layers
-        let dropout1 = Dropout::new(dropout_p);
-        let dropout2 = Dropout::new(dropout_p);
-        let dropout3 = Dropout::new(dropout_p);
+        let dropout1 = Dropout::new(dropout_p, false);
+        let dropout2 = Dropout::new(dropout_p, false);
+        let dropout3 = Dropout::new(dropout_p, false);
 
         Ok(TransformerDecoderLayer {
             self_attn,
@@ -1003,7 +1011,7 @@ where
         memory_key_padding_mask: Option<&Variable<T>>,
         tgt_is_causal: Option<bool>,
         memory_is_causal: Option<bool>,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         // Self-attention block
         let (tgt2, _) = self.self_attn.forward(
             tgt, tgt, tgt,
@@ -1053,7 +1061,7 @@ where
 
     /// Apply activation function
     /// 活性化関数を適用
-    fn apply_activation(&self, input: &Variable<T>) -> Result<Variable<T>, RusTorchError> {
+    fn apply_activation(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         match self.activation.as_str() {
             "relu" => {
                 // For now, return input as-is until ReLU activation is properly implemented
@@ -1065,10 +1073,9 @@ where
                 // TODO: Implement proper GELU activation
                 Ok(input.clone())
             },
-            _ => Err(RusTorchError::UnsupportedOperation {
-                operation: format!("activation function: {}", self.activation),
-                details: "Only 'relu' and 'gelu' are supported".to_string(),
-            }),
+            _ => Err(RusTorchError::UnsupportedOperation(
+                format!("activation function '{}': Only 'relu' and 'gelu' are supported", self.activation)
+            )),
         }
     }
 
@@ -1091,7 +1098,7 @@ where
 /// A complete transformer model with encoder and decoder stacks.
 /// エンコーダーとデコーダーのスタックを持つ完全なTransformerモデル。
 #[derive(Debug)]
-pub struct Transformer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive> {
+pub struct Transformer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
     /// Model dimension
     /// モデル次元
     d_model: usize,
@@ -1153,7 +1160,7 @@ where
         layer_norm_eps: Option<T>,
         batch_first: Option<bool>,
         norm_first: Option<bool>,
-    ) -> Result<Self, RusTorchError> {
+    ) -> RusTorchResult<Self> {
         let d_model = d_model.unwrap_or(512);
         let nhead = nhead.unwrap_or(8);
         let num_encoder_layers = num_encoder_layers.unwrap_or(6);
@@ -1251,7 +1258,7 @@ where
         src_key_padding_mask: Option<&Variable<T>>,
         tgt_key_padding_mask: Option<&Variable<T>>,
         memory_key_padding_mask: Option<&Variable<T>>,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding to source
         let src_with_pe = self.pos_encoder.forward(src)?;
         
@@ -1294,7 +1301,7 @@ where
         src: &Variable<T>,
         src_mask: Option<&Variable<T>>,
         src_key_padding_mask: Option<&Variable<T>>,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding
         let src_with_pe = self.pos_encoder.forward(src)?;
         
@@ -1322,7 +1329,7 @@ where
         memory_mask: Option<&Variable<T>>,
         tgt_key_padding_mask: Option<&Variable<T>>,
         memory_key_padding_mask: Option<&Variable<T>>,
-    ) -> Result<Variable<T>, RusTorchError> {
+    ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding
         let tgt_with_pe = self.pos_encoder.forward(tgt)?;
         
@@ -1490,5 +1497,101 @@ mod tests {
             Some(513), Some(8), None, None, None, None, None, None, None, None, None, None
         );
         assert!(result.is_err());
+    }
+}
+
+// Module trait implementations for Phase 6 components
+// Phase 6コンポーネントのModule trait実装
+
+impl<T> Module<T> for TransformerEncoderLayer<T>
+where
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+{
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        self.forward(input, None, None, Some(false)).unwrap()
+    }
+
+    fn parameters(&self) -> Vec<Variable<T>> {
+        let mut params = Vec::new();
+        params.extend(self.self_attn.parameters());
+        params.extend(self.linear1.parameters());
+        params.extend(self.linear2.parameters());
+        params.extend(self.norm1.parameters());
+        params.extend(self.norm2.parameters());
+        params
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl<T> Module<T> for TransformerDecoderLayer<T>
+where
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+{
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        // For decoder, use input as both tgt and memory
+        self.forward(input, input, None, None, None, None, Some(false), Some(false)).unwrap()
+    }
+
+    fn parameters(&self) -> Vec<Variable<T>> {
+        let mut params = Vec::new();
+        params.extend(self.self_attn.parameters());
+        params.extend(self.multihead_attn.parameters());
+        params.extend(self.linear1.parameters());
+        params.extend(self.linear2.parameters());
+        params.extend(self.norm1.parameters());
+        params.extend(self.norm2.parameters());
+        params.extend(self.norm3.parameters());
+        params
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl<T> Module<T> for Transformer<T>
+where
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+{
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        // For decoder-only mode, use input as both src and tgt
+        self.forward(input, input, None, None, None, None, None, None).unwrap()
+    }
+
+    fn parameters(&self) -> Vec<Variable<T>> {
+        let mut params = Vec::new();
+        for layer in &self.encoder_layers {
+            params.extend(layer.parameters());
+        }
+        for layer in &self.decoder_layers {
+            params.extend(layer.parameters());
+        }
+        params.extend(self.pos_encoder.parameters());
+        params
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+}
+
+impl<T> Module<T> for PositionalEncoding<T>
+where
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+{
+    fn forward(&self, input: &Variable<T>) -> Variable<T> {
+        self.forward(input).unwrap()
+    }
+
+    fn parameters(&self) -> Vec<Variable<T>> {
+        // Positional encoding has no trainable parameters
+        Vec::new()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

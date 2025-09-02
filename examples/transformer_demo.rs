@@ -7,23 +7,25 @@ use rustorch::nn::{
     TransformerEncoder, TransformerEncoderLayer,
 };
 use rustorch::tensor::Tensor;
-use rustorch::error::RusTorchError;
+use rustorch::error::{RusTorchError, RusTorchResult};
 
-fn main() {
+fn main() -> RusTorchResult<()> {
     println!("=== RusTorch Transformer Demo ===");
     println!("Transformerアーキテクチャのデモンストレーション");
 
     // Test individual components
-    test_layer_norm();
-    test_multi_head_attention();
-    test_transformer_encoder_layer();
-    test_complete_transformer_pipeline();
+    test_layer_norm()?;
+    test_multi_head_attention()?;
+    test_transformer_encoder_layer()?;
+    test_complete_transformer_pipeline()?;
 
     println!("\n✅ All Transformer tests completed successfully!");
     println!("✅ すべてのTransformerテストが正常に完了しました！");
+    
+    Ok(())
 }
 
-fn test_layer_norm() {
+fn test_layer_norm() -> RusTorchResult<()> {
     println!("\n--- Layer Normalization Test ---");
     println!("--- レイヤー正規化テスト ---");
 
@@ -67,16 +69,18 @@ fn test_layer_norm() {
         "Number of parameters: {} (should be 2: weight + bias)",
         params.len()
     );
+    
+    Ok(())
 }
 
-fn test_multi_head_attention() {
+fn test_multi_head_attention() -> RusTorchResult<()> {
     println!("\n--- Multi-Head Attention Test (Phase 6) ---");
     println!("--- マルチヘッドアテンションテスト（フェーズ6） ---");
 
     // Create MultiheadAttention: embed_dim=256, num_heads=8
     let embed_dim = 256;
     let num_heads = 8;
-    let mha = MultiheadAttention::<f32>::new(embed_dim, num_heads, None, None, None, None, None).unwrap();
+    let mha = MultiheadAttention::<f32>::new(embed_dim, num_heads, None, None, None, None, None)?;
 
     println!(
         "Created MultiheadAttention: embed_dim={}, num_heads={}, head_dim={}",
@@ -101,7 +105,7 @@ fn test_multi_head_attention() {
     println!("Input shape: {:?}", input.data().read().unwrap().shape());
 
     // Forward pass (self-attention) - Phase 6 API
-    let (output, _attn_weights) = mha.forward(&input, &input, &input, None, None, None, None).unwrap();
+    let (output, _attn_weights) = mha.forward(&input, &input, &input, None, None, None, None)?;
     let output_binding = output.data();
     let output_data = output_binding.read().unwrap();
 
@@ -114,9 +118,11 @@ fn test_multi_head_attention() {
         "Number of parameters: {} (Phase 6 implementation)",
         params.len()
     );
+    
+    Ok(())
 }
 
-fn test_transformer_encoder_layer() {
+fn test_transformer_encoder_layer() -> RusTorchResult<()> {
     println!("\n--- Transformer Encoder Layer Test (Phase 6) ---");
     println!("--- Transformerエンコーダー層テスト（フェーズ6） ---");
 
@@ -125,7 +131,7 @@ fn test_transformer_encoder_layer() {
     let num_heads = 4;
     let d_ff = 512;
 
-    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
+    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None)?;
 
     println!(
         "Created TransformerEncoderLayer: d_model={}, num_heads={}, d_ff={}",
@@ -148,7 +154,7 @@ fn test_transformer_encoder_layer() {
     println!("Input shape: {:?}", input.data().read().unwrap().shape());
 
     // Forward pass - Phase 6 API
-    let output = encoder_layer.forward(&input, None, None, None).unwrap();
+    let output = encoder_layer.forward(&input, None, None, None)?;
     let output_binding = output.data();
     let output_data = output_binding.read().unwrap();
 
@@ -161,9 +167,11 @@ fn test_transformer_encoder_layer() {
         "Number of parameters: {} (multiple components)",
         params.len()
     );
+    
+    Ok(())
 }
 
-fn test_complete_transformer_pipeline() {
+fn test_complete_transformer_pipeline() -> RusTorchResult<()> {
     println!("\n--- Complete Transformer Pipeline Test ---");
     println!("--- 完全なTransformerパイプラインテスト ---");
 
@@ -194,7 +202,7 @@ fn test_complete_transformer_pipeline() {
 
     // Step 2: Create Transformer encoder (using Phase 6 implementation)
     // Note: Using individual layers for demonstration as full encoder needs update
-    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
+    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None)?;
 
     // Step 3: Create input token sequences
     let token_sequences = vec![
@@ -252,7 +260,7 @@ fn test_complete_transformer_pipeline() {
     );
 
     // Step 6: Pass through Transformer encoder layer (Phase 6)
-    let encoder_output = encoder_layer.forward(&positioned_embeddings, None, None, None).unwrap();
+    let encoder_output = encoder_layer.forward(&positioned_embeddings, None, None, None)?;
 
     println!(
         "Step 4: Transformer output shape: {:?}",
@@ -289,6 +297,8 @@ fn test_complete_transformer_pipeline() {
 
     println!("\n🎉 Complete Transformer pipeline working!");
     println!("🎉 完全なTransformerパイプラインが動作しています！");
+    
+    Ok(())
 }
 
 #[cfg(test)]
@@ -296,7 +306,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_transformer_pipeline() {
+    fn test_transformer_pipeline() -> RusTorchResult<()> {
         let vocab_size = 100;
         let d_model = 64;
         let num_heads = 4;
@@ -307,7 +317,7 @@ mod tests {
         // Create components with Phase 6 implementation
         let word_embedding = Embedding::<f32>::new(vocab_size, d_model, Some(0), None, None);
         let pos_encoding = PositionalEncoding::<f32>::new(d_model, max_length, None);
-        let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
+        let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None)?;
 
         // Test with small sequence
         let token_input = Variable::new(
@@ -340,7 +350,7 @@ mod tests {
         let positioned = pos_encoding.forward(&word_embeddings);
 
         // Now test full transformer encoder layer forward pass (Phase 6)
-        let output = encoder_layer.forward(&positioned, None, None, None).unwrap();
+        let output = encoder_layer.forward(&positioned, None, None, None)?;
 
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
@@ -362,5 +372,7 @@ mod tests {
             d_model
         );
         println!("✓ Phase 6 MultiheadAttention working with PyTorch-compatible API!");
+        
+        Ok(())
     }
 }

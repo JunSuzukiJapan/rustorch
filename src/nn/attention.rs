@@ -16,7 +16,7 @@ use std::iter::Sum;
 /// "Attention Is All You Need"のマルチヘッドアテンション機構を実装します。
 #[derive(Debug)]
 pub struct MultiheadAttention<
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Sum,
 > {
     /// Embedding dimension
     /// 埋め込み次元
@@ -269,7 +269,7 @@ where
         for b in 0..batch_size {
             for h in 0..self.num_heads {
                 for s in 0..seq_length {
-                    for d in 0..self.d_k {
+                    for d in 0..self.head_dim {
                         let original_idx =
                             b * seq_length * self.embed_dim + s * self.embed_dim + h * self.head_dim + d;
                         reshaped_data.push(data_vec[original_idx]);
@@ -399,7 +399,7 @@ where
         for b in 0..batch_size {
             for s in 0..seq_length {
                 for h in 0..self.num_heads {
-                    for d in 0..self.d_k {
+                    for d in 0..self.head_dim {
                         let input_idx = b * self.num_heads * seq_length * self.head_dim
                             + h * seq_length * self.head_dim
                             + s * self.head_dim
@@ -437,7 +437,8 @@ where
     /// MultiHeadAttentionの順伝播（セルフアテンション版）
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For self-attention, query, key, and value are all the same input
-        self.forward(input, input, input, None)
+        let (output, _) = self.forward(input, input, input, None, Some(false), None, Some(true));
+        output
     }
 
     /// Get all parameters of the multi-head attention layer
@@ -486,7 +487,8 @@ where
         input: &Variable<T>,
         mask: Option<&Variable<T>>,
     ) -> Variable<T> {
-        self.forward(input, input, input, mask)
+        let (output, _) = self.forward(input, input, input, mask, Some(false), None, Some(true));
+        output
     }
 }
 
@@ -494,7 +496,7 @@ where
 /// エンコーダー・デコーダーアーキテクチャ用クロスアテンション層
 #[derive(Debug)]
 pub struct CrossAttention<
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Sum,
 > {
     /// Underlying multi-head attention mechanism
     /// 基底のマルチヘッドアテンション機構
@@ -522,7 +524,7 @@ where
     /// 新しいCrossAttention層を作成
     pub fn new(d_model: usize, num_heads: usize, dropout: Option<T>) -> Self {
         CrossAttention {
-            attention: MultiheadAttention::new(d_model, num_heads, T::zero(), true, None, None, false),
+            attention: MultiheadAttention::new(d_model, num_heads, Some(T::zero()), Some(true), None, None, Some(false)),
         }
     }
 
@@ -535,7 +537,8 @@ where
         value: &Variable<T>,
         mask: Option<&Variable<T>>,
     ) -> Variable<T> {
-        self.attention.forward(query, key, value, mask)
+        let (output, _) = self.attention.forward(query, key, value, mask, Some(false), None, Some(true));
+        output
     }
 
     /// Forward pass with separate query and key-value inputs (encoder-decoder style)
@@ -546,7 +549,8 @@ where
         key_value: &Variable<T>,
         mask: Option<&Variable<T>>,
     ) -> Variable<T> {
-        self.attention.forward(query, key_value, key_value, mask)
+        let (output, _) = self.attention.forward(query, key_value, key_value, mask, Some(false), None, Some(true));
+        output
     }
 }
 
@@ -569,7 +573,8 @@ where
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For Module trait, assume self-attention behavior
-        self.attention.forward(input, input, input, None)
+        let (output, _) = self.attention.forward(input, input, input, None, Some(false), None, Some(true));
+        output
     }
 
     fn parameters(&self) -> Vec<Variable<T>> {
@@ -587,7 +592,7 @@ mod tests {
 
     #[test]
     fn test_multi_head_attention_creation() {
-        let mha = MultiheadAttention::<f32>::new(512, 8, 0.0, true, None, None, false);
+        let mha = MultiheadAttention::<f32>::new(512, 8, Some(0.0), Some(true), None, None, Some(false));
 
         assert_eq!(mha.num_heads(), 8);
         assert_eq!(mha.embed_dim(), 512);
@@ -599,7 +604,7 @@ mod tests {
 
     #[test]
     fn test_self_attention_creation() {
-        let self_attn = SelfAttention::<f32>::new(256, 4, None, None);
+        let self_attn = SelfAttention::<f32>::new(256, 4, None, None, None, None, None);
 
         let params = self_attn.parameters();
         assert_eq!(params.len(), 8); // Same as MultiHeadAttention
@@ -616,13 +621,13 @@ mod tests {
     #[test]
     #[ignore] // TODO: Fix 3D tensor matrix multiplication in linear layer
     fn test_attention_forward_shape() {
-        let mha = MultiheadAttention::<f32>::new(64, 4, 0.0, true, None, None, false);
+        let mha = MultiheadAttention::<f32>::new(64, 4, Some(0.0), Some(true), None, None, Some(false));
 
         // Create input: batch_size=2, seq_length=10, d_model=64
         let input_data: Vec<f32> = (0..2 * 10 * 64).map(|i| i as f32 * 0.01).collect();
         let input = Variable::new(Tensor::from_vec(input_data, vec![2, 10, 64]), false);
 
-        let output = mha.forward(&input, &input, &input, None);
+        let (output, _attention_weights) = mha.forward(&input, &input, &input, None, None, None, None);
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
 
