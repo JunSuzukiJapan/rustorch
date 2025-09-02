@@ -6,6 +6,7 @@ use num_traits::Float;
 use std::marker::PhantomData;
 use std::ops;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 // Re-export Phase 4 gradient utilities
 pub use context::{
@@ -38,12 +39,16 @@ pub trait GradFn<T: Float + Send + Sync + 'static>: Send + Sync {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>>;
 }
 
+// Global counter for unique Variable IDs
+static VARIABLE_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 /// A variable that supports automatic differentiation.
 /// 自動微分をサポートする変数
 pub struct Variable<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     data: Arc<RwLock<Tensor<T>>>,
     grad: Arc<RwLock<Option<Tensor<T>>>>,
     requires_grad: bool,
+    unique_id: usize,
     grad_fn: Option<Arc<dyn GradFn<T>>>,
     _marker: PhantomData<T>,
 }
@@ -66,6 +71,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: self.data.clone(),
             grad: self.grad.clone(),
             requires_grad: self.requires_grad,
+            unique_id: self.unique_id,
             grad_fn: self.grad_fn.clone(),
             _marker: PhantomData,
         }
@@ -82,9 +88,16 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
             requires_grad,
+            unique_id: VARIABLE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
             grad_fn: None,
             _marker: PhantomData,
         }
+    }
+
+    /// Returns the unique identifier for this Variable
+    /// この変数の一意識別子を返します
+    pub fn id(&self) -> usize {
+        self.unique_id
     }
 
     /// Creates a new variable with gradient function
@@ -98,6 +111,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
             requires_grad,
+            unique_id: VARIABLE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
             grad_fn,
             _marker: PhantomData,
         }
@@ -431,57 +445,42 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-// Add missing operator implementations for Variable<T> (owned) operations
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add
-    for Variable<T>
-{
-    type Output = Variable<T>;
+// Macro for implementing binary operations to reduce code duplication
+macro_rules! impl_binary_op_owned {
+    ($trait:ident, $method:ident) => {
+        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
+            ops::$trait for Variable<T>
+        {
+            type Output = Variable<T>;
 
-    fn add(self, rhs: Self) -> Self::Output {
-        &self + &rhs
-    }
+            fn $method(self, rhs: Self) -> Self::Output {
+                (&self).$method(&rhs)
+            }
+        }
+    };
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul
-    for Variable<T>
-{
-    type Output = Variable<T>;
+macro_rules! impl_binary_op_mixed {
+    ($trait:ident, $method:ident) => {
+        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+            ops::$trait<&Variable<T>> for Variable<T>
+        {
+            type Output = Variable<T>;
 
-    fn mul(self, rhs: Self) -> Self::Output {
-        &self * &rhs
-    }
+            fn $method(self, rhs: &Variable<T>) -> Self::Output {
+                (&self).$method(rhs)
+            }
+        }
+    };
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub
-    for Variable<T>
-{
-    type Output = Variable<T>;
+// Apply macros for all binary operations
+impl_binary_op_owned!(Add, add);
+impl_binary_op_owned!(Mul, mul);
+impl_binary_op_owned!(Sub, sub);
 
-    fn sub(self, rhs: Self) -> Self::Output {
-        &self - &rhs
-    }
-}
-
-// Add mixed reference/owned operations
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
-    ops::Add<&Variable<T>> for Variable<T>
-{
-    type Output = Variable<T>;
-
-    fn add(self, rhs: &Variable<T>) -> Self::Output {
-        &self + rhs
-    }
-}
-
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
-    ops::Mul<&Variable<T>> for Variable<T>
-{
-    type Output = Variable<T>;
-
-    fn mul(self, rhs: &Variable<T>) -> Self::Output {
-        &self * rhs
-    }
-}
+impl_binary_op_mixed!(Add, add);
+impl_binary_op_mixed!(Mul, mul);
 
 // Add division operator
 impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Div

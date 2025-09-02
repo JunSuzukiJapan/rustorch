@@ -2,6 +2,7 @@
 //! 高次微分：ヤコビアンとヘッシアン行列の計算
 
 use crate::autograd::{Variable, grad_utils::{grad, GradError}};
+use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
 
@@ -11,7 +12,7 @@ pub fn jacobian<T, F>(
     func: F,
     inputs: &Variable<T>,
     create_graph: bool,
-) -> Result<Tensor<T>, GradError>
+) -> Result<Tensor<T>, RusTorchError>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
@@ -70,7 +71,7 @@ where
 pub fn hessian<T, F>(
     func: F,
     inputs: &Variable<T>,
-) -> Result<Tensor<T>, GradError>
+) -> Result<Tensor<T>, RusTorchError>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
@@ -131,7 +132,7 @@ pub fn hvp<T, F>(
     func: F,
     inputs: &Variable<T>,
     v: &Variable<T>,
-) -> Result<Variable<T>, GradError>
+) -> Result<Variable<T>, RusTorchError>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
@@ -143,9 +144,10 @@ where
 
     // Validate dimensions
     if input_data.shape() != v_data.shape() {
-        return Err(GradError::InvalidInput(
-            "Input and vector must have the same shape".to_string()
-        ));
+        return Err(RusTorchError::ShapeMismatch {
+            expected: input_data.shape().to_vec(),
+            actual: v_data.shape().to_vec()
+        });
     }
 
     // Create input variable with gradients
@@ -158,9 +160,10 @@ where
     let output_data_guard = output.data();
     let output_data = output_data_guard.read().unwrap();
     if output_data.numel() != 1 {
-        return Err(GradError::InvalidInput(
-            "Function output must be scalar for HVP computation".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "hvp".to_string(),
+            message: "Function output must be scalar for HVP computation".to_string()
+        });
     }
 
     // Compute first-order gradient
@@ -185,14 +188,14 @@ where
         if let Some(hvp_tensor) = hvp_gradients[0].clone() {
             Ok(Variable::new(hvp_tensor, false))
         } else {
-            Err(GradError::ComputationError(
-                "Failed to compute HVP".to_string()
-            ))
+            Err(RusTorchError::Autograd {
+                message: "Failed to compute HVP".to_string()
+            })
         }
     } else {
-        Err(GradError::ComputationError(
-            "Failed to compute first-order gradient".to_string()
-        ))
+        Err(RusTorchError::Autograd {
+            message: "Failed to compute first-order gradient".to_string()
+        })
     }
 }
 

@@ -5,6 +5,7 @@ use rustorch::autograd::{
     Variable, grad, jacobian, hessian, hvp, gradcheck, gradcheck_simple,
     GradCheckConfig, no_grad, detect_anomaly
 };
+use rustorch::error::RusTorchError;
 use rustorch::tensor::Tensor;
 
 #[test]
@@ -186,10 +187,11 @@ fn test_error_handling_integration() {
     
     assert!(result.is_err());
     match result.unwrap_err() {
-        rustorch::autograd::GradError::InvalidInput(msg) => {
-            assert!(msg.contains("scalar"));
+        RusTorchError::InvalidParameters { operation, message } => {
+            assert_eq!(operation, "gradcheck");
+            assert!(message.contains("scalar"));
         }
-        _ => panic!("Expected InvalidInput error"),
+        _ => panic!("Expected InvalidParameters error"),
     }
 }
 

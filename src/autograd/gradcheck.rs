@@ -2,8 +2,10 @@
 //! 数値検証のための勾配チェックユーティリティ
 
 use crate::autograd::{Variable, grad_utils::{grad, GradError}};
+use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
+use rayon::prelude::*;
 
 /// Gradient checking configuration
 /// 勾配チェック設定
@@ -45,10 +47,10 @@ pub fn gradcheck<T, F>(
     func: F,
     inputs: &[Variable<T>],
     config: Option<GradCheckConfig<T>>,
-) -> Result<GradCheckResult<T>, GradError>
+) -> Result<GradCheckResult<T>, RusTorchError>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug + From<f32> + std::fmt::Display,
-    F: Fn(&[Variable<T>]) -> Variable<T>,
+    F: Fn(&[Variable<T>]) -> Variable<T> + Sync + Send,
 {
     let config = config.unwrap_or_default();
     let mut error_details = Vec::new();
@@ -56,9 +58,10 @@ where
     
     // Validate inputs
     if inputs.is_empty() {
-        return Err(GradError::InvalidInput(
-            "At least one input must be provided".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "gradcheck".to_string(),
+            message: "At least one input must be provided".to_string()
+        });
     }
 
     // We'll only check the first input for simplicity in this initial implementation
@@ -78,9 +81,10 @@ where
     
     // Validate output is scalar
     if output_data.numel() != 1 {
-        return Err(GradError::InvalidInput(
-            "Function output must be scalar for gradient checking".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "gradcheck".to_string(),
+            message: "Function output must be scalar for gradient checking".to_string()
+        });
     }
 
     // Compute analytical gradient
@@ -88,19 +92,17 @@ where
     let analytical_grad = analytical_gradients[0].clone();
 
     if analytical_grad.is_none() {
-        return Err(GradError::ComputationError(
-            "Failed to compute analytical gradient".to_string()
-        ));
+        return Err(RusTorchError::Autograd {
+            message: "Failed to compute analytical gradient".to_string()
+        });
     }
 
     let analytical_grad_tensor = analytical_grad.unwrap();
     let analytical_data = analytical_grad_tensor.as_array();
 
-    // Compute numerical gradient using finite differences
-    let mut numerical_grad_data = vec![T::zero(); input_size];
+    // Compute numerical gradient using finite differences (parallelized)
     let input_array = input_data.as_array();
-
-    for i in 0..input_size {
+    let numerical_grad_data: Vec<T> = (0..input_size).into_par_iter().map(|i| {
         // Create perturbed inputs: x + eps and x - eps
         let mut plus_input_vec = input_array.as_slice().unwrap().to_vec();
         let mut minus_input_vec = input_array.as_slice().unwrap().to_vec();
@@ -130,8 +132,8 @@ where
         let minus_val = minus_data.as_array().as_slice().unwrap()[0];
 
         // Compute numerical derivative: (f(x+eps) - f(x-eps)) / (2*eps)
-        numerical_grad_data[i] = (plus_val - minus_val) / (config.eps + config.eps);
-    }
+        (plus_val - minus_val) / (config.eps + config.eps)
+    }).collect();
 
     let numerical_grad_tensor = Tensor::from_vec(numerical_grad_data, input_data.shape().to_vec());
     let numerical_data = numerical_grad_tensor.as_array();
@@ -179,7 +181,7 @@ pub fn gradcheck_simple<T, F>(
 ) -> bool
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug + From<f32> + std::fmt::Display,
-    F: Fn(&[Variable<T>]) -> Variable<T>,
+    F: Fn(&[Variable<T>]) -> Variable<T> + Sync + Send,
 {
     gradcheck(func, inputs, None)
         .map(|result| result.passed)

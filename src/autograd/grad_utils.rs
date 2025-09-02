@@ -4,32 +4,14 @@
 use crate::autograd::{Variable, GradFn};
 use crate::autograd::context::{is_grad_enabled, is_anomaly_detection_enabled};
 use crate::tensor::Tensor;
+use crate::error::RusTorchError;
 use num_traits::Float;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-/// Error types for gradient computation
-/// 勾配計算のエラータイプ
-#[derive(Debug, Clone)]
-pub enum GradError {
-    InvalidInput(String),
-    GraphError(String),
-    ComputationError(String),
-    AnomalyDetected(String),
-}
-
-impl std::fmt::Display for GradError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GradError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
-            GradError::GraphError(msg) => write!(f, "Graph error: {}", msg),
-            GradError::ComputationError(msg) => write!(f, "Computation error: {}", msg),
-            GradError::AnomalyDetected(msg) => write!(f, "Anomaly detected: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for GradError {}
+/// Type alias for gradient errors using unified RusTorchError
+/// 統一されたRusTorchErrorを使用する勾配エラーの型エイリアス
+pub type GradError = RusTorchError;
 
 /// Compute gradients of outputs with respect to inputs
 /// 出力の入力に対する勾配を計算
@@ -44,21 +26,23 @@ where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
 {
     if !is_grad_enabled() {
-        return Err(GradError::InvalidInput(
-            "Gradient computation is disabled".to_string()
-        ));
+        return Err(RusTorchError::Autograd {
+            message: "Gradient computation is disabled. Use enable_grad() context manager.".to_string()
+        });
     }
 
     if outputs.is_empty() {
-        return Err(GradError::InvalidInput(
-            "At least one output must be provided".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "grad".to_string(),
+            message: "At least one output must be provided".to_string()
+        });
     }
 
     if inputs.is_empty() {
-        return Err(GradError::InvalidInput(
-            "At least one input must be provided".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "grad".to_string(),
+            message: "At least one input must be provided".to_string()
+        });
     }
 
     // Validate that all outputs are scalar or have grad_outputs provided
@@ -67,9 +51,10 @@ where
             let output_data_guard = output.data();
             let output_data = output_data_guard.read().unwrap();
             if output_data.numel() != 1 {
-                return Err(GradError::InvalidInput(
-                    format!("Output {} is not scalar and no grad_output provided", i)
-                ));
+                return Err(RusTorchError::InvalidParameters {
+                    operation: "grad".to_string(),
+                    message: format!("Output {} is not scalar and no grad_output provided", i)
+                });
             }
         }
     }
@@ -77,9 +62,10 @@ where
     // Initialize gradients for outputs
     let initial_grads = if let Some(grad_outputs) = grad_outputs {
         if grad_outputs.len() != outputs.len() {
-            return Err(GradError::InvalidInput(
-                "Number of grad_outputs must match number of outputs".to_string()
-            ));
+            return Err(RusTorchError::ShapeMismatch {
+                expected: vec![outputs.len()],
+                actual: vec![grad_outputs.len()]
+            });
         }
         grad_outputs.to_vec()
     } else {
@@ -128,14 +114,14 @@ where
                 let grad_data = grad.as_array();
                 for &val in grad_data.iter() {
                     if val.is_nan() {
-                        return Err(GradError::AnomalyDetected(
-                            format!("NaN detected in gradient for input {}", i)
-                        ));
+                        return Err(RusTorchError::Autograd {
+                            message: format!("NaN detected in gradient for input {}", i)
+                        });
                     }
                     if val.is_infinite() {
-                        return Err(GradError::AnomalyDetected(
-                            format!("Infinity detected in gradient for input {}", i)
-                        ));
+                        return Err(RusTorchError::Autograd {
+                            message: format!("Infinity detected in gradient for input {}", i)
+                        });
                     }
                 }
             }
@@ -171,9 +157,10 @@ where
     let output_data_guard = output.data();
     let output_data = output_data_guard.read().unwrap();
     if output_data.numel() != 1 {
-        return Err(GradError::InvalidInput(
-            "Function output must be scalar for gradient computation".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "gradient".to_string(),
+            message: "Function output must be scalar for gradient computation".to_string()
+        });
     }
 
     // Compute gradients
@@ -182,15 +169,15 @@ where
 
 /// Utility function to check if a variable is in the computation graph
 /// 変数が計算グラフに含まれているかチェックするユーティリティ関数
-pub fn is_variable_in_graph<T>(var: &Variable<T>, visited: &mut HashSet<*const Variable<T>>) -> bool
+pub fn is_variable_in_graph<T>(var: &Variable<T>, visited: &mut HashSet<usize>) -> bool
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
-    let var_ptr = var as *const Variable<T>;
-    if visited.contains(&var_ptr) {
+    let var_id = var.id();
+    if visited.contains(&var_id) {
         return true;
     }
-    visited.insert(var_ptr);
+    visited.insert(var_id);
 
     if let Some(grad_fn) = var.grad_fn() {
         // This is a simplified check - in a full implementation,
@@ -212,16 +199,18 @@ where
 {
     // Check that at least one output requires gradients
     if !outputs.iter().any(|output| output.requires_grad()) {
-        return Err(GradError::InvalidInput(
-            "At least one output must require gradients".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "validate_grad_setup".to_string(),
+            message: "At least one output must require gradients".to_string()
+        });
     }
 
     // Check that at least one input requires gradients
     if !inputs.iter().any(|input| input.requires_grad()) {
-        return Err(GradError::InvalidInput(
-            "At least one input must require gradients".to_string()
-        ));
+        return Err(RusTorchError::InvalidParameters {
+            operation: "validate_grad_setup".to_string(),
+            message: "At least one input must require gradients".to_string()
+        });
     }
 
     Ok(())
