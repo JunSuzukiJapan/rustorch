@@ -7,11 +7,25 @@ use std::marker::PhantomData;
 use std::ops;
 use std::sync::{Arc, RwLock};
 
+// Re-export Phase 4 gradient utilities
+pub use context::{
+    GradientContext, NoGradGuard, EnableGradGuard, AnomalyDetectionGuard,
+    is_grad_enabled, is_anomaly_detection_enabled, set_grad_enabled, set_anomaly_detection,
+    no_grad, enable_grad, detect_anomaly
+};
+pub use grad_utils::{GradError, grad, gradient, validate_grad_setup, is_variable_in_graph};
+pub use higher_order::{jacobian, hessian, hvp};
+pub use gradcheck::{GradCheckConfig, GradCheckResult, gradcheck, gradcheck_simple};
+
 pub mod function;
 pub mod grad_fn;
 pub mod graph;
 pub mod linear_grad_fn;
 pub mod visualization;
+pub mod context;
+pub mod grad_utils;
+pub mod higher_order;
+pub mod gradcheck;
 
 #[cfg(test)]
 mod tests;
@@ -130,7 +144,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// Performs backward pass with a specific gradient.
     /// 特定の勾配で逆伝播を実行します。
     pub fn backward_with_grad(&self, grad_output: Option<Tensor<T>>) {
-        if !self.requires_grad {
+        use crate::autograd::context::is_grad_enabled;
+        
+        if !self.requires_grad || !is_grad_enabled() {
             return;
         }
 
@@ -412,5 +428,77 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
     fn sub(self, rhs: &Variable<T>) -> Self::Output {
         &self - rhs
+    }
+}
+
+// Add missing operator implementations for Variable<T> (owned) operations
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Add
+    for Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        &self + &rhs
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Mul
+    for Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        &self * &rhs
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Sub
+    for Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        &self - &rhs
+    }
+}
+
+// Add mixed reference/owned operations
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    ops::Add<&Variable<T>> for Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn add(self, rhs: &Variable<T>) -> Self::Output {
+        &self + rhs
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+    ops::Mul<&Variable<T>> for Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn mul(self, rhs: &Variable<T>) -> Self::Output {
+        &self * rhs
+    }
+}
+
+// Add division operator
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Div
+    for &Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let lhs_data = self.data.read().unwrap().clone();
+        let rhs_data = rhs.data.read().unwrap().clone();
+        let result_data = &lhs_data / &rhs_data;
+
+        if self.requires_grad || rhs.requires_grad {
+            // For now, create division without gradient function
+            Variable::new(result_data, true)
+        } else {
+            Variable::new(result_data, false)
+        }
     }
 }
