@@ -3,9 +3,79 @@
 
 use crate::autograd::Variable;
 use crate::nn::Module;
+use crate::simd::vectorized;
 use crate::tensor::Tensor;
 use num_traits::{Float, FromPrimitive};
+use rayon::prelude::*;
 use std::fmt::Debug;
+
+/// SIMD-optimized mean calculation for instance normalization
+fn calculate_mean_simd<T>(data: &[T]) -> T
+where
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+{
+    if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+        let f32_data: &[f32] = unsafe { std::mem::transmute(data) };
+        T::from_f32(vectorized::mean_f32_simd(f32_data)).unwrap()
+    } else {
+        data.iter().fold(T::default(), |acc, &x| acc + x) / T::from_f32(data.len() as f32).unwrap()
+    }
+}
+
+/// SIMD-optimized variance calculation for instance normalization
+fn calculate_variance_simd<T>(data: &[T], mean: T) -> T
+where
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+{
+    if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+        let f32_data: &[f32] = unsafe { std::mem::transmute(data) };
+        let f32_mean = mean.to_f32().unwrap();
+        T::from_f32(vectorized::variance_f32_simd(f32_data) - f32_mean * f32_mean).unwrap()
+    } else {
+        data.iter()
+            .map(|&x| (x - mean) * (x - mean))
+            .fold(T::default(), |acc, x| acc + x) 
+            / T::from_f32(data.len() as f32).unwrap()
+    }
+}
+
+/// Parallel normalization with affine transformation
+fn normalize_channel_parallel<T>(
+    input_slice: &[T],
+    output_slice: &mut [T],
+    mean: T,
+    std_dev: T,
+    weight: Option<T>,
+    bias: Option<T>,
+) where
+    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+{
+    if input_slice.len() >= 64 {
+        // Use parallel processing for large slices
+        input_slice.par_iter()
+            .zip(output_slice.par_iter_mut())
+            .for_each(|(&input_val, output_val)| {
+                let normalized = (input_val - mean) / std_dev;
+                *output_val = match (weight, bias) {
+                    (Some(w), Some(b)) => normalized * w + b,
+                    (Some(w), None) => normalized * w,
+                    (None, Some(b)) => normalized + b,
+                    (None, None) => normalized,
+                };
+            });
+    } else {
+        // Use sequential processing for small slices
+        for (i, &input_val) in input_slice.iter().enumerate() {
+            let normalized = (input_val - mean) / std_dev;
+            output_slice[i] = match (weight, bias) {
+                (Some(w), Some(b)) => normalized * w + b,
+                (Some(w), None) => normalized * w,
+                (None, Some(b)) => normalized + b,
+                (None, None) => normalized,
+            };
+        }
+    }
+}
 
 /// 1D Instance Normalization layer
 /// 1次元インスタンス正規化レイヤー
@@ -100,39 +170,40 @@ where
         for n in 0..batch_size {
             for c in 0..channels {
                 let channel_offset = n * channels * length + c * length;
+                let channel_slice = &input_data[channel_offset..channel_offset + length];
                 
-                // Calculate mean and variance for this instance and channel
-                let mut sum = T::default();
-                for l in 0..length {
-                    sum = sum + input_data[channel_offset + l];
-                }
-                let mean = sum / T::from_f32(length as f32).unwrap();
+                // SIMD-optimized mean calculation
+                let mean = calculate_mean_simd(channel_slice);
                 
-                let mut var_sum = T::default();
-                for l in 0..length {
-                    let diff = input_data[channel_offset + l] - mean;
-                    var_sum = var_sum + diff * diff;
-                }
-                let variance = var_sum / T::from_f32(length as f32).unwrap();
+                // SIMD-optimized variance calculation
+                let variance = calculate_variance_simd(channel_slice, mean);
                 let std_dev = (variance + self.eps).sqrt();
                 
-                // Normalize and apply affine transformation
-                for l in 0..length {
-                    let idx = channel_offset + l;
-                    let normalized = (input_data[idx] - mean) / std_dev;
+                // Get weight and bias values for this channel if affine
+                let (weight_val, bias_val) = if self.affine {
+                    let weight_data_arc = self.weight.as_ref().unwrap().data();
+                    let weight_guard = weight_data_arc.read().unwrap();
+                    let bias_data_arc = self.bias.as_ref().unwrap().data();
+                    let bias_guard = bias_data_arc.read().unwrap();
                     
-                    output_data[idx] = if self.affine {
-                        let weight_data_arc = self.weight.as_ref().unwrap().data();
-                        let weight_guard = weight_data_arc.read().unwrap();
-                        let bias_data_arc = self.bias.as_ref().unwrap().data();
-                        let bias_guard = bias_data_arc.read().unwrap();
-                        let weight_val = weight_guard.as_slice().unwrap()[c];
-                        let bias_val = bias_guard.as_slice().unwrap()[c];
-                        normalized * weight_val + bias_val
-                    } else {
-                        normalized
-                    };
-                }
+                    (
+                        Some(weight_guard.as_slice().unwrap()[c]),
+                        Some(bias_guard.as_slice().unwrap()[c]),
+                    )
+                } else {
+                    (None, None)
+                };
+                
+                // Parallel normalization and affine transformation
+                let output_slice = &mut output_data[channel_offset..channel_offset + length];
+                normalize_channel_parallel(
+                    channel_slice,
+                    output_slice,
+                    mean,
+                    std_dev,
+                    weight_val,
+                    bias_val,
+                );
             }
         }
         

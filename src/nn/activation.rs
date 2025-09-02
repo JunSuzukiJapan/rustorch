@@ -367,6 +367,129 @@ pub struct GLU<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::Fro
     _phantom: std::marker::PhantomData<T>,
 }
 
+/// SwiGLU (Swish-Gated Linear Unit) activation function
+/// SwiGLU（Swish-ゲート線形ユニット）活性化関数
+pub fn swiglu<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Default,
+>(
+    x: &Variable<T>,
+) -> Variable<T> {
+    let input_tensor = x.data();
+    let input_guard = input_tensor.read().unwrap();
+    let input_shape = input_guard.shape();
+    let input_data = input_guard.as_slice().unwrap();
+    
+    let last_dim = input_shape[input_shape.len() - 1];
+    assert_eq!(last_dim % 2, 0, "SwiGLU requires even number of elements on last dimension");
+    
+    let half_size = last_dim / 2;
+    let total_elements = input_shape.iter().product::<usize>();
+    let batch_size = total_elements / last_dim;
+    
+    let mut output_shape = input_shape.to_vec();
+    let last_idx = output_shape.len() - 1;
+    output_shape[last_idx] = half_size;
+    let mut output_data = vec![T::default(); batch_size * half_size];
+    
+    for i in 0..batch_size {
+        let offset = i * last_dim;
+        for j in 0..half_size {
+            let a = input_data[offset + j];
+            let b = input_data[offset + j + half_size];
+            
+            // Swish activation: x * sigmoid(x)
+            let swish_b = b * (T::from_f32(1.0).unwrap() / (T::from_f32(1.0).unwrap() + (-b).exp()));
+            output_data[i * half_size + j] = a * swish_b;
+        }
+    }
+    
+    let output_tensor = Tensor::from_vec(output_data, output_shape);
+    Variable::new(output_tensor, x.requires_grad())
+}
+
+/// GeGLU (GELU-Gated Linear Unit) activation function  
+/// GeGLU（GELU-ゲート線形ユニット）活性化関数
+pub fn geglu<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Default,
+>(
+    x: &Variable<T>,
+) -> Variable<T> {
+    let input_tensor = x.data();
+    let input_guard = input_tensor.read().unwrap();
+    let input_shape = input_guard.shape();
+    let input_data = input_guard.as_slice().unwrap();
+    
+    let last_dim = input_shape[input_shape.len() - 1];
+    assert_eq!(last_dim % 2, 0, "GeGLU requires even number of elements on last dimension");
+    
+    let half_size = last_dim / 2;
+    let total_elements = input_shape.iter().product::<usize>();
+    let batch_size = total_elements / last_dim;
+    
+    let mut output_shape = input_shape.to_vec();
+    let last_idx = output_shape.len() - 1;
+    output_shape[last_idx] = half_size;
+    let mut output_data = vec![T::default(); batch_size * half_size];
+    
+    for i in 0..batch_size {
+        let offset = i * last_dim;
+        for j in 0..half_size {
+            let a = input_data[offset + j];
+            let b = input_data[offset + j + half_size];
+            
+            // GELU activation: x * Φ(x) where Φ is the standard Gaussian CDF
+            let gelu_b = b * T::from_f32(0.5).unwrap() * 
+                (T::from_f32(1.0).unwrap() + 
+                 (b * T::from_f32(0.7978845608).unwrap() * 
+                  (T::from_f32(1.0).unwrap() + T::from_f32(0.044715).unwrap() * b * b)).tanh());
+            output_data[i * half_size + j] = a * gelu_b;
+        }
+    }
+    
+    let output_tensor = Tensor::from_vec(output_data, output_shape);
+    Variable::new(output_tensor, x.requires_grad())
+}
+
+/// ReGLU (ReLU-Gated Linear Unit) activation function
+/// ReGLU（ReLU-ゲート線形ユニット）活性化関数
+pub fn reglu<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + Default,
+>(
+    x: &Variable<T>,
+) -> Variable<T> {
+    let input_tensor = x.data();
+    let input_guard = input_tensor.read().unwrap();
+    let input_shape = input_guard.shape();
+    let input_data = input_guard.as_slice().unwrap();
+    
+    let last_dim = input_shape[input_shape.len() - 1];
+    assert_eq!(last_dim % 2, 0, "ReGLU requires even number of elements on last dimension");
+    
+    let half_size = last_dim / 2;
+    let total_elements = input_shape.iter().product::<usize>();
+    let batch_size = total_elements / last_dim;
+    
+    let mut output_shape = input_shape.to_vec();
+    let last_idx = output_shape.len() - 1;
+    output_shape[last_idx] = half_size;
+    let mut output_data = vec![T::default(); batch_size * half_size];
+    
+    for i in 0..batch_size {
+        let offset = i * last_dim;
+        for j in 0..half_size {
+            let a = input_data[offset + j];
+            let b = input_data[offset + j + half_size];
+            
+            // ReLU activation: max(0, x)
+            let relu_b = if b > T::zero() { b } else { T::zero() };
+            output_data[i * half_size + j] = a * relu_b;
+        }
+    }
+    
+    let output_tensor = Tensor::from_vec(output_data, output_shape);
+    Variable::new(output_tensor, x.requires_grad())
+}
+
 impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive + Default> GLU<T> {
     /// Create a new GLU activation function
     /// 新しいGLU活性化関数を作成

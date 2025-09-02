@@ -3,10 +3,9 @@
 
 use crate::autograd::Variable;
 use crate::nn::Module;
+use crate::nn::conv_transpose_common;
 use crate::tensor::Tensor;
 use num_traits::Float;
-use rand::distributions::Distribution;
-use rand_distr::Normal;
 use std::fmt::Debug;
 
 /// 1D Transposed Convolution layer
@@ -50,34 +49,20 @@ where
         let use_bias = bias.unwrap_or(true);
 
         // Validate parameters
-        assert!(in_channels % groups == 0, "in_channels must be divisible by groups");
-        assert!(out_channels % groups == 0, "out_channels must be divisible by groups");
-        assert!(output_padding < stride, "output_padding must be less than stride");
+        conv_transpose_common::validate_parameters(
+            in_channels,
+            out_channels,
+            groups,
+            [output_padding],
+            [stride],
+        );
 
         // Initialize weight tensor [in_channels, out_channels/groups, kernel_size]
         let weight_shape = vec![in_channels, out_channels / groups, kernel_size];
-        let weight_size = weight_shape.iter().product::<usize>();
+        let fan_in = conv_transpose_common::calculate_fan_in(out_channels, groups, &[kernel_size]);
+        let weight = conv_transpose_common::initialize_weights(weight_shape, fan_in);
 
-        // Kaiming uniform initialization
-        let fan_in = (out_channels / groups) * kernel_size;
-        let bound = (6.0 / fan_in as f32).sqrt();
-
-        let mut rng = rand::thread_rng();
-        let normal = Normal::new(0.0, bound).unwrap();
-        let weight_data: Vec<T> = (0..weight_size)
-            .map(|_| <T as From<f32>>::from(normal.sample(&mut rng)))
-            .collect();
-
-        let weight_tensor = Tensor::from_vec(weight_data, weight_shape);
-        let weight = Variable::new(weight_tensor, true);
-
-        let bias = if use_bias {
-            let bias_data = vec![T::default(); out_channels];
-            let bias_tensor = Tensor::from_vec(bias_data, vec![out_channels]);
-            Some(Variable::new(bias_tensor, true))
-        } else {
-            None
-        };
+        let bias = conv_transpose_common::initialize_bias(out_channels, use_bias);
 
         Self {
             weight,
@@ -99,8 +84,7 @@ where
         let input_shape = input_guard.shape();
         
         // Input validation for 1D: (N, C, L)
-        assert!(input_shape.len() == 3, "Input must be 3D tensor (batch, channels, length)");
-        assert_eq!(input_shape[1], self.in_channels, "Input channels mismatch");
+        conv_transpose_common::validate_input_shape(input_shape, self.in_channels, 1);
         
         let batch_size = input_shape[0];
         let input_length = input_shape[2];
@@ -115,7 +99,13 @@ where
         if let Some(ref bias) = self.bias {
             let bias_data_arc = bias.data();
             let bias_guard = bias_data_arc.read().unwrap();
-            self.add_bias(&mut output_data, &output_shape, bias_guard.as_slice().unwrap());
+            conv_transpose_common::add_bias_nd(
+                &mut output_data,
+                &output_shape,
+                bias_guard.as_slice().unwrap(),
+                self.out_channels,
+                1, // 1D spatial dimensions
+            );
         }
         
         let output_tensor = Tensor::from_vec(output_data, output_shape);
@@ -187,21 +177,6 @@ where
         }
     }
 
-    fn add_bias(&self, output: &mut [T], output_shape: &[usize], bias: &[T]) {
-        let batch_size = output_shape[0];
-        let output_length = output_shape[2];
-        
-        for b in 0..batch_size {
-            for ch in 0..self.out_channels {
-                let ch_offset = b * self.out_channels * output_length + ch * output_length;
-                let bias_val = bias[ch];
-                
-                for i in 0..output_length {
-                    output[ch_offset + i] = output[ch_offset + i] + bias_val;
-                }
-            }
-        }
-    }
 }
 
 impl<T> Module<T> for ConvTranspose1d<T>

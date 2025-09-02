@@ -10,6 +10,7 @@ pub mod conv2d;
 pub mod conv3d;
 pub mod conv_base;
 pub mod conv_transpose;
+pub mod conv_transpose_common;
 pub mod conv_transpose_1d;
 pub mod conv_transpose_3d;
 pub mod dropout;
@@ -143,7 +144,7 @@ where
 // ニューラルネットワークモジュールを再エクスポート
 /// Activation function modules
 /// 活性化関数モジュール
-pub use activation::{ReLU, Softmax, Tanh, GELU, GLU};
+pub use activation::{ReLU, Softmax, Tanh, GELU, GLU, glu, swiglu, geglu, reglu};
 /// 適応的プーリングレイヤー
 /// Adaptive pooling layers
 pub use adaptive_pool::{AdaptiveAvgPool2d, AdaptiveMaxPool2d};

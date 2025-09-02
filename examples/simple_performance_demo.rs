@@ -70,11 +70,11 @@ fn demo_simd_operations() {
                 unsafe {
                     vectorized::add_f32_sse41(&a, &b, &mut result_simd);
                 }
-            }
-        } else {
-            // Fallback
-            for i in 0..size {
-                result_simd[i] = a[i] + b[i];
+            } else {
+                // Fallback
+                for i in 0..size {
+                    result_simd[i] = a[i] + b[i];
+                }
             }
         }
         let simd_time = start.elapsed();
