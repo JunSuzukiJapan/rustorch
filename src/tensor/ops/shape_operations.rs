@@ -2114,7 +2114,7 @@ impl<T: Float + Clone + 'static> ShapeBuilder<T> {
 /// use rustorch::prelude::Tensor;
 /// use rustorch::shape_ops;
 /// use rustorch::error::RusTorchResult;
-/// 
+///
 /// fn main() -> RusTorchResult<()> {
 ///     let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
 ///
