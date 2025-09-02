@@ -540,6 +540,273 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         Ok(source_indices)
     }
 
+    // Helper methods for new operations
+
+    fn repeat_recursive(
+        &self,
+        output: &mut Vec<T>,
+        output_shape: &[usize],
+        repeats: &[usize],
+        indices: &[usize],
+        dim: usize,
+    ) -> RusTorchResult<()> {
+        if dim == output_shape.len() {
+            // Base case - copy element from source
+            let source_indices = self.compute_repeat_source_indices(indices, output_shape, repeats)?;
+            if let Some(&value) = self.data.get(source_indices.as_slice()) {
+                output.push(value);
+            } else {
+                return Err(RusTorchError::index_out_of_bounds(&[], &[]));
+            }
+            return Ok(());
+        }
+
+        let mut new_indices = indices.to_vec();
+        for i in 0..output_shape[dim] {
+            new_indices[dim] = i;
+            self.repeat_recursive(output, output_shape, repeats, &new_indices, dim + 1)?;
+        }
+
+        Ok(())
+    }
+
+    fn compute_repeat_source_indices(
+        &self,
+        output_indices: &[usize],
+        output_shape: &[usize],
+        repeats: &[usize],
+    ) -> RusTorchResult<Vec<usize>> {
+        let self_shape = self.shape();
+        let mut source_indices = Vec::new();
+
+        // Handle dimension adjustment
+        let ndim_diff = if output_shape.len() > self_shape.len() {
+            output_shape.len() - self_shape.len()
+        } else {
+            0
+        };
+
+        for (i, &output_idx) in output_indices.iter().enumerate() {
+            if i < ndim_diff {
+                // Skip extra leading dimensions
+                continue;
+            }
+            
+            let self_dim_idx = i - ndim_diff;
+            if self_dim_idx < self_shape.len() {
+                let self_dim_size = self_shape[self_dim_idx];
+                let repeat_count = repeats[i];
+                source_indices.push(output_idx / repeat_count);
+            }
+        }
+
+        Ok(source_indices)
+    }
+
+    fn repeat_interleave_along_dim(&self, repeats: usize, dim: usize) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        
+        if dim >= shape.len() {
+            return Err(RusTorchError::InvalidDimension(format!(
+                "Invalid dimension {} (max: {})",
+                dim,
+                shape.len() - 1
+            )));
+        }
+
+        let mut output_shape = shape.to_vec();
+        output_shape[dim] *= repeats;
+
+        let mut output_data = Vec::new();
+        let total_elements: usize = output_shape.iter().product();
+        output_data.reserve(total_elements);
+
+        // Generate indices for output tensor
+        let mut indices = vec![0; output_shape.len()];
+        self.repeat_interleave_recursive(&mut output_data, &output_shape, repeats, dim, &mut indices, 0)?;
+
+        Ok(Tensor::from_vec(output_data, output_shape))
+    }
+
+    fn repeat_interleave_recursive(
+        &self,
+        output: &mut Vec<T>,
+        output_shape: &[usize],
+        repeats: usize,
+        target_dim: usize,
+        indices: &mut [usize],
+        dim: usize,
+    ) -> RusTorchResult<()> {
+        if dim == output_shape.len() {
+            // Base case - compute source index and copy element
+            let mut source_indices = indices.to_vec();
+            if target_dim < source_indices.len() {
+                source_indices[target_dim] = indices[target_dim] / repeats;
+            }
+            
+            if let Some(&value) = self.data.get(source_indices.as_slice()) {
+                output.push(value);
+            } else {
+                return Err(RusTorchError::index_out_of_bounds(&[], &[]));
+            }
+            return Ok(());
+        }
+
+        for i in 0..output_shape[dim] {
+            indices[dim] = i;
+            self.repeat_interleave_recursive(output, output_shape, repeats, target_dim, indices, dim + 1)?;
+        }
+
+        Ok(())
+    }
+
+    fn roll_along_dimension(&self, shift: usize, dim: usize) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        let dim_size = shape[dim];
+        
+        if shift >= dim_size {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "roll".to_string(),
+                message: "Shift amount exceeds dimension size".to_string(),
+            });
+        }
+
+        let mut output_data = Vec::with_capacity(self.data.len());
+        let mut indices = vec![0; shape.len()];
+        
+        self.roll_recursive(&mut output_data, shape, shift, dim, &mut indices, 0)?;
+
+        Ok(Tensor::from_vec(output_data, shape.to_vec()))
+    }
+
+    fn roll_recursive(
+        &self,
+        output: &mut Vec<T>,
+        shape: &[usize],
+        shift: usize,
+        target_dim: usize,
+        indices: &mut [usize],
+        dim: usize,
+    ) -> RusTorchResult<()> {
+        if dim == shape.len() {
+            // Base case - compute rolled source index
+            let mut source_indices = indices.to_vec();
+            if target_dim < source_indices.len() {
+                let dim_size = shape[target_dim];
+                let rolled_idx = (indices[target_dim] + dim_size - shift) % dim_size;
+                source_indices[target_dim] = rolled_idx;
+            }
+            
+            if let Some(&value) = self.data.get(source_indices.as_slice()) {
+                output.push(value);
+            } else {
+                return Err(RusTorchError::index_out_of_bounds(&[], &[]));
+            }
+            return Ok(());
+        }
+
+        for i in 0..shape[dim] {
+            indices[dim] = i;
+            self.roll_recursive(output, shape, shift, target_dim, indices, dim + 1)?;
+        }
+
+        Ok(())
+    }
+
+    fn rot90_once(&self, dim0: usize, dim1: usize) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        let mut new_shape = shape.to_vec();
+        new_shape.swap(dim0, dim1);
+
+        let mut output_data = Vec::with_capacity(self.data.len());
+        let mut indices = vec![0; shape.len()];
+        
+        self.rot90_recursive(&mut output_data, shape, &new_shape, dim0, dim1, &mut indices, 0)?;
+
+        Ok(Tensor::from_vec(output_data, new_shape))
+    }
+
+    fn rot90_recursive(
+        &self,
+        output: &mut Vec<T>,
+        original_shape: &[usize],
+        new_shape: &[usize],
+        dim0: usize,
+        dim1: usize,
+        indices: &mut [usize],
+        dim: usize,
+    ) -> RusTorchResult<()> {
+        if dim == new_shape.len() {
+            // Base case - compute rotated source indices
+            let mut source_indices = indices.to_vec();
+            
+            // Apply 90-degree rotation transformation
+            let old_i = indices[dim0];
+            let old_j = indices[dim1];
+            
+            source_indices[dim0] = original_shape[dim1] - 1 - old_j;
+            source_indices[dim1] = old_i;
+            
+            if let Some(&value) = self.data.get(source_indices.as_slice()) {
+                output.push(value);
+            } else {
+                return Err(RusTorchError::index_out_of_bounds(&[], &[]));
+            }
+            return Ok(());
+        }
+
+        for i in 0..new_shape[dim] {
+            indices[dim] = i;
+            self.rot90_recursive(output, original_shape, new_shape, dim0, dim1, indices, dim + 1)?;
+        }
+
+        Ok(())
+    }
+
+    fn flip_single_dim(&self, dim: usize) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        let dim_size = shape[dim];
+        
+        let mut output_data = Vec::with_capacity(self.data.len());
+        let mut indices = vec![0; shape.len()];
+        
+        self.flip_recursive(&mut output_data, shape, dim, &mut indices, 0)?;
+
+        Ok(Tensor::from_vec(output_data, shape.to_vec()))
+    }
+
+    fn flip_recursive(
+        &self,
+        output: &mut Vec<T>,
+        shape: &[usize],
+        flip_dim: usize,
+        indices: &mut [usize],
+        dim: usize,
+    ) -> RusTorchResult<()> {
+        if dim == shape.len() {
+            // Base case - compute flipped source index
+            let mut source_indices = indices.to_vec();
+            if flip_dim < source_indices.len() {
+                let dim_size = shape[flip_dim];
+                source_indices[flip_dim] = dim_size - 1 - indices[flip_dim];
+            }
+            
+            if let Some(&value) = self.data.get(source_indices.as_slice()) {
+                output.push(value);
+            } else {
+                return Err(RusTorchError::index_out_of_bounds(&[], &[]));
+            }
+            return Ok(());
+        }
+
+        for i in 0..shape[dim] {
+            indices[dim] = i;
+            self.flip_recursive(output, shape, flip_dim, indices, dim + 1)?;
+        }
+
+        Ok(())
+    }
+
     /// Check if tensor data is contiguous in memory
     /// テンソルデータがメモリ内で連続しているかチェック
     pub fn is_contiguous(&self) -> bool {
@@ -633,6 +900,349 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// 単一次元追加（互換性のためのunsqueezeエイリアス）
     pub fn expand_dims(&self, axis: usize) -> RusTorchResult<Self> {
         self.unsqueeze(axis)
+    }
+
+    /// Expand tensor to match the shape of another tensor (PyTorch expand_as compatibility)
+    /// 他のテンソルの形状に合わせて拡張（PyTorch expand_as互換）
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
+    /// let target = Tensor::from_vec(vec![0.0; 6], vec![3, 2]);
+    /// let expanded = tensor.expand_as(&target).unwrap();
+    /// assert_eq!(expanded.shape(), target.shape());
+    /// ```
+    pub fn expand_as(&self, other: &Self) -> RusTorchResult<Self> {
+        self.expand_owned(other.shape())
+    }
+
+    /// Unflatten a tensor dimension into multiple dimensions
+    /// テンソルの次元を複数の次元に復元
+    /// 
+    /// # Arguments
+    /// * `dim` - Dimension to unflatten  
+    /// * `sizes` - Target sizes for new dimensions
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![6]);
+    /// let unflattened = tensor.unflatten(0, &[2, 3]).unwrap();
+    /// assert_eq!(unflattened.shape(), &[2, 3]);
+    /// ```
+    pub fn unflatten(&self, dim: usize, sizes: &[usize]) -> RusTorchResult<Self> {
+        let current_shape = self.shape();
+        
+        if dim >= current_shape.len() {
+            return Err(RusTorchError::InvalidDimension(format!(
+                "Invalid dimension {} (max: {})",
+                dim,
+                current_shape.len() - 1
+            )));
+        }
+
+        // Validate that product of sizes matches the dimension size
+        let sizes_product: usize = sizes.iter().product();
+        if sizes_product != current_shape[dim] {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "unflatten".to_string(),
+                message: format!(
+                    "Cannot unflatten dimension of size {} into sizes {:?} (product: {})",
+                    current_shape[dim],
+                    sizes,
+                    sizes_product
+                ),
+            });
+        }
+
+        // Build new shape
+        let mut new_shape = Vec::new();
+        new_shape.extend_from_slice(&current_shape[..dim]);
+        new_shape.extend_from_slice(sizes);
+        new_shape.extend_from_slice(&current_shape[dim + 1..]);
+
+        // Reshape tensor
+        let reshaped_data = self.data.clone()
+            .into_shape_with_order(new_shape)
+            .map_err(|_| RusTorchError::InvalidOperation {
+                operation: "unflatten".to_string(),
+                message: "Failed to unflatten tensor".to_string(),
+            })?;
+
+        Ok(Tensor::new(reshaped_data))
+    }
+
+    /// Repeat tensor along specified dimensions (PyTorch repeat compatibility)
+    /// 指定された次元に沿ってテンソルを繰り返し（PyTorch repeat互換）
+    /// 
+    /// # Arguments
+    /// * `repeats` - Number of repetitions for each dimension
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
+    /// let repeated = tensor.repeat(&[3, 2]).unwrap();
+    /// assert_eq!(repeated.shape(), &[6, 4]); // [3*2, 2*2]
+    /// ```
+    pub fn repeat(&self, repeats: &[usize]) -> RusTorchResult<Self> {
+        let current_shape = self.shape();
+        
+        // Handle dimension mismatch by padding with 1s
+        let (adjusted_shape, adjusted_repeats) = if repeats.len() > current_shape.len() {
+            let padding = repeats.len() - current_shape.len();
+            let mut padded_shape = vec![1; padding];
+            padded_shape.extend_from_slice(current_shape);
+            (padded_shape, repeats.to_vec())
+        } else if repeats.len() < current_shape.len() {
+            let padding = current_shape.len() - repeats.len();
+            let mut padded_repeats = vec![1; padding];
+            padded_repeats.extend_from_slice(repeats);
+            (current_shape.to_vec(), padded_repeats)
+        } else {
+            (current_shape.to_vec(), repeats.to_vec())
+        };
+
+        // Calculate output shape
+        let output_shape: Vec<usize> = adjusted_shape
+            .iter()
+            .zip(adjusted_repeats.iter())
+            .map(|(&dim, &rep)| dim * rep)
+            .collect();
+
+        // Generate repeated data
+        let mut output_data = Vec::new();
+        let total_elements: usize = output_shape.iter().product();
+        output_data.reserve(total_elements);
+
+        self.repeat_recursive(
+            &mut output_data,
+            &output_shape,
+            &adjusted_repeats,
+            &vec![0; output_shape.len()],
+            0
+        )?;
+
+        Ok(Tensor::from_vec(output_data, output_shape))
+    }
+
+    /// Repeat elements of tensor along specified dimension
+    /// 指定次元に沿ってテンソルの要素を繰り返し
+    /// 
+    /// # Arguments  
+    /// * `repeats` - Number of repetitions for each element (scalar or tensor)
+    /// * `dim` - Dimension along which to repeat (optional)
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
+    /// let repeated = tensor.repeat_interleave_scalar(2, Some(0)).unwrap();
+    /// assert_eq!(repeated.shape(), &[6]); // Each element repeated twice
+    /// ```
+    pub fn repeat_interleave_scalar(&self, repeats: usize, dim: Option<usize>) -> RusTorchResult<Self> {
+        match dim {
+            Some(d) => self.repeat_interleave_along_dim(repeats, d),
+            None => {
+                // Flatten and repeat each element
+                let flattened = self.flatten_owned();
+                let mut output_data = Vec::new();
+                
+                for &value in flattened.data.iter() {
+                    for _ in 0..repeats {
+                        output_data.push(value);
+                    }
+                }
+                
+                Ok(Tensor::from_vec(output_data, vec![output_data.len()]))
+            }
+        }
+    }
+
+    /// Roll tensor along specified dimensions
+    /// 指定された次元に沿ってテンソルをロール
+    /// 
+    /// # Arguments
+    /// * `shifts` - Number of places to shift
+    /// * `dims` - Dimensions to roll along (optional)
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
+    /// let rolled = tensor.roll_1d(1, Some(0)).unwrap();
+    /// // Result: [4.0, 1.0, 2.0, 3.0]
+    /// ```
+    pub fn roll_1d(&self, shifts: isize, dim: Option<usize>) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        
+        match dim {
+            Some(d) => {
+                if d >= shape.len() {
+                    return Err(RusTorchError::InvalidDimension(format!(
+                        "Invalid dimension {} (max: {})",
+                        d,
+                        shape.len() - 1
+                    )));
+                }
+                
+                let dim_size = shape[d] as isize;
+                let effective_shift = ((shifts % dim_size) + dim_size) % dim_size;
+                
+                if effective_shift == 0 {
+                    return Ok(self.clone());
+                }
+                
+                self.roll_along_dimension(effective_shift as usize, d)
+            }
+            None => {
+                // Roll flattened tensor
+                let flattened = self.flatten_owned();
+                let data = flattened.data.as_slice().unwrap();
+                let len = data.len() as isize;
+                let effective_shift = ((shifts % len) + len) % len;
+                
+                if effective_shift == 0 {
+                    return Ok(self.clone());
+                }
+                
+                let mut output_data = Vec::with_capacity(data.len());
+                let shift = effective_shift as usize;
+                
+                output_data.extend_from_slice(&data[data.len() - shift..]);
+                output_data.extend_from_slice(&data[..data.len() - shift]);
+                
+                let rolled_flat = Tensor::from_vec(output_data, vec![data.len()]);
+                rolled_flat.view_shape(shape)
+            }
+        }
+    }
+
+    /// Rotate tensor 90 degrees in the plane specified by dims
+    /// 指定された次元平面でテンソルを90度回転
+    /// 
+    /// # Arguments
+    /// * `k` - Number of 90-degree rotations
+    /// * `dims` - Two dimensions defining the rotation plane
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    /// let rotated = tensor.rot90(1, &[0, 1]).unwrap();
+    /// // 90-degree rotation
+    /// ```
+    pub fn rot90(&self, k: isize, dims: &[usize]) -> RusTorchResult<Self> {
+        if dims.len() != 2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "rot90".to_string(),
+                message: "rot90 requires exactly 2 dimensions".to_string(),
+            });
+        }
+
+        let shape = self.shape();
+        let dim0 = dims[0];
+        let dim1 = dims[1];
+
+        if dim0 >= shape.len() || dim1 >= shape.len() {
+            return Err(RusTorchError::InvalidDimension(format!(
+                "Invalid dimensions [{}, {}] (max: {})",
+                dim0,
+                dim1,
+                shape.len() - 1
+            )));
+        }
+
+        if dim0 == dim1 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "rot90".to_string(),
+                message: "Rotation dimensions must be different".to_string(),
+            });
+        }
+
+        // Normalize k to [0, 3]
+        let k_norm = ((k % 4) + 4) % 4;
+        
+        match k_norm {
+            0 => Ok(self.clone()),
+            1 => self.rot90_once(dim0, dim1),
+            2 => self.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1),
+            3 => self.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Flip tensor along specified dimensions
+    /// 指定された次元に沿ってテンソルを反転
+    /// 
+    /// # Arguments
+    /// * `dims` - Dimensions to flip
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    /// let flipped = tensor.flip(&[0]).unwrap();
+    /// // Flip along dimension 0
+    /// ```
+    pub fn flip(&self, dims: &[usize]) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        
+        // Validate dimensions
+        for &dim in dims {
+            if dim >= shape.len() {
+                return Err(RusTorchError::InvalidDimension(format!(
+                    "Invalid dimension {} (max: {})",
+                    dim,
+                    shape.len() - 1
+                )));
+            }
+        }
+
+        if dims.is_empty() {
+            return Ok(self.clone());
+        }
+
+        let mut result = self.clone();
+        for &dim in dims {
+            result = result.flip_single_dim(dim)?;
+        }
+        
+        Ok(result)
+    }
+
+    /// Flip tensor left-right (along last dimension)
+    /// テンソルを左右反転（最後の次元に沿って）
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    /// let flipped = tensor.fliplr().unwrap();
+    /// ```
+    pub fn fliplr(&self) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        if shape.len() < 2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "fliplr".to_string(),
+                message: "fliplr requires at least 2D tensor".to_string(),
+            });
+        }
+        
+        self.flip(&[shape.len() - 1])
+    }
+
+    /// Flip tensor up-down (along first dimension)  
+    /// テンソルを上下反転（最初の次元に沿って）
+    /// 
+    /// # Examples
+    /// ```rust
+    /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+    /// let flipped = tensor.flipud().unwrap();
+    /// ```
+    pub fn flipud(&self) -> RusTorchResult<Self> {
+        let shape = self.shape();
+        if shape.is_empty() {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "flipud".to_string(),
+                message: "flipud requires at least 1D tensor".to_string(),
+            });
+        }
+        
+        self.flip(&[0])
     }
 }
 
@@ -905,5 +1515,205 @@ mod tests {
             let unsqueezed_view = tensor.try_unsqueeze_view(0).unwrap();
             assert_eq!(unsqueezed_view.shape(), &[1, 1, 3]);
         }
+    }
+
+    #[test]
+    fn test_expand_as() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
+        let target = Tensor::from_vec(vec![0.0; 6], vec![3, 2]);
+        
+        let expanded = tensor.expand_as(&target).unwrap();
+        assert_eq!(expanded.shape(), target.shape());
+        assert_eq!(expanded.shape(), &[3, 2]);
+        
+        // Verify data is correctly expanded
+        let expanded_data = expanded.data.as_slice().unwrap();
+        assert_eq!(expanded_data, &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_unflatten() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![6]);
+        
+        // Unflatten into 2x3
+        let unflattened = tensor.unflatten(0, &[2, 3]).unwrap();
+        assert_eq!(unflattened.shape(), &[2, 3]);
+        
+        // Unflatten into 3x2 
+        let unflattened2 = tensor.unflatten(0, &[3, 2]).unwrap();
+        assert_eq!(unflattened2.shape(), &[3, 2]);
+        
+        // Test with multi-dimensional tensor
+        let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        let unflattened3d = tensor2d.unflatten(1, &[1, 2]).unwrap();
+        assert_eq!(unflattened3d.shape(), &[2, 1, 2]);
+        
+        // Test invalid unflatten
+        let result = tensor.unflatten(0, &[2, 4]); // 2*4=8 != 6
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_repeat() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
+        
+        // Simple repeat
+        let repeated = tensor.repeat(&[3]).unwrap();
+        assert_eq!(repeated.shape(), &[6]);
+        assert_eq!(repeated.data.as_slice().unwrap(), &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
+        
+        // Multi-dimensional repeat
+        let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        let repeated2d = tensor2d.repeat(&[2, 3]).unwrap();
+        assert_eq!(repeated2d.shape(), &[4, 6]);
+        
+        // Dimension mismatch handling
+        let repeated_padded = tensor.repeat(&[2, 3]).unwrap();
+        assert_eq!(repeated_padded.shape(), &[2, 6]);
+    }
+
+    #[test]
+    fn test_repeat_interleave() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
+        
+        // Repeat each element twice
+        let repeated = tensor.repeat_interleave_scalar(2, Some(0)).unwrap();
+        assert_eq!(repeated.shape(), &[6]);
+        assert_eq!(repeated.data.as_slice().unwrap(), &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
+        
+        // Flatten and repeat
+        let repeated_flat = tensor.repeat_interleave_scalar(2, None).unwrap();
+        assert_eq!(repeated_flat.shape(), &[6]);
+        assert_eq!(repeated_flat.data.as_slice().unwrap(), &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
+    }
+
+    #[test]
+    fn test_roll() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
+        
+        // Roll by 1 position
+        let rolled = tensor.roll_1d(1, Some(0)).unwrap();
+        assert_eq!(rolled.shape(), &[4]);
+        assert_eq!(rolled.data.as_slice().unwrap(), &[4.0, 1.0, 2.0, 3.0]);
+        
+        // Roll by negative amount
+        let rolled_neg = tensor.roll_1d(-1, Some(0)).unwrap();
+        assert_eq!(rolled_neg.data.as_slice().unwrap(), &[2.0, 3.0, 4.0, 1.0]);
+        
+        // Roll 2D tensor
+        let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        let rolled2d = tensor2d.roll_1d(1, Some(0)).unwrap();
+        assert_eq!(rolled2d.shape(), &[2, 2]);
+        
+        // Roll without specifying dimension (flattened)
+        let rolled_flat = tensor.roll_1d(1, None).unwrap();
+        assert_eq!(rolled_flat.shape(), &[4]);
+        assert_eq!(rolled_flat.data.as_slice().unwrap(), &[4.0, 1.0, 2.0, 3.0]);
+    }
+
+    #[test]
+    fn test_rot90() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        
+        // 90-degree rotation
+        let rotated1 = tensor.rot90(1, &[0, 1]).unwrap();
+        assert_eq!(rotated1.shape(), &[2, 2]);
+        
+        // 180-degree rotation
+        let rotated2 = tensor.rot90(2, &[0, 1]).unwrap();
+        assert_eq!(rotated2.shape(), &[2, 2]);
+        
+        // 270-degree rotation 
+        let rotated3 = tensor.rot90(3, &[0, 1]).unwrap();
+        assert_eq!(rotated3.shape(), &[2, 2]);
+        
+        // Full rotation (360 degrees) should return original
+        let rotated4 = tensor.rot90(4, &[0, 1]).unwrap();
+        assert_eq!(rotated4.shape(), &[2, 2]);
+        assert_eq!(rotated4.data.as_slice().unwrap(), tensor.data.as_slice().unwrap());
+        
+        // Negative rotation
+        let rotated_neg = tensor.rot90(-1, &[0, 1]).unwrap();
+        assert_eq!(rotated_neg.shape(), &[2, 2]);
+        
+        // Error cases
+        assert!(tensor.rot90(1, &[0]).is_err()); // Need exactly 2 dims
+        assert!(tensor.rot90(1, &[0, 0]).is_err()); // Dims must be different
+        assert!(tensor.rot90(1, &[0, 5]).is_err()); // Invalid dimension
+    }
+
+    #[test]
+    fn test_flip() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        
+        // Flip along dimension 0
+        let flipped0 = tensor.flip(&[0]).unwrap();
+        assert_eq!(flipped0.shape(), &[2, 2]);
+        
+        // Flip along dimension 1
+        let flipped1 = tensor.flip(&[1]).unwrap();
+        assert_eq!(flipped1.shape(), &[2, 2]);
+        
+        // Flip along both dimensions
+        let flipped_both = tensor.flip(&[0, 1]).unwrap();
+        assert_eq!(flipped_both.shape(), &[2, 2]);
+        
+        // No flip (empty dimensions)
+        let no_flip = tensor.flip(&[]).unwrap();
+        assert_eq!(no_flip.data.as_slice().unwrap(), tensor.data.as_slice().unwrap());
+        
+        // Error case - invalid dimension
+        assert!(tensor.flip(&[5]).is_err());
+    }
+
+    #[test]
+    fn test_fliplr_flipud() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
+        
+        // Test fliplr (left-right flip)
+        let flipped_lr = tensor.fliplr().unwrap();
+        assert_eq!(flipped_lr.shape(), &[2, 2]);
+        
+        // Test flipud (up-down flip)
+        let flipped_ud = tensor.flipud().unwrap();
+        assert_eq!(flipped_ud.shape(), &[2, 2]);
+        
+        // Error cases
+        let tensor1d = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
+        assert!(tensor1d.fliplr().is_err()); // Need at least 2D for fliplr
+        
+        let tensor0d = Tensor::from_vec(vec![1.0], vec![]);
+        assert!(tensor0d.flipud().is_err()); // Need at least 1D for flipud
+    }
+
+    #[test]
+    fn test_complex_shape_operations() {
+        let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+        
+        // Complex chain of operations using builder
+        let result = tensor
+            .shape_builder()
+            .unsqueeze(0).unwrap()                    // [1, 2, 3]
+            .expand(&[2, 2, 3]).unwrap()              // [2, 2, 3]
+            .flatten()                                // [12]
+            .build();
+            
+        assert_eq!(result.shape(), &[12]);
+        assert_eq!(result.numel(), 12);
+        
+        // Test unflatten after flatten
+        let flattened = tensor.flatten_owned();
+        let restored = flattened.unflatten(0, &[2, 3]).unwrap();
+        assert_eq!(restored.shape(), tensor.shape());
+        
+        // Test repeat with expand_as
+        let small = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
+        let target_shape = Tensor::from_vec(vec![0.0; 8], vec![4, 2]);
+        let expanded = small.expand_as(&target_shape).unwrap();
+        assert_eq!(expanded.shape(), &[4, 2]);
+        
+        // Verify data correctness
+        let data = expanded.data.as_slice().unwrap();
+        assert_eq!(data, &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
     }
 }
