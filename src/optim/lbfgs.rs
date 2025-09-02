@@ -9,8 +9,8 @@
 //! 適切な最適化問題に対して優れた収束性を提供します。
 
 use super::Optimizer;
-use crate::tensor::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 use std::collections::{HashMap, VecDeque};
 
 /// L-BFGS optimizer with limited memory storage
@@ -54,9 +54,9 @@ impl Default for LineSearchMethod {
 /// パラメータ履歴のためのL-BFGSメモリストレージ
 #[derive(Debug, Clone)]
 pub struct LBFGSMemory {
-    s_history: VecDeque<Tensor<f32>>,  // Parameter changes
-    y_history: VecDeque<Tensor<f32>>,  // Gradient changes
-    rho_history: VecDeque<f32>,        // 1 / (y^T * s)
+    s_history: VecDeque<Tensor<f32>>, // Parameter changes
+    y_history: VecDeque<Tensor<f32>>, // Gradient changes
+    rho_history: VecDeque<f32>,       // 1 / (y^T * s)
     max_size: usize,
 }
 
@@ -76,7 +76,7 @@ impl LBFGSMemory {
         // Compute ρ = 1 / (y^T * s) with enhanced numerical stability
         let s_y_product = &s * &y;
         let y_dot_s = s_y_product.sum();
-        
+
         // Skip update if curvature condition is not satisfied (enhanced check)
         if y_dot_s.abs() < 1e-12 {
             return Err(RusTorchError::InvalidParameters {
@@ -84,21 +84,21 @@ impl LBFGSMemory {
                 message: "Insufficient curvature condition: y^T * s too small".to_string(),
             });
         }
-        
+
         let rho = 1.0 / y_dot_s;
-        
+
         // Add new information
         self.s_history.push_back(s);
         self.y_history.push_back(y);
         self.rho_history.push_back(rho);
-        
+
         // Maintain history size limit
         while self.s_history.len() > self.max_size {
             self.s_history.pop_front();
             self.y_history.pop_front();
             self.rho_history.pop_front();
         }
-        
+
         Ok(())
     }
 
@@ -145,20 +145,21 @@ impl LBFGSMemory {
         }
 
         // Apply initial Hessian approximation (H_0 = γI) with better stability
-        let gamma = if let (Some(s_last), Some(y_last)) = (self.s_history.back(), self.y_history.back()) {
-            let s_y_product = s_last * y_last;
-            let s_dot_y = s_y_product.sum();
-            let y_squared = y_last * y_last;
-            let y_dot_y = y_squared.sum();
+        let gamma =
+            if let (Some(s_last), Some(y_last)) = (self.s_history.back(), self.y_history.back()) {
+                let s_y_product = s_last * y_last;
+                let s_dot_y = s_y_product.sum();
+                let y_squared = y_last * y_last;
+                let y_dot_y = y_squared.sum();
 
-            if y_dot_y > 1e-12 {
-                (s_dot_y / y_dot_y).clamp(1e-8, 1e8)  // Clamp to reasonable range
+                if y_dot_y > 1e-12 {
+                    (s_dot_y / y_dot_y).clamp(1e-8, 1e8) // Clamp to reasonable range
+                } else {
+                    1.0
+                }
             } else {
                 1.0
-            }
-        } else {
-            1.0
-        };
+            };
 
         let mut r = &q * gamma;
         alphas.reverse();
@@ -217,7 +218,7 @@ impl LBFGS {
                 message: "Learning rate must be positive".to_string(),
             });
         }
-        
+
         if tolerance_grad < 0.0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "L-BFGS optimizer".to_string(),
@@ -305,39 +306,39 @@ impl LBFGS {
     ) -> f32 {
         let max_iterations = 25; // Increased iterations for better convergence
         let mut alpha = self.learning_rate;
-        
+
         // Compute initial directional derivative: g^T * p with numerical stability
         let grad_dir_product = grad * direction;
         let directional_derivative = grad_dir_product.sum();
-        
+
         // Enhanced descent direction check
         if directional_derivative >= -1e-12 {
             return 1e-6; // Not a descent direction
         }
-        
+
         // Compute initial objective approximation (grad norm squared)
         let grad_squared = grad * grad;
         let f0 = grad_squared.sum();
-        
+
         for iteration in 0..max_iterations {
             // Enhanced Armijo condition evaluation
             let reduction_estimate = alpha * c1 * directional_derivative;
             let expected_improvement = reduction_estimate.abs();
-            
+
             // More sophisticated acceptance criteria
             if alpha > 1e-10 && expected_improvement > 1e-10 {
                 // Additional curvature check could be added here
                 return alpha;
             }
-            
+
             alpha *= rho;
-            
+
             // Enhanced stopping criteria
             if alpha < 1e-10 || iteration == max_iterations - 1 {
                 break;
             }
         }
-        
+
         alpha.clamp(1e-10, 1.0)
     }
 
@@ -352,25 +353,25 @@ impl LBFGS {
         c2: f32,
     ) -> f32 {
         let max_iterations = 15; // Increased iterations for better convergence
-        
+
         // Compute directional derivative with enhanced numerical stability
         let grad_dir_product = grad * direction;
         let directional_derivative = grad_dir_product.sum();
-        
+
         if directional_derivative >= -1e-12 {
             return 1e-6; // Not a descent direction
         }
-        
+
         let alpha_low = 0.0;
         let mut alpha_high = f32::INFINITY;
         let mut alpha = self.learning_rate.min(1.0);
-        
+
         // Enhanced search with better bracketing
         for iteration in 0..max_iterations {
             // Enhanced Armijo condition evaluation
             let armijo_threshold = alpha * c1 * directional_derivative;
             let armijo_satisfied = armijo_threshold.abs() > 1e-12;
-            
+
             if armijo_satisfied {
                 // In a full implementation, additional curvature condition would be checked:
                 // |g(x + α*p)^T * p| ≤ c2 * |g(x)^T * p|
@@ -379,7 +380,7 @@ impl LBFGS {
                     return alpha;
                 }
             }
-            
+
             // Enhanced bracketing strategy
             if alpha_high == f32::INFINITY {
                 // Expand phase
@@ -398,13 +399,13 @@ impl LBFGS {
                 }
                 alpha = new_alpha;
             }
-            
+
             // Enhanced stopping criteria
             if alpha < 1e-12 || alpha > 100.0 {
                 break;
             }
         }
-        
+
         alpha.clamp(1e-12, 10.0)
     }
 
@@ -418,8 +419,11 @@ impl LBFGS {
         history_size: usize,
     ) -> RusTorchResult<()> {
         // Get or create memory for this parameter
-        let memory = self.memory.entry(param_id).or_insert_with(|| LBFGSMemory::new(history_size));
-        
+        let memory = self
+            .memory
+            .entry(param_id)
+            .or_insert_with(|| LBFGSMemory::new(history_size));
+
         // Update memory with enhanced error handling
         memory.update(param_change, grad_change)
     }
@@ -463,7 +467,7 @@ impl Optimizer for LBFGS {
         if let Some(prev_grad) = self.prev_grad.get(&param_id) {
             let param_change = &new_param - &old_param;
             let grad_change = grad - prev_grad;
-            
+
             // Use the default history size from original implementation
             let history_size = 10; // This could be made configurable
             if let Err(e) = self.update_memory(param_id, param_change, grad_change, history_size) {
@@ -541,7 +545,8 @@ mod tests {
             1e-10,
             15,
             LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 },
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(optimizer.learning_rate(), 0.01);
         assert_eq!(optimizer.max_iter, 50);
         assert_eq!(optimizer.max_eval, 100);
@@ -553,11 +558,11 @@ mod tests {
         // Test invalid learning rate
         assert!(LBFGS::new(-0.1).is_err());
         assert!(LBFGS::new(0.0).is_err());
-        
+
         // Test invalid gradient tolerance
         let result = LBFGS::with_params(0.1, 10, 10, -1e-5, 1e-9, 5, LineSearchMethod::None);
         assert!(result.is_err());
-        
+
         // Test invalid history size
         let result = LBFGS::with_params(0.1, 10, 10, 1e-5, 1e-9, 0, LineSearchMethod::None);
         assert!(result.is_err());
@@ -642,7 +647,8 @@ mod tests {
 
     #[test]
     fn test_lbfgs_state_dict() {
-        let optimizer = LBFGS::with_params(0.05, 25, 50, 1e-4, 1e-8, 8, LineSearchMethod::None).unwrap();
+        let optimizer =
+            LBFGS::with_params(0.05, 25, 50, 1e-4, 1e-8, 8, LineSearchMethod::None).unwrap();
         let state = optimizer.state_dict();
 
         assert_eq!(state["learning_rate"], 0.05);
@@ -679,18 +685,30 @@ mod tests {
 
         // Test backtracking line search
         let optimizer1 = LBFGS::with_params(
-            0.1, 10, 10, 1e-5, 1e-9, 5, 
-            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 }
-        ).unwrap();
+            0.1,
+            10,
+            10,
+            1e-5,
+            1e-9,
+            5,
+            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 },
+        )
+        .unwrap();
         let alpha1 = optimizer1.backtracking_line_search(&param, &grad, &direction, 1e-4, 0.5);
         assert!(alpha1 > 0.0);
         assert!(alpha1 <= 1.0);
 
         // Test strong Wolfe line search
         let optimizer2 = LBFGS::with_params(
-            0.1, 10, 10, 1e-5, 1e-9, 5,
-            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 }
-        ).unwrap();
+            0.1,
+            10,
+            10,
+            1e-5,
+            1e-9,
+            5,
+            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 },
+        )
+        .unwrap();
         let alpha2 = optimizer2.strong_wolfe_line_search(&param, &grad, &direction, 1e-4, 0.9);
         assert!(alpha2 > 0.0);
         assert!(alpha2 <= 10.0);

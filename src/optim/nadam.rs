@@ -1,10 +1,10 @@
 //! NAdam optimizer implementation
 //! NAdamオプティマイザの実装 - Nesterov加速Adam
 
-use crate::optim::common::{AdamVariant, AdamConfig, AdamState, AdamUtils, GenericAdamOptimizer};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::optim::common::{AdamConfig, AdamState, AdamUtils, AdamVariant, GenericAdamOptimizer};
 use crate::optim::Optimizer;
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 
 /// NAdam variant implementing specialized Nesterov acceleration
@@ -34,9 +34,11 @@ impl NAdamVariant {
     /// Compute time-dependent beta1 with decay
     /// 減衰を伴う時間依存beta1を計算
     fn beta1_t(&self, beta1: f32, t: usize) -> f32 {
-        let momentum_cache_t = beta1 * (1.0 - 0.5 * 0.96_f32.powi(t as i32 * self.schedule_decay as i32));
-        let momentum_cache_t_1 = beta1 * (1.0 - 0.5 * 0.96_f32.powi((t + 1) as i32 * self.schedule_decay as i32));
-        
+        let momentum_cache_t =
+            beta1 * (1.0 - 0.5 * 0.96_f32.powi(t as i32 * self.schedule_decay as i32));
+        let momentum_cache_t_1 =
+            beta1 * (1.0 - 0.5 * 0.96_f32.powi((t + 1) as i32 * self.schedule_decay as i32));
+
         momentum_cache_t_1 / (1.0 - momentum_cache_t)
     }
 }
@@ -51,43 +53,45 @@ impl AdamVariant for NAdamVariant {
     ) -> Tensor<f32> {
         // Update momentum
         AdamUtils::update_momentum(&mut state.momentum, grad, config.beta1);
-        
-        // Update velocity  
+
+        // Update velocity
         AdamUtils::update_velocity(&mut state.velocity, grad, config.beta2);
-        
+
         // Compute bias corrections
         let bias_correction1 = AdamUtils::bias_correction1(config.beta1, step);
         let bias_correction2 = AdamUtils::bias_correction2(config.beta2, step);
-        
+
         // Bias-corrected estimates
-        let momentum_corrected = AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
-        let velocity_corrected = AdamUtils::apply_bias_correction(&state.velocity, bias_correction2);
-        
+        let momentum_corrected =
+            AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
+        let velocity_corrected =
+            AdamUtils::apply_bias_correction(&state.velocity, bias_correction2);
+
         // NAdam's key feature: Nesterov acceleration
         let beta1_t = self.beta1_t(config.beta1, step);
         let momentum_term = &momentum_corrected * beta1_t;
         let gradient_term = grad * ((1.0 - config.beta1) / bias_correction1);
         let nesterov_momentum = &momentum_term + &gradient_term;
-        
+
         // Compute update
         AdamUtils::compute_adam_update(&nesterov_momentum, &velocity_corrected, config.eps)
     }
-    
+
     fn optimizer_name(&self) -> &'static str {
         "NAdam"
     }
-    
+
     fn validate_specific_config(&self, _config: &AdamConfig) -> RusTorchResult<()> {
         if self.momentum_decay < 0.0 {
-            return Err(RusTorchError::InvalidParameters { 
+            return Err(RusTorchError::InvalidParameters {
                 operation: "NAdam optimizer".to_string(),
-                message: "Momentum decay must be non-negative".to_string() 
+                message: "Momentum decay must be non-negative".to_string(),
             });
         }
         if self.schedule_decay < 0.0 {
-            return Err(RusTorchError::InvalidParameters { 
+            return Err(RusTorchError::InvalidParameters {
                 operation: "NAdam optimizer".to_string(),
-                message: "Schedule decay must be non-negative".to_string() 
+                message: "Schedule decay must be non-negative".to_string(),
             });
         }
         Ok(())
@@ -112,7 +116,7 @@ impl AdamVariant for NAdamVariant {
 
 /// NAdam (Nesterov-accelerated Adaptive Moment Estimation) optimizer
 /// NAdam（Nesterov加速適応モーメント推定）オプティマイザ
-/// 
+///
 /// NAdam combines Adam with Nesterov momentum for better convergence
 /// NAdamはAdamとNesterovモーメンタムを組み合わせ、より良い収束を実現
 pub type NAdam = GenericAdamOptimizer<NAdamVariant>;
@@ -181,7 +185,6 @@ impl NAdam {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,17 +237,17 @@ mod tests {
     #[test]
     fn test_nadam_variant_beta1_t() {
         let variant = NAdamVariant::default_decay();
-        
+
         // Beta1 should change over time with NAdam scheduling
         let beta1_t1 = variant.beta1_t(0.9, 1);
         let beta1_t10 = variant.beta1_t(0.9, 10);
         let beta1_t100 = variant.beta1_t(0.9, 100);
-        
+
         // Beta1_t values should be reasonable
         assert!(beta1_t1 > 0.0 && beta1_t1 <= 1.5);
         assert!(beta1_t10 > 0.0 && beta1_t10 <= 1.5);
         assert!(beta1_t100 > 0.0 && beta1_t100 <= 1.5);
-        
+
         // Just verify the computation is stable
         assert!(beta1_t1.is_finite());
         assert!(beta1_t10.is_finite());
@@ -255,7 +258,7 @@ mod tests {
     fn test_nadam_state_dict() {
         let optimizer = NAdam::default_params(0.001).unwrap();
         let state_dict = optimizer.state_dict();
-        
+
         assert_eq!(state_dict.get("learning_rate"), Some(&0.001));
         assert_eq!(state_dict.get("beta1"), Some(&0.9));
         assert_eq!(state_dict.get("momentum_decay"), Some(&0.004));
@@ -267,7 +270,7 @@ mod tests {
         let variant = NAdamVariant::new(-0.1, 0.004);
         let config = AdamConfig::nadam(0.001);
         assert!(variant.validate_specific_config(&config).is_err());
-        
+
         let valid_variant = NAdamVariant::new(0.004, 0.004);
         assert!(valid_variant.validate_specific_config(&config).is_ok());
     }

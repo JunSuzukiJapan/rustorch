@@ -148,7 +148,8 @@ fn test_lbfgs_basic_functionality() {
 
 #[test]
 fn test_lbfgs_memory_building() {
-    let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None).unwrap();
+    let mut optimizer =
+        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None).unwrap();
     let param = Tensor::<f32>::ones(&[4, 4]) * 3.0;
 
     // Perform multiple steps to build L-BFGS memory
@@ -194,10 +195,26 @@ fn test_lbfgs_convergence_detection() {
 fn test_lbfgs_line_search_methods() {
     let optimizers = vec![
         LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None).unwrap(),
-        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, 
-            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 }).unwrap(),
-        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5,
-            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 }).unwrap(),
+        LBFGS::with_params(
+            0.1,
+            20,
+            20,
+            1e-5,
+            1e-9,
+            5,
+            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 },
+        )
+        .unwrap(),
+        LBFGS::with_params(
+            0.1,
+            20,
+            20,
+            1e-5,
+            1e-9,
+            5,
+            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 },
+        )
+        .unwrap(),
     ];
 
     for mut optimizer in optimizers {

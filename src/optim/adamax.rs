@@ -1,10 +1,10 @@
 //! Adamax optimizer implementation
 //! Adamaxオプティマイザの実装 - Adam with infinity norm
 
-use crate::optim::common::{AdamVariant, AdamConfig, AdamState, AdamUtils, GenericAdamOptimizer};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::optim::common::{AdamConfig, AdamState, AdamUtils, AdamVariant, GenericAdamOptimizer};
 use crate::optim::Optimizer;
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 
 /// Adamax variant implementing optimized infinity norm computation
@@ -20,9 +20,7 @@ impl AdamaxVariant {
     /// Create new Adamax variant with default parameters
     /// デフォルトパラメータで新しいAdamax変種を作成
     pub fn new() -> Self {
-        Self {
-            infinity_eps: 1e-8,
-        }
+        Self { infinity_eps: 1e-8 }
     }
 
     /// Create Adamax variant with custom infinity epsilon
@@ -36,13 +34,14 @@ impl AdamaxVariant {
     fn tensor_max_optimized(a: &Tensor<f32>, b: &Tensor<f32>) -> Tensor<f32> {
         let a_data = a.as_slice().unwrap();
         let b_data = b.as_slice().unwrap();
-        
+
         // Use iterator chaining for better performance
-        let max_data: Vec<f32> = a_data.iter()
+        let max_data: Vec<f32> = a_data
+            .iter()
             .zip(b_data.iter())
             .map(|(&a_val, &b_val)| a_val.max(b_val))
             .collect();
-            
+
         Tensor::from_vec(max_data, a.shape().to_vec())
     }
 
@@ -71,16 +70,17 @@ impl AdamVariant for AdamaxVariant {
     ) -> Tensor<f32> {
         // Update momentum using common utility
         AdamUtils::update_momentum(&mut state.momentum, grad, config.beta1);
-        
+
         // Adamax key feature: Update infinity norm instead of velocity
         let grad_abs = Self::tensor_abs_fast(grad);
         let beta2_scaled = &state.velocity * config.beta2;
         state.velocity = Self::tensor_max_optimized(&beta2_scaled, &grad_abs);
-        
+
         // Apply bias correction only to first moment (momentum)
         let bias_correction1 = AdamUtils::bias_correction1(config.beta1, step);
-        let momentum_corrected = AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
-        
+        let momentum_corrected =
+            AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
+
         // Compute Adamax update: No bias correction for infinity norm
         // The infinity norm is inherently "corrected" by its max operation
         let denominator = &state.velocity + self.infinity_eps.max(config.eps);
@@ -116,7 +116,7 @@ impl AdamVariant for AdamaxVariant {
 
 /// Adamax (Adam with infinity norm) optimizer
 /// Adamax（無限大ノルムを使用するAdam）オプティマイザ
-/// 
+///
 /// Adamax is a variant of Adam where the second moment is replaced by the infinity norm
 /// Adamaxは第2モーメントを無限大ノルムに置き換えたAdamの変種
 pub type Adamax = GenericAdamOptimizer<AdamaxVariant>;
@@ -180,7 +180,6 @@ impl Adamax {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,10 +218,10 @@ mod tests {
     fn test_tensor_max() {
         let a = Tensor::from_vec(vec![1.0, 5.0, 2.0], vec![3]);
         let b = Tensor::from_vec(vec![3.0, 1.0, 4.0], vec![3]);
-        
+
         let max_tensor = AdamaxVariant::tensor_max_optimized(&a, &b);
         let max_data = max_tensor.as_slice().unwrap();
-        
+
         assert_eq!(max_data, &[3.0, 5.0, 4.0]);
     }
 
@@ -231,7 +230,7 @@ mod tests {
         let tensor = Tensor::from_vec(vec![-1.0, 2.0, -3.0, 4.0], vec![4]);
         let abs_tensor = AdamaxVariant::tensor_abs_fast(&tensor);
         let abs_data = abs_tensor.as_slice().unwrap();
-        
+
         assert_eq!(abs_data, &[1.0, 2.0, 3.0, 4.0]);
     }
 
@@ -243,7 +242,7 @@ mod tests {
         let grad2 = Tensor::from_vec(vec![0.3, 0.1, 0.8], vec![3]);
 
         let param_id = &param as *const _ as usize;
-        
+
         // First step
         optimizer.step(&param, &grad1);
         let inf_norm1 = {
@@ -251,7 +250,7 @@ mod tests {
             state.velocity.clone()
         };
         let inf_norm1_data = inf_norm1.as_slice().unwrap();
-        
+
         // Second step with different gradient
         optimizer.step(&param, &grad2);
         let inf_norm2 = {
@@ -259,7 +258,7 @@ mod tests {
             state.velocity.clone()
         };
         let inf_norm2_data = inf_norm2.as_slice().unwrap();
-        
+
         // Infinity norm should track the maximum absolute values
         // After step 1: approximately [0.1, 0.5, 0.2]
         // After step 2: should be max of (beta2 * prev, |new_grad|)
@@ -273,14 +272,14 @@ mod tests {
         let grad = Tensor::from_vec(vec![1.0], vec![1]);
 
         let original_param_val = param.as_slice().unwrap()[0];
-        
+
         // Take a step
         optimizer.step(&param, &grad);
-        
+
         let new_param_val = param.as_slice().unwrap()[0];
         let param_id = &param as *const _ as usize;
         let state = optimizer.get_state(param_id).unwrap();
-        
+
         // The infinity norm should be used directly (no bias correction)
         // Unlike Adam, Adamax doesn't need bias correction for the second moment
         assert!(state.velocity.as_slice().unwrap()[0] > 0.0);
@@ -298,7 +297,7 @@ mod tests {
         let variant = AdamaxVariant::with_infinity_eps(-1e-8);
         let config = AdamConfig::adamax(0.001);
         assert!(variant.validate_specific_config(&config).is_err());
-        
+
         let valid_variant = AdamaxVariant::with_infinity_eps(1e-8);
         assert!(valid_variant.validate_specific_config(&config).is_ok());
     }
@@ -307,7 +306,7 @@ mod tests {
     fn test_adamax_state_dict() {
         let optimizer = Adamax::default_params(0.002).unwrap();
         let state_dict = optimizer.state_dict();
-        
+
         assert_eq!(state_dict.get("learning_rate"), Some(&0.002));
         assert_eq!(state_dict.get("beta1"), Some(&0.9));
         assert_eq!(state_dict.get("beta2"), Some(&0.999));

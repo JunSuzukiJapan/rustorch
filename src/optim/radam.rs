@@ -1,10 +1,10 @@
 //! RAdam optimizer implementation
 //! RAdamオプティマイザの実装 - Rectified Adam
 
-use crate::optim::common::{AdamVariant, AdamConfig, AdamState, AdamUtils, GenericAdamOptimizer};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::optim::common::{AdamConfig, AdamState, AdamUtils, AdamVariant, GenericAdamOptimizer};
 use crate::optim::Optimizer;
 use crate::tensor::Tensor;
-use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 
 /// RAdam variant implementing variance rectification
@@ -69,16 +69,16 @@ impl RAdamVariant {
     fn compute_rectification_term(&mut self, beta2: f32, step: usize) -> f32 {
         let rho_inf = self.get_rho_inf(beta2);
         let rho_t = self.compute_rho_t(beta2, step);
-        
+
         // Pre-compute common terms for efficiency
         let rho_inf_minus_4 = rho_inf - 4.0;
         let rho_inf_minus_2 = rho_inf - 2.0;
         let rho_t_minus_4 = rho_t - 4.0;
         let rho_t_minus_2 = rho_t - 2.0;
-        
+
         let numerator = rho_inf_minus_4 * rho_inf_minus_2 * rho_t;
         let denominator = rho_inf * rho_t_minus_4 * rho_t_minus_2;
-        
+
         (numerator / denominator).sqrt()
     }
 }
@@ -100,24 +100,30 @@ impl AdamVariant for RAdamVariant {
         // Note: We need mutable access to self for caching, but trait requires &self
         // This is a design trade-off for better performance
         let mut variant_copy = self.clone();
-        
+
         // Update momentum and velocity using common utilities
         AdamUtils::update_momentum(&mut state.momentum, grad, config.beta1);
         AdamUtils::update_velocity(&mut state.velocity, grad, config.beta2);
-        
+
         // Compute bias corrections
         let bias_correction1 = AdamUtils::bias_correction1(config.beta1, step);
-        let bias_corrected_momentum = AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
-        
+        let bias_corrected_momentum =
+            AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
+
         // RAdam's key feature: variance rectification
         if variant_copy.should_rectify(config.beta2, step) {
             // Use adaptive learning rate with variance rectification
             let bias_correction2 = AdamUtils::bias_correction2(config.beta2, step);
-            let bias_corrected_velocity = AdamUtils::apply_bias_correction(&state.velocity, bias_correction2);
+            let bias_corrected_velocity =
+                AdamUtils::apply_bias_correction(&state.velocity, bias_correction2);
             let rectification_term = variant_copy.compute_rectification_term(config.beta2, step);
-            
+
             // Apply rectification to the standard Adam update
-            let adam_update = AdamUtils::compute_adam_update(&bias_corrected_momentum, &bias_corrected_velocity, config.eps);
+            let adam_update = AdamUtils::compute_adam_update(
+                &bias_corrected_momentum,
+                &bias_corrected_velocity,
+                config.eps,
+            );
             &adam_update * rectification_term
         } else {
             // Fall back to momentum-only update when variance is not rectifiable
@@ -141,7 +147,10 @@ impl AdamVariant for RAdamVariant {
 
     fn additional_config_fields(&self) -> HashMap<String, f32> {
         let mut fields = HashMap::new();
-        fields.insert("rectification_threshold".to_string(), self.rectification_threshold);
+        fields.insert(
+            "rectification_threshold".to_string(),
+            self.rectification_threshold,
+        );
         if let Some(rho_inf) = self.rho_inf_cache {
             fields.insert("rho_inf_cache".to_string(), rho_inf);
         }
@@ -160,7 +169,7 @@ impl AdamVariant for RAdamVariant {
 
 /// RAdam (Rectified Adaptive Moment Estimation) optimizer
 /// RAdam（修正適応モーメント推定）オプティマイザ
-/// 
+///
 /// RAdam provides variance rectification for Adam optimizer, addressing the
 /// large variance issue in the early stages of training
 /// RAdamはAdamオプティマイザの分散修正を提供し、訓練初期段階の大きな分散問題に対処する
@@ -234,7 +243,6 @@ impl RAdam {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -271,11 +279,11 @@ mod tests {
     #[test]
     fn test_radam_variant_caching() {
         let mut variant = RAdamVariant::new();
-        
+
         // First call should compute and cache rho_inf
         let rho_inf1 = variant.get_rho_inf(0.999);
         assert!((rho_inf1 - 1999.0).abs() < 1.0);
-        
+
         // Second call should use cached value
         let rho_inf2 = variant.get_rho_inf(0.999);
         assert_eq!(rho_inf1, rho_inf2);
@@ -285,11 +293,11 @@ mod tests {
     #[test]
     fn test_variance_rectification() {
         let optimizer = RAdam::default_params(0.001).unwrap();
-        
+
         // Early steps should not be rectifiable
         assert!(!optimizer.is_rectification_enabled(1));
         assert!(!optimizer.is_rectification_enabled(2));
-        
+
         // Later steps should be rectifiable (depends on beta2=0.999)
         // With beta2=0.999, it takes many more steps to become rectifiable
         assert!(optimizer.is_rectification_enabled(1000));
@@ -301,7 +309,7 @@ mod tests {
         let optimizer = RAdam::with_threshold(0.001, 2.0).unwrap();
         let (threshold, _) = optimizer.radam_config();
         assert_eq!(threshold, 2.0);
-        
+
         // With lower threshold, rectification should be enabled earlier
         assert!(optimizer.is_rectification_enabled(100));
     }
@@ -309,7 +317,7 @@ mod tests {
     #[test]
     fn test_radam_variant_rectification_term() {
         let mut variant = RAdamVariant::new();
-        
+
         // Rectification term should be positive and reasonable for large steps
         let rect_term = variant.compute_rectification_term(0.999, 10000);
         assert!(rect_term > 0.0);
@@ -323,14 +331,14 @@ mod tests {
         let grad = Tensor::from_vec(vec![0.1, 0.2, 0.3], vec![3]);
 
         let original_param = param.clone();
-        
+
         // In early steps, RAdam should fall back to momentum-only updates
         optimizer.step(&param, &grad);
 
         // Should still update parameters even in momentum-only mode
         let param_data = param.as_slice().unwrap();
         let orig_data = original_param.as_slice().unwrap();
-        
+
         for (new_val, orig_val) in param_data.iter().zip(orig_data.iter()) {
             assert!(new_val != orig_val); // Parameters should change
         }
@@ -340,7 +348,7 @@ mod tests {
     fn test_radam_state_dict() {
         let optimizer = RAdam::default_params(0.001).unwrap();
         let state_dict = optimizer.state_dict();
-        
+
         assert_eq!(state_dict.get("learning_rate"), Some(&0.001));
         assert_eq!(state_dict.get("beta1"), Some(&0.9));
         assert_eq!(state_dict.get("rectification_threshold"), Some(&4.0));
@@ -351,7 +359,7 @@ mod tests {
         let variant = RAdamVariant::with_threshold(-1.0);
         let config = AdamConfig::radam(0.001);
         assert!(variant.validate_specific_config(&config).is_err());
-        
+
         let valid_variant = RAdamVariant::with_threshold(4.0);
         assert!(valid_variant.validate_specific_config(&config).is_ok());
     }

@@ -23,8 +23,14 @@ fn main() {
     // Check if they can be broadcasted
     if let Ok((broadcasted1, broadcasted2)) = tensor1.broadcast_with(&tensor2) {
         println!("✓ Tensors were broadcasted together successfully");
-        println!("Broadcasted tensor1: {:?}", broadcasted1.as_slice().unwrap());
-        println!("Broadcasted tensor2: {:?}", broadcasted2.as_slice().unwrap());
+        println!(
+            "Broadcasted tensor1: {:?}",
+            broadcasted1.as_slice().unwrap()
+        );
+        println!(
+            "Broadcasted tensor2: {:?}",
+            broadcasted2.as_slice().unwrap()
+        );
     } else {
         println!("✗ Tensors could not be broadcasted together");
     }
@@ -33,7 +39,7 @@ fn main() {
     println!("\n--- Unsqueeze and Squeeze ---");
     let tensor = Tensor::from_vec(vec![1.0f32, 2.0, 3.0], vec![3]);
     println!("Original tensor shape: {:?}", tensor.shape());
-    
+
     if let Ok(unsqueezed) = tensor.unsqueeze(0) {
         println!("After unsqueeze(0): {:?}", unsqueezed.shape());
         let squeezed = unsqueezed.squeeze();

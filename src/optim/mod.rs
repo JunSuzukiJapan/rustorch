@@ -8,12 +8,12 @@ pub mod lr_scheduler;
 pub mod common;
 
 // Phase 2: Advanced Adam-based optimizers
+/// Adamax optimizer - Adam with infinity norm
+pub mod adamax;
 /// NAdam optimizer - Nesterov-accelerated Adam
 pub mod nadam;
 /// RAdam optimizer - Rectified Adam with variance rectification
 pub mod radam;
-/// Adamax optimizer - Adam with infinity norm
-pub mod adamax;
 
 // Advanced optimizers
 /// AdaBound optimizer bridging Adam and SGD
@@ -37,9 +37,9 @@ pub use lr_scheduler::{
 };
 
 // Phase 2 optimizer exports
+pub use adamax::Adamax;
 pub use nadam::NAdam;
 pub use radam::RAdam;
-pub use adamax::Adamax;
 
 // Re-export advanced optimizers
 pub use adabound::AdaBound;

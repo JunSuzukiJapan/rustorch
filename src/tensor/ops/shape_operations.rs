@@ -2,7 +2,7 @@
 //! 保守性を向上させたテンソル形状操作（リファクタリング済み）
 //!
 //! ## Key Improvements / 主な改善点
-//! 
+//!
 //! 1. **Generic Recursive Processing** - Common pattern extracted into helper functions
 //! 2. **Enhanced Error Handling** - More descriptive error messages with context
 //! 3. **Performance Optimizations** - Lazy evaluation and view operations where possible
@@ -50,9 +50,9 @@ impl TensorProcessor {
     /// 汎用変換関数でテンソルデータを処理
     fn process_with_transform<T, F>(
         data: &ArrayD<T>,
-        source_shape: &[usize], 
+        source_shape: &[usize],
         target_shape: &[usize],
-        transform_fn: F
+        transform_fn: F,
     ) -> RusTorchResult<Vec<T>>
     where
         T: Float + Clone,
@@ -60,20 +60,20 @@ impl TensorProcessor {
     {
         let mut output = Vec::with_capacity(target_shape.iter().product());
         let mut indices = vec![0; target_shape.len()];
-        
+
         Self::recursive_process(
-            data, 
-            &mut output, 
-            source_shape, 
-            target_shape, 
-            transform_fn, 
-            &mut indices, 
-            0
+            data,
+            &mut output,
+            source_shape,
+            target_shape,
+            transform_fn,
+            &mut indices,
+            0,
         )?;
-        
+
         Ok(output)
     }
-    
+
     /// Recursive worker function for tensor processing
     /// テンソル処理の再帰ワーカー関数
     fn recursive_process<T, F>(
@@ -95,14 +95,25 @@ impl TensorProcessor {
             if let Some(&value) = data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
-                return Err(RusTorchError::index_out_of_bounds(&source_indices, source_shape));
+                return Err(RusTorchError::index_out_of_bounds(
+                    &source_indices,
+                    source_shape,
+                ));
             }
             return Ok(());
         }
 
         for i in 0..target_shape[dim] {
             indices[dim] = i;
-            Self::recursive_process(data, output, source_shape, target_shape, transform_fn, indices, dim + 1)?;
+            Self::recursive_process(
+                data,
+                output,
+                source_shape,
+                target_shape,
+                transform_fn,
+                indices,
+                dim + 1,
+            )?;
         }
 
         Ok(())
@@ -116,30 +127,42 @@ struct ShapeValidator;
 impl ShapeValidator {
     /// Validate dimension index against tensor shape
     /// テンソル形状に対する次元インデックスの検証
-    fn validate_dimension<T: Float + 'static>(tensor: &Tensor<T>, dim: usize) -> RusTorchResult<()> {
+    fn validate_dimension<T: Float + 'static>(
+        tensor: &Tensor<T>,
+        dim: usize,
+    ) -> RusTorchResult<()> {
         if dim >= tensor.shape().len() {
-            return Err(RusTorchError::invalid_dimension(dim, tensor.shape().len() - 1));
+            return Err(RusTorchError::invalid_dimension(
+                dim,
+                tensor.shape().len() - 1,
+            ));
         }
         Ok(())
     }
-    
+
     /// Validate that two shapes are broadcast compatible
     /// 2つの形状がブロードキャスト互換かを検証
     fn validate_broadcast_compatibility(shape1: &[usize], shape2: &[usize]) -> RusTorchResult<()> {
         let max_dims = shape1.len().max(shape2.len());
-        
+
         for i in 0..max_dims {
-            let dim1 = shape1.get(shape1.len().saturating_sub(max_dims - i)).copied().unwrap_or(1);
-            let dim2 = shape2.get(shape2.len().saturating_sub(max_dims - i)).copied().unwrap_or(1);
-            
+            let dim1 = shape1
+                .get(shape1.len().saturating_sub(max_dims - i))
+                .copied()
+                .unwrap_or(1);
+            let dim2 = shape2
+                .get(shape2.len().saturating_sub(max_dims - i))
+                .copied()
+                .unwrap_or(1);
+
             if dim1 != dim2 && dim1 != 1 && dim2 != 1 {
                 return Err(RusTorchError::shape_mismatch(shape1, shape2));
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Normalize negative dimension index
     /// 負の次元インデックスを正規化
     fn normalize_dimension(dim: isize, ndim: usize) -> RusTorchResult<usize> {
@@ -148,11 +171,11 @@ impl ShapeValidator {
         } else {
             dim as usize
         };
-        
+
         if normalized >= ndim {
             return Err(RusTorchError::invalid_dimension(normalized, ndim - 1));
         }
-        
+
         Ok(normalized)
     }
 }
@@ -160,23 +183,23 @@ impl ShapeValidator {
 impl<T: Float + Clone + 'static> Tensor<T> {
     /// Remove singleton dimensions (size 1) from tensor
     /// テンソルから単一次元（サイズ1）を削除
-    /// 
+    ///
     /// # Ownership Patterns / 所有権パターン
     /// - `squeeze()` - Always creates new tensor (owned)
     /// - `squeeze_view()` - Attempts zero-copy view, fallback to owned
     /// - `squeeze_inplace()` - Modifies existing tensor (requires &mut)
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
-    /// 
+    ///
     /// // Always safe - creates new tensor
     /// let squeezed = tensor.squeeze();
     /// assert_eq!(squeezed.shape(), &[3]);
-    /// 
+    ///
     /// // Zero-copy when possible
     /// let squeezed_view = tensor.squeeze_view().unwrap();
-    /// 
+    ///
     /// // In-place modification
     /// let mut tensor_mut = tensor.clone();
     /// tensor_mut.squeeze_inplace().unwrap();
@@ -238,7 +261,10 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         if current_shape[dim] != 1 {
             return Err(RusTorchError::InvalidOperation {
                 operation: "squeeze_dim".to_string(),
-                message: format!("Cannot squeeze dimension {} with size {}", dim, current_shape[dim]),
+                message: format!(
+                    "Cannot squeeze dimension {} with size {}",
+                    dim, current_shape[dim]
+                ),
             });
         }
 
@@ -263,20 +289,20 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Add singleton dimension at specified position
     /// 指定位置に単一次元を追加
-    /// 
+    ///
     /// # Ownership Patterns / 所有権パターン
     /// - `unsqueeze()` - Always creates new tensor (owned)
     /// - `unsqueeze_view()` - Attempts zero-copy view
     /// - `unsqueeze_inplace()` - Modifies existing tensor
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
-    /// 
+    ///
     /// // Add dimension at start
     /// let unsqueezed = tensor.unsqueeze(0);
     /// assert_eq!(unsqueezed.shape(), &[1, 3]);
-    /// 
+    ///
     /// // Add dimension at end  
     /// let unsqueezed = tensor.unsqueeze(1);
     /// assert_eq!(unsqueezed.shape(), &[3, 1]);
@@ -320,21 +346,21 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Expand tensor dimensions through broadcasting (ownership-aware version)
     /// ブロードキャストによってテンソル次元を拡張（所有権対応版）
-    /// 
+    ///
     /// # Ownership Considerations / 所有権の考慮事項
     /// Expand operations typically require data duplication, so we provide:
     /// - `expand_owned()` - Creates new tensor with explicit memory allocation
     /// - `expand_lazy()` - Returns lazy view that computes on access (memory efficient)
     /// - `expand_shared()` - Uses shared ownership with Arc for memory efficiency
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3]);
-    /// 
+    ///
     /// // Expand to larger shape
     /// let expanded = tensor.expand_owned(&[4, 3]).unwrap();
     /// assert_eq!(expanded.shape(), &[4, 3]);
-    /// 
+    ///
     /// // Memory-efficient lazy expansion
     /// let lazy_expanded = tensor.expand_lazy(&[4, 3]).unwrap();
     /// ```
@@ -354,7 +380,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     pub fn expand_lazy(&self, target_shape: &[usize]) -> RusTorchResult<LazyExpandedTensor<T>> {
         // Validate expansion is possible
         self.validate_expansion(target_shape)?;
-        
+
         Ok(LazyExpandedTensor {
             source: Arc::new(self.clone()),
             target_shape: target_shape.to_vec(),
@@ -363,28 +389,31 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Flatten tensor dimensions into 1D (ownership-aware version)
     /// テンソル次元を1Dに平坦化（所有権対応版）
-    /// 
+    ///
     /// # Ownership Patterns / 所有権パターン
     /// - `flatten_owned()` - Always creates new 1D tensor
     /// - `flatten_range()` - Flatten specific dimension range  
     /// - `flatten_inplace()` - In-place flattening when possible
     /// - `flatten_view()` - Zero-copy view when layout allows
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-    /// 
+    ///
     /// // Full flatten
     /// let flattened = tensor.flatten_owned();
     /// assert_eq!(flattened.shape(), &[4]);
-    /// 
+    ///
     /// // Flatten from specific dimension
     /// let partial_flatten = tensor.flatten_range(1, None).unwrap();
     /// assert_eq!(partial_flatten.shape(), &[2, 2]);
     /// ```
     pub fn flatten_owned(&self) -> Self {
         let total_elements = self.data.len();
-        let flattened_data = self.data.clone().into_shape_with_order(vec![total_elements])
+        let flattened_data = self
+            .data
+            .clone()
+            .into_shape_with_order(vec![total_elements])
             .expect("Flatten should always succeed");
         Tensor::new(flattened_data)
     }
@@ -398,22 +427,26 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         if start_dim >= shape.len() || end_dim >= shape.len() || start_dim > end_dim {
             return Err(RusTorchError::InvalidDimension(format!(
                 "Invalid dimension range [{}, {}] for tensor with {} dimensions",
-                start_dim, end_dim, shape.len()
+                start_dim,
+                end_dim,
+                shape.len()
             )));
         }
 
         let mut new_shape = Vec::new();
         new_shape.extend_from_slice(&shape[..start_dim]);
-        
+
         let flattened_size: usize = shape[start_dim..=end_dim].iter().product();
         new_shape.push(flattened_size);
-        
+
         new_shape.extend_from_slice(&shape[end_dim + 1..]);
 
-        let reshaped_data = self.data.clone()
+        let reshaped_data = self
+            .data
+            .clone()
             .into_shape_with_order(new_shape)
             .map_err(|_| RusTorchError::InvalidOperation {
-                operation: "flatten_range".to_string(), 
+                operation: "flatten_range".to_string(),
                 message: "Failed to flatten dimension range".to_string(),
             })?;
 
@@ -424,8 +457,12 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// レイアウトが許可する場合のインプレース平坦化
     pub fn flatten_inplace(&mut self) -> RusTorchResult<()> {
         let total_elements = self.data.len();
-        
-        match self.data.clone().into_shape_with_order(vec![total_elements]) {
+
+        match self
+            .data
+            .clone()
+            .into_shape_with_order(vec![total_elements])
+        {
             Ok(flattened) => {
                 self.data = flattened;
                 Ok(())
@@ -433,7 +470,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
             Err(_) => Err(RusTorchError::InvalidOperation {
                 operation: "flatten_inplace".to_string(),
                 message: "Cannot perform in-place flatten due to layout constraints".to_string(),
-            })
+            }),
         }
     }
 
@@ -441,10 +478,13 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// メモリレイアウトが許可する場合のゼロコピー平坦化
     pub fn flatten_view(&self) -> RusTorchResult<Self> {
         let total_elements = self.data.len();
-        
+
         // Check if data is contiguous for zero-copy view
         if self.is_contiguous() {
-            let view_data = self.data.clone().into_shape_with_order(vec![total_elements])
+            let view_data = self
+                .data
+                .clone()
+                .into_shape_with_order(vec![total_elements])
                 .map_err(|_| RusTorchError::InvalidOperation {
                     operation: "flatten_view".to_string(),
                     message: "Cannot create view due to non-contiguous layout".to_string(),
@@ -476,7 +516,9 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         match mode {
             ShapeMode::Owned => {
-                let reshaped = self.data.clone()
+                let reshaped = self
+                    .data
+                    .clone()
                     .into_shape_with_order(final_shape)
                     .map_err(|_| RusTorchError::InvalidOperation {
                         operation: "squeeze".to_string(),
@@ -500,7 +542,9 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                         message: "Cannot create view from non-contiguous tensor".to_string(),
                     });
                 }
-                let reshaped = self.data.clone()
+                let reshaped = self
+                    .data
+                    .clone()
                     .into_shape_with_order(final_shape)
                     .map_err(|_| RusTorchError::InvalidOperation {
                         operation: "squeeze_view".to_string(),
@@ -526,12 +570,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         match mode {
             ShapeMode::Owned => {
-                let reshaped = self.data.clone()
-                    .into_shape_with_order(new_shape)
-                    .map_err(|_| RusTorchError::InvalidOperation {
-                        operation: "unsqueeze".to_string(),
-                        message: "Failed to unsqueeze tensor".to_string(),
-                    })?;
+                let reshaped =
+                    self.data
+                        .clone()
+                        .into_shape_with_order(new_shape)
+                        .map_err(|_| RusTorchError::InvalidOperation {
+                            operation: "unsqueeze".to_string(),
+                            message: "Failed to unsqueeze tensor".to_string(),
+                        })?;
                 Ok(Tensor::new(reshaped))
             }
             ShapeMode::ViewOrOwned => {
@@ -549,12 +595,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                         message: "Cannot create view from non-contiguous tensor".to_string(),
                     });
                 }
-                let reshaped = self.data.clone()
-                    .into_shape_with_order(new_shape)
-                    .map_err(|_| RusTorchError::InvalidOperation {
-                        operation: "unsqueeze_view".to_string(),
-                        message: "Failed to create view".to_string(),
-                    })?;
+                let reshaped =
+                    self.data
+                        .clone()
+                        .into_shape_with_order(new_shape)
+                        .map_err(|_| RusTorchError::InvalidOperation {
+                            operation: "unsqueeze_view".to_string(),
+                            message: "Failed to create view".to_string(),
+                        })?;
                 Ok(Tensor::new(reshaped))
             }
         }
@@ -569,12 +617,10 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 // For expand, view is rarely possible due to data duplication needs
                 self.expand_impl(target_shape)
             }
-            ShapeMode::ViewOnly => {
-                Err(RusTorchError::InvalidOperation {
-                    operation: "expand_view".to_string(),
-                    message: "Expand operation cannot be performed as zero-copy view".to_string(),
-                })
-            }
+            ShapeMode::ViewOnly => Err(RusTorchError::InvalidOperation {
+                operation: "expand_view".to_string(),
+                message: "Expand operation cannot be performed as zero-copy view".to_string(),
+            }),
         }
     }
 
@@ -587,7 +633,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
             &mut expanded_data,
             target_shape,
             &vec![0; target_shape.len()],
-            0
+            0,
         )?;
 
         Ok(Tensor::from_vec(expanded_data, target_shape.to_vec()))
@@ -595,7 +641,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     fn validate_expansion(&self, target_shape: &[usize]) -> RusTorchResult<()> {
         let self_shape = self.shape();
-        
+
         if target_shape.len() < self_shape.len() {
             return Err(RusTorchError::InvalidOperation {
                 operation: "expand".to_string(),
@@ -661,9 +707,9 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     fn compute_source_indices(&self, target_indices: &[usize]) -> RusTorchResult<Vec<usize>> {
         let self_shape = self.shape();
         let ndim_diff = target_indices.len() - self_shape.len();
-        
+
         let mut source_indices = Vec::new();
-        
+
         for (i, &target_idx) in target_indices.iter().skip(ndim_diff).enumerate() {
             let self_dim = self_shape[i];
             if self_dim == 1 {
@@ -672,7 +718,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 source_indices.push(target_idx % self_dim);
             }
         }
-        
+
         Ok(source_indices)
     }
 
@@ -688,7 +734,8 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     ) -> RusTorchResult<()> {
         if dim == output_shape.len() {
             // Base case - copy element from source
-            let source_indices = self.compute_repeat_source_indices(indices, output_shape, repeats)?;
+            let source_indices =
+                self.compute_repeat_source_indices(indices, output_shape, repeats)?;
             if let Some(&value) = self.data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
@@ -727,7 +774,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 // Skip extra leading dimensions
                 continue;
             }
-            
+
             let self_dim_idx = i - ndim_diff;
             if self_dim_idx < self_shape.len() {
                 let self_dim_size = self_shape[self_dim_idx];
@@ -741,7 +788,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     fn repeat_interleave_along_dim(&self, repeats: usize, dim: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         if dim >= shape.len() {
             return Err(RusTorchError::InvalidDimension(format!(
                 "Invalid dimension {} (max: {})",
@@ -759,7 +806,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         // Generate indices for output tensor
         let mut indices = vec![0; output_shape.len()];
-        self.repeat_interleave_recursive(&mut output_data, &output_shape, repeats, dim, &mut indices, 0)?;
+        self.repeat_interleave_recursive(
+            &mut output_data,
+            &output_shape,
+            repeats,
+            dim,
+            &mut indices,
+            0,
+        )?;
 
         Ok(Tensor::from_vec(output_data, output_shape))
     }
@@ -779,7 +833,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
             if target_dim < source_indices.len() {
                 source_indices[target_dim] = indices[target_dim] / repeats;
             }
-            
+
             if let Some(&value) = self.data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
@@ -790,7 +844,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         for i in 0..output_shape[dim] {
             indices[dim] = i;
-            self.repeat_interleave_recursive(output, output_shape, repeats, target_dim, indices, dim + 1)?;
+            self.repeat_interleave_recursive(
+                output,
+                output_shape,
+                repeats,
+                target_dim,
+                indices,
+                dim + 1,
+            )?;
         }
 
         Ok(())
@@ -799,7 +860,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     fn roll_along_dimension(&self, shift: usize, dim: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
         let dim_size = shape[dim];
-        
+
         if shift >= dim_size {
             return Err(RusTorchError::InvalidOperation {
                 operation: "roll".to_string(),
@@ -809,7 +870,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         let mut output_data = Vec::with_capacity(self.data.len());
         let mut indices = vec![0; shape.len()];
-        
+
         self.roll_recursive(&mut output_data, shape, shift, dim, &mut indices, 0)?;
 
         Ok(Tensor::from_vec(output_data, shape.to_vec()))
@@ -832,7 +893,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 let rolled_idx = (indices[target_dim] + dim_size - shift) % dim_size;
                 source_indices[target_dim] = rolled_idx;
             }
-            
+
             if let Some(&value) = self.data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
@@ -856,8 +917,16 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         let mut output_data = Vec::with_capacity(self.data.len());
         let mut indices = vec![0; shape.len()];
-        
-        self.rot90_recursive(&mut output_data, shape, &new_shape, dim0, dim1, &mut indices, 0)?;
+
+        self.rot90_recursive(
+            &mut output_data,
+            shape,
+            &new_shape,
+            dim0,
+            dim1,
+            &mut indices,
+            0,
+        )?;
 
         Ok(Tensor::from_vec(output_data, new_shape))
     }
@@ -875,14 +944,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         if dim == new_shape.len() {
             // Base case - compute rotated source indices
             let mut source_indices = indices.to_vec();
-            
+
             // Apply 90-degree rotation transformation
             let old_i = indices[dim0];
             let old_j = indices[dim1];
-            
+
             source_indices[dim0] = original_shape[dim1] - 1 - old_j;
             source_indices[dim1] = old_i;
-            
+
             if let Some(&value) = self.data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
@@ -893,7 +962,15 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         for i in 0..new_shape[dim] {
             indices[dim] = i;
-            self.rot90_recursive(output, original_shape, new_shape, dim0, dim1, indices, dim + 1)?;
+            self.rot90_recursive(
+                output,
+                original_shape,
+                new_shape,
+                dim0,
+                dim1,
+                indices,
+                dim + 1,
+            )?;
         }
 
         Ok(())
@@ -902,10 +979,10 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     fn flip_single_dim(&self, dim: usize) -> RusTorchResult<Self> {
         let shape = self.shape();
         let dim_size = shape[dim];
-        
+
         let mut output_data = Vec::with_capacity(self.data.len());
         let mut indices = vec![0; shape.len()];
-        
+
         self.flip_recursive(&mut output_data, shape, dim, &mut indices, 0)?;
 
         Ok(Tensor::from_vec(output_data, shape.to_vec()))
@@ -926,7 +1003,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 let dim_size = shape[flip_dim];
                 source_indices[flip_dim] = dim_size - 1 - indices[flip_dim];
             }
-            
+
             if let Some(&value) = self.data.get(source_indices.as_slice()) {
                 output.push(value);
             } else {
@@ -951,36 +1028,36 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     // Note: shape() and numel() methods are defined in core.rs
     // 注意: shape()とnumel()メソッドはcore.rsで定義されています
-    
+
     /// Check if this tensor can broadcast with another tensor
     /// このテンソルが別のテンソルとブロードキャスト可能かチェック
     pub fn can_broadcast_with(&self, other: &Self) -> bool {
         let self_shape = self.shape();
         let other_shape = other.shape();
-        
+
         let max_dims = self_shape.len().max(other_shape.len());
-        
+
         for i in 0..max_dims {
             let self_dim = if i < self_shape.len() {
                 self_shape[self_shape.len() - 1 - i]
             } else {
                 1
             };
-            
+
             let other_dim = if i < other_shape.len() {
                 other_shape[other_shape.len() - 1 - i]
             } else {
                 1
             };
-            
+
             if self_dim != 1 && other_dim != 1 && self_dim != other_dim {
                 return false;
             }
         }
-        
+
         true
     }
-    
+
     /// Broadcast two tensors to compatible shapes
     /// 2つのテンソルを互換形状にブロードキャスト
     pub fn broadcast_with(&self, other: &Self) -> RusTorchResult<(Self, Self)> {
@@ -994,44 +1071,44 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 ),
             });
         }
-        
+
         let self_shape = self.shape();
         let other_shape = other.shape();
         let max_dims = self_shape.len().max(other_shape.len());
-        
+
         let mut broadcast_shape = Vec::new();
-        
+
         for i in 0..max_dims {
             let self_dim = if i < max_dims - self_shape.len() {
                 1
             } else {
                 self_shape[i - (max_dims - self_shape.len())]
             };
-            
+
             let other_dim = if i < max_dims - other_shape.len() {
                 1
             } else {
                 other_shape[i - (max_dims - other_shape.len())]
             };
-            
+
             broadcast_shape.push(self_dim.max(other_dim));
         }
-        
+
         let broadcasted_self = if self.shape() == broadcast_shape.as_slice() {
             self.clone()
         } else {
             self.expand_owned(&broadcast_shape)?
         };
-        
+
         let broadcasted_other = if other.shape() == broadcast_shape.as_slice() {
             other.clone()
         } else {
             other.expand_owned(&broadcast_shape)?
         };
-        
+
         Ok((broadcasted_self, broadcasted_other))
     }
-    
+
     /// Add singleton dimension (alias for unsqueeze for compatibility)
     /// 単一次元追加（互換性のためのunsqueezeエイリアス）
     pub fn expand_dims(&self, axis: usize) -> RusTorchResult<Self> {
@@ -1040,7 +1117,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Expand tensor to match the shape of another tensor (PyTorch expand_as compatibility)
     /// 他のテンソルの形状に合わせて拡張（PyTorch expand_as互換）
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
@@ -1054,11 +1131,11 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Unflatten a tensor dimension into multiple dimensions
     /// テンソルの次元を複数の次元に復元
-    /// 
+    ///
     /// # Arguments
     /// * `dim` - Dimension to unflatten  
     /// * `sizes` - Target sizes for new dimensions
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![6]);
@@ -1067,7 +1144,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// ```
     pub fn unflatten(&self, dim: usize, sizes: &[usize]) -> RusTorchResult<Self> {
         let current_shape = self.shape();
-        
+
         if dim >= current_shape.len() {
             return Err(RusTorchError::InvalidDimension(format!(
                 "Invalid dimension {} (max: {})",
@@ -1083,9 +1160,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 operation: "unflatten".to_string(),
                 message: format!(
                     "Cannot unflatten dimension of size {} into sizes {:?} (product: {})",
-                    current_shape[dim],
-                    sizes,
-                    sizes_product
+                    current_shape[dim], sizes, sizes_product
                 ),
             });
         }
@@ -1097,7 +1172,9 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         new_shape.extend_from_slice(&current_shape[dim + 1..]);
 
         // Reshape tensor
-        let reshaped_data = self.data.clone()
+        let reshaped_data = self
+            .data
+            .clone()
             .into_shape_with_order(new_shape)
             .map_err(|_| RusTorchError::InvalidOperation {
                 operation: "unflatten".to_string(),
@@ -1109,10 +1186,10 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Repeat tensor along specified dimensions (PyTorch repeat compatibility)
     /// 指定された次元に沿ってテンソルを繰り返し（PyTorch repeat互換）
-    /// 
+    ///
     /// # Arguments
     /// * `repeats` - Number of repetitions for each dimension
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
@@ -1121,7 +1198,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// ```
     pub fn repeat(&self, repeats: &[usize]) -> RusTorchResult<Self> {
         let current_shape = self.shape();
-        
+
         // Handle dimension mismatch by padding with 1s
         let (adjusted_shape, adjusted_repeats) = if repeats.len() > current_shape.len() {
             let padding = repeats.len() - current_shape.len();
@@ -1154,7 +1231,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
             &output_shape,
             &adjusted_repeats,
             &vec![0; output_shape.len()],
-            0
+            0,
         )?;
 
         Ok(Tensor::from_vec(output_data, output_shape))
@@ -1162,31 +1239,35 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Repeat elements of tensor along specified dimension
     /// 指定次元に沿ってテンソルの要素を繰り返し
-    /// 
+    ///
     /// # Arguments  
     /// * `repeats` - Number of repetitions for each element (scalar or tensor)
     /// * `dim` - Dimension along which to repeat (optional)
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
     /// let repeated = tensor.repeat_interleave_scalar(2, Some(0)).unwrap();
     /// assert_eq!(repeated.shape(), &[6]); // Each element repeated twice
     /// ```
-    pub fn repeat_interleave_scalar(&self, repeats: usize, dim: Option<usize>) -> RusTorchResult<Self> {
+    pub fn repeat_interleave_scalar(
+        &self,
+        repeats: usize,
+        dim: Option<usize>,
+    ) -> RusTorchResult<Self> {
         match dim {
             Some(d) => self.repeat_interleave_along_dim(repeats, d),
             None => {
                 // Flatten and repeat each element
                 let flattened = self.flatten_owned();
                 let mut output_data = Vec::new();
-                
+
                 for &value in flattened.data.iter() {
                     for _ in 0..repeats {
                         output_data.push(value);
                     }
                 }
-                
+
                 let output_len = output_data.len();
                 Ok(Tensor::from_vec(output_data, vec![output_len]))
             }
@@ -1195,11 +1276,11 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Roll tensor along specified dimensions
     /// 指定された次元に沿ってテンソルをロール
-    /// 
+    ///
     /// # Arguments
     /// * `shifts` - Number of places to shift
     /// * `dims` - Dimensions to roll along (optional)
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
@@ -1208,7 +1289,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// ```
     pub fn roll_1d(&self, shifts: isize, dim: Option<usize>) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         match dim {
             Some(d) => {
                 if d >= shape.len() {
@@ -1218,14 +1299,14 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                         shape.len() - 1
                     )));
                 }
-                
+
                 let dim_size = shape[d] as isize;
                 let effective_shift = ((shifts % dim_size) + dim_size) % dim_size;
-                
+
                 if effective_shift == 0 {
                     return Ok(self.clone());
                 }
-                
+
                 self.roll_along_dimension(effective_shift as usize, d)
             }
             None => {
@@ -1234,17 +1315,17 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 let data = flattened.data.as_slice().unwrap();
                 let len = data.len() as isize;
                 let effective_shift = ((shifts % len) + len) % len;
-                
+
                 if effective_shift == 0 {
                     return Ok(self.clone());
                 }
-                
+
                 let mut output_data = Vec::with_capacity(data.len());
                 let shift = effective_shift as usize;
-                
+
                 output_data.extend_from_slice(&data[data.len() - shift..]);
                 output_data.extend_from_slice(&data[..data.len() - shift]);
-                
+
                 let rolled_flat = Tensor::from_vec(output_data, vec![data.len()]);
                 rolled_flat.view_shape(shape)
             }
@@ -1253,11 +1334,11 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
     /// Rotate tensor 90 degrees in the plane specified by dims
     /// 指定された次元平面でテンソルを90度回転
-    /// 
+    ///
     /// # Arguments
     /// * `k` - Number of 90-degree rotations
     /// * `dims` - Two dimensions defining the rotation plane
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
@@ -1294,22 +1375,25 @@ impl<T: Float + Clone + 'static> Tensor<T> {
 
         // Normalize k to [0, 3]
         let k_norm = ((k % 4) + 4) % 4;
-        
+
         match k_norm {
             0 => Ok(self.clone()),
             1 => self.rot90_once(dim0, dim1),
             2 => self.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1),
-            3 => self.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1)?.rot90_once(dim0, dim1),
+            3 => self
+                .rot90_once(dim0, dim1)?
+                .rot90_once(dim0, dim1)?
+                .rot90_once(dim0, dim1),
             _ => unreachable!(),
         }
     }
 
     /// Flip tensor along specified dimensions
     /// 指定された次元に沿ってテンソルを反転
-    /// 
+    ///
     /// # Arguments
     /// * `dims` - Dimensions to flip
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
@@ -1318,7 +1402,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
     /// ```
     pub fn flip(&self, dims: &[usize]) -> RusTorchResult<Self> {
         let shape = self.shape();
-        
+
         // Validate dimensions
         for &dim in dims {
             if dim >= shape.len() {
@@ -1338,13 +1422,13 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         for &dim in dims {
             result = result.flip_single_dim(dim)?;
         }
-        
+
         Ok(result)
     }
 
     /// Flip tensor left-right (along last dimension)
     /// テンソルを左右反転（最後の次元に沿って）
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
@@ -1358,13 +1442,13 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 message: "fliplr requires at least 2D tensor".to_string(),
             });
         }
-        
+
         self.flip(&[shape.len() - 1])
     }
 
     /// Flip tensor up-down (along first dimension)  
     /// テンソルを上下反転（最初の次元に沿って）
-    /// 
+    ///
     /// # Examples
     /// ```rust
     /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
@@ -1378,7 +1462,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
                 message: "flipud requires at least 1D tensor".to_string(),
             });
         }
-        
+
         self.flip(&[0])
     }
 }
@@ -1407,17 +1491,21 @@ impl<T: Float + Clone + 'static> LazyExpandedTensor<T> {
     /// オンデマンド計算で要素にアクセス
     pub fn get(&self, indices: &[usize]) -> RusTorchResult<T> {
         if indices.len() != self.target_shape.len() {
-            return Err(RusTorchError::index_out_of_bounds(indices, &self.target_shape));
+            return Err(RusTorchError::index_out_of_bounds(
+                indices,
+                &self.target_shape,
+            ));
         }
 
         let source_indices = self.source.compute_source_indices(indices)?;
-        
-        self.source.data.get(source_indices.as_slice())
+
+        self.source
+            .data
+            .get(source_indices.as_slice())
             .copied()
             .ok_or_else(|| RusTorchError::index_out_of_bounds(&[], &[]))
     }
 }
-
 
 /// Convenient methods for common shape operation patterns
 /// 一般的な形状操作パターンの便利なメソッド
@@ -1428,7 +1516,7 @@ impl<T: Float + Clone + 'static> Tensor<T> {
         // Validate total elements match
         let current_elements = self.data.len();
         let new_elements: usize = shape.iter().product();
-        
+
         if current_elements != new_elements {
             return Err(RusTorchError::InvalidOperation {
                 operation: "view_shape".to_string(),
@@ -1440,7 +1528,9 @@ impl<T: Float + Clone + 'static> Tensor<T> {
             });
         }
 
-        let reshaped_data = self.data.clone()
+        let reshaped_data = self
+            .data
+            .clone()
             .into_shape_with_order(shape.to_vec())
             .map_err(|_| RusTorchError::InvalidOperation {
                 operation: "view_shape".to_string(),
@@ -1463,7 +1553,7 @@ pub trait ZeroAllocShapeOps<T: Float> {
     /// Attempt zero-copy squeeze
     /// ゼロコピーsqueezeを試行
     fn try_squeeze_view(&self) -> RusTorchResult<Tensor<T>>;
-    
+
     /// Attempt zero-copy unsqueeze
     /// ゼロコピーunsqueezeを試行  
     fn try_unsqueeze_view(&self, dim: usize) -> RusTorchResult<Tensor<T>>;
@@ -1486,15 +1576,15 @@ mod tests {
     #[test]
     fn test_ownership_patterns_squeeze() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3, 1]);
-        
+
         // Test owned squeeze
         let squeezed_owned = tensor.squeeze();
         assert_eq!(squeezed_owned.shape(), &[3]);
-        
+
         // Test view squeeze
         let squeezed_view = tensor.squeeze_view().unwrap();
         assert_eq!(squeezed_view.shape(), &[3]);
-        
+
         // Test in-place squeeze
         let mut tensor_mut = tensor.clone();
         tensor_mut.squeeze_inplace().unwrap();
@@ -1504,15 +1594,15 @@ mod tests {
     #[test]
     fn test_ownership_patterns_unsqueeze() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
-        
+
         // Test owned unsqueeze
         let unsqueezed = tensor.unsqueeze(0).unwrap();
         assert_eq!(unsqueezed.shape(), &[1, 3]);
-        
+
         // Test view unsqueeze
         let unsqueezed_view = tensor.unsqueeze_view(1).unwrap();
         assert_eq!(unsqueezed_view.shape(), &[3, 1]);
-        
+
         // Test in-place unsqueeze
         let mut tensor_mut = tensor.clone();
         tensor_mut.unsqueeze_inplace(0).unwrap();
@@ -1522,31 +1612,31 @@ mod tests {
     #[test]
     fn test_expand_shared_ownership() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3]);
-        
+
         // Test shared expand
         let expanded_shared = tensor.expand_shared(&[4, 3]).unwrap();
         assert_eq!(expanded_shared.shape(), &[4, 3]);
-        
+
         // Multiple references to same expanded tensor
         let ref1 = Arc::clone(&expanded_shared);
         let ref2 = Arc::clone(&expanded_shared);
-        
+
         assert_eq!(ref1.shape(), ref2.shape());
     }
 
     #[test]
     fn test_lazy_expand() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
-        
+
         // Create lazy expansion
         let lazy_expanded = tensor.expand_lazy(&[3, 2]).unwrap();
         assert_eq!(lazy_expanded.shape(), &[3, 2]);
-        
+
         // Access specific elements
         assert_eq!(lazy_expanded.get(&[0, 0]).unwrap(), 1.0);
         assert_eq!(lazy_expanded.get(&[1, 1]).unwrap(), 2.0);
         assert_eq!(lazy_expanded.get(&[2, 0]).unwrap(), 1.0);
-        
+
         // Materialize when needed
         let materialized = lazy_expanded.materialize().unwrap();
         assert_eq!(materialized.shape(), &[3, 2]);
@@ -1555,38 +1645,42 @@ mod tests {
     #[test]
     fn test_shape_builder_chain() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2, 1]);
-        
+
         // Chain multiple operations
         let result = tensor
             .shape_builder()
-            .squeeze().unwrap()                          // Remove all size-1 dims: [2, 2]
-            .unsqueeze(0).unwrap()                       // Add dim at start: [1, 2, 2]
-            .expand(&[3, 2, 2]).unwrap()                 // Expand first dim: [3, 2, 2]
-            .flatten().unwrap()                         // Flatten: [12]
+            .squeeze()
+            .unwrap() // Remove all size-1 dims: [2, 2]
+            .unsqueeze(0)
+            .unwrap() // Add dim at start: [1, 2, 2]
+            .expand(&[3, 2, 2])
+            .unwrap() // Expand first dim: [3, 2, 2]
+            .flatten()
+            .unwrap() // Flatten: [12]
             .build();
-            
+
         assert_eq!(result.shape(), &[12]);
         assert_eq!(result.numel(), 12);
     }
 
-    #[test]  
+    #[test]
     fn test_flatten_variants() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         // Full flatten
         let flattened = tensor.flatten_owned();
         assert_eq!(flattened.shape(), &[4]);
-        
+
         // Flatten range
         let partial = tensor.flatten_range(0, Some(1)).unwrap();
         assert_eq!(partial.shape(), &[4]);
-        
+
         // Flatten view
         if tensor.is_contiguous() {
             let flattened_view = tensor.flatten_view().unwrap();
             assert_eq!(flattened_view.shape(), &[4]);
         }
-        
+
         // In-place flatten
         let mut tensor_mut = tensor.clone();
         tensor_mut.flatten_inplace().unwrap();
@@ -1596,12 +1690,12 @@ mod tests {
     #[test]
     fn test_zero_alloc_traits() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![1, 3]);
-        
+
         // Test zero-allocation operations when possible
         if tensor.is_contiguous() {
             let squeezed_view = tensor.try_squeeze_view().unwrap();
             assert_eq!(squeezed_view.shape(), &[3]);
-            
+
             let unsqueezed_view = tensor.try_unsqueeze_view(0).unwrap();
             assert_eq!(unsqueezed_view.shape(), &[1, 1, 3]);
         }
@@ -1611,11 +1705,11 @@ mod tests {
     fn test_expand_as() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
         let target = Tensor::from_vec(vec![0.0; 6], vec![3, 2]);
-        
+
         let expanded = tensor.expand_as(&target).unwrap();
         assert_eq!(expanded.shape(), target.shape());
         assert_eq!(expanded.shape(), &[3, 2]);
-        
+
         // Verify data is correctly expanded
         let expanded_data = expanded.data.as_slice().unwrap();
         assert_eq!(expanded_data, &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
@@ -1624,20 +1718,20 @@ mod tests {
     #[test]
     fn test_unflatten() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![6]);
-        
+
         // Unflatten into 2x3
         let unflattened = tensor.unflatten(0, &[2, 3]).unwrap();
         assert_eq!(unflattened.shape(), &[2, 3]);
-        
-        // Unflatten into 3x2 
+
+        // Unflatten into 3x2
         let unflattened2 = tensor.unflatten(0, &[3, 2]).unwrap();
         assert_eq!(unflattened2.shape(), &[3, 2]);
-        
+
         // Test with multi-dimensional tensor
         let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let unflattened3d = tensor2d.unflatten(1, &[1, 2]).unwrap();
         assert_eq!(unflattened3d.shape(), &[2, 1, 2]);
-        
+
         // Test invalid unflatten
         let result = tensor.unflatten(0, &[2, 4]); // 2*4=8 != 6
         assert!(result.is_err());
@@ -1646,18 +1740,21 @@ mod tests {
     #[test]
     fn test_repeat() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
-        
+
         // Simple repeat - repeat each element individually
         let repeated = tensor.repeat(&[3]).unwrap();
         assert_eq!(repeated.shape(), &[6]);
         // Our implementation repeats elements: [1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
-        assert_eq!(repeated.data.as_slice().unwrap(), &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]);
-        
+        assert_eq!(
+            repeated.data.as_slice().unwrap(),
+            &[1.0, 1.0, 1.0, 2.0, 2.0, 2.0]
+        );
+
         // Multi-dimensional repeat
         let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let repeated2d = tensor2d.repeat(&[2, 3]).unwrap();
         assert_eq!(repeated2d.shape(), &[4, 6]);
-        
+
         // Dimension mismatch handling
         let repeated_padded = tensor.repeat(&[2, 3]).unwrap();
         assert_eq!(repeated_padded.shape(), &[2, 6]);
@@ -1666,36 +1763,42 @@ mod tests {
     #[test]
     fn test_repeat_interleave() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
-        
+
         // Repeat each element twice
         let repeated = tensor.repeat_interleave_scalar(2, Some(0)).unwrap();
         assert_eq!(repeated.shape(), &[6]);
-        assert_eq!(repeated.data.as_slice().unwrap(), &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
-        
+        assert_eq!(
+            repeated.data.as_slice().unwrap(),
+            &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
+        );
+
         // Flatten and repeat
         let repeated_flat = tensor.repeat_interleave_scalar(2, None).unwrap();
         assert_eq!(repeated_flat.shape(), &[6]);
-        assert_eq!(repeated_flat.data.as_slice().unwrap(), &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]);
+        assert_eq!(
+            repeated_flat.data.as_slice().unwrap(),
+            &[1.0, 1.0, 2.0, 2.0, 3.0, 3.0]
+        );
     }
 
     #[test]
     fn test_roll() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4]);
-        
+
         // Roll by 1 position
         let rolled = tensor.roll_1d(1, Some(0)).unwrap();
         assert_eq!(rolled.shape(), &[4]);
         assert_eq!(rolled.data.as_slice().unwrap(), &[4.0, 1.0, 2.0, 3.0]);
-        
+
         // Roll by negative amount
         let rolled_neg = tensor.roll_1d(-1, Some(0)).unwrap();
         assert_eq!(rolled_neg.data.as_slice().unwrap(), &[2.0, 3.0, 4.0, 1.0]);
-        
+
         // Roll 2D tensor
         let tensor2d = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
         let rolled2d = tensor2d.roll_1d(1, Some(0)).unwrap();
         assert_eq!(rolled2d.shape(), &[2, 2]);
-        
+
         // Roll without specifying dimension (flattened)
         let rolled_flat = tensor.roll_1d(1, None).unwrap();
         assert_eq!(rolled_flat.shape(), &[4]);
@@ -1705,28 +1808,31 @@ mod tests {
     #[test]
     fn test_rot90() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         // 90-degree rotation
         let rotated1 = tensor.rot90(1, &[0, 1]).unwrap();
         assert_eq!(rotated1.shape(), &[2, 2]);
-        
+
         // 180-degree rotation
         let rotated2 = tensor.rot90(2, &[0, 1]).unwrap();
         assert_eq!(rotated2.shape(), &[2, 2]);
-        
-        // 270-degree rotation 
+
+        // 270-degree rotation
         let rotated3 = tensor.rot90(3, &[0, 1]).unwrap();
         assert_eq!(rotated3.shape(), &[2, 2]);
-        
+
         // Full rotation (360 degrees) should return original
         let rotated4 = tensor.rot90(4, &[0, 1]).unwrap();
         assert_eq!(rotated4.shape(), &[2, 2]);
-        assert_eq!(rotated4.data.as_slice().unwrap(), tensor.data.as_slice().unwrap());
-        
+        assert_eq!(
+            rotated4.data.as_slice().unwrap(),
+            tensor.data.as_slice().unwrap()
+        );
+
         // Negative rotation
         let rotated_neg = tensor.rot90(-1, &[0, 1]).unwrap();
         assert_eq!(rotated_neg.shape(), &[2, 2]);
-        
+
         // Error cases
         assert!(tensor.rot90(1, &[0]).is_err()); // Need exactly 2 dims
         assert!(tensor.rot90(1, &[0, 0]).is_err()); // Dims must be different
@@ -1736,23 +1842,26 @@ mod tests {
     #[test]
     fn test_flip() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         // Flip along dimension 0
         let flipped0 = tensor.flip(&[0]).unwrap();
         assert_eq!(flipped0.shape(), &[2, 2]);
-        
+
         // Flip along dimension 1
         let flipped1 = tensor.flip(&[1]).unwrap();
         assert_eq!(flipped1.shape(), &[2, 2]);
-        
+
         // Flip along both dimensions
         let flipped_both = tensor.flip(&[0, 1]).unwrap();
         assert_eq!(flipped_both.shape(), &[2, 2]);
-        
+
         // No flip (empty dimensions)
         let no_flip = tensor.flip(&[]).unwrap();
-        assert_eq!(no_flip.data.as_slice().unwrap(), tensor.data.as_slice().unwrap());
-        
+        assert_eq!(
+            no_flip.data.as_slice().unwrap(),
+            tensor.data.as_slice().unwrap()
+        );
+
         // Error case - invalid dimension
         assert!(tensor.flip(&[5]).is_err());
     }
@@ -1760,19 +1869,19 @@ mod tests {
     #[test]
     fn test_fliplr_flipud() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]);
-        
+
         // Test fliplr (left-right flip)
         let flipped_lr = tensor.fliplr().unwrap();
         assert_eq!(flipped_lr.shape(), &[2, 2]);
-        
+
         // Test flipud (up-down flip)
         let flipped_ud = tensor.flipud().unwrap();
         assert_eq!(flipped_ud.shape(), &[2, 2]);
-        
+
         // Error cases
         let tensor1d = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
         assert!(tensor1d.fliplr().is_err()); // Need at least 2D for fliplr
-        
+
         let tensor0d = Tensor::from_vec(vec![1.0], vec![]);
         assert!(tensor0d.flipud().is_err()); // Need at least 1D for flipud
     }
@@ -1780,30 +1889,34 @@ mod tests {
     #[test]
     fn test_complex_shape_operations() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
-        
+
         // Complex chain of operations using builder
-        let result = tensor.clone()
+        let result = tensor
+            .clone()
             .shape_builder()
-            .unsqueeze(0).unwrap()                    // [1, 2, 3]
-            .expand(&[2, 2, 3]).unwrap()              // [2, 2, 3]
-            .flatten().unwrap()                      // [12]
+            .unsqueeze(0)
+            .unwrap() // [1, 2, 3]
+            .expand(&[2, 2, 3])
+            .unwrap() // [2, 2, 3]
+            .flatten()
+            .unwrap() // [12]
             .build();
-            
+
         assert_eq!(result.shape(), &[12]);
         assert_eq!(result.numel(), 12);
-        
+
         // Test unflatten after flatten
         let flattened = tensor.flatten_owned();
         let restored = flattened.unflatten(0, &[2, 3]).unwrap();
         let original_shape = vec![2, 3]; // Store original shape since tensor is moved
         assert_eq!(restored.shape(), &original_shape);
-        
+
         // Test repeat with expand_as
         let small = Tensor::from_vec(vec![1.0, 2.0], vec![1, 2]);
         let target_shape = Tensor::from_vec(vec![0.0; 8], vec![4, 2]);
         let expanded = small.expand_as(&target_shape).unwrap();
         assert_eq!(expanded.shape(), &[4, 2]);
-        
+
         // Verify data correctness
         let data = expanded.data.as_slice().unwrap();
         assert_eq!(data, &[1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0]);
@@ -1817,13 +1930,13 @@ mod tests {
 
 /// Shape builder for chainable tensor operations
 /// 連鎖可能テンソル操作のためのシェイプビルダー
-/// 
+///
 /// # Examples
 /// ```rust
 /// use rustorch::tensor::Tensor;
-/// 
+///
 /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
-/// 
+///
 /// // Chain multiple operations efficiently
 /// let result = tensor
 ///     .shape_builder()
@@ -1831,7 +1944,7 @@ mod tests {
 ///     .unsqueeze(1).unwrap()
 ///     .flatten()
 ///     .build();
-/// 
+///
 /// assert_eq!(result.shape(), &[4]);
 /// ```
 pub struct ShapeBuilder<T: Float> {
@@ -1889,7 +2002,11 @@ impl<T: Float + Clone + 'static> ShapeBuilder<T> {
 
     /// Chain flatten_range operation - flattens specific dimension range
     /// flatten_range操作を連鎖 - 特定次元範囲を平坦化
-    pub fn flatten_range(mut self, start_dim: usize, end_dim: Option<usize>) -> RusTorchResult<Self> {
+    pub fn flatten_range(
+        mut self,
+        start_dim: usize,
+        end_dim: Option<usize>,
+    ) -> RusTorchResult<Self> {
         self.tensor = self.tensor.flatten_range(start_dim, end_dim)?;
         Ok(self)
     }
@@ -1978,13 +2095,13 @@ impl<T: Float + Clone + 'static> ShapeBuilder<T> {
 
 /// Convenience macro for chaining shape operations
 /// 形状操作連鎖の便利マクロ
-/// 
+///
 /// # Examples
 /// ```rust
 /// let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
-/// 
+///
 /// // Using macro for concise chaining
-/// let result = shape_ops!(tensor, 
+/// let result = shape_ops!(tensor,
 ///     squeeze,
 ///     unsqueeze(1),
 ///     flatten
@@ -2025,39 +2142,41 @@ mod builder_tests {
     #[test]
     fn test_builder_pattern_basic() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
-        
+
         let result = tensor
             .shape_builder()
-            .squeeze().unwrap()
-            .unsqueeze(1).unwrap()
-            .flatten().unwrap()
+            .squeeze()
+            .unwrap()
+            .unsqueeze(1)
+            .unwrap()
+            .flatten()
+            .unwrap()
             .build();
-        
+
         assert_eq!(result.shape(), &[4]);
     }
 
     #[test]
     fn test_fluent_interface() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![4, 1]);
-        
+
         let result = tensor
             .shapes()
-            .squeeze().unwrap()
-            .unsqueeze(1).unwrap()
+            .squeeze()
+            .unwrap()
+            .unsqueeze(1)
+            .unwrap()
             .build();
-        
+
         assert_eq!(result.shape(), &[4, 1]);
     }
 
     #[test]
     fn test_shape_ops_macro() -> RusTorchResult<()> {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
-        
-        let result = shape_ops!(tensor, 
-            squeeze,
-            flatten
-        )?;
-        
+
+        let result = shape_ops!(tensor, squeeze, flatten)?;
+
         assert_eq!(result.shape(), &[4]);
         Ok(())
     }
@@ -2065,14 +2184,12 @@ mod builder_tests {
     #[test]
     fn test_builder_peek() {
         let tensor = Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2, 1]);
-        
-        let builder = tensor
-            .shape_builder()
-            .squeeze().unwrap();
-        
+
+        let builder = tensor.shape_builder().squeeze().unwrap();
+
         // Peek without consuming
         assert_eq!(builder.current_shape(), &[2, 2]);
-        
+
         // Continue building
         let result = builder.flatten().unwrap().build();
         assert_eq!(result.shape(), &[4]);

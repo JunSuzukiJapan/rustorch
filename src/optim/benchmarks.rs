@@ -1,12 +1,12 @@
 //! Performance benchmarks and profiling for optimizers
 //! 最適化器のパフォーマンスベンチマークとプロファイリング
 
-use crate::tensor::Tensor;
-use crate::optim::*;
-use crate::optim::utils::{OptimizerMetrics, OptimizerUtils};
 use crate::optim::common::*;
-use std::time::{Duration, Instant};
+use crate::optim::utils::{OptimizerMetrics, OptimizerUtils};
+use crate::optim::*;
+use crate::tensor::Tensor;
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Comprehensive benchmark suite for optimizer performance analysis
 /// 最適化器パフォーマンス分析のための包括的ベンチマークスイート
@@ -112,8 +112,11 @@ impl OptimizerBenchmark {
         let mut all_results = HashMap::new();
 
         for config in &self.test_configs.clone() {
-            println!("🚀 ベンチマーク実行中: {} (形状: {:?})", config.name, config.param_shape);
-            
+            println!(
+                "🚀 ベンチマーク実行中: {} (形状: {:?})",
+                config.name, config.param_shape
+            );
+
             let mut config_results = HashMap::new();
 
             // NAdam benchmark
@@ -123,7 +126,7 @@ impl OptimizerBenchmark {
                 config_results.insert("NAdam".to_string(), result);
             }
 
-            // RAdam benchmark  
+            // RAdam benchmark
             if let Ok(radam) = radam::RAdam::default_params(config.learning_rate) {
                 println!("  📊 RAdam をベンチマーク中...");
                 let result = self.benchmark_optimizer(config, Box::new(radam));
@@ -172,15 +175,16 @@ impl OptimizerBenchmark {
             for step in 0..config.num_steps {
                 let grad = self.generate_synthetic_gradient(&config.param_shape, step);
                 let grad_norm = OptimizerUtils::l2_norm(&grad);
-                
+
                 let step_start = Instant::now();
                 optimizer.step(&param, &grad);
                 let step_time = step_start.elapsed();
-                
-                if iteration == 0 { // Only collect timing for first iteration
+
+                if iteration == 0 {
+                    // Only collect timing for first iteration
                     step_times.push(step_time.as_micros() as f64);
                 }
-                
+
                 // Record metrics
                 metrics.record_step(
                     grad_norm,
@@ -188,7 +192,7 @@ impl OptimizerBenchmark {
                     optimizer.learning_rate(),
                     step_time.as_secs_f32(),
                 );
-                
+
                 grad_norms.push(grad_norm);
             }
         }
@@ -197,9 +201,11 @@ impl OptimizerBenchmark {
 
         // Calculate statistics
         let avg_step_time = step_times.iter().sum::<f64>() / step_times.len() as f64;
-        let variance = step_times.iter()
+        let variance = step_times
+            .iter()
             .map(|&t| (t - avg_step_time).powi(2))
-            .sum::<f64>() / step_times.len() as f64;
+            .sum::<f64>()
+            / step_times.len() as f64;
         let std_dev = variance.sqrt();
 
         // Estimate memory usage (rough approximation)
@@ -212,7 +218,8 @@ impl OptimizerBenchmark {
             peak_memory_mb: estimated_memory_mb,
             convergence_rate: 0.95, // Placeholder - would need proper convergence analysis
             total_duration_ms: total_duration.as_millis() as u64,
-            steps_per_second: (config.num_steps as f64) / total_duration.as_secs_f64() * config.num_iterations as f64,
+            steps_per_second: (config.num_steps as f64) / total_duration.as_secs_f64()
+                * config.num_iterations as f64,
         }
     }
 
@@ -221,16 +228,16 @@ impl OptimizerBenchmark {
     fn generate_synthetic_gradient(&self, shape: &[usize], step: usize) -> Tensor<f32> {
         let total_elements = shape.iter().product();
         let mut data = Vec::with_capacity(total_elements);
-        
+
         // Generate gradient that simulates realistic training behavior
         let step_factor = 1.0 / (1.0 + step as f32 * 0.001); // Gradually decreasing gradients
-        
+
         for i in 0..total_elements {
             let noise = (i as f32 * 0.123 + step as f32 * 0.456).sin() * 0.1;
             let gradient = (0.1 + noise) * step_factor;
             data.push(gradient);
         }
-        
+
         Tensor::from_vec(data, shape.to_vec())
     }
 
@@ -257,18 +264,25 @@ impl OptimizerBenchmark {
 
     /// Generate performance report
     /// パフォーマンスレポートを生成
-    pub fn generate_report(&self, results: &HashMap<String, HashMap<String, BenchmarkResult>>) -> String {
+    pub fn generate_report(
+        &self,
+        results: &HashMap<String, HashMap<String, BenchmarkResult>>,
+    ) -> String {
         let mut report = String::new();
         report.push_str("# 🚀 RusTorch フェーズ２ 最適化器パフォーマンスレポート\n\n");
 
         for (config_name, optimizer_results) in results {
             report.push_str(&format!("## 📊 テスト設定: {}\n\n", config_name));
             report.push_str("| 最適化器 | 平均ステップ時間(μs) | 標準偏差(μs) | メモリ使用量(MB) | ステップ/秒 |\n");
-            report.push_str("|----------|---------------------|-------------|----------------|----------|\n");
+            report.push_str(
+                "|----------|---------------------|-------------|----------------|----------|\n",
+            );
 
             let mut sorted_results: Vec<_> = optimizer_results.iter().collect();
             sorted_results.sort_by(|a, b| {
-                a.1.avg_step_time_us.partial_cmp(&b.1.avg_step_time_us).unwrap_or(std::cmp::Ordering::Equal)
+                a.1.avg_step_time_us
+                    .partial_cmp(&b.1.avg_step_time_us)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
 
             for (optimizer_name, result) in sorted_results {
@@ -290,11 +304,17 @@ impl OptimizerBenchmark {
         let mut most_efficient_memory = HashMap::new();
 
         for (config_name, optimizer_results) in results {
-            let fastest = optimizer_results.iter()
-                .min_by(|a, b| a.1.avg_step_time_us.partial_cmp(&b.1.avg_step_time_us).unwrap())
+            let fastest = optimizer_results
+                .iter()
+                .min_by(|a, b| {
+                    a.1.avg_step_time_us
+                        .partial_cmp(&b.1.avg_step_time_us)
+                        .unwrap()
+                })
                 .map(|(name, result)| (name.as_str(), result.avg_step_time_us));
 
-            let most_memory_efficient = optimizer_results.iter()
+            let most_memory_efficient = optimizer_results
+                .iter()
                 .min_by_key(|(_, result)| result.peak_memory_mb)
                 .map(|(name, result)| (name.as_str(), result.peak_memory_mb));
 
@@ -308,7 +328,10 @@ impl OptimizerBenchmark {
 
         report.push_str("### ⚡ 速度チャンピオン:\n");
         for (config, (optimizer, time)) in fastest_by_config {
-            report.push_str(&format!("- **{}**: {} ({:.2}μs/ステップ)\n", config, optimizer, time));
+            report.push_str(&format!(
+                "- **{}**: {} ({:.2}μs/ステップ)\n",
+                config, optimizer, time
+            ));
         }
 
         report.push_str("\n### 💾 メモリ効率チャンピオン:\n");
@@ -324,9 +347,9 @@ impl OptimizerBenchmark {
 /// 開発用クイックパフォーマンステスト
 pub fn quick_performance_test() {
     println!("🔥 クイックパフォーマンステスト開始");
-    
+
     let mut benchmark = OptimizerBenchmark::new();
-    
+
     // Test only small configuration for quick feedback
     let quick_config = BenchmarkConfig {
         name: "quick_test".to_string(),
@@ -339,13 +362,15 @@ pub fn quick_performance_test() {
 
     benchmark.test_configs = vec![quick_config];
     let results = benchmark.run_adam_comparison();
-    
+
     println!("\n📈 結果:");
     for (config_name, optimizer_results) in results {
         println!("\n🎯 {}", config_name);
         for (optimizer_name, result) in optimizer_results {
-            println!("  {} : {:.2}μs/step, {:.1} steps/sec", 
-                    optimizer_name, result.avg_step_time_us, result.steps_per_second);
+            println!(
+                "  {} : {:.2}μs/step, {:.1} steps/sec",
+                optimizer_name, result.avg_step_time_us, result.steps_per_second
+            );
         }
     }
 }
@@ -366,11 +391,11 @@ mod tests {
         let benchmark = OptimizerBenchmark::new();
         let shape = vec![10, 10];
         let grad = benchmark.generate_synthetic_gradient(&shape, 0);
-        
+
         assert_eq!(grad.shape(), &shape);
         let data = grad.as_slice().unwrap();
         assert_eq!(data.len(), 100);
-        
+
         // Check that gradients are reasonable values
         for &val in data {
             assert!(val.abs() < 1.0); // Should be relatively small gradients
@@ -378,7 +403,7 @@ mod tests {
         }
     }
 
-    #[test] 
+    #[test]
     fn test_benchmark_result_fields() {
         let result = BenchmarkResult {
             avg_step_time_us: 100.0,
@@ -388,7 +413,7 @@ mod tests {
             total_duration_ms: 1000,
             steps_per_second: 500.0,
         };
-        
+
         assert_eq!(result.avg_step_time_us, 100.0);
         assert_eq!(result.peak_memory_mb, 10);
         assert!(result.steps_per_second > 0.0);

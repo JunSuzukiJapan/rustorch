@@ -236,7 +236,8 @@ fn benchmark_lbfgs_variants(c: &mut Criterion) {
     let (param, grad) = create_test_problem(50);
 
     group.bench_function("L-BFGS_no_line_search", |b| {
-        let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 10, LineSearchMethod::None).unwrap();
+        let mut optimizer =
+            LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 10, LineSearchMethod::None).unwrap();
         let test_param = param.clone();
         let test_grad = grad.clone();
         b.iter(|| {
@@ -245,9 +246,16 @@ fn benchmark_lbfgs_variants(c: &mut Criterion) {
     });
 
     group.bench_function("L-BFGS_backtracking", |b| {
-        let mut optimizer =
-            LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 10, 
-                LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 }).unwrap();
+        let mut optimizer = LBFGS::with_params(
+            0.1,
+            20,
+            20,
+            1e-5,
+            1e-9,
+            10,
+            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 },
+        )
+        .unwrap();
         let test_param = param.clone();
         let test_grad = grad.clone();
         b.iter(|| {
@@ -256,9 +264,16 @@ fn benchmark_lbfgs_variants(c: &mut Criterion) {
     });
 
     group.bench_function("L-BFGS_strong_wolfe", |b| {
-        let mut optimizer =
-            LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 10,
-                LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 }).unwrap();
+        let mut optimizer = LBFGS::with_params(
+            0.1,
+            20,
+            20,
+            1e-5,
+            1e-9,
+            10,
+            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 },
+        )
+        .unwrap();
         let test_param = param.clone();
         let test_grad = grad.clone();
         b.iter(|| {
@@ -267,7 +282,8 @@ fn benchmark_lbfgs_variants(c: &mut Criterion) {
     });
 
     group.bench_function("L-BFGS_small_memory", |b| {
-        let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 3, LineSearchMethod::None).unwrap();
+        let mut optimizer =
+            LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 3, LineSearchMethod::None).unwrap();
         let test_param = param.clone();
         let test_grad = grad.clone();
         b.iter(|| {
@@ -276,7 +292,8 @@ fn benchmark_lbfgs_variants(c: &mut Criterion) {
     });
 
     group.bench_function("L-BFGS_large_memory", |b| {
-        let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 20, LineSearchMethod::None).unwrap();
+        let mut optimizer =
+            LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 20, LineSearchMethod::None).unwrap();
         let test_param = param.clone();
         let test_grad = grad.clone();
         b.iter(|| {
