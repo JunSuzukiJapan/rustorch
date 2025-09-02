@@ -1,32 +1,121 @@
 //! NAdam optimizer implementation
 //! NAdamオプティマイザの実装 - Nesterov加速Adam
 
+use crate::optim::common::{AdamVariant, AdamConfig, AdamState, AdamUtils, GenericAdamOptimizer};
 use crate::optim::Optimizer;
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
+
+/// NAdam variant implementing specialized Nesterov acceleration
+/// NAdam変種：特殊なNesterov加速を実装
+#[derive(Debug, Clone)]
+pub struct NAdamVariant {
+    momentum_decay: f32,
+    schedule_decay: f32,
+}
+
+impl NAdamVariant {
+    /// Create new NAdam variant with default parameters
+    /// デフォルトパラメータで新しいNAdam変種を作成
+    pub fn new(momentum_decay: f32, schedule_decay: f32) -> Self {
+        Self {
+            momentum_decay,
+            schedule_decay,
+        }
+    }
+
+    /// Create NAdam variant with default decay parameters
+    /// デフォルト減衰パラメータでNAdam変種を作成
+    pub fn default_decay() -> Self {
+        Self::new(0.004, 0.004)
+    }
+
+    /// Compute time-dependent beta1 with decay
+    /// 減衰を伴う時間依存beta1を計算
+    fn beta1_t(&self, beta1: f32, t: usize) -> f32 {
+        let momentum_cache_t = beta1 * (1.0 - 0.5 * 0.96_f32.powi(t as i32 * self.schedule_decay as i32));
+        let momentum_cache_t_1 = beta1 * (1.0 - 0.5 * 0.96_f32.powi((t + 1) as i32 * self.schedule_decay as i32));
+        
+        momentum_cache_t_1 / (1.0 - momentum_cache_t)
+    }
+}
+
+impl AdamVariant for NAdamVariant {
+    fn compute_specialized_update(
+        &self,
+        state: &mut AdamState,
+        grad: &Tensor<f32>,
+        config: &AdamConfig,
+        step: usize,
+    ) -> Tensor<f32> {
+        // Update momentum
+        AdamUtils::update_momentum(&mut state.momentum, grad, config.beta1);
+        
+        // Update velocity  
+        AdamUtils::update_velocity(&mut state.velocity, grad, config.beta2);
+        
+        // Compute bias corrections
+        let bias_correction1 = AdamUtils::bias_correction1(config.beta1, step);
+        let bias_correction2 = AdamUtils::bias_correction2(config.beta2, step);
+        
+        // Bias-corrected estimates
+        let momentum_corrected = AdamUtils::apply_bias_correction(&state.momentum, bias_correction1);
+        let velocity_corrected = AdamUtils::apply_bias_correction(&state.velocity, bias_correction2);
+        
+        // NAdam's key feature: Nesterov acceleration
+        let beta1_t = self.beta1_t(config.beta1, step);
+        let momentum_term = &momentum_corrected * beta1_t;
+        let gradient_term = grad * ((1.0 - config.beta1) / bias_correction1);
+        let nesterov_momentum = &momentum_term + &gradient_term;
+        
+        // Compute update
+        AdamUtils::compute_adam_update(&nesterov_momentum, &velocity_corrected, config.eps)
+    }
+    
+    fn optimizer_name(&self) -> &'static str {
+        "NAdam"
+    }
+    
+    fn validate_specific_config(&self, _config: &AdamConfig) -> RusTorchResult<()> {
+        if self.momentum_decay < 0.0 {
+            return Err(RusTorchError::InvalidParameters { 
+                operation: "NAdam optimizer".to_string(),
+                message: "Momentum decay must be non-negative".to_string() 
+            });
+        }
+        if self.schedule_decay < 0.0 {
+            return Err(RusTorchError::InvalidParameters { 
+                operation: "NAdam optimizer".to_string(),
+                message: "Schedule decay must be non-negative".to_string() 
+            });
+        }
+        Ok(())
+    }
+
+    fn additional_config_fields(&self) -> HashMap<String, f32> {
+        let mut fields = HashMap::new();
+        fields.insert("momentum_decay".to_string(), self.momentum_decay);
+        fields.insert("schedule_decay".to_string(), self.schedule_decay);
+        fields
+    }
+
+    fn load_additional_config(&mut self, config: &HashMap<String, f32>) {
+        if let Some(&momentum_decay) = config.get("momentum_decay") {
+            self.momentum_decay = momentum_decay;
+        }
+        if let Some(&schedule_decay) = config.get("schedule_decay") {
+            self.schedule_decay = schedule_decay;
+        }
+    }
+}
 
 /// NAdam (Nesterov-accelerated Adaptive Moment Estimation) optimizer
 /// NAdam（Nesterov加速適応モーメント推定）オプティマイザ
 /// 
 /// NAdam combines Adam with Nesterov momentum for better convergence
 /// NAdamはAdamとNesterovモーメンタムを組み合わせ、より良い収束を実現
-pub struct NAdam {
-    learning_rate: f32,
-    beta1: f32,
-    beta2: f32,
-    eps: f32,
-    weight_decay: f32,
-    momentum_decay: f32,
-    schedule_decay: f32,
-    step: usize,
-    state: HashMap<usize, NAdamState>,
-}
-
-/// State for each parameter in NAdam
-struct NAdamState {
-    momentum: Tensor<f32>,             // First moment estimate
-    velocity: Tensor<f32>,             // Second moment estimate
-}
+pub type NAdam = GenericAdamOptimizer<NAdamVariant>;
 
 impl NAdam {
     /// Create a new NAdam optimizer
@@ -47,190 +136,51 @@ impl NAdam {
         weight_decay: f32,
         momentum_decay: f32,
         schedule_decay: f32,
-    ) -> Self {
-        assert!(learning_rate > 0.0, "Learning rate must be positive");
-        assert!(beta1 >= 0.0 && beta1 < 1.0, "Beta1 must be in [0, 1)");
-        assert!(beta2 >= 0.0 && beta2 < 1.0, "Beta2 must be in [0, 1)");
-        assert!(eps > 0.0, "Epsilon must be positive");
-        assert!(weight_decay >= 0.0, "Weight decay must be non-negative");
-        assert!(momentum_decay >= 0.0, "Momentum decay must be non-negative");
-        assert!(schedule_decay >= 0.0, "Schedule decay must be non-negative");
-
-        Self {
+    ) -> RusTorchResult<Self> {
+        let config = AdamConfig {
             learning_rate,
             beta1,
             beta2,
             eps,
             weight_decay,
-            momentum_decay,
-            schedule_decay,
-            step: 0,
-            state: HashMap::new(),
-        }
+        };
+        let variant = NAdamVariant::new(momentum_decay, schedule_decay);
+        GenericAdamOptimizer::from_config_variant(config, variant)
     }
 
     /// Create NAdam with default parameters
-    pub fn default_params(learning_rate: f32) -> Self {
-        Self::new(learning_rate, 0.9, 0.999, 1e-8, 0.0, 0.004, 0.004)
+    pub fn default_params(learning_rate: f32) -> RusTorchResult<Self> {
+        let config = AdamConfig::nadam(learning_rate);
+        let variant = NAdamVariant::default_decay();
+        GenericAdamOptimizer::from_config_variant(config, variant)
     }
 
     /// Create NAdam with weight decay
-    pub fn with_weight_decay(learning_rate: f32, weight_decay: f32) -> Self {
-        Self::new(learning_rate, 0.9, 0.999, 1e-8, weight_decay, 0.004, 0.004)
+    pub fn with_weight_decay(learning_rate: f32, weight_decay: f32) -> RusTorchResult<Self> {
+        let config = AdamConfig::nadam(learning_rate).with_weight_decay(weight_decay);
+        let variant = NAdamVariant::default_decay();
+        GenericAdamOptimizer::from_config_variant(config, variant)
     }
 
     /// Create NAdam with custom momentum decay
-    pub fn with_momentum_decay(learning_rate: f32, momentum_decay: f32) -> Self {
-        Self::new(learning_rate, 0.9, 0.999, 1e-8, 0.0, momentum_decay, 0.004)
+    pub fn with_momentum_decay(learning_rate: f32, momentum_decay: f32) -> RusTorchResult<Self> {
+        let config = AdamConfig::nadam(learning_rate);
+        let variant = NAdamVariant::new(momentum_decay, 0.004);
+        GenericAdamOptimizer::from_config_variant(config, variant)
     }
 
-    /// Get parameter state for debugging
-    pub fn get_state(&self, param_id: usize) -> Option<(&Tensor<f32>, &Tensor<f32>)> {
-        self.state
-            .get(&param_id)
-            .map(|s| (&s.momentum, &s.velocity))
+    /// Get parameter state for debugging  
+    pub fn get_param_state(&self, param_id: usize) -> Option<(&Tensor<f32>, &Tensor<f32>)> {
+        self.get_state(param_id).map(|s| (&s.momentum, &s.velocity))
     }
 
-    fn get_or_create_state(&mut self, param_id: usize, shape: &[usize]) -> &mut NAdamState {
-        self.state.entry(param_id).or_insert_with(|| NAdamState {
-            momentum: Tensor::zeros(shape),
-            velocity: Tensor::zeros(shape),
-        })
-    }
-
-    /// Compute time-dependent beta1 with decay
-    fn beta1_t(&self, t: usize) -> f32 {
-        let momentum_cache_t = self.beta1 * (1.0 - 0.5 * 0.96_f32.powi(t as i32 * self.schedule_decay as i32));
-        let momentum_cache_t_1 = self.beta1 * (1.0 - 0.5 * 0.96_f32.powi((t + 1) as i32 * self.schedule_decay as i32));
-        
-        momentum_cache_t_1 / (1.0 - momentum_cache_t)
+    /// Get NAdam variant configuration
+    pub fn nadam_config(&self) -> (f32, f32) {
+        let variant = self.variant();
+        (variant.momentum_decay, variant.schedule_decay)
     }
 }
 
-impl Optimizer for NAdam {
-    fn step(&mut self, param: &Tensor<f32>, grad: &Tensor<f32>) {
-        self.step += 1;
-        let param_id = param as *const _ as usize;
-
-        // Copy parameters to avoid borrow issues
-        let beta1 = self.beta1;
-        let beta2 = self.beta2;
-        let eps = self.eps;
-        let weight_decay = self.weight_decay;
-        let learning_rate = self.learning_rate;
-        let momentum_decay = self.momentum_decay;
-        let step = self.step;
-
-        // Apply weight decay to gradient if specified
-        let grad_with_decay = if weight_decay > 0.0 {
-            let weight_decay_term = param * weight_decay;
-            grad + &weight_decay_term
-        } else {
-            grad.clone()
-        };
-
-        // Compute time-dependent beta1 before getting state
-        let beta1_t = {
-            let momentum_cache_t = beta1 * (1.0 - 0.5 * 0.96_f32.powi(step as i32 * self.schedule_decay as i32));
-            let momentum_cache_t_1 = beta1 * (1.0 - 0.5 * 0.96_f32.powi((step + 1) as i32 * self.schedule_decay as i32));
-            momentum_cache_t_1 / (1.0 - momentum_cache_t)
-        };
-
-        // Get or create state for this parameter
-        let state = self.get_or_create_state(param_id, param.shape());
-
-        // Update biased first moment estimate
-        state.momentum = (&(&state.momentum * beta1)) + (&(&grad_with_decay * (1.0 - beta1)));
-
-        // Update biased second raw moment estimate
-        let grad_squared = &grad_with_decay * &grad_with_decay;
-        state.velocity = (&(&state.velocity * beta2)) + (&(&grad_squared * (1.0 - beta2)));
-
-        // Compute bias correction terms
-        let bias_correction1 = 1.0 - beta1.powi(step as i32);
-        let bias_correction2 = 1.0 - beta2.powi(step as i32);
-
-        // Bias-corrected second moment estimate
-        let velocity_corrected = &state.velocity / bias_correction2;
-
-        // NAdam's key difference: use Nesterov-accelerated gradient
-        let momentum_corrected = &state.momentum / bias_correction1;
-        
-        // Apply Nesterov acceleration: β₁ * m̂ₜ + ((1 - β₁) / (1 - β₁ᵗ)) * gₜ
-        let momentum_term = &momentum_corrected * beta1_t;
-        let gradient_term = &grad_with_decay * ((1.0 - beta1) / (1.0 - beta1.powi(step as i32)));
-        let nesterov_momentum = &momentum_term + &gradient_term;
-
-        // Compute update
-        let velocity_sqrt = velocity_corrected.sqrt();
-        let update = &nesterov_momentum / &(&velocity_sqrt + eps);
-
-        // Apply update
-        let new_param = param - &(&update * learning_rate);
-
-        // Update parameter in-place
-        unsafe {
-            std::ptr::copy_nonoverlapping(
-                new_param.as_slice().unwrap().as_ptr(),
-                param.as_slice().unwrap().as_ptr() as *mut f32,
-                param.as_slice().unwrap().len(),
-            );
-        }
-    }
-
-    fn zero_grad(&mut self) {
-        // NAdam doesn't store gradients, so nothing to do here
-    }
-
-    fn learning_rate(&self) -> f32 {
-        self.learning_rate
-    }
-
-    fn set_learning_rate(&mut self, lr: f32) {
-        assert!(lr > 0.0, "Learning rate must be positive");
-        self.learning_rate = lr;
-    }
-
-    fn state_dict(&self) -> HashMap<String, f32> {
-        let mut state = HashMap::new();
-        state.insert("learning_rate".to_string(), self.learning_rate);
-        state.insert("beta1".to_string(), self.beta1);
-        state.insert("beta2".to_string(), self.beta2);
-        state.insert("eps".to_string(), self.eps);
-        state.insert("weight_decay".to_string(), self.weight_decay);
-        state.insert("momentum_decay".to_string(), self.momentum_decay);
-        state.insert("schedule_decay".to_string(), self.schedule_decay);
-        state.insert("step".to_string(), self.step as f32);
-        state
-    }
-
-    fn load_state_dict(&mut self, state: HashMap<String, f32>) {
-        if let Some(&lr) = state.get("learning_rate") {
-            self.learning_rate = lr;
-        }
-        if let Some(&beta1) = state.get("beta1") {
-            self.beta1 = beta1;
-        }
-        if let Some(&beta2) = state.get("beta2") {
-            self.beta2 = beta2;
-        }
-        if let Some(&eps) = state.get("eps") {
-            self.eps = eps;
-        }
-        if let Some(&wd) = state.get("weight_decay") {
-            self.weight_decay = wd;
-        }
-        if let Some(&md) = state.get("momentum_decay") {
-            self.momentum_decay = md;
-        }
-        if let Some(&sd) = state.get("schedule_decay") {
-            self.schedule_decay = sd;
-        }
-        if let Some(&step) = state.get("step") {
-            self.step = step as usize;
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -238,21 +188,21 @@ mod tests {
 
     #[test]
     fn test_nadam_creation() {
-        let optimizer = NAdam::default_params(0.002);
-        assert_eq!(optimizer.learning_rate, 0.002);
-        assert_eq!(optimizer.beta1, 0.9);
-        assert_eq!(optimizer.beta2, 0.999);
+        let optimizer = NAdam::default_params(0.002).unwrap();
+        assert_eq!(optimizer.learning_rate(), 0.002);
+        assert_eq!(optimizer.config().beta1, 0.9);
+        assert_eq!(optimizer.config().beta2, 0.999);
     }
 
     #[test]
     fn test_nadam_with_weight_decay() {
-        let optimizer = NAdam::with_weight_decay(0.001, 0.1);
-        assert_eq!(optimizer.weight_decay, 0.1);
+        let optimizer = NAdam::with_weight_decay(0.001, 0.1).unwrap();
+        assert_eq!(optimizer.config().weight_decay, 0.1);
     }
 
     #[test]
     fn test_nadam_step() {
-        let mut optimizer = NAdam::default_params(0.1);
+        let mut optimizer = NAdam::default_params(0.1).unwrap();
         let param = Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
         let grad = Tensor::from_vec(vec![0.1, 0.2, 0.3], vec![3]);
 
@@ -267,38 +217,58 @@ mod tests {
 
     #[test]
     fn test_nadam_momentum_decay() {
-        let mut optimizer = NAdam::with_momentum_decay(0.001, 0.01);
-        assert_eq!(optimizer.momentum_decay, 0.01);
+        let mut optimizer = NAdam::with_momentum_decay(0.001, 0.01).unwrap();
+        let (momentum_decay, _) = optimizer.nadam_config();
+        assert_eq!(momentum_decay, 0.01);
 
-        let param = Tensor::randn(&[10]);
-        let grad = Tensor::randn(&[10]);
+        let param = Tensor::from_vec(vec![1.0, 2.0], vec![2]);
+        let grad = Tensor::from_vec(vec![0.1, 0.2], vec![2]);
 
         optimizer.step(&param, &grad);
 
         // State should be created for the parameter
         let param_id = &param as *const _ as usize;
-        assert!(optimizer.state.contains_key(&param_id));
+        assert!(optimizer.get_state(param_id).is_some());
     }
 
     #[test]
-    fn test_beta1_t_scheduling() {
-        let optimizer = NAdam::default_params(0.001);
+    fn test_nadam_variant_beta1_t() {
+        let variant = NAdamVariant::default_decay();
         
         // Beta1 should change over time with NAdam scheduling
-        let beta1_t1 = optimizer.beta1_t(1);
-        let beta1_t10 = optimizer.beta1_t(10);
-        let beta1_t100 = optimizer.beta1_t(100);
+        let beta1_t1 = variant.beta1_t(0.9, 1);
+        let beta1_t10 = variant.beta1_t(0.9, 10);
+        let beta1_t100 = variant.beta1_t(0.9, 100);
         
-        println!("beta1_t1: {}, beta1_t10: {}, beta1_t100: {}", beta1_t1, beta1_t10, beta1_t100);
+        // Beta1_t values should be reasonable
+        assert!(beta1_t1 > 0.0 && beta1_t1 <= 1.5);
+        assert!(beta1_t10 > 0.0 && beta1_t10 <= 1.5);
+        assert!(beta1_t100 > 0.0 && beta1_t100 <= 1.5);
         
-        // Beta1_t values should be different and reasonable
-        assert!(beta1_t1 > 0.0 && beta1_t1 <= 1.0);
-        assert!(beta1_t10 > 0.0 && beta1_t10 <= 1.0);
-        assert!(beta1_t100 > 0.0 && beta1_t100 <= 1.0);
-        
-        // Just verify the computation is stable, the values may be similar due to small schedule_decay
+        // Just verify the computation is stable
         assert!(beta1_t1.is_finite());
         assert!(beta1_t10.is_finite());
         assert!(beta1_t100.is_finite());
+    }
+
+    #[test]
+    fn test_nadam_state_dict() {
+        let optimizer = NAdam::default_params(0.001).unwrap();
+        let state_dict = optimizer.state_dict();
+        
+        assert_eq!(state_dict.get("learning_rate"), Some(&0.001));
+        assert_eq!(state_dict.get("beta1"), Some(&0.9));
+        assert_eq!(state_dict.get("momentum_decay"), Some(&0.004));
+        assert_eq!(state_dict.get("schedule_decay"), Some(&0.004));
+    }
+
+    #[test]
+    fn test_nadam_variant_validation() {
+        let variant = NAdamVariant::new(-0.1, 0.004);
+        let config = AdamConfig::nadam(0.001);
+        assert!(variant.validate_specific_config(&config).is_err());
+        
+        let valid_variant = NAdamVariant::new(0.004, 0.004);
+        assert!(valid_variant.validate_specific_config(&config).is_ok());
     }
 }

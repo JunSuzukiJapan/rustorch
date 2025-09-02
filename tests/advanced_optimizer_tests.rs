@@ -128,7 +128,7 @@ fn test_adabound_parameter_customization() {
 
 #[test]
 fn test_lbfgs_basic_functionality() {
-    let mut optimizer = LBFGS::new(0.1);
+    let mut optimizer = LBFGS::new(0.1).unwrap();
     let param = Tensor::<f32>::ones(&[3, 3]);
     let grad = Tensor::<f32>::ones(&[3, 3]) * 0.1;
 
@@ -148,7 +148,7 @@ fn test_lbfgs_basic_functionality() {
 
 #[test]
 fn test_lbfgs_memory_building() {
-    let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None);
+    let mut optimizer = LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None).unwrap();
     let param = Tensor::<f32>::ones(&[4, 4]) * 3.0;
 
     // Perform multiple steps to build L-BFGS memory
@@ -170,8 +170,8 @@ fn test_lbfgs_memory_building() {
 
 #[test]
 fn test_lbfgs_convergence_detection() {
-    let mut optimizer = LBFGS::new(0.1);
-    optimizer.set_tolerance_grad(1e-2);
+    let mut optimizer = LBFGS::new(0.1).unwrap();
+    optimizer.set_tolerance_grad(1e-2).unwrap();
 
     let param = Tensor::<f32>::ones(&[2, 2]);
     let small_grad = Tensor::<f32>::ones(&[2, 2]) * 1e-4; // Below tolerance
@@ -193,9 +193,11 @@ fn test_lbfgs_convergence_detection() {
 #[test]
 fn test_lbfgs_line_search_methods() {
     let optimizers = vec![
-        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None),
-        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::Backtracking),
-        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::StrongWolfe),
+        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, LineSearchMethod::None).unwrap(),
+        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5, 
+            LineSearchMethod::Backtracking { c1: 1e-4, rho: 0.5 }).unwrap(),
+        LBFGS::with_params(0.1, 20, 20, 1e-5, 1e-9, 5,
+            LineSearchMethod::StrongWolfe { c1: 1e-4, c2: 0.9 }).unwrap(),
     ];
 
     for mut optimizer in optimizers {
@@ -219,7 +221,7 @@ fn test_lbfgs_line_search_methods() {
 fn test_all_optimizers_state_management() {
     let mut lamb = LAMB::new(0.01);
     let mut adabound = AdaBound::new(0.01);
-    let mut lbfgs = LBFGS::new(0.1);
+    let mut lbfgs = LBFGS::new(0.1).unwrap();
 
     let param = Tensor::<f32>::ones(&[2, 2]);
     let grad = Tensor::<f32>::ones(&[2, 2]) * 0.1;
@@ -250,7 +252,7 @@ fn test_optimizer_performance_comparison() {
 
     let mut lamb = LAMB::new(0.01);
     let mut adabound = AdaBound::new(0.01);
-    let mut lbfgs = LBFGS::new(0.1);
+    let mut lbfgs = LBFGS::new(0.1).unwrap();
 
     // Simple quadratic optimization problem
     // Minimize ||param - target||^2
@@ -310,7 +312,7 @@ fn test_optimizers_with_different_tensor_shapes() {
 
         let mut lamb = LAMB::new(0.01);
         let mut adabound = AdaBound::new(0.01);
-        let mut lbfgs = LBFGS::new(0.05);
+        let mut lbfgs = LBFGS::new(0.05).unwrap();
 
         let initial_data = param.data.as_slice().unwrap().to_vec();
 

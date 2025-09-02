@@ -3,6 +3,10 @@
 pub mod adamw;
 pub mod lr_scheduler;
 
+// Common structures and traits for Phase 2 refactoring
+/// Common optimizer structures and traits for Adam-based optimizers
+pub mod common;
+
 // Phase 2: Advanced Adam-based optimizers
 /// NAdam optimizer - Nesterov-accelerated Adam
 pub mod nadam;
@@ -21,6 +25,9 @@ pub mod lbfgs;
 
 /// Optimization utilities for memory efficiency and numerical stability
 pub mod utils;
+
+/// Performance benchmarks and profiling for optimizers
+pub mod benchmarks;
 
 // Standard optimizer exports
 pub use adamw::AdamW;

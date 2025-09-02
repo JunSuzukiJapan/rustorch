@@ -2,6 +2,7 @@
 //! メモリ効率と数値安定性のための最適化ユーティリティ
 
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 use std::collections::HashMap;
 
 /// Utility functions for optimizer memory management and numerical stability
@@ -106,6 +107,200 @@ impl OptimizerUtils {
     /// 重み減衰をインプレースで効率的に適用
     pub fn apply_weight_decay(param: &Tensor<f32>, weight_decay: f32) -> Tensor<f32> {
         param * (1.0 - weight_decay)
+    }
+
+    /// Apply weight decay to gradient (AdamW style)
+    /// 勾配に重み減衰を適用（AdamW形式）
+    pub fn apply_weight_decay_to_grad(grad: &Tensor<f32>, param: &Tensor<f32>, weight_decay: f32) -> Tensor<f32> {
+        if weight_decay > 0.0 {
+            let weight_decay_term = param * weight_decay;
+            grad + &weight_decay_term
+        } else {
+            grad.clone()
+        }
+    }
+
+    /// Update momentum (first moment) with numerical stability
+    /// 数値安定性を考慮したモーメンタム（第一モーメント）更新
+    pub fn update_momentum(momentum: &mut Tensor<f32>, grad: &Tensor<f32>, beta1: f32) -> RusTorchResult<()> {
+        if !(0.0..1.0).contains(&beta1) {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "momentum update".to_string(),
+                message: format!("Beta1 must be in [0, 1), got {}", beta1),
+            });
+        }
+
+        let beta1_term = &*momentum * beta1;
+        let grad_term = grad * (1.0 - beta1);
+        let updated = &beta1_term + &grad_term;
+        
+        // Check for numerical stability
+        if Self::has_invalid_values(&updated) {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "momentum update".to_string(),
+                message: "Numerical instability detected in momentum update".to_string(),
+            });
+        }
+        
+        momentum.copy_from(&updated);
+        Ok(())
+    }
+
+    /// Update velocity (second moment) with numerical stability
+    /// 数値安定性を考慮したベロシティ（第二モーメント）更新  
+    pub fn update_velocity(velocity: &mut Tensor<f32>, grad: &Tensor<f32>, beta2: f32) -> RusTorchResult<()> {
+        if !(0.0..1.0).contains(&beta2) {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "velocity update".to_string(),
+                message: format!("Beta2 must be in [0, 1), got {}", beta2),
+            });
+        }
+
+        let beta2_term = &*velocity * beta2;
+        let grad_squared = grad * grad;
+        let grad_term = &grad_squared * (1.0 - beta2);
+        let updated = &beta2_term + &grad_term;
+        
+        // Check for numerical stability
+        if Self::has_invalid_values(&updated) {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "velocity update".to_string(),
+                message: "Numerical instability detected in velocity update".to_string(),
+            });
+        }
+        
+        velocity.copy_from(&updated);
+        Ok(())
+    }
+
+    /// Compute bias correction factor
+    /// バイアス補正係数を計算
+    pub fn bias_correction(beta: f32, step: usize) -> f32 {
+        if step == 0 || beta == 0.0 {
+            1.0
+        } else {
+            1.0 - beta.powi(step as i32)
+        }
+    }
+
+    /// Apply bias correction to tensor
+    /// テンソルにバイアス補正を適用
+    pub fn apply_bias_correction(tensor: &Tensor<f32>, correction: f32) -> Tensor<f32> {
+        if correction.abs() < 1e-12 {
+            // Avoid division by very small numbers
+            tensor.clone()
+        } else {
+            tensor / correction
+        }
+    }
+
+    /// Compute Adam-style parameter update
+    /// Adam形式のパラメータ更新を計算
+    pub fn compute_adam_update(momentum: &Tensor<f32>, velocity: &Tensor<f32>, eps: f32) -> Tensor<f32> {
+        let denominator = &Self::stable_sqrt(velocity, eps);
+        momentum / denominator
+    }
+
+    /// Compute element-wise maximum between two tensors (for Adamax)
+    /// 二つのテンソル間の要素毎最大値を計算（Adamax用）
+    pub fn tensor_max(a: &Tensor<f32>, b: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+        let a_data = a.as_slice().ok_or_else(|| RusTorchError::InvalidParameters {
+            operation: "tensor_max".to_string(),
+            message: "Failed to access tensor A data".to_string(),
+        })?;
+        let b_data = b.as_slice().ok_or_else(|| RusTorchError::InvalidParameters {
+            operation: "tensor_max".to_string(),
+            message: "Failed to access tensor B data".to_string(),
+        })?;
+        
+        if a_data.len() != b_data.len() || a.shape() != b.shape() {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "tensor_max".to_string(),
+                message: "Tensor shapes must match".to_string(),
+            });
+        }
+        
+        let max_data: Vec<f32> = a_data.iter()
+            .zip(b_data.iter())
+            .map(|(&a_val, &b_val)| a_val.max(b_val))
+            .collect();
+            
+        Ok(Tensor::from_vec(max_data, a.shape().to_vec()))
+    }
+
+    /// Compute element-wise absolute value of tensor
+    /// テンソルの要素毎絶対値を計算
+    pub fn tensor_abs(tensor: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+        let data = tensor.as_slice().ok_or_else(|| RusTorchError::InvalidParameters {
+            operation: "tensor_abs".to_string(),
+            message: "Failed to access tensor data".to_string(),
+        })?;
+        
+        let abs_data: Vec<f32> = data.iter().map(|&x| x.abs()).collect();
+        Ok(Tensor::from_vec(abs_data, tensor.shape().to_vec()))
+    }
+
+    /// Advanced exponential moving average with momentum scheduling
+    /// モーメンタムスケジューリング付き高度な指数移動平均
+    pub fn advanced_ema_update(
+        current: &mut Tensor<f32>,
+        new_value: &Tensor<f32>,
+        base_decay: f32,
+        step: usize,
+        warmup_steps: usize,
+    ) -> RusTorchResult<()> {
+        // Apply warmup scheduling
+        let effective_decay = if step < warmup_steps {
+            let warmup_factor = (step as f32) / (warmup_steps as f32);
+            base_decay * warmup_factor
+        } else {
+            base_decay
+        };
+
+        let decay_term = &*current * effective_decay;
+        let new_term = new_value * (1.0 - effective_decay);
+        let updated = &decay_term + &new_term;
+        
+        if Self::has_invalid_values(&updated) {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "advanced_ema_update".to_string(),
+                message: "Numerical instability detected".to_string(),
+            });
+        }
+        
+        current.copy_from(&updated);
+        Ok(())
+    }
+
+    /// Compute learning rate with cosine annealing
+    /// コサインアニーリングによる学習率計算
+    pub fn cosine_annealing_lr(
+        base_lr: f32,
+        current_step: usize,
+        total_steps: usize,
+        min_lr: f32,
+    ) -> f32 {
+        if total_steps == 0 {
+            return base_lr;
+        }
+        
+        let progress = (current_step.min(total_steps) as f32) / (total_steps as f32);
+        let cosine_factor = 0.5 * (1.0 + (std::f32::consts::PI * progress).cos());
+        min_lr + (base_lr - min_lr) * cosine_factor
+    }
+
+    /// Compute adaptive learning rate scaling based on gradient statistics
+    /// 勾配統計に基づく適応学習率スケーリング計算
+    pub fn adaptive_lr_scaling(
+        grad_norm: f32,
+        velocity_norm: f32,
+        trust_ratio: f32,
+    ) -> f32 {
+        if velocity_norm < 1e-12 {
+            trust_ratio
+        } else {
+            trust_ratio * (grad_norm / velocity_norm).min(1.0)
+        }
     }
 }
 
@@ -281,6 +476,191 @@ impl StabilityConfig {
     }
 }
 
+/// Advanced optimizer metadata and statistics tracking
+/// 高度なオプティマイザメタデータと統計追跡
+#[derive(Debug, Clone)]
+pub struct OptimizerMetrics {
+    /// Gradient norm history for convergence analysis
+    gradient_norms: Vec<f32>,
+    /// Parameter change norms for step size analysis
+    param_change_norms: Vec<f32>,
+    /// Learning rate history
+    learning_rates: Vec<f32>,
+    /// Step timings for performance analysis
+    step_times: Vec<f32>,
+    /// Maximum history length
+    max_history: usize,
+    /// Current step count
+    step_count: usize,
+}
+
+impl OptimizerMetrics {
+    /// Create new optimizer metrics tracker
+    pub fn new(max_history: usize) -> Self {
+        Self {
+            gradient_norms: Vec::with_capacity(max_history),
+            param_change_norms: Vec::with_capacity(max_history),
+            learning_rates: Vec::with_capacity(max_history),
+            step_times: Vec::with_capacity(max_history),
+            max_history,
+            step_count: 0,
+        }
+    }
+
+    /// Record step metrics
+    pub fn record_step(
+        &mut self,
+        grad_norm: f32,
+        param_change_norm: f32,
+        learning_rate: f32,
+        step_time: f32,
+    ) {
+        self.gradient_norms.push(grad_norm);
+        self.param_change_norms.push(param_change_norm);
+        self.learning_rates.push(learning_rate);
+        self.step_times.push(step_time);
+        
+        // Maintain maximum history size
+        if self.gradient_norms.len() > self.max_history {
+            self.gradient_norms.remove(0);
+            self.param_change_norms.remove(0);
+            self.learning_rates.remove(0);
+            self.step_times.remove(0);
+        }
+        
+        self.step_count += 1;
+    }
+
+    /// Get gradient norm statistics
+    pub fn gradient_stats(&self) -> (f32, f32, f32) {
+        if self.gradient_norms.is_empty() {
+            return (0.0, 0.0, 0.0);
+        }
+        
+        let mean = self.gradient_norms.iter().sum::<f32>() / self.gradient_norms.len() as f32;
+        let min = *self.gradient_norms.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        let max = *self.gradient_norms.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap();
+        
+        (mean, min, max)
+    }
+
+    /// Check for convergence based on recent gradient norms
+    pub fn check_convergence(&self, threshold: f32, window_size: usize) -> bool {
+        if self.gradient_norms.len() < window_size {
+            return false;
+        }
+        
+        let recent_norms = &self.gradient_norms[self.gradient_norms.len().saturating_sub(window_size)..];
+        let avg_norm = recent_norms.iter().sum::<f32>() / recent_norms.len() as f32;
+        
+        avg_norm < threshold
+    }
+
+    /// Detect optimization issues (gradient explosion, vanishing, etc.)
+    pub fn detect_issues(&self) -> Vec<String> {
+        let mut issues = Vec::new();
+        
+        if let Some(&latest_grad_norm) = self.gradient_norms.last() {
+            if latest_grad_norm > 100.0 {
+                issues.push("Gradient explosion detected".to_string());
+            }
+            if latest_grad_norm < 1e-8 {
+                issues.push("Vanishing gradients detected".to_string());
+            }
+        }
+        
+        if self.gradient_norms.len() > 10 {
+            let recent = &self.gradient_norms[self.gradient_norms.len()-10..];
+            let variance = {
+                let mean = recent.iter().sum::<f32>() / recent.len() as f32;
+                recent.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / recent.len() as f32
+            };
+            
+            if variance < 1e-12 {
+                issues.push("Optimization stagnation detected".to_string());
+            }
+        }
+        
+        issues
+    }
+
+    /// Get current step count
+    pub fn step_count(&self) -> usize {
+        self.step_count
+    }
+
+    /// Reset metrics
+    pub fn reset(&mut self) {
+        self.gradient_norms.clear();
+        self.param_change_norms.clear();
+        self.learning_rates.clear();
+        self.step_times.clear();
+        self.step_count = 0;
+    }
+}
+
+/// Unified optimizer factory for creating optimizers with consistent configuration
+/// 一貫した設定でオプティマイザを作成するための統合オプティマイザファクトリ
+pub struct OptimizerFactory;
+
+impl OptimizerFactory {
+    /// Create optimizer configuration with validation
+    pub fn validate_config(
+        learning_rate: f32,
+        weight_decay: f32,
+        eps: f32,
+    ) -> RusTorchResult<()> {
+        if learning_rate <= 0.0 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "optimizer creation".to_string(),
+                message: "Learning rate must be positive".to_string(),
+            });
+        }
+        
+        if weight_decay < 0.0 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "optimizer creation".to_string(),
+                message: "Weight decay must be non-negative".to_string(),
+            });
+        }
+        
+        if eps <= 0.0 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "optimizer creation".to_string(),
+                message: "Epsilon must be positive".to_string(),
+            });
+        }
+        
+        Ok(())
+    }
+
+    /// Suggest optimal parameters based on problem characteristics
+    pub fn suggest_parameters(
+        problem_type: &str,
+        model_size: usize,
+    ) -> (f32, f32, f32) { // (learning_rate, weight_decay, eps)
+        match problem_type {
+            "vision" => {
+                if model_size > 50_000_000 { // Large model
+                    (1e-4, 1e-4, 1e-8)
+                } else {
+                    (1e-3, 1e-4, 1e-8)
+                }
+            }
+            "nlp" => {
+                if model_size > 100_000_000 { // Large language model
+                    (5e-5, 1e-2, 1e-6)
+                } else {
+                    (2e-4, 1e-3, 1e-8)
+                }
+            }
+            "reinforcement_learning" => (3e-4, 0.0, 1e-5),
+            "fine_tuning" => (5e-5, 1e-5, 1e-8),
+            _ => (1e-3, 1e-4, 1e-8), // Default
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -375,5 +755,121 @@ mod tests {
         
         // Should be clipped to max_grad_norm
         assert!(norm <= config.max_grad_norm + 1e-5);
+    }
+
+    #[test]
+    fn test_enhanced_momentum_update() {
+        let mut momentum = Tensor::zeros(&[2]);
+        let grad = Tensor::from_vec(vec![0.1, 0.2], vec![2]);
+        
+        let result = OptimizerUtils::update_momentum(&mut momentum, &grad, 0.9);
+        assert!(result.is_ok());
+        
+        let momentum_data = momentum.as_slice().unwrap();
+        assert!((momentum_data[0] - 0.01).abs() < 1e-6);
+        assert!((momentum_data[1] - 0.02).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_enhanced_velocity_update() {
+        let mut velocity = Tensor::zeros(&[2]);
+        let grad = Tensor::from_vec(vec![0.1, 0.2], vec![2]);
+        
+        let result = OptimizerUtils::update_velocity(&mut velocity, &grad, 0.999);
+        assert!(result.is_ok());
+        
+        let velocity_data = velocity.as_slice().unwrap();
+        // 0.1^2 * (1-0.999) = 0.01 * 0.001 = 0.00001
+        // 0.2^2 * (1-0.999) = 0.04 * 0.001 = 0.00004  
+        assert!((velocity_data[0] - 0.00001).abs() < 1e-6);
+        assert!((velocity_data[1] - 0.00004).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_tensor_max() {
+        let a = Tensor::from_vec(vec![1.0, 5.0, 2.0], vec![3]);
+        let b = Tensor::from_vec(vec![3.0, 1.0, 4.0], vec![3]);
+        
+        let max_tensor = OptimizerUtils::tensor_max(&a, &b).unwrap();
+        let max_data = max_tensor.as_slice().unwrap();
+        
+        assert_eq!(max_data, &[3.0, 5.0, 4.0]);
+    }
+
+    #[test]
+    fn test_tensor_abs() {
+        let tensor = Tensor::from_vec(vec![-1.0, 2.0, -3.0, 4.0], vec![4]);
+        let abs_tensor = OptimizerUtils::tensor_abs(&tensor).unwrap();
+        let abs_data = abs_tensor.as_slice().unwrap();
+        
+        assert_eq!(abs_data, &[1.0, 2.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn test_bias_correction() {
+        assert!((OptimizerUtils::bias_correction(0.9, 1) - 0.1).abs() < 1e-6);
+        assert_eq!(OptimizerUtils::bias_correction(0.9, 0), 1.0);
+        
+        let correction = OptimizerUtils::bias_correction(0.99, 100);
+        assert!(correction > 0.6);
+    }
+
+    #[test]
+    fn test_cosine_annealing_lr() {
+        let base_lr = 1e-3;
+        let min_lr = 1e-5;
+        
+        // At start
+        let lr_start = OptimizerUtils::cosine_annealing_lr(base_lr, 0, 1000, min_lr);
+        assert!((lr_start - base_lr).abs() < 1e-8);
+        
+        // At middle
+        let lr_middle = OptimizerUtils::cosine_annealing_lr(base_lr, 500, 1000, min_lr);
+        assert!(lr_middle < base_lr && lr_middle > min_lr);
+        
+        // At end
+        let lr_end = OptimizerUtils::cosine_annealing_lr(base_lr, 1000, 1000, min_lr);
+        assert!((lr_end - min_lr).abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_optimizer_metrics() {
+        let mut metrics = OptimizerMetrics::new(100);
+        
+        // Record some steps
+        metrics.record_step(1.0, 0.1, 1e-3, 0.01);
+        metrics.record_step(0.5, 0.05, 1e-3, 0.012);
+        metrics.record_step(0.1, 0.01, 1e-3, 0.009);
+        
+        assert_eq!(metrics.step_count(), 3);
+        
+        let (mean, min, max) = metrics.gradient_stats();
+        assert!((mean - (1.0 + 0.5 + 0.1) / 3.0).abs() < 1e-6);
+        assert_eq!(min, 0.1);
+        assert_eq!(max, 1.0);
+        
+        // Test convergence detection
+        assert!(metrics.check_convergence(2.0, 3));
+        assert!(!metrics.check_convergence(0.05, 3));
+    }
+
+    #[test]
+    fn test_optimizer_factory_validation() {
+        assert!(OptimizerFactory::validate_config(1e-3, 1e-4, 1e-8).is_ok());
+        assert!(OptimizerFactory::validate_config(-1e-3, 1e-4, 1e-8).is_err());
+        assert!(OptimizerFactory::validate_config(1e-3, -1e-4, 1e-8).is_err());
+        assert!(OptimizerFactory::validate_config(1e-3, 1e-4, -1e-8).is_err());
+    }
+
+    #[test]
+    fn test_parameter_suggestions() {
+        let (lr, wd, eps) = OptimizerFactory::suggest_parameters("vision", 10_000_000);
+        assert!(lr > 0.0 && wd >= 0.0 && eps > 0.0);
+        
+        let (lr_large, _, _) = OptimizerFactory::suggest_parameters("vision", 100_000_000);
+        assert!(lr_large < lr); // Large models should use smaller learning rates
+        
+        let (lr_nlp, _, _) = OptimizerFactory::suggest_parameters("nlp", 500_000_000);
+        assert!(lr_nlp > 0.0);
     }
 }
