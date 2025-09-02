@@ -9,26 +9,45 @@ use num_traits::{Float, FromPrimitive, One, ToPrimitive, Zero};
 use std::fmt::Debug;
 use std::iter::Sum;
 
-/// Multi-Head Attention layer
-/// マルチヘッドアテンション層
+/// Multi-Head Attention layer (Phase 6 - PyTorch compatible)
+/// マルチヘッドアテンション層（フェーズ6 - PyTorch互換）
 ///
 /// Implements the multi-head attention mechanism from "Attention Is All You Need".
 /// "Attention Is All You Need"のマルチヘッドアテンション機構を実装します。
 #[derive(Debug)]
-pub struct MultiHeadAttention<
+pub struct MultiheadAttention<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 > {
+    /// Embedding dimension
+    /// 埋め込み次元
+    embed_dim: usize,
     /// Number of attention heads
     /// アテンションヘッド数
     num_heads: usize,
 
-    /// Model dimension (d_model)
-    /// モデル次元（d_model）
-    d_model: usize,
+    /// Dropout probability
+    /// ドロップアウト確率
+    dropout: T,
 
-    /// Head dimension (d_k = d_v = d_model / num_heads)
-    /// ヘッド次元（d_k = d_v = d_model / num_heads）
-    d_k: usize,
+    /// Whether to use bias in linear layers
+    /// 線形層でバイアスを使用するかどうか
+    bias: bool,
+
+    /// Key dimension (optional, defaults to embed_dim)
+    /// キー次元（オプション、embed_dimがデフォルト）
+    kdim: Option<usize>,
+
+    /// Value dimension (optional, defaults to embed_dim)
+    /// 値次元（オプション、embed_dimがデフォルト）
+    vdim: Option<usize>,
+
+    /// Whether batch dimension comes first
+    /// バッチ次元が最初に来るかどうか
+    batch_first: bool,
+
+    /// Head dimension (d_k = embed_dim / num_heads)
+    /// ヘッド次元（d_k = embed_dim / num_heads）
+    head_dim: usize,
 
     /// Query projection layer
     /// クエリ射影層
@@ -51,7 +70,7 @@ pub struct MultiHeadAttention<
     temperature: T,
 }
 
-impl<T> MultiHeadAttention<T>
+impl<T> MultiheadAttention<T>
 where
     T: Float
         + Debug
@@ -68,50 +87,67 @@ where
         + Sum
         + std::fmt::Display,
 {
-    /// Creates a new MultiHeadAttention layer
-    /// 新しいMultiHeadAttention層を作成します
-    pub fn new(d_model: usize, num_heads: usize, _dropout: Option<T>, bias: Option<bool>) -> Self {
-        assert!(d_model > 0, "d_model must be greater than 0");
+    /// Creates a new MultiheadAttention layer
+    /// 新しいMultiheadAttention層を作成します
+    pub fn new(
+        embed_dim: usize,
+        num_heads: usize,
+        dropout: Option<T>,
+        bias: Option<bool>,
+        kdim: Option<usize>,
+        vdim: Option<usize>,
+        batch_first: Option<bool>,
+    ) -> Self {
+        assert!(embed_dim > 0, "embed_dim must be greater than 0");
         assert!(num_heads > 0, "num_heads must be greater than 0");
         assert!(
-            d_model % num_heads == 0,
-            "d_model ({}) must be divisible by num_heads ({})",
-            d_model,
+            embed_dim % num_heads == 0,
+            "embed_dim ({}) must be divisible by num_heads ({})",
+            embed_dim,
             num_heads
         );
 
-        let d_k = d_model / num_heads;
+        let head_dim = embed_dim / num_heads;
+        let dropout_p = dropout.unwrap_or_else(|| T::from(0.0).unwrap());
         let bias = bias.unwrap_or(true);
+        let kdim = kdim.unwrap_or(embed_dim);
+        let vdim = vdim.unwrap_or(embed_dim);
+        let batch_first = batch_first.unwrap_or(true);
 
         // Create projection layers
         let w_q = if bias {
-            Linear::new(d_model, d_model)
+            Linear::new(embed_dim, embed_dim)
         } else {
-            Linear::new_no_bias(d_model, d_model)
+            Linear::new_no_bias(embed_dim, embed_dim)
         };
         let w_k = if bias {
-            Linear::new(d_model, d_model)
+            Linear::new(kdim, embed_dim)
         } else {
-            Linear::new_no_bias(d_model, d_model)
+            Linear::new_no_bias(kdim, embed_dim)
         };
         let w_v = if bias {
-            Linear::new(d_model, d_model)
+            Linear::new(vdim, embed_dim)
         } else {
-            Linear::new_no_bias(d_model, d_model)
+            Linear::new_no_bias(vdim, embed_dim)
         };
         let w_o = if bias {
-            Linear::new(d_model, d_model)
+            Linear::new(embed_dim, embed_dim)
         } else {
-            Linear::new_no_bias(d_model, d_model)
+            Linear::new_no_bias(embed_dim, embed_dim)
         };
 
-        // Temperature scaling (1/sqrt(d_k))
-        let temperature = T::from(1.0 / (d_k as f32).sqrt()).unwrap();
+        // Temperature scaling (1/sqrt(head_dim))
+        let temperature = T::from(1.0 / (head_dim as f32).sqrt()).unwrap();
 
-        MultiHeadAttention {
+        MultiheadAttention {
+            embed_dim,
             num_heads,
-            d_model,
-            d_k,
+            dropout: dropout_p,
+            bias,
+            kdim: Some(kdim),
+            vdim: Some(vdim),
+            batch_first,
+            head_dim,
             w_q,
             w_k,
             w_v,
@@ -120,10 +156,10 @@ where
         }
     }
 
-    /// Get the model dimension
-    /// モデル次元を取得
-    pub fn d_model(&self) -> usize {
-        self.d_model
+    /// Get the embedding dimension
+    /// 埋め込み次元を取得
+    pub fn embed_dim(&self) -> usize {
+        self.embed_dim
     }
 
     /// Get the number of attention heads
@@ -134,19 +170,36 @@ where
 
     /// Get the head dimension
     /// ヘッド次元を取得
-    pub fn d_k(&self) -> usize {
-        self.d_k
+    pub fn head_dim(&self) -> usize {
+        self.head_dim
     }
 
-    /// Forward pass of MultiHeadAttention
-    /// MultiHeadAttentionの順伝播
+    /// Get the dropout probability
+    /// ドロップアウト確率を取得
+    pub fn dropout(&self) -> T {
+        self.dropout
+    }
+
+    /// Check if batch first is enabled
+    /// バッチファーストが有効かどうかを確認
+    pub fn batch_first(&self) -> bool {
+        self.batch_first
+    }
+
+    /// Forward pass of MultiheadAttention
+    /// MultiheadAttentionの順伝播
     pub fn forward(
         &self,
         query: &Variable<T>,
         key: &Variable<T>,
         value: &Variable<T>,
-        mask: Option<&Variable<T>>,
-    ) -> Variable<T> {
+        key_padding_mask: Option<&Variable<T>>,
+        need_weights: Option<bool>,
+        attn_mask: Option<&Variable<T>>,
+        average_attn_weights: Option<bool>,
+    ) -> (Variable<T>, Option<Variable<T>>) {
+        let _need_weights = need_weights.unwrap_or(true);
+        let _average_attn_weights = average_attn_weights.unwrap_or(true);
         let q_binding = query.data();
         let q_data = q_binding.read().unwrap();
         let q_shape = q_data.shape();
@@ -163,10 +216,10 @@ where
         let seq_length = q_shape[1];
         let d_model = q_shape[2];
 
-        if d_model != self.d_model {
+        if d_model != self.embed_dim {
             panic!(
                 "Input d_model {} doesn't match layer d_model {}",
-                d_model, self.d_model
+                d_model, self.embed_dim
             );
         }
 
@@ -182,12 +235,19 @@ where
 
         // Compute scaled dot-product attention
         let attention_output =
-            self.scaled_dot_product_attention(&q_heads, &k_heads, &v_heads, mask);
+            self.scaled_dot_product_attention(&q_heads, &k_heads, &v_heads, attn_mask);
 
         // Reshape back and apply output projection
         let concat_output = self.reshape_from_heads(&attention_output, batch_size, seq_length);
+        let output = self.w_o.forward(&concat_output);
 
-        self.w_o.forward(&concat_output)
+        // Return output and optionally attention weights
+        if _need_weights {
+            // TODO: Implement attention weights extraction
+            (output, None)
+        } else {
+            (output, None)
+        }
     }
 
     /// Reshape tensor for multi-head attention
@@ -211,7 +271,7 @@ where
                 for s in 0..seq_length {
                     for d in 0..self.d_k {
                         let original_idx =
-                            b * seq_length * self.d_model + s * self.d_model + h * self.d_k + d;
+                            b * seq_length * self.embed_dim + s * self.embed_dim + h * self.head_dim + d;
                         reshaped_data.push(data_vec[original_idx]);
                     }
                 }
@@ -220,7 +280,7 @@ where
 
         let reshaped_tensor = Tensor::from_vec(
             reshaped_data,
-            vec![batch_size, self.num_heads, seq_length, self.d_k],
+            vec![batch_size, self.num_heads, seq_length, self.head_dim],
         );
 
         Variable::new(reshaped_tensor, input.requires_grad())
@@ -334,15 +394,15 @@ where
         let data_vec = input_data.as_array().iter().cloned().collect::<Vec<_>>();
 
         // From (batch_size, num_heads, seq_length, d_k) to (batch_size, seq_length, d_model)
-        let mut output_data = Vec::with_capacity(batch_size * seq_length * self.d_model);
+        let mut output_data = Vec::with_capacity(batch_size * seq_length * self.embed_dim);
 
         for b in 0..batch_size {
             for s in 0..seq_length {
                 for h in 0..self.num_heads {
                     for d in 0..self.d_k {
-                        let input_idx = b * self.num_heads * seq_length * self.d_k
-                            + h * seq_length * self.d_k
-                            + s * self.d_k
+                        let input_idx = b * self.num_heads * seq_length * self.head_dim
+                            + h * seq_length * self.head_dim
+                            + s * self.head_dim
                             + d;
                         output_data.push(data_vec[input_idx]);
                     }
@@ -351,12 +411,12 @@ where
         }
 
         let output_tensor =
-            Tensor::from_vec(output_data, vec![batch_size, seq_length, self.d_model]);
+            Tensor::from_vec(output_data, vec![batch_size, seq_length, self.embed_dim]);
         Variable::new(output_tensor, input.requires_grad())
     }
 }
 
-impl<T> Module<T> for MultiHeadAttention<T>
+impl<T> Module<T> for MultiheadAttention<T>
 where
     T: Float
         + Debug
@@ -400,7 +460,7 @@ where
 
 /// Self-Attention layer (alias for MultiHeadAttention with self-attention usage)
 /// セルフアテンション層（セルフアテンション使用のMultiHeadAttentionのエイリアス）
-pub type SelfAttention<T> = MultiHeadAttention<T>;
+pub type SelfAttention<T> = MultiheadAttention<T>;
 
 impl<T> SelfAttention<T>
 where
@@ -438,7 +498,7 @@ pub struct CrossAttention<
 > {
     /// Underlying multi-head attention mechanism
     /// 基底のマルチヘッドアテンション機構
-    attention: MultiHeadAttention<T>,
+    attention: MultiheadAttention<T>,
 }
 
 impl<T> CrossAttention<T>
@@ -462,7 +522,7 @@ where
     /// 新しいCrossAttention層を作成
     pub fn new(d_model: usize, num_heads: usize, dropout: Option<T>) -> Self {
         CrossAttention {
-            attention: MultiHeadAttention::new(d_model, num_heads, dropout, Some(true)),
+            attention: MultiheadAttention::new(d_model, num_heads, T::zero(), true, None, None, false),
         }
     }
 
@@ -527,11 +587,11 @@ mod tests {
 
     #[test]
     fn test_multi_head_attention_creation() {
-        let mha = MultiHeadAttention::<f32>::new(512, 8, None, None);
+        let mha = MultiheadAttention::<f32>::new(512, 8, 0.0, true, None, None, false);
 
         assert_eq!(mha.num_heads(), 8);
-        assert_eq!(mha.d_model(), 512);
-        assert_eq!(mha.d_k(), 64); // 512 / 8
+        assert_eq!(mha.embed_dim(), 512);
+        assert_eq!(mha.head_dim(), 64); // 512 / 8
 
         let params = mha.parameters();
         assert_eq!(params.len(), 8); // 4 layers * 2 params each (weight + bias)
@@ -556,7 +616,7 @@ mod tests {
     #[test]
     #[ignore] // TODO: Fix 3D tensor matrix multiplication in linear layer
     fn test_attention_forward_shape() {
-        let mha = MultiHeadAttention::<f32>::new(64, 4, None, None);
+        let mha = MultiheadAttention::<f32>::new(64, 4, 0.0, true, None, None, false);
 
         // Create input: batch_size=2, seq_length=10, d_model=64
         let input_data: Vec<f32> = (0..2 * 10 * 64).map(|i| i as f32 * 0.01).collect();

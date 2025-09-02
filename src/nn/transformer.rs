@@ -2,7 +2,7 @@
 //! Transformerアーキテクチャの実装
 
 use crate::autograd::Variable;
-use crate::nn::{Dropout, LayerNorm, Linear, Module, MultiHeadAttention};
+use crate::nn::{Dropout, LayerNorm, Linear, Module, MultiheadAttention};
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive, One, ToPrimitive, Zero};
@@ -20,7 +20,7 @@ pub struct TransformerEncoderLayer<
 > {
     /// Multi-head self-attention
     /// マルチヘッドセルフアテンション
-    self_attention: MultiHeadAttention<T>,
+    self_attention: MultiheadAttention<T>,
 
     /// Feed-forward network (first linear layer)
     /// フィードフォワードネットワーク（第一線形層）
@@ -89,7 +89,7 @@ where
 
         // Create components
         let self_attention =
-            MultiHeadAttention::new(d_model, num_heads, Some(dropout_p), Some(true));
+            MultiheadAttention::new(d_model, num_heads, dropout_p, true, None, None, false);
         let ff_linear1 = Linear::new(d_model, d_ff);
         let ff_linear2 = Linear::new(d_ff, d_model);
         let norm1 = LayerNorm::new(vec![d_model], None, None);
@@ -390,11 +390,11 @@ pub struct TransformerDecoderLayer<
 > {
     /// Masked multi-head self-attention
     /// マスク付きマルチヘッドセルフアテンション
-    self_attention: MultiHeadAttention<T>,
+    self_attention: MultiheadAttention<T>,
 
     /// Multi-head cross-attention
     /// マルチヘッドクロスアテンション
-    cross_attention: MultiHeadAttention<T>,
+    cross_attention: MultiheadAttention<T>,
 
     /// Feed-forward network (first linear layer)
     /// フィードフォワードネットワーク（第一線形層）
@@ -471,9 +471,9 @@ where
 
         // Create components
         let self_attention =
-            MultiHeadAttention::new(d_model, num_heads, Some(dropout_p), Some(true));
+            MultiheadAttention::new(d_model, num_heads, dropout_p, true, None, None, false);
         let cross_attention =
-            MultiHeadAttention::new(d_model, num_heads, Some(dropout_p), Some(true));
+            MultiheadAttention::new(d_model, num_heads, dropout_p, true, None, None, false);
         let ff_linear1 = Linear::new(d_model, d_ff);
         let ff_linear2 = Linear::new(d_ff, d_model);
         let norm1 = LayerNorm::new(vec![d_model], None, None);

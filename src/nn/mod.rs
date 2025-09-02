@@ -32,6 +32,7 @@ pub mod recurrent_common;
 pub mod rnn;
 pub mod safe_ops;
 pub mod transformer;
+pub mod transformer_phase6;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -150,7 +151,7 @@ pub use activation::{ReLU, Softmax, Tanh, GELU, GLU, glu, swiglu, geglu, reglu};
 pub use adaptive_pool::{AdaptiveAvgPool2d, AdaptiveMaxPool2d};
 /// Attention layers
 /// アテンション層
-pub use attention::{CrossAttention, MultiHeadAttention, SelfAttention};
+pub use attention::{CrossAttention, MultiheadAttention, SelfAttention};
 /// バッチ正規化レイヤー
 /// Batch normalization layers
 pub use batchnorm::{BatchNorm1d, BatchNorm2d};
@@ -216,4 +217,13 @@ pub use rnn::{RNNCell, RNN};
 /// Transformer層
 pub use transformer::{
     Transformer, TransformerDecoderLayer, TransformerEncoder, TransformerEncoderLayer,
+};
+/// Phase 6 Transformer components (PyTorch compatible)
+/// フェーズ6 Transformerコンポーネント（PyTorch互換）
+pub use transformer_phase6::{
+    MultiheadAttention as MultiheadAttentionPhase6,
+    PositionalEncoding,
+    TransformerEncoderLayer as TransformerEncoderLayerPhase6,
+    TransformerDecoderLayer as TransformerDecoderLayerPhase6,
+    Transformer as TransformerPhase6,
 };
