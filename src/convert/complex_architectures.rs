@@ -12,7 +12,7 @@ use std::collections::HashMap;
 pub struct TransformerComponents {
     /// Multi-head attention layers
     /// マルチヘッドアテンションレイヤー
-    pub attention_layers: Vec<MultiHeadAttentionInfo>,
+    pub attention_layers: Vec<MultiheadAttentionInfo>,
     /// Feed-forward network layers
     /// フィードフォワードネットワークレイヤー
     pub ffn_layers: Vec<FeedForwardInfo>,
@@ -27,19 +27,31 @@ pub struct TransformerComponents {
     pub token_embeddings: Option<TokenEmbeddingInfo>,
 }
 
-/// Multi-head attention layer information
-/// マルチヘッドアテンションレイヤー情報
+/// Multi-head attention layer information (Phase 6 - PyTorch compatible)
+/// マルチヘッドアテンションレイヤー情報（フェーズ6 - PyTorch互換）
 #[derive(Debug, Clone)]
-pub struct MultiHeadAttentionInfo {
+pub struct MultiheadAttentionInfo {
     /// Layer name
     /// レイヤー名
     pub name: String,
     /// Number of attention heads
     /// アテンションヘッド数
     pub num_heads: usize,
+    /// Embedding dimension
+    /// 埋め込み次元
+    pub embed_dim: usize,
     /// Dimension of each head
     /// 各ヘッドの次元
     pub head_dim: usize,
+    /// Dropout probability
+    /// ドロップアウト確率
+    pub dropout: f32,
+    /// Whether to use bias
+    /// バイアス使用フラグ
+    pub bias: bool,
+    /// Batch first flag
+    /// バッチファーストフラグ
+    pub batch_first: bool,
     /// Query projection weights
     /// クエリ射影重み
     pub query_weights: Tensor<f32>,
@@ -374,7 +386,7 @@ impl ComplexArchitectureParser {
     fn parse_attention_layer(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<MultiHeadAttentionInfo, SimpleConversionError> {
+    ) -> Result<MultiheadAttentionInfo, SimpleConversionError> {
         // Extract attention parameters from tensors
         let q_proj = layer_info.tensors.get("q_proj.weight")
             .or_else(|| layer_info.tensors.get("query.weight"))
@@ -404,10 +416,14 @@ impl ComplexArchitectureParser {
         let num_heads = Self::infer_num_heads(embed_dim, total_head_dim);
         let head_dim = total_head_dim / num_heads;
 
-        Ok(MultiHeadAttentionInfo {
+        Ok(MultiheadAttentionInfo {
             name: layer_name.to_string(),
             num_heads,
+            embed_dim,
             head_dim,
+            dropout: 0.1, // Default dropout
+            bias: true,   // Default bias
+            batch_first: true, // Default batch_first
             query_weights: q_proj.clone(),
             key_weights: k_proj.clone(),
             value_weights: v_proj.clone(),

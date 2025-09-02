@@ -1,12 +1,13 @@
-//! Transformer architecture demonstration
-//! Transformerアーキテクチャのデモンストレーション
+//! Transformer architecture demonstration (Phase 6)
+//! Transformerアーキテクチャのデモンストレーション（フェーズ6）
 
 use rustorch::autograd::Variable;
 use rustorch::nn::{
-    Embedding, LayerNorm, Module, MultiHeadAttention, SinusoidalPositionalEncoding,
+    Embedding, LayerNorm, Module, MultiheadAttention, PositionalEncoding,
     TransformerEncoder, TransformerEncoderLayer,
 };
 use rustorch::tensor::Tensor;
+use rustorch::error::RusTorchError;
 
 fn main() {
     println!("=== RusTorch Transformer Demo ===");
@@ -69,38 +70,38 @@ fn test_layer_norm() {
 }
 
 fn test_multi_head_attention() {
-    println!("\n--- Multi-Head Attention Test ---");
-    println!("--- マルチヘッドアテンションテスト ---");
+    println!("\n--- Multi-Head Attention Test (Phase 6) ---");
+    println!("--- マルチヘッドアテンションテスト（フェーズ6） ---");
 
-    // Create MultiHeadAttention: d_model=256, num_heads=8
-    let d_model = 256;
+    // Create MultiheadAttention: embed_dim=256, num_heads=8
+    let embed_dim = 256;
     let num_heads = 8;
-    let mha = MultiHeadAttention::<f32>::new(d_model, num_heads, None, None);
+    let mha = MultiheadAttention::<f32>::new(embed_dim, num_heads, None, None, None, None, None).unwrap();
 
     println!(
-        "Created MultiHeadAttention: d_model={}, num_heads={}, d_k={}",
-        mha.d_model(),
+        "Created MultiheadAttention: embed_dim={}, num_heads={}, head_dim={}",
+        mha.embed_dim(),
         mha.num_heads(),
-        mha.d_k()
+        mha.head_dim()
     );
 
-    // Create input: batch_size=2, seq_length=12, d_model=256
+    // Create input: batch_size=2, seq_length=12, embed_dim=256
     let batch_size = 2;
     let seq_length = 12;
 
-    let input_data: Vec<f32> = (0..batch_size * seq_length * d_model)
+    let input_data: Vec<f32> = (0..batch_size * seq_length * embed_dim)
         .map(|i| (i as f32) * 0.001)
         .collect();
 
     let input = Variable::new(
-        Tensor::from_vec(input_data, vec![batch_size, seq_length, d_model]),
+        Tensor::from_vec(input_data, vec![batch_size, seq_length, embed_dim]),
         false,
     );
 
     println!("Input shape: {:?}", input.data().read().unwrap().shape());
 
-    // Forward pass (self-attention)
-    let output = mha.forward(&input, &input, &input, None);
+    // Forward pass (self-attention) - Phase 6 API
+    let (output, _attn_weights) = mha.forward(&input, &input, &input, None, None, None, None).unwrap();
     let output_binding = output.data();
     let output_data = output_binding.read().unwrap();
 
@@ -110,26 +111,25 @@ fn test_multi_head_attention() {
     // Check parameter count
     let params = mha.parameters();
     println!(
-        "Number of parameters: {} (should be 8: 4 layers × 2 params each)",
+        "Number of parameters: {} (Phase 6 implementation)",
         params.len()
     );
 }
 
 fn test_transformer_encoder_layer() {
-    println!("\n--- Transformer Encoder Layer Test ---");
-    println!("--- Transformerエンコーダー層テスト ---");
+    println!("\n--- Transformer Encoder Layer Test (Phase 6) ---");
+    println!("--- Transformerエンコーダー層テスト（フェーズ6） ---");
 
     // Create TransformerEncoderLayer: d_model=128, num_heads=4, d_ff=512
     let d_model = 128;
     let num_heads = 4;
     let d_ff = 512;
 
-    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None);
+    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
 
     println!(
-        "Created TransformerEncoderLayer: d_model={}, d_ff={}",
-        encoder_layer.d_model(),
-        encoder_layer.d_ff()
+        "Created TransformerEncoderLayer: d_model={}, num_heads={}, d_ff={}",
+        d_model, num_heads, d_ff
     );
 
     // Create input: batch_size=1, seq_length=8, d_model=128
@@ -147,8 +147,8 @@ fn test_transformer_encoder_layer() {
 
     println!("Input shape: {:?}", input.data().read().unwrap().shape());
 
-    // Forward pass
-    let output = encoder_layer.forward(&input, None);
+    // Forward pass - Phase 6 API
+    let output = encoder_layer.forward(&input, None, None, None).unwrap();
     let output_binding = output.data();
     let output_data = output_binding.read().unwrap();
 
@@ -190,11 +190,11 @@ fn test_complete_transformer_pipeline() {
 
     // Step 1: Create embedding layers
     let word_embedding = Embedding::<f32>::new(vocab_size, d_model, Some(0), None, None);
-    let pos_encoding = SinusoidalPositionalEncoding::<f32>::new(max_length, d_model);
+    let pos_encoding = PositionalEncoding::<f32>::new(d_model, max_length, None);
 
-    // Step 2: Create Transformer encoder
-    let transformer_encoder =
-        TransformerEncoder::<f32>::new(num_layers, d_model, num_heads, d_ff, None);
+    // Step 2: Create Transformer encoder (using Phase 6 implementation)
+    // Note: Using individual layers for demonstration as full encoder needs update
+    let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
 
     // Step 3: Create input token sequences
     let token_sequences = vec![
@@ -251,8 +251,8 @@ fn test_complete_transformer_pipeline() {
         positioned_embeddings.data().read().unwrap().shape()
     );
 
-    // Step 6: Pass through Transformer encoder
-    let encoder_output = transformer_encoder.forward(&positioned_embeddings, None);
+    // Step 6: Pass through Transformer encoder layer (Phase 6)
+    let encoder_output = encoder_layer.forward(&positioned_embeddings, None, None, None).unwrap();
 
     println!(
         "Step 4: Transformer output shape: {:?}",
@@ -274,16 +274,16 @@ fn test_complete_transformer_pipeline() {
     // Count total parameters
     let word_params = word_embedding.parameters();
     let pos_params = pos_encoding.parameters();
-    let transformer_params = transformer_encoder.parameters();
+    let encoder_params = encoder_layer.parameters();
 
-    let total_params = word_params.len() + pos_params.len() + transformer_params.len();
+    let total_params = word_params.len() + pos_params.len() + encoder_params.len();
 
     println!("\nParameter summary:");
     println!("  Word embedding: {} parameters", word_params.len());
     println!("  Positional encoding: {} parameters", pos_params.len());
     println!(
-        "  Transformer encoder: {} parameters",
-        transformer_params.len()
+        "  Transformer encoder layer: {} parameters",
+        encoder_params.len()
     );
     println!("  Total: {} parameters", total_params);
 
@@ -304,11 +304,10 @@ mod tests {
         let num_layers = 1;
         let max_length = 20;
 
-        // Create components with 4D matmul support
+        // Create components with Phase 6 implementation
         let word_embedding = Embedding::<f32>::new(vocab_size, d_model, Some(0), None, None);
-        let pos_encoding = SinusoidalPositionalEncoding::<f32>::new(max_length, d_model);
-        let transformer =
-            TransformerEncoder::<f32>::new(num_layers, d_model, num_heads, d_ff, None);
+        let pos_encoding = PositionalEncoding::<f32>::new(d_model, max_length, None);
+        let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None).unwrap();
 
         // Test with small sequence
         let token_input = Variable::new(
@@ -340,8 +339,8 @@ mod tests {
 
         let positioned = pos_encoding.forward(&word_embeddings);
 
-        // Now test full transformer forward pass with 4D matmul
-        let output = transformer.forward(&positioned, None);
+        // Now test full transformer encoder layer forward pass (Phase 6)
+        let output = encoder_layer.forward(&positioned, None, None, None).unwrap();
 
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
@@ -349,7 +348,7 @@ mod tests {
         // Verify full transformer output
         assert_eq!(output_data.shape(), &[1, 4, d_model]);
 
-        println!("✅ Full Transformer pipeline successful!");
+        println!("✅ Phase 6 Transformer pipeline successful!");
         println!(
             "✓ Word embedding: {} vocab → {} dimensions",
             vocab_size, d_model
@@ -359,9 +358,9 @@ mod tests {
             max_length, d_model
         );
         println!(
-            "✓ Transformer output: batch=1, seq_len=4, d_model={}",
+            "✓ TransformerEncoderLayer output: batch=1, seq_len=4, d_model={}",
             d_model
         );
-        println!("✓ 4D tensor matmul working in Multi-Head Attention!");
+        println!("✓ Phase 6 MultiheadAttention working with PyTorch-compatible API!");
     }
 }

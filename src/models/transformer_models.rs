@@ -4,7 +4,7 @@
 use crate::autograd::Variable;
 use crate::models::{Model, ModelBuilder, ModelMode};
 use crate::nn::{Dropout, Embedding, LayerNorm, Linear, Module};
-use crate::nn::{PositionalEmbedding, TransformerEncoder, TransformerEncoderLayer};
+use crate::nn::{PositionalEmbedding, LegacyTransformerEncoder, TransformerEncoderLayer};
 use num_traits::Float;
 use std::any::Any;
 use std::collections::HashMap;
@@ -33,7 +33,7 @@ where
 {
     embedding: Embedding<T>,
     positional_encoding: PositionalEmbedding<T>,
-    encoder: TransformerEncoder<T>,
+    encoder: LegacyTransformerEncoder<T>,
     classifier: Linear<T>,
     dropout: Dropout<T>,
     mode: ModelMode,
@@ -82,7 +82,7 @@ where
             dim_feedforward,
             Some(<T as From<f32>>::from(dropout_rate as f32)),
         );
-        let encoder = TransformerEncoder::new(
+        let encoder = LegacyTransformerEncoder::new(
             num_encoder_layers,
             d_model,
             nhead,
@@ -256,7 +256,7 @@ where
         + std::fmt::Display,
 {
     embeddings: BERTEmbeddings<T>,
-    encoder: TransformerEncoder<T>,
+    encoder: LegacyTransformerEncoder<T>,
     pooler: Linear<T>,
     classifier: Option<Linear<T>>,
     mode: ModelMode,
@@ -473,7 +473,7 @@ where
             config.intermediate_size,
             Some(<T as From<f32>>::from(config.dropout_prob as f32)),
         );
-        let encoder = TransformerEncoder::new(
+        let encoder = LegacyTransformerEncoder::new(
             config.num_hidden_layers,
             config.hidden_size,
             config.num_attention_heads,
