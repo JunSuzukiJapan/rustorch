@@ -118,6 +118,10 @@ pub mod operations;
 /// バッチ処理とSIMD加速のための並列テンソル操作
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_integration;
+
+/// Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
+/// フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
+pub mod utilities;
 // Enable modules step by step
 // mod broadcasting; // Temporarily disabled to avoid conflicts with shape_operations
 

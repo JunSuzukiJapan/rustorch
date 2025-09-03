@@ -465,6 +465,81 @@ impl<T: Float + 'static> Tensor<T> {
             )),
         }
     }
+
+    // Phase 8: Tensor Utilities - Conditional Operations
+    /// Select elements from self or other based on condition
+    /// 条件に基づいてselfまたはotherから要素を選択
+    pub fn where_(&self, condition: &ArrayD<bool>, other: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::conditional::where_;
+        where_(condition, self, other)
+    }
+
+    /// Select elements where mask is true
+    /// マスクがtrueの位置の要素を選択
+    pub fn masked_select(&self, mask: &ArrayD<bool>) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::conditional::masked_select;
+        masked_select(self, mask)
+    }
+
+    /// Fill tensor elements where mask is true with value
+    /// マスクがtrueの位置の要素を値で埋める
+    pub fn masked_fill(&self, mask: &ArrayD<bool>, value: T) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::conditional::masked_fill;
+        masked_fill(self, mask, value)
+    }
+
+    // Phase 8: Tensor Utilities - Index Operations  
+    /// Gather values along an axis
+    /// 軸に沿って値を収集
+    pub fn gather(&self, dim: usize, index: &ArrayD<i64>) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::indexing::gather;
+        gather(self, dim, index)
+    }
+
+    /// Scatter values along an axis
+    /// 軸に沿って値を散布
+    pub fn scatter(&self, dim: usize, index: &ArrayD<i64>, src: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::indexing::scatter;
+        scatter(self, dim, index, src)
+    }
+
+    /// Select values along an axis using index
+    /// インデックスを使って軸に沿って値を選択
+    pub fn index_select(&self, dim: usize, index: &ArrayD<i64>) -> RusTorchResult<Tensor<T>> {
+        use crate::tensor::utilities::indexing::index_select;
+        index_select(self, dim, index)
+    }
+
+    // Phase 8: Tensor Utilities - Statistical Operations
+    /// Get top k elements along dimension (Phase 8 utilities)
+    /// 次元に沿ってトップk要素を取得（フェーズ8ユーティリティ）
+    pub fn topk_util(&self, k: usize, dim: usize, largest: bool, sorted: bool) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
+        use crate::tensor::utilities::statistics::topk_util;
+        topk_util(self, k, dim, largest, sorted)
+    }
+
+    /// Get kth smallest/largest value
+    /// k番目の最小/最大値を取得
+    pub fn kthvalue(&self, k: usize, dim: usize, keepdim: bool) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
+        use crate::tensor::utilities::statistics::kthvalue;
+        kthvalue(self, k, dim, keepdim)
+    }
+
+
+    // Phase 8: Tensor Utilities - Advanced Operations
+    /// Get unique elements
+    /// 一意の要素を取得
+    pub fn unique(&self, sorted: bool, return_inverse: bool, return_counts: bool) -> RusTorchResult<(Tensor<T>, Option<ArrayD<i64>>, Option<ArrayD<i64>>)> {
+        use crate::tensor::utilities::advanced::unique;
+        unique(self, sorted, return_inverse, return_counts, None)
+    }
+
+    /// Compute histogram
+    /// ヒストグラムを計算
+    pub fn histogram(&self, bins: usize, range: Option<(T, T)>) -> RusTorchResult<(ArrayD<i64>, Tensor<T>)> {
+        use crate::tensor::utilities::advanced::histogram;
+        histogram(self, bins, range, false)
+    }
 }
 
 impl<T: Float + fmt::Display> fmt::Display for Tensor<T> {
