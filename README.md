@@ -359,7 +359,7 @@ For detailed performance analysis, see [Performance Documentation](docs/performa
 **問題の詳細:**
 - **原因**: Phase 4リファクタリング（コミット: 782f6cb）でGPU実装が退化
 - **症状**: 全GPU操作がCPUフォールバックに退化（Metal/CUDA/OpenCL）
-- **期間**: 約6ヶ月間（2024年後半〜2025年前半）
+- **期間**: 約1ヶ月間（2025年8月28日〜2025年9月3日）
 - **修復**: v0.5.15でGPU加速を完全復活
 
 **推奨事項:**

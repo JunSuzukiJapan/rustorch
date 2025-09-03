@@ -13,7 +13,7 @@
 
 - **問題コミット**: `782f6cb feat: Complete Phase 4 - Code structure reorganization and modularization`
 - **発生時期**: v0.5.0リリース時
-- **影響期間**: 約6ヶ月間（v0.5.0 〜 v0.5.14）
+- **影響期間**: 約1ヶ月間（2025年8月28日〜2025年9月3日、v0.5.0 〜 v0.5.14）
 
 #### 影響を受けたバージョン
 
