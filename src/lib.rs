@@ -86,6 +86,7 @@
 //! - **🌐 WebAssembly Support**: Browser-compatible WASM bindings with optimized performance
 //! - **🔍 Data Validation & Quality Assurance**: Statistical analysis, anomaly detection, consistency checking, real-time monitoring
 //! - **🐛 Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
+//! - **💾 Phase 9 Serialization**: Model save/load, JIT compilation, PyTorch compatibility, cross-platform format support
 //!
 //! ## 🚀 Quick Start
 //!
@@ -335,6 +336,10 @@ pub mod visualization;
 /// Data validation and quality assurance system
 /// データ検証・品質保証システム
 pub mod validation;
+
+/// Serialization and model I/O system (Phase 9)
+/// シリアライゼーション・モデルI/Oシステム（フェーズ9）
+pub mod serialization;
 
 /// Debug and logging system
 /// デバッグ・ログシステム

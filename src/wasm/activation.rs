@@ -1,11 +1,11 @@
 //! Neural network activation functions for WASM
 //! WASM用ニューラルネットワーク活性化関数
 
+use crate::nn::shared_activation::{shared_activations, ActivationFunction};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use web_sys;
-use crate::nn::shared_activation::{shared_activations, ActivationFunction};
 
 /// WASM-compatible activation functions
 /// WASM互換活性化関数

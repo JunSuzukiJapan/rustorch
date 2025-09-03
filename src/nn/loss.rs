@@ -601,7 +601,9 @@ where
 /// Binary Cross Entropy with Logits Loss
 /// ロジット付き二値交差エントロピー損失
 #[derive(Debug, Clone)]
-pub struct BCEWithLogitsLoss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct BCEWithLogitsLoss<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     /// Weight for positive examples
     /// 正例の重み
     weight: Option<Variable<T>>,
@@ -649,17 +651,17 @@ where
     pub fn forward(&self, input: &Variable<T>, target: &Variable<T>) -> Variable<T> {
         // BCE with logits: log(1 + exp(-input * target)) + log(1 + exp(input * (1-target)))
         // Numerically stable version using log-sum-exp trick
-        
+
         // For numerical stability, use: max(input, 0) - input * target + log(1 + exp(-abs(input)))
-        
+
         // Simplified implementation using sigmoid
         let sigmoid = sigmoid_variable(input);
         let one_minus_target = one_minus_variable(target);
-        
+
         // BCE: -target * log(sigmoid) - (1-target) * log(1-sigmoid)
         let log_sigmoid = log_sigmoid_variable(input);
         let log_one_minus_sigmoid = log_one_minus_sigmoid_variable(input);
-        
+
         let pos_loss = target * &log_sigmoid;
         let neg_loss = &one_minus_target * &log_one_minus_sigmoid;
         let bce_loss = &pos_loss + &neg_loss;
@@ -667,7 +669,7 @@ where
             bce_loss.data().read().unwrap().map(|x| -x),
             bce_loss.requires_grad(),
         );
-        
+
         // Apply positive weight if provided
         let weighted_loss = if let Some(pos_weight) = &self.pos_weight {
             let weight_factor = target * pos_weight + &one_minus_target;
@@ -675,7 +677,7 @@ where
         } else {
             final_loss
         };
-        
+
         // Apply general weight if provided
         let final_weighted_loss = if let Some(weight) = &self.weight {
             &weighted_loss * weight
@@ -712,7 +714,9 @@ where
 /// Margin Ranking Loss
 /// マージンランキング損失
 #[derive(Debug, Clone)]
-pub struct MarginRankingLoss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct MarginRankingLoss<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     /// Margin for ranking loss
     /// ランキング損失用のマージン
     margin: T,
@@ -758,21 +762,18 @@ where
     ) -> Variable<T> {
         // Compute difference: x1 - x2
         let diff = input1 - input2;
-        
+
         // Compute -y * (x1 - x2)
         let negative_target = Variable::new(
             target.data().read().unwrap().map(|x| -x),
             target.requires_grad(),
         );
         let weighted_diff = &negative_target * &diff;
-        
+
         // Add margin
-        let margin_var = Variable::new(
-            diff.data().read().unwrap().map(|_| self.margin),
-            false,
-        );
+        let margin_var = Variable::new(diff.data().read().unwrap().map(|_| self.margin), false);
         let loss_raw = &weighted_diff + &margin_var;
-        
+
         // Apply ReLU (max(0, x))
         use crate::nn::safe_ops::SafeOps;
         let clamped = SafeOps::relu(&loss_raw).unwrap_or(loss_raw);
@@ -811,13 +812,13 @@ fn sigmoid_variable<T>(var: &Variable<T>) -> Variable<T>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
-    // Numerically stable sigmoid: 
+    // Numerically stable sigmoid:
     // if x >= 0: sigmoid(x) = 1 / (1 + exp(-x))
     // if x < 0:  sigmoid(x) = exp(x) / (1 + exp(x))
-    
+
     // For simplification, use tanh-based stable formula:
     // sigmoid(x) = 0.5 * (1 + tanh(x/2))
-    
+
     let binding = var.data();
     let data_guard = binding.read().unwrap();
     let input_data = data_guard.as_array();
@@ -829,7 +830,7 @@ where
             exp_x / (T::one() + exp_x)
         }
     });
-    
+
     Variable::new(
         crate::tensor::Tensor::from_ndarray(output_data),
         var.requires_grad(),
@@ -842,10 +843,7 @@ fn one_minus_variable<T>(var: &Variable<T>) -> Variable<T>
 where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
-    let one = Variable::new(
-        var.data().read().unwrap().map(|_| T::one()),
-        false,
-    );
+    let one = Variable::new(var.data().read().unwrap().map(|_| T::one()), false);
     &one - var
 }
 
@@ -858,7 +856,7 @@ where
     // Numerically stable log(sigmoid(x)):
     // if x >= 0: log(sigmoid(x)) = -log(1 + exp(-x))
     // if x < 0:  log(sigmoid(x)) = x - log(1 + exp(x))
-    
+
     let binding = var.data();
     let data_guard = binding.read().unwrap();
     let input_data = data_guard.as_array();
@@ -869,7 +867,7 @@ where
             x - (T::one() + x.exp()).ln()
         }
     });
-    
+
     Variable::new(
         crate::tensor::Tensor::from_ndarray(output_data),
         var.requires_grad(),
@@ -885,7 +883,7 @@ where
     // Numerically stable log(1 - sigmoid(x)):
     // if x >= 0: log(1 - sigmoid(x)) = -x - log(1 + exp(-x))
     // if x < 0:  log(1 - sigmoid(x)) = -log(1 + exp(x))
-    
+
     let binding = var.data();
     let data_guard = binding.read().unwrap();
     let input_data = data_guard.as_array();
@@ -896,7 +894,7 @@ where
             -(T::one() + x.exp()).ln()
         }
     });
-    
+
     Variable::new(
         crate::tensor::Tensor::from_ndarray(output_data),
         var.requires_grad(),
@@ -906,7 +904,9 @@ where
 /// Cosine Embedding Loss
 /// コサイン埋め込み損失
 #[derive(Debug, Clone)]
-pub struct CosineEmbeddingLoss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct CosineEmbeddingLoss<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     /// Margin for cosine embedding loss
     /// コサイン埋め込み損失用のマージン
     margin: T,
@@ -952,45 +952,39 @@ where
     ) -> Variable<T> {
         // Cosine similarity: cos_sim = (x1 · x2) / (||x1|| * ||x2||)
         // Loss: y * (1 - cos_sim) + (1-y) * max(0, cos_sim - margin)
-        
+
         // Compute dot product
         let dot_product = cosine_dot_product(input1, input2);
-        
+
         // Compute norms
         let norm1 = l2_norm(input1);
         let norm2 = l2_norm(input2);
         let norm_product = &norm1 * &norm2;
-        
+
         // Compute cosine similarity
         let cos_sim = &dot_product / &norm_product;
-        
+
         // Compute loss based on target (1 for similar, -1 for dissimilar)
-        let one = Variable::new(
-            target.data().read().unwrap().map(|_| T::one()),
-            false,
-        );
+        let one = Variable::new(target.data().read().unwrap().map(|_| T::one()), false);
         let one_minus_cos = &one - &cos_sim;
-        
+
         // For y=1 (similar): loss = 1 - cos_sim
         let pos_loss = target * &one_minus_cos;
-        
+
         // For y=-1 (dissimilar): loss = max(0, cos_sim - margin)
-        let margin_var = Variable::new(
-            cos_sim.data().read().unwrap().map(|_| self.margin),
-            false,
-        );
+        let margin_var = Variable::new(cos_sim.data().read().unwrap().map(|_| self.margin), false);
         let cos_minus_margin = &cos_sim - &margin_var;
-        
+
         // Apply ReLU (max(0, x))
         use crate::nn::safe_ops::SafeOps;
         let clamped_neg_loss = SafeOps::relu(&cos_minus_margin).unwrap_or(cos_minus_margin);
-        
+
         let neg_target = Variable::new(
             target.data().read().unwrap().map(|x| -x),
             target.requires_grad(),
         );
         let neg_loss = &neg_target * &clamped_neg_loss;
-        
+
         let total_loss = &pos_loss + &neg_loss;
 
         apply_reduction(total_loss, &self.reduction)
@@ -1024,7 +1018,9 @@ where
 /// Triplet Margin Loss (Enhanced version of existing TripletLoss)
 /// トリプレットマージン損失（既存のTripletLossの強化版）
 #[derive(Debug, Clone)]
-pub struct TripletMarginLoss<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct TripletMarginLoss<
+    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     /// Margin for triplet margin loss
     /// トリプレットマージン損失用のマージン
     margin: T,
@@ -1086,7 +1082,7 @@ where
         // Compute distances with p-norm
         let ap_dist = pnorm_distance(anchor, positive, self.p);
         let an_dist = pnorm_distance(anchor, negative, self.p);
-        
+
         // Optional swap: use min(d(a,n), d(p,n)) as negative distance
         let final_an_dist = if self.swap {
             let pn_dist = pnorm_distance(positive, negative, self.p);
@@ -1094,15 +1090,12 @@ where
         } else {
             an_dist
         };
-        
+
         // Triplet loss: max(0, d(a,p) - d(a,n) + margin)
         let loss_raw = &ap_dist - &final_an_dist;
-        let margin_var = Variable::new(
-            ap_dist.data().read().unwrap().map(|_| self.margin),
-            false,
-        );
+        let margin_var = Variable::new(ap_dist.data().read().unwrap().map(|_| self.margin), false);
         let loss_with_margin = &loss_raw + &margin_var;
-        
+
         // Apply ReLU (max(0, x))
         use crate::nn::safe_ops::SafeOps;
         let clamped = SafeOps::relu(&loss_with_margin).unwrap_or(loss_with_margin);
@@ -1166,13 +1159,13 @@ where
     // Compute L2 norm: sqrt(sum(x^2))
     let squared = input * input;
     let sum_squared = squared.sum();
-    
+
     // Apply sqrt operation
     let binding = sum_squared.data();
     let data_guard = binding.read().unwrap();
     let input_data = data_guard.as_array();
     let output_data = input_data.map(|&x| x.sqrt());
-    
+
     Variable::new(
         crate::tensor::Tensor::from_ndarray(output_data),
         sum_squared.requires_grad(),
@@ -1186,21 +1179,21 @@ where
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 {
     let diff = input1 - input2;
-    
+
     // For p=2 (Euclidean distance): sqrt(sum(|x|^2))
     // For p=1 (Manhattan distance): sum(|x|)
     // For general p: (sum(|x|^p))^(1/p)
-    
+
     if p == T::from(2.0).unwrap() {
         // L2 norm (Euclidean distance)
         let squared_diff = &diff * &diff;
         let sum_squared = squared_diff.sum();
-        
+
         let binding = sum_squared.data();
         let data_guard = binding.read().unwrap();
         let input_data = data_guard.as_array();
         let output_data = input_data.map(|&x| x.sqrt());
-        
+
         Variable::new(
             crate::tensor::Tensor::from_ndarray(output_data),
             sum_squared.requires_grad(),
@@ -1219,12 +1212,12 @@ where
         // General p-norm (simplified as L2 for now)
         let squared_diff = &diff * &diff;
         let sum_squared = squared_diff.sum();
-        
+
         let binding = sum_squared.data();
         let data_guard = binding.read().unwrap();
         let input_data = data_guard.as_array();
         let output_data = input_data.map(|&x| x.sqrt());
-        
+
         Variable::new(
             crate::tensor::Tensor::from_ndarray(output_data),
             sum_squared.requires_grad(),
@@ -1247,11 +1240,11 @@ where
                 .map_collect(|&a, &b| if a < b { a } else { b })
         }
         _ => {
-            // Fallback: use first input data  
+            // Fallback: use first input data
             input1.data().read().unwrap().as_array().to_owned()
         }
     };
-    
+
     Variable::new(
         crate::tensor::Tensor::from_ndarray(min_data),
         input1.requires_grad() || input2.requires_grad(),
@@ -1496,7 +1489,13 @@ mod tests {
         let input2 = Variable::new(Tensor::from_vec(vec![0.5, 1.5], vec![2]), false);
         let target = Variable::new(Tensor::from_vec(vec![1.0, -1.0], vec![2]), false);
 
-        let loss = margin_ranking_loss(&input1, &input2, &target, Some(0.5), Some("mean".to_string()));
+        let loss = margin_ranking_loss(
+            &input1,
+            &input2,
+            &target,
+            Some(0.5),
+            Some("mean".to_string()),
+        );
         let loss_binding = loss.data();
         let loss_data = loss_binding.read().unwrap();
 
@@ -1510,7 +1509,13 @@ mod tests {
         let input2 = Variable::new(Tensor::from_vec(vec![0.0, 1.0], vec![2]), false);
         let target = Variable::new(Tensor::from_vec(vec![1.0], vec![1]), false);
 
-        let loss = cosine_embedding_loss(&input1, &input2, &target, Some(0.1), Some("mean".to_string()));
+        let loss = cosine_embedding_loss(
+            &input1,
+            &input2,
+            &target,
+            Some(0.1),
+            Some("mean".to_string()),
+        );
         let loss_binding = loss.data();
         let loss_data = loss_binding.read().unwrap();
 
@@ -1542,7 +1547,8 @@ mod tests {
 
     #[test]
     fn test_bce_with_logits_loss_struct() {
-        let bce: BCEWithLogitsLoss<f32> = BCEWithLogitsLoss::new(None, None, Some("sum".to_string()));
+        let bce: BCEWithLogitsLoss<f32> =
+            BCEWithLogitsLoss::new(None, None, Some("sum".to_string()));
         assert_eq!(bce.name(), "BCEWithLogitsLoss");
 
         let input = Variable::new(Tensor::from_vec(vec![0.2, -0.8], vec![2]), false);
@@ -1557,7 +1563,8 @@ mod tests {
 
     #[test]
     fn test_margin_ranking_loss_struct() {
-        let margin_loss: MarginRankingLoss<f32> = MarginRankingLoss::new(Some(1.0), Some("none".to_string()));
+        let margin_loss: MarginRankingLoss<f32> =
+            MarginRankingLoss::new(Some(1.0), Some("none".to_string()));
         assert_eq!(margin_loss.name(), "MarginRankingLoss");
 
         let input1 = Variable::new(Tensor::from_vec(vec![2.0, 1.0], vec![2]), false);
@@ -1573,7 +1580,8 @@ mod tests {
 
     #[test]
     fn test_cosine_embedding_loss_struct() {
-        let cosine_loss: CosineEmbeddingLoss<f32> = CosineEmbeddingLoss::new(Some(0.0), Some("mean".to_string()));
+        let cosine_loss: CosineEmbeddingLoss<f32> =
+            CosineEmbeddingLoss::new(Some(0.0), Some("mean".to_string()));
         assert_eq!(cosine_loss.name(), "CosineEmbeddingLoss");
 
         let input1 = Variable::new(Tensor::from_vec(vec![1.0, 1.0], vec![2]), false);
@@ -1589,12 +1597,8 @@ mod tests {
 
     #[test]
     fn test_triplet_margin_loss_struct() {
-        let triplet_loss: TripletMarginLoss<f32> = TripletMarginLoss::new(
-            Some(1.0), 
-            Some(2.0), 
-            Some(true), 
-            Some("sum".to_string())
-        );
+        let triplet_loss: TripletMarginLoss<f32> =
+            TripletMarginLoss::new(Some(1.0), Some(2.0), Some(true), Some("sum".to_string()));
         assert_eq!(triplet_loss.name(), "TripletMarginLoss");
 
         let anchor = Variable::new(Tensor::from_vec(vec![0.5, 0.5], vec![2]), false);

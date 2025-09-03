@@ -47,11 +47,7 @@ where
     /// * `low` - Lower bound (a) parameter tensor
     /// * `high` - Upper bound (b) parameter tensor
     /// * `validate_args` - Whether to validate parameters
-    pub fn new(
-        low: Tensor<T>,
-        high: Tensor<T>,
-        validate_args: bool,
-    ) -> RusTorchResult<Self> {
+    pub fn new(low: Tensor<T>, high: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             // Validate low < high
             let low_data = low.data.as_slice().unwrap();

@@ -1,16 +1,20 @@
 //! Core tensor data structure and basic operations
 //! コアテンソルデータ構造と基本操作
 
+use super::device::Device;
 #[cfg(not(target_arch = "wasm32"))]
 use super::memory::aligned::{SimdAllocator, SIMD_ALIGNMENT};
 #[cfg(not(target_arch = "wasm32"))]
 use super::memory::optimization::{MemoryOptimization, TensorMemoryInfo};
 use super::operations::zero_copy::{TensorIterOps, ZeroCopyOps};
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::serialization::core::{Loadable, Saveable, SerializationResult};
 use ndarray::{ArrayD, IxDyn};
 use num_traits::Float;
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Add, Div, Mul, Neg, Sub};
+use std::path::Path;
 
 #[cfg(not(target_arch = "wasm32"))]
 use crate::gpu::device::GpuDevice;
@@ -22,13 +26,33 @@ pub struct Tensor<T: Float> {
     /// The underlying n-dimensional array data
     /// 基底のn次元配列データ
     pub data: ArrayD<T>,
+    /// Device where tensor is stored
+    /// テンソルが保存されているデバイス
+    pub device: Device,
+    /// Whether tensor requires gradient computation
+    /// テンソルが勾配計算を必要とするか
+    pub requires_grad: bool,
 }
 
 impl<T: Float + 'static> Tensor<T> {
     /// Creates a new tensor from an array.
     /// 配列から新しいテンソルを作成します。
     pub fn new(data: ArrayD<T>) -> Self {
-        Tensor { data }
+        Tensor {
+            data,
+            device: Device::default(),
+            requires_grad: false,
+        }
+    }
+
+    /// Creates a new tensor with device and gradient settings
+    /// デバイスと勾配設定付きで新しいテンソルを作成
+    pub fn new_with_options(data: ArrayD<T>, device: Device, requires_grad: bool) -> Self {
+        Tensor {
+            data,
+            device,
+            requires_grad,
+        }
     }
 
     /// Creates a tensor from a vector and shape.
@@ -36,6 +60,18 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn from_vec(data: Vec<T>, shape: Vec<usize>) -> Self {
         let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
         Tensor::new(array)
+    }
+
+    /// Creates a tensor from a vector and shape with device and gradient settings
+    /// デバイスと勾配設定付きでベクトルと形状からテンソルを作成
+    pub fn from_vec_with_options(
+        data: Vec<T>,
+        shape: Vec<usize>,
+        device: Device,
+        requires_grad: bool,
+    ) -> Self {
+        let array = ArrayD::from_shape_vec(shape, data).expect("Invalid shape for data");
+        Tensor::new_with_options(array, device, requires_grad)
     }
 
     /// Creates a tensor from a vector and shape with error handling.
@@ -151,16 +187,49 @@ impl<T: Float + 'static> Tensor<T> {
         false
     }
 
+    /// Get the device where this tensor is stored
+    /// このテンソルが保存されているデバイスを取得
+    pub fn device(&self) -> Device {
+        self.device
+    }
+
+    /// Check if tensor requires gradient computation
+    /// テンソルが勾配計算を必要とするかチェック
+    pub fn requires_grad(&self) -> bool {
+        self.requires_grad
+    }
+
+    /// Set whether tensor requires gradient computation
+    /// テンソルが勾配計算を必要とするかを設定
+    pub fn set_requires_grad(&mut self, requires_grad: bool) -> &mut Self {
+        self.requires_grad = requires_grad;
+        self
+    }
+
+    /// Move tensor to specified device type
+    /// テンソルを指定デバイスタイプに移動
+    pub fn with_device(&self, device: Device) -> Self {
+        let mut new_tensor = self.clone();
+        new_tensor.device = device;
+        new_tensor
+    }
+
     /// Get the current device type for this tensor
     /// このテンソルの現在のデバイスタイプを取得
     pub fn device_type(&self) -> String {
-        "cpu".to_string() // Default to CPU for now
+        self.device.to_string()
     }
 
     /// Check if tensor is on GPU
     /// テンソルがGPU上にあるかチェック
     pub fn is_on_gpu(&self) -> bool {
-        false // Default implementation
+        self.device.is_cuda() || self.device.is_mps()
+    }
+
+    /// Check if tensor is on CPU
+    /// テンソルがCPU上にあるかチェック
+    pub fn is_cpu(&self) -> bool {
+        self.device.is_cpu()
     }
 
     // Memory optimization methods are now provided by the MemoryOptimization trait
@@ -171,7 +240,23 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn zeros(shape: &[usize]) -> Self {
         let total_size = shape.iter().product();
         let data = vec![T::zero(); total_size];
-        Tensor::from_vec(data, shape.to_vec())
+        Self {
+            data: ArrayD::from_shape_vec(shape.to_vec(), data).expect("Invalid shape for data"),
+            device: Device::default(),
+            requires_grad: false,
+        }
+    }
+
+    /// Creates a tensor filled with zeros on specified device
+    /// 指定デバイス上でゼロで満たされたテンソルを作成
+    pub fn zeros_on_device(shape: &[usize], device: Device) -> Self {
+        let total_size = shape.iter().product();
+        let data = vec![T::zero(); total_size];
+        Self {
+            data: ArrayD::from_shape_vec(shape.to_vec(), data).expect("Invalid shape for data"),
+            device,
+            requires_grad: false,
+        }
     }
 
     /// Creates a tensor filled with zeros with error handling.
@@ -216,7 +301,23 @@ impl<T: Float + 'static> Tensor<T> {
     pub fn ones(shape: &[usize]) -> Self {
         let total_size = shape.iter().product();
         let data = vec![T::one(); total_size];
-        Tensor::from_vec(data, shape.to_vec())
+        Self {
+            data: ArrayD::from_shape_vec(shape.to_vec(), data).expect("Invalid shape for data"),
+            device: Device::default(),
+            requires_grad: false,
+        }
+    }
+
+    /// Creates a tensor filled with ones on specified device
+    /// 指定デバイス上で1で満たされたテンソルを作成
+    pub fn ones_on_device(shape: &[usize], device: Device) -> Self {
+        let total_size = shape.iter().product();
+        let data = vec![T::one(); total_size];
+        Self {
+            data: ArrayD::from_shape_vec(shape.to_vec(), data).expect("Invalid shape for data"),
+            device,
+            requires_grad: false,
+        }
     }
 
     /// Creates a tensor filled with ones with error handling.
@@ -488,7 +589,7 @@ impl<T: Float + 'static> Tensor<T> {
         masked_fill(self, mask, value)
     }
 
-    // Phase 8: Tensor Utilities - Index Operations  
+    // Phase 8: Tensor Utilities - Index Operations
     /// Gather values along an axis
     /// 軸に沿って値を収集
     pub fn gather(&self, dim: usize, index: &ArrayD<i64>) -> RusTorchResult<Tensor<T>> {
@@ -498,7 +599,12 @@ impl<T: Float + 'static> Tensor<T> {
 
     /// Scatter values along an axis
     /// 軸に沿って値を散布
-    pub fn scatter(&self, dim: usize, index: &ArrayD<i64>, src: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+    pub fn scatter(
+        &self,
+        dim: usize,
+        index: &ArrayD<i64>,
+        src: &Tensor<T>,
+    ) -> RusTorchResult<Tensor<T>> {
         use crate::tensor::utilities::indexing::scatter;
         scatter(self, dim, index, src)
     }
@@ -513,30 +619,49 @@ impl<T: Float + 'static> Tensor<T> {
     // Phase 8: Tensor Utilities - Statistical Operations
     /// Get top k elements along dimension (Phase 8 utilities)
     /// 次元に沿ってトップk要素を取得（フェーズ8ユーティリティ）
-    pub fn topk_util(&self, k: usize, dim: usize, largest: bool, sorted: bool) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
+    pub fn topk_util(
+        &self,
+        k: usize,
+        dim: usize,
+        largest: bool,
+        sorted: bool,
+    ) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
         use crate::tensor::utilities::statistics::topk_util;
         topk_util(self, k, dim, largest, sorted)
     }
 
     /// Get kth smallest/largest value
     /// k番目の最小/最大値を取得
-    pub fn kthvalue(&self, k: usize, dim: usize, keepdim: bool) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
+    pub fn kthvalue(
+        &self,
+        k: usize,
+        dim: usize,
+        keepdim: bool,
+    ) -> RusTorchResult<(Tensor<T>, ArrayD<i64>)> {
         use crate::tensor::utilities::statistics::kthvalue;
         kthvalue(self, k, dim, keepdim)
     }
 
-
     // Phase 8: Tensor Utilities - Advanced Operations
     /// Get unique elements
     /// 一意の要素を取得
-    pub fn unique(&self, sorted: bool, return_inverse: bool, return_counts: bool) -> RusTorchResult<(Tensor<T>, Option<ArrayD<i64>>, Option<ArrayD<i64>>)> {
+    pub fn unique(
+        &self,
+        sorted: bool,
+        return_inverse: bool,
+        return_counts: bool,
+    ) -> RusTorchResult<(Tensor<T>, Option<ArrayD<i64>>, Option<ArrayD<i64>>)> {
         use crate::tensor::utilities::advanced::unique;
         unique(self, sorted, return_inverse, return_counts, None)
     }
 
     /// Compute histogram
     /// ヒストグラムを計算
-    pub fn histogram(&self, bins: usize, range: Option<(T, T)>) -> RusTorchResult<(ArrayD<i64>, Tensor<T>)> {
+    pub fn histogram(
+        &self,
+        bins: usize,
+        range: Option<(T, T)>,
+    ) -> RusTorchResult<(ArrayD<i64>, Tensor<T>)> {
         use crate::tensor::utilities::advanced::histogram;
         histogram(self, bins, range, false)
     }
@@ -590,5 +715,53 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     pub fn sqrt(&self) -> Self {
         let result_data: Vec<T> = self.data.iter().map(|&x| x.sqrt()).collect();
         Tensor::from_vec(result_data, self.shape().to_vec())
+    }
+}
+
+// Serialization integration for Tensor
+// Tensorのシリアライゼーション統合
+impl<T: Float + 'static> Tensor<T> {
+    /// Save tensor to file
+    /// テンソルをファイルに保存
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> SerializationResult<()> {
+        crate::serialization::model_io::save(self, path)
+    }
+
+    /// Load tensor from file  
+    /// ファイルからテンソルを読み込み
+    pub fn load<P: AsRef<Path>>(path: P) -> SerializationResult<Self> {
+        crate::serialization::model_io::load(path)
+    }
+
+    /// Clone tensor with new device
+    /// 新しいデバイスでテンソルをクローン
+    pub fn clone_to_device(&self, device: Device) -> Self {
+        Self {
+            data: self.data.clone(),
+            device,
+            requires_grad: self.requires_grad,
+        }
+    }
+
+    /// Clone tensor with new gradient requirement
+    /// 新しい勾配要件でテンソルをクローン
+    pub fn clone_with_grad(&self, requires_grad: bool) -> Self {
+        Self {
+            data: self.data.clone(),
+            device: self.device,
+            requires_grad,
+        }
+    }
+
+    /// Get tensor metadata for serialization
+    /// シリアライゼーション用テンソルメタデータを取得
+    pub fn get_metadata(&self) -> HashMap<String, String> {
+        let mut meta = HashMap::new();
+        meta.insert("shape".to_string(), format!("{:?}", self.shape()));
+        meta.insert("dtype".to_string(), std::any::type_name::<T>().to_string());
+        meta.insert("device".to_string(), self.device.to_string());
+        meta.insert("requires_grad".to_string(), self.requires_grad.to_string());
+        meta.insert("numel".to_string(), self.numel().to_string());
+        meta
     }
 }

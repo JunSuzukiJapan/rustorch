@@ -1,9 +1,9 @@
 //! Phase 8 Tensor Utilities WASM Bindings  
 //! フェーズ８テンソルユーティリティWASMバインディング
 
-use wasm_bindgen::prelude::*;
 use crate::wasm::tensor::WasmTensor;
-use js_sys::{Array, Uint8Array, Int32Array};
+use js_sys::{Array, Int32Array, Uint8Array};
+use wasm_bindgen::prelude::*;
 
 /// WASM bindings for Phase 8 tensor utilities
 /// フェーズ８テンソルユーティリティのWASMバインディング
@@ -61,7 +61,7 @@ impl WasmTensorUtils {
     ) -> Result<WasmTensor, JsValue> {
         let input_data = input.data();
         let mask_vec = mask.to_vec();
-        
+
         if input_data.len() != mask_vec.len() {
             return Err(JsValue::from_str("Input and mask must have same size"));
         }
@@ -87,7 +87,7 @@ impl WasmTensorUtils {
     ) -> Result<WasmTensor, JsValue> {
         let mut result_data = input.data();
         let mask_vec = mask.to_vec();
-        
+
         if result_data.len() != mask_vec.len() {
             return Err(JsValue::from_str("Input and mask must have same size"));
         }
@@ -106,11 +106,7 @@ impl WasmTensorUtils {
     /// Gather values using index (1D version for WASM)
     /// インデックスを使って値を収集（WASM用1D版）
     #[wasm_bindgen]
-    pub fn gather_1d(
-        &self,
-        input: &WasmTensor,
-        index: &Int32Array,
-    ) -> Result<WasmTensor, JsValue> {
+    pub fn gather_1d(&self, input: &WasmTensor, index: &Int32Array) -> Result<WasmTensor, JsValue> {
         let input_data = input.data();
         let index_vec = index.to_vec();
         let input_len = input_data.len();
@@ -146,14 +142,9 @@ impl WasmTensorUtils {
     /// Find top-k largest elements
     /// 上位k個の最大要素を検索
     #[wasm_bindgen]
-    pub fn topk_1d(
-        &self,
-        input: &WasmTensor,
-        k: usize,
-        largest: bool,
-    ) -> Result<Array, JsValue> {
+    pub fn topk_1d(&self, input: &WasmTensor, k: usize, largest: bool) -> Result<Array, JsValue> {
         let input_data = input.data();
-        
+
         if k > input_data.len() {
             return Err(JsValue::from_str("k cannot be larger than tensor size"));
         }
@@ -165,13 +156,19 @@ impl WasmTensorUtils {
             .collect();
 
         if largest {
-            indexed_values.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+            indexed_values
+                .sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
         } else {
-            indexed_values.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            indexed_values
+                .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
         }
 
         let values: Vec<f32> = indexed_values.iter().take(k).map(|(val, _)| *val).collect();
-        let indices: Vec<i32> = indexed_values.iter().take(k).map(|(_, idx)| *idx as i32).collect();
+        let indices: Vec<i32> = indexed_values
+            .iter()
+            .take(k)
+            .map(|(_, idx)| *idx as i32)
+            .collect();
 
         let result = Array::new();
         result.push(&WasmTensor::new(values, vec![k]).into());
@@ -182,13 +179,9 @@ impl WasmTensorUtils {
     /// Find k-th smallest value
     /// k番目に小さい値を検索
     #[wasm_bindgen]
-    pub fn kthvalue_1d(
-        &self,
-        input: &WasmTensor,
-        k: usize,
-    ) -> Result<Array, JsValue> {
+    pub fn kthvalue_1d(&self, input: &WasmTensor, k: usize) -> Result<Array, JsValue> {
         let input_data = input.data();
-        
+
         if k >= input_data.len() {
             return Err(JsValue::from_str("k must be less than tensor size"));
         }
@@ -209,16 +202,12 @@ impl WasmTensorUtils {
         Ok(result)
     }
 
-    /// Find unique elements 
+    /// Find unique elements
     /// 一意要素を検索
     #[wasm_bindgen]
-    pub fn unique_1d(
-        &self,
-        input: &WasmTensor,
-        sorted: bool,
-    ) -> Result<WasmTensor, JsValue> {
+    pub fn unique_1d(&self, input: &WasmTensor, sorted: bool) -> Result<WasmTensor, JsValue> {
         let mut input_data = input.data();
-        
+
         if sorted {
             input_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         }
@@ -226,13 +215,19 @@ impl WasmTensorUtils {
         let mut unique_values = Vec::new();
 
         for &value in input_data.iter() {
-            if unique_values.is_empty() || 
-               unique_values.last().map_or(true, |last: &f32| (value - *last).abs() > 1e-6_f32) {
+            if unique_values.is_empty()
+                || unique_values
+                    .last()
+                    .map_or(true, |last: &f32| (value - *last).abs() > 1e-6_f32)
+            {
                 unique_values.push(value);
             }
         }
 
-        Ok(WasmTensor::new(unique_values.clone(), vec![unique_values.len()]))
+        Ok(WasmTensor::new(
+            unique_values.clone(),
+            vec![unique_values.len()],
+        ))
     }
 
     /// Compute histogram
@@ -248,7 +243,7 @@ impl WasmTensorUtils {
         if bins == 0 {
             return Err(JsValue::from_str("Number of bins must be positive"));
         }
-        
+
         if min_val >= max_val {
             return Err(JsValue::from_str("min_val must be less than max_val"));
         }
@@ -312,10 +307,7 @@ pub fn tensor_masked_select_simple(
 /// Simple topk for browser ML
 /// ブラウザML用シンプルトップk
 #[wasm_bindgen]
-pub fn tensor_topk_simple(
-    input: &WasmTensor,
-    k: usize,
-) -> Result<Array, JsValue> {
+pub fn tensor_topk_simple(input: &WasmTensor, k: usize) -> Result<Array, JsValue> {
     let utils = WasmTensorUtils::new();
     utils.topk_1d(input, k, true)
 }

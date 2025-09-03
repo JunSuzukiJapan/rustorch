@@ -2,9 +2,6 @@
 //! Neural network module definitions.
 
 pub mod activation;
-pub mod shared_activation;
-pub mod shared_loss;
-pub mod shared_normalization;
 pub mod adaptive_pool;
 pub mod attention;
 pub mod batchnorm;
@@ -34,12 +31,17 @@ pub mod quantization;
 pub mod recurrent_common;
 pub mod rnn;
 pub mod safe_ops;
+pub mod shared_activation;
+pub mod shared_loss;
+pub mod shared_normalization;
 pub mod transformer;
 pub mod transformer_phase6;
 
 use crate::autograd::Variable;
+use crate::serialization::core::{Loadable, Saveable, SerializationError, SerializationResult};
 use num_traits::Float;
 use std::any::Any;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::{Send, Sync};
 
@@ -143,6 +145,12 @@ where
         self
     }
 }
+
+// Note: Sequential serialization is complex due to the dynamic nature of modules
+// For now, Sequential containers would need custom serialization approaches
+// that handle the heterogeneous module types. This would require additional
+// type erasure and registration mechanisms beyond the current implementation.
+// シーケンシャルのシリアライゼーションはモジュールの動的性質により複雑です
 
 // Re-export neural network modules
 // ニューラルネットワークモジュールを再エクスポート

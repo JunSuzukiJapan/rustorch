@@ -21,11 +21,11 @@ pub mod normal;
 pub mod uniform;
 
 // Re-export main types
+use crate::error::{RusTorchError, RusTorchResult};
 pub use bernoulli::Bernoulli;
 pub use beta::Beta;
 pub use categorical::Categorical;
 pub use distribution::Distribution;
-use crate::error::{RusTorchError, RusTorchResult};
 pub use exponential::Exponential;
 pub use gamma::Gamma;
 pub use normal::Normal;
@@ -98,9 +98,7 @@ pub struct DistributionUtils;
 impl DistributionUtils {
     /// Validate probability parameter (0 <= p <= 1)
     /// 確率パラメータの検証 (0 <= p <= 1)
-    pub fn validate_probability<T: Float + std::fmt::Display>(
-        p: &Tensor<T>,
-    ) -> RusTorchResult<()> {
+    pub fn validate_probability<T: Float + std::fmt::Display>(p: &Tensor<T>) -> RusTorchResult<()> {
         let data = p.data.as_slice().unwrap();
         for &val in data {
             if val < T::zero() || val > T::one() {

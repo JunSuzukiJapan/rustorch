@@ -113,7 +113,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn collect_system_info() -> SystemInfo {
     #[allow(clippy::vec_init_then_push)]
     let gpu_available = {
-        let vec = Vec::new();
+        let mut vec = Vec::new();
         #[cfg(feature = "metal")]
         vec.push("Metal".to_string());
         #[cfg(feature = "cuda")]

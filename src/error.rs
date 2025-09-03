@@ -248,6 +248,18 @@ pub enum RusTorchError {
         message: String,
     },
 
+    /// Serialization and model I/O errors (Phase 9)
+    /// シリアライゼーション・モデルI/Oエラー（フェーズ9）
+    #[error("Serialization error in {operation}: {message}")]
+    SerializationError {
+        /// Operation that caused the serialization error
+        /// シリアライゼーションエラーを引き起こした操作
+        operation: String,
+        /// Serialization error description
+        /// シリアライゼーションエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]

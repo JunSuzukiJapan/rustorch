@@ -633,6 +633,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "ci-fast"))]
     fn test_memory_reuse() {
         let config = PoolConfig::default();
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);
@@ -650,6 +651,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "ci-fast"))]
     fn test_garbage_collection() {
         let config = PoolConfig::default();
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);

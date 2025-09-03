@@ -606,6 +606,27 @@ impl MetalKernelExecutor {
         Ok(())
     }
 
+    /// Perform matrix multiplication using Metal with result return
+    /// Metalを使用して行列乗算を実行し結果を返す  
+    pub fn matrix_multiply_f32(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<Vec<f32>> {
+        if a.len() != m * k || b.len() != k * n {
+            return Err(RusTorchError::InvalidOperation(
+                "Matrix dimension mismatch".to_string(),
+            ));
+        }
+
+        let mut result = vec![0.0f32; m * n];
+        self.matmul_f32(a, b, &mut result, m, n, k)?;
+        Ok(result)
+    }
+
     /// Execute reduction operation (sum) using Metal
     /// Metalを使用してリダクション演算（合計）を実行
     pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
