@@ -336,6 +336,10 @@ pub mod visualization;
 /// データ検証・品質保証システム
 pub mod validation;
 
+/// Serialization and model I/O system (Phase 9)
+/// シリアライゼーション・モデルI/Oシステム（フェーズ9）
+pub mod serialization;
+
 /// Debug and logging system
 /// デバッグ・ログシステム
 pub mod debug;
