@@ -4,7 +4,7 @@ This document provides an overview of available documentation in different langu
 
 ## Available Languages
 
-RusTorch documentation is available in the following 6 languages:
+RusTorch documentation is available in the following 8 languages:
 
 ### 🇺🇸 English (`docs/en/`)
 - [README.md](en/README.md) - Complete library overview, features, and usage examples
@@ -29,6 +29,14 @@ RusTorch documentation is available in the following 6 languages:
 ### 🇰🇷 Korean / 한국어 (`docs/ko/`)
 - [README.md](ko/README.md) - 라이브러리 완전 개요, 기능 및 사용 예제
 - [jupyter-guide.md](ko/jupyter-guide.md) - Jupyter Notebook 완전 설정 및 사용 가이드
+
+### 🇩🇪 German / Deutsch (`docs/de/`)
+- [README.md](de/README.md) - Vollständige Bibliotheksübersicht, Funktionen und Verwendungsbeispiele
+- [jupyter-guide.md](de/jupyter-guide.md) - Umfassende Jupyter Notebook Setup- und Verwendungsanleitung
+
+### 🇷🇺 Russian / Русский (`docs/ru/`)
+- [README.md](ru/README.md) - Полный обзор библиотеки, функции и примеры использования
+- [jupyter-guide.md](ru/jupyter-guide.md) - Всеобъемлющее руководство по настройке и использованию Jupyter Notebook
 
 ## Documentation Coverage
 
@@ -85,6 +93,8 @@ We welcome contributions to improve existing translations or add new languages. 
 | Spanish | [📖 README](es/README.md) | [📓 Guía Jupyter](es/jupyter-guide.md) |
 | Chinese | [📖 README](zh/README.md) | [📓 Jupyter指南](zh/jupyter-guide.md) |
 | Korean | [📖 README](ko/README.md) | [📓 Jupyter 가이드](ko/jupyter-guide.md) |
+| German | [📖 README](de/README.md) | [📓 Jupyter Anleitung](de/jupyter-guide.md) |
+| Russian | [📖 README](ru/README.md) | [📓 Jupyter Руководство](ru/jupyter-guide.md) |
 
 ## Additional Resources
 
