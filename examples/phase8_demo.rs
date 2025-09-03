@@ -56,6 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   unique values: {:?}", unique_vals.data.as_slice());
 
     let (hist_counts, hist_edges) = tensor.histogram(3, Some((1.0, 6.0)))?;
+    println!("   histogram counts: {:?}", hist_counts.as_slice());
+    let _hist_counts = &hist_counts; // Use variable to avoid warning
     println!("   histogram edges: {:?}", hist_edges.data.as_slice());
 
     println!("\nPhase 8 implementation completed successfully!");

@@ -40,6 +40,8 @@ pub mod preprocessing; // Data preprocessing utilities
 #[cfg(feature = "wasm")]
 pub mod tensor_ops; // Advanced tensor operations
 #[cfg(feature = "wasm")]
+pub mod utilities; // Phase 8 tensor utilities (conditional, indexing, statistics, advanced)
+#[cfg(feature = "wasm")]
 pub mod vision; // Vision and image processing functions
 
 // Common utilities (v0.5.10+)
