@@ -3,11 +3,13 @@
 
 #[cfg(feature = "wasm")]
 fn main() {
-    use rustorch::wasm::advanced_math::{WasmAdvancedMath, wasm_advanced_math_version};
-    use rustorch::wasm::anomaly_detection::{WasmAnomalyDetector, WasmTimeSeriesDetector, wasm_anomaly_detection_version};
-    use rustorch::wasm::common::{MemoryManager, WasmTransformPipeline, WasmProcessingPipeline};
-    use rustorch::wasm::data_transforms::{*, wasm_transforms_version};
-    use rustorch::wasm::quality_metrics::{WasmQualityMetrics, wasm_quality_metrics_version};
+    use rustorch::wasm::advanced_math::{wasm_advanced_math_version, WasmAdvancedMath};
+    use rustorch::wasm::anomaly_detection::{
+        wasm_anomaly_detection_version, WasmAnomalyDetector, WasmTimeSeriesDetector,
+    };
+    use rustorch::wasm::common::{MemoryManager, WasmProcessingPipeline, WasmTransformPipeline};
+    use rustorch::wasm::data_transforms::{wasm_transforms_version, *};
+    use rustorch::wasm::quality_metrics::{wasm_quality_metrics_version, WasmQualityMetrics};
     use rustorch::wasm::tensor::WasmTensor;
     use std::time::Instant;
 
@@ -169,10 +171,11 @@ fn main() {
             }
         }
 
-        // Time series detection  
+        // Time series detection
         if let Ok(result) = ts_detector.add_point(timestamp as f64, value) {
             // Check if result indicates anomaly (simplified check)
-            if !js_sys::JsString::from(result.as_string().unwrap_or_default()).includes("normal", 0) {
+            if !js_sys::JsString::from(result.as_string().unwrap_or_default()).includes("normal", 0)
+            {
                 ts_anomalies += 1;
                 if ts_anomalies <= 3 {
                     println!(
@@ -196,9 +199,15 @@ fn main() {
     let mut processing_pipeline = WasmProcessingPipeline::new(true);
 
     // Build transform pipeline
-    transform_pipeline.add_transform("normalize").expect("Failed to add normalize transform");
-    transform_pipeline.add_transform("smooth").expect("Failed to add smooth transform");
-    transform_pipeline.add_transform("enhance").expect("Failed to add enhance transform");
+    transform_pipeline
+        .add_transform("normalize")
+        .expect("Failed to add normalize transform");
+    transform_pipeline
+        .add_transform("smooth")
+        .expect("Failed to add smooth transform");
+    transform_pipeline
+        .add_transform("enhance")
+        .expect("Failed to add enhance transform");
 
     println!(
         "🔗 Transform pipeline created with {} steps",
@@ -206,9 +215,15 @@ fn main() {
     );
 
     // Build processing pipeline
-    processing_pipeline.add_operation("quality_check").expect("Failed to add quality_check operation");
-    processing_pipeline.add_operation("anomaly_scan").expect("Failed to add anomaly_scan operation");
-    processing_pipeline.add_operation("statistical_analysis").expect("Failed to add statistical_analysis operation");
+    processing_pipeline
+        .add_operation("quality_check")
+        .expect("Failed to add quality_check operation");
+    processing_pipeline
+        .add_operation("anomaly_scan")
+        .expect("Failed to add anomaly_scan operation");
+    processing_pipeline
+        .add_operation("statistical_analysis")
+        .expect("Failed to add statistical_analysis operation");
 
     println!(
         "⚙️  Processing pipeline created with {} operations",
@@ -339,22 +354,10 @@ fn main() {
 
     // Demonstrate version information
     println!("\n📋 Module Versions:");
-    println!(
-        "   Advanced Math: {}",
-        wasm_advanced_math_version()
-    );
-    println!(
-        "   Quality Metrics: {}",
-        wasm_quality_metrics_version()
-    );
-    println!(
-        "   Transforms: {}",
-        wasm_transforms_version()
-    );
-    println!(
-        "   Anomaly Detection: {}",
-        wasm_anomaly_detection_version()
-    );
+    println!("   Advanced Math: {}", wasm_advanced_math_version());
+    println!("   Quality Metrics: {}", wasm_quality_metrics_version());
+    println!("   Transforms: {}", wasm_transforms_version());
+    println!("   Anomaly Detection: {}", wasm_anomaly_detection_version());
 
     println!("\n🎉 Complete pipeline demonstration finished successfully!");
     println!("   All {} WASM modules integrated and tested", 7);

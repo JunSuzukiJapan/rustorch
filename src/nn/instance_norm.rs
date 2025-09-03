@@ -31,7 +31,7 @@ where
             return T::from_f32(vectorized::mean_f32_simd(f32_data)).unwrap();
         }
     }
-    
+
     // Fallback implementation (used for WASM and non-f32 types)
     data.iter().fold(T::default(), |acc, &x| acc + x) / T::from_f32(data.len() as f32).unwrap()
 }
@@ -55,10 +55,11 @@ where
         if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
             let f32_data: &[f32] = unsafe { std::mem::transmute(data) };
             let f32_mean = mean.to_f32().unwrap();
-            return T::from_f32(vectorized::variance_f32_simd(f32_data) - f32_mean * f32_mean).unwrap();
+            return T::from_f32(vectorized::variance_f32_simd(f32_data) - f32_mean * f32_mean)
+                .unwrap();
         }
     }
-    
+
     // Fallback implementation (used for WASM and non-f32 types)
     data.iter()
         .map(|&x| (x - mean) * (x - mean))
