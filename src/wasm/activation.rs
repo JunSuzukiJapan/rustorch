@@ -5,6 +5,7 @@
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use web_sys;
+use crate::nn::shared_activation::{shared_activations, ActivationFunction};
 
 /// WASM-compatible activation functions
 /// WASM互換活性化関数
@@ -19,39 +20,27 @@ impl WasmActivation {
     /// ReLU(x) = max(0, x)
     #[wasm_bindgen]
     pub fn relu(input: Vec<f32>) -> Vec<f32> {
-        input
-            .into_iter()
-            .map(|x| if x > 0.0 { x } else { 0.0 })
-            .collect()
+        shared_activations::relu_vec(&input)
     }
 
     /// ReLU derivative for backward pass
     /// ReLUの微分（逆伝播用）
     #[wasm_bindgen]
     pub fn relu_derivative(input: Vec<f32>) -> Vec<f32> {
-        input
-            .into_iter()
-            .map(|x| if x > 0.0 { 1.0 } else { 0.0 })
-            .collect()
+        shared_activations::relu_derivative_vec(&input)
     }
 
     /// Leaky ReLU activation function
     /// Leaky ReLU(x) = max(alpha * x, x)
     #[wasm_bindgen]
     pub fn leaky_relu(input: Vec<f32>, alpha: f32) -> Vec<f32> {
-        input
-            .into_iter()
-            .map(|x| if x > 0.0 { x } else { alpha * x })
-            .collect()
+        shared_activations::leaky_relu_vec(&input, alpha)
     }
 
     /// Leaky ReLU derivative
     #[wasm_bindgen]
     pub fn leaky_relu_derivative(input: Vec<f32>, alpha: f32) -> Vec<f32> {
-        input
-            .into_iter()
-            .map(|x| if x > 0.0 { 1.0 } else { alpha })
-            .collect()
+        shared_activations::leaky_relu_derivative_vec(&input, alpha)
     }
 
     /// Sigmoid activation function
@@ -332,7 +321,7 @@ impl WasmActivation {
 }
 
 #[cfg(test)]
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 mod tests {
     use super::*;
 

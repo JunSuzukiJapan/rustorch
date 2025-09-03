@@ -56,7 +56,7 @@ impl<T: Float + 'static> TensorDataset<T> {
             });
         }
 
-        // Validate all tensors have same first dimension (batch size)
+        // For new() method, all tensors should represent batches with consistent batch size
         let first_dim = tensors[0].shape()[0];
         for (i, tensor) in tensors.iter().enumerate() {
             if tensor.shape()[0] != first_dim {
@@ -102,34 +102,50 @@ impl<T: Float + 'static> TensorDataset<T> {
             });
         }
 
-        // Validate that all features have the same batch size
+        // Convert individual samples to batch tensors
+        let mut batch_tensors = Vec::new();
+        
         if !features.is_empty() {
-            let expected_batch_size = features[0].shape()[0];
-            for (i, feature) in features.iter().enumerate() {
-                if feature.shape()[0] != expected_batch_size {
-                    return Err(RusTorchError::ShapeMismatch {
-                        expected: vec![expected_batch_size],
-                        actual: vec![feature.shape()[0]],
-                    });
+            // Combine features into a single batch tensor
+            let sample_shape = &features[0].shape()[..];
+            let batch_size = features.len();
+            let mut combined_shape = vec![batch_size];
+            combined_shape.extend_from_slice(sample_shape);
+            
+            let total_elements: usize = combined_shape.iter().product();
+            let mut combined_data = Vec::with_capacity(total_elements);
+            
+            for feature in features {
+                if let Some(data) = feature.data.as_slice() {
+                    combined_data.extend_from_slice(data);
                 }
             }
-
-            // Validate that all targets have the same batch size as features
-            for (i, target) in targets.iter().enumerate() {
-                if target.shape()[0] != expected_batch_size {
-                    return Err(RusTorchError::ShapeMismatch {
-                        expected: vec![expected_batch_size],
-                        actual: vec![target.shape()[0]],
-                    });
+            
+            let features_batch = Tensor::from_vec(combined_data, combined_shape);
+            batch_tensors.push(features_batch);
+        }
+        
+        if !targets.is_empty() {
+            // Combine targets into a single batch tensor
+            let sample_shape = &targets[0].shape()[..];
+            let batch_size = targets.len();
+            let mut combined_shape = vec![batch_size];
+            combined_shape.extend_from_slice(sample_shape);
+            
+            let total_elements: usize = combined_shape.iter().product();
+            let mut combined_data = Vec::with_capacity(total_elements);
+            
+            for target in targets {
+                if let Some(data) = target.data.as_slice() {
+                    combined_data.extend_from_slice(data);
                 }
             }
+            
+            let targets_batch = Tensor::from_vec(combined_data, combined_shape);
+            batch_tensors.push(targets_batch);
         }
 
-        let mut tensors = Vec::new();
-        tensors.extend(features);
-        tensors.extend(targets);
-
-        Self::new(tensors)
+        Self::new(batch_tensors)
     }
 }
 

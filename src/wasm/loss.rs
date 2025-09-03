@@ -5,6 +5,7 @@
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use web_sys;
+use crate::nn::shared_loss::{shared_losses, LossFunction};
 
 /// WASM-compatible loss functions
 /// WASM互換損失関数
@@ -19,45 +20,16 @@ impl WasmLoss {
     /// MSE(y_pred, y_true) = mean((y_pred - y_true)²)
     #[wasm_bindgen]
     pub fn mse_loss(predictions: Vec<f32>, targets: Vec<f32>) -> f32 {
-        if predictions.len() != targets.len() {
-            panic!("Predictions and targets must have the same length");
-        }
-
-        if predictions.is_empty() {
-            return 0.0;
-        }
-
-        let sum_squared_error: f32 = predictions
-            .iter()
-            .zip(targets.iter())
-            .map(|(pred, target)| {
-                let diff = pred - target;
-                diff * diff
-            })
-            .sum();
-
-        sum_squared_error / predictions.len() as f32
+        shared_losses::mse_loss_vec(&predictions, &targets)
+            .unwrap_or(0.0)
     }
 
     /// Mean Absolute Error (MAE) loss
     /// MAE(y_pred, y_true) = mean(|y_pred - y_true|)
     #[wasm_bindgen]
     pub fn mae_loss(predictions: Vec<f32>, targets: Vec<f32>) -> f32 {
-        if predictions.len() != targets.len() {
-            panic!("Predictions and targets must have the same length");
-        }
-
-        if predictions.is_empty() {
-            return 0.0;
-        }
-
-        let sum_absolute_error: f32 = predictions
-            .iter()
-            .zip(targets.iter())
-            .map(|(pred, target)| (pred - target).abs())
-            .sum();
-
-        sum_absolute_error / predictions.len() as f32
+        shared_losses::mae_loss_vec(&predictions, &targets)
+            .unwrap_or(0.0)
     }
 
     /// Huber loss (smooth L1 loss)
@@ -448,7 +420,7 @@ impl WasmLoss {
 }
 
 #[cfg(test)]
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 mod tests {
     use super::*;
 

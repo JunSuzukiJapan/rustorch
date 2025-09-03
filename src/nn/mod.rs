@@ -2,6 +2,9 @@
 //! Neural network module definitions.
 
 pub mod activation;
+pub mod shared_activation;
+pub mod shared_loss;
+pub mod shared_normalization;
 pub mod adaptive_pool;
 pub mod attention;
 pub mod batchnorm;

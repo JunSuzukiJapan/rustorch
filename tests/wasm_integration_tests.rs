@@ -1,7 +1,7 @@
 //! Integration tests for WASM modules
 //! WASMモジュール統合テスト
 
-#[cfg(feature = "wasm")]
+#[cfg(all(feature = "wasm", target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
     use rustorch::wasm::common::*;

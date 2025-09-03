@@ -96,13 +96,8 @@ impl trainer::TrainableModel<f32> for SimpleTestModel {
 /// テスト用のデータセットを作成
 /// Create a test dataset
 pub fn create_test_dataset(size: usize, input_dim: usize, output_dim: usize) -> TensorDataset<f32> {
-    let features: Vec<Tensor<f32>> = (0..size)
-        .map(|_| Tensor::randn(&[input_dim]))
-        .collect();
-    
-    let targets: Vec<Tensor<f32>> = (0..size)
-        .map(|_| Tensor::randn(&[output_dim]))
-        .collect();
+    let features = vec![Tensor::randn(&[size, input_dim])];
+    let targets = vec![Tensor::randn(&[size, output_dim])];
     
     TensorDataset::from_features_targets(features, targets).unwrap()
 }
