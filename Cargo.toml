@@ -187,9 +187,9 @@ path = "examples/autograd_demo.rs"
 name = "cnn_demo"
 path = "examples/cnn_demo.rs"
 
-[[example]]
-name = "transformer_demo"
-path = "examples/transformer_demo.rs"
+# [[example]]
+# name = "transformer_demo"
+# path = "examples/transformer_demo.rs"
 
 [[example]]
 name = "vision_pipeline_demo"
@@ -221,10 +221,10 @@ name = "cuda_performance_demo"
 path = "examples/cuda_performance_demo.rs"
 required-features = ["cuda"]
 
-[[example]]
-name = "opencl_performance_demo"
-path = "examples/opencl_performance_demo.rs"
-required-features = ["opencl"]
+# [[example]]
+# name = "opencl_performance_demo"
+# path = "examples/opencl_performance_demo.rs"
+# required-features = ["opencl"]
 
 [[example]]
 name = "comprehensive_gpu_benchmark"

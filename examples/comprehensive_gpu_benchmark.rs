@@ -111,18 +111,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn collect_system_info() -> SystemInfo {
-    let mut gpu_available = Vec::new();
+    #[allow(clippy::vec_init_then_push)]
+    let gpu_available = {
+        let mut vec = Vec::new();
+        #[cfg(feature = "metal")]
+        vec.push("Metal".to_string());
+        #[cfg(feature = "cuda")]
+        vec.push("CUDA".to_string());
+        #[cfg(feature = "opencl")]
+        vec.push("OpenCL".to_string());
+        vec
+    };
 
-    #[cfg(feature = "metal")]
-    gpu_available.push("Metal".to_string());
-    #[cfg(feature = "cuda")]
-    gpu_available.push("CUDA".to_string());
-    #[cfg(feature = "opencl")]
-    gpu_available.push("OpenCL".to_string());
-
-    // Suppress unused_mut warning if no GPU features are enabled
+    // Suppress unused variable warning if no GPU features are enabled
     #[cfg(not(any(feature = "metal", feature = "cuda", feature = "opencl")))]
-    let _ = &mut gpu_available;
+    let _ = &gpu_available;
 
     SystemInfo {
         os: std::env::consts::OS.to_string(),

@@ -6,8 +6,6 @@
 
 #[cfg(feature = "model-hub")]
 use rustorch::model_hub::{ModelHub, ModelRegistry};
-#[cfg(feature = "model-hub")]
-use tokio;
 
 #[cfg(feature = "model-hub")]
 #[tokio::main]
@@ -66,7 +64,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🌐 Model Hub Setup");
     println!("-------------------");
 
-    let mut hub = ModelHub::new()?;
+    let hub = ModelHub::new()?;
     let (cached_count, cache_size) = hub.cache_stats();
     println!("Cache directory initialized");
     println!(
