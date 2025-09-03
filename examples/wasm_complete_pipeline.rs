@@ -3,12 +3,11 @@
 
 #[cfg(feature = "wasm")]
 fn main() {
-    use rustorch::wasm::advanced_math::WasmAdvancedMath;
-    use rustorch::wasm::anomaly_detection::{WasmAnomalyDetector, WasmTimeSeriesDetector};
-    use rustorch::wasm::common::MemoryManager;
-    use rustorch::wasm::data_transforms::*;
-    use rustorch::wasm::quality_metrics::WasmQualityMetrics;
-    use rustorch::wasm::statistical_analysis::{WasmStatisticalAnalyzer, WasmStatisticalFunctions};
+    use rustorch::wasm::advanced_math::{WasmAdvancedMath, wasm_advanced_math_version};
+    use rustorch::wasm::anomaly_detection::{WasmAnomalyDetector, WasmTimeSeriesDetector, wasm_anomaly_detection_version};
+    use rustorch::wasm::common::{MemoryManager, WasmTransformPipeline, WasmProcessingPipeline};
+    use rustorch::wasm::data_transforms::{*, wasm_transforms_version};
+    use rustorch::wasm::quality_metrics::{WasmQualityMetrics, wasm_quality_metrics_version};
     use rustorch::wasm::tensor::WasmTensor;
     use std::time::Instant;
 
@@ -23,11 +22,10 @@ fn main() {
 
     let math = WasmAdvancedMath::new();
     let quality = WasmQualityMetrics::new(0.8).expect("Failed to create quality analyzer");
-    let stats_func = WasmStatisticalFunctions::new();
-    let stats_analyzer = WasmStatisticalAnalyzer::new();
-    let anomaly_detector =
+    // Statistical analysis functionality integrated into quality metrics
+    let mut anomaly_detector =
         WasmAnomalyDetector::new(2.0, 50).expect("Failed to create anomaly detector");
-    let ts_detector =
+    let mut ts_detector =
         WasmTimeSeriesDetector::new(30, Some(12)).expect("Failed to create TS detector");
 
     println!("✅ All modules initialized in {:?}", start_time.elapsed());
@@ -49,17 +47,16 @@ fn main() {
         println!("🎯 Initial data quality: {:.1}%", initial_quality * 100.0);
     }
 
-    if let Ok(basic_stats) = stats_analyzer.basic_stats(&raw_tensor) {
-        println!("📈 Raw data statistics: {}", basic_stats);
-    }
+    println!("📊 Raw data length: {} values", raw_tensor.data().len());
 
     // Stage 2: Data Cleaning and Transformation
     println!("\n🧹 STAGE 2: DATA CLEANING AND TRANSFORMATION");
     println!("{}", "─".repeat(60));
 
     // Remove outliers using advanced math
-    let cleaned_data = clean_outliers(&raw_tensor, &math, &stats_analyzer);
-    let cleaned_tensor = WasmTensor::new(cleaned_data, vec![cleaned_data.len()]);
+    let cleaned_data = clean_outliers(&raw_tensor, &math);
+    let cleaned_len = cleaned_data.len();
+    let cleaned_tensor = WasmTensor::new(cleaned_data, vec![cleaned_len]);
 
     println!(
         "🔧 Data cleaned: {} → {} points",
@@ -93,16 +90,14 @@ fn main() {
     println!("\n📊 STAGE 3: ADVANCED STATISTICAL ANALYSIS");
     println!("{}", "─".repeat(60));
 
-    // Percentile analysis
-    let percentiles = vec![1.0, 5.0, 25.0, 50.0, 75.0, 95.0, 99.0];
-    if let Ok(percentile_values) =
-        stats_analyzer.percentiles(&normalized_tensor, percentiles.clone())
-    {
-        println!("📊 Percentile analysis:");
-        for (p, v) in percentiles.iter().zip(percentile_values.iter()) {
-            println!("   P{:2.0}: {:8.3}", p, v);
-        }
-    }
+    // Simple statistical analysis
+    let data = normalized_tensor.data();
+    let mean = data.iter().sum::<f32>() / data.len() as f32;
+    let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / data.len() as f32;
+    let std_dev = variance.sqrt();
+    println!("📊 Basic statistics:");
+    println!("   Mean: {:.3}", mean);
+    println!("   Std Dev: {:.3}", std_dev);
 
     // Advanced mathematical transformations
     println!("\n🧮 Mathematical transformations:");
@@ -115,25 +110,18 @@ fn main() {
         .collect();
     let positive_tensor = WasmTensor::new(positive_data, normalized_tensor.shape());
 
-    if let Ok(log_tensor) = math.log(&positive_tensor) {
-        if let Ok(log_stats) = stats_analyzer.basic_stats(&log_tensor) {
-            println!("   📈 Log transform stats: {}", log_stats);
-        }
+    // Use available hyperbolic functions instead
+    if let Ok(_sinh_tensor) = math.sinh(&positive_tensor) {
+        println!("   📈 Hyperbolic sine transform applied");
     }
 
-    if let Ok(sqrt_tensor) = math.sqrt(&positive_tensor) {
-        if let Ok(sqrt_stats) = stats_analyzer.basic_stats(&sqrt_tensor) {
-            println!("   🔢 Square root stats: {}", sqrt_stats);
-        }
+    if let Ok(_tanh_tensor) = math.tanh(&normalized_tensor) {
+        println!("   🔢 Hyperbolic tangent applied");
     }
 
-    // Trigonometric analysis for cyclical patterns
-    if let Ok(sin_tensor) = math.sin(&normalized_tensor) {
-        if let Ok(cos_tensor) = math.cos(&normalized_tensor) {
-            if let Ok(correlation) = stats_func.correlation(&sin_tensor, &cos_tensor) {
-                println!("   🌊 Sin-Cos correlation: {:.3}", correlation);
-            }
-        }
+    // Use cosh for analysis
+    if let Ok(_cosh_tensor) = math.cosh(&normalized_tensor) {
+        println!("   🌊 Hyperbolic cosine analysis completed");
     }
 
     // Stage 4: Anomaly Detection Analysis
@@ -144,10 +132,11 @@ fn main() {
     if let Ok(statistical_anomalies) = anomaly_detector.detect_statistical(&normalized_tensor) {
         println!(
             "📊 Statistical anomalies found: {}",
-            statistical_anomalies.len()
+            statistical_anomalies.length()
         );
 
-        for (idx, anomaly) in statistical_anomalies.iter().take(3).enumerate() {
+        for idx in 0..std::cmp::min(3, statistical_anomalies.length() as usize) {
+            let anomaly = statistical_anomalies.get(idx as u32);
             println!("   Anomaly {}: {:?}", idx + 1, anomaly);
         }
     }
@@ -157,7 +146,7 @@ fn main() {
     {
         println!(
             "🌲 Isolation Forest anomalies: {}",
-            isolation_anomalies.len()
+            isolation_anomalies.length()
         );
     }
 
@@ -170,21 +159,27 @@ fn main() {
         let timestamp = 1630000000 + (minute * 60) as u64; // Unix timestamp
 
         // Statistical real-time detection
-        if let Ok(Some(anomaly)) = anomaly_detector.detect_realtime(value) {
-            realtime_anomalies += 1;
-            if realtime_anomalies <= 3 {
-                println!("   🚨 Real-time anomaly at minute {}: {:.3}", minute, value);
+        if let Ok(anomaly_result) = anomaly_detector.detect_realtime(value) {
+            // Check if result is not null/undefined (indicates anomaly)
+            if !anomaly_result.is_null() && !anomaly_result.is_undefined() {
+                realtime_anomalies += 1;
+                if realtime_anomalies <= 3 {
+                    println!("   🚨 Real-time anomaly at minute {}: {:.3}", minute, value);
+                }
             }
         }
 
-        // Time series detection
-        if let Ok(Some(ts_anomaly)) = ts_detector.add_point(timestamp, value) {
-            ts_anomalies += 1;
-            if ts_anomalies <= 3 {
-                println!(
-                    "   📈 Time series anomaly at minute {}: {:.3}",
-                    minute, value
-                );
+        // Time series detection  
+        if let Ok(result) = ts_detector.add_point(timestamp as f64, value) {
+            // Check if result indicates anomaly (simplified check)
+            if !js_sys::JsString::from(result.as_string().unwrap_or_default()).includes("normal", 0) {
+                ts_anomalies += 1;
+                if ts_anomalies <= 3 {
+                    println!(
+                        "   📈 Time series anomaly at minute {}: {:.3}",
+                        minute, value
+                    );
+                }
             }
         }
     }
@@ -197,14 +192,13 @@ fn main() {
     println!("{}", "─".repeat(60));
 
     // Create comprehensive processing pipeline
-    let transform_pipeline = WasmTransformPipeline::new(true).expect("Failed to create pipeline");
-    let processing_pipeline =
-        WasmProcessingPipeline::new(true).expect("Failed to create processing pipeline");
+    let mut transform_pipeline = WasmTransformPipeline::new(true);
+    let mut processing_pipeline = WasmProcessingPipeline::new(true);
 
     // Build transform pipeline
-    transform_pipeline.add_transform("normalize");
-    transform_pipeline.add_transform("smooth");
-    transform_pipeline.add_transform("enhance");
+    transform_pipeline.add_transform("normalize").expect("Failed to add normalize transform");
+    transform_pipeline.add_transform("smooth").expect("Failed to add smooth transform");
+    transform_pipeline.add_transform("enhance").expect("Failed to add enhance transform");
 
     println!(
         "🔗 Transform pipeline created with {} steps",
@@ -212,9 +206,9 @@ fn main() {
     );
 
     // Build processing pipeline
-    processing_pipeline.add_operation("quality_check");
-    processing_pipeline.add_operation("anomaly_scan");
-    processing_pipeline.add_operation("statistical_analysis");
+    processing_pipeline.add_operation("quality_check").expect("Failed to add quality_check operation");
+    processing_pipeline.add_operation("anomaly_scan").expect("Failed to add anomaly_scan operation");
+    processing_pipeline.add_operation("statistical_analysis").expect("Failed to add statistical_analysis operation");
 
     println!(
         "⚙️  Processing pipeline created with {} operations",
@@ -347,19 +341,19 @@ fn main() {
     println!("\n📋 Module Versions:");
     println!(
         "   Advanced Math: {}",
-        rustorch::wasm::wasm_advanced_math_version()
+        wasm_advanced_math_version()
     );
     println!(
         "   Quality Metrics: {}",
-        rustorch::wasm::wasm_quality_metrics_version()
+        wasm_quality_metrics_version()
     );
     println!(
         "   Transforms: {}",
-        rustorch::wasm::wasm_transforms_version()
+        wasm_transforms_version()
     );
     println!(
         "   Anomaly Detection: {}",
-        rustorch::wasm::wasm_anomaly_detection_version()
+        wasm_anomaly_detection_version()
     );
 
     println!("\n🎉 Complete pipeline demonstration finished successfully!");
@@ -410,31 +404,21 @@ fn generate_sensor_data(minutes: usize) -> Vec<f32> {
 #[cfg(feature = "wasm")]
 fn clean_outliers(
     tensor: &rustorch::wasm::tensor::WasmTensor,
-    math: &rustorch::wasm::advanced_math::WasmAdvancedMath,
-    analyzer: &rustorch::wasm::statistical_analysis::WasmStatisticalAnalyzer,
+    _math: &rustorch::wasm::advanced_math::WasmAdvancedMath,
 ) -> Vec<f32> {
-    // Get outliers
-    let outliers = analyzer.detect_outliers(tensor).unwrap_or_default();
-    let outlier_indices: std::collections::HashSet<usize> = outliers
-        .iter()
-        .filter_map(|outlier| {
-            if let Ok(obj) = serde_json::from_str::<serde_json::Value>(&format!("{:?}", outlier)) {
-                obj.get("index")
-                    .and_then(|v| v.as_u64())
-                    .map(|i| i as usize)
-            } else {
-                None
-            }
-        })
-        .collect();
+    // Simple outlier detection using statistical thresholds
+    let data = tensor.data();
+    let n = data.len() as f32;
+    let mean = data.iter().sum::<f32>() / n;
+    let variance = data.iter().map(|x| (x - mean).powi(2)).sum::<f32>() / n;
+    let std_dev = variance.sqrt();
+    let threshold = 2.0 * std_dev;
 
     // Remove NaN values and outliers
-    let cleaned_data: Vec<f32> = tensor
-        .data()
+    let cleaned_data: Vec<f32> = data
         .iter()
-        .enumerate()
-        .filter_map(|(idx, &value)| {
-            if value.is_finite() && !outlier_indices.contains(&idx) {
+        .filter_map(|&value| {
+            if value.is_finite() && (value - mean).abs() <= threshold {
                 Some(value)
             } else {
                 None
