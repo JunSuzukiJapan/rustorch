@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Uniform Distribution - torch.distributions.Uniform compatible
 /// 一様分布 - torch.distributions.Uniform互換
 ///
@@ -50,7 +51,7 @@ where
         low: Tensor<T>,
         high: Tensor<T>,
         validate_args: bool,
-    ) -> Result<Self, DistributionError> {
+    ) -> RusTorchResult<Self> {
         if validate_args {
             // Validate low < high
             let low_data = low.data.as_slice().unwrap();
@@ -58,7 +59,7 @@ where
 
             for (i, (&l, &h)) in low_data.iter().zip(high_data.iter().cycle()).enumerate() {
                 if l >= h {
-                    return Err(DistributionError::InvalidParameter(format!(
+                    return Err(RusTorchError::invalid_parameter(&format!(
                         "low must be less than high, got low[{}] = {}, high[{}] = {}",
                         i, l, i, h
                     )));
@@ -80,7 +81,7 @@ where
 
     /// Create Uniform distribution with scalar parameters
     /// スカラーパラメータで一様分布を作成
-    pub fn from_scalars(low: T, high: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scalars(low: T, high: T, validate_args: bool) -> RusTorchResult<Self> {
         let low_tensor = Tensor::from_vec(vec![low], vec![]);
         let high_tensor = Tensor::from_vec(vec![high], vec![]);
         Self::new(low_tensor, high_tensor, validate_args)
@@ -88,13 +89,13 @@ where
 
     /// Standard uniform distribution on [0, 1)
     /// [0, 1)上の標準一様分布
-    pub fn standard(validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn standard(validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalars(T::zero(), T::one(), validate_args)
     }
 
     /// Symmetric uniform distribution around zero [-a, a)
     /// ゼロ周りの対称一様分布 [-a, a)
-    pub fn symmetric(half_width: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn symmetric(half_width: T, validate_args: bool) -> RusTorchResult<Self> {
         let neg_width = T::zero() - half_width;
         Self::from_scalars(neg_width, half_width, validate_args)
     }
@@ -119,7 +120,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Uniform<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
 
         // Generate uniform samples on [0, 1)
@@ -140,7 +141,7 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let low_data = self.low.data.as_slice().unwrap();
         let high_data = self.high.data.as_slice().unwrap();
@@ -163,7 +164,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let low_data = self.low.data.as_slice().unwrap();
         let high_data = self.high.data.as_slice().unwrap();
@@ -187,7 +188,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // ICDF = low + (high - low) * p
         let value_data = value.data.as_slice().unwrap();
         let low_data = self.low.data.as_slice().unwrap();
@@ -203,7 +204,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean = (low + high) / 2
         let low_data = self.low.data.as_slice().unwrap();
         let high_data = self.high.data.as_slice().unwrap();
@@ -218,7 +219,7 @@ where
         Ok(Tensor::from_vec(mean_data, self.low.shape().to_vec()))
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance = (high - low)² / 12
         let range = self.range();
         let range_data = range.data.as_slice().unwrap();
@@ -229,7 +230,7 @@ where
         Ok(Tensor::from_vec(var_data, range.shape().to_vec()))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = log(high - low)
         let range = self.range();
         let range_data = range.data.as_slice().unwrap();

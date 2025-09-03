@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Categorical Distribution - torch.distributions.Categorical compatible
 /// カテゴリカル分布 - torch.distributions.Categorical互換
 ///
@@ -51,7 +52,7 @@ where
     /// # Arguments
     /// * `probs` - Probability tensor with shape [..., num_categories]
     /// * `validate_args` - Whether to validate parameters
-    pub fn from_probs(probs: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_probs(probs: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_probability(&probs)?;
             Self::validate_probabilities_sum(&probs)?;
@@ -59,8 +60,8 @@ where
 
         let shape = probs.shape();
         if shape.is_empty() {
-            return Err(DistributionError::InvalidParameter(
-                "Probs tensor cannot be empty".to_string(),
+            return Err(RusTorchError::invalid_parameter(
+                "Probs tensor cannot be empty",
             ));
         }
 
@@ -87,11 +88,11 @@ where
     /// # Arguments
     /// * `logits` - Logits tensor with shape [..., num_categories]
     /// * `validate_args` - Whether to validate parameters
-    pub fn from_logits(logits: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_logits(logits: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         let shape = logits.shape();
         if shape.is_empty() {
-            return Err(DistributionError::InvalidParameter(
-                "Logits tensor cannot be empty".to_string(),
+            return Err(RusTorchError::invalid_parameter(
+                "Logits tensor cannot be empty",
             ));
         }
 
@@ -114,10 +115,10 @@ where
 
     /// Create uniform categorical distribution
     /// 一様カテゴリカル分布を作成
-    pub fn uniform(num_categories: usize, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn uniform(num_categories: usize, validate_args: bool) -> RusTorchResult<Self> {
         if num_categories == 0 {
-            return Err(DistributionError::InvalidParameter(
-                "Number of categories must be positive".to_string(),
+            return Err(RusTorchError::invalid_parameter(
+                "Number of categories must be positive",
             ));
         }
 
@@ -130,7 +131,7 @@ where
 
     /// Validate that probabilities sum to 1 (within tolerance)
     /// 確率の合計が1であることを検証（許容範囲内）
-    fn validate_probabilities_sum(probs: &Tensor<T>) -> Result<(), DistributionError> {
+    fn validate_probabilities_sum(probs: &Tensor<T>) -> RusTorchResult<()> {
         let shape = probs.shape();
         let num_categories = shape[shape.len() - 1];
         let batch_size: usize = shape[..shape.len() - 1].iter().product();
@@ -147,7 +148,7 @@ where
             }
 
             if (sum - T::one()).abs() > tolerance {
-                return Err(DistributionError::InvalidParameter(format!(
+                return Err(RusTorchError::invalid_parameter(&format!(
                     "Probabilities must sum to 1.0, got {}",
                     sum
                 )));
@@ -159,22 +160,22 @@ where
 
     /// Get probabilities (convert from logits if necessary)
     /// 確率を取得（必要に応じてロジットから変換）
-    pub fn get_probs(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_probs(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.probs, &self.logits) {
             (Some(probs), _) => Ok(probs.clone()),
             (None, Some(logits)) => {
                 // Convert logits to probabilities using softmax
                 self.softmax(logits)
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either probs or logits must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either probs or logits must be specified",
             )),
         }
     }
 
     /// Get logits (convert from probs if necessary)  
     /// ロジットを取得（必要に応じて確率から変換）
-    pub fn get_logits(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_logits(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.logits, &self.probs) {
             (Some(logits), _) => Ok(logits.clone()),
             (None, Some(probs)) => {
@@ -192,15 +193,15 @@ where
                     .collect();
                 Ok(Tensor::from_vec(logits_data, probs.shape().to_vec()))
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either probs or logits must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either probs or logits must be specified",
             )),
         }
     }
 
     /// Softmax function to convert logits to probabilities
     /// ロジットを確率に変換するソフトマックス関数
-    fn softmax(&self, logits: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn softmax(&self, logits: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let shape = logits.shape();
         let num_categories = shape[shape.len() - 1];
         let batch_size: usize = shape[..shape.len() - 1].iter().product();
@@ -240,7 +241,7 @@ where
 
     /// Compute cross entropy loss
     /// クロスエントロピー損失を計算
-    pub fn cross_entropy(&self, target: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    pub fn cross_entropy(&self, target: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let log_probs = self.log_prob(target)?;
         let log_prob_data = log_probs.data.as_slice().unwrap();
         let ce_data: Vec<T> = log_prob_data.iter().map(|&lp| -lp).collect();
@@ -252,7 +253,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Categorical<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
         let probs = self.get_probs()?;
 
@@ -290,7 +291,7 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
         let value_data = value.data.as_slice().unwrap();
@@ -304,7 +305,7 @@ where
             let category = category_float.to_usize().unwrap_or(0);
 
             if category >= self.num_categories {
-                return Err(DistributionError::InvalidParameter(format!(
+                return Err(RusTorchError::invalid_parameter(&format!(
                     "Category {} out of range [0, {})",
                     category, self.num_categories
                 )));
@@ -325,7 +326,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
         let value_data = value.data.as_slice().unwrap();
@@ -352,13 +353,13 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, _value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
-        Err(DistributionError::UnsupportedOperation(
-            "Inverse CDF not well-defined for discrete distributions".to_string(),
+    fn icdf(&self, _value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        Err(RusTorchError::UnsupportedOperation(
+            "Inverse CDF not well-defined for discrete distributions",
         ))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean of categorical distribution = Σ(k * p_k) for k=0,1,...,K-1
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
@@ -389,7 +390,7 @@ where
         Ok(Tensor::from_vec(result_data, result_shape))
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance = E[X²] - E[X]²
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
@@ -425,7 +426,7 @@ where
         Ok(Tensor::from_vec(result_data, result_shape))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = -Σ(p_k * log(p_k))
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();

@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Gamma Distribution - torch.distributions.Gamma compatible
 /// ガンマ分布 - torch.distributions.Gamma互換
 ///
@@ -56,7 +57,7 @@ where
         concentration: Tensor<T>,
         rate: Tensor<T>,
         validate_args: bool,
-    ) -> Result<Self, DistributionError> {
+    ) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&concentration, "concentration")?;
             DistributionUtils::validate_positive(&rate, "rate")?;
@@ -85,7 +86,7 @@ where
         concentration: Tensor<T>,
         scale: Tensor<T>,
         validate_args: bool,
-    ) -> Result<Self, DistributionError> {
+    ) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&concentration, "concentration")?;
             DistributionUtils::validate_positive(&scale, "scale")?;
@@ -105,7 +106,7 @@ where
 
     /// Create standard Gamma distribution (shape=1, scale=1) - exponential
     /// 標準ガンマ分布（形状=1、スケール=1）- 指数分布
-    pub fn exponential(rate: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn exponential(rate: T, validate_args: bool) -> RusTorchResult<Self> {
         let concentration = Tensor::from_vec(vec![T::one()], vec![]);
         let rate_tensor = Tensor::from_vec(vec![rate], vec![]);
         Self::from_concentration_rate(concentration, rate_tensor, validate_args)
@@ -113,7 +114,7 @@ where
 
     /// Get rate parameter (convert from scale if necessary)
     /// 率パラメータを取得（必要に応じてスケールから変換）
-    pub fn get_rate(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_rate(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.rate, &self.scale) {
             (Some(rate), _) => Ok(rate.clone()),
             (None, Some(scale)) => {
@@ -122,15 +123,15 @@ where
                 let rate_data: Vec<T> = scale_data.iter().map(|&s| T::one() / s).collect();
                 Ok(Tensor::from_vec(rate_data, scale.shape().to_vec()))
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either rate or scale must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either rate or scale must be specified",
             )),
         }
     }
 
     /// Get scale parameter (convert from rate if necessary)
     /// スケールパラメータを取得（必要に応じて率から変換）
-    pub fn get_scale(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_scale(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.scale, &self.rate) {
             (Some(scale), _) => Ok(scale.clone()),
             (None, Some(rate)) => {
@@ -139,8 +140,8 @@ where
                 let scale_data: Vec<T> = rate_data.iter().map(|&r| T::one() / r).collect();
                 Ok(Tensor::from_vec(scale_data, rate.shape().to_vec()))
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either rate or scale must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either rate or scale must be specified",
             )),
         }
     }
@@ -164,7 +165,7 @@ where
 
     /// Gamma function PDF normalization constant
     /// ガンマ関数PDF正規化定数
-    fn log_normalizing_constant(&self) -> Result<Tensor<T>, DistributionError> {
+    fn log_normalizing_constant(&self) -> RusTorchResult<Tensor<T>> {
         let concentration_data = self.concentration.data.as_slice().unwrap();
         let rate = self.get_rate()?;
         let rate_data = rate.data.as_slice().unwrap();
@@ -231,7 +232,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Gamma<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
         let concentration_data = self.concentration.data.as_slice().unwrap();
         let scale = self.get_scale()?;
@@ -253,7 +254,7 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // log p(x) = (α-1)*log(x) - βx + α*log(β) - log(Γ(α))
         let concentration_data = self.concentration.data.as_slice().unwrap();
         let rate = self.get_rate()?;
@@ -280,21 +281,21 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, _value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, _value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Gamma CDF requires incomplete gamma function - complex to implement
-        Err(DistributionError::UnsupportedOperation(
-            "Gamma CDF requires incomplete gamma function (not implemented)".to_string(),
+        Err(RusTorchError::UnsupportedOperation(
+            "Gamma CDF requires incomplete gamma function (not implemented)",
         ))
     }
 
-    fn icdf(&self, _value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, _value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // Gamma inverse CDF is very complex
-        Err(DistributionError::UnsupportedOperation(
-            "Gamma inverse CDF not implemented".to_string(),
+        Err(RusTorchError::UnsupportedOperation(
+            "Gamma inverse CDF not implemented",
         ))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean of Gamma(α, β) = α/β = α*θ
         let scale = self.get_scale()?;
         let concentration_data = self.concentration.data.as_slice().unwrap();
@@ -312,7 +313,7 @@ where
         ))
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance of Gamma(α, β) = α/β² = α*θ²
         let scale = self.get_scale()?;
         let concentration_data = self.concentration.data.as_slice().unwrap();
@@ -330,7 +331,7 @@ where
         ))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = α - log(β) + log(Γ(α)) + (1-α)*ψ(α)
         // Simplified without digamma function: α + log(θ) + log(Γ(α))
         let concentration_data = self.concentration.data.as_slice().unwrap();

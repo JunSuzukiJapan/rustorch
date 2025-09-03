@@ -8,6 +8,7 @@
 
 use super::LegacyDataset;
 use crate::tensor::Tensor;
+use crate::error::{RusTorchError, RusTorchResult};
 use num_traits::Float;
 use std::collections::HashMap;
 use std::fs::File;
@@ -37,7 +38,7 @@ impl<T: Float + num_traits::FromPrimitive + std::str::FromStr + 'static> CSVData
         target_cols: &[usize],
         has_header: bool,
         delimiter: char,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let mut lines = reader.lines();
@@ -256,7 +257,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> ImageDataset<T> {
         root_dir: P,
         image_size: (usize, usize),
         channels: usize,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<Self> {
         let root_path = root_dir.as_ref();
         let mut image_paths = Vec::new();
         let mut labels = Vec::new();
@@ -511,7 +512,7 @@ impl<T: Float + num_traits::FromPrimitive + 'static> MemoryMappedDataset<T> {
     pub fn new<P: AsRef<Path>>(
         file_path: P,
         sample_size: usize,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<Self> {
         let path = file_path.as_ref().to_path_buf();
         let metadata = std::fs::metadata(&path)?;
         let file_size = metadata.len() as usize;

@@ -374,7 +374,7 @@ pub mod prelude {
     pub use crate::distributions::{
         Bernoulli, Beta, Categorical, Exponential, Gamma, Normal, Uniform,
     };
-    pub use crate::distributions::{Distribution, DistributionError, DistributionTrait};
+    pub use crate::distributions::{Distribution, DistributionTrait};
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
     pub use crate::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};

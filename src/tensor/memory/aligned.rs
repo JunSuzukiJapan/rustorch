@@ -19,14 +19,14 @@ pub struct SimdAllocator;
 impl SimdAllocator {
     /// Allocate SIMD-aligned memory for f32 array
     /// f32配列用のSIMDアライメントメモリを割り当て
-    pub fn alloc_f32(len: usize) -> Result<NonNull<f32>, Box<dyn std::error::Error>> {
+    pub fn alloc_f32(len: usize) -> RusTorchResult<NonNull<f32>> {
         let layout = Layout::from_size_align(len * std::mem::size_of::<f32>(), SIMD_ALIGNMENT)
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            .map_err(|e| RusTorchError::memory_alloc(len * std::mem::size_of::<f32>(), "cpu"))?;
 
         unsafe {
             let ptr = alloc_zeroed(layout);
             if ptr.is_null() {
-                Err("Allocation failed".into())
+                Err(RusTorchError::memory_alloc(len * std::mem::size_of::<f32>(), "cpu"))
             } else {
                 Ok(NonNull::new_unchecked(ptr as *mut f32))
             }
@@ -62,7 +62,7 @@ unsafe impl<T: Float + Sync> Sync for SimdTensor<T> {}
 impl<T: Float + Clone + 'static> SimdTensor<T> {
     /// Create new SIMD-aligned tensor (f32 only for now)
     /// 新しいSIMDアライメントテンソルを作成（現在はf32のみ）
-    pub fn zeros(shape: &[usize]) -> Result<Self, Box<dyn std::error::Error>>
+    pub fn zeros(shape: &[usize]) -> RusTorchResult<Self>
     where
         T: 'static,
     {
@@ -328,7 +328,7 @@ impl SimdTensor<f32> {
 impl<T: Float + Clone + 'static> Tensor<T> {
     /// Convert to SIMD-aligned tensor (f32 only)
     /// SIMDアライメントテンソルに変換（f32のみ）
-    pub fn to_simd_aligned(&self) -> Result<SimdTensor<T>, Box<dyn std::error::Error>> {
+    pub fn to_simd_aligned(&self) -> RusTorchResult<SimdTensor<T>> {
         let mut simd_tensor = SimdTensor::zeros(self.data.shape())?;
 
         if let (Some(self_slice), Some(simd_slice)) =
@@ -396,7 +396,7 @@ impl SimdMemoryPool {
     pub fn allocate(
         &mut self,
         shape: &[usize],
-    ) -> Result<SimdTensor<f32>, Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<SimdTensor<f32>> {
         let total_elements: usize = shape.iter().product();
         let pool_index = self.get_pool_index(total_elements);
 

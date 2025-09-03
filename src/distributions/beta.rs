@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Beta Distribution - torch.distributions.Beta compatible
 /// ベータ分布 - torch.distributions.Beta互換
 ///
@@ -50,7 +51,7 @@ where
         concentration1: Tensor<T>,
         concentration0: Tensor<T>,
         validate_args: bool,
-    ) -> Result<Self, DistributionError> {
+    ) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&concentration1, "concentration1")?;
             DistributionUtils::validate_positive(&concentration0, "concentration0")?;
@@ -71,7 +72,7 @@ where
 
     /// Create Beta distribution with scalar parameters
     /// スカラーパラメータでベータ分布を作成
-    pub fn from_scalars(alpha: T, beta: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scalars(alpha: T, beta: T, validate_args: bool) -> RusTorchResult<Self> {
         let alpha_tensor = Tensor::from_vec(vec![alpha], vec![]);
         let beta_tensor = Tensor::from_vec(vec![beta], vec![]);
         Self::new(alpha_tensor, beta_tensor, validate_args)
@@ -79,19 +80,19 @@ where
 
     /// Uniform Beta distribution (α=1, β=1) - equivalent to Uniform(0,1)
     /// 一様ベータ分布 (α=1, β=1) - Uniform(0,1)と等価
-    pub fn uniform(validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn uniform(validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalars(T::one(), T::one(), validate_args)
     }
 
     /// Symmetric Beta distribution with equal parameters (α=β)
     /// 等しいパラメータを持つ対称ベータ分布 (α=β)
-    pub fn symmetric(concentration: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn symmetric(concentration: T, validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalars(concentration, concentration, validate_args)
     }
 
     /// Log-beta function: log(B(α, β)) = log(Γ(α)) + log(Γ(β)) - log(Γ(α+β))
     /// ログベータ関数: log(B(α, β)) = log(Γ(α)) + log(Γ(β)) - log(Γ(α+β))
-    fn log_beta(&self) -> Result<Tensor<T>, DistributionError> {
+    fn log_beta(&self) -> RusTorchResult<Tensor<T>> {
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
 
@@ -164,7 +165,7 @@ where
 
     /// Sample using rejection sampling (for general case)
     /// 棄却サンプリングを使用してサンプル生成（一般的なケース）
-    fn sample_rejection(&self, shape: &[usize]) -> Result<Tensor<T>, DistributionError> {
+    fn sample_rejection(&self, shape: &[usize]) -> RusTorchResult<Tensor<T>> {
         let total_size: usize = shape.iter().product();
         let mut samples = Vec::with_capacity(total_size);
 
@@ -230,12 +231,12 @@ impl<T: Float + 'static> DistributionTrait<T> for Beta<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
         self.sample_rejection(&sample_shape)
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
@@ -262,7 +263,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
@@ -286,14 +287,14 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, _value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, _value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // ICDF for Beta distribution requires numerical methods
-        Err(DistributionError::UnsupportedOperation(
-            "ICDF for Beta distribution not implemented - requires numerical methods".to_string(),
+        Err(RusTorchError::UnsupportedOperation(
+            "ICDF for Beta distribution not implemented - requires numerical methods",
         ))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean = α / (α + β)
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
@@ -310,7 +311,7 @@ where
         ))
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance = (α*β) / ((α+β)²*(α+β+1))
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
@@ -330,7 +331,7 @@ where
         ))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         let alpha_data = self.concentration1.data.as_slice().unwrap();
         let beta_data = self.concentration0.data.as_slice().unwrap();
         let log_beta_vals = self.log_beta()?;

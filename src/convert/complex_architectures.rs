@@ -2,7 +2,8 @@
 //! PyTorch変換の複雑アーキテクチャサポート
 
 use crate::formats::pytorch::TensorData;
-use crate::convert::{SimpleLayerInfo, SimpleConversionError};
+use crate::convert::SimpleLayerInfo;
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use std::collections::HashMap;
 
@@ -300,7 +301,7 @@ impl ComplexArchitectureParser {
     /// レイヤーパラメータからtransformerアーキテクチャを解析
     pub fn parse_transformer(
         layers: &HashMap<String, SimpleLayerInfo>
-    ) -> Result<TransformerComponents, SimpleConversionError> {
+    ) -> Result<TransformerComponents, RusTorchError> {
         let mut attention_layers = Vec::new();
         let mut ffn_layers = Vec::new();
         let mut layer_norms = Vec::new();
@@ -340,7 +341,7 @@ impl ComplexArchitectureParser {
     /// レイヤーパラメータからCNNアーキテクチャを解析
     pub fn parse_cnn(
         layers: &HashMap<String, SimpleLayerInfo>
-    ) -> Result<CNNComponents, SimpleConversionError> {
+    ) -> Result<CNNComponents, RusTorchError> {
         let mut conv_layers = Vec::new();
         let mut pool_layers = Vec::new();
         let mut batch_norms = Vec::new();
@@ -386,27 +387,27 @@ impl ComplexArchitectureParser {
     fn parse_attention_layer(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<MultiheadAttentionInfo, SimpleConversionError> {
+    ) -> Result<MultiheadAttentionInfo, RusTorchError> {
         // Extract attention parameters from tensors
         let q_proj = layer_info.tensors.get("q_proj.weight")
             .or_else(|| layer_info.tensors.get("query.weight"))
             .or_else(|| layer_info.tensors.get("wq.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("query projection".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("query projection".to_string()))?;
 
         let k_proj = layer_info.tensors.get("k_proj.weight")
             .or_else(|| layer_info.tensors.get("key.weight"))
             .or_else(|| layer_info.tensors.get("wk.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("key projection".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("key projection".to_string()))?;
 
         let v_proj = layer_info.tensors.get("v_proj.weight")
             .or_else(|| layer_info.tensors.get("value.weight"))
             .or_else(|| layer_info.tensors.get("wv.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("value projection".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("value projection".to_string()))?;
 
         let out_proj = layer_info.tensors.get("out_proj.weight")
             .or_else(|| layer_info.tensors.get("output.weight"))
             .or_else(|| layer_info.tensors.get("wo.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("output projection".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("output projection".to_string()))?;
 
         // Infer dimensions from weight shapes
         let embed_dim = q_proj.shape()[1];
@@ -461,17 +462,17 @@ impl ComplexArchitectureParser {
     fn parse_ffn_layer(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<FeedForwardInfo, SimpleConversionError> {
+    ) -> Result<FeedForwardInfo, RusTorchError> {
         // Look for linear layer pairs
         let linear1 = layer_info.tensors.get("linear1.weight")
             .or_else(|| layer_info.tensors.get("fc1.weight"))
             .or_else(|| layer_info.tensors.get("w1.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("first linear layer".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("first linear layer".to_string()))?;
 
         let linear2 = layer_info.tensors.get("linear2.weight")
             .or_else(|| layer_info.tensors.get("fc2.weight"))
             .or_else(|| layer_info.tensors.get("w2.weight"))
-            .ok_or_else(|| SimpleConversionError::MissingParameter("second linear layer".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("second linear layer".to_string()))?;
 
         let input_dim = linear1.shape()[1];
         let hidden_dim = linear1.shape()[0];
@@ -500,9 +501,9 @@ impl ComplexArchitectureParser {
     fn parse_layer_norm(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<LayerNormInfo, SimpleConversionError> {
+    ) -> Result<LayerNormInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("layer norm weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("layer norm weight".to_string()))?;
 
         let bias = layer_info.tensors.get("bias");
         let normalized_shape = weight.shape().to_vec();
@@ -529,9 +530,9 @@ impl ComplexArchitectureParser {
     fn parse_position_embedding(
         _layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<PositionEmbeddingInfo, SimpleConversionError> {
+    ) -> Result<PositionEmbeddingInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("position embedding weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("position embedding weight".to_string()))?;
 
         let shape = weight.shape();
         let max_length = shape[0];
@@ -558,9 +559,9 @@ impl ComplexArchitectureParser {
     fn parse_token_embedding(
         _layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<TokenEmbeddingInfo, SimpleConversionError> {
+    ) -> Result<TokenEmbeddingInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("token embedding weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("token embedding weight".to_string()))?;
 
         let shape = weight.shape();
         let vocab_size = shape[0];
@@ -584,9 +585,9 @@ impl ComplexArchitectureParser {
     fn parse_conv_layer(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<ConvLayerInfo, SimpleConversionError> {
+    ) -> Result<ConvLayerInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("conv weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("conv weight".to_string()))?;
 
         let shape = weight.shape();
         let out_channels = shape[0];
@@ -621,7 +622,7 @@ impl ComplexArchitectureParser {
     fn parse_pool_layer(
         layer_name: &str,
         _layer_info: &SimpleLayerInfo
-    ) -> Result<PoolLayerInfo, SimpleConversionError> {
+    ) -> Result<PoolLayerInfo, RusTorchError> {
         let pool_type = if layer_name.contains("max") {
             PoolType::MaxPool
         } else if layer_name.contains("avg") {
@@ -657,18 +658,18 @@ impl ComplexArchitectureParser {
     fn parse_batch_norm(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<BatchNormInfo, SimpleConversionError> {
+    ) -> Result<BatchNormInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("batch norm weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("batch norm weight".to_string()))?;
 
         let bias = layer_info.tensors.get("bias")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("batch norm bias".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("batch norm bias".to_string()))?;
 
         let running_mean = layer_info.tensors.get("running_mean")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("batch norm running mean".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("batch norm running mean".to_string()))?;
 
         let running_var = layer_info.tensors.get("running_var")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("batch norm running var".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("batch norm running var".to_string()))?;
 
         let num_features = weight.shape()[0];
 
@@ -696,9 +697,9 @@ impl ComplexArchitectureParser {
     fn parse_classifier(
         layer_name: &str,
         layer_info: &SimpleLayerInfo
-    ) -> Result<ClassifierInfo, SimpleConversionError> {
+    ) -> Result<ClassifierInfo, RusTorchError> {
         let weight = layer_info.tensors.get("weight")
-            .ok_or_else(|| SimpleConversionError::MissingParameter("classifier weight".to_string()))?;
+            .ok_or_else(|| RusTorchError::import_error("classifier weight".to_string()))?;
 
         let shape = weight.shape();
         let num_classes = shape[0];

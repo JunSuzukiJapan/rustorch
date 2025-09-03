@@ -24,7 +24,8 @@ pub mod uniform;
 pub use bernoulli::Bernoulli;
 pub use beta::Beta;
 pub use categorical::Categorical;
-pub use distribution::{Distribution, DistributionError};
+pub use distribution::Distribution;
+use crate::error::{RusTorchError, RusTorchResult};
 pub use exponential::Exponential;
 pub use gamma::Gamma;
 pub use normal::Normal;
@@ -38,21 +39,21 @@ use num_traits::Float;
 pub trait DistributionTrait<T: Float + 'static> {
     /// Sample from the distribution
     /// 分布からサンプルを生成
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError>;
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>>;
 
     /// Sample with replacement
     /// 復元抽出でサンプル
-    fn sample_n(&self, n: usize) -> Result<Tensor<T>, DistributionError> {
+    fn sample_n(&self, n: usize) -> RusTorchResult<Tensor<T>> {
         self.sample(Some(&[n]))
     }
 
     /// Compute log probability density/mass function
     /// 対数確率密度/質量関数を計算
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError>;
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>>;
 
     /// Compute probability density/mass function
     /// 確率密度/質量関数を計算
-    fn prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let log_p = self.log_prob(value)?;
         // Apply exp to convert log prob to prob
         let data = log_p.data.as_slice().unwrap();
@@ -62,23 +63,23 @@ pub trait DistributionTrait<T: Float + 'static> {
 
     /// Compute cumulative distribution function
     /// 累積分布関数を計算
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError>;
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>>;
 
     /// Compute inverse cumulative distribution function (quantile function)
     /// 逆累積分布関数（分位点関数）を計算
-    fn icdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError>;
+    fn icdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>>;
 
     /// Get distribution mean
     /// 分布の平均を取得
-    fn mean(&self) -> Result<Tensor<T>, DistributionError>;
+    fn mean(&self) -> RusTorchResult<Tensor<T>>;
 
     /// Get distribution variance
     /// 分布の分散を取得
-    fn variance(&self) -> Result<Tensor<T>, DistributionError>;
+    fn variance(&self) -> RusTorchResult<Tensor<T>>;
 
     /// Get distribution standard deviation
     /// 分布の標準偏差を取得
-    fn stddev(&self) -> Result<Tensor<T>, DistributionError> {
+    fn stddev(&self) -> RusTorchResult<Tensor<T>> {
         let var = self.variance()?;
         let data = var.data.as_slice().unwrap();
         let stddev_data: Vec<T> = data.iter().map(|&x| x.sqrt()).collect();
@@ -87,7 +88,7 @@ pub trait DistributionTrait<T: Float + 'static> {
 
     /// Get distribution entropy
     /// 分布のエントロピーを取得
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError>;
+    fn entropy(&self) -> RusTorchResult<Tensor<T>>;
 }
 
 /// Validation utilities for distributions
@@ -99,11 +100,11 @@ impl DistributionUtils {
     /// 確率パラメータの検証 (0 <= p <= 1)
     pub fn validate_probability<T: Float + std::fmt::Display>(
         p: &Tensor<T>,
-    ) -> Result<(), DistributionError> {
+    ) -> RusTorchResult<()> {
         let data = p.data.as_slice().unwrap();
         for &val in data {
             if val < T::zero() || val > T::one() {
-                return Err(DistributionError::InvalidParameter(format!(
+                return Err(RusTorchError::invalid_parameter(&format!(
                     "Probability must be in [0, 1], got {}",
                     val
                 )));
@@ -117,11 +118,11 @@ impl DistributionUtils {
     pub fn validate_positive<T: Float + std::fmt::Display>(
         param: &Tensor<T>,
         name: &str,
-    ) -> Result<(), DistributionError> {
+    ) -> RusTorchResult<()> {
         let data = param.data.as_slice().unwrap();
         for &val in data {
             if val <= T::zero() {
-                return Err(DistributionError::InvalidParameter(format!(
+                return Err(RusTorchError::invalid_parameter(&format!(
                     "{} must be positive, got {}",
                     name, val
                 )));
@@ -135,11 +136,11 @@ impl DistributionUtils {
     pub fn validate_non_negative<T: Float + std::fmt::Display>(
         param: &Tensor<T>,
         name: &str,
-    ) -> Result<(), DistributionError> {
+    ) -> RusTorchResult<()> {
         let data = param.data.as_slice().unwrap();
         for &val in data {
             if val < T::zero() {
-                return Err(DistributionError::InvalidParameter(format!(
+                return Err(RusTorchError::invalid_parameter(&format!(
                     "{} must be non-negative, got {}",
                     name, val
                 )));

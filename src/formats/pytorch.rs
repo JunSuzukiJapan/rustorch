@@ -1,6 +1,7 @@
 //! PyTorch compatibility format for RusTorch
 //! RusTorch向けPyTorch互換フォーマット
 
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
@@ -78,7 +79,7 @@ impl StateDict {
 
     /// Save state dict to file (JSON format)
     /// ステートディクトをファイルに保存（JSON形式）
-    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save_to_file<P: AsRef<Path>>(&self, path: P) -> RusTorchResult<()> {
         let file = File::create(path)?;
         let writer = BufWriter::new(file);
         serde_json::to_writer_pretty(writer, self)?;
@@ -87,7 +88,7 @@ impl StateDict {
 
     /// Load state dict from file (JSON format)
     /// ファイルからステートディクトを読み込み（JSON形式）
-    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> RusTorchResult<Self> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         let state_dict = serde_json::from_reader(reader)?;
@@ -191,13 +192,13 @@ impl PyTorchModel {
 
     /// Save model to file
     /// モデルをファイルに保存
-    pub fn save<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save<P: AsRef<Path>>(&self, path: P) -> RusTorchResult<()> {
         self.state_dict.save_to_file(path)
     }
 
     /// Load model from file
     /// ファイルからモデルを読み込み
-    pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn load<P: AsRef<Path>>(path: P) -> RusTorchResult<Self> {
         let state_dict = StateDict::load_from_file(path)?;
         Ok(Self::from_state_dict(state_dict))
     }

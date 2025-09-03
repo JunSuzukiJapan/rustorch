@@ -498,6 +498,14 @@ impl RusTorchError {
     }
 
     // === Parameter Operations ===
+    /// Create invalid parameter error (simple)
+    pub fn invalid_parameter(message: impl Into<String>) -> Self {
+        RusTorchError::InvalidParameters {
+            operation: "parameter".into(),
+            message: message.into(),
+        }
+    }
+
     /// Create invalid parameters error
     pub fn invalid_params(operation: impl Into<String>, message: impl Into<String>) -> Self {
         RusTorchError::InvalidParameters {
@@ -775,8 +783,33 @@ impl RusTorchError {
     }
 }
 
-// All individual From implementations removed - using unified RusTorchError only
-// 全ての個別From実装削除 - 統一RusTorchErrorのみ使用
+// From trait implementations for common error types
+impl From<String> for RusTorchError {
+    fn from(message: String) -> Self {
+        RusTorchError::model_io(message)
+    }
+}
 
-// Format-specific error conversions removed - using unified error handling
-// フォーマット固有エラー変換削除 - 統一エラーハンドリング使用
+impl From<&str> for RusTorchError {
+    fn from(message: &str) -> Self {
+        RusTorchError::model_io(message.to_string())
+    }
+}
+
+impl From<serde_json::Error> for RusTorchError {
+    fn from(err: serde_json::Error) -> Self {
+        RusTorchError::model_io(format!("Serialization error: {}", err))
+    }
+}
+
+impl From<crate::models::serialization::SaveError> for RusTorchError {
+    fn from(err: crate::models::serialization::SaveError) -> Self {
+        RusTorchError::model_io(format!("Save error: {}", err))
+    }
+}
+
+impl From<crate::models::serialization::LoadError> for RusTorchError {
+    fn from(err: crate::models::serialization::LoadError) -> Self {
+        RusTorchError::model_io(format!("Load error: {}", err))
+    }
+}

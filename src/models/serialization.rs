@@ -2,6 +2,7 @@
 //! Model serialization and deserialization
 
 use crate::autograd::Variable;
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::models::Model;
 use num_traits::Float;
 use serde::{Deserialize, Serialize};
@@ -462,7 +463,7 @@ impl ModelConverter {
         output_path: &Path,
         input_format: SerializationFormat,
         _output_format: SerializationFormat,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<()> {
         let state_dict = ModelLoader::load(input_path, input_format)?;
         ModelSaver::save_json(&state_dict, output_path)?;
         Ok(())
@@ -474,7 +475,7 @@ impl ModelConverter {
         input_path: &Path,
         output_path: &Path,
         compression_ratio: f64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> RusTorchResult<()> {
         let mut state_dict = ModelLoader::load(input_path, SerializationFormat::Json)?;
 
         // パラメータを量子化（簡略化実装）

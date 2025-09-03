@@ -3,60 +3,9 @@
 ///
 /// This module defines the core Distribution trait and error types
 /// used throughout the distributions system.
+use crate::error::{RusTorchError, RusTorchResult};
 use std::fmt;
 
-/// Distribution error types
-/// 分布エラー型
-#[derive(Debug, Clone)]
-pub enum DistributionError {
-    /// Invalid parameter value
-    /// 無効なパラメータ値
-    InvalidParameter(String),
-
-    /// Shape mismatch between tensors
-    /// テンソル間の形状不一致
-    ShapeMismatch {
-        /// Expected shape
-        expected: Vec<usize>,
-        /// Actual shape received
-        got: Vec<usize>,
-    },
-
-    /// Sampling error
-    /// サンプリングエラー
-    SamplingError(String),
-
-    /// Numerical computation error
-    /// 数値計算エラー
-    NumericalError(String),
-
-    /// Unsupported operation
-    /// サポートされていない操作
-    UnsupportedOperation(String),
-
-    /// Tensor operation error
-    /// テンソル操作エラー
-    TensorError(String),
-}
-
-impl fmt::Display for DistributionError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DistributionError::InvalidParameter(msg) => write!(f, "Invalid parameter: {}", msg),
-            DistributionError::ShapeMismatch { expected, got } => {
-                write!(f, "Shape mismatch: expected {:?}, got {:?}", expected, got)
-            }
-            DistributionError::SamplingError(msg) => write!(f, "Sampling error: {}", msg),
-            DistributionError::NumericalError(msg) => write!(f, "Numerical error: {}", msg),
-            DistributionError::UnsupportedOperation(msg) => {
-                write!(f, "Unsupported operation: {}", msg)
-            }
-            DistributionError::TensorError(msg) => write!(f, "Tensor error: {}", msg),
-        }
-    }
-}
-
-impl std::error::Error for DistributionError {}
 
 /// Base Distribution struct for common functionality
 /// 共通機能のための基本分布構造体
@@ -107,12 +56,9 @@ impl Distribution {
         &self,
         shape: &[usize],
         expected: &[usize],
-    ) -> Result<(), DistributionError> {
+    ) -> Result<(), RusTorchError> {
         if shape != expected {
-            Err(DistributionError::ShapeMismatch {
-                expected: expected.to_vec(),
-                got: shape.to_vec(),
-            })
+            Err(RusTorchError::shape_mismatch(&expected, &shape))
         } else {
             Ok(())
         }
@@ -123,7 +69,7 @@ impl Distribution {
     pub fn broadcast_shapes(
         shape1: &[usize],
         shape2: &[usize],
-    ) -> Result<Vec<usize>, DistributionError> {
+    ) -> Result<Vec<usize>, RusTorchError> {
         let max_len = shape1.len().max(shape2.len());
         let mut result = vec![1; max_len];
 
@@ -140,10 +86,7 @@ impl Distribution {
             } else if dim2 == 1 || dim1 == dim2 {
                 result[i] = dim1;
             } else {
-                return Err(DistributionError::ShapeMismatch {
-                    expected: shape1.to_vec(),
-                    got: shape2.to_vec(),
-                });
+                return Err(RusTorchError::shape_mismatch(&shape1, &shape2));
             }
         }
 
@@ -169,7 +112,7 @@ pub struct DistributionRegistry;
 impl DistributionRegistry {
     /// Get distribution name for a given type
     /// 指定された型の分布名を取得
-    pub fn get_distribution_name(dist_type: &str) -> Result<String, DistributionError> {
+    pub fn get_distribution_name(dist_type: &str) -> Result<String, RusTorchError> {
         match dist_type.to_lowercase().as_str() {
             "normal" | "gaussian" => Ok("Normal".to_string()),
             "bernoulli" | "binomial" => Ok("Bernoulli".to_string()),
@@ -178,7 +121,7 @@ impl DistributionRegistry {
             "uniform" => Ok("Uniform".to_string()),
             "beta" => Ok("Beta".to_string()),
             "exponential" => Ok("Exponential".to_string()),
-            _ => Err(DistributionError::UnsupportedOperation(format!(
+            _ => Err(RusTorchError::invalid_parameter(&format!(
                 "Unknown distribution type: {}",
                 dist_type
             ))),

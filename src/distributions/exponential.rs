@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Exponential Distribution - torch.distributions.Exponential compatible
 /// 指数分布 - torch.distributions.Exponential互換
 ///
@@ -40,7 +41,7 @@ where
     /// # Arguments
     /// * `rate` - Rate (λ) parameter tensor
     /// * `validate_args` - Whether to validate parameters
-    pub fn new(rate: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn new(rate: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&rate, "rate")?;
         }
@@ -57,20 +58,20 @@ where
 
     /// Create Exponential distribution with scalar rate
     /// スカラーレートで指数分布を作成
-    pub fn from_scalar(rate: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scalar(rate: T, validate_args: bool) -> RusTorchResult<Self> {
         let rate_tensor = Tensor::from_vec(vec![rate], vec![]);
         Self::new(rate_tensor, validate_args)
     }
 
     /// Standard exponential distribution (λ=1)
     /// 標準指数分布 (λ=1)
-    pub fn standard(validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn standard(validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalar(T::one(), validate_args)
     }
 
     /// Create exponential distribution from scale parameter (scale = 1/rate)
     /// スケールパラメータから指数分布を作成 (scale = 1/rate)
-    pub fn from_scale(scale: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scale(scale: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&scale, "scale")?;
         }
@@ -85,7 +86,7 @@ where
 
     /// Create exponential distribution from scalar scale parameter
     /// スカラースケールパラメータから指数分布を作成
-    pub fn from_scale_scalar(scale: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scale_scalar(scale: T, validate_args: bool) -> RusTorchResult<Self> {
         let scale_tensor = Tensor::from_vec(vec![scale], vec![]);
         Self::from_scale(scale_tensor, validate_args)
     }
@@ -103,7 +104,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Exponential<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
 
         // Use inverse transform sampling: X = -ln(1-U)/λ where U ~ Uniform(0,1)
@@ -129,7 +130,7 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let rate_data = self.rate.data.as_slice().unwrap();
 
@@ -150,7 +151,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let rate_data = self.rate.data.as_slice().unwrap();
 
@@ -170,7 +171,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let value_data = value.data.as_slice().unwrap();
         let rate_data = self.rate.data.as_slice().unwrap();
 
@@ -192,12 +193,12 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean = 1/λ
         Ok(self.scale())
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance = 1/λ²
         let rate_data = self.rate.data.as_slice().unwrap();
         let var_data: Vec<T> = rate_data
@@ -208,7 +209,7 @@ where
         Ok(Tensor::from_vec(var_data, self.rate.shape().to_vec()))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = 1 - log(λ)
         let rate_data = self.rate.data.as_slice().unwrap();
         let entropy_data: Vec<T> = rate_data

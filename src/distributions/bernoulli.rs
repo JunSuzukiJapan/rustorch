@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Bernoulli Distribution - torch.distributions.Bernoulli compatible
 /// ベルヌーイ分布 - torch.distributions.Bernoulli互換
 ///
@@ -46,7 +47,7 @@ where
     /// # Arguments
     /// * `probs` - Probability tensor (values in [0, 1])
     /// * `validate_args` - Whether to validate parameters
-    pub fn from_probs(probs: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_probs(probs: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_probability(&probs)?;
         }
@@ -68,7 +69,7 @@ where
     /// # Arguments
     /// * `logits` - Log-odds tensor (any real values)
     /// * `validate_args` - Whether to validate parameters
-    pub fn from_logits(logits: Tensor<T>, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_logits(logits: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         let batch_shape = logits.shape().to_vec();
         let event_shape = vec![]; // Bernoulli is univariate
 
@@ -82,20 +83,20 @@ where
 
     /// Create Bernoulli distribution with scalar probability
     /// スカラー確率でベルヌーイ分布を作成
-    pub fn from_scalar_prob(prob: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scalar_prob(prob: T, validate_args: bool) -> RusTorchResult<Self> {
         let probs_tensor = Tensor::from_vec(vec![prob], vec![]);
         Self::from_probs(probs_tensor, validate_args)
     }
 
     /// Create fair coin (p = 0.5)
     /// 公正なコイン（p = 0.5）
-    pub fn fair_coin(validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn fair_coin(validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalar_prob(T::from(0.5).unwrap(), validate_args)
     }
 
     /// Get probabilities (convert from logits if necessary)
     /// 確率を取得（必要に応じてロジットから変換）
-    pub fn get_probs(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_probs(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.probs, &self.logits) {
             (Some(probs), _) => Ok(probs.clone()),
             (None, Some(logits)) => {
@@ -107,15 +108,15 @@ where
                     .collect();
                 Ok(Tensor::from_vec(probs_data, logits.shape().to_vec()))
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either probs or logits must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either probs or logits must be specified",
             )),
         }
     }
 
     /// Get logits (convert from probs if necessary)
     /// ロジットを取得（必要に応じて確率から変換）
-    pub fn get_logits(&self) -> Result<Tensor<T>, DistributionError> {
+    pub fn get_logits(&self) -> RusTorchResult<Tensor<T>> {
         match (&self.logits, &self.probs) {
             (Some(logits), _) => Ok(logits.clone()),
             (None, Some(probs)) => {
@@ -135,24 +136,24 @@ where
                     .collect();
                 Ok(Tensor::from_vec(logits_data, probs.shape().to_vec()))
             }
-            _ => Err(DistributionError::InvalidParameter(
-                "Either probs or logits must be specified".to_string(),
+            _ => Err(RusTorchError::invalid_parameter(
+                "Either probs or logits must be specified",
             )),
         }
     }
 
     /// Binary cross entropy for Bernoulli distributions
     /// ベルヌーイ分布のバイナリクロスエントロピー
-    pub fn binary_cross_entropy(&self, target: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    pub fn binary_cross_entropy(&self, target: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
         let target_data = target.data.as_slice().unwrap();
 
         if probs_data.len() != target_data.len() {
-            return Err(DistributionError::ShapeMismatch {
-                expected: probs.shape().to_vec(),
-                got: target.shape().to_vec(),
-            });
+            return Err(RusTorchError::shape_mismatch(
+                probs.shape(),
+                target.shape(),
+            ));
         }
 
         // BCE = -[y*log(p) + (1-y)*log(1-p)]
@@ -175,7 +176,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Bernoulli<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
         let probs = self.get_probs()?;
 
@@ -194,16 +195,16 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let logits = self.get_logits()?;
         let logits_data = logits.data.as_slice().unwrap();
         let value_data = value.data.as_slice().unwrap();
 
         if logits_data.len() != value_data.len() {
-            return Err(DistributionError::ShapeMismatch {
-                expected: logits.shape().to_vec(),
-                got: value.shape().to_vec(),
-            });
+            return Err(RusTorchError::shape_mismatch(
+                logits.shape(),
+                value.shape(),
+            ));
         }
 
         // log P(x) = x * logits - log(1 + exp(logits))
@@ -220,7 +221,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
         let value_data = value.data.as_slice().unwrap();
@@ -243,7 +244,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
         let value_data = value.data.as_slice().unwrap();
@@ -264,12 +265,12 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         // Mean of Bernoulli is p
         self.get_probs()
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         // Variance of Bernoulli is p(1-p)
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();
@@ -277,7 +278,7 @@ where
         Ok(Tensor::from_vec(var_data, probs.shape().to_vec()))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = -p*log(p) - (1-p)*log(1-p)
         let probs = self.get_probs()?;
         let probs_data = probs.data.as_slice().unwrap();

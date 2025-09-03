@@ -1,4 +1,5 @@
-use crate::distributions::{Distribution, DistributionError, DistributionTrait, DistributionUtils};
+use crate::distributions::{Distribution, DistributionTrait, DistributionUtils};
+use crate::error::{RusTorchError, RusTorchResult};
 /// Normal (Gaussian) Distribution - torch.distributions.Normal compatible
 /// 正規（ガウス）分布 - torch.distributions.Normal互換
 ///
@@ -50,7 +51,7 @@ where
         loc: Tensor<T>,
         scale: Tensor<T>,
         validate_args: bool,
-    ) -> Result<Self, DistributionError> {
+    ) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&scale, "scale")?;
         }
@@ -69,7 +70,7 @@ where
 
     /// Create Normal distribution with scalar parameters
     /// スカラーパラメータで正規分布を作成
-    pub fn from_scalars(loc: T, scale: T, validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn from_scalars(loc: T, scale: T, validate_args: bool) -> RusTorchResult<Self> {
         let loc_tensor = Tensor::from_vec(vec![loc], vec![]);
         let scale_tensor = Tensor::from_vec(vec![scale], vec![]);
         Self::new(loc_tensor, scale_tensor, validate_args)
@@ -77,13 +78,13 @@ where
 
     /// Standard normal distribution (μ=0, σ=1)
     /// 標準正規分布 (μ=0, σ=1)
-    pub fn standard(validate_args: bool) -> Result<Self, DistributionError> {
+    pub fn standard(validate_args: bool) -> RusTorchResult<Self> {
         Self::from_scalars(T::zero(), T::one(), validate_args)
     }
 
     /// Compute the log of the normalization constant
     /// 正規化定数の対数を計算
-    fn log_normalizing_constant(&self) -> Result<Tensor<T>, DistributionError> {
+    fn log_normalizing_constant(&self) -> RusTorchResult<Tensor<T>> {
         let pi = T::from(std::f64::consts::PI).unwrap();
         let two = T::from(2.0).unwrap();
 
@@ -99,7 +100,7 @@ where
 
     /// Compute standardized values (z-scores)
     /// 標準化された値（zスコア）を計算
-    fn standardize(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn standardize(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // z = (x - μ) / σ
         let loc_data = self.loc.data.as_slice().unwrap();
         let scale_data = self.scale.data.as_slice().unwrap();
@@ -167,7 +168,7 @@ impl<T: Float + 'static> DistributionTrait<T> for Normal<T>
 where
     T: rand::distributions::uniform::SampleUniform + num_traits::FromPrimitive + std::fmt::Display,
 {
-    fn sample(&self, shape: Option<&[usize]>) -> Result<Tensor<T>, DistributionError> {
+    fn sample(&self, shape: Option<&[usize]>) -> RusTorchResult<Tensor<T>> {
         let sample_shape = self.base.expand_shape(shape);
 
         // Generate standard normal samples using Box-Muller
@@ -188,7 +189,7 @@ where
         Ok(Tensor::from_vec(result_data, sample_shape))
     }
 
-    fn log_prob(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn log_prob(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // log p(x) = -0.5 * ((x - μ) / σ)² - log(σ√(2π))
         let standardized = self.standardize(value)?;
         let log_norm = self.log_normalizing_constant()?;
@@ -206,7 +207,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn cdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn cdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // CDF = 0.5 * (1 + erf((x - μ) / (σ√2)))
         let sqrt_2 = T::from(2.0_f64.sqrt()).unwrap();
         let half = T::from(0.5).unwrap();
@@ -222,7 +223,7 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn icdf(&self, value: &Tensor<T>) -> Result<Tensor<T>, DistributionError> {
+    fn icdf(&self, value: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         // ICDF = μ + σ * √2 * erf⁻¹(2p - 1)
         let sqrt_2 = T::from(2.0_f64.sqrt()).unwrap();
         let two = T::from(2.0).unwrap();
@@ -244,17 +245,17 @@ where
         Ok(Tensor::from_vec(result_data, value.shape().to_vec()))
     }
 
-    fn mean(&self) -> Result<Tensor<T>, DistributionError> {
+    fn mean(&self) -> RusTorchResult<Tensor<T>> {
         Ok(self.loc.clone())
     }
 
-    fn variance(&self) -> Result<Tensor<T>, DistributionError> {
+    fn variance(&self) -> RusTorchResult<Tensor<T>> {
         let scale_data = self.scale.data.as_slice().unwrap();
         let var_data: Vec<T> = scale_data.iter().map(|&s| s * s).collect();
         Ok(Tensor::from_vec(var_data, self.scale.shape().to_vec()))
     }
 
-    fn entropy(&self) -> Result<Tensor<T>, DistributionError> {
+    fn entropy(&self) -> RusTorchResult<Tensor<T>> {
         // Entropy = 0.5 * log(2πe * σ²) = log(σ) + 0.5 * log(2πe)
         let pi = T::from(std::f64::consts::PI).unwrap();
         let e = T::from(std::f64::consts::E).unwrap();
