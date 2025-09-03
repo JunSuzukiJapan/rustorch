@@ -505,6 +505,7 @@ mod tests {
     use crate::data::TensorDataset;
 
     #[test]
+    #[cfg(not(feature = "ci-fast"))]
     fn test_streaming_dataset() {
         let features = vec![
             Tensor::from_vec(vec![1.0, 2.0], vec![2]),

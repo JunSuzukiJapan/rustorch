@@ -3,12 +3,14 @@
 
 use crate::autograd::Variable;
 use crate::nn::Module;
+use crate::serialization::core::{Loadable, Saveable, SerializationError, SerializationResult};
 use crate::tensor::Tensor;
 use ndarray::Array;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive, One, ToPrimitive, Zero};
 use rand::distributions::Distribution;
 use rand_distr::Normal;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::iter::Sum;
 
@@ -310,6 +312,200 @@ where
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+// Serialization support for Linear layer
+impl<T> Saveable for Linear<T>
+where
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + Sum
+        + std::fmt::Display,
+{
+    fn save_binary(&self) -> SerializationResult<Vec<u8>> {
+        let mut buffer = Vec::new();
+
+        // Save input and output sizes
+        let input_size_bytes = self.input_size.to_le_bytes();
+        let output_size_bytes = self.output_size.to_le_bytes();
+        buffer.extend_from_slice(&input_size_bytes);
+        buffer.extend_from_slice(&output_size_bytes);
+
+        // Save weight tensor
+        let weight_data = self.weight.save_binary()?;
+        let weight_size = weight_data.len() as u64;
+        buffer.extend_from_slice(&weight_size.to_le_bytes());
+        buffer.extend_from_slice(&weight_data);
+
+        // Save bias (if present)
+        let has_bias = self.bias.is_some();
+        buffer.push(has_bias as u8);
+
+        if let Some(ref bias) = self.bias {
+            let bias_data = bias.save_binary()?;
+            let bias_size = bias_data.len() as u64;
+            buffer.extend_from_slice(&bias_size.to_le_bytes());
+            buffer.extend_from_slice(&bias_data);
+        }
+
+        Ok(buffer)
+    }
+
+    fn type_id(&self) -> &'static str {
+        "nn.Linear"
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        let mut meta = HashMap::new();
+        meta.insert("input_size".to_string(), self.input_size.to_string());
+        meta.insert("output_size".to_string(), self.output_size.to_string());
+        meta.insert("has_bias".to_string(), self.bias.is_some().to_string());
+        meta
+    }
+}
+
+impl<T> Loadable for Linear<T>
+where
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + Sum
+        + std::fmt::Display,
+{
+    fn load_binary(data: &[u8]) -> SerializationResult<Self> {
+        let mut offset = 0;
+
+        // Load input and output sizes
+        if data.len() < offset + 16 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for sizes".to_string(),
+            ));
+        }
+
+        let input_size = usize::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]);
+        offset += 8;
+
+        let output_size = usize::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]);
+        offset += 8;
+
+        // Load weight tensor
+        if data.len() < offset + 8 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for weight size".to_string(),
+            ));
+        }
+
+        let weight_size = u64::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]) as usize;
+        offset += 8;
+
+        if data.len() < offset + weight_size {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for weight".to_string(),
+            ));
+        }
+
+        let weight_data = &data[offset..offset + weight_size];
+        let weight = Variable::load_binary(weight_data)?;
+        offset += weight_size;
+
+        // Load bias
+        if data.len() < offset + 1 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for bias flag".to_string(),
+            ));
+        }
+
+        let has_bias = data[offset] != 0;
+        offset += 1;
+
+        let bias = if has_bias {
+            if data.len() < offset + 8 {
+                return Err(SerializationError::FormatError(
+                    "Insufficient data for bias size".to_string(),
+                ));
+            }
+
+            let bias_size = u64::from_le_bytes([
+                data[offset],
+                data[offset + 1],
+                data[offset + 2],
+                data[offset + 3],
+                data[offset + 4],
+                data[offset + 5],
+                data[offset + 6],
+                data[offset + 7],
+            ]) as usize;
+            offset += 8;
+
+            if data.len() < offset + bias_size {
+                return Err(SerializationError::FormatError(
+                    "Insufficient data for bias".to_string(),
+                ));
+            }
+
+            let bias_data = &data[offset..offset + bias_size];
+            Some(Variable::load_binary(bias_data)?)
+        } else {
+            None
+        };
+
+        Ok(Linear {
+            weight,
+            bias,
+            input_size,
+            output_size,
+        })
+    }
+
+    fn expected_type_id() -> &'static str {
+        "nn.Linear"
     }
 }
 

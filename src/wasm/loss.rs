@@ -1,11 +1,11 @@
 //! Loss functions for WASM neural networks
 //! WASMニューラルネットワーク用損失関数
 
+use crate::nn::shared_loss::{shared_losses, LossFunction};
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "wasm")]
 use web_sys;
-use crate::nn::shared_loss::{shared_losses, LossFunction};
 
 /// WASM-compatible loss functions
 /// WASM互換損失関数
@@ -20,16 +20,14 @@ impl WasmLoss {
     /// MSE(y_pred, y_true) = mean((y_pred - y_true)²)
     #[wasm_bindgen]
     pub fn mse_loss(predictions: Vec<f32>, targets: Vec<f32>) -> f32 {
-        shared_losses::mse_loss_vec(&predictions, &targets)
-            .unwrap_or(0.0)
+        shared_losses::mse_loss_vec(&predictions, &targets).unwrap_or(0.0)
     }
 
     /// Mean Absolute Error (MAE) loss
     /// MAE(y_pred, y_true) = mean(|y_pred - y_true|)
     #[wasm_bindgen]
     pub fn mae_loss(predictions: Vec<f32>, targets: Vec<f32>) -> f32 {
-        shared_losses::mae_loss_vec(&predictions, &targets)
-            .unwrap_or(0.0)
+        shared_losses::mae_loss_vec(&predictions, &targets).unwrap_or(0.0)
     }
 
     /// Huber loss (smooth L1 loss)

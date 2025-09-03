@@ -72,6 +72,9 @@ use num_traits::Float;
 /// Core tensor data structure
 /// コアテンソルデータ構造  
 pub mod core;
+/// Device management for tensor operations
+/// テンソル操作用デバイス管理
+pub mod device;
 /// Mathematical operations for tensors (legacy - replaced by ops)
 /// テンソルの数学演算（レガシー - opsに置換）
 // pub mod operations; // Disabled - replaced by ops/ modules
@@ -119,18 +122,19 @@ pub mod operations;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_integration;
 
-/// Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
-/// フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
-pub mod utilities;
 /// Shared operations between regular and WASM tensors
 /// 通常テンソルとWASMテンソル間の共通操作
 pub mod shared_ops;
+/// Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
+/// フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
+pub mod utilities;
 // Enable modules step by step
 // mod broadcasting; // Temporarily disabled to avoid conflicts with shape_operations
 
 // Re-export important types and functions
 pub use crate::error::RusTorchResult as ParallelResult;
 pub use core::Tensor;
+pub use device::Device;
 
 // Re-export commonly used traits for better ergonomics
 #[cfg(not(target_arch = "wasm32"))]

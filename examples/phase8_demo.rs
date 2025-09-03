@@ -3,8 +3,8 @@
 //!
 //! Demonstrates the new tensor utility operations implemented in Phase 8.
 
-use rustorch::tensor::Tensor;
 use ndarray::ArrayD;
+use rustorch::tensor::Tensor;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Phase 8 Tensor Utilities Demo");
@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test conditional operations
     println!("\n1. Conditional Operations:");
-    
+
     // Test masked_select
     let mask = ArrayD::from_shape_vec(vec![2, 3], vec![true, false, true, true, false, false])?;
     let selected = tensor.masked_select(&mask)?;
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test index operations
     println!("\n2. Index Operations:");
-    
+
     let index = ArrayD::from_shape_vec(vec![2], vec![0i64, 2])?;
     let gathered = tensor.gather(1, &index)?;
     println!("   gather result: {:?}", gathered.data.as_slice());
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test statistical operations
     println!("\n3. Statistical Operations:");
-    
+
     let (top_values, _top_indices) = tensor.topk_util(2, 1, true, true)?;
     println!("   topk values: {:?}", top_values.data.as_slice());
 
@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test advanced operations
     println!("\n4. Advanced Operations:");
-    
+
     let data2 = vec![1.0f32, 2.0, 1.0, 3.0, 2.0];
     let tensor2 = Tensor::from_vec(data2, vec![5]);
     let (unique_vals, _inv, _counts) = tensor2.unique(true, false, false)?;

@@ -3,8 +3,10 @@
 
 use crate::autograd::Variable;
 use crate::nn::Module;
+use crate::serialization::core::{Loadable, Saveable, SerializationResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// ReLU (Rectified Linear Unit) activation function
@@ -725,6 +727,42 @@ impl<
 
     fn eval(&mut self) {
         // No parameters to eval
+    }
+}
+
+// Serialization support for ReLU (stateless activation function)
+impl<
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > Saveable for ReLU<T>
+{
+    fn save_binary(&self) -> SerializationResult<Vec<u8>> {
+        // ReLU has no parameters, so just save a marker
+        Ok(vec![0u8])
+    }
+
+    fn type_id(&self) -> &'static str {
+        "nn.ReLU"
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        let mut meta = HashMap::new();
+        meta.insert("activation_type".to_string(), "ReLU".to_string());
+        meta.insert("stateless".to_string(), "true".to_string());
+        meta
+    }
+}
+
+impl<
+        T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > Loadable for ReLU<T>
+{
+    fn load_binary(_data: &[u8]) -> SerializationResult<Self> {
+        // ReLU has no parameters, so just create a new instance
+        Ok(ReLU::new())
+    }
+
+    fn expected_type_id() -> &'static str {
+        "nn.ReLU"
     }
 }
 

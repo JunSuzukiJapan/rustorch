@@ -1,6 +1,7 @@
 //! チェックポイント管理
 //! Checkpoint management
 
+use crate::serialization::core::{Loadable, Saveable};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -255,6 +256,34 @@ impl CheckpointManager {
         let model_data = fs::read(&model_path)?;
 
         Ok((metadata, model_data))
+    }
+
+    /// Save checkpoint using Phase 9 serialization
+    /// フェーズ9シリアライゼーションでチェックポイントを保存
+    pub fn save_model_checkpoint<T>(
+        &mut self,
+        metadata: CheckpointMetadata,
+        model: &dyn Saveable,
+    ) -> anyhow::Result<PathBuf>
+    where
+        T: 'static,
+    {
+        let model_data = model
+            .save_binary()
+            .map_err(|e| anyhow::anyhow!("Serialization failed: {}", e))?;
+        self.save_checkpoint(metadata, &model_data)
+    }
+
+    /// Load checkpoint using Phase 9 serialization
+    /// フェーズ9シリアライゼーションでチェックポイントを読み込み
+    pub fn load_model_checkpoint<M>(&self, path: &Path) -> anyhow::Result<(CheckpointMetadata, M)>
+    where
+        M: Loadable,
+    {
+        let (metadata, model_data) = self.load_checkpoint(path)?;
+        let model = M::load_binary(&model_data)
+            .map_err(|e| anyhow::anyhow!("Deserialization failed: {}", e))?;
+        Ok((metadata, model))
     }
 
     /// 最新のチェックポイントを取得

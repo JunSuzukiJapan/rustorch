@@ -122,6 +122,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(all(target_os = "macos", feature = "metal"))]
     fn test_metal_availability() {
         let result = test_metal_gpu_basic();
         match result {
@@ -137,6 +138,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(all(target_os = "macos", feature = "metal"))]
     fn test_performance_benchmark() {
         let result = benchmark_metal_performance();
         assert!(result.is_ok());

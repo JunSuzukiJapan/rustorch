@@ -47,11 +47,7 @@ where
     /// * `loc` - Mean (μ) parameter tensor
     /// * `scale` - Standard deviation (σ) parameter tensor  
     /// * `validate_args` - Whether to validate parameters
-    pub fn new(
-        loc: Tensor<T>,
-        scale: Tensor<T>,
-        validate_args: bool,
-    ) -> RusTorchResult<Self> {
+    pub fn new(loc: Tensor<T>, scale: Tensor<T>, validate_args: bool) -> RusTorchResult<Self> {
         if validate_args {
             DistributionUtils::validate_positive(&scale, "scale")?;
         }

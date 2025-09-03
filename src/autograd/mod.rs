@@ -1,8 +1,10 @@
 use crate::autograd::grad_fn::{
     AddBackward, MatMulBackward, MulBackward, SubBackward, SumBackward,
 };
+use crate::serialization::core::{Loadable, Saveable, SerializationError, SerializationResult};
 use crate::tensor::Tensor;
 use num_traits::Float;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -499,5 +501,158 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         } else {
             Variable::new(result_data, false)
         }
+    }
+}
+
+// Serialization support for Variable
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Saveable
+    for Variable<T>
+{
+    fn save_binary(&self) -> SerializationResult<Vec<u8>> {
+        let mut buffer = Vec::new();
+
+        // Save requires_grad flag
+        buffer.push(self.requires_grad as u8);
+
+        // Save tensor data
+        let data_guard = self.data.read().map_err(|_| {
+            SerializationError::FormatError("Failed to read tensor data".to_string())
+        })?;
+        let tensor_data = data_guard.save_binary()?;
+        let tensor_size = tensor_data.len() as u64;
+        buffer.extend_from_slice(&tensor_size.to_le_bytes());
+        buffer.extend_from_slice(&tensor_data);
+
+        // Save gradient (if present)
+        let grad_guard = self.grad.read().map_err(|_| {
+            SerializationError::FormatError("Failed to read gradient data".to_string())
+        })?;
+        let has_grad = grad_guard.is_some();
+        buffer.push(has_grad as u8);
+
+        if let Some(ref grad_tensor) = *grad_guard {
+            let grad_data = grad_tensor.save_binary()?;
+            let grad_size = grad_data.len() as u64;
+            buffer.extend_from_slice(&grad_size.to_le_bytes());
+            buffer.extend_from_slice(&grad_data);
+        }
+
+        Ok(buffer)
+    }
+
+    fn type_id(&self) -> &'static str {
+        "autograd.Variable"
+    }
+
+    fn metadata(&self) -> HashMap<String, String> {
+        let mut meta = HashMap::new();
+        meta.insert("requires_grad".to_string(), self.requires_grad.to_string());
+        meta.insert("unique_id".to_string(), self.unique_id.to_string());
+
+        if let Ok(data_guard) = self.data.read() {
+            meta.insert("shape".to_string(), format!("{:?}", data_guard.shape()));
+            meta.insert("numel".to_string(), data_guard.numel().to_string());
+        }
+
+        meta
+    }
+}
+
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Loadable
+    for Variable<T>
+{
+    fn load_binary(data: &[u8]) -> SerializationResult<Self> {
+        let mut offset = 0;
+
+        // Load requires_grad flag
+        if data.len() < offset + 1 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for requires_grad".to_string(),
+            ));
+        }
+        let requires_grad = data[offset] != 0;
+        offset += 1;
+
+        // Load tensor data
+        if data.len() < offset + 8 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for tensor size".to_string(),
+            ));
+        }
+
+        let tensor_size = u64::from_le_bytes([
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3],
+            data[offset + 4],
+            data[offset + 5],
+            data[offset + 6],
+            data[offset + 7],
+        ]) as usize;
+        offset += 8;
+
+        if data.len() < offset + tensor_size {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for tensor".to_string(),
+            ));
+        }
+
+        let tensor_data = &data[offset..offset + tensor_size];
+        let tensor = Tensor::load_binary(tensor_data)?;
+        offset += tensor_size;
+
+        // Create Variable with basic data first
+        let variable = Variable::new(tensor, requires_grad);
+
+        // Load gradient (if present)
+        if data.len() < offset + 1 {
+            return Err(SerializationError::FormatError(
+                "Insufficient data for gradient flag".to_string(),
+            ));
+        }
+
+        let has_grad = data[offset] != 0;
+        offset += 1;
+
+        if has_grad {
+            if data.len() < offset + 8 {
+                return Err(SerializationError::FormatError(
+                    "Insufficient data for gradient size".to_string(),
+                ));
+            }
+
+            let grad_size = u64::from_le_bytes([
+                data[offset],
+                data[offset + 1],
+                data[offset + 2],
+                data[offset + 3],
+                data[offset + 4],
+                data[offset + 5],
+                data[offset + 6],
+                data[offset + 7],
+            ]) as usize;
+            offset += 8;
+
+            if data.len() < offset + grad_size {
+                return Err(SerializationError::FormatError(
+                    "Insufficient data for gradient".to_string(),
+                ));
+            }
+
+            let grad_data = &data[offset..offset + grad_size];
+            let grad_tensor = Tensor::load_binary(grad_data)?;
+
+            // Set gradient
+            if let Ok(mut grad_guard) = variable.grad.write() {
+                *grad_guard = Some(grad_tensor);
+            }
+        }
+
+        Ok(variable)
+    }
+
+    fn expected_type_id() -> &'static str {
+        "autograd.Variable"
     }
 }

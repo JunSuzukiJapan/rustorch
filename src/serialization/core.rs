@@ -18,17 +18,11 @@ pub enum SerializationError {
     /// Format error (invalid file format)
     FormatError(String),
     /// Version incompatibility
-    VersionError { 
-        expected: String, 
-        found: String 
-    },
+    VersionError { expected: String, found: String },
     /// Missing required field
     MissingField(String),
     /// Type mismatch during deserialization
-    TypeMismatch { 
-        expected: String, 
-        found: String 
-    },
+    TypeMismatch { expected: String, found: String },
     /// Corruption detected
     CorruptionError(String),
     /// Unsupported operation
@@ -41,14 +35,22 @@ impl fmt::Display for SerializationError {
             SerializationError::IoError(msg) => write!(f, "I/O error: {}", msg),
             SerializationError::FormatError(msg) => write!(f, "Format error: {}", msg),
             SerializationError::VersionError { expected, found } => {
-                write!(f, "Version mismatch: expected {}, found {}", expected, found)
+                write!(
+                    f,
+                    "Version mismatch: expected {}, found {}",
+                    expected, found
+                )
             }
-            SerializationError::MissingField(field) => write!(f, "Missing required field: {}", field),
+            SerializationError::MissingField(field) => {
+                write!(f, "Missing required field: {}", field)
+            }
             SerializationError::TypeMismatch { expected, found } => {
                 write!(f, "Type mismatch: expected {}, found {}", expected, found)
             }
             SerializationError::CorruptionError(msg) => write!(f, "Data corruption: {}", msg),
-            SerializationError::UnsupportedOperation(msg) => write!(f, "Unsupported operation: {}", msg),
+            SerializationError::UnsupportedOperation(msg) => {
+                write!(f, "Unsupported operation: {}", msg)
+            }
         }
     }
 }
@@ -78,17 +80,17 @@ pub trait Saveable {
     /// Save object to binary format
     /// オブジェクトをバイナリ形式で保存
     fn save_binary(&self) -> SerializationResult<Vec<u8>>;
-    
+
     /// Get object type identifier
     /// オブジェクトタイプ識別子を取得
     fn type_id(&self) -> &'static str;
-    
+
     /// Get version information
     /// バージョン情報を取得
     fn version(&self) -> String {
         "1.0.0".to_string()
     }
-    
+
     /// Get metadata for object
     /// オブジェクトのメタデータを取得
     fn metadata(&self) -> HashMap<String, String> {
@@ -102,11 +104,11 @@ pub trait Loadable: Sized {
     /// Load object from binary format
     /// バイナリ形式からオブジェクトを読み込み
     fn load_binary(data: &[u8]) -> SerializationResult<Self>;
-    
+
     /// Get expected type identifier
     /// 期待されるタイプ識別子を取得
     fn expected_type_id() -> &'static str;
-    
+
     /// Validate version compatibility
     /// バージョン互換性を検証
     fn validate_version(version: &str) -> SerializationResult<()> {
@@ -125,11 +127,11 @@ pub trait Loadable: Sized {
 /// RusTorchシリアライゼーション形式用ファイルヘッダー
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileHeader {
-    pub magic: [u8; 8],           // "RUSTORCH"
-    pub version: String,          // Version string
-    pub object_type: String,      // Object type identifier
+    pub magic: [u8; 8],                    // "RUSTORCH"
+    pub version: String,                   // Version string
+    pub object_type: String,               // Object type identifier
     pub metadata: HashMap<String, String>, // Additional metadata
-    pub checksum: u64,           // Data integrity checksum
+    pub checksum: u64,                     // Data integrity checksum
 }
 
 impl FileHeader {
@@ -144,23 +146,23 @@ impl FileHeader {
             checksum: 0, // Will be computed during save
         }
     }
-    
+
     /// Validate header magic and version
     /// ヘッダーマジックとバージョンを検証
     pub fn validate(&self) -> SerializationResult<()> {
         if self.magic != *b"RUSTORCH" {
             return Err(SerializationError::FormatError(
-                "Invalid file magic".to_string()
+                "Invalid file magic".to_string(),
             ));
         }
-        
+
         if !self.version.starts_with("1.") {
             return Err(SerializationError::VersionError {
                 expected: "1.x".to_string(),
                 found: self.version.clone(),
             });
         }
-        
+
         Ok(())
     }
 }
@@ -221,7 +223,7 @@ impl<T: Float> ComputationGraph<T> {
             constants: HashMap::new(),
         }
     }
-    
+
     /// Add node to graph
     /// グラフにノードを追加
     pub fn add_node(&mut self, node: GraphNode) -> usize {
@@ -229,7 +231,7 @@ impl<T: Float> ComputationGraph<T> {
         self.nodes.push(node);
         id
     }
-    
+
     /// Validate graph structure
     /// グラフ構造を検証
     pub fn validate(&self) -> SerializationResult<()> {
@@ -237,9 +239,10 @@ impl<T: Float> ComputationGraph<T> {
         for node in &self.nodes {
             for &input_id in &node.inputs {
                 if input_id >= self.nodes.len() {
-                    return Err(SerializationError::FormatError(
-                        format!("Invalid input node ID: {}", input_id)
-                    ));
+                    return Err(SerializationError::FormatError(format!(
+                        "Invalid input node ID: {}",
+                        input_id
+                    )));
                 }
             }
         }
@@ -273,7 +276,7 @@ mod tests {
     fn test_file_header_creation() {
         let metadata = HashMap::new();
         let header = FileHeader::new("tensor".to_string(), metadata);
-        
+
         assert_eq!(header.magic, *b"RUSTORCH");
         assert_eq!(header.version, "1.0.0");
         assert_eq!(header.object_type, "tensor");
@@ -283,10 +286,10 @@ mod tests {
     fn test_file_header_validation() {
         let metadata = HashMap::new();
         let mut header = FileHeader::new("tensor".to_string(), metadata);
-        
+
         // Valid header should pass
         assert!(header.validate().is_ok());
-        
+
         // Invalid magic should fail
         header.magic = *b"INVALID ";
         assert!(header.validate().is_err());
@@ -297,7 +300,7 @@ mod tests {
         let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
         let ser_error: SerializationError = io_error.into();
         let rust_error: RusTorchError = ser_error.into();
-        
+
         match rust_error {
             RusTorchError::SerializationError { .. } => (),
             _ => panic!("Expected SerializationError"),
@@ -307,7 +310,7 @@ mod tests {
     #[test]
     fn test_computation_graph() {
         let mut graph: ComputationGraph<f32> = ComputationGraph::new();
-        
+
         let node = GraphNode {
             id: 0,
             op_type: "add".to_string(),
@@ -315,7 +318,7 @@ mod tests {
             outputs: vec![0],
             attributes: HashMap::new(),
         };
-        
+
         let id = graph.add_node(node);
         assert_eq!(id, 0);
         assert!(graph.validate().is_ok());
@@ -326,10 +329,10 @@ mod tests {
         let data = b"test data";
         let checksum1 = compute_checksum(data);
         let checksum2 = compute_checksum(data);
-        
+
         // Same data should produce same checksum
         assert_eq!(checksum1, checksum2);
-        
+
         // Different data should produce different checksum
         let different_data = b"different test data";
         let checksum3 = compute_checksum(different_data);

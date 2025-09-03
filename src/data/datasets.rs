@@ -7,8 +7,8 @@
 #![allow(deprecated)] // Allow deprecated APIs for backward compatibility
 
 use super::LegacyDataset;
-use crate::tensor::Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
 use std::fs::File;
@@ -509,10 +509,7 @@ pub struct MemoryMappedDataset<T: Float> {
 impl<T: Float + num_traits::FromPrimitive + 'static> MemoryMappedDataset<T> {
     /// Create a new memory-mapped dataset
     /// 新しいメモリマップドデータセットを作成
-    pub fn new<P: AsRef<Path>>(
-        file_path: P,
-        sample_size: usize,
-    ) -> RusTorchResult<Self> {
+    pub fn new<P: AsRef<Path>>(file_path: P, sample_size: usize) -> RusTorchResult<Self> {
         let path = file_path.as_ref().to_path_buf();
         let metadata = std::fs::metadata(&path)?;
         let file_size = metadata.len() as usize;

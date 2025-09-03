@@ -6,7 +6,6 @@
 use crate::error::{RusTorchError, RusTorchResult};
 use std::fmt;
 
-
 /// Base Distribution struct for common functionality
 /// 共通機能のための基本分布構造体
 #[derive(Debug, Clone)]

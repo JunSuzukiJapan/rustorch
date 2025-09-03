@@ -26,7 +26,10 @@ impl SimdAllocator {
         unsafe {
             let ptr = alloc_zeroed(layout);
             if ptr.is_null() {
-                Err(RusTorchError::memory_alloc(len * std::mem::size_of::<f32>(), "cpu"))
+                Err(RusTorchError::memory_alloc(
+                    len * std::mem::size_of::<f32>(),
+                    "cpu",
+                ))
             } else {
                 Ok(NonNull::new_unchecked(ptr as *mut f32))
             }
@@ -393,10 +396,7 @@ impl SimdMemoryPool {
 
     /// Allocate SIMD-aligned tensor from pool
     /// プールからSIMDアライメントテンソルを割り当て
-    pub fn allocate(
-        &mut self,
-        shape: &[usize],
-    ) -> RusTorchResult<SimdTensor<f32>> {
+    pub fn allocate(&mut self, shape: &[usize]) -> RusTorchResult<SimdTensor<f32>> {
         let total_elements: usize = shape.iter().product();
         let pool_index = self.get_pool_index(total_elements);
 

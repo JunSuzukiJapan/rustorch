@@ -150,10 +150,7 @@ where
         let target_data = target.data.as_slice().unwrap();
 
         if probs_data.len() != target_data.len() {
-            return Err(RusTorchError::shape_mismatch(
-                probs.shape(),
-                target.shape(),
-            ));
+            return Err(RusTorchError::shape_mismatch(probs.shape(), target.shape()));
         }
 
         // BCE = -[y*log(p) + (1-y)*log(1-p)]
@@ -201,10 +198,7 @@ where
         let value_data = value.data.as_slice().unwrap();
 
         if logits_data.len() != value_data.len() {
-            return Err(RusTorchError::shape_mismatch(
-                logits.shape(),
-                value.shape(),
-            ));
+            return Err(RusTorchError::shape_mismatch(logits.shape(), value.shape()));
         }
 
         // log P(x) = x * logits - log(1 + exp(logits))

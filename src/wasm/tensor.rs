@@ -1,11 +1,13 @@
 //! WASM tensor operations
 //! WASMテンソル操作
 
+use crate::tensor::shared_ops::{
+    activation_ops, math_funcs, math_ops, shape_ops, stats_ops, CommonTensorOps,
+};
 #[cfg(feature = "wasm")]
 use js_sys;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
-use crate::tensor::shared_ops::{math_ops, activation_ops, math_funcs, stats_ops, shape_ops, CommonTensorOps};
 
 /// WASM-compatible tensor wrapper
 /// WASM互換テンソルラッパー
@@ -274,19 +276,19 @@ impl WasmTensor {
 #[cfg(feature = "wasm")]
 impl CommonTensorOps<f32> for WasmTensor {
     type Error = JsValue;
-    
+
     fn add_elements(&self, other: &Self) -> Result<Self, Self::Error> {
         self.add(other)
     }
-    
+
     fn sub_elements(&self, other: &Self) -> Result<Self, Self::Error> {
         self.subtract(other)
     }
-    
+
     fn relu_activation(&self) -> Self {
         self.relu()
     }
-    
+
     fn sigmoid_activation(&self) -> Self {
         self.sigmoid()
     }

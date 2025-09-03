@@ -2,7 +2,7 @@
 
 ## 📚 Complete API Reference
 
-This document provides comprehensive API documentation for RusTorch v0.5.15, organized by module and functionality. Features unified error handling with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all 1060+ tests. **Phase 8 COMPLETED** adds advanced tensor utilities including conditional operations, indexing, and statistical functions.
+This document provides comprehensive API documentation for RusTorch v0.5.15, organized by module and functionality. Features unified error handling with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all 1060+ tests. **Phase 8 COMPLETED** adds advanced tensor utilities including conditional operations, indexing, and statistical functions. **Phase 9 COMPLETED** introduces comprehensive serialization system with model save/load, JIT compilation, and multiple format support including PyTorch compatibility.
 
 ## 🏗️ Core Architecture
 
@@ -19,6 +19,7 @@ rustorch/
 ├── vision/              # Computer vision transforms
 ├── linalg/              # Linear algebra operations (BLAS/LAPACK)
 ├── gpu/                 # GPU acceleration (CUDA/Metal/OpenCL/WebGPU)
+├── serialization/       # Model serialization and JIT compilation (Phase 9)
 └── wasm/                # WebAssembly bindings
 ```
 
@@ -1145,6 +1146,58 @@ let gpu_tensor = tensor.to_device(&cuda_device);
 let cpu_tensor = gpu_tensor.to_cpu();
 ```
 
+### GPU Matrix Operations (UPDATED Phase 9)
+
+```rust
+use rustorch::gpu::matrix_ops::GpuLinearAlgebra;
+
+// High-performance GPU matrix multiplication
+let a = Tensor::rand(vec![1024, 1024]);
+let b = Tensor::rand(vec![1024, 1024]);
+
+// Automatic device selection (CUDA > Metal > OpenCL > CPU)
+let result = a.gpu_matmul(&b)?;                         // Auto-select best GPU
+let batch_result = a.gpu_batch_matmul(&b)?;             // Batch operations
+
+// Metal GPU (macOS) - Up to 4875x speedup on Apple Silicon
+#[cfg(feature = "metal")]
+{
+    use rustorch::gpu::metal_kernels::MetalKernelExecutor;
+    let executor = MetalKernelExecutor::new()?;
+    let result = executor.matrix_multiply_f32(&a_f32, &b_f32, m, n, k)?;
+}
+
+// CUDA GPU (NVIDIA) - cuBLAS integration
+#[cfg(feature = "cuda")]
+{
+    use rustorch::gpu::cuda_enhanced::CudaMatrixExecutor;
+    let executor = CudaMatrixExecutor::new(0)?;
+    let result = executor.matmul_f32(&a, &b, &mut c, m, n, k, false)?;
+}
+
+// OpenCL GPU (Cross-platform)
+#[cfg(feature = "opencl")]
+{
+    use rustorch::gpu::opencl_kernels::OpenClKernelExecutor;
+    let executor = OpenClKernelExecutor::new(0)?;
+    let result = executor.matrix_multiply_f32(&a, &b, m, n, k)?;
+}
+```
+
+### Performance Benchmarking
+
+```rust
+// Metal performance (Apple M4 Pro results)
+// 64x64 matrices: ~20x speedup
+// 512x512 matrices: ~4875x speedup  
+// 1024x1024 matrices: ~57.764 GFLOPS
+
+let start = std::time::Instant::now();
+let result = a.gpu_matmul(&b)?;
+let duration = start.elapsed();
+println!("GPU matmul: {:.2}ms", duration.as_millis());
+```
+
 ### GPU Memory Management
 
 ```rust
@@ -1162,6 +1215,116 @@ println!("Used: {}MB, Available: {}MB", stats.used_mb(), stats.available_mb());
 // Memory cleanup
 pool.empty_cache();                                 // Clear unused memory
 pool.synchronize();                                 // Wait for operations
+```
+
+## 💾 Serialization System (Phase 9)
+
+### Model Save/Load Operations
+
+```rust
+use rustorch::serialization::{ModelIO, SerializationFormat, SerializationError};
+
+// Save model in various formats
+let model = MyNeuralNetwork::new();
+let state_dict = model.state_dict();
+
+// PyTorch compatible format
+ModelIO::save(&state_dict, "model.pth", SerializationFormat::PyTorch)?;
+
+// Native RusTorch format (optimized)
+ModelIO::save(&state_dict, "model.rusttorch", SerializationFormat::Native)?;
+
+// ONNX format
+ModelIO::save(&state_dict, "model.onnx", SerializationFormat::Onnx)?;
+
+// Load model
+let loaded_state = ModelIO::load("model.pth")?;
+model.load_state_dict(loaded_state)?;
+```
+
+### Tensor Serialization
+
+```rust
+use rustorch::serialization::TensorSerializer;
+
+// Serialize single tensor
+let tensor = Tensor::rand(vec![100, 100]);
+let serialized = TensorSerializer::serialize(&tensor)?;
+
+// Deserialize
+let restored = TensorSerializer::deserialize(&serialized)?;
+assert_eq!(tensor.shape(), restored.shape());
+
+// Batch serialization
+let tensors = vec![tensor1, tensor2, tensor3];
+let batch_data = TensorSerializer::serialize_batch(&tensors)?;
+```
+
+### JIT Compilation System
+
+```rust
+use rustorch::serialization::{JitCompiler, JitModule, CompilationOptions};
+
+// Compile model to JIT format
+let options = CompilationOptions {
+    optimization_level: 2,
+    target_platform: "cpu",
+    enable_fusion: true,
+};
+
+let jit_module = JitCompiler::compile(model, options)?;
+
+// Execute JIT model
+let input = Tensor::rand(vec![1, 784]);
+let output = jit_module.forward(&input)?;
+
+// Save JIT module
+jit_module.save("model.jit")?;
+
+// Load JIT module
+let loaded_jit = JitModule::load("model.jit")?;
+```
+
+### Custom Serialization Formats
+
+```rust
+use rustorch::serialization::{SerializableModel, CustomFormat};
+
+// Implement custom serialization
+impl SerializableModel for MyModel {
+    fn serialize_custom(&self) -> Result<Vec<u8>, SerializationError> {
+        // Custom binary format
+        let mut buffer = Vec::new();
+        self.write_header(&mut buffer)?;
+        self.write_parameters(&mut buffer)?;
+        self.write_metadata(&mut buffer)?;
+        Ok(buffer)
+    }
+    
+    fn deserialize_custom(data: &[u8]) -> Result<Self, SerializationError> {
+        let mut reader = BinaryReader::new(data);
+        let header = reader.read_header()?;
+        let params = reader.read_parameters()?;
+        let metadata = reader.read_metadata()?;
+        Ok(Self::from_components(header, params, metadata))
+    }
+}
+```
+
+### Cross-Platform Compatibility
+
+```rust
+// Platform-specific optimizations
+let serializer = TensorSerializer::with_platform_optimization(true);
+
+// Ensure compatibility across systems
+let compat_options = SerializationOptions {
+    use_portable_format: true,
+    endianness: Endianness::LittleEndian,
+    float_precision: FloatPrecision::F32,
+};
+
+ModelIO::save_with_options(&model, "portable_model.bin", compat_options)?;
 ```
 
 ## 🌐 WebAssembly Support

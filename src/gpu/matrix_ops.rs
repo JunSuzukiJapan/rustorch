@@ -191,10 +191,52 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZe
         let gpu_a = GpuMemoryManager::to_device(a, &device_type)?;
         let gpu_b = GpuMemoryManager::to_device(b, &device_type)?;
 
-        // For now, fall back to CPU until we implement proper MPS integration
+        // Use actual Metal GPU acceleration
+        #[cfg(feature = "metal")]
+        {
+            use crate::gpu::metal_kernels::MetalKernelExecutor;
+
+            if let Ok(executor) = MetalKernelExecutor::new() {
+                // Convert to f32 for Metal GPU operations
+                if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
+                    let a_f32: Vec<f32> =
+                        a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+                    let b_f32: Vec<f32> =
+                        b_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+
+                    if let Ok(result_data) = executor.matrix_multiply_f32(
+                        &a_f32,
+                        &b_f32,
+                        a.shape()[0],
+                        b.shape()[1],
+                        a.shape()[1],
+                    ) {
+                        let result_t: Vec<T> = result_data
+                            .iter()
+                            .map(|&x| T::from_f32(x).unwrap_or_else(|| T::from_f32(0.0).unwrap()))
+                            .collect();
+                        let tensor = match ndarray::ArrayD::from_shape_vec(
+                            vec![a.shape()[0], b.shape()[1]],
+                            result_t,
+                        ) {
+                            Ok(array) => Tensor::new(array),
+                            Err(e) => {
+                                return Err(RusTorchError::gpu(&format!(
+                                    "Metal result tensor creation failed: {}",
+                                    e
+                                )))
+                            }
+                        };
+                        return Ok(tensor);
+                    }
+                }
+            }
+        }
+
+        // Metal not available or failed - CPU fallback
         let result = a
             .matmul(b)
-            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))?;
+            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul fallback failed: {}", e)))?;
 
         Ok(result)
     }
@@ -278,20 +320,173 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
 
     // GPU-specific implementations
     fn cuda_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
-        // CUDA batch matrix multiplication
-        // For now, fallback to CPU until CUDA kernels are fully implemented
+        #[cfg(feature = "cuda")]
+        {
+            use crate::gpu::cuda_enhanced::CudaMatrixExecutor;
+
+            // Try CUDA GPU acceleration
+            if let Ok(executor) = CudaMatrixExecutor::new(0) {
+                let a_shape = a.shape();
+                let b_shape = b.shape();
+
+                if a_shape.len() == 2 && b_shape.len() == 2 && a_shape[1] == b_shape[0] {
+                    let result_data = vec![T::from_f32(0.0).unwrap(); a_shape[0] * b_shape[1]];
+
+                    if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
+                        let a_f32: Vec<f32> =
+                            a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+                        let b_f32: Vec<f32> =
+                            b_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+                        let mut result_f32 = vec![0.0f32; a_shape[0] * b_shape[1]];
+
+                        match executor.matmul_f32(
+                            &a_f32,
+                            &b_f32,
+                            &mut result_f32,
+                            a_shape[0],
+                            b_shape[1],
+                            a_shape[1],
+                            false,
+                        ) {
+                            Ok(_) => {
+                                let result_t: Vec<T> = result_f32
+                                    .iter()
+                                    .map(|&x| {
+                                        T::from_f32(x).unwrap_or_else(|| T::from_f32(0.0).unwrap())
+                                    })
+                                    .collect();
+                                let tensor = match ndarray::ArrayD::from_shape_vec(
+                                    vec![a_shape[0], b_shape[1]],
+                                    result_t,
+                                ) {
+                                    Ok(array) => Tensor::new(array),
+                                    Err(e) => {
+                                        return Err(RusTorchError::gpu(&format!(
+                                            "CUDA result tensor creation failed: {}",
+                                            e
+                                        )))
+                                    }
+                                };
+                                return Ok(tensor);
+                            }
+                            Err(_) => {
+                                // CUDA failed, fallback to CPU
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // CUDA not available or failed - CPU fallback
         a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 
     fn metal_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
-        // Metal batch matrix multiplication
-        // For now, fallback to CPU until Metal kernels are fully implemented
+        #[cfg(feature = "metal")]
+        {
+            use crate::gpu::metal_kernels::MetalKernelExecutor;
+
+            // Try Metal GPU acceleration
+            if let Ok(executor) = MetalKernelExecutor::new() {
+                if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
+                    let a_f32: Vec<f32> =
+                        a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+                    let b_f32: Vec<f32> =
+                        b_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+
+                    match executor.matrix_multiply_f32(
+                        &a_f32,
+                        &b_f32,
+                        a.shape()[0],
+                        b.shape()[1],
+                        a.shape()[1],
+                    ) {
+                        Ok(result_data) => {
+                            let result_t: Vec<T> = result_data
+                                .iter()
+                                .map(|&x| {
+                                    T::from_f32(x).unwrap_or_else(|| T::from_f32(0.0).unwrap())
+                                })
+                                .collect();
+                            let tensor = match ndarray::ArrayD::from_shape_vec(
+                                vec![a.shape()[0], b.shape()[1]],
+                                result_t,
+                            ) {
+                                Ok(array) => Tensor::new(array),
+                                Err(e) => {
+                                    return Err(RusTorchError::gpu(&format!(
+                                        "Metal batch matmul failed: {}",
+                                        e
+                                    )))
+                                }
+                            };
+                            return Ok(tensor);
+                        }
+                        Err(_) => {
+                            // Metal failed, fallback to CPU
+                            return a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+
+        // No Metal support or Metal failed - CPU fallback
         a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 
     fn opencl_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
-        // OpenCL batch matrix multiplication
-        // For now, fallback to CPU until OpenCL kernels are fully implemented
+        #[cfg(feature = "opencl")]
+        {
+            use crate::gpu::opencl_kernels::OpenClKernelExecutor;
+
+            // Try OpenCL GPU acceleration
+            if let Ok(executor) = OpenClKernelExecutor::new(0) {
+                let a_shape = a.shape();
+                let b_shape = b.shape();
+
+                if a_shape.len() == 2 && b_shape.len() == 2 && a_shape[1] == b_shape[0] {
+                    if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
+                        let a_f32: Vec<f32> =
+                            a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+                        let b_f32: Vec<f32> =
+                            b_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+
+                        match executor
+                            .matrix_multiply_f32(&a_f32, &b_f32, a_shape[0], b_shape[1], a_shape[1])
+                        {
+                            Ok(result_data) => {
+                                let result_t: Vec<T> = result_data
+                                    .iter()
+                                    .map(|&x| {
+                                        T::from_f32(x).unwrap_or_else(|| T::from_f32(0.0).unwrap())
+                                    })
+                                    .collect();
+                                let tensor = match ndarray::ArrayD::from_shape_vec(
+                                    vec![a_shape[0], b_shape[1]],
+                                    result_t,
+                                ) {
+                                    Ok(array) => Tensor::new(array),
+                                    Err(e) => {
+                                        return Err(RusTorchError::gpu(&format!(
+                                            "OpenCL result tensor creation failed: {}",
+                                            e
+                                        )))
+                                    }
+                                };
+                                return Ok(tensor);
+                            }
+                            Err(_) => {
+                                // OpenCL failed, fallback to CPU
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // OpenCL not available or failed - CPU fallback
         a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
     }
 }
