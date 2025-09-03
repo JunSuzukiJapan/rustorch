@@ -2,7 +2,7 @@
 
 ## 📚 Complete API Reference
 
-This document provides comprehensive API documentation for RusTorch v0.5.14, organized by module and functionality. Features unified error handling with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all 1060+ tests.
+This document provides comprehensive API documentation for RusTorch v0.5.15, organized by module and functionality. Features unified error handling with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all 1060+ tests. **Phase 8 COMPLETED** adds advanced tensor utilities including conditional operations, indexing, and statistical functions.
 
 ## 🏗️ Core Architecture
 
@@ -183,6 +183,37 @@ let (values, indices) = tensor.topk(5, 0, true);   // Top-k values
 let result = tensor.uniform(0.0, 1.0);              // Uniform distribution
 let result = tensor.normal(0.0, 1.0);               // Normal distribution
 let result = tensor.bernoulli(0.5);                 // Bernoulli distribution
+```
+
+### Phase 8: Advanced Tensor Utilities
+
+Phase 8 introduces powerful tensor utility operations for conditional selection, indexing, and statistical analysis.
+
+```rust
+use rustorch::tensor::Tensor;
+use ndarray::ArrayD;
+
+// Conditional Operations
+let mask = ArrayD::from_shape_vec(vec![2, 3], vec![true, false, true, true, false, false])?;
+let selected = tensor.masked_select(&mask)?;           // Select elements where mask is true
+let filled = tensor.masked_fill(&mask, 999.0)?;       // Fill masked positions with value
+
+let condition = ArrayD::from_shape_vec(vec![2, 3], vec![true, false, true, false, true, false])?;
+let result = tensor.where_(&condition, &other_tensor)?; // Select from two tensors based on condition
+
+// Index Operations
+let index = ArrayD::from_shape_vec(vec![2], vec![0i64, 2])?;
+let gathered = tensor.gather(1, &index)?;             // Gather values along axis using indices
+let selected_idx = tensor.index_select(1, &index)?;   // Select values along axis using index
+let scattered = tensor.scatter(1, &index, &src_tensor)?; // Scatter values to positions
+
+// Statistical Operations
+let (top_values, top_indices) = tensor.topk_util(5, 1, true, true)?; // Top-k elements
+let (kth_val, kth_idx) = tensor.kthvalue(3, 1, false)?;             // k-th smallest/largest value
+
+// Advanced Operations
+let (unique_vals, inverse, counts) = tensor.unique(true, true, true)?; // Unique elements with options
+let (hist_counts, hist_edges) = tensor.histogram(10, Some((0.0, 1.0)))?; // Histogram computation
 ```
 
 ### Complex Number Support

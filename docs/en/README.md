@@ -12,7 +12,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 
 ## ✨ Features
 
-- 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, and statistics
+- 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, statistics, and Phase 8 advanced utilities
 - 🤖 **Transformer Architecture**: Complete transformer implementation with multi-head attention
 - 🧮 **Matrix Decomposition**: SVD, QR, eigenvalue decomposition with PyTorch compatibility
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation
@@ -29,6 +29,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
 - 🔍 **Data Validation & Quality Assurance**: Statistical analysis, anomaly detection, consistency checking, real-time monitoring
 - 🐛 **Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
+- 🎯 **Phase 8 Tensor Utilities**: Conditional operations (where, masked_select, masked_fill), indexing operations (gather, scatter, index_select), statistical operations (topk, kthvalue), and advanced utilities (unique, histogram)
 
 ## 🚀 Quick Start
 

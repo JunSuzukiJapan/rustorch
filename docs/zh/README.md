@@ -12,7 +12,7 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 
 ## ✨ 特性
 
-- 🔥 **全面张量运算**：数学运算、广播、索引和统计
+- 🔥 **全面张量运算**：数学运算、广播、索引和统计，Phase 8 高级工具
 - 🤖 **Transformer架构**：完整的Transformer实现，包含多头注意力机制
 - 🧮 **矩阵分解**：SVD、QR、特征值分解，兼容PyTorch
 - 🧠 **自动微分**：基于磁带的计算图进行梯度计算
@@ -29,6 +29,7 @@ RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性�
 - 📈 **高级优化器**：SGD、Adam、AdamW、RMSprop、AdaGrad，配备学习率调度器
 - 🔍 **数据验证和质量保证**：统计分析、异常检测、一致性检查、实时监控
 - 🐛 **全面调试和日志记录**：结构化日志、性能分析、内存跟踪、自动化警报
+- 🎯 **Phase 8 张量工具**: 条件操作 (where, masked_select, masked_fill), 索引操作 (gather, scatter, index_select), 统计操作 (topk, kthvalue), 以及高级工具 (unique, histogram)
 
 ## 🚀 快速开始
 

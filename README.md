@@ -24,11 +24,11 @@
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
 **本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPI、GPU加速、エンタープライズグレードパフォーマンス**
 
-RusTorch is a fully functional deep learning library that leverages Rust's safety and performance. **Phase 2 COMPLETED** brings revolutionary optimization framework with **33,632+ steps/sec performance** and **65% PyTorch compatibility**. Features comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, enterprise-grade memory management, data validation & quality assurance, and comprehensive debug & logging systems.
+RusTorch is a fully functional deep learning library that leverages Rust's safety and performance. **Phase 8 COMPLETED** brings advanced tensor utilities with **conditional operations, indexing, and statistical functions**. Features comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, enterprise-grade memory management, data validation & quality assurance, and comprehensive debug & logging systems.
 
 ## ✨ Features
 
-- 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, and statistics
+- 🔥 **Comprehensive Tensor Operations**: Math operations, broadcasting, indexing, statistics, and Phase 8 advanced utilities
 - 🤖 **Transformer Architecture**: Complete transformer implementation with multi-head attention
 - 🧮 **Matrix Decomposition**: SVD, QR, eigenvalue decomposition with PyTorch compatibility
 - 🧠 **Automatic Differentiation**: Tape-based computational graph for gradient computation
@@ -47,6 +47,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - ⚡ **World-Class Performance**: Adamax 33,632 steps/sec, RAdam 21,939 steps/sec, NAdam 18,976 steps/sec
 - 🔍 **Data Validation & Quality Assurance**: Statistical analysis, anomaly detection, consistency checking, real-time monitoring
 - 🐛 **Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
+- 🎯 **Phase 8 Tensor Utilities**: Conditional operations (where, masked_select, masked_fill), indexing operations (gather, scatter, index_select), statistical operations (topk, kthvalue), and advanced utilities (unique, histogram)
 
 For detailed features, see [Features Documentation](docs/features.md).
 

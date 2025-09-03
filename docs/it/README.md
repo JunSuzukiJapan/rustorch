@@ -12,7 +12,7 @@ RusTorch è una libreria di deep learning completamente funzionale che sfrutta l
 
 ## ✨ Funzionalità
 
-- 🔥 **Operazioni Tensoriali Complete**: Operazioni matematiche, broadcasting, indicizzazione e statistiche
+- 🔥 **Operazioni Tensoriali Complete**: Operazioni matematiche, broadcasting, indicizzazione e statistiche, utilità avanzate Phase 8
 - 🤖 **Architettura Transformer**: Implementazione completa di transformer con attenzione multi-head
 - 🧮 **Decomposizione Matriciale**: SVD, QR, decomposizione autovalori con compatibilità PyTorch
 - 🧠 **Differenziazione Automatica**: Grafo computazionale basato su tape per il calcolo del gradiente
@@ -29,6 +29,7 @@ RusTorch è una libreria di deep learning completamente funzionale che sfrutta l
 - 📈 **Ottimizzatori Avanzati**: SGD, Adam, AdamW, RMSprop, AdaGrad con scheduler learning rate
 - 🔍 **Validazione Dati e Garanzia Qualità**: Analisi statistica, rilevamento anomalie, controllo consistenza, monitoraggio real-time
 - 🐛 **Debug e Logging Completi**: Logging strutturato, profiling prestazioni, tracking memoria, alert automatizzati
+- 🎯 **Utilità Tensor Phase 8**: Operazioni condizionali (where, masked_select, masked_fill), operazioni di indicizzazione (gather, scatter, index_select), operazioni statistiche (topk, kthvalue), e utilità avanzate (unique, histogram)
 
 ## 🚀 Avvio Rapido
 
