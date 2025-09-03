@@ -13,15 +13,15 @@ pub trait Sampler {
     /// Sample next index
     /// 次のインデックスをサンプル
     fn sample(&mut self) -> Option<usize>;
-    
+
     /// Get total number of samples
     /// 総サンプル数を取得
     fn len(&self) -> usize;
-    
+
     /// Reset sampler for new epoch
     /// 新エポック用にサンプラーをリセット
     fn reset(&mut self);
-    
+
     /// Check if sampler is exhausted
     /// サンプラーが枯渇したかチェック
     fn is_empty(&self) -> bool;
@@ -56,15 +56,15 @@ impl Sampler for SequentialSampler {
             None
         }
     }
-    
+
     fn len(&self) -> usize {
         self.data_source_len
     }
-    
+
     fn reset(&mut self) {
         self.current_index = 0;
     }
-    
+
     fn is_empty(&self) -> bool {
         self.current_index >= self.data_source_len
     }
@@ -86,7 +86,7 @@ impl RandomSampler {
     pub fn new(data_source_len: usize) -> Self {
         let mut indices: Vec<usize> = (0..data_source_len).collect();
         indices.shuffle(&mut thread_rng());
-        
+
         Self {
             indices: indices.into(),
             original_len: data_source_len,
@@ -94,33 +94,33 @@ impl RandomSampler {
             generator: None,
         }
     }
-    
+
     /// Create random sampler with replacement
     /// 復元ありランダムサンプラーを作成
     pub fn with_replacement(data_source_len: usize, num_samples: usize) -> Self {
         let mut sampler = Self::new(data_source_len);
         sampler.replacement = true;
-        
+
         // Generate random indices with replacement
         let mut rng = thread_rng();
         let indices: Vec<usize> = (0..num_samples)
             .map(|_| rng.gen_range(0..data_source_len))
             .collect();
-        
+
         sampler.indices = indices.into();
         sampler
     }
-    
+
     /// Create seeded random sampler for reproducible results
     /// 再現可能な結果のためのシード付きランダムサンプラーを作成
     pub fn with_seed(data_source_len: usize, seed: u64) -> Self {
-        use rand::SeedableRng;
         use rand::rngs::StdRng;
-        
+        use rand::SeedableRng;
+
         let mut rng = StdRng::seed_from_u64(seed);
         let mut indices: Vec<usize> = (0..data_source_len).collect();
         indices.shuffle(&mut rng);
-        
+
         Self {
             indices: indices.into(),
             original_len: data_source_len,
@@ -140,7 +140,7 @@ impl Sampler for RandomSampler {
             self.indices.pop_front()
         }
     }
-    
+
     fn len(&self) -> usize {
         if self.replacement {
             usize::MAX // Infinite for replacement sampling
@@ -148,24 +148,24 @@ impl Sampler for RandomSampler {
             self.original_len
         }
     }
-    
+
     fn reset(&mut self) {
         if !self.replacement {
             let mut indices: Vec<usize> = (0..self.original_len).collect();
-            
+
             if let Some(seed) = self.generator {
-                use rand::SeedableRng;
                 use rand::rngs::StdRng;
+                use rand::SeedableRng;
                 let mut rng = StdRng::seed_from_u64(seed);
                 indices.shuffle(&mut rng);
             } else {
                 indices.shuffle(&mut thread_rng());
             }
-            
+
             self.indices = indices.into();
         }
     }
-    
+
     fn is_empty(&self) -> bool {
         !self.replacement && self.indices.is_empty()
     }
@@ -193,12 +193,12 @@ impl BatchSampler {
             drop_last,
         }
     }
-    
+
     /// Get next batch of indices
     /// 次のインデックスバッチを取得
     pub fn next_batch(&mut self) -> Option<Vec<usize>> {
         let mut batch = Vec::new();
-        
+
         for _ in 0..self.batch_size {
             if let Some(idx) = self.sampler.sample() {
                 batch.push(idx);
@@ -206,7 +206,7 @@ impl BatchSampler {
                 break;
             }
         }
-        
+
         if batch.is_empty() {
             None
         } else if self.drop_last && batch.len() < self.batch_size {
@@ -215,13 +215,13 @@ impl BatchSampler {
             Some(batch)
         }
     }
-    
+
     /// Get batch size
     /// バッチサイズを取得
     pub fn batch_size(&self) -> usize {
         self.batch_size
     }
-    
+
     /// Check if dropping last incomplete batch
     /// 最後の不完全なバッチを破棄するかチェック
     pub fn drop_last(&self) -> bool {
@@ -235,24 +235,24 @@ impl Sampler for BatchSampler {
         // Use next_batch() instead
         None
     }
-    
+
     fn len(&self) -> usize {
         let base_len = self.sampler.len();
         if base_len == usize::MAX {
             return usize::MAX; // Infinite sampling
         }
-        
+
         if self.drop_last {
             base_len / self.batch_size
         } else {
             (base_len + self.batch_size - 1) / self.batch_size
         }
     }
-    
+
     fn reset(&mut self) {
         self.sampler.reset();
     }
-    
+
     fn is_empty(&self) -> bool {
         self.sampler.is_empty()
     }
@@ -271,7 +271,7 @@ impl SubsetRandomSampler {
     pub fn new(indices: Vec<usize>) -> Self {
         let mut shuffled = indices.clone();
         shuffled.shuffle(&mut thread_rng());
-        
+
         Self {
             indices: shuffled.into(),
             original_indices: indices,
@@ -283,17 +283,17 @@ impl Sampler for SubsetRandomSampler {
     fn sample(&mut self) -> Option<usize> {
         self.indices.pop_front()
     }
-    
+
     fn len(&self) -> usize {
         self.original_indices.len()
     }
-    
+
     fn reset(&mut self) {
         let mut shuffled = self.original_indices.clone();
         shuffled.shuffle(&mut thread_rng());
         self.indices = shuffled.into();
     }
-    
+
     fn is_empty(&self) -> bool {
         self.indices.is_empty()
     }
@@ -311,14 +311,18 @@ pub struct WeightedRandomSampler {
 impl WeightedRandomSampler {
     /// Create weighted random sampler
     /// 重み付きランダムサンプラーを作成
-    pub fn new(weights: Vec<f64>, num_samples: usize, replacement: bool) -> Result<Self, DataError> {
+    pub fn new(
+        weights: Vec<f64>,
+        num_samples: usize,
+        replacement: bool,
+    ) -> Result<Self, DataError> {
         if weights.is_empty() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "WeightedRandomSampler::new".to_string(),
                 message: "Weights cannot be empty".to_string(),
             });
         }
-        
+
         // Validate weights are non-negative
         for (i, &weight) in weights.iter().enumerate() {
             if weight < 0.0 {
@@ -328,7 +332,7 @@ impl WeightedRandomSampler {
                 });
             }
         }
-        
+
         Ok(Self {
             weights,
             num_samples,
@@ -336,28 +340,28 @@ impl WeightedRandomSampler {
             current_count: 0,
         })
     }
-    
+
     /// Sample index based on weights
     /// 重みに基づいてインデックスをサンプル
     fn sample_weighted(&self) -> Option<usize> {
         use rand::Rng;
-        
+
         let total_weight: f64 = self.weights.iter().sum();
         if total_weight <= 0.0 {
             return None;
         }
-        
+
         let mut rng = thread_rng();
         let target = rng.gen::<f64>() * total_weight;
         let mut cumulative = 0.0;
-        
+
         for (i, &weight) in self.weights.iter().enumerate() {
             cumulative += weight;
             if cumulative >= target {
                 return Some(i);
             }
         }
-        
+
         // Fallback to last index
         Some(self.weights.len() - 1)
     }
@@ -368,7 +372,7 @@ impl Sampler for WeightedRandomSampler {
         if !self.replacement && self.current_count >= self.num_samples {
             return None;
         }
-        
+
         if let Some(index) = self.sample_weighted() {
             if !self.replacement {
                 self.current_count += 1;
@@ -378,15 +382,15 @@ impl Sampler for WeightedRandomSampler {
             None
         }
     }
-    
+
     fn len(&self) -> usize {
         self.num_samples
     }
-    
+
     fn reset(&mut self) {
         self.current_count = 0;
     }
-    
+
     fn is_empty(&self) -> bool {
         !self.replacement && self.current_count >= self.num_samples
     }

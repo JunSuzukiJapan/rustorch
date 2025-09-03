@@ -4,6 +4,8 @@
 //! This module provides various dataset types for different data formats
 //! このモジュールは様々なデータ形式に対応するデータセットタイプを提供します
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use super::LegacyDataset;
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -14,7 +16,10 @@ use std::path::{Path, PathBuf};
 
 /// CSV Dataset for loading tabular data
 /// 表形式データを読み込むためのCSVデータセット
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct CSVDataset<T: Float + num_traits::FromPrimitive> {
     features: Vec<Tensor<T>>,
     targets: Vec<Tensor<T>>,
@@ -197,7 +202,10 @@ impl<T: Float + num_traits::FromPrimitive> LegacyDataset<T> for CSVDataset<T> {
 
 /// Image dataset for computer vision tasks
 /// コンピュータビジョンタスク用画像データセット
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct ImageDataset<T: Float> {
     image_paths: Vec<PathBuf>,
     labels: Vec<Tensor<T>>,
@@ -359,7 +367,10 @@ impl<T: Float + num_traits::FromPrimitive + 'static> LegacyDataset<T> for ImageD
 
 /// Text dataset for NLP tasks
 /// NLPタスク用テキストデータセット
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct TextDataset<T: Float> {
     texts: Vec<String>,
     labels: Vec<Tensor<T>>,
@@ -480,7 +491,10 @@ impl<T: Float + num_traits::FromPrimitive + 'static> LegacyDataset<T> for TextDa
 
 /// Memory-mapped dataset for large files
 /// 大容量ファイル用メモリマップドデータセット
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct MemoryMappedDataset<T: Float> {
     _file_path: PathBuf,
     _data_type: std::marker::PhantomData<T>,

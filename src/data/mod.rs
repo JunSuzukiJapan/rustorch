@@ -15,8 +15,8 @@
 //! - 統一RusTorchErrorによるエラーハンドリング
 //! - GPU最適化のためのメモリ効率的プリフェッチ
 
-pub mod dataset;
 pub mod dataloader;
+pub mod dataset;
 pub mod sampler;
 
 // Legacy modules (Phase 3)
@@ -63,15 +63,24 @@ pub trait LegacyDataset<T: Float> {
 }
 
 // Re-export Phase 5 components (priority)
-pub use dataset::{Dataset, IterableDataset, TensorDataset, ConcatDataset, DataError};
-pub use sampler::{Sampler, SequentialSampler, RandomSampler, BatchSampler, WeightedRandomSampler, SubsetRandomSampler};
+pub use dataset::{ConcatDataset, DataError, Dataset, IterableDataset, TensorDataset};
+pub use sampler::{
+    BatchSampler, RandomSampler, Sampler, SequentialSampler, SubsetRandomSampler,
+    WeightedRandomSampler,
+};
 
-// Re-export legacy components (maintained for backward compatibility)  
-pub use dataloader::{Compose, LegacyDataLoader, Normalize, RandomHorizontalFlip, Transform, DataLoader};
-// Re-export legacy trait - no need for pub use since it's defined above
+// Re-export legacy components (maintained for backward compatibility)
+#[allow(deprecated)]
+pub use dataloader::{
+    Compose, DataLoader, LegacyDataLoader, Normalize, RandomHorizontalFlip, Transform,
+};
+#[allow(deprecated)]
 pub use datasets::{CSVDataset, ImageDataset, MemoryMappedDataset, TextDataset};
+#[allow(deprecated)]
 pub use parallel_dataloader::{ParallelBatchIterator, ParallelBatchProcessor, ParallelDataLoader};
+#[allow(deprecated)]
 pub use streaming::{AsyncDataLoader, DynamicBatchLoader, StreamingDataset};
+#[allow(deprecated)]
 pub use transforms::{
     AddGaussianNoise, CenterCrop, Compose as ComposeTransform, MinMaxNormalize,
     Normalize as AdvancedNormalize, RandomBrightness, RandomChoice,

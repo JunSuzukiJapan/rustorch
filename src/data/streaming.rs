@@ -4,6 +4,8 @@
 //! This module provides memory-efficient data loading for datasets that don't fit in memory
 //! このモジュールはメモリに収まらないデータセットのためのメモリ効率的なデータ読み込みを提供します
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use super::LegacyDataset;
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -15,7 +17,10 @@ use std::time::Duration;
 
 /// Streaming dataset that loads data on-demand
 /// オンデマンドでデータを読み込むストリーミングデータセット
-#[deprecated(since = "0.6.0", note = "Use Phase 5 IterableDataset for streaming data")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 IterableDataset for streaming data"
+)]
 pub struct StreamingDataset<T: Float + Send + Sync + 'static, D: LegacyDataset<T> + Send + Sync> {
     inner_dataset: Arc<D>,
     buffer_size: usize,
@@ -332,7 +337,10 @@ impl<
 
 /// Async data loader using channels for non-blocking data loading
 /// ノンブロッキングデータ読み込み用チャネルを使用する非同期データローダー
-#[deprecated(since = "0.6.0", note = "Use Phase 5 IterableDataset for async data loading")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 IterableDataset for async data loading"
+)]
 pub struct AsyncDataLoader<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     D: LegacyDataset<T> + Send + Sync + 'static,

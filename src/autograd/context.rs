@@ -161,12 +161,12 @@ mod tests {
     #[test]
     fn test_no_grad_guard() {
         assert!(is_grad_enabled()); // Default state
-        
+
         {
             let _guard = NoGradGuard::new();
             assert!(!is_grad_enabled()); // Disabled inside guard
         }
-        
+
         assert!(is_grad_enabled()); // Restored after guard drop
     }
 
@@ -174,12 +174,12 @@ mod tests {
     fn test_enable_grad_guard() {
         set_grad_enabled(false);
         assert!(!is_grad_enabled());
-        
+
         {
             let _guard = EnableGradGuard::new();
             assert!(is_grad_enabled()); // Enabled inside guard
         }
-        
+
         assert!(!is_grad_enabled()); // Restored after guard drop
         set_grad_enabled(true); // Reset for other tests
     }
@@ -187,12 +187,12 @@ mod tests {
     #[test]
     fn test_anomaly_detection_guard() {
         assert!(!is_anomaly_detection_enabled()); // Default state
-        
+
         {
             let _guard = AnomalyDetectionGuard::new();
             assert!(is_anomaly_detection_enabled()); // Enabled inside guard
         }
-        
+
         assert!(!is_anomaly_detection_enabled()); // Restored after guard drop
     }
 

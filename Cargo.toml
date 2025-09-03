@@ -165,6 +165,7 @@ onnx = ["dep:ort"]
 model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
 python = ["dep:pyo3"]
 ci-fast = []
+memory-debug = []
 
 [profile.release]
 opt-level = 3

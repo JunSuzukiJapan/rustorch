@@ -1,6 +1,8 @@
 //! Parallel DataLoader implementation for high-performance batch processing
 //! 高性能バッチ処理のための並列DataLoader実装
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use crate::data::LegacyDataset;
 use crate::tensor::parallel_traits::MatrixParallelOp;
 use crate::tensor::Tensor;
@@ -13,7 +15,10 @@ use std::time::Duration;
 
 /// Parallel DataLoader for concurrent batch processing
 /// 並行バッチ処理のための並列DataLoader
-#[deprecated(since = "0.6.0", note = "Use Phase 5 DataLoader with built-in parallelization")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 DataLoader with built-in parallelization"
+)]
 pub struct ParallelDataLoader<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     D: LegacyDataset<T> + Send + Sync,
@@ -87,7 +92,10 @@ impl<
 
 /// Parallel batch iterator with prefetching
 /// プリフェッチ機能付き並列バッチイテレータ
-#[deprecated(since = "0.6.0", note = "Use Phase 5 DataLoader with built-in parallelization")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 DataLoader with built-in parallelization"
+)]
 pub struct ParallelBatchIterator<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
     D: LegacyDataset<T> + Send + Sync,
@@ -207,7 +215,10 @@ impl<
 
 /// Parallel batch operations for training
 /// 訓練用並列バッチ演算
-#[deprecated(since = "0.6.0", note = "Use Phase 5 DataLoader with built-in parallelization")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 DataLoader with built-in parallelization"
+)]
 pub struct ParallelBatchProcessor<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
 > {

@@ -325,37 +325,41 @@ pub fn glu<
     let input_guard = input_tensor.read().unwrap();
     let input_shape = input_guard.shape();
     let input_data = input_guard.as_slice().unwrap();
-    
+
     // GLU requires even number of elements on the last dimension
     let last_dim = input_shape[input_shape.len() - 1];
-    assert_eq!(last_dim % 2, 0, "GLU requires even number of elements on last dimension");
-    
+    assert_eq!(
+        last_dim % 2,
+        0,
+        "GLU requires even number of elements on last dimension"
+    );
+
     let half_size = last_dim / 2;
     let total_elements = input_shape.iter().product::<usize>();
     let batch_size = total_elements / last_dim;
-    
+
     // Create output shape (half the size of last dimension)
     let mut output_shape = input_shape.to_vec();
     let last_dim_idx = output_shape.len() - 1;
     output_shape[last_dim_idx] = half_size;
     let output_size = output_shape.iter().product::<usize>();
     let mut output_data = vec![T::default(); output_size];
-    
+
     // Process each batch
     for batch in 0..batch_size {
         let input_offset = batch * last_dim;
         let output_offset = batch * half_size;
-        
+
         for i in 0..half_size {
-            let a = input_data[input_offset + i];           // First half (values)
+            let a = input_data[input_offset + i]; // First half (values)
             let b = input_data[input_offset + half_size + i]; // Second half (gates)
-            
+
             // Apply sigmoid to gate and multiply: a * sigmoid(b)
             let sigmoid_b = T::from_f32(1.0).unwrap() / (T::from_f32(1.0).unwrap() + (-b).exp());
             output_data[output_offset + i] = a * sigmoid_b;
         }
     }
-    
+
     let output_tensor = Tensor::from_vec(output_data, output_shape);
     Variable::new(output_tensor, x.requires_grad())
 }
@@ -378,31 +382,36 @@ pub fn swiglu<
     let input_guard = input_tensor.read().unwrap();
     let input_shape = input_guard.shape();
     let input_data = input_guard.as_slice().unwrap();
-    
+
     let last_dim = input_shape[input_shape.len() - 1];
-    assert_eq!(last_dim % 2, 0, "SwiGLU requires even number of elements on last dimension");
-    
+    assert_eq!(
+        last_dim % 2,
+        0,
+        "SwiGLU requires even number of elements on last dimension"
+    );
+
     let half_size = last_dim / 2;
     let total_elements = input_shape.iter().product::<usize>();
     let batch_size = total_elements / last_dim;
-    
+
     let mut output_shape = input_shape.to_vec();
     let last_idx = output_shape.len() - 1;
     output_shape[last_idx] = half_size;
     let mut output_data = vec![T::default(); batch_size * half_size];
-    
+
     for i in 0..batch_size {
         let offset = i * last_dim;
         for j in 0..half_size {
             let a = input_data[offset + j];
             let b = input_data[offset + j + half_size];
-            
+
             // Swish activation: x * sigmoid(x)
-            let swish_b = b * (T::from_f32(1.0).unwrap() / (T::from_f32(1.0).unwrap() + (-b).exp()));
+            let swish_b =
+                b * (T::from_f32(1.0).unwrap() / (T::from_f32(1.0).unwrap() + (-b).exp()));
             output_data[i * half_size + j] = a * swish_b;
         }
     }
-    
+
     let output_tensor = Tensor::from_vec(output_data, output_shape);
     Variable::new(output_tensor, x.requires_grad())
 }
@@ -418,34 +427,40 @@ pub fn geglu<
     let input_guard = input_tensor.read().unwrap();
     let input_shape = input_guard.shape();
     let input_data = input_guard.as_slice().unwrap();
-    
+
     let last_dim = input_shape[input_shape.len() - 1];
-    assert_eq!(last_dim % 2, 0, "GeGLU requires even number of elements on last dimension");
-    
+    assert_eq!(
+        last_dim % 2,
+        0,
+        "GeGLU requires even number of elements on last dimension"
+    );
+
     let half_size = last_dim / 2;
     let total_elements = input_shape.iter().product::<usize>();
     let batch_size = total_elements / last_dim;
-    
+
     let mut output_shape = input_shape.to_vec();
     let last_idx = output_shape.len() - 1;
     output_shape[last_idx] = half_size;
     let mut output_data = vec![T::default(); batch_size * half_size];
-    
+
     for i in 0..batch_size {
         let offset = i * last_dim;
         for j in 0..half_size {
             let a = input_data[offset + j];
             let b = input_data[offset + j + half_size];
-            
+
             // GELU activation: x * Φ(x) where Φ is the standard Gaussian CDF
-            let gelu_b = b * T::from_f32(0.5).unwrap() * 
-                (T::from_f32(1.0).unwrap() + 
-                 (b * T::from_f32(0.7978845608).unwrap() * 
-                  (T::from_f32(1.0).unwrap() + T::from_f32(0.044715).unwrap() * b * b)).tanh());
+            let gelu_b = b
+                * T::from_f32(0.5).unwrap()
+                * (T::from_f32(1.0).unwrap()
+                    + (b * T::from_f32(0.7978845608).unwrap()
+                        * (T::from_f32(1.0).unwrap() + T::from_f32(0.044715).unwrap() * b * b))
+                        .tanh());
             output_data[i * half_size + j] = a * gelu_b;
         }
     }
-    
+
     let output_tensor = Tensor::from_vec(output_data, output_shape);
     Variable::new(output_tensor, x.requires_grad())
 }
@@ -461,36 +476,50 @@ pub fn reglu<
     let input_guard = input_tensor.read().unwrap();
     let input_shape = input_guard.shape();
     let input_data = input_guard.as_slice().unwrap();
-    
+
     let last_dim = input_shape[input_shape.len() - 1];
-    assert_eq!(last_dim % 2, 0, "ReGLU requires even number of elements on last dimension");
-    
+    assert_eq!(
+        last_dim % 2,
+        0,
+        "ReGLU requires even number of elements on last dimension"
+    );
+
     let half_size = last_dim / 2;
     let total_elements = input_shape.iter().product::<usize>();
     let batch_size = total_elements / last_dim;
-    
+
     let mut output_shape = input_shape.to_vec();
     let last_idx = output_shape.len() - 1;
     output_shape[last_idx] = half_size;
     let mut output_data = vec![T::default(); batch_size * half_size];
-    
+
     for i in 0..batch_size {
         let offset = i * last_dim;
         for j in 0..half_size {
             let a = input_data[offset + j];
             let b = input_data[offset + j + half_size];
-            
+
             // ReLU activation: max(0, x)
             let relu_b = if b > T::zero() { b } else { T::zero() };
             output_data[i * half_size + j] = a * relu_b;
         }
     }
-    
+
     let output_tensor = Tensor::from_vec(output_data, output_shape);
     Variable::new(output_tensor, x.requires_grad())
 }
 
-impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive + Default> GLU<T> {
+impl<
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive
+            + Default,
+    > GLU<T>
+{
     /// Create a new GLU activation function
     /// 新しいGLU活性化関数を作成
     pub fn new() -> Self {
@@ -500,7 +529,17 @@ impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_tra
     }
 }
 
-impl<T: Float + Send + Sync + 'static + Debug + ndarray::ScalarOperand + num_traits::FromPrimitive + Default> Module<T> for GLU<T> {
+impl<
+        T: Float
+            + Send
+            + Sync
+            + 'static
+            + Debug
+            + ndarray::ScalarOperand
+            + num_traits::FromPrimitive
+            + Default,
+    > Module<T> for GLU<T>
+{
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         glu(input)
     }
@@ -1059,10 +1098,7 @@ mod tests {
     #[test]
     fn test_glu() {
         // Test GLU with 4-element input (2 gates)
-        let input = Variable::new(
-            Tensor::from_vec(vec![1.0, 2.0, 0.5, -1.0], vec![4]), 
-            false
-        );
+        let input = Variable::new(Tensor::from_vec(vec![1.0, 2.0, 0.5, -1.0], vec![4]), false);
 
         let output = glu(&input);
         let result_binding = output.data();
@@ -1072,6 +1108,7 @@ mod tests {
         // Expected: [1.0 * sigmoid(0.5), 2.0 * sigmoid(-1.0)]
         assert_eq!(result_data.shape(), &[2]); // Half the input size
         assert!(result_data.as_array()[0] > 0.5); // 1.0 * sigmoid(0.5) > 0.5
-        assert!(result_data.as_array()[1] > 0.0 && result_data.as_array()[1] < 1.0); // 2.0 * sigmoid(-1.0)
+        assert!(result_data.as_array()[1] > 0.0 && result_data.as_array()[1] < 1.0);
+        // 2.0 * sigmoid(-1.0)
     }
 }

@@ -1,10 +1,10 @@
 //! Advanced gradient computation utilities
 //! 高度な勾配計算ユーティリティ
 
-use crate::autograd::{Variable, GradFn};
-use crate::autograd::context::{is_grad_enabled, is_anomaly_detection_enabled};
-use crate::tensor::Tensor;
+use crate::autograd::context::{is_anomaly_detection_enabled, is_grad_enabled};
+use crate::autograd::{GradFn, Variable};
 use crate::error::RusTorchError;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -23,25 +23,32 @@ pub fn grad<T>(
     create_graph: bool,
 ) -> Result<Vec<Option<Tensor<T>>>, GradError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug,
 {
     if !is_grad_enabled() {
         return Err(RusTorchError::Autograd {
-            message: "Gradient computation is disabled. Use enable_grad() context manager.".to_string()
+            message: "Gradient computation is disabled. Use enable_grad() context manager."
+                .to_string(),
         });
     }
 
     if outputs.is_empty() {
         return Err(RusTorchError::InvalidParameters {
             operation: "grad".to_string(),
-            message: "At least one output must be provided".to_string()
+            message: "At least one output must be provided".to_string(),
         });
     }
 
     if inputs.is_empty() {
         return Err(RusTorchError::InvalidParameters {
             operation: "grad".to_string(),
-            message: "At least one input must be provided".to_string()
+            message: "At least one input must be provided".to_string(),
         });
     }
 
@@ -53,7 +60,7 @@ where
             if output_data.numel() != 1 {
                 return Err(RusTorchError::InvalidParameters {
                     operation: "grad".to_string(),
-                    message: format!("Output {} is not scalar and no grad_output provided", i)
+                    message: format!("Output {} is not scalar and no grad_output provided", i),
                 });
             }
         }
@@ -64,21 +71,24 @@ where
         if grad_outputs.len() != outputs.len() {
             return Err(RusTorchError::ShapeMismatch {
                 expected: vec![outputs.len()],
-                actual: vec![grad_outputs.len()]
+                actual: vec![grad_outputs.len()],
             });
         }
         grad_outputs.to_vec()
     } else {
         // Create unit gradients for scalar outputs
-        outputs.iter().map(|output| {
-            let output_data_guard = output.data();
-            let output_data = output_data_guard.read().unwrap();
-            if output_data.numel() == 1 {
-                Tensor::ones(output_data.shape())
-            } else {
-                Tensor::ones(&[]) // This should not happen due to validation above
-            }
-        }).collect()
+        outputs
+            .iter()
+            .map(|output| {
+                let output_data_guard = output.data();
+                let output_data = output_data_guard.read().unwrap();
+                if output_data.numel() == 1 {
+                    Tensor::ones(output_data.shape())
+                } else {
+                    Tensor::ones(&[]) // This should not happen due to validation above
+                }
+            })
+            .collect()
     };
 
     // Clear existing gradients if not retaining graph
@@ -115,12 +125,12 @@ where
                 for &val in grad_data.iter() {
                     if val.is_nan() {
                         return Err(RusTorchError::Autograd {
-                            message: format!("NaN detected in gradient for input {}", i)
+                            message: format!("NaN detected in gradient for input {}", i),
                         });
                     }
                     if val.is_infinite() {
                         return Err(RusTorchError::Autograd {
-                            message: format!("Infinity detected in gradient for input {}", i)
+                            message: format!("Infinity detected in gradient for input {}", i),
                         });
                     }
                 }
@@ -139,7 +149,13 @@ pub fn gradient<T, F>(
     create_graph: bool,
 ) -> Result<Vec<Option<Tensor<T>>>, GradError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug,
     F: FnOnce(&[Variable<T>]) -> Variable<T>,
 {
     // Ensure inputs require gradients for computation
@@ -152,14 +168,14 @@ where
 
     // Compute function output
     let output = func(&grad_inputs);
-    
+
     // Validate output is scalar
     let output_data_guard = output.data();
     let output_data = output_data_guard.read().unwrap();
     if output_data.numel() != 1 {
         return Err(RusTorchError::InvalidParameters {
             operation: "gradient".to_string(),
-            message: "Function output must be scalar for gradient computation".to_string()
+            message: "Function output must be scalar for gradient computation".to_string(),
         });
     }
 
@@ -201,7 +217,7 @@ where
     if !outputs.iter().any(|output| output.requires_grad()) {
         return Err(RusTorchError::InvalidParameters {
             operation: "validate_grad_setup".to_string(),
-            message: "At least one output must require gradients".to_string()
+            message: "At least one output must require gradients".to_string(),
         });
     }
 
@@ -209,7 +225,7 @@ where
     if !inputs.iter().any(|input| input.requires_grad()) {
         return Err(RusTorchError::InvalidParameters {
             operation: "validate_grad_setup".to_string(),
-            message: "At least one input must require gradients".to_string()
+            message: "At least one input must require gradients".to_string(),
         });
     }
 
@@ -227,9 +243,9 @@ mod tests {
         // f(x) = x^2, df/dx = 2x
         let x = Variable::new(Tensor::from_vec(vec![3.0f32], vec![1]), true);
         let y = &x * &x; // x^2
-        
+
         let gradients = grad(&[y], &[x.clone()], None, false, false).unwrap();
-        
+
         assert!(gradients[0].is_some());
         let grad_val = gradients[0].as_ref().unwrap().as_array()[0];
         assert!((grad_val - 6.0).abs() < 1e-6); // 2 * 3 = 6
@@ -241,15 +257,15 @@ mod tests {
         let x = Variable::new(Tensor::from_vec(vec![2.0f32], vec![1]), true);
         let y = Variable::new(Tensor::from_vec(vec![3.0f32], vec![1]), true);
         let z = &x * &y;
-        
+
         let gradients = grad(&[z], &[x.clone(), y.clone()], None, false, false).unwrap();
-        
+
         assert!(gradients[0].is_some());
         assert!(gradients[1].is_some());
-        
+
         let grad_x = gradients[0].as_ref().unwrap().as_array()[0];
         let grad_y = gradients[1].as_ref().unwrap().as_array()[0];
-        
+
         assert!((grad_x - 3.0).abs() < 1e-6); // df/dx = y = 3
         assert!((grad_y - 2.0).abs() < 1e-6); // df/dy = x = 2
     }
@@ -265,14 +281,15 @@ mod tests {
             |vars| &vars[0] * &vars[0] + &vars[1] * &vars[1], // x^2 + y^2
             &inputs,
             false,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(gradients[0].is_some());
         assert!(gradients[1].is_some());
-        
+
         let grad_x = gradients[0].as_ref().unwrap().as_array()[0];
         let grad_y = gradients[1].as_ref().unwrap().as_array()[0];
-        
+
         assert!((grad_x - 4.0).abs() < 1e-6); // d/dx(x^2 + y^2) = 2x = 4
         assert!((grad_y - 6.0).abs() < 1e-6); // d/dy(x^2 + y^2) = 2y = 6
     }

@@ -1,6 +1,8 @@
 //! 汎用的な学習ループトレーナー
 //! Generic training loop trainer
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
 use super::state::{BatchState, EpochState, TrainingState};

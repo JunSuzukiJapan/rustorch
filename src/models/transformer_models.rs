@@ -2,10 +2,10 @@
 //! Transformer model implementations
 
 use crate::autograd::Variable;
+use crate::error::RusTorchResult;
 use crate::models::{Model, ModelBuilder, ModelMode};
 use crate::nn::{Dropout, Embedding, LayerNorm, Linear, Module};
-use crate::nn::{PositionalEmbedding, LegacyTransformerEncoder, TransformerEncoderLayer};
-use crate::error::RusTorchResult;
+use crate::nn::{LegacyTransformerEncoder, PositionalEmbedding, TransformerEncoderLayer};
 use num_traits::Float;
 use std::any::Any;
 use std::collections::HashMap;
@@ -82,10 +82,10 @@ where
             nhead,
             Some(dim_feedforward),
             Some(<T as From<f32>>::from(dropout_rate as f32)),
-            Some("relu".to_string()), // activation
+            Some("relu".to_string()),           // activation
             Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
-            Some(true),  // batch_first
-            Some(false), // norm_first 
+            Some(true),                         // batch_first
+            Some(false),                        // norm_first
         )?;
         let encoder = LegacyTransformerEncoder::new(
             num_encoder_layers,
@@ -477,10 +477,10 @@ where
             config.num_attention_heads,
             Some(config.intermediate_size),
             Some(<T as From<f32>>::from(config.dropout_prob as f32)),
-            Some("relu".to_string()), // activation
+            Some("relu".to_string()),           // activation
             Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
-            Some(true),  // batch_first
-            Some(false), // norm_first 
+            Some(true),                         // batch_first
+            Some(false),                        // norm_first
         )?;
         let encoder = LegacyTransformerEncoder::new(
             config.num_hidden_layers,
@@ -767,10 +767,10 @@ where
                 config.n_head,
                 Some(config.n_embd * 4), // FFN の次元
                 Some(<T as From<f32>>::from(config.dropout as f32)),
-                Some("relu".to_string()), // activation
+                Some("relu".to_string()),           // activation
                 Some(<T as From<f32>>::from(1e-5)), // layer_norm_eps
-                Some(true),  // batch_first
-                Some(false), // norm_first 
+                Some(true),                         // batch_first
+                Some(false),                        // norm_first
             )?);
         }
 
@@ -1082,7 +1082,8 @@ where
             num_classes,
             self.dropout_rate,
             self.max_seq_length,
-        ).expect("Failed to create TransformerModel")
+        )
+        .expect("Failed to create TransformerModel")
     }
 }
 

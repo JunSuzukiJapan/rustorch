@@ -10,9 +10,9 @@ pub mod conv2d;
 pub mod conv3d;
 pub mod conv_base;
 pub mod conv_transpose;
-pub mod conv_transpose_common;
 pub mod conv_transpose_1d;
 pub mod conv_transpose_3d;
+pub mod conv_transpose_common;
 pub mod dropout;
 pub mod embedding;
 pub mod gru;
@@ -145,17 +145,20 @@ where
 // ニューラルネットワークモジュールを再エクスポート
 /// Activation function modules
 /// 活性化関数モジュール
-pub use activation::{ReLU, Softmax, Tanh, GELU, GLU, glu, swiglu, geglu, reglu};
+pub use activation::{geglu, glu, reglu, swiglu, ReLU, Softmax, Tanh, GELU, GLU};
 /// 適応的プーリングレイヤー
 /// Adaptive pooling layers
 pub use adaptive_pool::{AdaptiveAvgPool2d, AdaptiveMaxPool2d};
+/// Legacy attention for compatibility (deprecated)
+/// 互換性のためのレガシーアテンション（非推奨）
+#[deprecated(
+    since = "0.6.0",
+    note = "Use transformer_phase6::MultiheadAttention instead"
+)]
+pub use attention::MultiheadAttention as LegacyMultiheadAttention;
 /// Attention layers
 /// アテンション層
 pub use attention::{CrossAttention, SelfAttention};
-/// Legacy attention for compatibility (deprecated)
-/// 互換性のためのレガシーアテンション（非推奨）
-#[deprecated(since = "0.6.0", note = "Use transformer_phase6::MultiheadAttention instead")]
-pub use attention::MultiheadAttention as LegacyMultiheadAttention;
 /// バッチ正規化レイヤー
 /// Batch normalization layers
 pub use batchnorm::{BatchNorm1d, BatchNorm2d};
@@ -179,12 +182,12 @@ pub use dropout::{dropout, AlphaDropout, Dropout};
 /// Embedding layers
 /// 埋め込みレイヤー
 pub use embedding::{Embedding, PositionalEmbedding, SinusoidalPositionalEncoding};
-/// Instance normalization layers
-/// インスタンス正規化レイヤー
-pub use instance_norm::{InstanceNorm1d, InstanceNorm2d, InstanceNorm3d};
 /// GRUレイヤー
 /// GRU layers
 pub use gru::{GRUCell, GRU};
+/// Instance normalization layers
+/// インスタンス正規化レイヤー
+pub use instance_norm::{InstanceNorm1d, InstanceNorm2d, InstanceNorm3d};
 /// 線形（全結合）レイヤー
 /// Linear (fully connected) layer
 pub use linear::Linear;
@@ -223,18 +226,14 @@ pub use rnn::{RNNCell, RNN};
 /// レガシーTransformerコンポーネント（非推奨）
 #[deprecated(since = "0.6.0", note = "Use Phase 6 components instead")]
 pub use transformer::{
-    Transformer as LegacyTransformer, 
-    TransformerDecoderLayer as LegacyTransformerDecoderLayer, 
-    TransformerEncoder as LegacyTransformerEncoder, 
+    Transformer as LegacyTransformer, TransformerDecoderLayer as LegacyTransformerDecoderLayer,
+    TransformerEncoder as LegacyTransformerEncoder,
     TransformerEncoderLayer as LegacyTransformerEncoderLayer,
 };
 
 /// Phase 6 Transformer components - Primary implementation (PyTorch compatible)
 /// フェーズ6 Transformerコンポーネント - 主要実装（PyTorch互換）
 pub use transformer_phase6::{
-    MultiheadAttention,
-    PositionalEncoding,
+    MultiheadAttention, PositionalEncoding, Transformer, TransformerDecoderLayer,
     TransformerEncoderLayer,
-    TransformerDecoderLayer,
-    Transformer,
 };

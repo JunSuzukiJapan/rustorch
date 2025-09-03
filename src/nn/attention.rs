@@ -270,8 +270,10 @@ where
             for h in 0..self.num_heads {
                 for s in 0..seq_length {
                     for d in 0..self.head_dim {
-                        let original_idx =
-                            b * seq_length * self.embed_dim + s * self.embed_dim + h * self.head_dim + d;
+                        let original_idx = b * seq_length * self.embed_dim
+                            + s * self.embed_dim
+                            + h * self.head_dim
+                            + d;
                         reshaped_data.push(data_vec[original_idx]);
                     }
                 }
@@ -524,7 +526,15 @@ where
     /// 新しいCrossAttention層を作成
     pub fn new(d_model: usize, num_heads: usize, dropout: Option<T>) -> Self {
         CrossAttention {
-            attention: MultiheadAttention::new(d_model, num_heads, Some(T::zero()), Some(true), None, None, Some(false)),
+            attention: MultiheadAttention::new(
+                d_model,
+                num_heads,
+                Some(T::zero()),
+                Some(true),
+                None,
+                None,
+                Some(false),
+            ),
         }
     }
 
@@ -537,7 +547,9 @@ where
         value: &Variable<T>,
         mask: Option<&Variable<T>>,
     ) -> Variable<T> {
-        let (output, _) = self.attention.forward(query, key, value, mask, Some(false), None, Some(true));
+        let (output, _) =
+            self.attention
+                .forward(query, key, value, mask, Some(false), None, Some(true));
         output
     }
 
@@ -549,7 +561,15 @@ where
         key_value: &Variable<T>,
         mask: Option<&Variable<T>>,
     ) -> Variable<T> {
-        let (output, _) = self.attention.forward(query, key_value, key_value, mask, Some(false), None, Some(true));
+        let (output, _) = self.attention.forward(
+            query,
+            key_value,
+            key_value,
+            mask,
+            Some(false),
+            None,
+            Some(true),
+        );
         output
     }
 }
@@ -573,7 +593,9 @@ where
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For Module trait, assume self-attention behavior
-        let (output, _) = self.attention.forward(input, input, input, None, Some(false), None, Some(true));
+        let (output, _) =
+            self.attention
+                .forward(input, input, input, None, Some(false), None, Some(true));
         output
     }
 
@@ -592,7 +614,8 @@ mod tests {
 
     #[test]
     fn test_multi_head_attention_creation() {
-        let mha = MultiheadAttention::<f32>::new(512, 8, Some(0.0), Some(true), None, None, Some(false));
+        let mha =
+            MultiheadAttention::<f32>::new(512, 8, Some(0.0), Some(true), None, None, Some(false));
 
         assert_eq!(mha.num_heads(), 8);
         assert_eq!(mha.embed_dim(), 512);
@@ -621,13 +644,15 @@ mod tests {
     #[test]
     #[ignore] // TODO: Fix 3D tensor matrix multiplication in linear layer
     fn test_attention_forward_shape() {
-        let mha = MultiheadAttention::<f32>::new(64, 4, Some(0.0), Some(true), None, None, Some(false));
+        let mha =
+            MultiheadAttention::<f32>::new(64, 4, Some(0.0), Some(true), None, None, Some(false));
 
         // Create input: batch_size=2, seq_length=10, d_model=64
         let input_data: Vec<f32> = (0..2 * 10 * 64).map(|i| i as f32 * 0.01).collect();
         let input = Variable::new(Tensor::from_vec(input_data, vec![2, 10, 64]), false);
 
-        let (output, _attention_weights) = mha.forward(&input, &input, &input, None, None, None, None);
+        let (output, _attention_weights) =
+            mha.forward(&input, &input, &input, None, None, None, None);
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
 

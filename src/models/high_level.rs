@@ -3,6 +3,8 @@
 //!
 //! Keras風の高レベルインターフェース（fit, evaluate, predict）を提供
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use crate::autograd::Variable;
 use crate::data::{LegacyDataLoader, LegacyDataset};
 use crate::models::sequential::Sequential;

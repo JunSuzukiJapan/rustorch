@@ -58,7 +58,7 @@ fn demo_simd_operations() {
     {
         let mut result_simd = vec![0.0f32; size];
 
-        // SIMD addition  
+        // SIMD addition
         let start = Instant::now();
         #[allow(unused_unsafe)]
         {

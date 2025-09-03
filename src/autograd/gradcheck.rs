@@ -1,7 +1,10 @@
 //! Gradient checking utilities for numerical validation
 //! 数値検証のための勾配チェックユーティリティ
 
-use crate::autograd::{Variable, grad_utils::{grad, GradError}};
+use crate::autograd::{
+    grad_utils::{grad, GradError},
+    Variable,
+};
 use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -21,9 +24,9 @@ pub struct GradCheckConfig<T: Float> {
 impl<T: Float + From<f32>> Default for GradCheckConfig<T> {
     fn default() -> Self {
         Self {
-            eps: <T as From<f32>>::from(1e-4f32),  // Larger eps for better numerical stability
-            atol: <T as From<f32>>::from(1e-3f32),  // Adjusted tolerance
-            rtol: <T as From<f32>>::from(1e-2f32),  // Adjusted relative tolerance
+            eps: <T as From<f32>>::from(1e-4f32), // Larger eps for better numerical stability
+            atol: <T as From<f32>>::from(1e-3f32), // Adjusted tolerance
+            rtol: <T as From<f32>>::from(1e-2f32), // Adjusted relative tolerance
             nondet_tol: <T as From<f32>>::from(0.0f32),
             check_sparse_nnz: true,
         }
@@ -49,18 +52,26 @@ pub fn gradcheck<T, F>(
     config: Option<GradCheckConfig<T>>,
 ) -> Result<GradCheckResult<T>, RusTorchError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug + From<f32> + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug
+        + From<f32>
+        + std::fmt::Display,
     F: Fn(&[Variable<T>]) -> Variable<T> + Sync + Send,
 {
     let config = config.unwrap_or_default();
     let mut error_details = Vec::new();
     let mut max_error = T::zero();
-    
+
     // Validate inputs
     if inputs.is_empty() {
         return Err(RusTorchError::InvalidParameters {
             operation: "gradcheck".to_string(),
-            message: "At least one input must be provided".to_string()
+            message: "At least one input must be provided".to_string(),
         });
     }
 
@@ -78,12 +89,12 @@ where
     let output = func(&grad_inputs);
     let output_data_guard = output.data();
     let output_data = output_data_guard.read().unwrap();
-    
+
     // Validate output is scalar
     if output_data.numel() != 1 {
         return Err(RusTorchError::InvalidParameters {
             operation: "gradcheck".to_string(),
-            message: "Function output must be scalar for gradient checking".to_string()
+            message: "Function output must be scalar for gradient checking".to_string(),
         });
     }
 
@@ -93,7 +104,7 @@ where
 
     if analytical_grad.is_none() {
         return Err(RusTorchError::Autograd {
-            message: "Failed to compute analytical gradient".to_string()
+            message: "Failed to compute analytical gradient".to_string(),
         });
     }
 
@@ -102,38 +113,41 @@ where
 
     // Compute numerical gradient using finite differences (parallelized)
     let input_array = input_data.as_array();
-    let numerical_grad_data: Vec<T> = (0..input_size).into_par_iter().map(|i| {
-        // Create perturbed inputs: x + eps and x - eps
-        let mut plus_input_vec = input_array.as_slice().unwrap().to_vec();
-        let mut minus_input_vec = input_array.as_slice().unwrap().to_vec();
-        
-        plus_input_vec[i] = plus_input_vec[i] + config.eps;
-        minus_input_vec[i] = minus_input_vec[i] - config.eps;
+    let numerical_grad_data: Vec<T> = (0..input_size)
+        .into_par_iter()
+        .map(|i| {
+            // Create perturbed inputs: x + eps and x - eps
+            let mut plus_input_vec = input_array.as_slice().unwrap().to_vec();
+            let mut minus_input_vec = input_array.as_slice().unwrap().to_vec();
 
-        // Compute function values at perturbed points
-        let plus_var = Variable::new(
-            Tensor::from_vec(plus_input_vec, input_data.shape().to_vec()),
-            false
-        );
-        let minus_var = Variable::new(
-            Tensor::from_vec(minus_input_vec, input_data.shape().to_vec()),
-            false
-        );
+            plus_input_vec[i] = plus_input_vec[i] + config.eps;
+            minus_input_vec[i] = minus_input_vec[i] - config.eps;
 
-        let plus_output = func(&[plus_var]);
-        let minus_output = func(&[minus_var]);
+            // Compute function values at perturbed points
+            let plus_var = Variable::new(
+                Tensor::from_vec(plus_input_vec, input_data.shape().to_vec()),
+                false,
+            );
+            let minus_var = Variable::new(
+                Tensor::from_vec(minus_input_vec, input_data.shape().to_vec()),
+                false,
+            );
 
-        let plus_data_guard = plus_output.data();
-        let plus_data = plus_data_guard.read().unwrap();
-        let plus_val = plus_data.as_array().as_slice().unwrap()[0];
-        
-        let minus_data_guard = minus_output.data();
-        let minus_data = minus_data_guard.read().unwrap();
-        let minus_val = minus_data.as_array().as_slice().unwrap()[0];
+            let plus_output = func(&[plus_var]);
+            let minus_output = func(&[minus_var]);
 
-        // Compute numerical derivative: (f(x+eps) - f(x-eps)) / (2*eps)
-        (plus_val - minus_val) / (config.eps + config.eps)
-    }).collect();
+            let plus_data_guard = plus_output.data();
+            let plus_data = plus_data_guard.read().unwrap();
+            let plus_val = plus_data.as_array().as_slice().unwrap()[0];
+
+            let minus_data_guard = minus_output.data();
+            let minus_data = minus_data_guard.read().unwrap();
+            let minus_val = minus_data.as_array().as_slice().unwrap()[0];
+
+            // Compute numerical derivative: (f(x+eps) - f(x-eps)) / (2*eps)
+            (plus_val - minus_val) / (config.eps + config.eps)
+        })
+        .collect();
 
     let numerical_grad_tensor = Tensor::from_vec(numerical_grad_data, input_data.shape().to_vec());
     let numerical_data = numerical_grad_tensor.as_array();
@@ -143,7 +157,7 @@ where
     for i in 0..input_size {
         let analytical_val = analytical_data.as_slice().unwrap()[i];
         let numerical_val = numerical_data.as_slice().unwrap()[i];
-        
+
         let abs_error = (analytical_val - numerical_val).abs();
         let rel_error = if numerical_val.abs() > config.atol {
             abs_error / numerical_val.abs()
@@ -175,12 +189,17 @@ where
 
 /// Simplified gradient checking function with default configuration
 /// デフォルト設定での簡単な勾配チェック関数
-pub fn gradcheck_simple<T, F>(
-    func: F,
-    inputs: &[Variable<T>],
-) -> bool
+pub fn gradcheck_simple<T, F>(func: F, inputs: &[Variable<T>]) -> bool
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug + From<f32> + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug
+        + From<f32>
+        + std::fmt::Display,
     F: Fn(&[Variable<T>]) -> Variable<T> + Sync + Send,
 {
     gradcheck(func, inputs, None)
@@ -198,14 +217,14 @@ mod tests {
     fn test_gradcheck_quadratic() {
         // f(x) = x^2, analytical gradient should match numerical
         let input = Variable::new(Tensor::from_vec(vec![2.0f32], vec![1]), true);
-        
-        let result = gradcheck(
-            |inputs| &inputs[0] * &inputs[0],
-            &[input],
-            None,
-        ).unwrap();
 
-        assert!(result.passed, "Gradient check failed: {:?}", result.error_details);
+        let result = gradcheck(|inputs| &inputs[0] * &inputs[0], &[input], None).unwrap();
+
+        assert!(
+            result.passed,
+            "Gradient check failed: {:?}",
+            result.error_details
+        );
         assert!(result.max_error < 0.2); // Relaxed tolerance for finite precision
     }
 
@@ -213,11 +232,8 @@ mod tests {
     fn test_gradcheck_simple_function() {
         // f(x) = x^2
         let input = Variable::new(Tensor::from_vec(vec![3.0f32], vec![1]), true);
-        
-        let passed = gradcheck_simple(
-            |inputs| &inputs[0] * &inputs[0],
-            &[input],
-        );
+
+        let passed = gradcheck_simple(|inputs| &inputs[0] * &inputs[0], &[input]);
 
         assert!(passed);
     }
@@ -226,7 +242,7 @@ mod tests {
     fn test_gradcheck_polynomial() {
         // f(x) = x^3 + 2*x^2 + x
         let input = Variable::new(Tensor::from_vec(vec![1.5f32], vec![1]), true);
-        
+
         let result = gradcheck(
             |inputs| {
                 let x = &inputs[0];
@@ -238,8 +254,13 @@ mod tests {
             },
             &[input],
             None,
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert!(result.passed, "Gradient check failed: {:?}", result.error_details);
+        assert!(
+            result.passed,
+            "Gradient check failed: {:?}",
+            result.error_details
+        );
     }
 }

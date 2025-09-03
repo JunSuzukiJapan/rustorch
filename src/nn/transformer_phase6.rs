@@ -14,47 +14,49 @@ use std::iter::Sum;
 /// Multi-head Attention layer (Phase 6 - PyTorch compatible)
 /// マルチヘッドアテンション層（フェーズ6 - PyTorch互換）
 #[derive(Debug)]
-pub struct MultiheadAttention<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
+pub struct MultiheadAttention<
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum,
+> {
     /// Embedding dimension
     /// 埋め込み次元
     embed_dim: usize,
-    
+
     /// Number of attention heads
     /// アテンションヘッド数
     num_heads: usize,
-    
+
     /// Dropout probability
     /// ドロップアウト確率
     dropout: T,
-    
+
     /// Whether to use bias in linear layers
     /// 線形層でバイアスを使用するかどうか
     bias: bool,
-    
+
     /// Key dimension (optional, defaults to embed_dim)
     /// キー次元（オプション、embed_dimがデフォルト）
     kdim: Option<usize>,
-    
+
     /// Value dimension (optional, defaults to embed_dim)
     /// 値次元（オプション、embed_dimがデフォルト）
     vdim: Option<usize>,
-    
+
     /// Whether batch dimension comes first
     /// バッチ次元が最初に来るかどうか
     batch_first: bool,
-    
+
     /// Head dimension
     /// ヘッド次元
     head_dim: usize,
-    
+
     /// Input projection layer (query, key, value combined)
     /// 入力射影層（クエリ、キー、値を結合）
     in_proj: Linear<T>,
-    
+
     /// Output projection layer
     /// 出力射影層
     out_proj: Linear<T>,
-    
+
     /// Dropout layer
     /// ドロップアウト層
     dropout_layer: Dropout<T>,
@@ -62,8 +64,20 @@ pub struct MultiheadAttention<T: Float + Send + Sync + 'static + ScalarOperand +
 
 impl<T> MultiheadAttention<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     /// Creates a new MultiheadAttention layer
     /// 新しいMultiheadAttention層を作成します
@@ -82,18 +96,21 @@ where
                 message: "embed_dim must be greater than 0".to_string(),
             });
         }
-        
+
         if num_heads == 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "MultiheadAttention::new".to_string(),
                 message: "num_heads must be greater than 0".to_string(),
             });
         }
-        
+
         if embed_dim % num_heads != 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "MultiheadAttention::new".to_string(),
-                message: format!("embed_dim ({}) must be divisible by num_heads ({})", embed_dim, num_heads),
+                message: format!(
+                    "embed_dim ({}) must be divisible by num_heads ({})",
+                    embed_dim, num_heads
+                ),
             });
         }
 
@@ -160,7 +177,10 @@ where
         if q_shape.len() != 3 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "MultiheadAttention::forward".to_string(),
-                message: format!("Expected 3D input (batch, seq, embed), got shape {:?}", q_shape),
+                message: format!(
+                    "Expected 3D input (batch, seq, embed), got shape {:?}",
+                    q_shape
+                ),
             });
         }
 
@@ -172,12 +192,16 @@ where
 
         // Reshape for multi-head attention: (batch, seq, heads, head_dim)
         let q_heads = self.reshape_for_heads(&q, batch_size, seq_length)?;
-        let k_heads = self.reshape_for_heads(&k, batch_size, seq_length)?; 
+        let k_heads = self.reshape_for_heads(&k, batch_size, seq_length)?;
         let v_heads = self.reshape_for_heads(&v, batch_size, seq_length)?;
 
         // Compute scaled dot-product attention
         let (attn_output, attn_weights) = self.scaled_dot_product_attention(
-            &q_heads, &k_heads, &v_heads, attn_mask, key_padding_mask
+            &q_heads,
+            &k_heads,
+            &v_heads,
+            attn_mask,
+            key_padding_mask,
         )?;
 
         // Reshape back and apply output projection
@@ -196,11 +220,14 @@ where
 
     /// Split combined QKV projection into separate Q, K, V tensors
     /// 結合されたQKV射影を別々のQ、K、Vテンソルに分割
-    fn split_qkv(&self, qkv: &Variable<T>) -> RusTorchResult<(Variable<T>, Variable<T>, Variable<T>)> {
+    fn split_qkv(
+        &self,
+        qkv: &Variable<T>,
+    ) -> RusTorchResult<(Variable<T>, Variable<T>, Variable<T>)> {
         let qkv_binding = qkv.data();
         let qkv_data = qkv_binding.read().unwrap();
         let qkv_shape = qkv_data.shape();
-        
+
         if qkv_shape.len() != 3 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "split_qkv".to_string(),
@@ -215,16 +242,21 @@ where
         if total_dim != self.embed_dim * 3 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "split_qkv".to_string(),
-                message: format!("Expected total dim {}, got {}", self.embed_dim * 3, total_dim),
+                message: format!(
+                    "Expected total dim {}, got {}",
+                    self.embed_dim * 3,
+                    total_dim
+                ),
             });
         }
 
-        let qkv_slice = qkv_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
+        let qkv_slice = qkv_data
+            .as_array()
+            .as_slice()
+            .ok_or_else(|| RusTorchError::TensorOp {
                 message: "Failed to get QKV data slice".to_string(),
                 source: None,
-            }
-        })?;
+            })?;
 
         // Split into Q, K, V
         let mut q_data = Vec::with_capacity(batch_size * seq_length * self.embed_dim);
@@ -234,17 +266,17 @@ where
         for b in 0..batch_size {
             for s in 0..seq_length {
                 let base_idx = (b * seq_length + s) * total_dim;
-                
+
                 // Q: first embed_dim elements
                 for i in 0..self.embed_dim {
                     q_data.push(qkv_slice[base_idx + i]);
                 }
-                
+
                 // K: next embed_dim elements
                 for i in 0..self.embed_dim {
                     k_data.push(qkv_slice[base_idx + self.embed_dim + i]);
                 }
-                
+
                 // V: last embed_dim elements
                 for i in 0..self.embed_dim {
                     v_data.push(qkv_slice[base_idx + 2 * self.embed_dim + i]);
@@ -253,8 +285,14 @@ where
         }
 
         let q_shape = vec![batch_size, seq_length, self.embed_dim];
-        let q = Variable::new(Tensor::from_vec(q_data, q_shape.clone()), qkv.requires_grad());
-        let k = Variable::new(Tensor::from_vec(k_data, q_shape.clone()), qkv.requires_grad());
+        let q = Variable::new(
+            Tensor::from_vec(q_data, q_shape.clone()),
+            qkv.requires_grad(),
+        );
+        let k = Variable::new(
+            Tensor::from_vec(k_data, q_shape.clone()),
+            qkv.requires_grad(),
+        );
         let v = Variable::new(Tensor::from_vec(v_data, q_shape), qkv.requires_grad());
 
         Ok((q, k, v))
@@ -270,21 +308,24 @@ where
     ) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
-        let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get input data slice".to_string(),
-                source: None,
-            }
-        })?;
+        let data_slice =
+            input_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get input data slice".to_string(),
+                    source: None,
+                })?;
 
         // Reshape from (batch, seq, embed_dim) to (batch, num_heads, seq, head_dim)
         let mut reshaped_data = Vec::with_capacity(data_slice.len());
-        
+
         for b in 0..batch_size {
             for h in 0..self.num_heads {
                 for s in 0..seq_length {
                     for d in 0..self.head_dim {
-                        let input_idx = (b * seq_length + s) * self.embed_dim + h * self.head_dim + d;
+                        let input_idx =
+                            (b * seq_length + s) * self.embed_dim + h * self.head_dim + d;
                         reshaped_data.push(data_slice[input_idx]);
                     }
                 }
@@ -301,14 +342,14 @@ where
     fn scaled_dot_product_attention(
         &self,
         query: &Variable<T>,
-        key: &Variable<T>, 
+        key: &Variable<T>,
         value: &Variable<T>,
         attn_mask: Option<&Variable<T>>,
         _key_padding_mask: Option<&Variable<T>>,
     ) -> RusTorchResult<(Variable<T>, Variable<T>)> {
         // Compute attention scores: Q @ K^T
         let scores = self.batch_matmul(query, key, true)?;
-        
+
         // Scale by sqrt(head_dim)
         let scale = T::from(1.0 / (self.head_dim as f32).sqrt()).unwrap();
         let scaled_scores = self.scale_tensor(&scores, scale)?;
@@ -322,7 +363,7 @@ where
 
         // Apply softmax
         let attn_weights = self.softmax(&masked_scores)?;
-        
+
         // Apply dropout to attention weights
         let attn_weights = self.dropout_layer.forward(&attn_weights);
 
@@ -334,7 +375,12 @@ where
 
     /// Batch matrix multiplication with optional transpose
     /// オプションの転置付きバッチ行列乗算
-    fn batch_matmul(&self, a: &Variable<T>, b: &Variable<T>, transpose_b: bool) -> RusTorchResult<Variable<T>> {
+    fn batch_matmul(
+        &self,
+        a: &Variable<T>,
+        b: &Variable<T>,
+        transpose_b: bool,
+    ) -> RusTorchResult<Variable<T>> {
         // Simplified matrix multiplication implementation
         // For production, this should use optimized BLAS routines
         let a_binding = a.data();
@@ -365,7 +411,10 @@ where
         let output_data = vec![T::from(0.1).unwrap(); output_size];
         let output_tensor = Tensor::from_vec(output_data, output_shape);
 
-        Ok(Variable::new(output_tensor, a.requires_grad() || b.requires_grad()))
+        Ok(Variable::new(
+            output_tensor,
+            a.requires_grad() || b.requires_grad(),
+        ))
     }
 
     /// Scale tensor by a scalar value
@@ -373,12 +422,14 @@ where
     fn scale_tensor(&self, input: &Variable<T>, scale: T) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
-        let input_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get input data slice for scaling".to_string(),
-                source: None,
-            }
-        })?;
+        let input_slice =
+            input_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get input data slice for scaling".to_string(),
+                    source: None,
+                })?;
 
         let scaled_data: Vec<T> = input_slice.iter().map(|&x| x * scale).collect();
         let scaled_tensor = Tensor::from_vec(scaled_data, input_data.shape().to_vec());
@@ -387,25 +438,33 @@ where
 
     /// Apply attention mask
     /// アテンションマスクを適用
-    fn apply_attention_mask(&self, scores: &Variable<T>, mask: &Variable<T>) -> RusTorchResult<Variable<T>> {
+    fn apply_attention_mask(
+        &self,
+        scores: &Variable<T>,
+        mask: &Variable<T>,
+    ) -> RusTorchResult<Variable<T>> {
         let scores_binding = scores.data();
         let scores_data = scores_binding.read().unwrap();
         let mask_binding = mask.data();
         let mask_data = mask_binding.read().unwrap();
 
-        let scores_slice = scores_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get scores data slice".to_string(),
-                source: None,
-            }
-        })?;
+        let scores_slice =
+            scores_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get scores data slice".to_string(),
+                    source: None,
+                })?;
 
-        let mask_slice = mask_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get mask data slice".to_string(),
-                source: None,
-            }
-        })?;
+        let mask_slice =
+            mask_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get mask data slice".to_string(),
+                    source: None,
+                })?;
 
         let large_neg = T::from(-1e9).unwrap();
         let masked_data: Vec<T> = scores_slice
@@ -430,12 +489,14 @@ where
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
         let input_shape = input_data.shape();
-        let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get input data slice for softmax".to_string(),
-                source: None,
-            }
-        })?;
+        let data_slice =
+            input_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get input data slice for softmax".to_string(),
+                    source: None,
+                })?;
 
         // Find max for numerical stability (per sequence)
         let seq_dim = input_shape[2]; // Assuming shape is (batch, heads, seq, seq)
@@ -445,18 +506,20 @@ where
             for seq in 0..seq_dim {
                 let start_idx = (batch_head * seq_dim + seq) * seq_dim;
                 let end_idx = start_idx + seq_dim;
-                
+
                 let seq_slice = &data_slice[start_idx..end_idx];
-                
+
                 // Find max for stability
-                let max_val = seq_slice.iter().fold(T::neg_infinity(), |a, &b| if a > b { a } else { b });
-                
+                let max_val = seq_slice
+                    .iter()
+                    .fold(T::neg_infinity(), |a, &b| if a > b { a } else { b });
+
                 // Compute exp(x - max)
                 let exp_vals: Vec<T> = seq_slice.iter().map(|&x| (x - max_val).exp()).collect();
-                
+
                 // Compute sum
                 let sum: T = exp_vals.iter().fold(T::zero(), |acc, &x| acc + x);
-                
+
                 // Normalize
                 for &exp_val in &exp_vals {
                     softmax_data.push(exp_val / sum);
@@ -478,12 +541,14 @@ where
     ) -> RusTorchResult<Variable<T>> {
         let input_binding = input.data();
         let input_data = input_binding.read().unwrap();
-        let data_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get input data slice for reshaping".to_string(),
-                source: None,
-            }
-        })?;
+        let data_slice =
+            input_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get input data slice for reshaping".to_string(),
+                    source: None,
+                })?;
 
         // From (batch, heads, seq, head_dim) to (batch, seq, embed_dim)
         let mut output_data = Vec::with_capacity(batch_size * seq_length * self.embed_dim);
@@ -492,7 +557,8 @@ where
             for s in 0..seq_length {
                 for h in 0..self.num_heads {
                     for d in 0..self.head_dim {
-                        let input_idx = ((b * self.num_heads + h) * seq_length + s) * self.head_dim + d;
+                        let input_idx =
+                            ((b * self.num_heads + h) * seq_length + s) * self.head_dim + d;
                         output_data.push(data_slice[input_idx]);
                     }
                 }
@@ -534,8 +600,20 @@ where
 
 impl<T> Module<T> for MultiheadAttention<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For Module trait, use input as query, key, and value
@@ -564,15 +642,17 @@ where
 /// Positional Encoding for Transformer
 /// Transformer用位置エンコーディング
 #[derive(Debug)]
-pub struct PositionalEncoding<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
+pub struct PositionalEncoding<
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum,
+> {
     /// Maximum sequence length
     /// 最大シーケンス長
     max_len: usize,
-    
+
     /// Model dimension
     /// モデル次元
     d_model: usize,
-    
+
     /// Precomputed positional encodings
     /// 事前計算された位置エンコーディング
     pe: Variable<T>,
@@ -580,14 +660,26 @@ pub struct PositionalEncoding<T: Float + Send + Sync + 'static + ScalarOperand +
 
 impl<T> PositionalEncoding<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     /// Create new positional encoding
     /// 新しい位置エンコーディングを作成
     pub fn new(d_model: usize, max_len: Option<usize>) -> RusTorchResult<Self> {
         let max_len = max_len.unwrap_or(5000);
-        
+
         if d_model == 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "PositionalEncoding::new".to_string(),
@@ -597,7 +689,7 @@ where
 
         // Create positional encoding matrix
         let mut pe_data = vec![T::zero(); max_len * d_model];
-        
+
         for pos in 0..max_len {
             for i in 0..d_model {
                 let angle = if i % 2 == 0 {
@@ -605,11 +697,11 @@ where
                     let div_term = (i as f32 / 2.0 * -2.0 * PI.ln() / d_model as f32).exp();
                     (pos as f32 * div_term).sin()
                 } else {
-                    // cos for odd indices  
+                    // cos for odd indices
                     let div_term = ((i - 1) as f32 / 2.0 * -2.0 * PI.ln() / d_model as f32).exp();
                     (pos as f32 * div_term).cos()
                 };
-                
+
                 pe_data[pos * d_model + i] = T::from(angle).unwrap();
             }
         }
@@ -634,45 +726,57 @@ where
         if input_shape.len() != 3 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "PositionalEncoding::forward".to_string(),
-                message: format!("Expected 3D input (batch, seq, embed), got shape {:?}", input_shape),
+                message: format!(
+                    "Expected 3D input (batch, seq, embed), got shape {:?}",
+                    input_shape
+                ),
             });
         }
 
         let (_batch_size, seq_length, embed_dim) = (input_shape[0], input_shape[1], input_shape[2]);
-        
+
         if embed_dim != self.d_model {
             return Err(RusTorchError::InvalidParameters {
                 operation: "PositionalEncoding::forward".to_string(),
-                message: format!("Input embed_dim {} doesn't match PE d_model {}", embed_dim, self.d_model),
+                message: format!(
+                    "Input embed_dim {} doesn't match PE d_model {}",
+                    embed_dim, self.d_model
+                ),
             });
         }
 
         if seq_length > self.max_len {
             return Err(RusTorchError::InvalidParameters {
                 operation: "PositionalEncoding::forward".to_string(),
-                message: format!("Sequence length {} exceeds max_len {}", seq_length, self.max_len),
+                message: format!(
+                    "Sequence length {} exceeds max_len {}",
+                    seq_length, self.max_len
+                ),
             });
         }
 
         // Add positional encoding (simplified implementation)
-        let input_slice = input_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
-                message: "Failed to get input data slice".to_string(),
-                source: None,
-            }
-        })?;
+        let input_slice =
+            input_data
+                .as_array()
+                .as_slice()
+                .ok_or_else(|| RusTorchError::TensorOp {
+                    message: "Failed to get input data slice".to_string(),
+                    source: None,
+                })?;
 
         let pe_binding = self.pe.data();
         let pe_data = pe_binding.read().unwrap();
-        let pe_slice = pe_data.as_array().as_slice().ok_or_else(|| {
-            RusTorchError::TensorOp {
+        let pe_slice = pe_data
+            .as_array()
+            .as_slice()
+            .ok_or_else(|| RusTorchError::TensorOp {
                 message: "Failed to get PE data slice".to_string(),
                 source: None,
-            }
-        })?;
+            })?;
 
         let mut output_data = Vec::with_capacity(input_slice.len());
-        
+
         for b in 0..input_shape[0] {
             for s in 0..seq_length {
                 for d in 0..embed_dim {
@@ -706,35 +810,37 @@ where
 /// A single layer of the transformer encoder with multi-head self-attention and feed-forward network.
 /// マルチヘッド自己アテンションとフィードフォワードネットワークを持つTransformerエンコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerEncoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
+pub struct TransformerEncoderLayer<
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum,
+> {
     /// Self-attention mechanism
     /// 自己アテンション機構
     self_attn: MultiheadAttention<T>,
-    
+
     /// First linear layer of feed-forward network
     /// フィードフォワードネットワークの第1線形層
     linear1: Linear<T>,
-    
+
     /// Second linear layer of feed-forward network  
     /// フィードフォワードネットワークの第2線形層
     linear2: Linear<T>,
-    
+
     /// First layer normalization
     /// 第1層正規化
     norm1: LayerNorm<T>,
-    
+
     /// Second layer normalization
     /// 第2層正規化
     norm2: LayerNorm<T>,
-    
+
     /// Dropout after attention
     /// アテンション後のドロップアウト
     dropout1: Dropout<T>,
-    
+
     /// Dropout after feed-forward
     /// フィードフォワード後のドロップアウト
     dropout2: Dropout<T>,
-    
+
     /// Activation function (ReLU)
     /// 活性化関数（ReLU）
     activation: String, // For now just store the name
@@ -742,8 +848,20 @@ pub struct TransformerEncoderLayer<T: Float + Send + Sync + 'static + ScalarOper
 
 impl<T> TransformerEncoderLayer<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     /// Create new TransformerEncoderLayer
     /// 新しいTransformerEncoderLayerを作成
@@ -770,8 +888,8 @@ where
             nhead,
             Some(dropout_p),
             Some(true), // bias
-            None, // kdim
-            None, // vdim
+            None,       // kdim
+            None,       // vdim
             Some(batch_first),
         )?;
 
@@ -810,32 +928,34 @@ where
     ) -> RusTorchResult<Variable<T>> {
         // Self-attention block
         let (attn_output, _) = self.self_attn.forward(
-            src, src, src, 
+            src,
+            src,
+            src,
             src_key_padding_mask,
             Some(false), // need_weights
             src_mask,
             Some(true), // average_attn_weights
         )?;
-        
+
         // Dropout and residual connection
         let attn_output = self.dropout1.forward(&attn_output);
         let src2 = src + &attn_output;
-        
+
         // Layer norm
         let src = self.norm1.forward(&src2);
-        
+
         // Feed-forward block
         let ff_output = self.linear1.forward(&src);
         let ff_output = self.apply_activation(&ff_output)?; // ReLU activation
         let ff_output = self.linear2.forward(&ff_output);
-        
+
         // Dropout and residual connection
         let ff_output = self.dropout2.forward(&ff_output);
         let src2 = src + &ff_output;
-        
+
         // Layer norm
         let output = self.norm2.forward(&src2);
-        
+
         Ok(output)
     }
 
@@ -847,15 +967,16 @@ where
                 // For now, return input as-is until ReLU activation is properly implemented
                 // TODO: Implement proper ReLU activation
                 Ok(input.clone())
-            },
+            }
             "gelu" => {
                 // For now, return input as-is until GELU activation is properly implemented
                 // TODO: Implement proper GELU activation
                 Ok(input.clone())
-            },
-            _ => Err(RusTorchError::UnsupportedOperation(
-                format!("activation function '{}': Only 'relu' and 'gelu' are supported", self.activation)
-            )),
+            }
+            _ => Err(RusTorchError::UnsupportedOperation(format!(
+                "activation function '{}': Only 'relu' and 'gelu' are supported",
+                self.activation
+            ))),
         }
     }
 
@@ -878,47 +999,49 @@ where
 /// A single layer of the transformer decoder with self-attention, cross-attention and feed-forward network.
 /// 自己アテンション、クロスアテンション、フィードフォワードネットワークを持つTransformerデコーダーの単一層。
 #[derive(Debug)]
-pub struct TransformerDecoderLayer<T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum> {
+pub struct TransformerDecoderLayer<
+    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum,
+> {
     /// Self-attention mechanism
     /// 自己アテンション機構
     self_attn: MultiheadAttention<T>,
-    
+
     /// Cross-attention mechanism
     /// クロスアテンション機構
     multihead_attn: MultiheadAttention<T>,
-    
+
     /// First linear layer of feed-forward network
     /// フィードフォワードネットワークの第1線形層
     linear1: Linear<T>,
-    
+
     /// Second linear layer of feed-forward network
     /// フィードフォワードネットワークの第2線形層
     linear2: Linear<T>,
-    
+
     /// First layer normalization (after self-attention)
     /// 第1層正規化（自己アテンション後）
     norm1: LayerNorm<T>,
-    
+
     /// Second layer normalization (after cross-attention)
     /// 第2層正規化（クロスアテンション後）
     norm2: LayerNorm<T>,
-    
+
     /// Third layer normalization (after feed-forward)
     /// 第3層正規化（フィードフォワード後）
     norm3: LayerNorm<T>,
-    
+
     /// Dropout after self-attention
     /// 自己アテンション後のドロップアウト
     dropout1: Dropout<T>,
-    
+
     /// Dropout after cross-attention
     /// クロスアテンション後のドロップアウト
     dropout2: Dropout<T>,
-    
+
     /// Dropout after feed-forward
     /// フィードフォワード後のドロップアウト
     dropout3: Dropout<T>,
-    
+
     /// Activation function
     /// 活性化関数
     activation: String,
@@ -926,8 +1049,20 @@ pub struct TransformerDecoderLayer<T: Float + Send + Sync + 'static + ScalarOper
 
 impl<T> TransformerDecoderLayer<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     /// Create new TransformerDecoderLayer
     /// 新しいTransformerDecoderLayerを作成
@@ -954,8 +1089,8 @@ where
             nhead,
             Some(dropout_p),
             Some(true), // bias
-            None, // kdim
-            None, // vdim
+            None,       // kdim
+            None,       // vdim
             Some(batch_first),
         )?;
 
@@ -965,8 +1100,8 @@ where
             nhead,
             Some(dropout_p),
             Some(true), // bias
-            None, // kdim
-            None, // vdim
+            None,       // kdim
+            None,       // vdim
             Some(batch_first),
         )?;
 
@@ -1014,48 +1149,52 @@ where
     ) -> RusTorchResult<Variable<T>> {
         // Self-attention block
         let (tgt2, _) = self.self_attn.forward(
-            tgt, tgt, tgt,
+            tgt,
+            tgt,
+            tgt,
             tgt_key_padding_mask,
             Some(false), // need_weights
             tgt_mask,
             Some(true), // average_attn_weights
         )?;
-        
+
         // Dropout and residual connection
         let tgt2 = self.dropout1.forward(&tgt2);
         let tgt = tgt + &tgt2;
-        
+
         // Layer norm
         let tgt = self.norm1.forward(&tgt);
-        
+
         // Cross-attention block
         let (tgt2, _) = self.multihead_attn.forward(
-            &tgt, memory, memory,
+            &tgt,
+            memory,
+            memory,
             memory_key_padding_mask,
             Some(false), // need_weights
             memory_mask,
             Some(true), // average_attn_weights
         )?;
-        
+
         // Dropout and residual connection
         let tgt2 = self.dropout2.forward(&tgt2);
         let tgt = tgt + &tgt2;
-        
+
         // Layer norm
         let tgt = self.norm2.forward(&tgt);
-        
+
         // Feed-forward block
         let tgt2 = self.linear1.forward(&tgt);
         let tgt2 = self.apply_activation(&tgt2)?;
         let tgt2 = self.linear2.forward(&tgt2);
-        
+
         // Dropout and residual connection
         let tgt2 = self.dropout3.forward(&tgt2);
         let tgt = tgt + &tgt2;
-        
+
         // Layer norm
         let output = self.norm3.forward(&tgt);
-        
+
         Ok(output)
     }
 
@@ -1067,15 +1206,16 @@ where
                 // For now, return input as-is until ReLU activation is properly implemented
                 // TODO: Implement proper ReLU activation
                 Ok(input.clone())
-            },
+            }
             "gelu" => {
                 // For now, return input as-is until GELU activation is properly implemented
                 // TODO: Implement proper GELU activation
                 Ok(input.clone())
-            },
-            _ => Err(RusTorchError::UnsupportedOperation(
-                format!("activation function '{}': Only 'relu' and 'gelu' are supported", self.activation)
-            )),
+            }
+            _ => Err(RusTorchError::UnsupportedOperation(format!(
+                "activation function '{}': Only 'relu' and 'gelu' are supported",
+                self.activation
+            ))),
         }
     }
 
@@ -1102,39 +1242,39 @@ pub struct Transformer<T: Float + Send + Sync + 'static + ScalarOperand + FromPr
     /// Model dimension
     /// モデル次元
     d_model: usize,
-    
+
     /// Number of attention heads
     /// アテンションヘッド数
     nhead: usize,
-    
+
     /// Number of encoder layers
     /// エンコーダー層数
     num_encoder_layers: usize,
-    
+
     /// Number of decoder layers
     /// デコーダー層数
     num_decoder_layers: usize,
-    
+
     /// Feed-forward dimension
     /// フィードフォワード次元
     dim_feedforward: usize,
-    
+
     /// Dropout probability
     /// ドロップアウト確率
     dropout: T,
-    
+
     /// Encoder layers
     /// エンコーダー層
     encoder_layers: Vec<TransformerEncoderLayer<T>>,
-    
+
     /// Decoder layers
     /// デコーダー層
     decoder_layers: Vec<TransformerDecoderLayer<T>>,
-    
+
     /// Positional encoding
     /// 位置エンコーディング
     pos_encoder: PositionalEncoding<T>,
-    
+
     /// Whether to use batch_first format
     /// batch_first形式を使用するかどうか
     batch_first: bool,
@@ -1142,8 +1282,20 @@ pub struct Transformer<T: Float + Send + Sync + 'static + ScalarOperand + FromPr
 
 impl<T> Transformer<T>
 where
-    T: Float + Debug + Default + FromPrimitive + ToPrimitive + Zero + One + 'static 
-        + Send + Sync + Copy + ScalarOperand + std::fmt::Display + Sum,
+    T: Float
+        + Debug
+        + Default
+        + FromPrimitive
+        + ToPrimitive
+        + Zero
+        + One
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ScalarOperand
+        + std::fmt::Display
+        + Sum,
 {
     /// Create new Transformer model
     /// 新しいTransformerモデルを作成
@@ -1179,11 +1331,14 @@ where
                 message: "d_model and nhead must be greater than 0".to_string(),
             });
         }
-        
+
         if d_model % nhead != 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "Transformer::new".to_string(),
-                message: format!("d_model ({}) must be divisible by nhead ({})", d_model, nhead),
+                message: format!(
+                    "d_model ({}) must be divisible by nhead ({})",
+                    d_model, nhead
+                ),
             });
         }
 
@@ -1261,7 +1416,7 @@ where
     ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding to source
         let src_with_pe = self.pos_encoder.forward(src)?;
-        
+
         // Pass through encoder layers
         let mut memory = src_with_pe;
         for encoder_layer in &self.encoder_layers {
@@ -1272,10 +1427,10 @@ where
                 None, // is_causal
             )?;
         }
-        
+
         // Add positional encoding to target
         let tgt_with_pe = self.pos_encoder.forward(tgt)?;
-        
+
         // Pass through decoder layers
         let mut output = tgt_with_pe;
         for decoder_layer in &self.decoder_layers {
@@ -1290,7 +1445,7 @@ where
                 None, // memory_is_causal
             )?;
         }
-        
+
         Ok(output)
     }
 
@@ -1304,7 +1459,7 @@ where
     ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding
         let src_with_pe = self.pos_encoder.forward(src)?;
-        
+
         // Pass through encoder layers
         let mut output = src_with_pe;
         for encoder_layer in &self.encoder_layers {
@@ -1315,7 +1470,7 @@ where
                 None, // is_causal
             )?;
         }
-        
+
         Ok(output)
     }
 
@@ -1332,7 +1487,7 @@ where
     ) -> RusTorchResult<Variable<T>> {
         // Add positional encoding
         let tgt_with_pe = self.pos_encoder.forward(tgt)?;
-        
+
         // Pass through decoder layers
         let mut output = tgt_with_pe;
         for decoder_layer in &self.decoder_layers {
@@ -1347,7 +1502,7 @@ where
                 None, // memory_is_causal
             )?;
         }
-        
+
         Ok(output)
     }
 
@@ -1383,14 +1538,15 @@ mod tests {
     #[test]
     fn test_multihead_attention_creation() {
         let mha = MultiheadAttention::<f32>::new(
-            512, // embed_dim
-            8,   // num_heads
-            Some(0.1), // dropout
+            512,        // embed_dim
+            8,          // num_heads
+            Some(0.1),  // dropout
             Some(true), // bias
-            None, // kdim
-            None, // vdim
+            None,       // kdim
+            None,       // vdim
             Some(true), // batch_first
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(mha.embed_dim(), 512);
         assert_eq!(mha.num_heads(), 8);
@@ -1407,9 +1563,9 @@ mod tests {
 
     #[test]
     fn test_multihead_attention_forward() {
-        let mha = MultiheadAttention::<f32>::new(
-            64, 4, Some(0.0), Some(true), None, None, Some(true)
-        ).unwrap();
+        let mha =
+            MultiheadAttention::<f32>::new(64, 4, Some(0.0), Some(true), None, None, Some(true))
+                .unwrap();
 
         // Create sample input (batch=2, seq=10, embed=64)
         let input_data = vec![0.1f32; 2 * 10 * 64];
@@ -1418,10 +1574,10 @@ mod tests {
 
         let result = mha.forward(&input, &input, &input, None, Some(false), None, None);
         assert!(result.is_ok());
-        
+
         let (output, weights) = result.unwrap();
         assert!(weights.is_none()); // need_weights=false
-        
+
         let output_binding = output.data();
         let output_data = output_binding.read().unwrap();
         assert_eq!(output_data.shape(), &[2, 10, 64]);
@@ -1430,15 +1586,16 @@ mod tests {
     #[test]
     fn test_transformer_encoder_layer_creation() {
         let encoder_layer = TransformerEncoderLayer::<f32>::new(
-            512, // d_model
-            8,   // nhead
-            Some(2048), // dim_feedforward
-            Some(0.1),  // dropout
+            512,                      // d_model
+            8,                        // nhead
+            Some(2048),               // dim_feedforward
+            Some(0.1),                // dropout
             Some("relu".to_string()), // activation
-            Some(1e-5), // layer_norm_eps
-            Some(false), // batch_first
-            Some(false), // norm_first
-        ).unwrap();
+            Some(1e-5),               // layer_norm_eps
+            Some(false),              // batch_first
+            Some(false),              // norm_first
+        )
+        .unwrap();
 
         assert_eq!(encoder_layer.d_model(), 512);
         assert_eq!(encoder_layer.num_heads(), 8);
@@ -1447,15 +1604,16 @@ mod tests {
     #[test]
     fn test_transformer_decoder_layer_creation() {
         let decoder_layer = TransformerDecoderLayer::<f32>::new(
-            512, // d_model
-            8,   // nhead
-            Some(2048), // dim_feedforward
-            Some(0.1),  // dropout
+            512,                      // d_model
+            8,                        // nhead
+            Some(2048),               // dim_feedforward
+            Some(0.1),                // dropout
             Some("relu".to_string()), // activation
-            Some(1e-5), // layer_norm_eps
-            Some(false), // batch_first
-            Some(false), // norm_first
-        ).unwrap();
+            Some(1e-5),               // layer_norm_eps
+            Some(false),              // batch_first
+            Some(false),              // norm_first
+        )
+        .unwrap();
 
         assert_eq!(decoder_layer.d_model(), 512);
         assert_eq!(decoder_layer.num_heads(), 8);
@@ -1464,19 +1622,20 @@ mod tests {
     #[test]
     fn test_transformer_creation() {
         let transformer = Transformer::<f32>::new(
-            Some(512), // d_model
-            Some(8),   // nhead
-            Some(6),   // num_encoder_layers
-            Some(6),   // num_decoder_layers
-            Some(2048), // dim_feedforward
-            Some(0.1),  // dropout
+            Some(512),                // d_model
+            Some(8),                  // nhead
+            Some(6),                  // num_encoder_layers
+            Some(6),                  // num_decoder_layers
+            Some(2048),               // dim_feedforward
+            Some(0.1),                // dropout
             Some("relu".to_string()), // activation
-            None, // custom_encoder
-            None, // custom_decoder
-            Some(1e-5), // layer_norm_eps
-            Some(false), // batch_first
-            Some(false), // norm_first
-        ).unwrap();
+            None,                     // custom_encoder
+            None,                     // custom_decoder
+            Some(1e-5),               // layer_norm_eps
+            Some(false),              // batch_first
+            Some(false),              // norm_first
+        )
+        .unwrap();
 
         assert_eq!(transformer.d_model(), 512);
         assert_eq!(transformer.nhead(), 8);
@@ -1488,13 +1647,35 @@ mod tests {
     fn test_transformer_parameter_validation() {
         // Test invalid d_model
         let result = Transformer::<f32>::new(
-            Some(0), None, None, None, None, None, None, None, None, None, None, None
+            Some(0),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(result.is_err());
 
         // Test d_model not divisible by nhead
         let result = Transformer::<f32>::new(
-            Some(513), Some(8), None, None, None, None, None, None, None, None, None, None
+            Some(513),
+            Some(8),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
         assert!(result.is_err());
     }
@@ -1505,7 +1686,20 @@ mod tests {
 
 impl<T> Module<T> for TransformerEncoderLayer<T>
 where
-    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ScalarOperand
+        + FromPrimitive
+        + Sum
+        + std::fmt::Debug
+        + Default
+        + ToPrimitive
+        + Zero
+        + One
+        + Copy
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input, None, None, Some(false)).unwrap()
@@ -1528,11 +1722,34 @@ where
 
 impl<T> Module<T> for TransformerDecoderLayer<T>
 where
-    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ScalarOperand
+        + FromPrimitive
+        + Sum
+        + std::fmt::Debug
+        + Default
+        + ToPrimitive
+        + Zero
+        + One
+        + Copy
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For decoder, use input as both tgt and memory
-        self.forward(input, input, None, None, None, None, Some(false), Some(false)).unwrap()
+        self.forward(
+            input,
+            input,
+            None,
+            None,
+            None,
+            None,
+            Some(false),
+            Some(false),
+        )
+        .unwrap()
     }
 
     fn parameters(&self) -> Vec<Variable<T>> {
@@ -1554,11 +1771,25 @@ where
 
 impl<T> Module<T> for Transformer<T>
 where
-    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ScalarOperand
+        + FromPrimitive
+        + Sum
+        + std::fmt::Debug
+        + Default
+        + ToPrimitive
+        + Zero
+        + One
+        + Copy
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         // For decoder-only mode, use input as both src and tgt
-        self.forward(input, input, None, None, None, None, None, None).unwrap()
+        self.forward(input, input, None, None, None, None, None, None)
+            .unwrap()
     }
 
     fn parameters(&self) -> Vec<Variable<T>> {
@@ -1580,7 +1811,20 @@ where
 
 impl<T> Module<T> for PositionalEncoding<T>
 where
-    T: Float + Send + Sync + 'static + ScalarOperand + FromPrimitive + Sum + std::fmt::Debug + Default + ToPrimitive + Zero + One + Copy + std::fmt::Display,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ScalarOperand
+        + FromPrimitive
+        + Sum
+        + std::fmt::Debug
+        + Default
+        + ToPrimitive
+        + Zero
+        + One
+        + Copy
+        + std::fmt::Display,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input).unwrap()

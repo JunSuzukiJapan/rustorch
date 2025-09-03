@@ -76,6 +76,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        not(any(feature = "cuda", feature = "metal", feature = "opencl")),
+        ignore = "GPU features not enabled"
+    )]
     fn test_batch_normalization() {
         let manager = GpuMemoryManager::<f32>::new();
         let data = GpuBuffer::Cpu(Arc::new(vec![1.0f32, 2.0, 3.0, 4.0, 5.0]));

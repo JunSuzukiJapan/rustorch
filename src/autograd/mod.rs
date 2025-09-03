@@ -5,28 +5,28 @@ use crate::tensor::Tensor;
 use num_traits::Float;
 use std::marker::PhantomData;
 use std::ops;
-use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
 
 // Re-export Phase 4 gradient utilities
 pub use context::{
-    GradientContext, NoGradGuard, EnableGradGuard, AnomalyDetectionGuard,
-    is_grad_enabled, is_anomaly_detection_enabled, set_grad_enabled, set_anomaly_detection,
-    no_grad, enable_grad, detect_anomaly
+    detect_anomaly, enable_grad, is_anomaly_detection_enabled, is_grad_enabled, no_grad,
+    set_anomaly_detection, set_grad_enabled, AnomalyDetectionGuard, EnableGradGuard,
+    GradientContext, NoGradGuard,
 };
-pub use grad_utils::{GradError, grad, gradient, validate_grad_setup, is_variable_in_graph};
-pub use higher_order::{jacobian, hessian, hvp};
-pub use gradcheck::{GradCheckConfig, GradCheckResult, gradcheck, gradcheck_simple};
+pub use grad_utils::{grad, gradient, is_variable_in_graph, validate_grad_setup, GradError};
+pub use gradcheck::{gradcheck, gradcheck_simple, GradCheckConfig, GradCheckResult};
+pub use higher_order::{hessian, hvp, jacobian};
 
+pub mod context;
 pub mod function;
 pub mod grad_fn;
+pub mod grad_utils;
+pub mod gradcheck;
 pub mod graph;
+pub mod higher_order;
 pub mod linear_grad_fn;
 pub mod visualization;
-pub mod context;
-pub mod grad_utils;
-pub mod higher_order;
-pub mod gradcheck;
 
 #[cfg(test)]
 mod tests;
@@ -159,7 +159,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// 特定の勾配で逆伝播を実行します。
     pub fn backward_with_grad(&self, grad_output: Option<Tensor<T>>) {
         use crate::autograd::context::is_grad_enabled;
-        
+
         if !self.requires_grad || !is_grad_enabled() {
             return;
         }
@@ -448,7 +448,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 // Macro for implementing binary operations to reduce code duplication
 macro_rules! impl_binary_op_owned {
     ($trait:ident, $method:ident) => {
-        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> 
+        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
             ops::$trait for Variable<T>
         {
             type Output = Variable<T>;

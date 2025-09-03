@@ -7,6 +7,8 @@
 //! このモジュールはtorchvision.datasetsと同様の人気のコンピュータビジョンデータセットを提供し、
 //! MNIST、CIFAR-10、CIFAR-100、カスタムデータセット用ユーティリティを含みます。
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use crate::data::LegacyDataset;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
@@ -19,7 +21,10 @@ use std::path::{Path, PathBuf};
 /// MNIST dataset
 /// MNISTデータセット
 #[derive(Debug)]
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct MNIST<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -160,7 +165,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for MNIS
 /// CIFAR-10 dataset
 /// CIFAR-10データセット
 #[derive(Debug)]
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct CIFAR10<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -318,7 +326,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFA
 /// CIFAR-100 dataset
 /// CIFAR-100データセット
 #[derive(Debug)]
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct CIFAR100<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -491,7 +502,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFA
 /// Custom image folder dataset
 /// カスタム画像フォルダデータセット
 #[derive(Debug)]
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset API with custom implementations")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 Dataset API with custom implementations"
+)]
 pub struct ImageFolder<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ

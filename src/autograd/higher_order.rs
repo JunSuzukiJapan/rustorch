@@ -1,7 +1,10 @@
 //! Higher-order derivatives: Jacobian and Hessian computation
 //! 高次微分：ヤコビアンとヘッシアン行列の計算
 
-use crate::autograd::{Variable, grad_utils::{grad, GradError}};
+use crate::autograd::{
+    grad_utils::{grad, GradError},
+    Variable,
+};
 use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
@@ -14,7 +17,13 @@ pub fn jacobian<T, F>(
     create_graph: bool,
 ) -> Result<Tensor<T>, RusTorchError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
 {
     let input_data_guard = inputs.data();
@@ -24,7 +33,7 @@ where
 
     // Create input variable that requires gradients
     let input_var = Variable::new(input_data.clone(), true);
-    
+
     // Compute function output
     let output = func(&input_var);
     let output_data_guard = output.data();
@@ -68,12 +77,15 @@ where
 
 /// Compute the Hessian matrix of a scalar-valued function
 /// スカラー値関数のヘッシアン行列を計算
-pub fn hessian<T, F>(
-    func: F,
-    inputs: &Variable<T>,
-) -> Result<Tensor<T>, RusTorchError>
+pub fn hessian<T, F>(func: F, inputs: &Variable<T>) -> Result<Tensor<T>, RusTorchError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
 {
     let input_data_guard = inputs.data();
@@ -96,7 +108,13 @@ pub fn hvp<T, F>(
     v: &Variable<T>,
 ) -> Result<Variable<T>, RusTorchError>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive + std::fmt::Debug,
+    T: Float
+        + Send
+        + Sync
+        + 'static
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive
+        + std::fmt::Debug,
     F: Fn(&Variable<T>) -> Variable<T>,
 {
     let input_data_guard = inputs.data();
@@ -108,7 +126,7 @@ where
     if input_data.shape() != v_data.shape() {
         return Err(RusTorchError::ShapeMismatch {
             expected: input_data.shape().to_vec(),
-            actual: v_data.shape().to_vec()
+            actual: v_data.shape().to_vec(),
         });
     }
 
@@ -121,7 +139,7 @@ where
         if output_data.numel() != 1 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "hvp".to_string(),
-                message: "Function output must be scalar for HVP computation".to_string()
+                message: "Function output must be scalar for HVP computation".to_string(),
             });
         }
     }
@@ -130,7 +148,7 @@ where
     // For f(x) = x^2, Hessian = [2], so HVP with v=[1] = [2*1] = [2]
     let v_array = v_data.as_array();
     let v_val = v_array.as_slice().unwrap()[0];
-    
+
     // HVP = Hessian * v = 2 * v
     let hvp_val = T::from(2.0f32).unwrap() * v_val;
 
@@ -148,18 +166,19 @@ mod tests {
     fn test_jacobian_simple() {
         // f(x) = [x^2, 2*x], input x is scalar
         let input = Variable::new(Tensor::from_vec(vec![3.0f32], vec![1]), true);
-        
+
         let jacobian_result = jacobian(
             |x| {
                 let x_squared = x * x;
                 let two_x = x * &Variable::new(Tensor::from_vec(vec![2.0f32], vec![1]), false);
-                
+
                 // For this test, we'll return just x^2 (scalar output)
                 x_squared
             },
             &input,
             false,
-        ).unwrap();
+        )
+        .unwrap();
 
         // For scalar function f(x) = x^2, Jacobian is just [2x] = [6]
         let jacobian_data = jacobian_result.as_array();
@@ -171,17 +190,13 @@ mod tests {
         // f(x) = x^2, H = [2], v = [1], HVP = [2]
         let input = Variable::new(Tensor::from_vec(vec![3.0f32], vec![1]), true);
         let v = Variable::new(Tensor::from_vec(vec![1.0f32], vec![1]), false);
-        
-        let hvp_result = hvp(
-            |x| x * x,
-            &input,
-            &v,
-        ).unwrap();
+
+        let hvp_result = hvp(|x| x * x, &input, &v).unwrap();
 
         let hvp_data_guard = hvp_result.data();
         let hvp_data = hvp_data_guard.read().unwrap();
         let hvp_val = hvp_data.as_array().as_slice().unwrap()[0];
-        
+
         // For f(x) = x^2, Hessian is [2], so HVP with v=[1] is [2]
         assert!((hvp_val - 2.0).abs() < 1e-6);
     }

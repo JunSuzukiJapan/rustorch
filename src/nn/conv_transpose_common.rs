@@ -9,12 +9,18 @@ use rand_distr::Normal;
 use std::fmt::Debug;
 
 /// Initialize weight tensor with Kaiming uniform distribution
-pub fn initialize_weights<T>(
-    weight_shape: Vec<usize>,
-    fan_in: usize,
-) -> Variable<T>
+pub fn initialize_weights<T>(weight_shape: Vec<usize>, fan_in: usize) -> Variable<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     let weight_size = weight_shape.iter().product::<usize>();
     let bound = (6.0 / fan_in as f32).sqrt();
@@ -32,7 +38,16 @@ where
 /// Initialize bias tensor
 pub fn initialize_bias<T>(out_channels: usize, use_bias: bool) -> Option<Variable<T>>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     if use_bias {
         let bias_data = vec![T::default(); out_channels];
@@ -51,12 +66,21 @@ pub fn validate_parameters(
     output_padding: impl IntoIterator<Item = usize>,
     stride: impl IntoIterator<Item = usize>,
 ) {
-    assert!(in_channels % groups == 0, "in_channels must be divisible by groups");
-    assert!(out_channels % groups == 0, "out_channels must be divisible by groups");
-    
+    assert!(
+        in_channels % groups == 0,
+        "in_channels must be divisible by groups"
+    );
+    assert!(
+        out_channels % groups == 0,
+        "out_channels must be divisible by groups"
+    );
+
     // Validate output_padding < stride for each dimension
     for (out_pad, str) in output_padding.into_iter().zip(stride.into_iter()) {
-        assert!(out_pad < str, "output_padding must be less than stride in all dimensions");
+        assert!(
+            out_pad < str,
+            "output_padding must be less than stride in all dimensions"
+        );
     }
 }
 
@@ -68,16 +92,25 @@ pub fn add_bias_nd<T>(
     out_channels: usize,
     spatial_dims: usize,
 ) where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     let batch_size = output_shape[0];
-    let spatial_size: usize = output_shape[2..2+spatial_dims].iter().product();
-    
+    let spatial_size: usize = output_shape[2..2 + spatial_dims].iter().product();
+
     for b in 0..batch_size {
         for ch in 0..out_channels {
             let ch_offset = b * out_channels * spatial_size + ch * spatial_size;
             let bias_val = bias[ch];
-            
+
             for i in 0..spatial_size {
                 output[ch_offset + i] = output[ch_offset + i] + bias_val;
             }
@@ -92,23 +125,19 @@ pub fn calculate_fan_in(out_channels: usize, groups: usize, kernel_size: &[usize
 }
 
 /// Validate input tensor shape for transposed convolution
-pub fn validate_input_shape(
-    input_shape: &[usize],
-    expected_channels: usize,
-    expected_dims: usize,
-) {
+pub fn validate_input_shape(input_shape: &[usize], expected_channels: usize, expected_dims: usize) {
     assert_eq!(
         input_shape.len(),
         expected_dims + 2, // batch + channels + spatial dims
         "Input must be {}D tensor (batch, channels, {})",
         expected_dims + 2,
-        if expected_dims == 1 { "length" } 
-        else if expected_dims == 2 { "height, width" }
-        else { "depth, height, width" }
+        if expected_dims == 1 {
+            "length"
+        } else if expected_dims == 2 {
+            "height, width"
+        } else {
+            "depth, height, width"
+        }
     );
-    assert_eq!(
-        input_shape[1],
-        expected_channels,
-        "Input channels mismatch"
-    );
+    assert_eq!(input_shape[1], expected_channels, "Input channels mismatch");
 }

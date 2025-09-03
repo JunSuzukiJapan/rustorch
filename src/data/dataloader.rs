@@ -1,17 +1,19 @@
 //! DataLoader implementation for Phase 5 - PyTorch-compatible API
 //! フェーズ5用DataLoader実装 - PyTorch互換API
 
-use crate::data::dataset::{Dataset, DataError};
-use crate::data::LegacyDataset; // Legacy trait for backward compatibility
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
+use crate::data::dataset::{DataError, Dataset};
 use crate::data::sampler::Sampler;
+use crate::data::LegacyDataset; // Legacy trait for backward compatibility
 use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
 use rayon::prelude::*;
-use std::sync::{Arc, Mutex};
 use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 /// Trait for data transformations
 /// データ変換のためのトレイト
@@ -85,7 +87,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Random horizontal flip transformation
 /// ランダム水平反転変換
-#[deprecated(since = "0.6.0", note = "Use RandomHorizontalFlip from transforms module")]
+#[deprecated(
+    since = "0.6.0",
+    note = "Use RandomHorizontalFlip from transforms module"
+)]
 pub struct RandomHorizontalFlip<T: Float + 'static> {
     probability: f64,
     _phantom: std::marker::PhantomData<T>,
@@ -550,15 +555,18 @@ mod tests {
     #[test]
     fn test_dataloader_memory_usage() {
         // Test with different batch sizes to verify memory efficiency
-        let features: Vec<Tensor<f32>> = (0..100)
-            .map(|i| Tensor::from_vec(vec![i as f32; 100], vec![100])) // Larger tensors
-            .collect();
+        let batch_size = 100;
+        let feature_dim = 10;
 
-        let targets: Vec<Tensor<f32>> = (0..100)
-            .map(|i| Tensor::from_vec(vec![(i % 10) as f32], vec![1]))
-            .collect();
+        // Create feature matrix: [batch_size, feature_dim]
+        let feature_data: Vec<f32> = (0..batch_size * feature_dim).map(|i| i as f32).collect();
+        let features_tensor = Tensor::from_vec(feature_data, vec![batch_size, feature_dim]);
 
-        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
+        // Create target vector: [batch_size, 1]
+        let target_data: Vec<f32> = (0..batch_size).map(|i| (i % 10) as f32).collect();
+        let targets_tensor = Tensor::from_vec(target_data, vec![batch_size, 1]);
+
+        let dataset = TensorDataset::new(vec![features_tensor, targets_tensor]).unwrap();
 
         // Test with small batch size (should use less memory)
         let mut small_batch_loader = LegacyDataLoader::new_lazy(&dataset, 5, false);
@@ -639,11 +647,7 @@ pub struct DataLoader<'a, T: Float, D: Dataset<T>> {
 impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
     /// Create new DataLoader
     /// 新しいDataLoaderを作成
-    pub fn new(
-        dataset: &'a D,
-        sampler: Box<dyn Sampler + Send + Sync>,
-        batch_size: usize,
-    ) -> Self {
+    pub fn new(dataset: &'a D, sampler: Box<dyn Sampler + Send + Sync>, batch_size: usize) -> Self {
         Self {
             dataset,
             sampler,
@@ -653,7 +657,7 @@ impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Create DataLoader with all options
     /// 全オプション付きDataLoaderを作成
     pub fn with_options(
@@ -672,12 +676,12 @@ impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Get next batch
     /// 次のバッチを取得
     pub fn next_batch(&mut self) -> Option<Vec<T>> {
         let mut indices = Vec::new();
-        
+
         for _ in 0..self.batch_size {
             if let Some(idx) = self.sampler.sample() {
                 indices.push(idx);
@@ -685,15 +689,15 @@ impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
                 break;
             }
         }
-        
+
         if indices.is_empty() {
             return None;
         }
-        
+
         if self.drop_last && indices.len() < self.batch_size {
             return None;
         }
-        
+
         // Collect batch items
         let mut batch = Vec::new();
         for idx in indices {
@@ -701,32 +705,32 @@ impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
                 batch.push(item);
             }
         }
-        
+
         if batch.is_empty() {
             None
         } else {
             Some(batch)
         }
     }
-    
+
     /// Reset the sampler
     /// サンプラーをリセット
     pub fn reset(&mut self) {
         self.sampler.reset();
     }
-    
+
     /// Check if exhausted
     /// 枯渇したかチェック
     pub fn is_empty(&self) -> bool {
         self.sampler.is_empty()
     }
-    
+
     /// Get batch size
     /// バッチサイズを取得
     pub fn batch_size(&self) -> usize {
         self.batch_size
     }
-    
+
     /// Get number of workers
     /// ワーカー数を取得
     pub fn num_workers(&self) -> usize {

@@ -165,22 +165,25 @@ where
         let input_tensor = input.data();
         let input_guard = input_tensor.read().unwrap();
         let input_shape = input_guard.shape();
-        
+
         // Input validation
-        assert!(input_shape.len() == 4, "Input must be 4D tensor (batch, channels, height, width)");
+        assert!(
+            input_shape.len() == 4,
+            "Input must be 4D tensor (batch, channels, height, width)"
+        );
         assert_eq!(input_shape[1], self.in_channels, "Input channels mismatch");
-        
+
         let batch_size = input_shape[0];
         let input_h = input_shape[2];
         let input_w = input_shape[3];
-        
+
         // Calculate output dimensions
         let (output_h, output_w) = self.calculate_output_size((input_h, input_w));
         let output_shape = vec![batch_size, self.out_channels, output_h, output_w];
-        
+
         // Initialize output tensor
         let mut output_data = vec![T::default(); output_shape.iter().product()];
-        
+
         // Perform transposed convolution
         self.transposed_conv_2d(
             input_guard.as_slice().unwrap(),
@@ -188,14 +191,18 @@ where
             input_shape,
             &output_shape,
         );
-        
+
         // Add bias if present
         if let Some(ref bias) = self.bias {
             let bias_data_arc = bias.data();
             let bias_guard = bias_data_arc.read().unwrap();
-            self.add_bias(&mut output_data, &output_shape, bias_guard.as_slice().unwrap());
+            self.add_bias(
+                &mut output_data,
+                &output_shape,
+                bias_guard.as_slice().unwrap(),
+            );
         }
-        
+
         let output_tensor = Tensor::from_vec(output_data, output_shape);
         Variable::new(output_tensor, input.requires_grad())
     }
@@ -287,7 +294,7 @@ where
         let input_w = input_shape[3];
         let output_h = output_shape[2];
         let output_w = output_shape[3];
-        
+
         let weight_data_arc = self.weight.data();
         let weight_guard = weight_data_arc.read().unwrap();
         let weight_data = weight_guard.as_slice().unwrap();
@@ -295,60 +302,64 @@ where
         let (stride_h, stride_w) = self.stride;
         let (pad_h, pad_w) = self.padding;
         let (out_pad_h, out_pad_w) = self.output_padding;
-        
+
         // Process each batch sequentially for memory safety
         for b in 0..batch_size {
             let input_batch_offset = b * self.in_channels * input_h * input_w;
             let output_batch_offset = b * self.out_channels * output_h * output_w;
-            
+
             // Process each input channel
             for in_ch in 0..self.in_channels {
                 let input_ch_offset = input_batch_offset + in_ch * input_h * input_w;
-                
+
                 // Process each output channel in this group
                 let group_id = in_ch / (self.in_channels / self.groups);
                 let out_ch_start = group_id * (self.out_channels / self.groups);
                 let out_ch_end = out_ch_start + (self.out_channels / self.groups);
-                
+
                 for out_ch in out_ch_start..out_ch_end {
                     let out_ch_in_group = out_ch - out_ch_start;
                     let output_ch_offset = output_batch_offset + out_ch * output_h * output_w;
-                    let weight_offset = in_ch * (self.out_channels / self.groups) * kernel_h * kernel_w
-                        + out_ch_in_group * kernel_h * kernel_w;
-                    
+                    let weight_offset =
+                        in_ch * (self.out_channels / self.groups) * kernel_h * kernel_w
+                            + out_ch_in_group * kernel_h * kernel_w;
+
                     // Transposed convolution: for each input pixel, spread to output region
                     for i_h in 0..input_h {
                         for i_w in 0..input_w {
                             let input_idx = input_ch_offset + i_h * input_w + i_w;
                             let input_val = input[input_idx];
-                            
+
                             // Map input position to output region
                             let out_h_start = i_h * stride_h;
                             let out_w_start = i_w * stride_w;
-                            
+
                             // Apply kernel
                             for k_h in 0..kernel_h {
                                 for k_w in 0..kernel_w {
                                     let out_h = out_h_start + k_h;
                                     let out_w = out_w_start + k_w;
-                                    
+
                                     // Check bounds with padding
-                                    if out_h >= pad_h 
+                                    if out_h >= pad_h
                                         && out_w >= pad_w
                                         && out_h < output_h + pad_h - out_pad_h
                                         && out_w < output_w + pad_w - out_pad_w
                                     {
                                         let adj_out_h = out_h - pad_h;
                                         let adj_out_w = out_w - pad_w;
-                                        
+
                                         if adj_out_h < output_h && adj_out_w < output_w {
-                                            let output_idx = output_ch_offset + adj_out_h * output_w + adj_out_w;
+                                            let output_idx =
+                                                output_ch_offset + adj_out_h * output_w + adj_out_w;
                                             let weight_idx = weight_offset + k_h * kernel_w + k_w;
-                                            
+
                                             // Accumulate the contribution
                                             unsafe {
-                                                let output_ptr = output.as_mut_ptr().add(output_idx);
-                                                *output_ptr = *output_ptr + input_val * weight_data[weight_idx];
+                                                let output_ptr =
+                                                    output.as_mut_ptr().add(output_idx);
+                                                *output_ptr = *output_ptr
+                                                    + input_val * weight_data[weight_idx];
                                             }
                                         }
                                     }
@@ -367,12 +378,13 @@ where
         let batch_size = output_shape[0];
         let output_h = output_shape[2];
         let output_w = output_shape[3];
-        
+
         for b in 0..batch_size {
             for ch in 0..self.out_channels {
-                let ch_offset = b * self.out_channels * output_h * output_w + ch * output_h * output_w;
+                let ch_offset =
+                    b * self.out_channels * output_h * output_w + ch * output_h * output_w;
                 let bias_val = bias[ch];
-                
+
                 for i in 0..(output_h * output_w) {
                     output[ch_offset + i] = output[ch_offset + i] + bias_val;
                 }
@@ -499,7 +511,7 @@ mod tests {
     fn test_forward_pass() {
         let layer: ConvTranspose2d<f32> = ConvTranspose2d::new(
             2,            // in_channels
-            4,            // out_channels  
+            4,            // out_channels
             (3, 3),       // kernel_size
             Some((2, 2)), // stride
             Some((1, 1)), // padding

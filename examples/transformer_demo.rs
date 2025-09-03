@@ -2,12 +2,12 @@
 //! Transformerアーキテクチャのデモンストレーション（フェーズ6）
 
 use rustorch::autograd::Variable;
+use rustorch::error::{RusTorchError, RusTorchResult};
 use rustorch::nn::{
-    Embedding, LayerNorm, Module, MultiheadAttention, PositionalEncoding,
-    TransformerEncoder, TransformerEncoderLayer,
+    Embedding, LayerNorm, Module, MultiheadAttention, PositionalEncoding, TransformerEncoder,
+    TransformerEncoderLayer,
 };
 use rustorch::tensor::Tensor;
-use rustorch::error::{RusTorchError, RusTorchResult};
 
 fn main() -> RusTorchResult<()> {
     println!("=== RusTorch Transformer Demo ===");
@@ -21,7 +21,7 @@ fn main() -> RusTorchResult<()> {
 
     println!("\n✅ All Transformer tests completed successfully!");
     println!("✅ すべてのTransformerテストが正常に完了しました！");
-    
+
     Ok(())
 }
 
@@ -69,7 +69,7 @@ fn test_layer_norm() -> RusTorchResult<()> {
         "Number of parameters: {} (should be 2: weight + bias)",
         params.len()
     );
-    
+
     Ok(())
 }
 
@@ -118,7 +118,7 @@ fn test_multi_head_attention() -> RusTorchResult<()> {
         "Number of parameters: {} (Phase 6 implementation)",
         params.len()
     );
-    
+
     Ok(())
 }
 
@@ -167,7 +167,7 @@ fn test_transformer_encoder_layer() -> RusTorchResult<()> {
         "Number of parameters: {} (multiple components)",
         params.len()
     );
-    
+
     Ok(())
 }
 
@@ -297,7 +297,7 @@ fn test_complete_transformer_pipeline() -> RusTorchResult<()> {
 
     println!("\n🎉 Complete Transformer pipeline working!");
     println!("🎉 完全なTransformerパイプラインが動作しています！");
-    
+
     Ok(())
 }
 
@@ -317,7 +317,8 @@ mod tests {
         // Create components with Phase 6 implementation
         let word_embedding = Embedding::<f32>::new(vocab_size, d_model, Some(0), None, None);
         let pos_encoding = PositionalEncoding::<f32>::new(d_model, max_length, None);
-        let encoder_layer = TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None)?;
+        let encoder_layer =
+            TransformerEncoderLayer::<f32>::new(d_model, num_heads, d_ff, None, None)?;
 
         // Test with small sequence
         let token_input = Variable::new(
@@ -372,7 +373,7 @@ mod tests {
             d_model
         );
         println!("✓ Phase 6 MultiheadAttention working with PyTorch-compatible API!");
-        
+
         Ok(())
     }
 }

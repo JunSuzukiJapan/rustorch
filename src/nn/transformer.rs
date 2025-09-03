@@ -3,7 +3,9 @@
 
 use crate::autograd::Variable;
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::nn::{Dropout, LayerNorm, Linear, Module, LegacyMultiheadAttention as MultiheadAttention};
+use crate::nn::{
+    Dropout, LayerNorm, LegacyMultiheadAttention as MultiheadAttention, Linear, Module,
+};
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive, One, ToPrimitive, Zero};
@@ -75,27 +77,52 @@ where
 {
     /// Creates a new TransformerEncoderLayer
     /// 新しいTransformerEncoderLayerを作成します
-    pub fn new(d_model: usize, num_heads: usize, d_ff: usize, dropout: Option<T>) -> RusTorchResult<Self> {
+    pub fn new(
+        d_model: usize,
+        num_heads: usize,
+        d_ff: usize,
+        dropout: Option<T>,
+    ) -> RusTorchResult<Self> {
         if d_model == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "d_model must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "d_model must be greater than 0".to_string(),
+            });
         }
         if num_heads == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "num_heads must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "num_heads must be greater than 0".to_string(),
+            });
         }
         if d_ff == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "d_ff must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "d_ff must be greater than 0".to_string(),
+            });
         }
         if d_model % num_heads != 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "TransformerEncoderLayer::new".to_string(),
-                message: format!("d_model ({}) must be divisible by num_heads ({})", d_model, num_heads)
+                message: format!(
+                    "d_model ({}) must be divisible by num_heads ({})",
+                    d_model, num_heads
+                ),
             });
         }
 
         let dropout_p = dropout.unwrap_or_else(|| T::from(0.1).unwrap());
 
         // Create components
-        let self_attention = MultiheadAttention::new(d_model, num_heads, Some(dropout_p), Some(true), None, None, Some(false));
+        let self_attention = MultiheadAttention::new(
+            d_model,
+            num_heads,
+            Some(dropout_p),
+            Some(true),
+            None,
+            None,
+            Some(false),
+        );
         let ff_linear1 = Linear::new(d_model, d_ff);
         let ff_linear2 = Linear::new(d_ff, d_model);
         let norm1 = LayerNorm::new(vec![d_model], None, None);
@@ -120,7 +147,9 @@ where
     /// TransformerEncoderLayerの順伝播
     pub fn forward(&self, input: &Variable<T>, mask: Option<&Variable<T>>) -> Variable<T> {
         // Multi-head self-attention with residual connection and layer norm
-        let (attn_output, _) = self.self_attention.forward(input, input, input, mask, Some(false), None, Some(true));
+        let (attn_output, _) =
+            self.self_attention
+                .forward(input, input, input, mask, Some(false), None, Some(true));
         let attn_output = self.dropout1.forward(&attn_output);
         let attn_residual = self.add_tensors(input, &attn_output);
         let norm1_output = self.norm1.forward(&attn_residual);
@@ -304,7 +333,10 @@ where
         dropout: Option<T>,
     ) -> RusTorchResult<Self> {
         if num_layers == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoder::new".to_string(), message: "num_layers must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoder::new".to_string(),
+                message: "num_layers must be greater than 0".to_string(),
+            });
         }
 
         let mut layers = Vec::with_capacity(num_layers);
@@ -464,28 +496,61 @@ where
 {
     /// Creates a new TransformerDecoderLayer
     /// 新しいTransformerDecoderLayerを作成します
-    pub fn new(d_model: usize, num_heads: usize, d_ff: usize, dropout: Option<T>) -> RusTorchResult<Self> {
+    pub fn new(
+        d_model: usize,
+        num_heads: usize,
+        d_ff: usize,
+        dropout: Option<T>,
+    ) -> RusTorchResult<Self> {
         if d_model == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "d_model must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "d_model must be greater than 0".to_string(),
+            });
         }
         if num_heads == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "num_heads must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "num_heads must be greater than 0".to_string(),
+            });
         }
         if d_ff == 0 {
-            return Err(RusTorchError::InvalidParameters { operation: "TransformerEncoderLayer::new".to_string(), message: "d_ff must be greater than 0".to_string() });
+            return Err(RusTorchError::InvalidParameters {
+                operation: "TransformerEncoderLayer::new".to_string(),
+                message: "d_ff must be greater than 0".to_string(),
+            });
         }
         if d_model % num_heads != 0 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "TransformerEncoderLayer::new".to_string(),
-                message: format!("d_model ({}) must be divisible by num_heads ({})", d_model, num_heads)
+                message: format!(
+                    "d_model ({}) must be divisible by num_heads ({})",
+                    d_model, num_heads
+                ),
             });
         }
 
         let dropout_p = dropout.unwrap_or_else(|| T::from(0.1).unwrap());
 
         // Create components
-        let self_attention = MultiheadAttention::new(d_model, num_heads, Some(dropout_p), Some(true), None, None, Some(false));
-        let cross_attention = MultiheadAttention::new(d_model, num_heads, Some(dropout_p), Some(true), None, None, Some(false));
+        let self_attention = MultiheadAttention::new(
+            d_model,
+            num_heads,
+            Some(dropout_p),
+            Some(true),
+            None,
+            None,
+            Some(false),
+        );
+        let cross_attention = MultiheadAttention::new(
+            d_model,
+            num_heads,
+            Some(dropout_p),
+            Some(true),
+            None,
+            None,
+            Some(false),
+        );
         let ff_linear1 = Linear::new(d_model, d_ff);
         let ff_linear2 = Linear::new(d_ff, d_model);
         let norm1 = LayerNorm::new(vec![d_model], None, None);
@@ -523,15 +588,33 @@ where
         // Masked self-attention with residual connection and layer norm
         let self_attn_output = self
             .self_attention
-            .forward(target, target, target, target_mask, Some(false), None, Some(true)).0;
+            .forward(
+                target,
+                target,
+                target,
+                target_mask,
+                Some(false),
+                None,
+                Some(true),
+            )
+            .0;
         let self_attn_output = self.dropout1.forward(&self_attn_output);
         let self_attn_residual = self.add_tensors(target, &self_attn_output);
         let norm1_output = self.norm1.forward(&self_attn_residual);
 
         // Cross-attention with residual connection and layer norm
-        let cross_attn_output =
-            self.cross_attention
-                .forward(&norm1_output, memory, memory, memory_mask, Some(false), None, Some(true)).0;
+        let cross_attn_output = self
+            .cross_attention
+            .forward(
+                &norm1_output,
+                memory,
+                memory,
+                memory_mask,
+                Some(false),
+                None,
+                Some(true),
+            )
+            .0;
         let cross_attn_output = self.dropout2.forward(&cross_attn_output);
         let cross_attn_residual = self.add_tensors(&norm1_output, &cross_attn_output);
         let norm2_output = self.norm2.forward(&cross_attn_residual);
@@ -675,8 +758,9 @@ where
 /// Full Transformer architecture with encoder and decoder stacks.
 /// エンコーダーとデコーダースタックを持つ完全なTransformerアーキテクチャ。
 #[derive(Debug)]
-pub struct Transformer<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive + Sum>
-{
+pub struct Transformer<
+    T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive + Sum,
+> {
     /// Transformer encoder
     /// Transformerエンコーダー
     encoder: TransformerEncoder<T>,

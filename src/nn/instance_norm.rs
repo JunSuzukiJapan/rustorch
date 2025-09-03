@@ -12,7 +12,16 @@ use std::fmt::Debug;
 /// SIMD-optimized mean calculation for instance normalization
 fn calculate_mean_simd<T>(data: &[T]) -> T
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
         let f32_data: &[f32] = unsafe { std::mem::transmute(data) };
@@ -25,7 +34,16 @@ where
 /// SIMD-optimized variance calculation for instance normalization
 fn calculate_variance_simd<T>(data: &[T], mean: T) -> T
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
         let f32_data: &[f32] = unsafe { std::mem::transmute(data) };
@@ -34,7 +52,7 @@ where
     } else {
         data.iter()
             .map(|&x| (x - mean) * (x - mean))
-            .fold(T::default(), |acc, x| acc + x) 
+            .fold(T::default(), |acc, x| acc + x)
             / T::from_f32(data.len() as f32).unwrap()
     }
 }
@@ -48,11 +66,21 @@ fn normalize_channel_parallel<T>(
     weight: Option<T>,
     bias: Option<T>,
 ) where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     if input_slice.len() >= 64 {
         // Use parallel processing for large slices
-        input_slice.par_iter()
+        input_slice
+            .par_iter()
             .zip(output_slice.par_iter_mut())
             .for_each(|(&input_val, output_val)| {
                 let normalized = (input_val - mean) / std_dev;
@@ -80,7 +108,9 @@ fn normalize_channel_parallel<T>(
 /// 1D Instance Normalization layer
 /// 1次元インスタンス正規化レイヤー
 #[derive(Debug)]
-pub struct InstanceNorm1d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct InstanceNorm1d<
+    T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     num_features: usize,
     eps: T,
     momentum: T,
@@ -94,7 +124,16 @@ pub struct InstanceNorm1d<T: Float + Send + Sync + ndarray::ScalarOperand + num_
 
 impl<T> InstanceNorm1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     pub fn new(
         num_features: usize,
@@ -154,38 +193,44 @@ where
         let input_tensor = input.data();
         let input_guard = input_tensor.read().unwrap();
         let input_shape = input_guard.shape();
-        
+
         // Input validation for 1D: (N, C, L)
-        assert!(input_shape.len() == 3, "Input must be 3D tensor (batch, channels, length)");
-        assert_eq!(input_shape[1], self.num_features, "Channel dimension mismatch");
-        
+        assert!(
+            input_shape.len() == 3,
+            "Input must be 3D tensor (batch, channels, length)"
+        );
+        assert_eq!(
+            input_shape[1], self.num_features,
+            "Channel dimension mismatch"
+        );
+
         let batch_size = input_shape[0];
         let channels = input_shape[1];
         let length = input_shape[2];
-        
+
         let input_data = input_guard.as_slice().unwrap();
         let mut output_data = vec![T::default(); input_data.len()];
-        
+
         // Compute instance normalization for each sample and channel independently
         for n in 0..batch_size {
             for c in 0..channels {
                 let channel_offset = n * channels * length + c * length;
                 let channel_slice = &input_data[channel_offset..channel_offset + length];
-                
+
                 // SIMD-optimized mean calculation
                 let mean = calculate_mean_simd(channel_slice);
-                
+
                 // SIMD-optimized variance calculation
                 let variance = calculate_variance_simd(channel_slice, mean);
                 let std_dev = (variance + self.eps).sqrt();
-                
+
                 // Get weight and bias values for this channel if affine
                 let (weight_val, bias_val) = if self.affine {
                     let weight_data_arc = self.weight.as_ref().unwrap().data();
                     let weight_guard = weight_data_arc.read().unwrap();
                     let bias_data_arc = self.bias.as_ref().unwrap().data();
                     let bias_guard = bias_data_arc.read().unwrap();
-                    
+
                     (
                         Some(weight_guard.as_slice().unwrap()[c]),
                         Some(bias_guard.as_slice().unwrap()[c]),
@@ -193,7 +238,7 @@ where
                 } else {
                     (None, None)
                 };
-                
+
                 // Parallel normalization and affine transformation
                 let output_slice = &mut output_data[channel_offset..channel_offset + length];
                 normalize_channel_parallel(
@@ -206,7 +251,7 @@ where
                 );
             }
         }
-        
+
         let output_tensor = Tensor::from_vec(output_data, input_shape.to_vec());
         Variable::new(output_tensor, input.requires_grad())
     }
@@ -225,7 +270,16 @@ where
 
 impl<T> Module<T> for InstanceNorm1d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -243,7 +297,9 @@ where
 /// 2D Instance Normalization layer
 /// 2次元インスタンス正規化レイヤー
 #[derive(Debug)]
-pub struct InstanceNorm2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct InstanceNorm2d<
+    T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     num_features: usize,
     eps: T,
     momentum: T,
@@ -257,7 +313,16 @@ pub struct InstanceNorm2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_
 
 impl<T> InstanceNorm2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     pub fn new(
         num_features: usize,
@@ -317,32 +382,38 @@ where
         let input_tensor = input.data();
         let input_guard = input_tensor.read().unwrap();
         let input_shape = input_guard.shape();
-        
+
         // Input validation for 2D: (N, C, H, W)
-        assert!(input_shape.len() == 4, "Input must be 4D tensor (batch, channels, height, width)");
-        assert_eq!(input_shape[1], self.num_features, "Channel dimension mismatch");
-        
+        assert!(
+            input_shape.len() == 4,
+            "Input must be 4D tensor (batch, channels, height, width)"
+        );
+        assert_eq!(
+            input_shape[1], self.num_features,
+            "Channel dimension mismatch"
+        );
+
         let batch_size = input_shape[0];
         let channels = input_shape[1];
         let height = input_shape[2];
         let width = input_shape[3];
         let spatial_size = height * width;
-        
+
         let input_data = input_guard.as_slice().unwrap();
         let mut output_data = vec![T::default(); input_data.len()];
-        
+
         // Compute instance normalization for each sample and channel independently
         for n in 0..batch_size {
             for c in 0..channels {
                 let channel_offset = n * channels * spatial_size + c * spatial_size;
-                
+
                 // Calculate mean and variance for this instance and channel
                 let mut sum = T::default();
                 for i in 0..spatial_size {
                     sum = sum + input_data[channel_offset + i];
                 }
                 let mean = sum / T::from_f32(spatial_size as f32).unwrap();
-                
+
                 let mut var_sum = T::default();
                 for i in 0..spatial_size {
                     let diff = input_data[channel_offset + i] - mean;
@@ -350,12 +421,12 @@ where
                 }
                 let variance = var_sum / T::from_f32(spatial_size as f32).unwrap();
                 let std_dev = (variance + self.eps).sqrt();
-                
+
                 // Normalize and apply affine transformation
                 for i in 0..spatial_size {
                     let idx = channel_offset + i;
                     let normalized = (input_data[idx] - mean) / std_dev;
-                    
+
                     output_data[idx] = if self.affine {
                         let weight_data_arc = self.weight.as_ref().unwrap().data();
                         let weight_guard = weight_data_arc.read().unwrap();
@@ -370,7 +441,7 @@ where
                 }
             }
         }
-        
+
         let output_tensor = Tensor::from_vec(output_data, input_shape.to_vec());
         Variable::new(output_tensor, input.requires_grad())
     }
@@ -389,7 +460,16 @@ where
 
 impl<T> Module<T> for InstanceNorm2d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
@@ -407,7 +487,9 @@ where
 /// 3D Instance Normalization layer
 /// 3次元インスタンス正規化レイヤー
 #[derive(Debug)]
-pub struct InstanceNorm3d<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct InstanceNorm3d<
+    T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive,
+> {
     num_features: usize,
     eps: T,
     momentum: T,
@@ -421,7 +503,16 @@ pub struct InstanceNorm3d<T: Float + Send + Sync + ndarray::ScalarOperand + num_
 
 impl<T> InstanceNorm3d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     pub fn new(
         num_features: usize,
@@ -481,33 +572,39 @@ where
         let input_tensor = input.data();
         let input_guard = input_tensor.read().unwrap();
         let input_shape = input_guard.shape();
-        
+
         // Input validation for 3D: (N, C, D, H, W)
-        assert!(input_shape.len() == 5, "Input must be 5D tensor (batch, channels, depth, height, width)");
-        assert_eq!(input_shape[1], self.num_features, "Channel dimension mismatch");
-        
+        assert!(
+            input_shape.len() == 5,
+            "Input must be 5D tensor (batch, channels, depth, height, width)"
+        );
+        assert_eq!(
+            input_shape[1], self.num_features,
+            "Channel dimension mismatch"
+        );
+
         let batch_size = input_shape[0];
         let channels = input_shape[1];
         let depth = input_shape[2];
         let height = input_shape[3];
         let width = input_shape[4];
         let spatial_size = depth * height * width;
-        
+
         let input_data = input_guard.as_slice().unwrap();
         let mut output_data = vec![T::default(); input_data.len()];
-        
+
         // Compute instance normalization for each sample and channel independently
         for n in 0..batch_size {
             for c in 0..channels {
                 let channel_offset = n * channels * spatial_size + c * spatial_size;
-                
+
                 // Calculate mean and variance for this instance and channel
                 let mut sum = T::default();
                 for i in 0..spatial_size {
                     sum = sum + input_data[channel_offset + i];
                 }
                 let mean = sum / T::from_f32(spatial_size as f32).unwrap();
-                
+
                 let mut var_sum = T::default();
                 for i in 0..spatial_size {
                     let diff = input_data[channel_offset + i] - mean;
@@ -515,12 +612,12 @@ where
                 }
                 let variance = var_sum / T::from_f32(spatial_size as f32).unwrap();
                 let std_dev = (variance + self.eps).sqrt();
-                
+
                 // Normalize and apply affine transformation
                 for i in 0..spatial_size {
                     let idx = channel_offset + i;
                     let normalized = (input_data[idx] - mean) / std_dev;
-                    
+
                     output_data[idx] = if self.affine {
                         let weight_data_arc = self.weight.as_ref().unwrap().data();
                         let weight_guard = weight_data_arc.read().unwrap();
@@ -535,7 +632,7 @@ where
                 }
             }
         }
-        
+
         let output_tensor = Tensor::from_vec(output_data, input_shape.to_vec());
         Variable::new(output_tensor, input.requires_grad())
     }
@@ -554,7 +651,16 @@ where
 
 impl<T> Module<T> for InstanceNorm3d<T>
 where
-    T: Float + Debug + Default + From<f32> + 'static + Send + Sync + Copy + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: Float
+        + Debug
+        + Default
+        + From<f32>
+        + 'static
+        + Send
+        + Sync
+        + Copy
+        + ndarray::ScalarOperand
+        + num_traits::FromPrimitive,
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
         self.forward(input)
