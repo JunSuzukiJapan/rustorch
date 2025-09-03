@@ -2,7 +2,7 @@
 
 ## 📚 Complete API Reference
 
-This document provides comprehensive API documentation for RusTorch v0.5.14, organized by module and functionality.
+This document provides comprehensive API documentation for RusTorch v0.5.14, organized by module and functionality. Features unified error handling with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all 1060+ tests.
 
 ## 🏗️ Core Architecture
 
@@ -1413,24 +1413,63 @@ let (peak_memory, current_memory) = mem_profiler.get_memory_stats();
 
 ## 🔧 Error Handling
 
-### Error Types
+### Unified Error System
+
+RusTorch uses a unified error handling system with `RusTorchError` and `RusTorchResult<T>` for consistent error management across all modules.
 
 ```rust
-use rustorch::{RusTorchError, Result};
+use rustorch::error::{RusTorchError, RusTorchResult};
 
-// Main error types
+// All operations return RusTorchResult<T>
+fn tensor_operation() -> RusTorchResult<Tensor<f32>> {
+    let tensor = Tensor::randn(vec![3, 3]);
+    Ok(tensor)
+}
+
+// Pattern matching on specific error types
 match tensor_operation() {
     Ok(result) => println!("Success: {:?}", result),
-    Err(RusTorchError::InvalidShape(msg)) => eprintln!("Shape error: {}", msg),
-    Err(RusTorchError::InvalidDimension(msg)) => eprintln!("Dimension error: {}", msg),
-    Err(RusTorchError::ComputationError(msg)) => eprintln!("Computation error: {}", msg),
-    Err(RusTorchError::GpuError(msg)) => eprintln!("GPU error: {}", msg),
-    Err(RusTorchError::MemoryError(msg)) => eprintln!("Memory error: {}", msg),
-    Err(RusTorchError::DeviceError(msg)) => eprintln!("Device error: {}", msg),
-    Err(RusTorchError::SerializationError(msg)) => eprintln!("Serialization error: {}", msg),
+    Err(RusTorchError::InvalidShape { expected, got }) => {
+        eprintln!("Shape error: expected {:?}, got {:?}", expected, got);
+    },
+    Err(RusTorchError::InvalidDimension { dimension, reason }) => {
+        eprintln!("Dimension error: {} (dimension: {})", reason, dimension);
+    },
+    Err(RusTorchError::ComputationError { operation, details }) => {
+        eprintln!("Computation error in {}: {}", operation, details);
+    },
+    Err(RusTorchError::GpuError { device, operation, message }) => {
+        eprintln!("GPU error on {}: {} - {}", device, operation, message);
+    },
+    Err(RusTorchError::MemoryError { size, device, operation }) => {
+        eprintln!("Memory error: {} bytes on {} during {}", size, device, operation);
+    },
     Err(e) => eprintln!("Other error: {}", e),
 }
+
+// Convenient constructor methods
+let shape_error = RusTorchError::shape_mismatch(&[3, 3], &[2, 2]);
+let param_error = RusTorchError::invalid_parameter("learning rate must be positive");
+let memory_error = RusTorchError::memory_alloc(1024, "cuda:0");
+let import_error = RusTorchError::import_error("missing required parameter");
+
+// Automatic conversion from common error types
+let json_result: RusTorchResult<()> = Ok(serde_json::to_string(&data)?); // serde_json::Error auto-converts
+let string_result: RusTorchResult<()> = Err("Custom error message".into()); // String auto-converts
 ```
+
+### Error Categories
+
+The unified `RusTorchError` enum includes comprehensive error variants:
+
+- **Shape & Dimension Errors**: `InvalidShape`, `InvalidDimension`, `BroadcastError`
+- **Computation Errors**: `ComputationError`, `NumericalInstability`, `OverflowError`
+- **GPU & Device Errors**: `GpuError`, `DeviceError`, `CudaError`, `MetalError`
+- **Memory Management**: `MemoryError`, `AllocationFailed`, `OutOfMemory`
+- **Data & IO Errors**: `DataError`, `FileNotFound`, `SerializationError`
+- **Import & Export**: `ImportError`, `ExportError`, `FormatError`
+- **Neural Network**: `ModelError`, `LayerError`, `OptimizerError`
+- **Training & Validation**: `TrainingError`, `ValidationError`, `ConvergenceError`
 
 ## 📖 Usage Examples
 

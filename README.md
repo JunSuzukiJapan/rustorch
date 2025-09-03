@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/rustorch)](https://crates.io/crates/rustorch)
 [![Documentation](https://docs.rs/rustorch/badge.svg)](https://docs.rs/rustorch)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/JunSuzukiJapan/rustorch)
-[![Tests](https://img.shields.io/badge/tests-968%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-1060%20passing-brightgreen.svg)](#testing)
 [![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)](#testing)
 
 ## 🌐 多言語ドキュメント / Multilingual Documentation
@@ -39,7 +39,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
 - 🎮 **WebGPU Integration**: Chrome-optimized GPU acceleration with CPU fallback for cross-browser compatibility
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
-- ✅ **Production Ready**: 968 tests passing, unified error handling system
+- ✅ **Production Ready**: 1060 tests passing, unified error handling system with `RusTorchError`
 - 📐 **Enhanced Mathematical Functions**: Complete set of mathematical functions (exp, ln, sin, cos, tan, sqrt, abs, pow)
 - 🔧 **Advanced Operator Overloads**: Full operator support for tensors with scalar operations and in-place assignments
 - 📈 **Advanced Optimizers**: SGD, Adam, AdamW, RMSprop, AdaGrad with learning rate schedulers
@@ -103,7 +103,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.10"
+rustorch = "0.5.14"
 
 # Optional features
 [features]
@@ -118,7 +118,7 @@ wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML
 webgpu = ["rustorch/webgpu"]            # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.5.10", default-features = false }
+rustorch = { version = "0.5.14", default-features = false }
 ```
 
 ### Basic Usage
@@ -126,8 +126,9 @@ rustorch = { version = "0.5.10", default-features = false }
 ```rust
 use rustorch::tensor::Tensor;
 use rustorch::optim::{SGD, WarmupScheduler, OneCycleLR, AnnealStrategy};
+use rustorch::error::RusTorchResult;
 
-fn main() {
+fn main() -> RusTorchResult<()> {
     // Create tensors
     let a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2]);
     let b = Tensor::from_vec(vec![5.0f32, 6.0, 7.0, 8.0], vec![2, 2]);
@@ -169,6 +170,8 @@ fn main() {
     
     println!("Shape: {:?}", c.shape());
     println!("Result: {:?}", c.as_slice());
+    
+    Ok(())
 }
 ```
 
@@ -343,7 +346,7 @@ For detailed performance analysis, see [Performance Documentation](docs/performa
 
 ## 🧪 Testing
 
-**968 tests passing** - Production-ready quality assurance with unified error handling system.
+**1060 tests passing** - Production-ready quality assurance with unified `RusTorchError` error handling system.
 
 ```bash
 # Run all tests (recommended for CI/development)
