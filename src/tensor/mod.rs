@@ -122,6 +122,9 @@ pub mod simd_integration;
 /// Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
 /// フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
 pub mod utilities;
+/// Shared operations between regular and WASM tensors
+/// 通常テンソルとWASMテンソル間の共通操作
+pub mod shared_ops;
 // Enable modules step by step
 // mod broadcasting; // Temporarily disabled to avoid conflicts with shape_operations
 

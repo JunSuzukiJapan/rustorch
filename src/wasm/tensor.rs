@@ -5,6 +5,7 @@
 use js_sys;
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
+use crate::tensor::shared_ops::{math_ops, activation_ops, math_funcs, stats_ops, shape_ops, CommonTensorOps};
 
 /// WASM-compatible tensor wrapper
 /// WASM互換テンソルラッパー
@@ -39,16 +40,12 @@ impl WasmTensor {
     /// Element-wise addition
     #[wasm_bindgen]
     pub fn add(&self, other: &WasmTensor) -> Result<WasmTensor, JsValue> {
-        if self.shape != other.shape {
+        if !shape_ops::shapes_compatible(&self.shape, &other.shape) {
             return Err(JsValue::from_str("Shape mismatch"));
         }
 
-        let result: Vec<f32> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(a, b)| a + b)
-            .collect();
+        let result = math_ops::element_wise_add(&self.data, &other.data)
+            .map_err(|e| JsValue::from_str(e))?;
 
         Ok(WasmTensor::new(result, self.shape.clone()))
     }
@@ -56,16 +53,12 @@ impl WasmTensor {
     /// Element-wise multiplication
     #[wasm_bindgen]
     pub fn multiply(&self, other: &WasmTensor) -> Result<WasmTensor, JsValue> {
-        if self.shape != other.shape {
+        if !shape_ops::shapes_compatible(&self.shape, &other.shape) {
             return Err(JsValue::from_str("Shape mismatch"));
         }
 
-        let result: Vec<f32> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(a, b)| a * b)
-            .collect();
+        let result = math_ops::element_wise_mul(&self.data, &other.data)
+            .map_err(|e| JsValue::from_str(e))?;
 
         Ok(WasmTensor::new(result, self.shape.clone()))
     }
@@ -73,20 +66,14 @@ impl WasmTensor {
     /// ReLU activation
     #[wasm_bindgen]
     pub fn relu(&self) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.max(0.0)).collect();
-
+        let result = activation_ops::relu(&self.data);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Sigmoid activation
     #[wasm_bindgen]
     pub fn sigmoid(&self) -> WasmTensor {
-        let result: Vec<f32> = self
-            .data
-            .iter()
-            .map(|&x| 1.0 / (1.0 + (-x).exp()))
-            .collect();
-
+        let result = activation_ops::sigmoid(&self.data);
         WasmTensor::new(result, self.shape.clone())
     }
 
@@ -144,10 +131,7 @@ impl WasmTensor {
     /// Reshape tensor
     #[wasm_bindgen]
     pub fn reshape(&self, new_shape: Vec<usize>) -> Result<WasmTensor, JsValue> {
-        let old_size: usize = self.shape.iter().product();
-        let new_size: usize = new_shape.iter().product();
-
-        if old_size != new_size {
+        if !shape_ops::can_reshape(&self.shape, &new_shape) {
             return Err(JsValue::from_str("Cannot reshape: size mismatch"));
         }
 
@@ -157,7 +141,7 @@ impl WasmTensor {
     /// Get tensor size (total number of elements)
     #[wasm_bindgen]
     pub fn size(&self) -> usize {
-        self.shape.iter().product()
+        shape_ops::total_elements(&self.shape)
     }
 
     /// Get tensor dimensions (number of axes)
@@ -188,16 +172,12 @@ impl WasmTensor {
     /// Element-wise subtraction
     #[wasm_bindgen]
     pub fn subtract(&self, other: &WasmTensor) -> Result<WasmTensor, JsValue> {
-        if self.shape != other.shape {
+        if !shape_ops::shapes_compatible(&self.shape, &other.shape) {
             return Err(JsValue::from_str("Shape mismatch"));
         }
 
-        let result: Vec<f32> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(a, b)| a - b)
-            .collect();
+        let result = math_ops::element_wise_sub(&self.data, &other.data)
+            .map_err(|e| JsValue::from_str(e))?;
 
         Ok(WasmTensor::new(result, self.shape.clone()))
     }
@@ -205,16 +185,12 @@ impl WasmTensor {
     /// Element-wise division
     #[wasm_bindgen]
     pub fn divide(&self, other: &WasmTensor) -> Result<WasmTensor, JsValue> {
-        if self.shape != other.shape {
+        if !shape_ops::shapes_compatible(&self.shape, &other.shape) {
             return Err(JsValue::from_str("Shape mismatch"));
         }
 
-        let result: Vec<f32> = self
-            .data
-            .iter()
-            .zip(other.data.iter())
-            .map(|(a, b)| if *b == 0.0 { f32::NAN } else { a / b })
-            .collect();
+        let result = math_ops::element_wise_div(&self.data, &other.data)
+            .map_err(|e| JsValue::from_str(e))?;
 
         Ok(WasmTensor::new(result, self.shape.clone()))
     }
@@ -222,77 +198,96 @@ impl WasmTensor {
     /// Scalar addition
     #[wasm_bindgen]
     pub fn add_scalar(&self, scalar: f32) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x + scalar).collect();
+        let result = math_ops::scalar_add(&self.data, scalar);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Scalar multiplication
     #[wasm_bindgen]
     pub fn mul_scalar(&self, scalar: f32) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x * scalar).collect();
+        let result = math_ops::scalar_mul(&self.data, scalar);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Power function
     #[wasm_bindgen]
     pub fn pow(&self, exponent: f32) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.powf(exponent)).collect();
+        let result = math_funcs::pow(&self.data, exponent);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Square root
     #[wasm_bindgen]
     pub fn sqrt(&self) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.sqrt()).collect();
+        let result = math_funcs::sqrt(&self.data);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Exponential function
     #[wasm_bindgen]
     pub fn exp(&self) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.exp()).collect();
+        let result = math_funcs::exp(&self.data);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Natural logarithm
     #[wasm_bindgen]
     pub fn log(&self) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.ln()).collect();
+        let result = math_funcs::log(&self.data);
         WasmTensor::new(result, self.shape.clone())
     }
 
     /// Sum all elements
     #[wasm_bindgen]
     pub fn sum(&self) -> f32 {
-        self.data.iter().sum()
+        stats_ops::sum(&self.data)
     }
 
     /// Mean of all elements
     #[wasm_bindgen]
     pub fn mean(&self) -> f32 {
-        if self.data.is_empty() {
-            0.0
-        } else {
-            self.sum() / self.data.len() as f32
-        }
+        stats_ops::mean(&self.data)
     }
 
     /// Maximum element
     #[wasm_bindgen]
     pub fn max(&self) -> f32 {
-        self.data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+        stats_ops::max(&self.data)
     }
 
     /// Minimum element
     #[wasm_bindgen]
     pub fn min(&self) -> f32 {
-        self.data.iter().fold(f32::INFINITY, |a, &b| a.min(b))
+        stats_ops::min(&self.data)
     }
 
     /// Tanh activation
     #[wasm_bindgen]
     pub fn tanh(&self) -> WasmTensor {
-        let result: Vec<f32> = self.data.iter().map(|&x| x.tanh()).collect();
+        let result = activation_ops::tanh(&self.data);
         WasmTensor::new(result, self.shape.clone())
+    }
+}
+
+/// Implement common tensor operations trait for WasmTensor
+/// WasmTensorに共通テンソル操作トレイトを実装
+#[cfg(feature = "wasm")]
+impl CommonTensorOps<f32> for WasmTensor {
+    type Error = JsValue;
+    
+    fn add_elements(&self, other: &Self) -> Result<Self, Self::Error> {
+        self.add(other)
+    }
+    
+    fn sub_elements(&self, other: &Self) -> Result<Self, Self::Error> {
+        self.subtract(other)
+    }
+    
+    fn relu_activation(&self) -> Self {
+        self.relu()
+    }
+    
+    fn sigmoid_activation(&self) -> Self {
+        self.sigmoid()
     }
 }
