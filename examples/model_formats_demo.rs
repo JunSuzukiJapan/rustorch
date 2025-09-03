@@ -3,6 +3,8 @@
 
 use rustorch::formats::pytorch::PyTorchModel;
 use rustorch::tensor::Tensor;
+
+#[cfg(feature = "safetensors")]
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
