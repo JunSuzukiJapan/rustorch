@@ -6,6 +6,8 @@
 //! このモジュールは画像、テキスト、数値データを含む様々なデータタイプの
 //! 包括的なデータ変換機能を提供します。
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use crate::tensor::Tensor;
 use num_traits::Float;
 use rand::Rng;
@@ -13,6 +15,10 @@ use std::collections::HashMap;
 
 /// Base trait for all data transformations
 /// すべてのデータ変換の基底トレイト
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub trait Transform<T: Float + 'static> {
     /// Apply transformation to input data
     /// 入力データに変換を適用
@@ -31,6 +37,10 @@ pub trait Transform<T: Float + 'static> {
 
 /// Compose multiple transformations in sequence
 /// 複数の変換を順次組み合わせ
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct Compose<T: Float + 'static> {
     transforms: Vec<Box<dyn Transform<T> + Send + Sync>>,
     name: String,
@@ -61,6 +71,10 @@ impl<T: Float + 'static> Transform<T> for Compose<T> {
 
 /// Random choice between multiple transforms
 /// 複数の変換からランダム選択
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct RandomChoice<T: Float + 'static> {
     transforms: Vec<Box<dyn Transform<T> + Send + Sync>>,
     probabilities: Vec<f64>,
@@ -128,6 +142,10 @@ impl<T: Float + 'static> Transform<T> for RandomChoice<T> {
 
 /// Standard normalization: (x - mean) / std
 /// 標準正規化: (x - 平均) / 標準偏差
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct Normalize<T: Float + 'static> {
     mean: Vec<T>,
     std: Vec<T>,
@@ -148,7 +166,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> No
 
     /// Create normalization from dataset statistics
     /// データセット統計から正規化を作成
-    pub fn from_dataset<D: crate::data::Dataset<T>>(dataset: &D) -> Result<Self, String> {
+    pub fn from_dataset<D: crate::data::LegacyDataset<T>>(dataset: &D) -> Result<Self, String> {
         if dataset.len() == 0 {
             return Err("Dataset is empty".to_string());
         }
@@ -270,6 +288,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Min-Max normalization: (x - min) / (max - min)
 /// Min-Max正規化: (x - 最小値) / (最大値 - 最小値)
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct MinMaxNormalize<T: Float + 'static> {
     min_val: T,
     max_val: T,
@@ -334,6 +356,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Random horizontal flip
 /// ランダム水平反転
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct RandomHorizontalFlip<T: Float + 'static> {
     probability: f64,
     _phantom: std::marker::PhantomData<T>,
@@ -396,6 +422,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Random rotation
 /// ランダム回転
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct RandomRotation<T: Float + 'static> {
     max_angle: f64, // in degrees
     _phantom: std::marker::PhantomData<T>,
@@ -447,6 +477,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Center crop
 /// 中央クロップ
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct CenterCrop<T: Float + 'static> {
     output_size: (usize, usize), // (height, width)
     _phantom: std::marker::PhantomData<T>,
@@ -523,6 +557,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Add Gaussian noise
 /// ガウシアンノイズ追加
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct AddGaussianNoise<T: Float + 'static> {
     mean: T,
     std: T,
@@ -574,6 +612,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Random brightness adjustment
 /// ランダム明度調整
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct RandomBrightness<T: Float + 'static> {
     factor_range: (T, T),
 }
@@ -623,6 +665,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Token dropout for text data
 /// テキストデータ用トークンドロップアウト
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 transform system with Dataset trait"
+)]
 pub struct TokenDropout<T: Float + 'static> {
     dropout_rate: f64,
     replacement_token: T,

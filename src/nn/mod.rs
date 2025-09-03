@@ -10,11 +10,15 @@ pub mod conv2d;
 pub mod conv3d;
 pub mod conv_base;
 pub mod conv_transpose;
+pub mod conv_transpose_1d;
+pub mod conv_transpose_3d;
+pub mod conv_transpose_common;
 pub mod dropout;
 pub mod embedding;
 pub mod gru;
 pub mod gru_cell;
 pub mod gru_layer;
+pub mod instance_norm;
 pub mod linear;
 pub mod loss;
 pub mod lstm;
@@ -28,6 +32,7 @@ pub mod recurrent_common;
 pub mod rnn;
 pub mod safe_ops;
 pub mod transformer;
+pub mod transformer_phase6;
 
 use crate::autograd::Variable;
 use num_traits::Float;
@@ -140,13 +145,20 @@ where
 // ニューラルネットワークモジュールを再エクスポート
 /// Activation function modules
 /// 活性化関数モジュール
-pub use activation::{ReLU, Softmax, Tanh, GELU};
+pub use activation::{geglu, glu, reglu, swiglu, ReLU, Softmax, Tanh, GELU, GLU};
 /// 適応的プーリングレイヤー
 /// Adaptive pooling layers
 pub use adaptive_pool::{AdaptiveAvgPool2d, AdaptiveMaxPool2d};
+/// Legacy attention for compatibility (deprecated)
+/// 互換性のためのレガシーアテンション（非推奨）
+#[deprecated(
+    since = "0.6.0",
+    note = "Use transformer_phase6::MultiheadAttention instead"
+)]
+pub use attention::MultiheadAttention as LegacyMultiheadAttention;
 /// Attention layers
 /// アテンション層
-pub use attention::{CrossAttention, MultiHeadAttention, SelfAttention};
+pub use attention::{CrossAttention, SelfAttention};
 /// バッチ正規化レイヤー
 /// Batch normalization layers
 pub use batchnorm::{BatchNorm1d, BatchNorm2d};
@@ -159,9 +171,11 @@ pub use conv2d::Conv2d;
 /// 3次元畳み込みレイヤー
 /// 3D convolution layer
 pub use conv3d::Conv3d;
-/// 2次元転置畳み込みレイヤー
-/// 2D transposed convolution layer
+/// 転置畳み込みレイヤー
+/// Transposed convolution layers
 pub use conv_transpose::ConvTranspose2d;
+pub use conv_transpose_1d::ConvTranspose1d;
+pub use conv_transpose_3d::ConvTranspose3d;
 /// ドロップアウトレイヤー
 /// Dropout layers
 pub use dropout::{dropout, AlphaDropout, Dropout};
@@ -171,6 +185,9 @@ pub use embedding::{Embedding, PositionalEmbedding, SinusoidalPositionalEncoding
 /// GRUレイヤー
 /// GRU layers
 pub use gru::{GRUCell, GRU};
+/// Instance normalization layers
+/// インスタンス正規化レイヤー
+pub use instance_norm::{InstanceNorm1d, InstanceNorm2d, InstanceNorm3d};
 /// 線形（全結合）レイヤー
 /// Linear (fully connected) layer
 pub use linear::Linear;
@@ -205,6 +222,18 @@ pub use quantization::{
 pub use rnn::{RNNCell, RNN};
 /// Transformer layers
 /// Transformer層
+/// Legacy Transformer components (deprecated)
+/// レガシーTransformerコンポーネント（非推奨）
+#[deprecated(since = "0.6.0", note = "Use Phase 6 components instead")]
 pub use transformer::{
-    Transformer, TransformerDecoderLayer, TransformerEncoder, TransformerEncoderLayer,
+    Transformer as LegacyTransformer, TransformerDecoderLayer as LegacyTransformerDecoderLayer,
+    TransformerEncoder as LegacyTransformerEncoder,
+    TransformerEncoderLayer as LegacyTransformerEncoderLayer,
+};
+
+/// Phase 6 Transformer components - Primary implementation (PyTorch compatible)
+/// フェーズ6 Transformerコンポーネント - 主要実装（PyTorch互換）
+pub use transformer_phase6::{
+    MultiheadAttention, PositionalEncoding, Transformer, TransformerDecoderLayer,
+    TransformerEncoderLayer,
 };

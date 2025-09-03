@@ -1,11 +1,13 @@
 //! 汎用的な学習ループトレーナー
 //! Generic training loop trainer
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
 use super::state::{BatchState, EpochState, TrainingState};
 use crate::autograd::Variable;
-use crate::data::DataLoader;
+use crate::data::LegacyDataLoader;
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
 use num_traits::Float;
@@ -106,12 +108,12 @@ where
     pub fn train<M, D>(
         &mut self,
         model: &mut M,
-        train_loader: &mut DataLoader<T, D>,
-        mut val_loader: Option<&mut DataLoader<T, D>>,
+        train_loader: &mut LegacyDataLoader<T, D>,
+        mut val_loader: Option<&mut LegacyDataLoader<T, D>>,
     ) -> anyhow::Result<TrainingMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::Dataset<T>,
+        D: crate::data::LegacyDataset<T>,
     {
         let start_time = Instant::now();
         let mut state = TrainingState::new(self.config.epochs);
@@ -182,12 +184,12 @@ where
     fn train_epoch<M, D>(
         &mut self,
         model: &mut M,
-        train_loader: &mut DataLoader<T, D>,
+        train_loader: &mut LegacyDataLoader<T, D>,
         state: &mut TrainingState<T>,
     ) -> anyhow::Result<EpochMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::Dataset<T>,
+        D: crate::data::LegacyDataset<T>,
     {
         let mut epoch_metrics = EpochMetrics::new();
         let mut batch_count = 0;
@@ -264,12 +266,12 @@ where
     fn validate_epoch<M, D>(
         &mut self,
         model: &mut M,
-        val_loader: &mut DataLoader<T, D>,
+        val_loader: &mut LegacyDataLoader<T, D>,
         _state: &mut TrainingState<T>,
     ) -> anyhow::Result<EpochMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::Dataset<T>,
+        D: crate::data::LegacyDataset<T>,
     {
         let mut epoch_metrics = EpochMetrics::new();
 

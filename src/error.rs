@@ -239,6 +239,15 @@ pub enum RusTorchError {
         message: String,
     },
 
+    /// DataLoader system errors (Phase 5)
+    /// DataLoaderシステムエラー（フェーズ5）
+    #[error("DataLoader error: {message}")]
+    Dataloader {
+        /// DataLoader error description
+        /// DataLoaderエラーの説明
+        message: String,
+    },
+
     /// Input/Output and serialization errors
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]

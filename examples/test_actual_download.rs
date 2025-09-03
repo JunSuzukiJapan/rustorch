@@ -3,8 +3,6 @@
 
 #[cfg(feature = "model-hub")]
 use rustorch::model_hub::ModelHub;
-#[cfg(feature = "model-hub")]
-use tokio;
 
 #[cfg(feature = "model-hub")]
 #[tokio::main]

@@ -9,7 +9,7 @@ use crate::models::high_level::{HighLevelModel, FitConfig, TrainingHistory};
 use crate::nn::{Linear, Module};
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::data::{DataLoader, TensorDataset};
+use crate::data::{LegacyDataLoader, TensorDataset};
 use num_traits::Float;
 use std::fmt::Debug;
 use anyhow::Result;

@@ -1,15 +1,23 @@
-//! DataLoader implementation for batch processing
-//! バッチ処理のためのDataLoader実装
+//! DataLoader implementation for Phase 5 - PyTorch-compatible API
+//! フェーズ5用DataLoader実装 - PyTorch互換API
 
-use super::Dataset;
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
+use crate::data::dataset::{DataError, Dataset};
+use crate::data::sampler::Sampler;
+use crate::data::LegacyDataset; // Legacy trait for backward compatibility
+use crate::error::RusTorchError;
 use crate::tensor::Tensor;
 use num_traits::Float;
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use std::sync::Arc;
+use rayon::prelude::*;
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
 
 /// Trait for data transformations
 /// データ変換のためのトレイト
+#[deprecated(since = "0.6.0", note = "Use Transform trait from transforms module")]
 pub trait Transform<T: Float + 'static> {
     /// Apply transformation to input data
     /// 入力データに変換を適用します
@@ -18,6 +26,7 @@ pub trait Transform<T: Float + 'static> {
 
 /// Compose multiple transformations
 /// 複数の変換を組み合わせます
+#[deprecated(since = "0.6.0", note = "Use Compose from transforms module")]
 pub struct Compose<T: Float + 'static> {
     transforms: Vec<Box<dyn Transform<T> + Send + Sync>>,
 }
@@ -40,6 +49,7 @@ impl<T: Float + 'static> Transform<T> for Compose<T> {
 
 /// Normalize transformation
 /// 正規化変換
+#[deprecated(since = "0.6.0", note = "Use Normalize from transforms module")]
 pub struct Normalize<T: Float + 'static> {
     mean: Vec<T>,
     std: Vec<T>,
@@ -77,6 +87,10 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tr
 
 /// Random horizontal flip transformation
 /// ランダム水平反転変換
+#[deprecated(
+    since = "0.6.0",
+    note = "Use RandomHorizontalFlip from transforms module"
+)]
 pub struct RandomHorizontalFlip<T: Float + 'static> {
     probability: f64,
     _phantom: std::marker::PhantomData<T>,
@@ -108,9 +122,10 @@ impl<T: Float + 'static> Transform<T> for RandomHorizontalFlip<T> {
     }
 }
 
-/// DataLoader for loading data in batches
-/// バッチでデータを読み込むためのDataLoader
-pub struct DataLoader<'a, T: Float, D: Dataset<T>> {
+/// Legacy DataLoader for backward compatibility
+/// 後方互換性のためのレガシーDataLoader
+#[deprecated(since = "0.6.0", note = "Use `DataLoader` from Phase 5 API instead")]
+pub struct LegacyDataLoader<'a, T: Float, D: LegacyDataset<T>> {
     dataset: &'a D,
     batch_size: usize,
     shuffle: bool,
@@ -125,8 +140,8 @@ pub struct DataLoader<'a, T: Float, D: Dataset<T>> {
 impl<
         'a,
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T>,
-    > DataLoader<'a, T, D>
+        D: LegacyDataset<T>,
+    > LegacyDataLoader<'a, T, D>
 {
     /// Creates a new DataLoader
     /// 新しいDataLoaderを作成します
@@ -148,7 +163,7 @@ impl<
             indices.shuffle(&mut thread_rng());
         }
 
-        DataLoader {
+        LegacyDataLoader {
             dataset,
             batch_size,
             shuffle,
@@ -198,7 +213,7 @@ impl<
             indices.shuffle(&mut thread_rng());
         }
 
-        DataLoader {
+        LegacyDataLoader {
             dataset,
             batch_size,
             shuffle,
@@ -357,8 +372,8 @@ impl<
 impl<
         'a,
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T>,
-    > Iterator for DataLoader<'a, T, D>
+        D: LegacyDataset<T>,
+    > Iterator for LegacyDataLoader<'a, T, D>
 {
     type Item = (Tensor<T>, Tensor<T>);
 
@@ -388,8 +403,8 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
-        let mut dataloader = DataLoader::new(&dataset, 2, false);
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
+        let mut dataloader = LegacyDataLoader::new(&dataset, 2, false);
 
         assert_eq!(dataloader.len(), 2);
 
@@ -421,13 +436,13 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Create a normalization transform
         let normalize = Normalize::new(vec![2.0], vec![1.0]).unwrap();
         let transform = Arc::new(normalize);
 
-        let mut dataloader = DataLoader::new_with_transform(&dataset, 1, false, transform);
+        let mut dataloader = LegacyDataLoader::new_with_transform(&dataset, 1, false, transform);
 
         // Test first batch with transformation applied
         if let Some((batch_features, _)) = dataloader.next_batch() {
@@ -455,8 +470,8 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
-        let mut dataloader = DataLoader::new_lazy(&dataset, 2, false);
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
+        let mut dataloader = LegacyDataLoader::new_lazy(&dataset, 2, false);
 
         assert_eq!(dataloader.len(), 2);
 
@@ -490,11 +505,11 @@ mod tests {
             .map(|i| Tensor::from_vec(vec![(i % 2) as f32], vec![1]))
             .collect();
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Test eager loading performance
         let start = Instant::now();
-        let mut eager_dataloader = DataLoader::new(&dataset, 32, false);
+        let mut eager_dataloader = LegacyDataLoader::new(&dataset, 32, false);
         let mut eager_batches = 0;
         while eager_dataloader.next_batch().is_some() {
             eager_batches += 1;
@@ -503,7 +518,7 @@ mod tests {
 
         // Test lazy loading performance
         let start = Instant::now();
-        let mut lazy_dataloader = DataLoader::new_lazy(&dataset, 32, false);
+        let mut lazy_dataloader = LegacyDataLoader::new_lazy(&dataset, 32, false);
         let mut lazy_batches = 0;
         while lazy_dataloader.next_batch().is_some() {
             lazy_batches += 1;
@@ -540,18 +555,21 @@ mod tests {
     #[test]
     fn test_dataloader_memory_usage() {
         // Test with different batch sizes to verify memory efficiency
-        let features: Vec<Tensor<f32>> = (0..100)
-            .map(|i| Tensor::from_vec(vec![i as f32; 100], vec![100])) // Larger tensors
-            .collect();
+        let batch_size = 100;
+        let feature_dim = 10;
 
-        let targets: Vec<Tensor<f32>> = (0..100)
-            .map(|i| Tensor::from_vec(vec![(i % 10) as f32], vec![1]))
-            .collect();
+        // Create feature matrix: [batch_size, feature_dim]
+        let feature_data: Vec<f32> = (0..batch_size * feature_dim).map(|i| i as f32).collect();
+        let features_tensor = Tensor::from_vec(feature_data, vec![batch_size, feature_dim]);
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        // Create target vector: [batch_size, 1]
+        let target_data: Vec<f32> = (0..batch_size).map(|i| (i % 10) as f32).collect();
+        let targets_tensor = Tensor::from_vec(target_data, vec![batch_size, 1]);
+
+        let dataset = TensorDataset::new(vec![features_tensor, targets_tensor]).unwrap();
 
         // Test with small batch size (should use less memory)
-        let mut small_batch_loader = DataLoader::new_lazy(&dataset, 5, false);
+        let mut small_batch_loader = LegacyDataLoader::new_lazy(&dataset, 5, false);
         let mut batches_processed = 0;
         while small_batch_loader.next_batch().is_some() {
             batches_processed += 1;
@@ -559,7 +577,7 @@ mod tests {
         assert_eq!(batches_processed, 20); // 100 / 5
 
         // Test with large batch size
-        let mut large_batch_loader = DataLoader::new_lazy(&dataset, 50, false);
+        let mut large_batch_loader = LegacyDataLoader::new_lazy(&dataset, 50, false);
         let mut batches_processed = 0;
         while large_batch_loader.next_batch().is_some() {
             batches_processed += 1;
@@ -581,7 +599,7 @@ mod tests {
             Tensor::from_vec(vec![0.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         // Create composite transformations
         let normalize = Normalize::new(vec![2.0], vec![2.0]).unwrap();
@@ -592,7 +610,7 @@ mod tests {
         let compose = Compose::new(transforms);
         let transform = Arc::new(compose);
 
-        let mut dataloader = DataLoader::new_with_all_options(
+        let mut dataloader = LegacyDataLoader::new_with_all_options(
             &dataset,
             2,     // batch_size
             false, // shuffle
@@ -612,5 +630,110 @@ mod tests {
             assert!((data[0] - (-0.5)).abs() < 1e-6);
             assert!((data[1] - 0.0).abs() < 1e-6);
         }
+    }
+}
+
+/// Main DataLoader implementation using Phase 5 Dataset trait
+/// フェーズ5 Datasetトレイトを使用するメインDataLoader実装
+pub struct DataLoader<'a, T: Float, D: Dataset<T>> {
+    dataset: &'a D,
+    sampler: Box<dyn Sampler + Send + Sync>,
+    batch_size: usize,
+    drop_last: bool,
+    num_workers: usize,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<'a, T: Float, D: Dataset<T>> DataLoader<'a, T, D> {
+    /// Create new DataLoader
+    /// 新しいDataLoaderを作成
+    pub fn new(dataset: &'a D, sampler: Box<dyn Sampler + Send + Sync>, batch_size: usize) -> Self {
+        Self {
+            dataset,
+            sampler,
+            batch_size,
+            drop_last: false,
+            num_workers: 1,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    /// Create DataLoader with all options
+    /// 全オプション付きDataLoaderを作成
+    pub fn with_options(
+        dataset: &'a D,
+        sampler: Box<dyn Sampler + Send + Sync>,
+        batch_size: usize,
+        drop_last: bool,
+        num_workers: usize,
+    ) -> Self {
+        Self {
+            dataset,
+            sampler,
+            batch_size,
+            drop_last,
+            num_workers,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    /// Get next batch
+    /// 次のバッチを取得
+    pub fn next_batch(&mut self) -> Option<Vec<T>> {
+        let mut indices = Vec::new();
+
+        for _ in 0..self.batch_size {
+            if let Some(idx) = self.sampler.sample() {
+                indices.push(idx);
+            } else {
+                break;
+            }
+        }
+
+        if indices.is_empty() {
+            return None;
+        }
+
+        if self.drop_last && indices.len() < self.batch_size {
+            return None;
+        }
+
+        // Collect batch items
+        let mut batch = Vec::new();
+        for idx in indices {
+            if let Ok(item) = self.dataset.get_item(idx) {
+                batch.push(item);
+            }
+        }
+
+        if batch.is_empty() {
+            None
+        } else {
+            Some(batch)
+        }
+    }
+
+    /// Reset the sampler
+    /// サンプラーをリセット
+    pub fn reset(&mut self) {
+        self.sampler.reset();
+    }
+
+    /// Check if exhausted
+    /// 枯渇したかチェック
+    pub fn is_empty(&self) -> bool {
+        self.sampler.is_empty()
+    }
+
+    /// Get batch size
+    /// バッチサイズを取得
+    pub fn batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    /// Get number of workers
+    /// ワーカー数を取得
+    pub fn num_workers(&self) -> usize {
+        self.num_workers
     }
 }

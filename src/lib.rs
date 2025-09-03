@@ -65,7 +65,7 @@
 //!
 //! **A production-ready deep learning library in Rust with PyTorch-like API, data validation, debugging tools, and enterprise-grade reliability**
 //!
-//! RusTorch v0.5.10 is a fully functional deep learning library that leverages Rust's safety and performance,
+//! RusTorch v0.5.14 is a fully functional deep learning library that leverages Rust's safety and performance,
 //! providing comprehensive tensor operations, automatic differentiation, neural network layers,
 //! transformer architectures, GPU acceleration, unified error handling system, advanced memory optimization features,
 //! data validation & quality assurance, and comprehensive debug & logging systems.
@@ -140,7 +140,7 @@
 //! - [`simd`]: SIMD vectorized operations
 //! - `wasm`: WebAssembly bindings for browser deployment
 //! - [`memory`]: Advanced memory management and pooling
-//! - [`data`]: Data loading and processing utilities
+//! - [`data`]: Phase 5 data loading API with modern `Dataset` and `DataLoader` traits
 //!
 //! ## 🔄 Parallel Operations
 //!
@@ -240,8 +240,13 @@ pub mod common;
 /// PyTorch to RusTorch conversion system
 /// PyTorchからRusTorch変換システム
 pub mod convert;
-/// Data loading and processing utilities
-/// データ読み込みと処理のユーティリティ
+/// Data loading and processing utilities (Phase 5 API)
+/// データ読み込みと処理のユーティリティ（フェーズ5 API）
+///
+/// The Phase 5 API provides modern `Dataset` and `DataLoader` traits with improved
+/// performance and ergonomics, replacing legacy APIs.
+/// フェーズ5 APIは、パフォーマンスと人間工学を改善した現代的な`Dataset`と`DataLoader`トレイトを提供し、
+/// レガシーAPIを置き換えます。
 pub mod data;
 /// Distributed training support for multi-GPU and multi-machine training
 /// マルチGPUおよびマルチマシン学習用分散学習サポート

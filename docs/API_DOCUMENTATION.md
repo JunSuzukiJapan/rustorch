@@ -2,7 +2,7 @@
 
 ## 📚 Complete API Reference
 
-This document provides comprehensive API documentation for RusTorch v0.5.13, organized by module and functionality.
+This document provides comprehensive API documentation for RusTorch v0.5.14, organized by module and functionality.
 
 ## 🏗️ Core Architecture
 
@@ -1510,9 +1510,10 @@ fn gpu_training() -> Result<()> {
 | Module | Description | Key Features |
 |--------|-------------|--------------|
 | `tensor` | Core tensor operations | Creation, arithmetic, mathematical functions, **advanced shape operations with builder pattern** |
-| `nn` | Neural network layers | Linear, Conv, RNN, LSTM, GRU, activations, normalization, loss functions |
-| `autograd` | Automatic differentiation | Variables, gradients, custom functions, computation graphs |
-| `optim` | Optimizers and schedulers | SGD, Adam, AdamW, RMSprop, learning rate scheduling |
+| `nn` | Neural network layers | Linear, Conv, RNN, LSTM, GRU, activations, normalization, loss functions, **Phase 6 Transformer components** |
+| `autograd` | Automatic differentiation | Variables, gradients, custom functions, computation graphs, **Phase 4 higher-order derivatives** |
+| `optim` | Optimizers and schedulers | SGD, Adam, AdamW, RMSprop, learning rate scheduling, **Phase 2 advanced optimizers** |
+| `data` | Data loading and processing | **Phase 5 Dataset/DataLoader API**, sampling strategies, transforms |
 | `special` | Special mathematical functions | Gamma, Bessel, error functions, hypergeometric, elliptic integrals |
 | `distributions` | Statistical distributions | Normal, uniform, gamma, beta, categorical, multivariate |
 | `vision` | Computer vision utilities | Image transforms, data augmentation, preprocessing |
@@ -1537,7 +1538,395 @@ fn gpu_training() -> Result<()> {
 | `onnx` | ONNX model import/export | ONNX Runtime |
 | `python` | Python bindings | PyO3 |
 
-## 🆕 New Features in v0.5.13
+## 🆕 New Features in v0.5.14
+
+### Phase 6: Transformer Components - PyTorch Compatible (NEW)
+
+RusTorch v0.5.14 introduces **Phase 6** transformer architecture, bringing the library to **95% completion** with production-ready PyTorch-compatible transformer components.
+
+#### 🚀 **Multi-head Attention Implementation**
+
+```rust
+use rustorch::nn::transformer_phase6::MultiheadAttention;
+
+// Standard multi-head attention (PyTorch compatible)
+let attention = MultiheadAttention::<f32>::new(
+    512,        // embed_dim
+    8,          // num_heads
+    Some(0.1),  // dropout
+    Some(true), // bias
+    None,       // kdim (defaults to embed_dim)
+    None,       // vdim (defaults to embed_dim)
+    Some(true), // batch_first
+)?;
+
+// Forward pass with query, key, value
+let (output, attention_weights) = attention.forward(
+    &query,     // [batch_size, seq_len, embed_dim]
+    &key,       // [batch_size, seq_len, embed_dim]
+    &value,     // [batch_size, seq_len, embed_dim]
+    None,       // key_padding_mask
+    true,       // need_weights
+    None,       // attn_mask
+    false,      // average_attn_weights
+)?;
+```
+
+#### 🏗️ **Transformer Encoder/Decoder Layers**
+
+```rust
+use rustorch::nn::transformer_phase6::{TransformerEncoderLayer, TransformerDecoderLayer};
+
+// Encoder layer with self-attention
+let encoder_layer = TransformerEncoderLayer::<f32>::new(
+    512,        // d_model
+    8,          // nhead
+    2048,       // dim_feedforward
+    0.1,        // dropout
+    "relu",     // activation
+    None,       // layer_norm_eps
+    true,       // batch_first
+    None,       // norm_first
+)?;
+
+// Decoder layer with self-attention and cross-attention
+let decoder_layer = TransformerDecoderLayer::<f32>::new(
+    512,        // d_model
+    8,          // nhead
+    2048,       // dim_feedforward
+    0.1,        // dropout
+    "relu",     // activation
+    None,       // layer_norm_eps
+    true,       // batch_first
+    None,       // norm_first
+)?;
+```
+
+#### 🎯 **Complete Transformer Model**
+
+```rust
+use rustorch::nn::transformer_phase6::Transformer;
+
+// Full transformer model (encoder-decoder architecture)
+let transformer = Transformer::<f32>::new(
+    512,        // d_model
+    8,          // nhead
+    Some(6),    // num_encoder_layers
+    Some(6),    // num_decoder_layers
+    Some(2048), // dim_feedforward
+    Some(0.1),  // dropout
+    None,       // activation
+    None,       // custom_encoder
+    None,       // custom_decoder
+    None,       // layer_norm_eps
+    Some(true), // batch_first
+    None,       // norm_first
+)?;
+
+// Training forward pass
+let output = transformer.forward(
+    &src,       // Source sequence [batch_size, src_len, d_model]
+    &tgt,       // Target sequence [batch_size, tgt_len, d_model]
+    None,       // src_mask
+    None,       // tgt_mask
+    None,       // memory_mask
+    None,       // src_key_padding_mask
+    None,       // tgt_key_padding_mask
+    None,       // memory_key_padding_mask
+)?;
+```
+
+#### ✨ **Key Features of Phase 6**
+
+- **Full PyTorch Compatibility**: API matches `torch.nn.Transformer` exactly
+- **Production Ready**: Comprehensive error handling and validation
+- **Memory Efficient**: Optimized attention computation with proper scaling
+- **Flexible Architecture**: Support for custom encoder/decoder layers
+- **Batch Processing**: Optimized for modern training workflows
+- **Mixed Precision**: Compatible with FP16/BF16 training modes
+
+### Phase 5: Modern Dataset API (UPDATED)
+
+#### 🗂️ **Core Dataset Trait**
+
+```rust
+use rustorch::data::{Dataset, DataLoader, TensorDataset};
+use rustorch::data::sampler::{SequentialSampler, RandomSampler, BatchSampler};
+
+// Create tensor dataset
+let features = vec![
+    Tensor::randn(vec![100, 784]), // 100 samples, 784 features
+    Tensor::randn(vec![100, 784]),
+];
+let targets = vec![
+    Tensor::randint(0, 10, vec![100, 1]), // 100 labels
+    Tensor::randint(0, 10, vec![100, 1]),
+];
+
+let dataset = TensorDataset::from_features_targets(features, targets)?;
+
+// Modern DataLoader with sampling strategies
+let sequential_sampler = SequentialSampler::new(dataset.len());
+let random_sampler = RandomSampler::new(dataset.len(), None);
+let batch_sampler = BatchSampler::new(
+    Box::new(random_sampler),
+    32,    // batch_size
+    false  // drop_last
+);
+
+let dataloader = DataLoader::new(
+    dataset,
+    Some(Box::new(batch_sampler)),
+    None,     // batch_size (handled by sampler)
+    false,    // shuffle (handled by sampler)
+    None,     // sampler
+    None,     // batch_sampler
+    2,        // num_workers
+    None,     // collate_fn
+    false,    // pin_memory
+    false,    // drop_last
+    None,     // timeout
+)?;
+
+// Iterate through batches
+for batch in dataloader {
+    let features = &batch[0]; // First tensor (features)
+    let targets = &batch[1];  // Second tensor (targets)
+    // Training logic...
+}
+```
+
+#### 📊 **Advanced Sampling Strategies**
+
+```rust
+use rustorch::data::sampler::{
+    WeightedRandomSampler, SubsetRandomSampler, 
+    DistributedSampler, StratifiedSampler
+};
+
+// Weighted sampling for imbalanced datasets
+let weights = vec![0.1, 0.9, 0.5, 0.3]; // Sample weights
+let weighted_sampler = WeightedRandomSampler::new(weights, 1000, true)?;
+
+// Subset sampling for validation splits
+let indices = vec![0, 2, 4, 6, 8]; // Validation indices
+let subset_sampler = SubsetRandomSampler::new(indices);
+
+// Distributed sampling for multi-GPU training
+let distributed_sampler = DistributedSampler::new(
+    1000,   // dataset_size
+    4,      // num_replicas
+    1,      // rank
+    true,   // shuffle
+    None,   // seed
+)?;
+
+// Stratified sampling for balanced batches
+let labels = vec![0, 1, 0, 1, 2, 2]; // Class labels
+let stratified_sampler = StratifiedSampler::new(labels, 0.5)?; // sampling_rate
+```
+
+### Phase 4: Higher-Order Derivatives (NEW)
+
+#### 🧮 **Jacobian and Hessian Computation**
+
+```rust
+use rustorch::autograd::{jacobian, hessian, hvp};
+
+// Jacobian matrix computation for vector-valued functions
+let jacobian_matrix = jacobian(
+    |x| {
+        // Vector-valued function: R^n -> R^m
+        let squared = x.pow(2.0);
+        let doubled = &squared * &Variable::new(Tensor::from_scalar(2.0), false);
+        doubled
+    },
+    &input_variable,
+    false, // create_graph
+)?;
+
+// Hessian matrix computation for scalar-valued functions
+let hessian_matrix = hessian(
+    |x| {
+        // Scalar-valued function: R^n -> R
+        let squared = x.pow(2.0);
+        squared.sum() // Sum to make it scalar
+    },
+    &input_variable,
+)?;
+
+// Hessian-vector product (efficient for large problems)
+let direction = Variable::new(Tensor::randn(vec![10]), false);
+let hvp_result = hvp(
+    |x| {
+        let squared = x.pow(2.0);
+        squared.sum()
+    },
+    &input_variable,
+    &direction,
+    false, // create_graph
+)?;
+```
+
+#### 🔍 **Gradient Utilities and Validation**
+
+```rust
+use rustorch::autograd::{
+    grad, gradient, validate_grad_setup, is_variable_in_graph,
+    GradCheckConfig, gradcheck, gradcheck_simple
+};
+
+// Advanced gradient computation
+let gradients = grad(
+    &[output],           // outputs
+    &[input],            // inputs
+    Some(&[grad_output]), // grad_outputs
+    true,                // retain_graph
+    true,                // create_graph
+)?;
+
+// Gradient validation for debugging
+let is_valid = validate_grad_setup(&outputs, &inputs)?;
+let in_graph = is_variable_in_graph(&variable, &computation_graph)?;
+
+// Numerical gradient checking
+let config = GradCheckConfig {
+    eps: 1e-6,
+    atol: 1e-5,
+    rtol: 1e-3,
+    raise_exception: false,
+};
+
+let grad_check_result = gradcheck(
+    |inputs| my_function(inputs),
+    &[input_variable],
+    &config,
+)?;
+
+// Simple gradient checking for development
+let is_correct = gradcheck_simple(
+    |inputs| my_function(inputs),
+    &[input_variable],
+    1e-6, // eps
+)?;
+```
+
+#### 🛡️ **Gradient Context Management**
+
+```rust
+use rustorch::autograd::{
+    no_grad, enable_grad, detect_anomaly,
+    NoGradGuard, EnableGradGuard, AnomalyDetectionGuard,
+    is_grad_enabled, set_grad_enabled
+};
+
+// Context managers for gradient control
+{
+    let _guard = no_grad(); // Disable gradient computation
+    let prediction = model.forward(&input); // No gradients computed
+}
+
+{
+    let _guard = enable_grad(); // Ensure gradients enabled
+    let output = model.forward(&input); // Gradients computed
+}
+
+{
+    let _guard = detect_anomaly(); // Enable anomaly detection
+    let loss = compute_loss(&output, &target); // Detects NaN/Inf
+    loss.backward(); // Will raise error if anomalies found
+}
+
+// Manual gradient state management
+let was_enabled = is_grad_enabled();
+set_grad_enabled(false);
+// ... operations without gradients
+set_grad_enabled(was_enabled); // Restore previous state
+```
+
+### Phase 3: Advanced Neural Network Layers (UPDATED)
+
+#### 🎯 **Enhanced Attention Mechanisms**
+
+The Phase 3 implementation now serves as the foundation for Phase 6 transformer components:
+
+```rust
+use rustorch::nn::attention::{AttentionLayer, ScaledDotProductAttention};
+
+// Scaled dot-product attention (building block for multi-head)
+let attention = ScaledDotProductAttention::<f32>::new(0.1); // dropout
+let output = attention.forward(&query, &key, &value, None)?; // mask optional
+
+// Legacy attention layer (use Phase 6 MultiheadAttention instead)
+let legacy_attention = AttentionLayer::<f32>::new(512, 8, 0.1)?;
+```
+
+#### 🏗️ **Advanced Pooling Operations**
+
+```rust
+use rustorch::nn::adaptive_pool::{AdaptiveAvgPool1d, AdaptiveMaxPool1d, AdaptiveAvgPool3d};
+
+// 1D adaptive pooling
+let adaptive_avg_1d = AdaptiveAvgPool1d::<f32>::new(10); // output_size
+let adaptive_max_1d = AdaptiveMaxPool1d::<f32>::new(5);
+
+// 3D adaptive pooling  
+let adaptive_avg_3d = AdaptiveAvgPool3d::<f32>::new((4, 4, 4)); // output_size
+```
+
+#### 🔄 **Enhanced RNN Architectures**
+
+```rust
+use rustorch::nn::{lstm_layer::LSTMLayer, gru_layer::GRULayer};
+
+// Advanced LSTM with layer-wise configuration
+let lstm_layer = LSTMLayer::<f32>::new(
+    256,    // input_size
+    512,    // hidden_size
+    true,   // bias
+    0.2,    // dropout
+    true,   // batch_first
+)?;
+
+// Advanced GRU with optimized cell operations
+let gru_layer = GRULayer::<f32>::new(
+    256,    // input_size
+    512,    // hidden_size
+    true,   // bias
+    0.2,    // dropout
+    true,   // batch_first
+)?;
+```
+
+### Backward Compatibility and Migration
+
+#### 🔄 **API Evolution Path**
+
+```rust
+// Phase 3 → Phase 6 Migration Example
+// Old (Phase 3): Basic attention
+use rustorch::nn::attention::AttentionLayer;
+let old_attention = AttentionLayer::<f32>::new(512, 8, 0.1)?;
+
+// New (Phase 6): Full transformer attention
+use rustorch::nn::transformer_phase6::MultiheadAttention;
+let new_attention = MultiheadAttention::<f32>::new(
+    512, 8, Some(0.1), Some(true), None, None, Some(true)
+)?;
+```
+
+#### 📚 **Legacy Support**
+
+All Phase 3-5 APIs remain fully functional with deprecation warnings guiding users to modern alternatives:
+
+```rust
+// Legacy data API (still works, but deprecated)
+#[allow(deprecated)]
+use rustorch::data::LegacyDataset;
+
+// Modern Phase 5 API (recommended)
+use rustorch::data::Dataset;
+```
 
 ### Phase 2: Advanced Optimization Framework (COMPLETED)
 

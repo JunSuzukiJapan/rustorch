@@ -45,6 +45,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(unused_unsafe)]
     fn test_dot_product() {
         if vectorized::is_avx2_available() {
             let a = vec![1.0, 2.0, 3.0, 4.0];

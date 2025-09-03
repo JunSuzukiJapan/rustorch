@@ -368,12 +368,13 @@ fn wasm_cpu_performance_demo() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[cfg(feature = "cuda")]
+#[allow(dead_code)]
 fn demo_cuda_specific() -> Result<(), Box<dyn std::error::Error>> {
     use rustorch::gpu::cuda_kernels::{cuda_elementwise_add_f32, CudaKernelExecutor};
 
     println!("=== CUDA Specific Demo ===");
 
-    if let Ok(executor) = CudaKernelExecutor::new(0) {
+    if let Ok(_executor) = CudaKernelExecutor::new(0) {
         let size = 1024;
         let a = vec![1.0f32; size];
         let b = vec![2.0f32; size];

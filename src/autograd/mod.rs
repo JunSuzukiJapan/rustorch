@@ -5,11 +5,26 @@ use crate::tensor::Tensor;
 use num_traits::Float;
 use std::marker::PhantomData;
 use std::ops;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
+// Re-export Phase 4 gradient utilities
+pub use context::{
+    detect_anomaly, enable_grad, is_anomaly_detection_enabled, is_grad_enabled, no_grad,
+    set_anomaly_detection, set_grad_enabled, AnomalyDetectionGuard, EnableGradGuard,
+    GradientContext, NoGradGuard,
+};
+pub use grad_utils::{grad, gradient, is_variable_in_graph, validate_grad_setup, GradError};
+pub use gradcheck::{gradcheck, gradcheck_simple, GradCheckConfig, GradCheckResult};
+pub use higher_order::{hessian, hvp, jacobian};
+
+pub mod context;
 pub mod function;
 pub mod grad_fn;
+pub mod grad_utils;
+pub mod gradcheck;
 pub mod graph;
+pub mod higher_order;
 pub mod linear_grad_fn;
 pub mod visualization;
 
@@ -24,12 +39,16 @@ pub trait GradFn<T: Float + Send + Sync + 'static>: Send + Sync {
     fn apply(&self, grad_outputs: &[Tensor<T>]) -> Vec<Option<Tensor<T>>>;
 }
 
+// Global counter for unique Variable IDs
+static VARIABLE_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
 /// A variable that supports automatic differentiation.
 /// 自動微分をサポートする変数
 pub struct Variable<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
     data: Arc<RwLock<Tensor<T>>>,
     grad: Arc<RwLock<Option<Tensor<T>>>>,
     requires_grad: bool,
+    unique_id: usize,
     grad_fn: Option<Arc<dyn GradFn<T>>>,
     _marker: PhantomData<T>,
 }
@@ -52,6 +71,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: self.data.clone(),
             grad: self.grad.clone(),
             requires_grad: self.requires_grad,
+            unique_id: self.unique_id,
             grad_fn: self.grad_fn.clone(),
             _marker: PhantomData,
         }
@@ -68,9 +88,16 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
             requires_grad,
+            unique_id: VARIABLE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
             grad_fn: None,
             _marker: PhantomData,
         }
+    }
+
+    /// Returns the unique identifier for this Variable
+    /// この変数の一意識別子を返します
+    pub fn id(&self) -> usize {
+        self.unique_id
     }
 
     /// Creates a new variable with gradient function
@@ -84,6 +111,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
             data: Arc::new(RwLock::new(data)),
             grad: Arc::new(RwLock::new(None)),
             requires_grad,
+            unique_id: VARIABLE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
             grad_fn,
             _marker: PhantomData,
         }
@@ -130,7 +158,9 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// Performs backward pass with a specific gradient.
     /// 特定の勾配で逆伝播を実行します。
     pub fn backward_with_grad(&self, grad_output: Option<Tensor<T>>) {
-        if !self.requires_grad {
+        use crate::autograd::context::is_grad_enabled;
+
+        if !self.requires_grad || !is_grad_enabled() {
             return;
         }
 
@@ -412,5 +442,62 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 
     fn sub(self, rhs: &Variable<T>) -> Self::Output {
         &self - rhs
+    }
+}
+
+// Macro for implementing binary operations to reduce code duplication
+macro_rules! impl_binary_op_owned {
+    ($trait:ident, $method:ident) => {
+        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+            ops::$trait for Variable<T>
+        {
+            type Output = Variable<T>;
+
+            fn $method(self, rhs: Self) -> Self::Output {
+                (&self).$method(&rhs)
+            }
+        }
+    };
+}
+
+macro_rules! impl_binary_op_mixed {
+    ($trait:ident, $method:ident) => {
+        impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>
+            ops::$trait<&Variable<T>> for Variable<T>
+        {
+            type Output = Variable<T>;
+
+            fn $method(self, rhs: &Variable<T>) -> Self::Output {
+                (&self).$method(rhs)
+            }
+        }
+    };
+}
+
+// Apply macros for all binary operations
+impl_binary_op_owned!(Add, add);
+impl_binary_op_owned!(Mul, mul);
+impl_binary_op_owned!(Sub, sub);
+
+impl_binary_op_mixed!(Add, add);
+impl_binary_op_mixed!(Mul, mul);
+
+// Add division operator
+impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> ops::Div
+    for &Variable<T>
+{
+    type Output = Variable<T>;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        let lhs_data = self.data.read().unwrap().clone();
+        let rhs_data = rhs.data.read().unwrap().clone();
+        let result_data = &lhs_data / &rhs_data;
+
+        if self.requires_grad || rhs.requires_grad {
+            // For now, create division without gradient function
+            Variable::new(result_data, true)
+        } else {
+            Variable::new(result_data, false)
+        }
     }
 }

@@ -60,18 +60,21 @@ fn demo_simd_operations() {
 
         // SIMD addition
         let start = Instant::now();
-        if vectorized::is_avx2_available() {
-            unsafe {
-                vectorized::add_f32_avx2(&a, &b, &mut result_simd);
-            }
-        } else if vectorized::is_sse41_available() {
-            unsafe {
-                vectorized::add_f32_sse41(&a, &b, &mut result_simd);
-            }
-        } else {
-            // Fallback
-            for i in 0..size {
-                result_simd[i] = a[i] + b[i];
+        #[allow(unused_unsafe)]
+        {
+            if vectorized::is_avx2_available() {
+                unsafe {
+                    vectorized::add_f32_avx2(&a, &b, &mut result_simd);
+                }
+            } else if vectorized::is_sse41_available() {
+                unsafe {
+                    vectorized::add_f32_sse41(&a, &b, &mut result_simd);
+                }
+            } else {
+                // Fallback
+                for i in 0..size {
+                    result_simd[i] = a[i] + b[i];
+                }
             }
         }
         let simd_time = start.elapsed();

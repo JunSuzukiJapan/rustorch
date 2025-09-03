@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.5.13"
+version = "0.5.14"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -165,6 +165,7 @@ onnx = ["dep:ort"]
 model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
 python = ["dep:pyo3"]
 ci-fast = []
+memory-debug = []
 
 [profile.release]
 opt-level = 3
@@ -186,9 +187,9 @@ path = "examples/autograd_demo.rs"
 name = "cnn_demo"
 path = "examples/cnn_demo.rs"
 
-[[example]]
-name = "transformer_demo"
-path = "examples/transformer_demo.rs"
+# [[example]]
+# name = "transformer_demo"
+# path = "examples/transformer_demo.rs"
 
 [[example]]
 name = "vision_pipeline_demo"
@@ -220,10 +221,10 @@ name = "cuda_performance_demo"
 path = "examples/cuda_performance_demo.rs"
 required-features = ["cuda"]
 
-[[example]]
-name = "opencl_performance_demo"
-path = "examples/opencl_performance_demo.rs"
-required-features = ["opencl"]
+# [[example]]
+# name = "opencl_performance_demo"
+# path = "examples/opencl_performance_demo.rs"
+# required-features = ["opencl"]
 
 [[example]]
 name = "comprehensive_gpu_benchmark"

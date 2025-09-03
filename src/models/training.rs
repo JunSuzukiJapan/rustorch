@@ -1,8 +1,10 @@
 //! モデル訓練・推論インターフェース
 //! Model training and inference interface
 
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
 use crate::autograd::Variable;
-use crate::data::{DataLoader, Dataset};
+use crate::data::{LegacyDataLoader, LegacyDataset};
 use crate::models::Model;
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
@@ -155,7 +157,7 @@ where
     /// Train the model
     pub fn train<D>(&mut self, _train_dataset: D, _val_dataset: Option<D>) -> TrainingResult
     where
-        D: Dataset<T> + Clone,
+        D: LegacyDataset<T> + Clone,
     {
         let mut result = TrainingResult::new();
         let start_time = Instant::now();
@@ -287,9 +289,9 @@ where
 
     /// データローダーを使用した推論（簡略化実装）
     /// Inference using data loader (simplified implementation)
-    pub fn predict_dataloader<D>(&self, _dataloader: &DataLoader<T, D>) -> Vec<Variable<T>>
+    pub fn predict_dataloader<D>(&self, _dataloader: &LegacyDataLoader<T, D>) -> Vec<Variable<T>>
     where
-        D: Dataset<T>,
+        D: LegacyDataset<T>,
     {
         // 簡略化実装 - 空のベクターを返す
         Vec::new()

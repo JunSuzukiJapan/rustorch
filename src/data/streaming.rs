@@ -4,7 +4,9 @@
 //! This module provides memory-efficient data loading for datasets that don't fit in memory
 //! このモジュールはメモリに収まらないデータセットのためのメモリ効率的なデータ読み込みを提供します
 
-use super::Dataset;
+#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
+
+use super::LegacyDataset;
 use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::VecDeque;
@@ -15,7 +17,11 @@ use std::time::Duration;
 
 /// Streaming dataset that loads data on-demand
 /// オンデマンドでデータを読み込むストリーミングデータセット
-pub struct StreamingDataset<T: Float + Send + Sync + 'static, D: Dataset<T> + Send + Sync> {
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 IterableDataset for streaming data"
+)]
+pub struct StreamingDataset<T: Float + Send + Sync + 'static, D: LegacyDataset<T> + Send + Sync> {
     inner_dataset: Arc<D>,
     buffer_size: usize,
     prefetch_threads: usize,
@@ -26,7 +32,7 @@ pub struct StreamingDataset<T: Float + Send + Sync + 'static, D: Dataset<T> + Se
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
+        D: LegacyDataset<T> + Send + Sync + 'static,
     > StreamingDataset<T, D>
 {
     /// Create a new streaming dataset
@@ -156,8 +162,8 @@ impl<
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
-    > Dataset<T> for StreamingDataset<T, D>
+        D: LegacyDataset<T> + Send + Sync + 'static,
+    > LegacyDataset<T> for StreamingDataset<T, D>
 {
     fn len(&self) -> usize {
         self.inner_dataset.len()
@@ -170,9 +176,10 @@ impl<
 
 /// Dynamic batch size dataloader that adjusts based on memory usage
 /// メモリ使用量に基づいて調整する動的バッチサイズデータローダー
+#[deprecated(since = "0.6.0", note = "Use Phase 5 DataLoader with dynamic sampling")]
 pub struct DynamicBatchLoader<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-    D: Dataset<T>,
+    D: LegacyDataset<T>,
 > {
     dataset: Arc<D>,
     min_batch_size: usize,
@@ -187,7 +194,7 @@ pub struct DynamicBatchLoader<
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
+        D: LegacyDataset<T> + Send + Sync + 'static,
     > DynamicBatchLoader<T, D>
 {
     /// Create a new dynamic batch loader
@@ -318,7 +325,7 @@ impl<
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
+        D: LegacyDataset<T> + Send + Sync + 'static,
     > Iterator for DynamicBatchLoader<T, D>
 {
     type Item = (Tensor<T>, Tensor<T>);
@@ -330,9 +337,13 @@ impl<
 
 /// Async data loader using channels for non-blocking data loading
 /// ノンブロッキングデータ読み込み用チャネルを使用する非同期データローダー
+#[deprecated(
+    since = "0.6.0",
+    note = "Use Phase 5 IterableDataset for async data loading"
+)]
 pub struct AsyncDataLoader<
     T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-    D: Dataset<T> + Send + Sync + 'static,
+    D: LegacyDataset<T> + Send + Sync + 'static,
 > {
     receiver: mpsc::Receiver<Option<(Tensor<T>, Tensor<T>)>>,
     _handles: Vec<thread::JoinHandle<()>>,
@@ -341,7 +352,7 @@ pub struct AsyncDataLoader<
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
+        D: LegacyDataset<T> + Send + Sync + 'static,
     > AsyncDataLoader<T, D>
 {
     /// Create a new async data loader
@@ -478,7 +489,7 @@ impl<
 
 impl<
         T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
-        D: Dataset<T> + Send + Sync + 'static,
+        D: LegacyDataset<T> + Send + Sync + 'static,
     > Iterator for AsyncDataLoader<T, D>
 {
     type Item = (Tensor<T>, Tensor<T>);
@@ -509,7 +520,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let streaming_dataset = StreamingDataset::new(dataset, 2, 2);
 
         // Start prefetching
@@ -545,7 +556,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut loader = DynamicBatchLoader::new(
             dataset, 1,     // min_batch_size
             4,     // max_batch_size
@@ -584,7 +595,7 @@ mod tests {
             Tensor::from_vec(vec![1.0], vec![1]),
         ];
 
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
         let mut async_loader = AsyncDataLoader::new(
             dataset, 2,     // batch_size
             3,     // buffer_size
@@ -614,7 +625,7 @@ mod tests {
     fn test_memory_estimation() {
         let features = vec![Tensor::from_vec(vec![1.0f32; 100], vec![100])];
         let targets = vec![Tensor::from_vec(vec![0.0f32], vec![1])];
-        let dataset = TensorDataset::new(features, targets).unwrap();
+        let dataset = TensorDataset::from_features_targets(features, targets).unwrap();
 
         let loader = DynamicBatchLoader::new(dataset, 1, 2, 1000, false);
 
