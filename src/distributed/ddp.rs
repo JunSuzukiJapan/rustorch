@@ -11,14 +11,14 @@ use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::nn::Module;
 use crate::autograd::Variable;
-use num_traits::Float;
 use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
-use super::{ProcessGroup, ReduceOp, DistributedOps, api};
+use super::{ProcessGroup, ReduceOp, DistributedOps, api, DistributedScalar, DistributedDataParallelTrait};
 
 /// DistributedDataParallel wrapper for PyTorch compatibility
 /// PyTorch互換性のためのDistributedDataParallelラッパー
-pub struct DistributedDataParallel<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, M: Module<T>> {
+#[derive(Debug)]
+pub struct DistributedDataParallel<T: DistributedScalar, M: Module<T>> {
     /// The wrapped module
     /// ラップされたモジュール
     module: Arc<Mutex<M>>,
@@ -51,7 +51,7 @@ pub struct DistributedDataParallel<T: Float + Send + Sync + 'static + ndarray::S
 /// Gradient accumulation and synchronization state
 /// 勾配累積と同期状態
 #[derive(Debug)]
-struct GradientState<T: Float> {
+struct GradientState<T: DistributedScalar> {
     /// Accumulated gradients per parameter
     /// パラメータ毎の累積勾配
     accumulated_grads: HashMap<String, Tensor<T>>,
@@ -66,7 +66,7 @@ struct GradientState<T: Float> {
 /// Gradient bucket for efficient communication
 /// 効率的な通信のための勾配バケット
 #[derive(Debug, Clone)]
-struct GradientBucket<T: Float> {
+struct GradientBucket<T: DistributedScalar> {
     /// Parameters in this bucket
     /// このバケット内のパラメータ
     parameters: Vec<String>,
@@ -78,7 +78,7 @@ struct GradientBucket<T: Float> {
     size_bytes: usize,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, M: Module<T> + Send + Sync + 'static> 
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> 
     DistributedDataParallel<T, M> 
 {
     /// Create a new DistributedDataParallel wrapper
@@ -134,7 +134,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     /// 分散同期付きフォワードパス
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let module = self.module.lock().unwrap();
-        let output = module.forward(input)?;
+        let output = module.forward(input);
 
         // Register backward hook for gradient synchronization
         // 勾配同期のためのバックワードフック登録
@@ -160,10 +160,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         let parameters = module.parameters();
         
         for param in parameters {
-            if let Some(mut grad) = param.grad() {
+            let grad_lock = param.grad();
+            let mut grad_guard = grad_lock.write().unwrap();
+            if let Some(ref mut grad) = *grad_guard {
                 // Perform all-reduce on gradient
-                api::all_reduce(&mut grad, ReduceOp::Average, self.process_group.as_ref(), false)?;
-                param.set_grad(grad);
+                api::all_reduce(grad, ReduceOp::Average, self.process_group.as_ref(), false)?;
             }
         }
 
@@ -189,11 +190,11 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive, M: Module<T> + Send + Sync + 'static> Module<T> 
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> Module<T> 
     for DistributedDataParallel<T, M> 
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
-        self.forward(input).unwrap_or_else(|_| Variable::new(Tensor::zeros(&[1])))
+        self.forward(input).unwrap_or_else(|_| Variable::new(Tensor::zeros(&[1]), false))
     }
 
     fn parameters(&self) -> Vec<Variable<T>> {
@@ -201,12 +202,33 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
         module.parameters()
     }
 
-    fn eval(&self) {
-        self.training(false);
+    fn eval(&mut self) {
+        // Module evaluation mode - no specific action needed for DDP wrapper
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
-impl<T: Float> GradientState<T> {
+// Implement the shared DDP trait
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> DistributedDataParallelTrait<T> 
+    for DistributedDataParallel<T, M>
+{
+    fn device_ids(&self) -> &[usize] {
+        &self.device_ids
+    }
+    
+    fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
+        self.forward(input)
+    }
+    
+    fn sync_gradients(&self) -> RusTorchResult<()> {
+        self.sync_gradients()
+    }
+}
+
+impl<T: DistributedScalar> GradientState<T> {
     /// Create gradient buckets for efficient communication
     /// 効率的な通信のための勾配バケット作成
     fn create_buckets(&mut self, bucket_size_mb: usize) -> RusTorchResult<()> {
@@ -248,7 +270,7 @@ impl<T: Float> GradientState<T> {
 
 /// Convenience function to wrap a module in DDP
 /// モジュールをDDPでラップするための便利関数
-pub fn wrap_module<T: Float + Send + Sync + 'static, M: Module<T> + Send + Sync + 'static>(
+pub fn wrap_module<T: DistributedScalar, M: Module<T> + Send + Sync + 'static>(
     module: M,
     device_ids: Option<Vec<usize>>,
 ) -> RusTorchResult<DistributedDataParallel<T, M>> {
@@ -276,7 +298,7 @@ mod tests {
     fn test_ddp_creation() {
         // This test would require distributed initialization
         // このテストは分散初期化が必要
-        let linear = Linear::new(10, 5).unwrap();
+        let linear: Linear<f32> = Linear::new(10, 5);
         let device_ids = vec![0];
         
         // Note: This would fail without proper distributed initialization

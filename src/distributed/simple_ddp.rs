@@ -5,16 +5,15 @@ use crate::error::{RusTorchError, RusTorchResult};
 use crate::autograd::Variable;
 use crate::nn::Module;
 use crate::tensor::Tensor;
-use num_traits::Float;
 use std::sync::{Arc, Mutex};
 use std::marker::PhantomData;
-use super::{ReduceOp, api};
+use super::{ReduceOp, api, DistributedScalar, DistributedDataParallelTrait};
 
 /// Simplified DistributedDataParallel for RusTorch
 /// RusTorch用簡略化DistributedDataParallel
 pub struct SimpleDistributedDataParallel<T, M>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: DistributedScalar,
     M: Module<T> + Send + Sync + 'static,
 {
     /// The wrapped module
@@ -33,7 +32,7 @@ where
 
 impl<T, M> SimpleDistributedDataParallel<T, M>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: DistributedScalar,
     M: Module<T> + Send + Sync + 'static,
 {
     /// Create a new simplified DDP wrapper
@@ -104,6 +103,25 @@ where
     }
 }
 
+// Implement the shared DDP trait
+impl<T, M> DistributedDataParallelTrait<T> for SimpleDistributedDataParallel<T, M>
+where
+    T: DistributedScalar,
+    M: Module<T> + Send + Sync + 'static,
+{
+    fn device_ids(&self) -> &[usize] {
+        &self.device_ids
+    }
+    
+    fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
+        self.forward(input)
+    }
+    
+    fn sync_gradients(&self) -> RusTorchResult<()> {
+        self.sync_gradients()
+    }
+}
+
 /// Convenience function to wrap a module in simplified DDP
 /// モジュールを簡略化DDPでラップするための便利関数
 pub fn wrap_simple<T, M>(
@@ -111,7 +129,7 @@ pub fn wrap_simple<T, M>(
     device_ids: Option<Vec<usize>>,
 ) -> RusTorchResult<SimpleDistributedDataParallel<T, M>>
 where
-    T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    T: DistributedScalar,
     M: Module<T> + Send + Sync + 'static,
 {
     SimpleDistributedDataParallel::new(module, device_ids)

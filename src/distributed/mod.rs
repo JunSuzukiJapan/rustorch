@@ -17,9 +17,37 @@
 
 use crate::gpu::DeviceType;
 use crate::tensor::Tensor;
+use crate::autograd::Variable;
+use crate::error::RusTorchResult;
 use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+
+// Removed problematic DistributedFloat type alias - use DistributedScalar trait instead
+
+/// Type alias for distributed-compatible float types
+/// 分散互換フロート型の型エイリアス  
+pub trait DistributedScalar: Float + Send + Sync + 'static + std::fmt::Debug + ndarray::ScalarOperand + num_traits::FromPrimitive {}
+
+// Implement DistributedScalar for standard float types
+impl DistributedScalar for f32 {}
+impl DistributedScalar for f64 {}
+
+/// Common trait for distributed data parallel implementations
+/// 分散データ並列実装の共通トレイト
+pub trait DistributedDataParallelTrait<T: DistributedScalar> {
+    /// Get device IDs for this DDP instance
+    /// このDDPインスタンスのデバイスIDを取得
+    fn device_ids(&self) -> &[usize];
+    
+    /// Perform distributed forward pass
+    /// 分散フォワードパスを実行
+    fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>>;
+    
+    /// Synchronize gradients across processes
+    /// プロセス間での勾配同期
+    fn sync_gradients(&self) -> RusTorchResult<()>;
+}
 
 // Re-export multi-GPU validation components
 pub use multi_gpu_validation::{
@@ -135,9 +163,7 @@ impl ProcessGroup {
 // DistributedError enum removed - now using unified RusTorchError system
 // DistributedErrorエナム削除 - 統一RusTorchErrorシステムを使用
 
-/// Result type for distributed operations (統一済み)
-/// 分散操作の結果タイプ (統一済み)
-pub type RusTorchResult<T> = crate::error::RusTorchResult<T>;
+// Result type unified in error module - no need for local alias
 
 /// Communication operations for distributed training
 /// 分散学習用通信操作
@@ -325,6 +351,7 @@ pub mod backends;
 pub mod cluster;
 pub mod common;
 pub mod data_parallel;
+pub mod ddp;
 pub mod model_parallel;
 pub mod multi_gpu_validation;
 pub mod nccl_integration;
@@ -332,10 +359,17 @@ pub mod optimizer;
 pub mod performance;
 pub mod simple_ddp;
 
-// Re-export PyTorch-compatible API
+// Re-export core distributed functionality
 pub use api::*;
+
+// Re-export DDP implementations with shared trait
 pub use simple_ddp::{SimpleDistributedDataParallel, wrap_simple};
+pub use ddp::{DistributedDataParallel, wrap_module};
+
+// Re-export async gradient synchronization
 pub use async_gradient::{AsyncGradientSynchronizer, AsyncConfig, Priority};
+
+// Traits are already public - no need for re-export
 
 #[cfg(feature = "nccl")]
 pub use nccl_integration::{NCCLBackendOptimized, NCCLOps, NCCLOptimizations, NCCLProfiler};

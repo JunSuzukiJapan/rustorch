@@ -6,20 +6,24 @@
 //!
 //! このモジュールは、計算と通信のオーバーラップによる効率的な分散学習のための
 //! 高度な非同期勾配同期メカニズムを実装します。
+//!
+//! ## Module Structure / モジュール構造
+//! - `AsyncGradientSynchronizer`: Main coordination layer / メイン調整層
+//! - `GradientBucketManager`: Bucketing and batching / バケット化とバッチ処理
+//! - `compression`: Gradient compression utilities / 勾配圧縮ユーティリティ
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::autograd::Variable;
-use num_traits::Float;
 use std::sync::{Arc, Mutex, mpsc};
 use std::collections::{HashMap, VecDeque};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use super::{ReduceOp, api};
+use super::{ReduceOp, api, DistributedScalar};
 
 /// Asynchronous gradient synchronization coordinator
 /// 非同期勾配同期コーディネーター
-pub struct AsyncGradientSynchronizer<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct AsyncGradientSynchronizer<T: DistributedScalar> {
     /// Background worker thread
     /// バックグラウンドワーカースレッド
     worker_handle: Option<JoinHandle<()>>,
@@ -77,7 +81,7 @@ impl Default for AsyncConfig {
 /// Gradient synchronization request
 /// 勾配同期リクエスト
 #[derive(Debug)]
-pub struct GradientSyncRequest<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct GradientSyncRequest<T: DistributedScalar> {
     /// Request ID for tracking
     /// 追跡用リクエストID
     pub id: u64,
@@ -125,7 +129,7 @@ pub struct GradientSyncCompletion {
 
 /// Gradient bucket manager for efficient communication
 /// 効率的な通信のための勾配バケットマネージャー
-pub struct GradientBucketManager<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct GradientBucketManager<T: DistributedScalar> {
     /// Active buckets
     /// アクティブバケット
     buckets: HashMap<usize, GradientBucket<T>>,
@@ -143,7 +147,7 @@ pub struct GradientBucketManager<T: Float + Send + Sync + 'static + ndarray::Sca
 /// Individual gradient bucket
 /// 個別勾配バケット
 #[derive(Debug, Clone)]
-pub struct GradientBucket<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct GradientBucket<T: DistributedScalar> {
     /// Bucket ID
     /// バケットID
     pub id: usize,
@@ -164,7 +168,7 @@ pub struct GradientBucket<T: Float + Send + Sync + 'static + ndarray::ScalarOper
     pub last_update: Instant,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> AsyncGradientSynchronizer<T> {
+impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
     /// Create a new asynchronous gradient synchronizer
     /// 新しい非同期勾配同期器を作成
     pub fn new(config: AsyncConfig) -> RusTorchResult<Self> {
@@ -362,7 +366,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> GradientBucketManager<T> {
+impl<T: DistributedScalar> GradientBucketManager<T> {
     /// Create new gradient bucket manager
     /// 新しい勾配バケットマネージャーを作成
     pub fn new(config: AsyncConfig) -> Self {
@@ -460,7 +464,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
     }
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Drop for AsyncGradientSynchronizer<T> {
+impl<T: DistributedScalar> Drop for AsyncGradientSynchronizer<T> {
     fn drop(&mut self) {
         // Signal worker thread to stop and wait for completion
         // ワーカースレッドに停止を信号し、完了を待機
@@ -473,7 +477,7 @@ impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::Fro
 /// Gradient compression utilities
 /// 勾配圧縮ユーティリティ
 pub mod compression {
-    use super::*;
+    use super::{*, DistributedScalar};
 
     /// Gradient compression algorithms
     /// 勾配圧縮アルゴリズム
@@ -495,7 +499,7 @@ pub mod compression {
 
     /// Compress gradient tensor
     /// 勾配テンソルを圧縮
-    pub fn compress_gradient<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
+    pub fn compress_gradient<T: DistributedScalar>(
         gradient: &Tensor<T>,
         algorithm: CompressionAlgorithm,
     ) -> RusTorchResult<CompressedGradient<T>> {
@@ -516,7 +520,7 @@ pub mod compression {
 
     /// Decompress gradient tensor
     /// 勾配テンソルを展開
-    pub fn decompress_gradient<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
+    pub fn decompress_gradient<T: DistributedScalar>(
         compressed: &CompressedGradient<T>,
     ) -> RusTorchResult<Tensor<T>> {
         match &compressed.metadata {
@@ -531,7 +535,7 @@ pub mod compression {
     /// Compressed gradient representation
     /// 圧縮勾配表現
     #[derive(Debug, Clone)]
-    pub struct CompressedGradient<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+    pub struct CompressedGradient<T: DistributedScalar> {
         /// Compressed data
         /// 圧縮データ
         pub data: Tensor<T>,
@@ -554,7 +558,7 @@ pub mod compression {
 
     /// Top-K compression implementation
     /// Top-K圧縮実装
-    fn compress_top_k<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(gradient: &Tensor<T>, k: usize) -> RusTorchResult<CompressedGradient<T>> {
+    fn compress_top_k<T: DistributedScalar>(gradient: &Tensor<T>, k: usize) -> RusTorchResult<CompressedGradient<T>> {
         let total_elements = gradient.numel();
         if k > total_elements {
             return Err(RusTorchError::tensor_op("K larger than tensor size"));
@@ -574,7 +578,7 @@ pub mod compression {
 
     /// Top-K decompression implementation
     /// Top-K展開実装
-    fn decompress_top_k<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive>(
+    fn decompress_top_k<T: DistributedScalar>(
         compressed: &CompressedGradient<T>,
     ) -> RusTorchResult<Tensor<T>> {
         // Simplified implementation - in production would reconstruct sparse tensor
@@ -585,7 +589,7 @@ pub mod compression {
 
 /// Asynchronous gradient synchronization context
 /// 非同期勾配同期コンテキスト
-pub struct AsyncGradContext<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> {
+pub struct AsyncGradContext<T: DistributedScalar> {
     /// Synchronizer instance
     /// 同期器インスタンス
     synchronizer: Arc<Mutex<AsyncGradientSynchronizer<T>>>,
@@ -594,7 +598,7 @@ pub struct AsyncGradContext<T: Float + Send + Sync + 'static + ndarray::ScalarOp
     pending_ops: Arc<Mutex<HashMap<u64, String>>>,
 }
 
-impl<T: Float + Send + Sync + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> AsyncGradContext<T> {
+impl<T: DistributedScalar> AsyncGradContext<T> {
     /// Create new async gradient context
     /// 新しい非同期勾配コンテキストを作成
     pub fn new(config: AsyncConfig) -> RusTorchResult<Self> {
