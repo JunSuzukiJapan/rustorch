@@ -19,6 +19,7 @@ rustorch/
 ├── vision/              # Computer vision transforms
 ├── linalg/              # Linear algebra operations (BLAS/LAPACK)
 ├── gpu/                 # GPU acceleration (CUDA/Metal/OpenCL/WebGPU)
+├── sparse/              # Sparse tensor operations and pruning (Phase 12)
 ├── serialization/       # Model serialization and JIT compilation (Phase 9)
 └── wasm/                # WebAssembly bindings
 ```
@@ -2427,6 +2428,10 @@ let sparse_tensor = SparseTensor::from_coo(indices, values, shape)?;
 let csr_tensor = sparse_tensor.to_csr()?;     // COO → CSR
 let coo_tensor = csr_tensor.to_coo()?;        // CSR → COO
 let dense_tensor = sparse_tensor.to_dense()?; // Sparse → Dense
+
+// CSC format support (future implementation)
+// CSC format provides column-major compressed storage for column-wise operations
+let csc_format = SparseFormat::CSC;  // Available format type
 ```
 
 ### Sparse Operations
@@ -2557,6 +2562,113 @@ let integrity_check = validator.check_integrity(&sparse_tensor)?;
 let converter = SparseConverter::new();
 let optimized = converter.optimize_for_operations(&sparse_tensor, operation_type)?;
 let converted = converter.convert_with_validation(&sparse_tensor, SparseFormat::CSR)?;
+
+// Batch format conversion for multiple tensors
+let tensors = vec![tensor1, tensor2, tensor3];
+let converted_tensors = converter.batch_convert(tensors, SparseFormat::CSR)?;
+```
+
+### Advanced Sparse Layers
+
+```rust
+use rustorch::sparse::sparse_layers::{SparseAttention, SparseTransformerBlock};
+
+// Sparse attention mechanism
+let mut sparse_attention = SparseAttention::new(
+    embed_dim: 512,
+    num_heads: 8, 
+    dropout: 0.1
+);
+
+// Set attention sparsity pattern
+let attention_mask = SparseTensor::from_coo(/* attention pattern */);
+sparse_attention.set_attention_mask(attention_mask)?;
+
+// Forward pass with sparse attention
+let output = sparse_attention.forward(&query, &key, &value)?;
+let (avg_sparsity, active_heads) = sparse_attention.attention_stats().unwrap();
+
+// Complete sparse transformer block
+let transformer_block = SparseTransformerBlock::new(
+    embed_dim: 512,
+    num_heads: 8,
+    ff_dim: 2048,
+    dropout: 0.1,
+    attention_sparsity: 0.9,
+    ff_sparsity: 0.8
+);
+
+let output = transformer_block.forward(&input)?;
+let sparsity_report = transformer_block.sparsity_report();
+```
+
+### Pruning Schedules and Advanced Algorithms
+
+```rust
+use rustorch::sparse::pruning::{PruningSchedule, StructuredPruner, FisherPruner, StructuredGranularity};
+
+// Gradual pruning schedule
+let mut schedule = PruningSchedule::new(
+    initial_sparsity: 0.1,
+    final_sparsity: 0.9,
+    num_steps: 1000
+);
+
+// Schedule management
+for epoch in 0..100 {
+    let current_sparsity = schedule.current_sparsity();
+    // Apply pruning with current sparsity
+    schedule.step();
+}
+
+// Structured pruning with different granularities
+let channel_pruner = StructuredPruner::new(StructuredGranularity::Channel, ratio: 0.5);
+let filter_pruner = StructuredPruner::new(StructuredGranularity::Filter, ratio: 0.3);
+let block_pruner = StructuredPruner::new(StructuredGranularity::Block(4), ratio: 0.7);
+
+let pruned_weights = channel_pruner.prune_linear_weights(&weights)?;
+
+// Fisher information pruning
+let mut fisher_pruner = FisherPruner::new();
+fisher_pruner.update_fisher("layer1.weight", &gradients);
+let fisher_pruned = fisher_pruner.prune_with_fisher("layer1.weight", sparsity: 0.8)?;
+```
+
+### Sparse I/O and Serialization
+
+```rust
+use rustorch::sparse::utils::SparseIO;
+
+// Save sparse tensor to binary format
+SparseIO::save_binary(&sparse_tensor, "model_weights.sparse")?;
+
+// Load sparse tensor from binary format
+let loaded_tensor: SparseTensor<f32> = SparseIO::load_binary("model_weights.sparse")?;
+
+// Efficient storage for large sparse models
+let memory_saved = original_size - loaded_tensor.memory_usage();
+```
+
+### Sparse Pattern Analysis and Optimization
+
+```rust
+use rustorch::sparse::utils::{SparseAnalyzer, AccessPattern};
+
+// Advanced pattern analysis
+let analyzer = SparseAnalyzer::new();
+let pattern_analysis = analyzer.analyze_pattern(&sparse_tensor);
+
+// Access pattern optimization
+let optimal_format = analyzer.suggest_optimal_format(&sparse_tensor, AccessPattern::RandomAccess);
+let recommendations = pattern_analysis.optimization_recommendations();
+
+// Performance analysis report
+println!("{}", pattern_analysis.report());
+
+// Check for optimization opportunities
+if pattern_analysis.clustering_coefficient > 0.8 {
+    println!("High clustering detected - consider block sparse format");
+}
 ```
 
 ### Performance Benchmarking
@@ -2564,14 +2676,16 @@ let converted = converter.convert_with_validation(&sparse_tensor, SparseFormat::
 ```rust
 use rustorch::sparse::utils::SparseBenchmark;
 
-// Benchmark sparse operations
-let benchmark = SparseBenchmark::new();
-let spmv_time = benchmark.time_spmv(&sparse_matrix, &vector, iterations: 1000)?;
-let format_time = benchmark.time_format_conversion(&sparse_tensor, SparseFormat::CSR)?;
-let memory_usage = benchmark.analyze_memory_usage(&sparse_tensor)?;
+// Comprehensive benchmarking
+let mut benchmark = SparseBenchmark::new();
+benchmark.benchmark_spmv(&sparse_tensor, &vector, iterations: 1000)?;
 
-println!("SpMV time: {:.2}ms", spmv_time);
-println!("Memory usage: {} bytes", memory_usage);
+// Compare sparse vs dense performance
+let comparison = benchmark.compare_with_dense(&sparse_tensor, &dense_tensor)?;
+println!("Speedup: {:.2}x", comparison.speedup_factor);
+
+// Detailed performance report
+println!("{}", benchmark.report());
 ```
 
 ### Backward Compatibility
