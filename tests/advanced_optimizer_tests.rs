@@ -353,54 +353,55 @@ fn test_optimizers_with_different_tensor_shapes() {
         assert_ne!(initial_data[0], lbfgs_data[0]);
     }
 
-    #[test]
-    fn test_nadam_optimizer() {
-        use rustorch::optim::NAdam;
-        let mut nadam = NAdam::new(0.001, 0.9, 0.999, 1e-8, 0.01, 0.004, 0.004);
+}
 
-        assert_eq!(nadam.learning_rate(), 0.001);
+#[test]
+fn test_nadam_optimizer() {
+    use rustorch::optim::NAdam;
+    let mut nadam = NAdam::default_params(0.001).expect("Failed to create NAdam optimizer");
 
-        let param = Tensor::ones(&[1]);
-        let grad = Tensor::ones(&[1]);
+    assert_eq!(nadam.learning_rate(), 0.001);
 
-        let original_value = param.item();
-        nadam.step(&param, &grad);
+    let param = Tensor::ones(&[1]);
+    let grad = Tensor::ones(&[1]);
 
-        // Parameters should be updated with NAdam dynamics
-        assert_ne!(param.item(), original_value);
-    }
+    let original_value = param.item();
+    nadam.step(&param, &grad);
 
-    #[test]
-    fn test_radam_optimizer() {
-        use rustorch::optim::RAdam;
-        let mut radam = RAdam::new(0.001, 0.9, 0.999, 1e-8, 0.01, 4.0);
+    // Parameters should be updated with NAdam dynamics
+    assert_ne!(param.item(), original_value);
+}
 
-        assert_eq!(radam.learning_rate(), 0.001);
+#[test]
+fn test_radam_optimizer() {
+    use rustorch::optim::RAdam;
+    let mut radam = RAdam::default_params(0.001).expect("Failed to create RAdam optimizer");
 
-        let param = Tensor::ones(&[1]);
-        let grad = Tensor::ones(&[1]);
+    assert_eq!(radam.learning_rate(), 0.001);
 
-        let original_value = param.item();
-        radam.step(&param, &grad);
+    let param = Tensor::ones(&[1]);
+    let grad = Tensor::ones(&[1]);
 
-        // Parameters should be updated with rectified Adam
-        assert_ne!(param.item(), original_value);
-    }
+    let original_value = param.item();
+    radam.step(&param, &grad);
 
-    #[test]
-    fn test_adamax_optimizer() {
-        use rustorch::optim::Adamax;
-        let mut adamax = Adamax::new(0.002, 0.9, 0.999, 1e-7, 0.01, 1e-7);
+    // Parameters should be updated with rectified Adam
+    assert_ne!(param.item(), original_value);
+}
 
-        assert_eq!(adamax.learning_rate(), 0.002);
+#[test]
+fn test_adamax_optimizer() {
+    use rustorch::optim::Adamax;
+    let mut adamax = Adamax::default_params(0.002).expect("Failed to create Adamax optimizer");
 
-        let param = Tensor::ones(&[1]);
-        let grad = Tensor::ones(&[1]);
+    assert_eq!(adamax.learning_rate(), 0.002);
 
-        let original_value = param.item();
-        adamax.step(&param, &grad);
+    let param = Tensor::ones(&[1]);
+    let grad = Tensor::ones(&[1]);
 
-        // Parameters should be updated using infinity norm
-        assert_ne!(param.item(), original_value);
-    }
+    let original_value = param.item();
+    adamax.step(&param, &grad);
+
+    // Parameters should be updated using infinity norm
+    assert_ne!(param.item(), original_value);
 }
