@@ -125,11 +125,9 @@ fn run_training_simulation(
             // Forward pass
             let input_var = Variable::new(input, false);
             let output = ddp_model.forward(&input_var)?;
-            // Verify output shape without borrowing issues
-            let output_data_guard = output.data().read().unwrap();
-            let output_shape = output_data_guard.shape().to_vec();
-            drop(output_data_guard);
-            assert_eq!(output_shape, vec![batch_size, 10]);
+            // Simple shape verification without complex borrowing
+            let expected_shape = vec![batch_size, 10];
+            assert!(output.data().read().unwrap().shape() == &expected_shape[..]);
 
             // Simulate backward pass and gradient synchronization
             ddp_model.sync_gradients()?;
