@@ -8,6 +8,7 @@
 #![allow(clippy::for_kv_map)]
 #![allow(clippy::ptr_arg)]
 #![allow(clippy::needless_return)]
+#![recursion_limit = "256"]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::should_implement_trait)]
 #![allow(clippy::useless_format)]
@@ -363,6 +364,10 @@ pub mod optimization;
 /// モデル圧縮・高速化のための量子化サポート（フェーズ11）
 pub mod quantization;
 
+/// Sparse tensor support and operations (Phase 12)
+/// スパーステンソルサポートと演算（フェーズ12）
+pub mod sparse;
+
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
 #[cfg(feature = "wasm")]
@@ -408,6 +413,15 @@ pub mod prelude {
         QuantizedTensor, QuantizationType, QuantizationScheme, TensorQuantization,
         StaticQuantizer, MinMaxObserver, HistogramObserver,
         QATLinear, QATConv2d, FakeQuantize, QATModule,
+    };
+    pub use crate::sparse::{
+        SparseTensor, SparseFormat, SparseOps,
+    };
+    pub use crate::sparse::sparse_layers::{
+        SparseLinear, SparseConv2d, SparseEmbedding, SparseAttention,
+    };
+    pub use crate::sparse::pruning::{
+        ModelPruner, PruningConfig, PruningStrategy,
     };
     pub use crate::special::SpecialFunctions;
     pub use crate::special::{bessel_i, bessel_j, bessel_k, bessel_y};
