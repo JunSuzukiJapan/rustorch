@@ -84,9 +84,8 @@ impl PlatformOptimizer {
         #[cfg(target_os = "linux")]
         {
             // Linux memory detection would require sys-info crate
-            return 8 * 1024 * 1024 * 1024;
+            8 * 1024 * 1024 * 1024
         }
-
         #[cfg(target_os = "macos")]
         {
             unsafe {
@@ -104,18 +103,20 @@ impl PlatformOptimizer {
                 );
 
                 if total_mem > 0 {
-                    return total_mem as usize;
+                    total_mem as usize
+                } else {
+                    8_usize.saturating_mul(1024).saturating_mul(1024).saturating_mul(1024)
                 }
             }
         }
-
-        // Windows support would require winapi crate
-
-        // Default fallback: 8GB
-        8_usize
-            .saturating_mul(1024)
-            .saturating_mul(1024)
-            .saturating_mul(1024)
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+        {
+            // Default fallback: 8GB for other platforms
+            8_usize
+                .saturating_mul(1024)
+                .saturating_mul(1024)
+                .saturating_mul(1024)
+        }
     }
 
     /// Detect cache line size

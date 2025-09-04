@@ -186,8 +186,10 @@ impl CpuQuantizedOps {
                 zero_point_b,
                 output_scale,
                 output_zero_point,
-            )
+            )?;
         }
+
+        Ok(())
     }
 
     /// Optimized INT8 matrix multiplication using GEMM
