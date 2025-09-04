@@ -352,7 +352,6 @@ fn test_optimizers_with_different_tensor_shapes() {
         let lbfgs_data = param.data.as_slice().unwrap();
         assert_ne!(initial_data[0], lbfgs_data[0]);
     }
-
 }
 
 #[test]
