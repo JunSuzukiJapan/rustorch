@@ -51,10 +51,7 @@ impl QuantizationType {
 
 /// Trait for quantizable integer types
 /// 量子化可能な整数型のトレイト
-pub trait QuantizableInteger: 
-    Copy + Clone + Send + Sync + Zero + One + PartialEq + PartialOrd + fmt::Debug +
-    FromPrimitive + ToPrimitive + 'static
-{
+pub trait QuantizableInteger: Copy + Send + Sync + fmt::Debug + Zero + 'static {
     const BITS: u8;
     const MIN_VALUE: i32;
     const MAX_VALUE: i32;

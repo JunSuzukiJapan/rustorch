@@ -793,6 +793,46 @@ impl RusTorchError {
     pub fn VerificationError(message: impl Into<String>) -> Self {
         RusTorchError::model_io(format!("Verification error: {}", message.into()))
     }
+
+    // === Quantization-Specific Errors (Phase 11) ===
+    /// Create invalid quantization parameters error
+    pub fn quantization_invalid_params(scale: f32, zero_point: i32, message: impl Into<String>) -> Self {
+        RusTorchError::InvalidParameters {
+            operation: "quantization".into(),
+            message: format!("Invalid quantization parameters: scale={}, zero_point={}, {}", scale, zero_point, message.into()),
+        }
+    }
+
+    /// Create quantization range overflow error
+    pub fn quantization_range_overflow(value: f32, min: i32, max: i32) -> Self {
+        RusTorchError::TensorOp {
+            message: format!("Quantization range overflow: value={}, range=({}, {})", value, min, max),
+            source: None,
+        }
+    }
+
+    /// Create incompatible quantization schemes error
+    pub fn quantization_incompatible_schemes(expected: impl Into<String>, actual: impl Into<String>) -> Self {
+        RusTorchError::InvalidOperation {
+            operation: "quantization".into(),
+            message: format!("Incompatible quantization schemes: expected={}, actual={}", expected.into(), actual.into()),
+        }
+    }
+
+    /// Create quantization hardware not supported error
+    pub fn quantization_hardware_not_supported(feature: impl Into<String>) -> Self {
+        RusTorchError::BackendUnavailable {
+            backend: format!("quantization-{}", feature.into()),
+        }
+    }
+
+    /// Create quantization calibration failed error
+    pub fn quantization_calibration_failed(reason: impl Into<String>) -> Self {
+        RusTorchError::InvalidOperation {
+            operation: "quantization-calibration".into(),
+            message: format!("Calibration failed: {}", reason.into()),
+        }
+    }
 }
 
 // From trait implementations for common error types

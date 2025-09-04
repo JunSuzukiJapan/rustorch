@@ -72,8 +72,8 @@ impl CpuQuantizedOps {
         Ok(())
     }
 
-    /// AVX2-optimized quantized addition (x86_64 only)
-    /// AVX2最適化量子化加算（x86_64のみ）
+    /// AVX2-optimized quantized addition with proper vectorization
+    /// 適切なベクトル化によるAVX2最適化量子化加算
     #[cfg(target_arch = "x86_64")]
     fn qadd_avx2_i8(
         a: &[i8],
@@ -91,30 +91,53 @@ impl CpuQuantizedOps {
             use std::arch::x86_64::*;
             
             let len = a.len();
-            let simd_len = len & !31; // Process 32 elements at a time
+            let simd_len = len & !7; // Process 8 elements at a time (more manageable)
             
+            // Prepare constants for vectorized operations
             let scale_a_vec = _mm256_set1_ps(scale_a);
             let scale_b_vec = _mm256_set1_ps(scale_b);
-            let output_scale_vec = _mm256_set1_ps(output_scale);
-            let zero_point_a_vec = _mm256_set1_epi32(zero_point_a);
-            let zero_point_b_vec = _mm256_set1_epi32(zero_point_b);
-            let output_zero_point_vec = _mm256_set1_epi32(output_zero_point);
+            let inv_output_scale = _mm256_set1_ps(1.0 / output_scale);
+            let zero_point_a_vec = _mm256_set1_ps(zero_point_a as f32);
+            let zero_point_b_vec = _mm256_set1_ps(zero_point_b as f32);
+            let output_zero_point_vec = _mm256_set1_ps(output_zero_point as f32);
             
-            // Process 32 elements per iteration using AVX2
-            for i in (0..simd_len).step_by(32) {
-                // Load 32 i8 values (this is simplified - actual implementation would be more complex)
-                // For demonstration, fall back to scalar for now
-                for j in 0..32.min(len - i) {
-                    let idx = i + j;
-                    let a_fp = (a[idx] as i32 - zero_point_a) as f32 * scale_a;
-                    let b_fp = (b[idx] as i32 - zero_point_b) as f32 * scale_b;
-                    let sum_fp = a_fp + b_fp;
-                    let quantized = (sum_fp / output_scale).round() as i32 + output_zero_point;
-                    output[idx] = quantized.clamp(-128, 127) as i8;
-                }
+            // Process 8 elements per iteration
+            for i in (0..simd_len).step_by(8) {
+                // Load 8 i8 values into lower 64 bits of 128-bit register
+                let a_i8 = _mm_loadl_epi64(a.as_ptr().add(i) as *const __m128i);
+                let b_i8 = _mm_loadl_epi64(b.as_ptr().add(i) as *const __m128i);
+                
+                // Convert i8 to i32 for computation
+                let a_i32 = _mm256_cvtepi8_epi32(a_i8);
+                let b_i32 = _mm256_cvtepi8_epi32(b_i8);
+                
+                // Convert to float for dequantization
+                let a_f32 = _mm256_cvtepi32_ps(a_i32);
+                let b_f32 = _mm256_cvtepi32_ps(b_i32);
+                
+                // Dequantize: (quantized - zero_point) * scale
+                let a_dequant = _mm256_mul_ps(_mm256_sub_ps(a_f32, zero_point_a_vec), scale_a_vec);
+                let b_dequant = _mm256_mul_ps(_mm256_sub_ps(b_f32, zero_point_b_vec), scale_b_vec);
+                
+                // Add dequantized values
+                let sum_f32 = _mm256_add_ps(a_dequant, b_dequant);
+                
+                // Requantize: sum / output_scale + output_zero_point
+                let quantized_f32 = _mm256_add_ps(_mm256_mul_ps(sum_f32, inv_output_scale), output_zero_point_vec);
+                
+                // Round and convert back to i32
+                let quantized_i32 = _mm256_cvtps_epi32(quantized_f32);
+                
+                // Pack i32 to i8 with saturation
+                let quantized_i16 = _mm256_packs_epi32(quantized_i32, _mm256_setzero_si256());
+                let quantized_i8 = _mm_packs_epi16(_mm256_extracti128_si256(quantized_i16, 0), 
+                                                  _mm256_extracti128_si256(quantized_i16, 1));
+                
+                // Store results
+                _mm_storel_epi64(output.as_mut_ptr().add(i) as *mut __m128i, quantized_i8);
             }
             
-            // Handle remaining elements
+            // Handle remaining elements with scalar code
             for i in simd_len..len {
                 let a_fp = (a[i] as i32 - zero_point_a) as f32 * scale_a;
                 let b_fp = (b[i] as i32 - zero_point_b) as f32 * scale_b;
@@ -126,7 +149,6 @@ impl CpuQuantizedOps {
         
         #[cfg(not(target_feature = "avx2"))]
         {
-            // Fallback to scalar if AVX2 not available at compile time
             Self::qadd_scalar_i8(a, b, output, scale_a, scale_b, zero_point_a, zero_point_b, output_scale, output_zero_point)
         }
     }
@@ -166,25 +188,46 @@ impl CpuQuantizedOps {
         let output_scale = scale_a * scale_b;
         let output_zero_point = 0; // Typically 0 for multiplication
         
-        // Optimized GEMM implementation for quantized integers
-        // 量子化整数用の最適化GEMM実装
-        for i in 0..m {
-            for j in 0..n {
-                let mut sum = 0i32;
-                
-                // Inner loop can be vectorized
-                // 内側のループはベクトル化可能
-                for l in 0..k {
-                    let a_val = a[[i, l]] as i32 - zero_point_a;
-                    let b_val = b[[l, j]] as i32 - zero_point_b;
-                    sum += a_val * b_val;
+        // Cache-optimized GEMM with blocked computation
+        // ブロック計算によるキャッシュ最適化GEMM
+        const BLOCK_SIZE: usize = 64; // Optimize for L1 cache
+        
+        for ii in (0..m).step_by(BLOCK_SIZE) {
+            for jj in (0..n).step_by(BLOCK_SIZE) {
+                for kk in (0..k).step_by(BLOCK_SIZE) {
+                    let i_end = (ii + BLOCK_SIZE).min(m);
+                    let j_end = (jj + BLOCK_SIZE).min(n);
+                    let k_end = (kk + BLOCK_SIZE).min(k);
+                    
+                    // Blocked computation for better cache locality
+                    for i in ii..i_end {
+                        for j in jj..j_end {
+                            let mut sum = if kk == 0 { 0i32 } else { 
+                                // Accumulate to existing partial sum
+                                let existing = output[[i, j]] as i32;
+                                (existing as f32 / output_scale).round() as i32 - output_zero_point
+                            };
+                            
+                            // Vectorizable inner loop
+                            for l in kk..k_end {
+                                let a_val = a[[i, l]] as i32 - zero_point_a;
+                                let b_val = b[[l, j]] as i32 - zero_point_b;
+                                sum += a_val * b_val;
+                            }
+                            
+                            // Convert back to quantized format only after block completion
+                            if kk + BLOCK_SIZE >= k {
+                                let fp_result = sum as f32 * output_scale;
+                                let quantized_result = (fp_result / output_scale).round() as i32;
+                                output[[i, j]] = quantized_result.clamp(-128, 127) as i8;
+                            } else {
+                                // Store intermediate result for next block
+                                let intermediate = sum + output_zero_point;
+                                output[[i, j]] = intermediate.clamp(-128, 127) as i8;
+                            }
+                        }
+                    }
                 }
-                
-                // Convert back to quantized format
-                // 量子化形式に戻す変換
-                let fp_result = sum as f32 * output_scale;
-                let quantized_result = (fp_result / output_scale).round() as i32;
-                output[[i, j]] = quantized_result.clamp(-128, 127) as i8;
             }
         }
         

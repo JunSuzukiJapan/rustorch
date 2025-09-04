@@ -185,6 +185,55 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     }
 }
 
+/// Shared QAT configuration and fake quantization components
+/// 共有QAT設定と偽量子化コンポーネント
+#[derive(Clone)]
+pub struct QATConfig<T: Float> {
+    /// Weight fake quantization
+    /// 重み用偽量子化
+    pub weight_fake_quant: FakeQuantize<T>,
+    /// Activation fake quantization
+    /// 活性化用偽量子化
+    pub activation_fake_quant: FakeQuantize<T>,
+    /// QAT enabled flag
+    /// QAT有効フラグ
+    pub enabled: bool,
+}
+
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATConfig<T> {
+    /// Create default QAT configuration
+    /// デフォルトQAT設定を作成
+    pub fn new() -> Self {
+        Self {
+            weight_fake_quant: FakeQuantize::new(QuantizationScheme::Symmetric, 8),
+            activation_fake_quant: FakeQuantize::new(QuantizationScheme::Asymmetric, 8),
+            enabled: true,
+        }
+    }
+    
+    /// Apply fake quantization to input and weights
+    /// 入力と重みに偽量子化を適用
+    pub fn apply_quantization(
+        &self,
+        input: &Variable<T>,
+        weight: &Variable<T>
+    ) -> RusTorchResult<(Variable<T>, Variable<T>)> {
+        let quantized_input = if self.enabled {
+            self.activation_fake_quant.forward(input)?
+        } else {
+            input.clone()
+        };
+        
+        let quantized_weight = if self.enabled {
+            self.weight_fake_quant.forward(weight)?
+        } else {
+            weight.clone()
+        };
+        
+        Ok((quantized_input, quantized_weight))
+    }
+}
+
 /// QAT-enabled Linear layer
 /// QAT対応線形層
 pub struct QATLinear<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> {
@@ -194,15 +243,9 @@ pub struct QATLinear<T: Float + Send + Sync + ndarray::ScalarOperand + num_trait
     /// Bias tensor (optional)
     /// バイアステンソル（オプション）
     pub bias: Option<Variable<T>>,
-    /// Fake quantization for weights
-    /// 重み用偽量子化
-    pub weight_fake_quant: FakeQuantize<T>,
-    /// Fake quantization for activations
-    /// 活性化用偽量子化
-    pub activation_fake_quant: FakeQuantize<T>,
-    /// QAT enabled flag
-    /// QAT有効フラグ
-    pub qat_enabled: bool,
+    /// QAT configuration
+    /// QAT設定
+    pub qat_config: QATConfig<T>,
 }
 
 impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATLinear<T> {
@@ -225,30 +268,16 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
         Self {
             weight,
             bias,
-            weight_fake_quant: FakeQuantize::new(QuantizationScheme::Symmetric, 8),
-            activation_fake_quant: FakeQuantize::new(QuantizationScheme::Asymmetric, 8),
-            qat_enabled: true,
+            qat_config: QATConfig::new(),
         }
     }
 
     /// Forward pass with QAT
     /// QAT付きフォワードパス
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
-        // Apply activation fake quantization to input if QAT enabled
-        // QAT有効時は入力に活性化偽量子化を適用
-        let quantized_input = if self.qat_enabled {
-            self.activation_fake_quant.forward(input)?
-        } else {
-            input.clone()
-        };
-
-        // Apply weight fake quantization if QAT enabled
-        // QAT有効時は重み偽量子化を適用
-        let quantized_weight = if self.qat_enabled {
-            self.weight_fake_quant.forward(&self.weight)?
-        } else {
-            self.weight.clone()
-        };
+        // Use QAT config to apply quantization
+        // QAT設定を使用して量子化を適用
+        let (quantized_input, quantized_weight) = self.qat_config.apply_quantization(input, &self.weight)?;
 
         // Perform linear transformation: output = input @ weight.T + bias
         // 線形変換を実行：output = input @ weight.T + bias
@@ -324,32 +353,32 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
 
 impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T> for QATLinear<T> {
     fn enable_qat(&mut self) {
-        self.qat_enabled = true;
-        self.weight_fake_quant.enabled = true;
-        self.activation_fake_quant.enabled = true;
+        self.qat_config.enabled = true;
+        self.qat_config.weight_fake_quant.enabled = true;
+        self.qat_config.activation_fake_quant.enabled = true;
     }
 
     fn disable_qat(&mut self) {
-        self.qat_enabled = false;
-        self.weight_fake_quant.enabled = false;
-        self.activation_fake_quant.enabled = false;
+        self.qat_config.enabled = false;
+        self.qat_config.weight_fake_quant.enabled = false;
+        self.qat_config.activation_fake_quant.enabled = false;
     }
 
     fn is_qat_enabled(&self) -> bool {
-        self.qat_enabled
+        self.qat_config.enabled
     }
 
     fn get_quantization_params(&self) -> Option<(f32, i32)> {
-        if self.qat_enabled {
-            Some((self.weight_fake_quant.scale, self.weight_fake_quant.zero_point))
+        if self.qat_config.enabled {
+            Some((self.qat_config.weight_fake_quant.scale, self.qat_config.weight_fake_quant.zero_point))
         } else {
             None
         }
     }
 
     fn set_quantization_params(&mut self, scale: f32, zero_point: i32) {
-        self.weight_fake_quant.scale = scale;
-        self.weight_fake_quant.zero_point = zero_point;
+        self.qat_config.weight_fake_quant.scale = scale;
+        self.qat_config.weight_fake_quant.zero_point = zero_point;
     }
 }
 
@@ -362,15 +391,9 @@ pub struct QATConv2d<T: Float + Send + Sync + ndarray::ScalarOperand + num_trait
     /// Bias (optional)
     /// バイアス（オプション）
     pub bias: Option<Variable<T>>,
-    /// Weight fake quantization
-    /// 重み偽量子化
-    pub weight_fake_quant: FakeQuantize<T>,
-    /// Activation fake quantization
-    /// 活性化偽量子化
-    pub activation_fake_quant: FakeQuantize<T>,
-    /// QAT enabled
-    /// QAT有効
-    pub qat_enabled: bool,
+    /// QAT configuration
+    /// QAT設定
+    pub qat_config: QATConfig<T>,
     /// Convolution parameters
     /// 畳み込みパラメータ
     pub stride: (usize, usize),
@@ -399,9 +422,7 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
         Self {
             weight,
             bias,
-            weight_fake_quant: FakeQuantize::new(QuantizationScheme::Symmetric, 8),
-            activation_fake_quant: FakeQuantize::new(QuantizationScheme::Asymmetric, 8),
-            qat_enabled: true,
+            qat_config: QATConfig::new(),
             stride,
             padding,
         }
@@ -410,19 +431,9 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     /// Forward pass (simplified - placeholder implementation)
     /// フォワードパス（簡略化 - プレースホルダー実装）
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
-        // Apply fake quantization if enabled
-        // 有効時は偽量子化を適用
-        let quantized_input = if self.qat_enabled {
-            self.activation_fake_quant.forward(input)?
-        } else {
-            input.clone()
-        };
-
-        let quantized_weight = if self.qat_enabled {
-            self.weight_fake_quant.forward(&self.weight)?
-        } else {
-            self.weight.clone()
-        };
+        // Use QAT config to apply quantization
+        // QAT設定を使用して量子化を適用
+        let (quantized_input, quantized_weight) = self.qat_config.apply_quantization(input, &self.weight)?;
 
         // Simplified convolution - in practice would implement proper conv2d
         // 簡略化畳み込み - 実際には適切なconv2dを実装
@@ -436,32 +447,32 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
 
 impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T> for QATConv2d<T> {
     fn enable_qat(&mut self) {
-        self.qat_enabled = true;
-        self.weight_fake_quant.enabled = true;
-        self.activation_fake_quant.enabled = true;
+        self.qat_config.enabled = true;
+        self.qat_config.weight_fake_quant.enabled = true;
+        self.qat_config.activation_fake_quant.enabled = true;
     }
 
     fn disable_qat(&mut self) {
-        self.qat_enabled = false;
-        self.weight_fake_quant.enabled = false;
-        self.activation_fake_quant.enabled = false;
+        self.qat_config.enabled = false;
+        self.qat_config.weight_fake_quant.enabled = false;
+        self.qat_config.activation_fake_quant.enabled = false;
     }
 
     fn is_qat_enabled(&self) -> bool {
-        self.qat_enabled
+        self.qat_config.enabled
     }
 
     fn get_quantization_params(&self) -> Option<(f32, i32)> {
-        if self.qat_enabled {
-            Some((self.weight_fake_quant.scale, self.weight_fake_quant.zero_point))
+        if self.qat_config.enabled {
+            Some((self.qat_config.weight_fake_quant.scale, self.qat_config.weight_fake_quant.zero_point))
         } else {
             None
         }
     }
 
     fn set_quantization_params(&mut self, scale: f32, zero_point: i32) {
-        self.weight_fake_quant.scale = scale;
-        self.weight_fake_quant.zero_point = zero_point;
+        self.qat_config.weight_fake_quant.scale = scale;
+        self.qat_config.weight_fake_quant.zero_point = zero_point;
     }
 }
 
