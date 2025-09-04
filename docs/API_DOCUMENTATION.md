@@ -2688,6 +2688,178 @@ println!("Speedup: {:.2}x", comparison.speedup_factor);
 println!("{}", benchmark.report());
 ```
 
+## 🌐 WebAssembly (WASM) Module
+
+### WASM Tensor Operations
+
+```rust
+use rustorch::wasm::{WasmTensor, WasmLinear};
+
+// Create WASM-compatible tensor
+let data = vec![1.0, 2.0, 3.0, 4.0];
+let shape = vec![2, 2];
+let wasm_tensor = WasmTensor::new(data, shape);
+
+// Basic tensor operations
+let tensor_a = WasmTensor::new(vec![1.0, 2.0], vec![2, 1]);
+let tensor_b = WasmTensor::new(vec![3.0, 4.0], vec![2, 1]);
+let result = tensor_a.add(&tensor_b)?;
+
+// Matrix operations
+let result = tensor_a.matmul(&tensor_b)?;
+let transposed = tensor_a.transpose();
+
+// Element-wise operations
+let squared = tensor_a.square();
+let sqrt_result = tensor_a.sqrt();
+let sum = tensor_a.sum();
+let mean = tensor_a.mean();
+```
+
+### WASM Neural Network Layers
+
+```rust
+use rustorch::wasm::{WasmLinear, WasmActivation};
+
+// Linear layer with bias
+let linear = WasmLinear::new(
+    in_features: 784,
+    out_features: 10,
+    bias: true
+);
+
+// Custom weight initialization
+let custom_weights = vec![/* weight values */];
+let custom_bias = Some(vec![/* bias values */]);
+let linear_custom = WasmLinear::with_weights(784, 10, custom_weights, custom_bias)?;
+
+// Forward pass
+let input = vec![/* input data */];
+let output = linear.forward(input, batch_size: 1)?;
+
+// Activation functions
+let activated = WasmActivation::relu(output);
+let sigmoid_result = WasmActivation::sigmoid(input);
+let tanh_result = WasmActivation::tanh(input);
+let leaky_relu = WasmActivation::leaky_relu(input, alpha: 0.01);
+```
+
+### Browser Integration
+
+```rust
+use rustorch::wasm::{BrowserStorage, BrowserCanvas, PerformanceMonitor};
+
+// Browser storage for model persistence
+let storage = BrowserStorage::new();
+storage.save_tensor("model_weights", &wasm_tensor)?;
+let loaded_tensor = storage.load_tensor("model_weights")?;
+
+// Canvas rendering for visualizations
+let canvas = BrowserCanvas::new("canvas-id")?;
+canvas.draw_tensor(&wasm_tensor)?;
+canvas.draw_heatmap(&activation_map, width: 256, height: 256)?;
+
+// Performance monitoring
+let monitor = PerformanceMonitor::new();
+monitor.start_timer("inference");
+// ... model inference ...
+let elapsed = monitor.end_timer("inference")?;
+```
+
+### WebGPU Acceleration
+
+```rust
+use rustorch::wasm::WebGPUSimple;
+
+// Initialize WebGPU for Chrome
+let mut webgpu = WebGPUSimple::new();
+webgpu.initialize().await?;
+
+// Check GPU capabilities
+let info = webgpu.get_device_info()?;
+let supports_compute = webgpu.supports_compute_shaders()?;
+
+// Basic GPU operations
+let gpu_result = webgpu.matrix_multiply(&matrix_a, &matrix_b).await?;
+let gpu_conv = webgpu.convolution_2d(&input, &kernel).await?;
+```
+
+### Advanced WASM Features
+
+```rust
+use rustorch::wasm::{
+    WasmOptimizer, DataTransforms, QualityMetrics, AnomalyDetection
+};
+
+// Enhanced optimizers
+let optimizer = WasmOptimizer::adam(learning_rate: 0.001, beta1: 0.9, beta2: 0.999)?;
+optimizer.step(&gradients, &mut parameters)?;
+
+// Data preprocessing
+let transforms = DataTransforms::new();
+let normalized = transforms.normalize(&data, mean: 0.0, std: 1.0)?;
+let augmented = transforms.random_rotation(&image_data, angle: 30.0)?;
+
+// Quality assessment
+let metrics = QualityMetrics::new();
+let data_quality = metrics.assess_data_quality(&dataset)?;
+let model_quality = metrics.evaluate_model_performance(&predictions, &targets)?;
+
+// Anomaly detection
+let detector = AnomalyDetection::new();
+let anomalies = detector.detect_outliers(&data, threshold: 2.0)?;
+let model_drift = detector.detect_model_drift(&current_output, &baseline_output)?;
+```
+
+### Memory Management
+
+```rust
+use rustorch::wasm::{WasmMemoryManager, WasmMemoryPool};
+
+// Memory pool for efficient allocation
+let memory_pool = WasmMemoryPool::new(max_size_mb: 256);
+let tensor_memory = memory_pool.allocate_tensor(&shape)?;
+
+// Memory monitoring
+let manager = WasmMemoryManager::new();
+let usage = manager.get_memory_usage();
+manager.cleanup_unused_tensors();
+
+// Garbage collection optimization
+manager.force_gc_if_needed(threshold: 0.8)?;
+```
+
+### Signal Processing
+
+```rust
+use rustorch::wasm::WasmSignal;
+
+// FFT operations
+let signal = WasmSignal::new();
+let fft_result = signal.fft(&time_domain_data)?;
+let ifft_result = signal.ifft(&frequency_domain_data)?;
+
+// Filtering operations
+let filtered = signal.lowpass_filter(&noisy_signal, cutoff: 0.3)?;
+let convolved = signal.convolve(&signal_a, &signal_b)?;
+```
+
+### WASM Utilities and Helpers
+
+```rust
+use rustorch::wasm::{WasmUtilities, WasmInterop};
+
+// JavaScript interoperability
+let interop = WasmInterop::new();
+let js_array = interop.tensor_to_js_array(&wasm_tensor)?;
+let wasm_tensor = interop.js_array_to_tensor(&js_array, &shape)?;
+
+// Type conversions and validation
+let utilities = WasmUtilities::new();
+let validated_data = utilities.validate_and_convert(&input_data)?;
+let shape_valid = utilities.validate_shape(&shape, max_dims: 4)?;
+```
+
 ### Backward Compatibility
 
 All existing APIs remain fully functional. The new builder pattern and enhanced operations are additive features that don't break existing code.
@@ -2695,5 +2867,5 @@ All existing APIs remain fully functional. The new builder pattern and enhanced 
 For complete documentation and examples, visit the [examples directory](../examples/) or generate local docs:
 
 ```bash
-cargo doc --open --no-deps --features "linalg,cuda,metal"
+cargo doc --open --no-deps --features "linalg,cuda,metal,wasm,webgpu"
 ```
