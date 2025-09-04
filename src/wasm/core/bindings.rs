@@ -2,7 +2,7 @@
 //! WASMニューラルネットワークバインディング
 
 #[cfg(feature = "wasm")]
-use super::tensor::WasmTensor;
+use crate::wasm::tensor::WasmTensor;
 #[cfg(feature = "wasm")]
 use std::f32::consts::PI;
 #[cfg(feature = "wasm")]

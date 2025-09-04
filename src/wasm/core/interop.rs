@@ -2,7 +2,7 @@
 //! JavaScript/TypeScript相互運用ユーティリティ
 
 #[cfg(feature = "wasm")]
-use super::tensor::WasmTensor;
+use crate::wasm::tensor::WasmTensor;
 #[cfg(feature = "wasm")]
 use js_sys::{Array, Float32Array};
 #[cfg(feature = "wasm")]

@@ -6,8 +6,46 @@ use crate::distributions::{
     uniform::Uniform, DistributionTrait,
 };
 use crate::tensor::Tensor;
+use crate::wasm::math::special::*; // Import special functions
 use num_traits::Float;
+use std::collections::HashMap;
 use wasm_bindgen::prelude::*;
+
+/// WASM-compatible random number generator using Linear Congruential Generator
+/// WASM互換の線形合同法乱数生成器
+#[wasm_bindgen]
+pub struct WasmRng {
+    seed: u32,
+}
+
+#[wasm_bindgen]
+impl WasmRng {
+    /// Create new RNG with seed
+    #[wasm_bindgen(constructor)]
+    pub fn new(seed: u32) -> Self {
+        Self { seed }
+    }
+
+    /// Generate next random u32
+    #[wasm_bindgen]
+    pub fn next_u32(&mut self) -> u32 {
+        // Linear Congruential Generator: a=1103515245, c=12345, m=2^32
+        self.seed = self.seed.wrapping_mul(1103515245).wrapping_add(12345);
+        self.seed
+    }
+
+    /// Generate random f32 in [0, 1)
+    #[wasm_bindgen]
+    pub fn next_f32(&mut self) -> f32 {
+        (self.next_u32() as f32) / (u32::MAX as f32)
+    }
+
+    /// Generate random f32 in [0, 1) (alternative name for consistency)
+    #[wasm_bindgen]
+    pub fn uniform(&mut self) -> f32 {
+        self.next_f32()
+    }
+}
 
 // Enhanced distribution implementations / 強化分布実装
 
@@ -390,7 +428,7 @@ impl BernoulliDistributionWasm {
 #[wasm_bindgen]
 pub fn normal_cdf_wasm(x: f64, mean: f64, std: f64) -> f64 {
     let z = (x - mean) / std;
-    0.5 * (1.0 + super::special_enhanced::erf_wasm(z / std::f64::consts::SQRT_2))
+    0.5 * (1.0 + erf_wasm(z / std::f64::consts::SQRT_2))
 }
 
 #[wasm_bindgen]
@@ -398,7 +436,7 @@ pub fn normal_quantile_wasm(p: f64, mean: f64, std: f64) -> f64 {
     if p <= 0.0 || p >= 1.0 {
         return f64::NAN;
     }
-    let z = std::f64::consts::SQRT_2 * super::special_enhanced::erfinv_wasm(2.0 * p - 1.0);
+    let z = std::f64::consts::SQRT_2 * erfinv_wasm(2.0 * p - 1.0);
     mean + std * z
 }
 
@@ -455,7 +493,7 @@ pub fn benchmark_special_functions_wasm(iterations: usize) -> Vec<f64> {
     let gamma_start = web_sys::window().unwrap().performance().unwrap().now();
     for i in 0..iterations {
         let x = 1.0 + (i as f64) / (iterations as f64) * 10.0;
-        super::special_enhanced::gamma_wasm(x);
+        gamma_wasm(x);
     }
     let gamma_time = web_sys::window().unwrap().performance().unwrap().now() - gamma_start;
 
@@ -463,7 +501,7 @@ pub fn benchmark_special_functions_wasm(iterations: usize) -> Vec<f64> {
     let bessel_start = web_sys::window().unwrap().performance().unwrap().now();
     for i in 0..iterations {
         let x = 0.5 + (i as f64) / (iterations as f64) * 5.0;
-        super::special_enhanced::bessel_j_wasm(0.0, x);
+        bessel_j_wasm(0.0, x);
     }
     let bessel_time = web_sys::window().unwrap().performance().unwrap().now() - bessel_start;
 
@@ -471,7 +509,7 @@ pub fn benchmark_special_functions_wasm(iterations: usize) -> Vec<f64> {
     let erf_start = web_sys::window().unwrap().performance().unwrap().now();
     for i in 0..iterations {
         let x = -3.0 + (i as f64) / (iterations as f64) * 6.0;
-        super::special_enhanced::erf_wasm(x);
+        erf_wasm(x);
     }
     let erf_time = web_sys::window().unwrap().performance().unwrap().now() - erf_start;
 

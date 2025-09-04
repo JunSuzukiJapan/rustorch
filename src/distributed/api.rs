@@ -233,6 +233,7 @@ pub fn barrier(group: Option<&ProcessGroup>, async_op: bool) -> RusTorchResult<O
 
 /// Asynchronous distributed request handle
 /// 非同期分散リクエストハンドル
+#[derive(Debug)]
 pub struct DistributedRequest {
     completed: Arc<Mutex<bool>>,
 }

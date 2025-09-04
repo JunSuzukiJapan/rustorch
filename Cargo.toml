@@ -102,7 +102,7 @@ web-sys = { version = "0.3", optional = true, features = [
     "HtmlCanvasElement", "CanvasRenderingContext2d", "Storage", "Worker", "Performance",
     "Navigator", "Gpu", "GpuDevice", "GpuQueue", "GpuBuffer", "GpuTexture",
     "IdbFactory", "IdbDatabase", "IdbTransaction", "IdbObjectStore", "IdbRequest",
-    "IdbTransactionMode", "Event", "EventTarget", "Promise"
+    "IdbTransactionMode", "Event", "EventTarget"
 ] }
 js-sys = { version = "0.3", optional = true }
 console_error_panic_hook = { version = "0.1", optional = true }

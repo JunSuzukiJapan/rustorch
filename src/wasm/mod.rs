@@ -1,85 +1,106 @@
-//! WebAssembly bindings for RusTorch
-//! RusTorch用WebAssemblyバインディング
+//! WebAssembly bindings for RusTorch - Reorganized module structure
+//! RusTorch用WebAssemblyバインディング - 再編成されたモジュール構造
 
+// Core infrastructure modules
 #[cfg(feature = "wasm")]
-pub mod bindings;
-#[cfg(feature = "wasm")]
-pub mod browser;
-#[cfg(feature = "wasm")]
-pub mod interop;
-#[cfg(feature = "wasm")]
-pub mod optimized;
-#[cfg(feature = "wasm")]
-pub mod tensor;
+pub mod core;
 
-// New WASM-compatible modules
+// Data processing and statistical modules  
 #[cfg(feature = "wasm")]
-pub mod activation; // Neural network activation functions
-#[cfg(feature = "wasm")]
-pub mod distributions; // Statistical distributions
-#[cfg(feature = "wasm")]
-pub mod loss; // Loss functions
-#[cfg(feature = "wasm")]
-pub mod memory; // Memory management
-#[cfg(feature = "wasm")]
-pub mod optimizer;
-#[cfg(feature = "wasm")]
-pub mod runtime; // Runtime utilities
-#[cfg(feature = "wasm")]
-pub mod signal; // Signal processing functions
-#[cfg(feature = "wasm")]
-pub mod special; // Special mathematical functions // Optimization algorithms
+pub mod data;
 
-// Additional WASM ML utilities
+// Mathematical computation modules
 #[cfg(feature = "wasm")]
-pub mod metrics; // Model evaluation metrics
+pub mod math;
+
+// Machine learning modules
 #[cfg(feature = "wasm")]
-pub mod normalization; // Normalization layers (BatchNorm, LayerNorm, GroupNorm)
+pub mod ml;
+
+// WebGPU acceleration modules
+#[cfg(feature = "webgpu")]
+pub mod gpu;
+
+// Storage and browser modules
 #[cfg(feature = "wasm")]
-pub mod preprocessing; // Data preprocessing utilities
+pub mod storage_modules;
+
+// Standalone modules that don't fit in above categories
+#[cfg(feature = "wasm")]
+pub mod optimized; // Legacy optimized operations
+#[cfg(feature = "wasm")]
+pub mod tensor; // Core tensor operations
+#[cfg(feature = "wasm")]
+pub mod vision; // Computer vision functions
+
+// Additional utilities
 #[cfg(feature = "wasm")]
 pub mod tensor_ops; // Advanced tensor operations
 #[cfg(feature = "wasm")]
 pub mod utilities; // Phase 8 tensor utilities (conditional, indexing, statistics, advanced)
-#[cfg(feature = "wasm")]
-pub mod vision; // Vision and image processing functions
 
-// Common utilities (v0.5.10+)
+// Common utilities
 #[cfg(feature = "wasm")]
 pub mod common; // Shared utilities and abstractions
 
-// Enhanced WASM features (v0.5.10+)
+// Additional specialized modules
 #[cfg(feature = "wasm")]
-pub mod advanced_math; // Advanced mathematical functions
-#[cfg(feature = "wasm")]
-pub mod anomaly_detection;
-#[cfg(feature = "wasm")]
-pub mod data_transforms; // Advanced data preprocessing
-#[cfg(feature = "wasm")]
-pub mod quality_metrics; // Data quality assessment // Anomaly detection and monitoring
+pub mod anomaly_detection; // Anomaly detection and monitoring
 
-// Enhanced WASM implementations (v0.5.10+)
+// Re-exports for backward compatibility
 #[cfg(feature = "wasm")]
-pub mod autograd_simplified;
+pub use core::memory;
 #[cfg(feature = "wasm")]
-pub mod distributions_enhanced; // Enhanced statistical distributions with full API
+pub use core::runtime;
 #[cfg(feature = "wasm")]
-pub mod optimizer_enhanced; // Production-ready optimizers for small-scale models
+pub use core::interop;
 #[cfg(feature = "wasm")]
-pub mod special_enhanced; // Complete special functions with performance optimization // Simplified autograd for single-threaded WASM environment
-
-// WebGPU backend for Chrome browser acceleration (v0.5.10+)
-// #[cfg(feature = "webgpu")]
-// pub mod webgpu_backend; // Chrome-optimized WebGPU backend with compute shaders (temporarily disabled)
-// #[cfg(feature = "webgpu")]
-// pub mod webgpu_tensor; // WebGPU tensor operations integration with RusTorch API (temporarily disabled)
+pub use core::bindings;
+#[cfg(feature = "wasm")]
+pub use data::distributions;
+#[cfg(feature = "wasm")]
+pub use data::preprocessing;
+#[cfg(feature = "wasm")]
+pub use data::metrics;
+#[cfg(feature = "wasm")]
+pub use data::quality_metrics;
+#[cfg(feature = "wasm")]
+pub use math::special;
+#[cfg(feature = "wasm")]
+pub use math::linalg;
+#[cfg(feature = "wasm")]
+pub use math::signal;
+#[cfg(feature = "wasm")]
+pub use ml::activation;
+#[cfg(feature = "wasm")]
+pub use ml::autograd as autograd_simplified;
+#[cfg(feature = "wasm")]
+pub use ml::loss;
+#[cfg(feature = "wasm")]
+pub use ml::normalization;
+#[cfg(feature = "wasm")]
+pub use ml::optimizers;
 #[cfg(feature = "webgpu")]
-pub mod webgpu_simple; // Simplified WebGPU implementation for basic operations
-
-// Phase 2 WASM enhancements
+pub use gpu::backend as webgpu_backend;
+#[cfg(feature = "webgpu")]
+pub use gpu::simple as webgpu_simple;
+#[cfg(feature = "webgpu")]
+pub use gpu::tensor as webgpu_tensor;
 #[cfg(feature = "wasm")]
-pub mod storage; // Browser model persistence and storage utilities
-
-// Phase 3 WASM enhancements  
+pub use storage_modules::persistence as storage;
 #[cfg(feature = "wasm")]
-pub mod linalg; // Basic linear algebra (BLAS-free, small matrices only)
+pub use storage_modules::browser;
+
+// Renamed modules for consistency
+#[cfg(feature = "wasm")]
+pub use data::transforms as data_transforms;
+#[cfg(feature = "wasm")]
+pub use math::advanced as advanced_math;
+
+// Enhanced module aliases (for backward compatibility with enhanced versions)
+#[cfg(feature = "wasm")]
+pub use data::distributions as distributions_enhanced;
+#[cfg(feature = "wasm")]
+pub use math::special as special_enhanced;
+#[cfg(feature = "wasm")]
+pub use ml::optimizers as optimizer_enhanced;
