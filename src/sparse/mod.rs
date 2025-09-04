@@ -20,6 +20,7 @@ use ndarray::{ArrayD, Array1, Array2, Dimension};
 use num_traits::{Float, Zero, One, FromPrimitive};
 use std::collections::HashMap;
 use std::fmt;
+use std::iter::Sum;
 
 /// Sparse tensor layout formats
 /// スパーステンソルレイアウト形式
@@ -59,15 +60,41 @@ pub struct SparseTensor<T: Float> {
 
 impl<T: Float + fmt::Debug> fmt::Debug for SparseTensor<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let dense_size = self.shape.iter().product::<usize>();
+        let sparsity = 1.0 - self.nnz as f64 / dense_size as f64;
         f.debug_struct("SparseTensor")
             .field("shape", &self.shape)
             .field("format", &self.format)
             .field("nnz", &self.nnz)
-            .field("sparsity", &(1.0 - self.nnz as f64 / self.dense_size() as f64))
+            .field("sparsity", &sparsity)
             .finish()
     }
 }
 
+// Core SparseTensor implementation with minimal trait bounds
+impl<T: Float + Copy> SparseTensor<T> {
+    /// Get sparsity ratio (percentage of zero elements)
+    /// スパース率を取得（ゼロ要素の割合）
+    pub fn sparsity(&self) -> f64 {
+        1.0 - (self.nnz as f64 / self.dense_size() as f64)
+    }
+
+    /// Calculate total number of elements in dense representation
+    /// 密表現での総要素数を計算
+    pub fn dense_size(&self) -> usize {
+        self.shape.iter().product()
+    }
+
+    /// Memory usage in bytes (approximate)
+    /// メモリ使用量（バイト、概算）
+    pub fn memory_usage(&self) -> usize {
+        let value_bytes = self.nnz * std::mem::size_of::<T>();
+        let index_bytes = self.indices.iter().map(|arr| arr.len() * std::mem::size_of::<usize>()).sum::<usize>();
+        value_bytes + index_bytes
+    }
+}
+
+// Extended implementation with additional trait bounds for operations
 impl<T: Float + Zero + One + std::ops::AddAssign + Copy + FromPrimitive> SparseTensor<T> {
     /// Create a new COO sparse tensor from indices and values
     /// インデックスと値からCOOスパーステンソルを作成
@@ -218,26 +245,6 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + FromPrimitive> SparseT
         Ok(dense)
     }
 
-    /// Get sparsity ratio (percentage of zero elements)
-    /// スパース率を取得（ゼロ要素の割合）
-    pub fn sparsity(&self) -> f64 {
-        1.0 - (self.nnz as f64 / self.dense_size() as f64)
-    }
-
-    /// Calculate total number of elements in dense representation
-    /// 密表現での総要素数を計算
-    pub fn dense_size(&self) -> usize {
-        self.shape.iter().product()
-    }
-
-    /// Memory usage in bytes (approximate)
-    /// メモリ使用量（バイト、概算）
-    pub fn memory_usage(&self) -> usize {
-        let value_bytes = self.nnz * std::mem::size_of::<T>();
-        let index_bytes = self.indices.iter().map(|arr| arr.len() * std::mem::size_of::<usize>()).sum::<usize>();
-        value_bytes + index_bytes
-    }
-
     /// Convert COO to CSR format (2D only)
     /// COOからCSR形式に変換（2Dのみ）
     pub fn to_csr(&self) -> RusTorchResult<SparseTensor<T>> {
@@ -262,7 +269,9 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + FromPrimitive> SparseT
         // Create row pointer array
         let mut row_ptr = Array1::zeros(rows + 1);
         for &row in row_indices.iter() {
-            row_ptr[row + 1] += 1;
+            if row < rows {
+                row_ptr[row + 1] += 1;
+            }
         }
 
         // Convert counts to cumulative sums
@@ -271,6 +280,46 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + FromPrimitive> SparseT
         }
 
         SparseTensor::from_csr(row_ptr, col_indices.clone(), self.values.clone(), self.shape.clone())
+    }
+
+    /// Convert CSR to COO format (2D only)
+    /// CSRからCOO形式に変換（2Dのみ）
+    pub fn to_coo(&self) -> RusTorchResult<SparseTensor<T>> {
+        if self.shape.len() != 2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "csr_to_coo".to_string(),
+                message: "CSR to COO conversion only supports 2D tensors".to_string(),
+            });
+        }
+
+        if self.format != SparseFormat::CSR {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "csr_to_coo".to_string(),
+                message: "Input must be in CSR format".to_string(),
+            });
+        }
+
+        let row_ptr = &self.indices[0];
+        let col_indices = &self.indices[1];
+        
+        // Convert CSR indices back to COO
+        let mut row_indices = Vec::with_capacity(self.nnz);
+        let mut coo_col_indices = Vec::with_capacity(self.nnz);
+        
+        for (row, &start) in row_ptr.iter().enumerate().take(self.shape[0]) {
+            let end = row_ptr[row + 1];
+            for idx in start..end {
+                row_indices.push(row);
+                coo_col_indices.push(col_indices[idx]);
+            }
+        }
+        
+        let indices = vec![
+            Array1::from_vec(row_indices),
+            Array1::from_vec(coo_col_indices),
+        ];
+        
+        SparseTensor::from_coo(indices, self.values.clone(), self.shape.clone())
     }
 }
 
@@ -514,7 +563,7 @@ mod tests {
         let sparse_tensor = SparseTensor::from_coo(indices, values, shape).unwrap();
         assert_eq!(sparse_tensor.format, SparseFormat::COO);
         assert_eq!(sparse_tensor.nnz, 3);
-        assert_eq!(sparse_tensor.sparsity(), 2.0/3.0);
+        assert!((sparse_tensor.sparsity() - 2.0/3.0).abs() < 1e-10);
     }
 
     #[test]

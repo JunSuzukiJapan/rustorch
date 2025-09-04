@@ -220,7 +220,10 @@ pub struct SparseBatchProcessor<T: Float> {
     pub batch: Vec<SparseTensor<T>>,
 }
 
-impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + FromPrimitive> SparseBatchProcessor<T> {
+impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + FromPrimitive> SparseBatchProcessor<T>
+where 
+    T: Zero + One + std::ops::AddAssign + FromPrimitive,
+{
     /// Create sparse batch processor
     /// スパースバッチプロセッサを作成
     pub fn new(max_batch_size: usize) -> Self {

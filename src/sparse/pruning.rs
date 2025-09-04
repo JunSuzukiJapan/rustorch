@@ -371,7 +371,7 @@ impl<T: Float + PartialOrd + Copy> MagnitudePruner<T> {
 
         // Create pruned tensor
         let mut pruned = tensor.clone();
-        let mut pruned_flat = pruned.as_slice_mut().unwrap();
+        let pruned_flat = pruned.as_slice_mut().unwrap();
         
         for i in 0..elements_to_zero.min(magnitude_indices.len()) {
             let idx = magnitude_indices[i].0;
