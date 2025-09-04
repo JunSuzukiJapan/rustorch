@@ -26,7 +26,7 @@ use num_traits::Float;
 
 // Re-export Phase 5 components (priority)
 pub use dataset::{ConcatDataset, DataError, Dataset, IterableDataset, TensorDataset};
-pub use dataloader::{DataLoader, LegacyDataLoader};
+pub use dataloader::DataLoader;
 pub use sampler::{
     BatchSampler, RandomSampler, Sampler, SequentialSampler, SubsetRandomSampler,
     WeightedRandomSampler,

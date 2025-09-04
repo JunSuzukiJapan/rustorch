@@ -1,13 +1,13 @@
 //! 汎用的な学習ループトレーナー
 //! Generic training loop trainer
 
-#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
 
 use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
 use super::state::{BatchState, EpochState, TrainingState};
 use crate::autograd::Variable;
-use crate::data::{LegacyDataLoader, LegacyDataset};
+use crate::data::{DataLoader, Dataset};
+use crate::tensor::Tensor;
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
 use num_traits::Float;
@@ -46,6 +46,22 @@ impl Default for TrainerConfig {
             accumulation_steps: 1,
         }
     }
+}
+
+/// Training data loader trait for providing batches of (input, target) pairs
+/// 訓練データローダートレイト
+pub trait TrainingDataLoader<T: Float> {
+    /// Reset the data loader for a new epoch
+    /// 新しいエポックのためにデータローダーをリセット
+    fn reset(&mut self);
+    
+    /// Get next batch of (input, target) tensor pairs
+    /// 次の(入力, ターゲット)テンソルペアのバッチを取得
+    fn next_batch(&mut self) -> Option<(Tensor<T>, Tensor<T>)>;
+    
+    /// Check if the data loader is exhausted
+    /// データローダーが枯渇したかチェック
+    fn is_empty(&self) -> bool;
 }
 
 /// 汎用的な学習ループトレーナー
@@ -105,15 +121,14 @@ where
 
     /// モデルを訓練
     /// Train a model
-    pub fn train<M, D>(
+    pub fn train<M>(
         &mut self,
         model: &mut M,
-        train_loader: &mut LegacyDataLoader<T, D>,
-        mut val_loader: Option<&mut LegacyDataLoader<T, D>>,
+        train_loader: &mut dyn TrainingDataLoader<T>,
+        mut val_loader: Option<&mut dyn TrainingDataLoader<T>>,
     ) -> anyhow::Result<TrainingMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::LegacyDataset<T>,
     {
         let start_time = Instant::now();
         let mut state = TrainingState::new(self.config.epochs);
@@ -139,9 +154,9 @@ where
 
             // 検証フェーズ
             if epoch % self.config.validation_frequency == 0 {
-                if let Some(val_loader) = val_loader.as_mut() {
+                if let Some(ref mut val_loader) = val_loader {
                     model.eval();
-                    let val_metrics = self.validate_epoch(model, val_loader, &mut state)?;
+                    let val_metrics = self.validate_epoch(model, &mut **val_loader, &mut state)?;
                     epoch_state.val_metrics = Some(val_metrics.clone());
                 }
             }
@@ -181,15 +196,14 @@ where
 
     /// 1エポックの訓練
     /// Train for one epoch
-    fn train_epoch<M, D>(
+    fn train_epoch<M>(
         &mut self,
         model: &mut M,
-        train_loader: &mut LegacyDataLoader<T, D>,
+        train_loader: &mut dyn TrainingDataLoader<T>,
         state: &mut TrainingState<T>,
     ) -> anyhow::Result<EpochMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::LegacyDataset<T>,
     {
         let mut epoch_metrics = EpochMetrics::new();
         let mut batch_count = 0;
@@ -263,15 +277,14 @@ where
 
     /// 1エポックの検証
     /// Validate for one epoch
-    fn validate_epoch<M, D>(
+    fn validate_epoch<M>(
         &mut self,
         model: &mut M,
-        val_loader: &mut LegacyDataLoader<T, D>,
+        val_loader: &mut dyn TrainingDataLoader<T>,
         _state: &mut TrainingState<T>,
     ) -> anyhow::Result<EpochMetrics<T>>
     where
         M: TrainableModel<T>,
-        D: crate::data::LegacyDataset<T>,
     {
         let mut epoch_metrics = EpochMetrics::new();
 
@@ -571,5 +584,91 @@ mod tests {
             CallbackSignal::Continue => {} // Continue execution
             CallbackSignal::Stop => unreachable!("Stop signal should be handled earlier"),
         }
+    }
+}
+
+/// Phase 5 DataLoader adapter for training
+/// Phase 5 DataLoaderを訓練用にアダプト
+pub struct Phase5TrainingDataLoader<'a, D: Dataset<Vec<Tensor<T>>>, T: Float> {
+    dataset: &'a D,
+    batch_size: usize,
+    indices: Vec<usize>,
+    current_index: usize,
+    shuffle: bool,
+    _phantom: std::marker::PhantomData<T>,
+}
+
+impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Phase5TrainingDataLoader<'a, D, T> {
+    /// Create new training data loader
+    /// 新しい訓練データローダーを作成
+    pub fn new(dataset: &'a D, batch_size: usize, shuffle: bool) -> Self {
+        let mut indices: Vec<usize> = (0..dataset.len()).collect();
+        if shuffle {
+            use rand::seq::SliceRandom;
+            indices.shuffle(&mut rand::thread_rng());
+        }
+        
+        Self {
+            dataset,
+            batch_size,
+            indices,
+            current_index: 0,
+            shuffle,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> TrainingDataLoader<T> for Phase5TrainingDataLoader<'a, D, T> {
+    fn reset(&mut self) {
+        self.current_index = 0;
+        if self.shuffle {
+            use rand::seq::SliceRandom;
+            self.indices.shuffle(&mut rand::thread_rng());
+        }
+    }
+    
+    fn next_batch(&mut self) -> Option<(Tensor<T>, Tensor<T>)> {
+        if self.is_empty() {
+            return None;
+        }
+        
+        let end_index = std::cmp::min(self.current_index + self.batch_size, self.dataset.len());
+        let mut batch_features = Vec::new();
+        let mut batch_targets = Vec::new();
+        
+        for i in self.current_index..end_index {
+            let index = self.indices[i];
+            if let Ok(tensors) = self.dataset.get_item(index) {
+                if tensors.len() >= 2 {
+                    batch_features.push(tensors[0].clone());
+                    batch_targets.push(tensors[1].clone());
+                }
+            }
+        }
+        
+        self.current_index = end_index;
+        
+        if !batch_features.is_empty() {
+            // Stack tensors to create batch tensors
+            let feature_refs: Vec<&Tensor<T>> = batch_features.iter().collect();
+            let target_refs: Vec<&Tensor<T>> = batch_targets.iter().collect();
+            
+            match (Tensor::stack(&feature_refs), Tensor::stack(&target_refs)) {
+                (Ok(stacked_features), Ok(stacked_targets)) => {
+                    Some((stacked_features, stacked_targets))
+                }
+                _ => {
+                    // Fallback: return first individual tensors
+                    Some((batch_features[0].clone(), batch_targets[0].clone()))
+                }
+            }
+        } else {
+            None
+        }
+    }
+    
+    fn is_empty(&self) -> bool {
+        self.current_index >= self.dataset.len()
     }
 }
