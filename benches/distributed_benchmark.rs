@@ -1,11 +1,11 @@
 //! Distributed training performance benchmarks
 //! 分散学習パフォーマンスベンチマーク
 
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
-use rustorch::distributed::*;
-use rustorch::tensor::Tensor;
-use rustorch::nn::Linear;
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use rustorch::autograd::Variable;
+use rustorch::distributed::*;
+use rustorch::nn::Linear;
+use rustorch::tensor::Tensor;
 use std::time::Duration;
 
 /// Benchmark distributed initialization
@@ -50,7 +50,7 @@ fn bench_all_reduce_sizes(c: &mut Criterion) {
     ];
 
     let mut group = c.benchmark_group("all_reduce_sizes");
-    
+
     for (size, label) in sizes {
         group.bench_with_input(BenchmarkId::new("all_reduce", label), &size, |b, &size| {
             let mut tensor: Tensor<f32> = Tensor::randn(&[size]);
@@ -59,7 +59,7 @@ fn bench_all_reduce_sizes(c: &mut Criterion) {
             });
         });
     }
-    
+
     group.finish();
 
     // Clean up
@@ -91,11 +91,15 @@ fn bench_ddp_forward(c: &mut Criterion) {
         let input_tensor: Tensor<f32> = Tensor::randn(&[32, input_size]);
         let input = Variable::new(input_tensor, false);
 
-        group.bench_with_input(BenchmarkId::new("ddp_forward", label), &input_size, |b, _| {
-            b.iter(|| {
-                let _ = ddp.forward(&input);
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("ddp_forward", label),
+            &input_size,
+            |b, _| {
+                b.iter(|| {
+                    let _ = ddp.forward(&input);
+                });
+            },
+        );
     }
 
     group.finish();
@@ -126,11 +130,15 @@ fn bench_gradient_sync(c: &mut Criterion) {
         let linear: Linear<f32> = Linear::new(param_count, param_count);
         let ddp = wrap_simple(linear, Some(vec![0])).unwrap();
 
-        group.bench_with_input(BenchmarkId::new("grad_sync", label), &param_count, |b, _| {
-            b.iter(|| {
-                let _ = ddp.sync_gradients();
-            });
-        });
+        group.bench_with_input(
+            BenchmarkId::new("grad_sync", label),
+            &param_count,
+            |b, _| {
+                b.iter(|| {
+                    let _ = ddp.sync_gradients();
+                });
+            },
+        );
     }
 
     group.finish();
@@ -140,9 +148,9 @@ fn bench_gradient_sync(c: &mut Criterion) {
 
 /// Benchmark async gradient operations
 /// 非同期勾配操作ベンチマーク
-#[cfg(feature = "async")]
+#[cfg(feature = "nccl")]
 fn bench_async_gradient_ops(c: &mut Criterion) {
-    use rustorch::distributed::async_gradient::{AsyncGradientSynchronizer, AsyncConfig, Priority};
+    use rustorch::distributed::async_gradient::{AsyncConfig, AsyncGradientSynchronizer, Priority};
 
     let config = AsyncConfig::default();
     let synchronizer = AsyncGradientSynchronizer::new(config).unwrap();
@@ -221,7 +229,7 @@ fn bench_memory_efficiency(c: &mut Criterion) {
     let _ = destroy_process_group();
 }
 
-#[cfg(feature = "async")]
+#[cfg(feature = "nccl")]
 criterion_group!(
     benches,
     bench_distributed_init,
@@ -233,7 +241,7 @@ criterion_group!(
     bench_memory_efficiency,
 );
 
-#[cfg(not(feature = "async"))]
+#[cfg(not(feature = "nccl"))]
 criterion_group!(
     benches,
     bench_distributed_init,

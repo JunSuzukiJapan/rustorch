@@ -356,3 +356,329 @@ pub fn softmax_wasm(values: &[f64]) -> Vec<f64> {
 
     exp_values.iter().map(|&x| x / sum_exp).collect()
 }
+
+/// Enhanced WASM autograd operations
+/// 拡張WASM自動微分演算
+#[wasm_bindgen]
+impl VariableWasm {
+    /// Element-wise addition with another variable
+    /// 他の変数との要素ごと加算
+    #[wasm_bindgen]
+    pub fn add(&self, other: &VariableWasm) -> Option<VariableWasm> {
+        if self.data.len() != other.data.len() {
+            return None;
+        }
+
+        let result_data: Vec<f64> = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a + b)
+            .collect();
+
+        let requires_grad = self.requires_grad || other.requires_grad;
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), requires_grad);
+
+        if requires_grad {
+            result.grad_fn_type = Some("Add".to_string());
+        }
+
+        Some(result)
+    }
+
+    /// Element-wise subtraction
+    /// 要素ごと減算
+    #[wasm_bindgen]
+    pub fn sub(&self, other: &VariableWasm) -> Option<VariableWasm> {
+        if self.data.len() != other.data.len() {
+            return None;
+        }
+
+        let result_data: Vec<f64> = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a - b)
+            .collect();
+
+        let requires_grad = self.requires_grad || other.requires_grad;
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), requires_grad);
+
+        if requires_grad {
+            result.grad_fn_type = Some("Sub".to_string());
+        }
+
+        Some(result)
+    }
+
+    /// Element-wise multiplication
+    /// 要素ごと乗算
+    #[wasm_bindgen]
+    pub fn mul(&self, other: &VariableWasm) -> Option<VariableWasm> {
+        if self.data.len() != other.data.len() {
+            return None;
+        }
+
+        let result_data: Vec<f64> = self
+            .data
+            .iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a * b)
+            .collect();
+
+        let requires_grad = self.requires_grad || other.requires_grad;
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), requires_grad);
+
+        if requires_grad {
+            result.grad_fn_type = Some("Mul".to_string());
+        }
+
+        Some(result)
+    }
+
+    /// Matrix multiplication (2D tensors only)
+    /// 行列乗算（2次元テンソルのみ）
+    #[wasm_bindgen]
+    pub fn matmul(&self, other: &VariableWasm) -> Option<VariableWasm> {
+        if self.shape.len() != 2 || other.shape.len() != 2 {
+            return None;
+        }
+
+        let (m, k1) = (self.shape[0], self.shape[1]);
+        let (k2, n) = (other.shape[0], other.shape[1]);
+
+        if k1 != k2 {
+            return None;
+        }
+
+        let mut result_data = vec![0.0; m * n];
+
+        for i in 0..m {
+            for j in 0..n {
+                let mut sum = 0.0;
+                for k in 0..k1 {
+                    sum += self.data[i * k1 + k] * other.data[k * n + j];
+                }
+                result_data[i * n + j] = sum;
+            }
+        }
+
+        let requires_grad = self.requires_grad || other.requires_grad;
+        let mut result = VariableWasm::new(result_data, vec![m, n], requires_grad);
+
+        if requires_grad {
+            result.grad_fn_type = Some("MatMul".to_string());
+        }
+
+        Some(result)
+    }
+
+    /// Apply ReLU activation
+    /// ReLU活性化関数を適用
+    #[wasm_bindgen]
+    pub fn relu(&self) -> VariableWasm {
+        let result_data: Vec<f64> = self.data.iter().map(|&x| x.max(0.0)).collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("ReLU".to_string());
+        }
+
+        result
+    }
+
+    /// Apply Sigmoid activation
+    /// Sigmoid活性化関数を適用
+    #[wasm_bindgen]
+    pub fn sigmoid(&self) -> VariableWasm {
+        let result_data: Vec<f64> = self.data.iter().map(|&x| sigmoid_wasm(x)).collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Sigmoid".to_string());
+        }
+
+        result
+    }
+
+    /// Apply Tanh activation
+    /// Tanh活性化関数を適用
+    #[wasm_bindgen]
+    pub fn tanh_activation(&self) -> VariableWasm {
+        let result_data: Vec<f64> = self.data.iter().map(|&x| tanh_wasm(x)).collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Tanh".to_string());
+        }
+
+        result
+    }
+
+    /// Compute exponential
+    /// 指数計算
+    #[wasm_bindgen]
+    pub fn exp(&self) -> VariableWasm {
+        let result_data: Vec<f64> = self.data.iter().map(|&x| x.exp()).collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Exp".to_string());
+        }
+
+        result
+    }
+
+    /// Compute natural logarithm
+    /// 自然対数を計算
+    #[wasm_bindgen]
+    pub fn log(&self) -> VariableWasm {
+        let result_data: Vec<f64> = self
+            .data
+            .iter()
+            .map(|&x| if x > 0.0 { x.ln() } else { f64::NEG_INFINITY })
+            .collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Log".to_string());
+        }
+
+        result
+    }
+
+    /// Scale by scalar
+    /// スカラーによる倍率
+    #[wasm_bindgen]
+    pub fn scale(&self, factor: f64) -> VariableWasm {
+        let result_data: Vec<f64> = self.data.iter().map(|&x| x * factor).collect();
+
+        let mut result = VariableWasm::new(result_data, self.shape.clone(), self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Scale".to_string());
+        }
+
+        result
+    }
+
+    /// Reshape variable
+    /// 変数をリシェイプ
+    #[wasm_bindgen]
+    pub fn reshape(&self, new_shape: Vec<usize>) -> Option<VariableWasm> {
+        let total_elements: usize = new_shape.iter().product();
+        if total_elements != self.data.len() {
+            return None;
+        }
+
+        Some(VariableWasm {
+            data: self.data.clone(),
+            shape: new_shape,
+            grad: self.grad.clone(),
+            requires_grad: self.requires_grad,
+            grad_fn_type: None,
+            grad_fn_inputs: Vec::new(),
+        })
+    }
+
+    /// Transpose 2D matrix
+    /// 2次元行列の転置
+    #[wasm_bindgen]
+    pub fn transpose(&self) -> Option<VariableWasm> {
+        if self.shape.len() != 2 {
+            return None;
+        }
+
+        let (rows, cols) = (self.shape[0], self.shape[1]);
+        let mut result_data = vec![0.0; self.data.len()];
+
+        for i in 0..rows {
+            for j in 0..cols {
+                result_data[j * rows + i] = self.data[i * cols + j];
+            }
+        }
+
+        let mut result = VariableWasm::new(result_data, vec![cols, rows], self.requires_grad);
+
+        if self.requires_grad {
+            result.grad_fn_type = Some("Transpose".to_string());
+        }
+
+        Some(result)
+    }
+}
+
+/// Simple optimizer for WASM
+/// WASM用簡単なオプティマイザー
+#[wasm_bindgen]
+pub struct WasmOptimizer {
+    learning_rate: f64,
+    optimizer_type: String,
+}
+
+#[wasm_bindgen]
+impl WasmOptimizer {
+    /// Create SGD optimizer
+    /// SGDオプティマイザーを作成
+    #[wasm_bindgen]
+    pub fn sgd(learning_rate: f64) -> WasmOptimizer {
+        WasmOptimizer {
+            learning_rate,
+            optimizer_type: "SGD".to_string(),
+        }
+    }
+
+    /// Update variable parameters using computed gradients
+    /// 計算された勾配を使用して変数パラメータを更新
+    #[wasm_bindgen]
+    pub fn step(&self, variable: &mut VariableWasm) {
+        if let Some(ref grad) = variable.grad.clone() {
+            for i in 0..variable.data.len() {
+                variable.data[i] -= self.learning_rate * grad[i];
+            }
+        }
+    }
+
+    /// Update linear layer weights and biases
+    /// 線形層の重みとバイアスを更新
+    #[wasm_bindgen]
+    pub fn update_layer(
+        &self,
+        layer: &mut LinearLayerWasm,
+        weight_grads: Vec<f64>,
+        bias_grads: Vec<f64>,
+    ) {
+        // Update weights
+        for i in 0..layer.weights.len() {
+            if i < weight_grads.len() {
+                layer.weights[i] -= self.learning_rate * weight_grads[i];
+            }
+        }
+
+        // Update biases
+        for i in 0..layer.bias.len() {
+            if i < bias_grads.len() {
+                layer.bias[i] -= self.learning_rate * bias_grads[i];
+            }
+        }
+    }
+
+    /// Set learning rate
+    /// 学習率を設定
+    #[wasm_bindgen]
+    pub fn set_learning_rate(&mut self, learning_rate: f64) {
+        self.learning_rate = learning_rate;
+    }
+
+    /// Get current learning rate
+    /// 現在の学習率を取得
+    #[wasm_bindgen]
+    pub fn get_learning_rate(&self) -> f64 {
+        self.learning_rate
+    }
+}

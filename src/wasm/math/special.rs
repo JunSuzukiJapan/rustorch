@@ -13,6 +13,62 @@ extern "C" {
 // Note: console_log macro removed as it was unused
 // Use web_sys::console::log_1() directly if logging is needed
 
+/// Legacy WASM Special Functions struct (for compatibility)
+/// 互換性のための従来のWASM特殊関数構造体
+#[wasm_bindgen]
+pub struct WasmSpecial;
+
+#[wasm_bindgen]
+impl WasmSpecial {
+    /// Gamma function Γ(x) - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn gamma(x: f32) -> f32 {
+        gamma_wasm(x as f64) as f32
+    }
+
+    /// Natural logarithm of gamma function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn lgamma(x: f32) -> f32 {
+        lgamma_wasm(x as f64) as f32
+    }
+
+    /// Digamma function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn digamma(x: f32) -> f32 {
+        digamma_wasm(x as f64) as f32
+    }
+
+    /// Error function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn erf(x: f32) -> f32 {
+        erf_wasm(x as f64) as f32
+    }
+
+    /// Complementary error function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn erfc(x: f32) -> f32 {
+        erfc_wasm(x as f64) as f32
+    }
+
+    /// Beta function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn beta(a: f32, b: f32) -> f32 {
+        beta_wasm(a as f64, b as f64) as f32
+    }
+
+    /// Bessel J0 function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn bessel_j0(x: f32) -> f32 {
+        bessel_j_wasm(0.0, x as f64) as f32
+    }
+
+    /// Bessel J1 function - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn bessel_j1(x: f32) -> f32 {
+        bessel_j_wasm(1.0, x as f64) as f32
+    }
+}
+
 // Gamma Functions / ガンマ関数
 #[wasm_bindgen]
 pub fn gamma_wasm(x: f64) -> f64 {
@@ -131,29 +187,17 @@ impl SpecialFunctionsBatch {
 
     #[wasm_bindgen]
     pub fn gamma_batch(&self, values: &[f64]) -> Vec<f64> {
-        let mut result = Vec::with_capacity(values.len());
-        for &x in values {
-            result.push(gamma_wasm(x));
-        }
-        result
+        gamma_array_wasm(values)
     }
 
     #[wasm_bindgen]
     pub fn bessel_j0_batch(&self, values: &[f64]) -> Vec<f64> {
-        let mut result = Vec::with_capacity(values.len());
-        for &x in values {
-            result.push(bessel_j_wasm(0.0, x));
-        }
-        result
+        bessel_j_array_wasm(0.0, values)
     }
 
     #[wasm_bindgen]
     pub fn erf_batch(&self, values: &[f64]) -> Vec<f64> {
-        let mut result = Vec::with_capacity(values.len());
-        for &x in values {
-            result.push(erf_wasm(x));
-        }
-        result
+        erf_array_wasm(values)
     }
 }
 

@@ -264,6 +264,36 @@ pub enum RusTorchError {
     /// 入出力・シリアライゼーションエラー
     #[error("IO error: {0}")]
     IO(#[from] std::io::Error),
+
+    /// Feature not implemented yet
+    /// 機能未実装
+    #[error("Not implemented: {feature}")]
+    NotImplemented {
+        /// Feature that is not yet implemented
+        /// 未実装の機能
+        feature: String,
+    },
+
+    /// Out of memory error
+    /// メモリ不足エラー
+    #[error("Out of memory: requested {requested} bytes, available {available} bytes")]
+    OutOfMemory {
+        /// Requested memory in bytes
+        /// 要求されたメモリ（バイト）
+        requested: usize,
+        /// Available memory in bytes  
+        /// 利用可能メモリ（バイト）
+        available: usize,
+    },
+
+    /// Serialization error
+    /// シリアライゼーションエラー
+    #[error("Serialization error: {message}")]
+    Serialization {
+        /// Serialization error description
+        /// シリアライゼーションエラーの説明
+        message: String,
+    },
 }
 
 // All individual error types removed - only RusTorchError is used now
@@ -794,28 +824,69 @@ impl RusTorchError {
         RusTorchError::model_io(format!("Verification error: {}", message.into()))
     }
 
+    /// Create not implemented error
+    pub fn not_implemented(feature: impl Into<String>) -> Self {
+        RusTorchError::NotImplemented {
+            feature: feature.into(),
+        }
+    }
+
+    /// Create out of memory error
+    pub fn out_of_memory(requested: usize, available: usize) -> Self {
+        RusTorchError::OutOfMemory {
+            requested,
+            available,
+        }
+    }
+
+    /// Create serialization error
+    pub fn serialization_error(message: impl Into<String>) -> Self {
+        RusTorchError::Serialization {
+            message: message.into(),
+        }
+    }
+
     // === Quantization-Specific Errors (Phase 11) ===
     /// Create invalid quantization parameters error
-    pub fn quantization_invalid_params(scale: f32, zero_point: i32, message: impl Into<String>) -> Self {
+    pub fn quantization_invalid_params(
+        scale: f32,
+        zero_point: i32,
+        message: impl Into<String>,
+    ) -> Self {
         RusTorchError::InvalidParameters {
             operation: "quantization".into(),
-            message: format!("Invalid quantization parameters: scale={}, zero_point={}, {}", scale, zero_point, message.into()),
+            message: format!(
+                "Invalid quantization parameters: scale={}, zero_point={}, {}",
+                scale,
+                zero_point,
+                message.into()
+            ),
         }
     }
 
     /// Create quantization range overflow error
     pub fn quantization_range_overflow(value: f32, min: i32, max: i32) -> Self {
         RusTorchError::TensorOp {
-            message: format!("Quantization range overflow: value={}, range=({}, {})", value, min, max),
+            message: format!(
+                "Quantization range overflow: value={}, range=({}, {})",
+                value, min, max
+            ),
             source: None,
         }
     }
 
     /// Create incompatible quantization schemes error
-    pub fn quantization_incompatible_schemes(expected: impl Into<String>, actual: impl Into<String>) -> Self {
+    pub fn quantization_incompatible_schemes(
+        expected: impl Into<String>,
+        actual: impl Into<String>,
+    ) -> Self {
         RusTorchError::InvalidOperation {
             operation: "quantization".into(),
-            message: format!("Incompatible quantization schemes: expected={}, actual={}", expected.into(), actual.into()),
+            message: format!(
+                "Incompatible quantization schemes: expected={}, actual={}",
+                expected.into(),
+                actual.into()
+            ),
         }
     }
 
@@ -863,5 +934,14 @@ impl From<crate::models::serialization::SaveError> for RusTorchError {
 impl From<crate::models::serialization::LoadError> for RusTorchError {
     fn from(err: crate::models::serialization::LoadError) -> Self {
         RusTorchError::model_io(format!("Load error: {}", err))
+    }
+}
+
+impl From<ndarray::ShapeError> for RusTorchError {
+    fn from(err: ndarray::ShapeError) -> Self {
+        RusTorchError::TensorOp {
+            message: format!("Shape error: {}", err),
+            source: Some(Box::new(err)),
+        }
     }
 }

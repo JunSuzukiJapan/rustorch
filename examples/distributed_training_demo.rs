@@ -8,11 +8,11 @@
 //! 使用方法を実演します。
 
 use rustorch::{
+    autograd::Variable,
     distributed::{self, DistributedBackend, DistributedDataParallel},
-    nn::{Module, Linear, ReLU, Sequential},
-    optim::Adam,
-    tensor::Tensor,
     error::RusTorchResult,
+    nn::{Linear, Sequential},
+    tensor::Tensor,
 };
 use std::time::Duration;
 
@@ -26,7 +26,7 @@ fn main() -> RusTorchResult<()> {
     // Create and train model
     let model = create_model()?;
     let ddp_model = setup_ddp_model(model)?;
-    
+
     // Run training simulation
     run_training_simulation(&ddp_model)?;
 
@@ -66,8 +66,8 @@ fn setup_distributed_training() -> RusTorchResult<()> {
     )?;
 
     println!("  ✓ Process group initialized");
-    println!("  ✓ Rank: {}", distributed::get_rank());
-    println!("  ✓ World size: {}", distributed::get_world_size());
+    println!("  ✓ Rank: {:?}", distributed::get_rank());
+    println!("  ✓ World size: {:?}", distributed::get_world_size());
 
     Ok(())
 }
@@ -77,22 +77,22 @@ fn setup_distributed_training() -> RusTorchResult<()> {
 fn create_model() -> RusTorchResult<Sequential<f32>> {
     println!("🧠 Creating neural network model...");
 
-    let model = Sequential::new()
-        .add(Linear::new(784, 256)?)   // Input layer
-        .add(ReLU::new())              // Activation
-        .add(Linear::new(256, 128)?)   // Hidden layer
-        .add(ReLU::new())              // Activation
-        .add(Linear::new(128, 10)?);   // Output layer
+    let mut model = Sequential::<f32>::new();
+    model.add_module(Linear::<f32>::new(784, 256));
+    model.add_module(Linear::<f32>::new(256, 128));
+    model.add_module(Linear::<f32>::new(128, 10));
 
     println!("  ✓ Model created with 3 linear layers");
     println!("  ✓ Architecture: 784 → 256 → 128 → 10");
-    
+
     Ok(model)
 }
 
 /// Setup DistributedDataParallel wrapper
 /// DistributedDataParallelラッパーをセットアップ
-fn setup_ddp_model(model: Sequential<f32>) -> RusTorchResult<DistributedDataParallel<f32, Sequential<f32>>> {
+fn setup_ddp_model(
+    model: Sequential<f32>,
+) -> RusTorchResult<DistributedDataParallel<f32, Sequential<f32>>> {
     println!("⚙️  Setting up DistributedDataParallel...");
 
     let device_ids = vec![0]; // Use device 0 for demo
@@ -106,7 +106,9 @@ fn setup_ddp_model(model: Sequential<f32>) -> RusTorchResult<DistributedDataPara
 
 /// Run training simulation
 /// 学習シミュレーションを実行
-fn run_training_simulation(ddp_model: &DistributedDataParallel<f32, Sequential<f32>>) -> RusTorchResult<()> {
+fn run_training_simulation(
+    ddp_model: &DistributedDataParallel<f32, Sequential<f32>>,
+) -> RusTorchResult<()> {
     println!("🏃 Running training simulation...");
 
     let batch_size = 32;
@@ -118,11 +120,14 @@ fn run_training_simulation(ddp_model: &DistributedDataParallel<f32, Sequential<f
         for batch in 1..=num_batches {
             // Create synthetic training data
             let input: Tensor<f32> = Tensor::randn(&[batch_size, 784]);
-            let _target: Tensor<f32> = Tensor::randint(0, 10, &[batch_size]);
+            let _target: Tensor<f32> = Tensor::randn(&[batch_size, 10]);
 
             // Forward pass
-            let output = ddp_model.forward(&input)?;
-            assert_eq!(output.shape(), &[batch_size, 10]);
+            let input_var = Variable::new(input, false);
+            let output = ddp_model.forward(&input_var)?;
+            // Simple shape verification without complex borrowing
+            let expected_shape = vec![batch_size, 10];
+            assert!(output.data().read().unwrap().shape() == &expected_shape[..]);
 
             // Simulate backward pass and gradient synchronization
             ddp_model.sync_gradients()?;
@@ -138,9 +143,9 @@ fn run_training_simulation(ddp_model: &DistributedDataParallel<f32, Sequential<f
 
 /// Demonstrate async gradient synchronization
 /// 非同期勾配同期のデモ
-#[cfg(feature = "async")]
+#[cfg(feature = "nccl")]
 fn demo_async_gradient_sync() -> RusTorchResult<()> {
-    use rustorch::distributed::async_gradient::{AsyncGradientSynchronizer, AsyncConfig, Priority};
+    use rustorch::distributed::async_gradient::{AsyncConfig, AsyncGradientSynchronizer, Priority};
 
     println!("⚡ Demonstrating async gradient synchronization...");
 
@@ -154,18 +159,14 @@ fn demo_async_gradient_sync() -> RusTorchResult<()> {
     };
 
     let synchronizer = AsyncGradientSynchronizer::new(config)?;
-    
+
     // Submit several gradients for async sync
     let mut request_ids = Vec::new();
     for i in 0..5 {
         let gradient: Tensor<f32> = Tensor::randn(&[100, 100]);
         let param_name = format!("layer_{}", i);
-        
-        let request_id = synchronizer.submit_gradient(
-            param_name,
-            gradient,
-            Priority::Normal,
-        )?;
+
+        let request_id = synchronizer.submit_gradient(param_name, gradient, Priority::Normal)?;
         request_ids.push(request_id);
     }
 
@@ -210,7 +211,11 @@ fn benchmark_communication() -> RusTorchResult<()> {
         distributed::all_gather(&mut tensor_list, &tensor, None, false)?;
         let all_gather_time = start.elapsed();
 
-        println!("  {} tensor ({} elements):", label, shape.iter().product::<usize>());
+        println!(
+            "  {} tensor ({} elements):",
+            label,
+            shape.iter().product::<usize>()
+        );
         println!("    All-reduce: {:?}", all_reduce_time);
         println!("    Broadcast:  {:?}", broadcast_time);
         println!("    All-gather: {:?}", all_gather_time);
@@ -231,7 +236,7 @@ fn demo_backends() -> RusTorchResult<()> {
 
     for (backend, name) in backends {
         println!("  Testing {} backend:", name);
-        
+
         // Clean up any previous state
         let _ = distributed::destroy_process_group();
 
@@ -247,11 +252,12 @@ fn demo_backends() -> RusTorchResult<()> {
         match result {
             Ok(()) => {
                 println!("    ✓ {} backend initialized successfully", name);
-                
+
                 // Test basic operation
                 let mut tensor: Tensor<f32> = Tensor::ones(&[10]);
-                let op_result = distributed::all_reduce(&mut tensor, distributed::ReduceOp::Sum, None, false);
-                
+                let op_result =
+                    distributed::all_reduce(&mut tensor, distributed::ReduceOp::Sum, None, false);
+
                 if op_result.is_ok() {
                     println!("    ✓ All-reduce operation successful");
                 } else {
@@ -275,7 +281,10 @@ fn demo_advanced_features() -> RusTorchResult<()> {
     // Test custom process groups
     let ranks = vec![0];
     let custom_group = distributed::new_group(ranks, Some(Duration::from_secs(10)), None)?;
-    println!("  ✓ Custom process group created (size: {})", custom_group.size());
+    println!(
+        "  ✓ Custom process group created (size: {})",
+        custom_group.size()
+    );
 
     // Test monitoring
     let stats = distributed::monitoring::get_communication_stats()?;
@@ -287,7 +296,7 @@ fn demo_advanced_features() -> RusTorchResult<()> {
     {
         // Test NCCL-specific features
         use rustorch::distributed::nccl_integration::NCCLOps;
-        
+
         let nccl_config = NCCLOps::get_optimal_config(4, 16.0);
         println!("  ✓ NCCL optimal config generated");
         println!("    Bucket size: {}MB", nccl_config.bucket_size_mb);
@@ -295,7 +304,7 @@ fn demo_advanced_features() -> RusTorchResult<()> {
         println!("    Compression: {}", nccl_config.compression_enabled);
     }
 
-    #[cfg(feature = "async")]
+    #[cfg(feature = "nccl")]
     {
         // Test async features
         demo_async_gradient_sync()?;
@@ -310,7 +319,7 @@ fn print_system_info() {
     println!("💻 System Information:");
     println!("  OS: {}", std::env::consts::OS);
     println!("  Architecture: {}", std::env::consts::ARCH);
-    
+
     if let Ok(hostname) = hostname::get() {
         println!("  Hostname: {:?}", hostname);
     }
@@ -330,6 +339,6 @@ fn print_system_info() {
     {
         println!("  NCCL support: disabled");
     }
-    
+
     println!();
 }

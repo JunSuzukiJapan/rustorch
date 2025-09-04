@@ -15,10 +15,10 @@
 //! - 通信バックエンド（NCCL、Gloo、MPI）
 //! - 勾配同期と集約
 
-use crate::gpu::DeviceType;
-use crate::tensor::Tensor;
 use crate::autograd::Variable;
 use crate::error::RusTorchResult;
+use crate::gpu::DeviceType;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -27,7 +27,10 @@ use std::sync::{Arc, Mutex};
 
 /// Type alias for distributed-compatible float types
 /// 分散互換フロート型の型エイリアス  
-pub trait DistributedScalar: Float + Send + Sync + 'static + std::fmt::Debug + ndarray::ScalarOperand + num_traits::FromPrimitive {}
+pub trait DistributedScalar:
+    Float + Send + Sync + 'static + std::fmt::Debug + ndarray::ScalarOperand + num_traits::FromPrimitive
+{
+}
 
 // Implement DistributedScalar for standard float types
 impl DistributedScalar for f32 {}
@@ -39,11 +42,11 @@ pub trait DistributedDataParallelTrait<T: DistributedScalar> {
     /// Get device IDs for this DDP instance
     /// このDDPインスタンスのデバイスIDを取得
     fn device_ids(&self) -> &[usize];
-    
+
     /// Perform distributed forward pass
     /// 分散フォワードパスを実行
     fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>>;
-    
+
     /// Synchronize gradients across processes
     /// プロセス間での勾配同期
     fn sync_gradients(&self) -> RusTorchResult<()>;
@@ -363,11 +366,11 @@ pub mod simple_ddp;
 pub use api::*;
 
 // Re-export DDP implementations with shared trait
-pub use simple_ddp::{SimpleDistributedDataParallel, wrap_simple};
-pub use ddp::{DistributedDataParallel, wrap_module};
+pub use ddp::{wrap_module, DistributedDataParallel};
+pub use simple_ddp::{wrap_simple, SimpleDistributedDataParallel};
 
 // Re-export async gradient synchronization
-pub use async_gradient::{AsyncGradientSynchronizer, AsyncConfig, Priority};
+pub use async_gradient::{AsyncConfig, AsyncGradientSynchronizer, Priority};
 
 // Traits are already public - no need for re-export
 

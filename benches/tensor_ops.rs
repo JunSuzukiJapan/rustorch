@@ -42,11 +42,11 @@ fn bench_matrix_operations(c: &mut Criterion) {
     let b_data = Tensor::from_vec((0..10000).map(|i| (i + 1) as f32).collect(), vec![100, 100]);
 
     c.bench_function("matmul_100x100", |bencher| {
-        bencher.iter(|| black_box(a.matmul(&b_data)))
+        bencher.iter(|| black_box(a.matmul(&b_data).unwrap()))
     });
 
     c.bench_function("transpose_100x100", |bencher| {
-        bencher.iter(|| black_box(a.transpose()))
+        bencher.iter(|| black_box(a.transpose().unwrap()))
     });
 
     let large_a = Tensor::from_vec((0..1_000_000).map(|i| i as f32).collect(), vec![1000, 1000]);
@@ -56,7 +56,7 @@ fn bench_matrix_operations(c: &mut Criterion) {
     );
 
     c.bench_function("matmul_1000x1000", |bencher| {
-        bencher.iter(|| black_box(large_a.matmul(&large_b)))
+        bencher.iter(|| black_box(large_a.matmul(&large_b).unwrap()))
     });
 }
 
@@ -68,11 +68,11 @@ fn bench_tensor_reductions(c: &mut Criterion) {
     });
 
     c.bench_function("mean_axis_100x1000", |bencher| {
-        bencher.iter(|| black_box(tensor.mean_axis(0)))
+        bencher.iter(|| black_box(tensor.mean_axis(0).unwrap()))
     });
 
     c.bench_function("sum_axis_100x1000", |bencher| {
-        bencher.iter(|| black_box(tensor.sum_axis(0)))
+        bencher.iter(|| black_box(tensor.sum_axis(0).unwrap()))
     });
 }
 

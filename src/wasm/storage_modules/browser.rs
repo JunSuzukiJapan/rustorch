@@ -2,7 +2,7 @@
 //! ブラウザ専用WASM機能
 
 #[cfg(feature = "wasm")]
-use super::tensor::WasmTensor;
+use crate::wasm::tensor::WasmTensor;
 #[cfg(feature = "wasm")]
 use js_sys::Array;
 #[cfg(feature = "wasm")]

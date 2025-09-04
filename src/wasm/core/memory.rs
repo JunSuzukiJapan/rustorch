@@ -1,47 +1,152 @@
-//! WASM memory management utilities
-//! WASMメモリ管理ユーティリティ
+//! WASM memory management utilities with enhanced performance
+//! パフォーマンス強化済みWASMメモリ管理ユーティリティ
 
-#[cfg(feature = "wasm")]
-use std::collections::HashMap;
-#[cfg(feature = "wasm")]
+use std::collections::{HashMap, VecDeque};
 use wasm_bindgen::prelude::*;
 
-/// Memory pool for WASM tensor operations
-#[cfg(feature = "wasm")]
+// Import js_sys for WASM JavaScript interop
+use js_sys;
+
+/// WASM-compatible tensor memory pool with performance optimization
+/// パフォーマンス最適化済みWASM互換テンソルメモリプール
 #[wasm_bindgen]
 pub struct WasmTensorPool {
+    small_buffers: VecDeque<Vec<f32>>,  // < 256 elements (1KB)
+    medium_buffers: VecDeque<Vec<f32>>, // 256 - 262144 elements (1MB)
+    large_buffers: VecDeque<Vec<f32>>,  // > 262144 elements (1MB+)
+    max_pool_size: usize,
+    total_allocations: usize,
+    cache_hits: usize,
+    memory_saved_bytes: usize,
     pool: Vec<Vec<f32>>,
     allocated: HashMap<usize, bool>,
-    total_size: usize,
 }
 
-#[cfg(feature = "wasm")]
 #[wasm_bindgen]
 impl WasmTensorPool {
     /// Create new memory pool with specified capacity
     #[wasm_bindgen(constructor)]
-    pub fn new(capacity_bytes: usize) -> Self {
-        let capacity_elements = capacity_bytes / std::mem::size_of::<f32>();
+    pub fn new(max_pool_size: usize) -> Self {
         Self {
+            small_buffers: VecDeque::new(),
+            medium_buffers: VecDeque::new(),
+            large_buffers: VecDeque::new(),
+            max_pool_size,
+            total_allocations: 0,
+            cache_hits: 0,
+            memory_saved_bytes: 0,
             pool: Vec::new(),
             allocated: HashMap::new(),
-            total_size: capacity_elements,
+        }
+    }
+
+    /// Get optimized buffer from pool based on size
+    #[wasm_bindgen]
+    pub fn get_buffer(&mut self, size: usize) -> Vec<f32> {
+        self.total_allocations += 1;
+
+        let buffer = if size < 256 {
+            if let Some(mut buf) = self.small_buffers.pop_front() {
+                buf.resize(size, 0.0);
+                Some(buf)
+            } else {
+                None
+            }
+        } else if size <= 262144 {
+            if let Some(mut buf) = self.medium_buffers.pop_front() {
+                buf.resize(size, 0.0);
+                Some(buf)
+            } else {
+                None
+            }
+        } else {
+            if let Some(mut buf) = self.large_buffers.pop_front() {
+                buf.resize(size, 0.0);
+                Some(buf)
+            } else {
+                None
+            }
+        };
+
+        if buffer.is_some() {
+            self.cache_hits += 1;
+            self.memory_saved_bytes += size * std::mem::size_of::<f32>();
+        }
+
+        buffer.unwrap_or_else(|| vec![0.0; size])
+    }
+
+    /// Return buffer to pool for reuse
+    #[wasm_bindgen]
+    pub fn return_buffer(&mut self, buffer: Vec<f32>) {
+        let size = buffer.len();
+
+        if size < 256 && self.small_buffers.len() < self.max_pool_size / 3 {
+            self.small_buffers.push_back(buffer);
+        } else if size <= 262144 && self.medium_buffers.len() < self.max_pool_size / 3 {
+            self.medium_buffers.push_back(buffer);
+        } else if self.large_buffers.len() < self.max_pool_size / 3 {
+            self.large_buffers.push_back(buffer);
+        }
+    }
+
+    /// Get memory pool statistics
+    #[wasm_bindgen]
+    pub fn get_stats(&self) -> js_sys::Object {
+        let stats = js_sys::Object::new();
+        js_sys::Reflect::set(
+            &stats,
+            &"total_allocations".into(),
+            &self.total_allocations.into(),
+        )
+        .ok();
+        js_sys::Reflect::set(&stats, &"cache_hits".into(), &self.cache_hits.into()).ok();
+        js_sys::Reflect::set(
+            &stats,
+            &"memory_saved_mb".into(),
+            &((self.memory_saved_bytes / 1024 / 1024) as f64).into(),
+        )
+        .ok();
+        js_sys::Reflect::set(
+            &stats,
+            &"cache_hit_rate".into(),
+            &((self.cache_hits as f64 / self.total_allocations as f64) * 100.0).into(),
+        )
+        .ok();
+        stats
+    }
+
+    fn get_from_pool(&mut self, pool: &mut VecDeque<Vec<f32>>, size: usize) -> Option<Vec<f32>> {
+        if let Some(mut buffer) = pool.pop_front() {
+            buffer.resize(size, 0.0);
+            Some(buffer)
+        } else {
+            None
         }
     }
 
     /// Allocate memory block
     #[wasm_bindgen]
     pub fn allocate(&mut self, size: usize) -> Option<usize> {
-        // Simple allocation strategy - find first available slot
-        for (i, buffer) in self.pool.iter().enumerate() {
-            if !*self.allocated.get(&i).unwrap_or(&true) && buffer.len() >= size {
-                self.allocated.insert(i, true);
-                return Some(i);
+        // Simple allocation strategy based on size categories
+        let buffer = if size < 256 {
+            self.small_buffers.pop_front()
+        } else if size < 262144 {
+            self.medium_buffers.pop_front()
+        } else {
+            self.large_buffers.pop_front()
+        };
+
+        if let Some(mut buf) = buffer {
+            if buf.len() < size {
+                buf.resize(size, 0.0);
             }
+            self.cache_hits += 1;
+            return Some(0); // Simplified - return buffer index 0
         }
 
-        // No suitable slot found, create new if within capacity
-        if self.get_total_allocated() + size <= self.total_size {
+        // No suitable slot found, create new if within pool capacity
+        if self.get_total_allocated() + size <= self.max_pool_size * 1024 * 1024 {
             let buffer = vec![0.0f32; size];
             let index = self.pool.len();
             self.pool.push(buffer);
@@ -79,7 +184,8 @@ impl WasmTensorPool {
         let stats = js_sys::Object::new();
 
         let total_allocated = self.get_total_allocated();
-        let usage_percent = (total_allocated as f64 / self.total_size as f64) * 100.0;
+        let max_size = self.max_pool_size * 1024 * 1024;
+        let usage_percent = (total_allocated as f64 / max_size as f64) * 100.0;
 
         js_sys::Reflect::set(
             &stats,
@@ -91,7 +197,7 @@ impl WasmTensorPool {
         js_sys::Reflect::set(
             &stats,
             &"totalCapacity".into(),
-            &(self.total_size as u32).into(),
+            &((self.max_pool_size * 1024 * 1024) as u32).into(),
         )
         .unwrap();
 

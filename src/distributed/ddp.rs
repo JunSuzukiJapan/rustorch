@@ -7,13 +7,15 @@
 //! このモジュールは、複数デバイス間での効率的な分散学習のための
 //! PyTorch互換DistributedDataParallel機能を提供します。
 
-use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
-use crate::nn::Module;
+use super::{
+    api, DistributedDataParallelTrait, DistributedOps, DistributedScalar, ProcessGroup, ReduceOp,
+};
 use crate::autograd::Variable;
-use std::sync::{Arc, Mutex};
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::nn::Module;
+use crate::tensor::Tensor;
 use std::collections::HashMap;
-use super::{ProcessGroup, ReduceOp, DistributedOps, api, DistributedScalar, DistributedDataParallelTrait};
+use std::sync::{Arc, Mutex};
 
 /// DistributedDataParallel wrapper for PyTorch compatibility
 /// PyTorch互換性のためのDistributedDataParallelラッパー
@@ -78,9 +80,7 @@ struct GradientBucket<T: DistributedScalar> {
     size_bytes: usize,
 }
 
-impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> 
-    DistributedDataParallel<T, M> 
-{
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> DistributedDataParallel<T, M> {
     /// Create a new DistributedDataParallel wrapper
     /// 新しいDistributedDataParallelラッパーを作成
     pub fn new(
@@ -155,10 +155,10 @@ impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static>
     /// 全プロセス間での勾配同期
     pub fn sync_gradients(&self) -> RusTorchResult<()> {
         let module = self.module.lock().unwrap();
-        
+
         // Get all parameters with gradients
         let parameters = module.parameters();
-        
+
         for param in parameters {
             let grad_lock = param.grad();
             let mut grad_guard = grad_lock.write().unwrap();
@@ -190,11 +190,12 @@ impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static>
     }
 }
 
-impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> Module<T> 
-    for DistributedDataParallel<T, M> 
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> Module<T>
+    for DistributedDataParallel<T, M>
 {
     fn forward(&self, input: &Variable<T>) -> Variable<T> {
-        self.forward(input).unwrap_or_else(|_| Variable::new(Tensor::zeros(&[1]), false))
+        self.forward(input)
+            .unwrap_or_else(|_| Variable::new(Tensor::zeros(&[1]), false))
     }
 
     fn parameters(&self) -> Vec<Variable<T>> {
@@ -205,24 +206,24 @@ impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> Module<T>
     fn eval(&mut self) {
         // Module evaluation mode - no specific action needed for DDP wrapper
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
 }
 
 // Implement the shared DDP trait
-impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> DistributedDataParallelTrait<T> 
+impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> DistributedDataParallelTrait<T>
     for DistributedDataParallel<T, M>
 {
     fn device_ids(&self) -> &[usize] {
         &self.device_ids
     }
-    
+
     fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         self.forward(input)
     }
-    
+
     fn sync_gradients(&self) -> RusTorchResult<()> {
         self.sync_gradients()
     }
@@ -233,7 +234,7 @@ impl<T: DistributedScalar> GradientState<T> {
     /// 効率的な通信のための勾配バケット作成
     fn create_buckets(&mut self, bucket_size_mb: usize) -> RusTorchResult<()> {
         let bucket_size_bytes = bucket_size_mb * 1024 * 1024;
-        
+
         // Group parameters into buckets based on size
         // サイズに基づいてパラメータをバケットにグループ化
         let mut current_bucket = GradientBucket {
@@ -245,8 +246,10 @@ impl<T: DistributedScalar> GradientState<T> {
         for param_name in self.accumulated_grads.keys() {
             if let Some(grad) = self.accumulated_grads.get(param_name) {
                 let grad_size = grad.numel() * std::mem::size_of::<T>();
-                
-                if current_bucket.size_bytes + grad_size > bucket_size_bytes && !current_bucket.parameters.is_empty() {
+
+                if current_bucket.size_bytes + grad_size > bucket_size_bytes
+                    && !current_bucket.parameters.is_empty()
+                {
                     self.buckets.push(current_bucket.clone());
                     current_bucket = GradientBucket {
                         parameters: Vec::new(),
@@ -275,9 +278,7 @@ pub fn wrap_module<T: DistributedScalar, M: Module<T> + Send + Sync + 'static>(
     device_ids: Option<Vec<usize>>,
 ) -> RusTorchResult<DistributedDataParallel<T, M>> {
     DistributedDataParallel::new(
-        module,
-        device_ids,
-        None, // output_device
+        module, device_ids, None, // output_device
         None, // dim
         true, // broadcast_buffers
         None, // process_group
@@ -292,7 +293,7 @@ pub fn wrap_module<T: DistributedScalar, M: Module<T> + Send + Sync + 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::nn::{Linear};
+    use crate::nn::Linear;
 
     #[test]
     fn test_ddp_creation() {
@@ -300,15 +301,23 @@ mod tests {
         // このテストは分散初期化が必要
         let linear: Linear<f32> = Linear::new(10, 5);
         let device_ids = vec![0];
-        
+
         // Note: This would fail without proper distributed initialization
         // 注意：適切な分散初期化なしでは失敗する
         let ddp_result = DistributedDataParallel::new(
             linear,
             Some(device_ids),
-            None, None, true, None, None, None, None, None, None,
+            None,
+            None,
+            true,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
         );
-        
+
         // Test should fail because distributed not initialized
         assert!(ddp_result.is_err());
     }

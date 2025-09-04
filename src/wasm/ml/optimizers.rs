@@ -7,6 +7,80 @@ use wasm_bindgen::prelude::*;
 
 // WASM-compatible optimizer implementations / WASM互換最適化実装
 
+/// Legacy WASM SGD optimizer (f32 interface for compatibility)
+/// 互換性のための従来のWASM SGDオプティマイザ（f32インタフェース）
+#[wasm_bindgen]
+pub struct WasmSGD {
+    learning_rate: f32,
+    momentum: f32,
+    weight_decay: f32,
+    nesterov: bool,
+    momentum_buffers: HashMap<String, Vec<f32>>,
+}
+
+#[wasm_bindgen]
+impl WasmSGD {
+    /// Create new SGD optimizer
+    #[wasm_bindgen(constructor)]
+    pub fn new(learning_rate: f32) -> Self {
+        Self {
+            learning_rate,
+            momentum: 0.0,
+            weight_decay: 0.0,
+            nesterov: false,
+            momentum_buffers: HashMap::new(),
+        }
+    }
+
+    /// Create SGD with momentum
+    #[wasm_bindgen]
+    pub fn with_momentum(learning_rate: f32, momentum: f32) -> WasmSGD {
+        Self {
+            learning_rate,
+            momentum,
+            weight_decay: 0.0,
+            nesterov: false,
+            momentum_buffers: HashMap::new(),
+        }
+    }
+
+    /// Update parameters - legacy f32 interface
+    #[wasm_bindgen]
+    pub fn step(&mut self, param_id: &str, parameters: Vec<f32>, gradients: Vec<f32>) -> Vec<f32> {
+        if parameters.len() != gradients.len() {
+            return parameters; // Return original params on error
+        }
+
+        // Convert to f64 for enhanced optimizer
+        let params_f64: Vec<f64> = parameters.iter().map(|&x| x as f64).collect();
+        let grads_f64: Vec<f64> = gradients.iter().map(|&x| x as f64).collect();
+
+        // Use enhanced SGD implementation (would need to be implemented)
+        // For now, use simple SGD logic
+        let mut updated_params = params_f64;
+        for (i, grad) in grads_f64.iter().enumerate() {
+            updated_params[i] -= self.learning_rate as f64 * grad;
+        }
+
+        // Convert back to f32
+        updated_params.iter().map(|&x| x as f32).collect()
+    }
+
+    /// Get learning rate
+    #[wasm_bindgen]
+    pub fn get_learning_rate(&self) -> f32 {
+        self.learning_rate
+    }
+
+    /// Set learning rate
+    #[wasm_bindgen]
+    pub fn set_learning_rate(&mut self, lr: f32) {
+        self.learning_rate = lr;
+    }
+}
+
+/// Enhanced SGD optimizer with f64 precision
+/// f64精度を持つ強化SGDオプティマイザ
 #[wasm_bindgen]
 pub struct SGDWasm {
     learning_rate: f64,

@@ -1,5 +1,8 @@
 # WASM Testing Documentation
 
+> 📋 **API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)  
+> 🔧 **Setup Guide**: [WASM Guide](WASM_GUIDE.md)
+
 ## Overview
 
 The RusTorch WASM modules include comprehensive testing that validates cross-module integration, performance characteristics, and API correctness. The testing system uses a trait-based approach that ensures all modules behave consistently.

@@ -1,8 +1,8 @@
 //! Hardware-specific optimizations for quantized operations
 //! 量子化演算のハードウェア固有最適化
 
+use super::types::{QuantizableInteger, QuantizedTensor};
 use crate::error::RusTorchResult;
-use super::types::{QuantizedTensor, QuantizableInteger};
 
 /// Hardware-specific quantized operations
 /// ハードウェア固有量子化演算
@@ -32,7 +32,7 @@ impl OptimizedOps {
                 return cuda::qmatmul_cuda(a, b);
             }
         }
-        
+
         // Metal support disabled for now
         // #[cfg(target_os = "macos")]
         // {
@@ -40,11 +40,11 @@ impl OptimizedOps {
         //         return metal::qmatmul_metal(a, b);
         //     }
         // }
-        
+
         // Default to CPU implementation
         cpu::qmatmul_cpu(a, b)
     }
-    
+
     /// Optimized quantized convolution
     /// 最適化量子化畳み込み
     pub fn qconv2d<Q: QuantizableInteger>(
@@ -60,7 +60,7 @@ impl OptimizedOps {
                 return cuda::qconv2d_cuda(input, weight, bias, stride, padding);
             }
         }
-        
+
         // Metal support disabled for now
         // #[cfg(target_os = "macos")]
         // {
@@ -68,7 +68,7 @@ impl OptimizedOps {
         //         return metal::qconv2d_metal(input, weight, bias, stride, padding);
         //     }
         // }
-        
+
         cpu::qconv2d_cpu(input, weight, bias, stride, padding)
     }
 }

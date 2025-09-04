@@ -8,6 +8,7 @@
 #![allow(clippy::for_kv_map)]
 #![allow(clippy::ptr_arg)]
 #![allow(clippy::needless_return)]
+#![recursion_limit = "256"]
 #![allow(clippy::field_reassign_with_default)]
 #![allow(clippy::should_implement_trait)]
 #![allow(clippy::useless_format)]
@@ -363,6 +364,10 @@ pub mod optimization;
 /// モデル圧縮・高速化のための量子化サポート（フェーズ11）
 pub mod quantization;
 
+/// Sparse tensor support and operations (Phase 12)
+/// スパーステンソルサポートと演算（フェーズ12）
+pub mod sparse;
+
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
 #[cfg(feature = "wasm")]
@@ -405,10 +410,14 @@ pub mod prelude {
     };
     pub use crate::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
     pub use crate::quantization::{
-        QuantizedTensor, QuantizationType, QuantizationScheme, TensorQuantization,
-        StaticQuantizer, MinMaxObserver, HistogramObserver,
-        QATLinear, QATConv2d, FakeQuantize, QATModule,
+        FakeQuantize, HistogramObserver, MinMaxObserver, QATConv2d, QATLinear, QATModule,
+        QuantizationScheme, QuantizationType, QuantizedTensor, StaticQuantizer, TensorQuantization,
     };
+    pub use crate::sparse::pruning::{ModelPruner, PruningConfig, PruningStrategy};
+    pub use crate::sparse::sparse_layers::{
+        SparseAttention, SparseConv2d, SparseEmbedding, SparseLinear,
+    };
+    pub use crate::sparse::{SparseFormat, SparseOps, SparseTensor};
     pub use crate::special::SpecialFunctions;
     pub use crate::special::{bessel_i, bessel_j, bessel_k, bessel_y};
     pub use crate::special::{beta, digamma, gamma, lbeta, lgamma};

@@ -3,7 +3,7 @@
 
 // Re-export observers from calibration module for backward compatibility
 // 後方互換性のためにキャリブレーションモジュールから観測器を再エクスポート
-pub use super::calibration::{Observer, MinMaxObserver, HistogramObserver};
+pub use super::calibration::{HistogramObserver, MinMaxObserver, Observer};
 
 // This module serves as a focused interface for observers
 // while the actual implementations remain in the calibration module

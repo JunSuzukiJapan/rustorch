@@ -19,8 +19,9 @@ rustorch/
 ├── vision/              # Computer vision transforms
 ├── linalg/              # Linear algebra operations (BLAS/LAPACK)
 ├── gpu/                 # GPU acceleration (CUDA/Metal/OpenCL/WebGPU)
+├── sparse/              # Sparse tensor operations and pruning (Phase 12)
 ├── serialization/       # Model serialization and JIT compilation (Phase 9)
-└── wasm/                # WebAssembly bindings
+└── wasm/                # WebAssembly bindings (see [WASM API Documentation](WASM_API_DOCUMENTATION.md))
 ```
 
 ## 📊 Tensor Module
@@ -1329,84 +1330,35 @@ ModelIO::save_with_options(&model, "portable_model.bin", compat_options)?;
 
 ## 🌐 WebAssembly Support
 
-### WASM Bindings
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+
+For browser-based machine learning applications, RusTorch provides comprehensive WebAssembly bindings including:
+
+- **Core tensor operations** - WASM-optimized tensor arithmetic and manipulation
+- **Neural network layers** - Linear layers, activations, and model inference
+- **Browser integration** - Storage persistence, canvas rendering, performance monitoring
+- **WebGPU acceleration** - Chrome-optimized GPU acceleration for enhanced performance
+- **Advanced features** - Optimizers, data transforms, quality metrics, anomaly detection
+- **Memory management** - Efficient allocation, cleanup, and garbage collection
+- **Signal processing** - FFT operations and filtering for audio/signal data
+- **JavaScript interoperability** - Seamless data exchange with browser environments
+
+### Quick Start Example
 
 ```rust
 use rustorch::wasm::*;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-pub struct WasmTensor {
-    inner: Tensor<f32>,
-}
+// Create WASM tensor
+let data = vec![1.0, 2.0, 3.0, 4.0];
+let tensor = WasmTensor::new(data, vec![2, 2]);
 
-#[wasm_bindgen]
-impl WasmTensor {
-    #[wasm_bindgen(constructor)]
-    pub fn new(data: &[f32], shape: &[usize]) -> WasmTensor {
-        WasmTensor {
-            inner: Tensor::from_vec(data.to_vec(), shape.to_vec()),
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn add(&self, other: &WasmTensor) -> WasmTensor {
-        WasmTensor {
-            inner: self.inner.add(&other.inner),
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn to_array(&self) -> Vec<f32> {
-        self.inner.to_vec()
-    }
-}
-
-// Neural network for WASM
-#[wasm_bindgen]
-pub struct WasmModel {
-    model: Sequential<f32>,
-}
-
-#[wasm_bindgen]
-impl WasmModel {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> WasmModel {
-        let model = Sequential::<f32>::new()
-            .add_layer(Box::new(Linear::<f32>::new(2, 10)))
-            .add_activation(Box::new(ReLU::<f32>::new()))
-            .add_layer(Box::new(Linear::<f32>::new(10, 1)));
-        
-        WasmModel { model }
-    }
-
-    #[wasm_bindgen]
-    pub fn predict(&self, input: &[f32]) -> Vec<f32> {
-        let input_tensor = Tensor::from_vec(input.to_vec(), vec![1, input.len()]);
-        let output = self.model.forward(&input_tensor);
-        output.to_vec()
-    }
-}
+// Neural network inference
+let model = WasmModel::new();
+let predictions = model.predict(&input_data);
 ```
 
-### WebGPU Integration
-
-```rust
-use rustorch::gpu::webgpu::*;
-
-// WebGPU context
-let webgpu_context = WebGpuContext::new().await?;
-let device = webgpu_context.device();
-let queue = webgpu_context.queue();
-
-// WebGPU tensors
-let webgpu_tensor = WebGpuTensor::<f32>::new(&device, &[1024, 1024]);
-let result = webgpu_tensor.matmul(&other_webgpu_tensor).await?;
-
-// Shader-based operations
-let custom_shader = webgpu_context.create_compute_shader(shader_source)?;
-let result = custom_shader.execute(&[&input_tensor], &output_shape).await?;
-```
+**📚 For detailed WASM API documentation, examples, and browser integration guides, see:** [WASM API Documentation](WASM_API_DOCUMENTATION.md)
 
 ## 📊 FFT and Signal Processing
 
@@ -1753,7 +1705,7 @@ fn gpu_training() -> Result<()> {
 | `linalg` | Linear algebra operations | SVD, QR, eigenvalues, matrix decomposition, solving |
 | `gpu` | GPU acceleration | CUDA, Metal, OpenCL, WebGPU, memory management |
 | `fft` | Fourier transforms | FFT, RFFT, 2D FFT, N-dimensional FFT, window functions |
-| `wasm` | WebAssembly bindings | Browser support, JavaScript integration |
+| `wasm` | WebAssembly bindings | Browser support, JavaScript integration ([WASM docs](WASM_API_DOCUMENTATION.md)) |
 
 ### Feature Flags
 
@@ -1765,7 +1717,7 @@ fn gpu_training() -> Result<()> {
 | `metal` | Apple GPU acceleration | Metal framework (macOS) |
 | `opencl` | OpenCL GPU acceleration | OpenCL drivers |
 | `webgpu` | WebGPU browser acceleration | WebGPU API |
-| `wasm` | WebAssembly compilation | wasm-bindgen |
+| `wasm` | WebAssembly compilation | wasm-bindgen ([WASM API docs](WASM_API_DOCUMENTATION.md)) |
 | `model-hub` | Model downloading and caching | HTTP client, crypto |
 | `safetensors` | SafeTensors format support | Memory mapping |
 | `onnx` | ONNX model import/export | ONNX Runtime |
@@ -2406,12 +2358,295 @@ let result = tensor
 let result = shape_ops!(tensor, squeeze, unsqueeze(1), flatten).unwrap();
 ```
 
-### Backward Compatibility
+## 🔧 Sparse Tensor Module (Phase 12)
 
-All existing APIs remain fully functional. The new builder pattern and enhanced operations are additive features that don't break existing code.
+### Sparse Tensor Creation and Formats
+
+```rust
+use rustorch::sparse::{SparseTensor, SparseFormat};
+use ndarray::Array1;
+
+// COO (Coordinate) format creation
+let indices = vec![
+    Array1::from_vec(vec![0, 1, 2]),  // Row indices
+    Array1::from_vec(vec![1, 2, 0]),  // Column indices
+];
+let values = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+let shape = vec![3, 3];
+let sparse_tensor = SparseTensor::from_coo(indices, values, shape)?;
+
+// Convert between formats
+let csr_tensor = sparse_tensor.to_csr()?;     // COO → CSR
+let coo_tensor = csr_tensor.to_coo()?;        // CSR → COO
+let dense_tensor = sparse_tensor.to_dense()?; // Sparse → Dense
+
+// CSC format support (future implementation)
+// CSC format provides column-major compressed storage for column-wise operations
+let csc_format = SparseFormat::CSC;  // Available format type
+```
+
+### Sparse Operations
+
+```rust
+use rustorch::sparse::SparseOps;
+
+// Sparse matrix-vector multiplication
+let vector = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+let result = sparse_tensor.spmv(&vector)?;
+
+// Sparse matrix-matrix multiplication
+let matrix = Array2::from_shape_vec((3, 2), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0])?;
+let result = sparse_tensor.spmm(&matrix)?;
+
+// Sparse arithmetic operations
+let sum = sparse_a.sparse_add(&sparse_b)?;
+let product = sparse_a.sparse_mul(&sparse_b)?;
+let transposed = sparse_tensor.transpose()?;
+```
+
+### Sparse Neural Network Layers
+
+```rust
+use rustorch::sparse::sparse_layers::{SparseLinear, SparseConv2d, SparseEmbedding};
+use rustorch::sparse::pruning::PruningConfig;
+
+// Sparse linear layer
+let sparse_linear = SparseLinear::new(
+    input_size: 784,
+    output_size: 10,
+    sparsity: 0.9,      // 90% sparsity
+    Some(PruningConfig::magnitude(0.1))
+)?;
+
+// Sparse convolution layer
+let sparse_conv = SparseConv2d::new(
+    in_channels: 3,
+    out_channels: 64,
+    kernel_size: (3, 3),
+    sparsity: 0.8,
+    Some(PruningConfig::structured(0.5))
+)?;
+
+// Sparse embedding layer
+let sparse_embedding = SparseEmbedding::new(
+    num_embeddings: 10000,
+    embedding_dim: 256,
+    sparsity: 0.95
+)?;
+```
+
+### Model Pruning Algorithms
+
+```rust
+use rustorch::sparse::pruning::{ModelPruner, PruningAlgorithm, PruningSchedule};
+
+// Magnitude-based pruning
+let magnitude_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Magnitude,
+    sparsity_ratio: 0.8,
+    schedule: PruningSchedule::Gradual { steps: 1000 },
+});
+
+// Structured pruning
+let structured_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Structured,
+    sparsity_ratio: 0.5,
+    schedule: PruningSchedule::OneShot,
+});
+
+// Fisher information pruning
+let fisher_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Fisher,
+    sparsity_ratio: 0.9,
+    schedule: PruningSchedule::Gradual { steps: 500 },
+});
+
+// Apply pruning to model
+let pruned_weights = magnitude_pruner.prune_weights(&weights)?;
+let mask = magnitude_pruner.create_mask(&weights)?;
+```
+
+### GPU-Accelerated Sparse Operations
+
+```rust
+use rustorch::sparse::gpu_ops::{CudaSparseOps, MetalSparseOps, SparseBatchProcessor};
+
+// CUDA acceleration (if available)
+#[cfg(feature = "cuda")]
+{
+    let cuda_ops = CudaSparseOps::init()?;
+    let result = cuda_ops.spmv(&sparse_matrix, &vector)?;
+    let batch_result = cuda_ops.sparse_add(&sparse_a, &sparse_b)?;
+}
+
+// Metal acceleration for Apple Silicon
+#[cfg(feature = "metal")]
+{
+    let metal_ops = MetalSparseOps::new()?;
+    let result = metal_ops.spmv(&sparse_matrix, &vector)?;
+}
+
+// Batch processing for efficiency
+let mut batch_processor = SparseBatchProcessor::new(max_batch_size: 32);
+batch_processor.add_to_batch(sparse_tensor1)?;
+batch_processor.add_to_batch(sparse_tensor2)?;
+let results = batch_processor.process_batch()?;
+```
+
+### Sparse Utilities and Analysis
+
+```rust
+use rustorch::sparse::utils::{SparseAnalyzer, SparseValidator, SparseConverter};
+
+// Analyze sparse tensor patterns
+let analyzer = SparseAnalyzer::new();
+let sparsity_ratio = analyzer.sparsity_ratio(&sparse_tensor);
+let pattern_analysis = analyzer.analyze_pattern(&sparse_tensor)?;
+let hotspots = analyzer.identify_hotspots(&sparse_tensor, threshold: 0.1)?;
+
+// Validate sparse tensor integrity
+let validator = SparseValidator::new();
+let is_valid = validator.validate_coo(&sparse_tensor)?;
+let integrity_check = validator.check_integrity(&sparse_tensor)?;
+
+// Convert and optimize formats
+let converter = SparseConverter::new();
+let optimized = converter.optimize_for_operations(&sparse_tensor, operation_type)?;
+let converted = converter.convert_with_validation(&sparse_tensor, SparseFormat::CSR)?;
+
+// Batch format conversion for multiple tensors
+let tensors = vec![tensor1, tensor2, tensor3];
+let converted_tensors = converter.batch_convert(tensors, SparseFormat::CSR)?;
+```
+
+### Advanced Sparse Layers
+
+```rust
+use rustorch::sparse::sparse_layers::{SparseAttention, SparseTransformerBlock};
+
+// Sparse attention mechanism
+let mut sparse_attention = SparseAttention::new(
+    embed_dim: 512,
+    num_heads: 8, 
+    dropout: 0.1
+);
+
+// Set attention sparsity pattern
+let attention_mask = SparseTensor::from_coo(/* attention pattern */);
+sparse_attention.set_attention_mask(attention_mask)?;
+
+// Forward pass with sparse attention
+let output = sparse_attention.forward(&query, &key, &value)?;
+let (avg_sparsity, active_heads) = sparse_attention.attention_stats().unwrap();
+
+// Complete sparse transformer block
+let transformer_block = SparseTransformerBlock::new(
+    embed_dim: 512,
+    num_heads: 8,
+    ff_dim: 2048,
+    dropout: 0.1,
+    attention_sparsity: 0.9,
+    ff_sparsity: 0.8
+);
+
+let output = transformer_block.forward(&input)?;
+let sparsity_report = transformer_block.sparsity_report();
+```
+
+### Pruning Schedules and Advanced Algorithms
+
+```rust
+use rustorch::sparse::pruning::{PruningSchedule, StructuredPruner, FisherPruner, StructuredGranularity};
+
+// Gradual pruning schedule
+let mut schedule = PruningSchedule::new(
+    initial_sparsity: 0.1,
+    final_sparsity: 0.9,
+    num_steps: 1000
+);
+
+// Schedule management
+for epoch in 0..100 {
+    let current_sparsity = schedule.current_sparsity();
+    // Apply pruning with current sparsity
+    schedule.step();
+}
+
+// Structured pruning with different granularities
+let channel_pruner = StructuredPruner::new(StructuredGranularity::Channel, ratio: 0.5);
+let filter_pruner = StructuredPruner::new(StructuredGranularity::Filter, ratio: 0.3);
+let block_pruner = StructuredPruner::new(StructuredGranularity::Block(4), ratio: 0.7);
+
+let pruned_weights = channel_pruner.prune_linear_weights(&weights)?;
+
+// Fisher information pruning
+let mut fisher_pruner = FisherPruner::new();
+fisher_pruner.update_fisher("layer1.weight", &gradients);
+let fisher_pruned = fisher_pruner.prune_with_fisher("layer1.weight", sparsity: 0.8)?;
+```
+
+### Sparse I/O and Serialization
+
+```rust
+use rustorch::sparse::utils::SparseIO;
+
+// Save sparse tensor to binary format
+SparseIO::save_binary(&sparse_tensor, "model_weights.sparse")?;
+
+// Load sparse tensor from binary format
+let loaded_tensor: SparseTensor<f32> = SparseIO::load_binary("model_weights.sparse")?;
+
+// Efficient storage for large sparse models
+let memory_saved = original_size - loaded_tensor.memory_usage();
+```
+
+### Sparse Pattern Analysis and Optimization
+
+```rust
+use rustorch::sparse::utils::{SparseAnalyzer, AccessPattern};
+
+// Advanced pattern analysis
+let analyzer = SparseAnalyzer::new();
+let pattern_analysis = analyzer.analyze_pattern(&sparse_tensor);
+
+// Access pattern optimization
+let optimal_format = analyzer.suggest_optimal_format(&sparse_tensor, AccessPattern::RandomAccess);
+let recommendations = pattern_analysis.optimization_recommendations();
+
+// Performance analysis report
+println!("{}", pattern_analysis.report());
+
+// Check for optimization opportunities
+if pattern_analysis.clustering_coefficient > 0.8 {
+    println!("High clustering detected - consider block sparse format");
+}
+```
+
+### Performance Benchmarking
+
+```rust
+use rustorch::sparse::utils::SparseBenchmark;
+
+// Comprehensive benchmarking
+let mut benchmark = SparseBenchmark::new();
+benchmark.benchmark_spmv(&sparse_tensor, &vector, iterations: 1000)?;
+
+// Compare sparse vs dense performance
+let comparison = benchmark.compare_with_dense(&sparse_tensor, &dense_tensor)?;
+println!("Speedup: {:.2}x", comparison.speedup_factor);
+
+// Detailed performance report
+println!("{}", benchmark.report());
+```
+
+## 🌐 WebAssembly (WASM) Module
+
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+
+The WASM module provides comprehensive browser-based machine learning capabilities. For detailed API reference, examples, and integration guides, see the dedicated [WASM API Documentation](WASM_API_DOCUMENTATION.md).
 
 For complete documentation and examples, visit the [examples directory](../examples/) or generate local docs:
 
 ```bash
-cargo doc --open --no-deps --features "linalg,cuda,metal"
+cargo doc --open --no-deps --features "linalg,cuda,metal,wasm,webgpu"
 ```

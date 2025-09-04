@@ -376,7 +376,7 @@ impl WasmSignal {
     /// ホワイトノイズを生成
     #[wasm_bindgen]
     pub fn generate_white_noise(num_samples: usize, amplitude: f32, seed: u32) -> Vec<f32> {
-        let mut rng = super::distributions::WasmRng::new(seed);
+        let mut rng = crate::wasm::data::distributions::WasmRng::new(seed);
         let mut signal = Vec::with_capacity(num_samples);
 
         for _ in 0..num_samples {
