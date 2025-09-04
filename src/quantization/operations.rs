@@ -493,7 +493,7 @@ pub fn qconv1d<Q: QuantizableInteger>(
     let output_length = (input_length + 2 * padding - kernel_size) / stride + 1;
 
     // For now, return a placeholder implementation
-    // TODO: Implement full quantized convolution
+    // Note: full quantized convolution not implemented in current version
     let result_scale = input.scale * weight.scale;
     let result_shape = vec![batch_size, out_channels, output_length];
     let result_data = ArrayD::zeros(result_shape);

@@ -258,7 +258,7 @@ mod tests {
 
         // TensorVisualizer
         let visualizer = TensorVisualizer::new();
-        assert_eq!(visualizer.config.colormap, ColorMap::Viridis);
+        assert_eq!(visualizer.config().colormap, ColorMap::Viridis);
 
         // GraphVisualizer
         let graph_viz = GraphVisualizer::new();

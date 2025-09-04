@@ -99,7 +99,16 @@
       "Bash(./start_jupyter_webgpu.sh:*)",
       "Bash(evcxr_jupyter:*)",
       "Read(/Users/suzukijun/.config/**)",
-      "Bash(./quick_start_rust_kernel.sh:*)"
+      "Bash(./quick_start_rust_kernel.sh:*)",
+      "mcp__serena__activate_project",
+      "mcp__serena__check_onboarding_performed",
+      "Bash(timeout 30 cargo test --lib --no-default-features nn -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --no-default-features optim -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --no-default-features gpu -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --no-default-features vision:: data:: distributed:: -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --no-default-features training:: validation:: utils:: -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --no-default-features vision data distributed training validation utils -- --test-threads=1)",
+      "Bash(timeout 30 cargo test --lib --features metal gpu -- --test-threads=1)"
     ],
     "deny": [],
     "ask": [],

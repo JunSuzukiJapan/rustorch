@@ -29,7 +29,7 @@ pub struct GpuConvolutionExecutor<T: Float + FromPrimitive + ScalarOperand + 'st
     _phantom: std::marker::PhantomData<T>,
 }
 
-// TODO: Fix struct resolution issue
+// Note: struct resolution issue not fixed in current version
 /*
 impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuConvolutionExecutor<T> {
     /// Create new GPU convolution executor

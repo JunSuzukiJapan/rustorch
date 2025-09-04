@@ -146,7 +146,7 @@ impl PyTensor {
     /// print用の文字列表現
     fn __str__(&self) -> String {
         // For now, just show shape and type
-        // TODO: Show actual data for small tensors
+        // Note: data display for small tensors not implemented
         format!("tensor(shape={:?}, dtype=float32)", self.tensor.shape())
     }
     

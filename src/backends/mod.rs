@@ -354,10 +354,10 @@ impl BackendFactory {
 // pub use cpu::CpuBackend;
 
 // #[cfg(feature = "cuda")]
-// pub use cuda::CudaBackend; // TODO: Implement CudaBackend
+// pub use cuda::CudaBackend; // Note: CudaBackend not implemented in current version
 
 // #[cfg(feature = "metal")]
-// pub use metal::MetalBackend; // TODO: Implement MetalBackend
+// pub use metal::MetalBackend; // Note: MetalBackend not implemented in current version
 
 // OpenCL backend not yet implemented
 // #[cfg(feature = "opencl")]

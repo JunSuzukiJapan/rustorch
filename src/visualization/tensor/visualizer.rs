@@ -32,6 +32,12 @@ impl TensorVisualizer {
         Self { config }
     }
 
+    /// Get the current configuration
+    /// 現在の設定を取得
+    pub fn config(&self) -> &TensorPlotConfig {
+        &self.config
+    }
+
     /// Plot tensor as heatmap
     /// テンソルをヒートマップとしてプロット
     pub fn plot_heatmap<T>(&self, tensor: &Tensor<T>) -> RusTorchResult<String>

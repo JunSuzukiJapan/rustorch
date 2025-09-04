@@ -2105,12 +2105,9 @@ let new_attention = MultiheadAttention::<f32>::new(
 All Phase 3-5 APIs remain fully functional with deprecation warnings guiding users to modern alternatives:
 
 ```rust
-// Legacy data API (still works, but deprecated)
-#[allow(deprecated)]
-use rustorch::data::LegacyDataset;
-
-// Modern Phase 5 API (recommended)
+// Phase 5 Dataset API (standard as of v0.6.0)
 use rustorch::data::Dataset;
+use rustorch::data::DataLoader;
 ```
 
 ### Phase 2: Advanced Optimization Framework (COMPLETED)

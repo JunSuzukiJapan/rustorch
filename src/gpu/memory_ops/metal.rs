@@ -197,7 +197,7 @@ impl MetalOperations {
         T: Float + 'static,
     {
         // For now, fall back to CPU implementation
-        // TODO: Implement actual Metal compute shader for attention
+        // Note: actual Metal compute shader for attention not implemented in current version
         let query_cpu: Vec<T> =
             Self::transfer_to_cpu(query, &[query.length() as usize / std::mem::size_of::<T>()])?;
         let key_cpu: Vec<T> =

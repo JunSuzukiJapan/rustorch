@@ -243,7 +243,7 @@ where
 
         // Return output and optionally attention weights
         if _need_weights {
-            // TODO: Implement attention weights extraction
+            // Note: attention weights extraction not implemented in current version
             (output, None)
         } else {
             (output, None)
@@ -642,7 +642,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // TODO: Fix 3D tensor matrix multiplication in linear layer
+    #[ignore] // Note: 3D tensor matrix multiplication in linear layer not fixed in current version
     fn test_attention_forward_shape() {
         let mha =
             MultiheadAttention::<f32>::new(64, 4, Some(0.0), Some(true), None, None, Some(false));

@@ -10,6 +10,12 @@
 
 RusTorch는 Rust의 안전성과 성능을 활용하여 포괄적인 텐서 연산, 자동 미분, 신경망 레이어, 트랜스포머 아키텍처, 멀티백엔드 GPU 가속(CUDA/Metal/OpenCL), 고급 SIMD 최적화, 엔터프라이즈급 메모리 관리, 데이터 검증 및 품질 보증, 그리고 포괄적인 디버그 및 로깅 시스템을 제공하는 완전 기능적 딥러닝 라이브러리입니다.
 
+## 📚 문서
+
+- **[완전한 API 참조](API_DOCUMENTATION.md)** - 모든 모듈에 대한 포괄적인 API 문서
+- **[WASM API 참조](WASM_API_DOCUMENTATION.md)** - WebAssembly 전용 API 문서
+- **[Jupyter 가이드](jupyter-guide.md)** - Jupyter Notebook 사용 방법
+
 ## ✨ 특징
 
 - 🔥 **포괄적 텐서 연산**: 수학 연산, 브로드캐스팅, 인덱싱 및 통계, Phase 8 고급 유틸리티

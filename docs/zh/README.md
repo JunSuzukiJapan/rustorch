@@ -10,6 +10,12 @@
 
 RusTorch是一个功能完整的深度学习库，利用Rust的安全性和性能，提供全面的张量运算、自动微分、神经网络层、Transformer架构、多后端GPU加速（CUDA/Metal/OpenCL）、高级SIMD优化、企业级内存管理、数据验证和质量保证，以及全面的调试和日志系统。
 
+## 📚 文档
+
+- **[完整API参考](API_DOCUMENTATION.md)** - 所有模块的全面API文档
+- **[WASM API参考](WASM_API_DOCUMENTATION.md)** - WebAssembly专用API文档
+- **[Jupyter指南](jupyter-guide.md)** - Jupyter Notebook使用说明
+
 ## ✨ 特性
 
 - 🔥 **全面张量运算**：数学运算、广播、索引和统计，Phase 8 高级工具

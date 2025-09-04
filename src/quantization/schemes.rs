@@ -354,7 +354,7 @@ impl CalibrationMethod {
             CalibrationMethod::Entropy { num_bins: _ } => {
                 // Simplified entropy method - use min/max for now
                 // 簡略化されたエントロピー手法 - 現在は最小/最大を使用
-                // TODO: Implement full entropy-based calibration
+                // Note: full entropy-based calibration not implemented in current version
                 self.compute_range(data)
             }
         }

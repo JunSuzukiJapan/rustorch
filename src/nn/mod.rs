@@ -160,13 +160,6 @@ pub use activation::{geglu, glu, reglu, swiglu, ReLU, Softmax, Tanh, GELU, GLU};
 /// 適応的プーリングレイヤー
 /// Adaptive pooling layers
 pub use adaptive_pool::{AdaptiveAvgPool2d, AdaptiveMaxPool2d};
-/// Legacy attention for compatibility (deprecated)
-/// 互換性のためのレガシーアテンション（非推奨）
-#[deprecated(
-    since = "0.6.0",
-    note = "Use transformer_phase6::MultiheadAttention instead"
-)]
-pub use attention::MultiheadAttention as LegacyMultiheadAttention;
 /// Attention layers
 /// アテンション層
 pub use attention::{CrossAttention, SelfAttention};
@@ -233,14 +226,6 @@ pub use quantization::{
 pub use rnn::{RNNCell, RNN};
 /// Transformer layers
 /// Transformer層
-/// Legacy Transformer components (deprecated)
-/// レガシーTransformerコンポーネント（非推奨）
-#[deprecated(since = "0.6.0", note = "Use Phase 6 components instead")]
-pub use transformer::{
-    Transformer as LegacyTransformer, TransformerDecoderLayer as LegacyTransformerDecoderLayer,
-    TransformerEncoder as LegacyTransformerEncoder,
-    TransformerEncoderLayer as LegacyTransformerEncoderLayer,
-};
 
 /// Phase 6 Transformer components - Primary implementation (PyTorch compatible)
 /// フェーズ6 Transformerコンポーネント - 主要実装（PyTorch互換）

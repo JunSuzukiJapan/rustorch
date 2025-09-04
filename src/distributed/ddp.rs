@@ -115,7 +115,7 @@ impl<T: DistributedScalar, M: Module<T> + Send + Sync + 'static> DistributedData
             buckets: Vec::new(),
         }));
 
-        let _ = (dim, broadcast_buffers, check_reduction); // TODO: Implement these features
+        let _ = (dim, broadcast_buffers, check_reduction); // Note: advanced DDP features not implemented in current version
 
         Ok(Self {
             module: Arc::new(Mutex::new(module)),

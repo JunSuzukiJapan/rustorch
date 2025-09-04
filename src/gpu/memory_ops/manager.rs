@@ -217,18 +217,16 @@ impl<T: Float + 'static> GpuMemoryManager<T> {
         epsilon: T,
     ) -> RusTorchResult<GpuBuffer<T>> {
         use super::cpu_fallback::CpuFallback;
-        #[cfg(feature = "cuda")]
-        {
-            match tensor {
-                GpuBuffer::Cuda { data, .. } => CpuFallback::execute_batch_normalize(data, epsilon),
-                _ => Err(RusTorchError::gpu(
-                    "Unsupported buffer type for batch normalize",
-                )),
-            }
-        }
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(RusTorchError::gpu("CUDA feature not enabled"))
+        match tensor {
+            #[cfg(feature = "cuda")]
+            GpuBuffer::Cuda { data, .. } => CpuFallback::execute_batch_normalize(data, epsilon),
+
+            #[cfg(feature = "metal")]
+            GpuBuffer::Metal { .. } => Err(RusTorchError::gpu(
+                "Metal tensor conversion not implemented in fallback",
+            )),
+
+            GpuBuffer::Cpu(data) => CpuFallback::execute_batch_normalize(data, epsilon),
         }
     }
 

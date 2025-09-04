@@ -89,8 +89,8 @@ impl<T: Float + 'static> TensorDataset<T> {
         Ok(())
     }
 
-    /// Create tensor dataset from features and targets (legacy compatibility)
-    /// 特徴量とターゲットからテンソルデータセットを作成（レガシー互換性）
+    /// Create tensor dataset from features and targets
+    /// 特徴量とターゲットからテンソルデータセットを作成
     pub fn from_features_targets(
         features: Vec<Tensor<T>>,
         targets: Vec<Tensor<T>>,
@@ -199,65 +199,6 @@ impl<T: Float + Clone + 'static> Dataset<Vec<Tensor<T>>> for TensorDataset<T> {
         }
 
         Ok(result)
-    }
-}
-
-// Backward compatibility: implement legacy Dataset trait
-// 後方互換性：レガシーDatasetトレイトを実装
-#[allow(deprecated)]
-impl<T: Float + Clone + 'static> crate::data::LegacyDataset<T> for TensorDataset<T> {
-    fn len(&self) -> usize {
-        if self.tensors.is_empty() {
-            0
-        } else {
-            self.tensors[0].shape()[0]
-        }
-    }
-
-    fn get(&self, index: usize) -> Option<(crate::tensor::Tensor<T>, crate::tensor::Tensor<T>)> {
-        if index >= crate::data::LegacyDataset::len(self) {
-            return None;
-        }
-
-        // For backward compatibility, return the first two tensors as feature/target pair
-        if self.tensors.len() >= 2 {
-            let feature_shape = self.tensors[0].shape();
-            let target_shape = self.tensors[1].shape();
-
-            if feature_shape.len() > 0 && target_shape.len() > 0 {
-                let feature_elements: usize = feature_shape[1..].iter().product();
-                let target_elements: usize = target_shape[1..].iter().product();
-
-                let feature_start = index * feature_elements;
-                let target_start = index * target_elements;
-
-                if let (Some(feature_slice), Some(target_slice)) = (
-                    self.tensors[0].data.as_slice(),
-                    self.tensors[1].data.as_slice(),
-                ) {
-                    let feature_end = feature_start + feature_elements;
-                    let target_end = target_start + target_elements;
-
-                    if feature_end <= feature_slice.len() && target_end <= target_slice.len() {
-                        let feature_data = feature_slice[feature_start..feature_end].to_vec();
-                        let target_data = target_slice[target_start..target_end].to_vec();
-
-                        let feature_tensor = crate::tensor::Tensor::from_vec(
-                            feature_data,
-                            feature_shape[1..].to_vec(),
-                        );
-                        let target_tensor = crate::tensor::Tensor::from_vec(
-                            target_data,
-                            target_shape[1..].to_vec(),
-                        );
-
-                        return Some((feature_tensor, target_tensor));
-                    }
-                }
-            }
-        }
-
-        None
     }
 }
 

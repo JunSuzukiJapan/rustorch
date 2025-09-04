@@ -9,7 +9,8 @@ use crate::models::high_level::{HighLevelModel, FitConfig, TrainingHistory};
 use crate::nn::{Linear, Module};
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::data::{LegacyDataLoader, TensorDataset};
+use crate::data::{DataLoader, TensorDataset};
+use crate::data::sampler::{RandomSampler, SequentialSampler};
 use num_traits::Float;
 use std::fmt::Debug;
 use anyhow::Result;
@@ -138,8 +139,10 @@ where
     let val_data = create_dummy_dataset::<T>(200, 10)?;
 
     // 3. データローダー作成
-    let mut train_loader = DataLoader::new(train_data, 32);
-    let mut val_loader = DataLoader::new(val_data, 32);
+    let train_sampler = Box::new(RandomSampler::new(train_data.len()));
+    let mut train_loader = DataLoader::new(&train_data, train_sampler, 32);
+    let val_sampler = Box::new(SequentialSampler::new(val_data.len()));
+    let mut val_loader = DataLoader::new(&val_data, val_sampler, 32);
 
     // 4. モデルコンパイル（実際の実装では適切なオプティマイザーと損失関数を使用）
     // model.compile(
@@ -207,7 +210,8 @@ where
 
     // 3. バッチ予測の例
     let test_data = create_dummy_dataset::<T>(100, 5)?;
-    let mut test_loader = DataLoader::new(test_data, 10);
+    let test_sampler = Box::new(SequentialSampler::new(test_data.len()));
+    let mut test_loader = DataLoader::new(&test_data, test_sampler, 10);
 
     let predictions = model.predict_batch(&mut test_loader)?;
     println!("Batch prediction completed: {} batches", predictions.len());
@@ -299,7 +303,7 @@ where
 /// Helper function to create dummy dataset
 fn create_dummy_dataset<T>(size: usize, input_dim: usize) -> Result<TensorDataset<T>>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + From<f32>,
 {
     let mut input_tensors = Vec::new();
     let mut target_tensors = Vec::new();
@@ -307,26 +311,62 @@ where
     for i in 0..size {
         // ダミー入力データ
         let input_data: Vec<T> = (0..input_dim)
-            .map(|j| T::from((i + j) as f64 * 0.01).unwrap())
+            .map(|j| T::from((i + j) as f32 * 0.01))
             .collect();
         let input_tensor = Tensor::from_vec(input_data, vec![input_dim]);
         
         // ダミーターゲットデータ
-        let target_data: Vec<T> = vec![T::from(i as f64 * 0.1).unwrap()];
+        let target_data: Vec<T> = vec![T::from(i as f32 * 0.1)];
         let target_tensor = Tensor::from_vec(target_data, vec![1]);
         
         input_tensors.push(input_tensor);
         target_tensors.push(target_tensor);
     }
 
-    TensorDataset::new(input_tensors, target_tensors)
+    TensorDataset::from_features_targets(input_tensors, target_tensors)
+}
+
+/// Phase 5 Dataset API の使用例
+/// Phase 5 Dataset API usage example
+pub fn phase5_dataset_example<T>() -> Result<()>
+where
+    T: Float + Send + Sync + 'static + Debug + Clone + From<f32>,
+{
+    use crate::data::Dataset;
+    
+    println!("=== Phase 5 Dataset API Example ===");
+
+    // 1. Phase 5 Dataset を作成
+    let dataset = create_dummy_dataset::<T>(100, 5)?;
+    println!("Created dataset with {} samples", dataset.len());
+
+    // 2. Phase 5 DataLoader を作成
+    let sampler = Box::new(RandomSampler::new(dataset.len()));
+    let mut dataloader = DataLoader::new(&dataset, sampler, 10);
+    
+    println!("Created DataLoader with batch size: {}", dataloader.batch_size());
+
+    // 3. データをバッチで処理
+    let mut batch_count = 0;
+    while let Some(batch) = dataloader.next_batch() {
+        batch_count += 1;
+        println!("Processed batch {} with {} items", batch_count, batch.len());
+        
+        // 最初の5バッチまで処理
+        if batch_count >= 5 {
+            break;
+        }
+    }
+
+    println!("Phase 5 Dataset API example completed!");
+    Ok(())
 }
 
 /// 全ての例を実行
 /// Run all examples
 pub fn run_all_examples<T>() -> Result<()>
 where
-    T: Float + Send + Sync + 'static + Debug + Clone,
+    T: Float + Send + Sync + 'static + Debug + Clone + From<f32>,
 {
     println!("Running Sequential API Examples");
     println!("================================\n");
@@ -350,6 +390,9 @@ where
     println!();
 
     transfer_learning_example::<T>()?;
+    println!();
+
+    phase5_dataset_example::<T>()?;
     println!();
 
     println!("All examples completed successfully!");
@@ -399,6 +442,11 @@ mod tests {
     #[test]
     fn test_run_all_examples() {
         assert!(run_all_examples::<f32>().is_ok());
+    }
+
+    #[test]
+    fn test_phase5_dataset_example() {
+        assert!(phase5_dataset_example::<f32>().is_ok());
     }
 
     #[test]
