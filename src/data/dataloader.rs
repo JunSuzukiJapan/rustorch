@@ -12,7 +12,6 @@ use rayon::prelude::*;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
-
 /// Main DataLoader implementation using Phase 5 Dataset trait
 /// フェーズ5 Datasetトレイトを使用するメインDataLoader実装
 pub struct DataLoader<'a, T: Float, D: Dataset<T>> {

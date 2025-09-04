@@ -202,7 +202,6 @@ impl<T: Float + Clone + 'static> Dataset<Vec<Tensor<T>>> for TensorDataset<T> {
     }
 }
 
-
 /// Concatenated dataset implementation
 /// 連結データセット実装
 pub struct ConcatDataset<T> {

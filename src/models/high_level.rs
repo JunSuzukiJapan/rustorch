@@ -331,10 +331,7 @@ where
             if let Some(first_item) = batch.first() {
                 // Create a dummy prediction based on batch data
                 // In real implementation, this would process the entire batch
-                let dummy_input = Variable::new(
-                    crate::tensor::Tensor::zeros(&[1]), 
-                    false
-                );
+                let dummy_input = Variable::new(crate::tensor::Tensor::zeros(&[1]), false);
                 let prediction = self.predict(&dummy_input)?;
                 predictions.push(prediction);
             }

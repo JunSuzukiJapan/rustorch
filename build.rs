@@ -220,32 +220,72 @@ fn main() {
             "/usr/local/cuda/lib",
         ];
 
+        let mut cuda_found = false;
         let cuda_root = env::var("CUDA_ROOT")
             .or_else(|_| env::var("CUDA_PATH"))
             .or_else(|_| env::var("CUDA_HOME"));
 
         if let Ok(cuda_root) = cuda_root {
-            println!("cargo:rustc-link-search=native={cuda_root}/lib64");
-            println!("cargo:rustc-link-search=native={cuda_root}/lib");
+            let lib64_path = format!("{}/lib64", cuda_root);
+            let lib_path = format!("{}/lib", cuda_root);
+            if std::path::Path::new(&lib64_path).exists()
+                || std::path::Path::new(&lib_path).exists()
+            {
+                println!("cargo:rustc-link-search=native={cuda_root}/lib64");
+                println!("cargo:rustc-link-search=native={cuda_root}/lib");
+                cuda_found = true;
+            }
         } else {
             // Try common CUDA installation paths
             for path in &cuda_paths {
                 if std::path::Path::new(path).exists() {
                     println!("cargo:rustc-link-search=native={}", path);
+                    cuda_found = true;
                     break;
                 }
             }
         }
 
-        println!("cargo:rustc-link-lib=cudart");
-        println!("cargo:rustc-link-lib=cublas");
-        println!("cargo:rustc-link-lib=curand");
-        println!("cargo:rustc-link-lib=cusparse");
+        // Only link CUDA libraries if CUDA was found
+        if cuda_found {
+            println!("cargo:rustc-link-lib=cudart");
+            println!("cargo:rustc-link-lib=cublas");
+            println!("cargo:rustc-link-lib=curand");
+            println!("cargo:rustc-link-lib=cusparse");
+        } else {
+            println!("cargo:warning=CUDA feature enabled but CUDA libraries not found. CUDA functionality will be disabled at runtime.");
+        }
     }
 
     #[cfg(feature = "opencl")]
     {
-        println!("cargo:rustc-link-lib=OpenCL");
+        // Check if OpenCL is available before linking
+        let opencl_available = if cfg!(target_os = "macos") {
+            // On macOS, check if OpenCL framework exists
+            std::path::Path::new("/System/Library/Frameworks/OpenCL.framework").exists()
+        } else if cfg!(target_os = "linux") {
+            // On Linux, check for common OpenCL library locations
+            [
+                "/usr/lib/x86_64-linux-gnu/libOpenCL.so",
+                "/usr/lib/libOpenCL.so",
+                "/usr/local/lib/libOpenCL.so",
+                "/usr/lib64/libOpenCL.so",
+            ]
+            .iter()
+            .any(|path| std::path::Path::new(path).exists())
+        } else {
+            false
+        };
+
+        if opencl_available {
+            if cfg!(target_os = "macos") {
+                println!("cargo:rustc-link-lib=framework=OpenCL");
+            } else {
+                println!("cargo:rustc-link-lib=OpenCL");
+            }
+        } else {
+            println!("cargo:warning=OpenCL feature enabled but OpenCL libraries not found. OpenCL functionality will be disabled at runtime.");
+        }
     }
 
     // Metal framework is automatically linked on macOS

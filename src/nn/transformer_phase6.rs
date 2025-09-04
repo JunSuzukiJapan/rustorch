@@ -964,14 +964,12 @@ where
     fn apply_activation(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         match self.activation.as_str() {
             "relu" => {
-                // For now, return input as-is until ReLU activation is properly implemented
-                // TODO: Implement proper ReLU activation
-                Ok(input.clone())
+                // Apply ReLU activation function
+                Ok(crate::nn::activation::relu(&input))
             }
             "gelu" => {
-                // For now, return input as-is until GELU activation is properly implemented
-                // TODO: Implement proper GELU activation
-                Ok(input.clone())
+                // Apply GELU activation function
+                Ok(crate::nn::activation::gelu(&input))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "activation function '{}': Only 'relu' and 'gelu' are supported",
@@ -1203,14 +1201,12 @@ where
     fn apply_activation(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         match self.activation.as_str() {
             "relu" => {
-                // For now, return input as-is until ReLU activation is properly implemented
-                // TODO: Implement proper ReLU activation
-                Ok(input.clone())
+                // Apply ReLU activation function
+                Ok(crate::nn::activation::relu(&input))
             }
             "gelu" => {
-                // For now, return input as-is until GELU activation is properly implemented
-                // TODO: Implement proper GELU activation
-                Ok(input.clone())
+                // Apply GELU activation function
+                Ok(crate::nn::activation::gelu(&input))
             }
             _ => Err(RusTorchError::UnsupportedOperation(format!(
                 "activation function '{}': Only 'relu' and 'gelu' are supported",

@@ -47,7 +47,7 @@ pub fn init_process_group(
 
     // Set timeout if specified
     if let Some(_timeout) = timeout {
-        // TODO: Implement timeout configuration
+        // Note: timeout configuration not implemented in current version
     }
 
     process_group.init()?;
@@ -315,7 +315,7 @@ pub fn new_group(
     timeout: Option<Duration>,
     backend: Option<DistributedBackend>,
 ) -> RusTorchResult<Group> {
-    let _ = (timeout, backend); // TODO: Use these parameters
+    let _ = (timeout, backend); // Note: timeout and backend parameters not used in current version
     Group::new(ranks)
 }
 

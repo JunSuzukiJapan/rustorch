@@ -16,7 +16,7 @@ pub fn qmatmul_cuda<Q: QuantizableInteger>(
     #[cfg(feature = "cuda")]
     {
         // Use existing CUDA implementation for underlying computation
-        // TODO: Implement proper quantized CUDA kernels
+        // Note: proper quantized CUDA kernels not implemented in current version
         super::cpu::qmatmul_cpu(a, b)
     }
     #[cfg(not(feature = "cuda"))]
@@ -37,7 +37,7 @@ pub fn qconv2d_cuda<Q: QuantizableInteger>(
     #[cfg(feature = "cuda")]
     {
         // Use existing CUDA implementation for underlying computation
-        // TODO: Implement proper quantized CUDA convolution kernels
+        // Note: proper quantized CUDA convolution kernels not implemented in current version
         super::cpu::qconv2d_cpu(input, weight, bias, stride, padding)
     }
     #[cfg(not(feature = "cuda"))]

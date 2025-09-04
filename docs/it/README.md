@@ -10,6 +10,12 @@
 
 RusTorch è una libreria di deep learning completamente funzionale che sfrutta la sicurezza e le prestazioni di Rust, fornendo operazioni tensoriali complete, differenziazione automatica, strati di reti neurali, architetture transformer, accelerazione GPU multi-backend (CUDA/Metal/OpenCL), ottimizzazioni SIMD avanzate, gestione della memoria di livello enterprise, validazione dati e garanzia di qualità, e sistemi completi di debug e logging.
 
+## 📚 Documentazione
+
+- **[Riferimento API Completo](API_DOCUMENTATION.md)** - Documentazione API completa per tutti i moduli
+- **[Riferimento API WASM](WASM_API_DOCUMENTATION.md)** - Documentazione API specifica WebAssembly
+- **[Guida Jupyter](jupyter-guide.md)** - Istruzioni per l'uso dei Jupyter Notebook
+
 ## ✨ Funzionalità
 
 - 🔥 **Operazioni Tensoriali Complete**: Operazioni matematiche, broadcasting, indicizzazione e statistiche, utilità avanzate Phase 8

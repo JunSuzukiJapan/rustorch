@@ -1,15 +1,14 @@
 //! 汎用的な学習ループトレーナー
 //! Generic training loop trainer
 
-
 use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
 use super::state::{BatchState, EpochState, TrainingState};
 use crate::autograd::Variable;
 use crate::data::{DataLoader, Dataset};
-use crate::tensor::Tensor;
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::fmt::Debug;
 use std::time::Instant;
@@ -54,11 +53,11 @@ pub trait TrainingDataLoader<T: Float> {
     /// Reset the data loader for a new epoch
     /// 新しいエポックのためにデータローダーをリセット
     fn reset(&mut self);
-    
+
     /// Get next batch of (input, target) tensor pairs
     /// 次の(入力, ターゲット)テンソルペアのバッチを取得
     fn next_batch(&mut self) -> Option<(Tensor<T>, Tensor<T>)>;
-    
+
     /// Check if the data loader is exhausted
     /// データローダーが枯渇したかチェック
     fn is_empty(&self) -> bool;
@@ -598,7 +597,12 @@ pub struct Phase5TrainingDataLoader<'a, D: Dataset<Vec<Tensor<T>>>, T: Float> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Phase5TrainingDataLoader<'a, D, T> {
+impl<
+        'a,
+        D: Dataset<Vec<Tensor<T>>>,
+        T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > Phase5TrainingDataLoader<'a, D, T>
+{
     /// Create new training data loader
     /// 新しい訓練データローダーを作成
     pub fn new(dataset: &'a D, batch_size: usize, shuffle: bool) -> Self {
@@ -607,7 +611,7 @@ impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::Scala
             use rand::seq::SliceRandom;
             indices.shuffle(&mut rand::thread_rng());
         }
-        
+
         Self {
             dataset,
             batch_size,
@@ -619,7 +623,12 @@ impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::Scala
     }
 }
 
-impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> TrainingDataLoader<T> for Phase5TrainingDataLoader<'a, D, T> {
+impl<
+        'a,
+        D: Dataset<Vec<Tensor<T>>>,
+        T: Float + Clone + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive,
+    > TrainingDataLoader<T> for Phase5TrainingDataLoader<'a, D, T>
+{
     fn reset(&mut self) {
         self.current_index = 0;
         if self.shuffle {
@@ -627,16 +636,16 @@ impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::Scala
             self.indices.shuffle(&mut rand::thread_rng());
         }
     }
-    
+
     fn next_batch(&mut self) -> Option<(Tensor<T>, Tensor<T>)> {
         if self.is_empty() {
             return None;
         }
-        
+
         let end_index = std::cmp::min(self.current_index + self.batch_size, self.dataset.len());
         let mut batch_features = Vec::new();
         let mut batch_targets = Vec::new();
-        
+
         for i in self.current_index..end_index {
             let index = self.indices[i];
             if let Ok(tensors) = self.dataset.get_item(index) {
@@ -646,14 +655,14 @@ impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::Scala
                 }
             }
         }
-        
+
         self.current_index = end_index;
-        
+
         if !batch_features.is_empty() {
             // Stack tensors to create batch tensors
             let feature_refs: Vec<&Tensor<T>> = batch_features.iter().collect();
             let target_refs: Vec<&Tensor<T>> = batch_targets.iter().collect();
-            
+
             match (Tensor::stack(&feature_refs), Tensor::stack(&target_refs)) {
                 (Ok(stacked_features), Ok(stacked_targets)) => {
                     Some((stacked_features, stacked_targets))
@@ -667,7 +676,7 @@ impl<'a, D: Dataset<Vec<Tensor<T>>>, T: Float + Clone + 'static + ndarray::Scala
             None
         }
     }
-    
+
     fn is_empty(&self) -> bool {
         self.current_index >= self.dataset.len()
     }

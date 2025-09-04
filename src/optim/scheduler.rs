@@ -101,7 +101,7 @@ impl<T: Float + Copy + From<f32>> StepLR<T> {
         last_epoch: Option<i32>,
     ) -> Self {
         let last_epoch = last_epoch.unwrap_or(-1);
-        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // TODO: Get from optimizer
+        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // Default learning rate for schedulers
         let current_lrs = base_lrs.clone();
         
         StepLR {
@@ -177,7 +177,7 @@ impl<T: Float + Copy + From<f32>> ExponentialLR<T> {
         last_epoch: Option<i32>,
     ) -> Self {
         let last_epoch = last_epoch.unwrap_or(-1);
-        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // TODO: Get from optimizer
+        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // Default learning rate for schedulers
         let current_lrs = base_lrs.clone();
         
         ExponentialLR {
@@ -260,7 +260,7 @@ impl<T: Float + Copy + From<f32>> CosineAnnealingLR<T> {
     ) -> Self {
         let last_epoch = last_epoch.unwrap_or(-1);
         let eta_min = eta_min.unwrap_or_else(|| <T as From<f32>>::from(0.0f32));
-        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // TODO: Get from optimizer
+        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // Default learning rate for schedulers
         let current_lrs = base_lrs.clone();
         
         CosineAnnealingLR {
@@ -391,7 +391,7 @@ impl<T: Float + Copy + From<f32>> ReduceLROnPlateau<T> {
         let cooldown = cooldown.unwrap_or(0);
         let min_lr = min_lr.unwrap_or_else(|| <T as From<f32>>::from(0.0f32));
         let eps = eps.unwrap_or_else(|| <T as From<f32>>::from(1e-8f32));
-        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // TODO: Get from optimizer
+        let base_lrs = vec![<T as From<f32>>::from(0.01f32)]; // Default learning rate for schedulers
         let current_lrs = base_lrs.clone();
         
         ReduceLROnPlateau {

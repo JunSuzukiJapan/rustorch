@@ -127,7 +127,9 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
 }
 
 // Phase 5 Dataset implementation
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for MNIST<T> {
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)>
+    for MNIST<T>
+{
     fn len(&self) -> usize {
         self.images.len()
     }
@@ -136,7 +138,11 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         if index >= self.images.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "MNIST::get_item".to_string(),
-                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+                message: format!(
+                    "Index {} out of bounds for dataset of size {}",
+                    index,
+                    self.images.len()
+                ),
             });
         }
 
@@ -159,7 +165,6 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         Ok((image, label))
     }
 }
-
 
 /// CIFAR-10 dataset
 /// CIFAR-10データセット
@@ -289,7 +294,9 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
 }
 
 // Phase 5 Dataset implementation
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for CIFAR10<T> {
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)>
+    for CIFAR10<T>
+{
     fn len(&self) -> usize {
         self.images.len()
     }
@@ -298,7 +305,11 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         if index >= self.images.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "CIFAR10::get_item".to_string(),
-                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+                message: format!(
+                    "Index {} out of bounds for dataset of size {}",
+                    index,
+                    self.images.len()
+                ),
             });
         }
 
@@ -321,7 +332,6 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         Ok((image, label))
     }
 }
-
 
 /// CIFAR-100 dataset
 /// CIFAR-100データセット
@@ -464,7 +474,9 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
 }
 
 // Phase 5 Dataset implementation
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for CIFAR100<T> {
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)>
+    for CIFAR100<T>
+{
     fn len(&self) -> usize {
         self.images.len()
     }
@@ -473,7 +485,11 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         if index >= self.images.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "CIFAR100::get_item".to_string(),
-                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+                message: format!(
+                    "Index {} out of bounds for dataset of size {}",
+                    index,
+                    self.images.len()
+                ),
             });
         }
 
@@ -498,7 +514,6 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         Ok((image, label))
     }
 }
-
 
 /// Custom image folder dataset
 /// カスタム画像フォルダデータセット
@@ -629,7 +644,9 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
 }
 
 // Phase 5 Dataset implementation
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for ImageFolder<T> {
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)>
+    for ImageFolder<T>
+{
     fn len(&self) -> usize {
         self.samples.len()
     }
@@ -638,7 +655,11 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         if index >= self.samples.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "ImageFolder::get_item".to_string(),
-                message: format!("Index {} out of bounds for dataset of size {}", index, self.samples.len()),
+                message: format!(
+                    "Index {} out of bounds for dataset of size {}",
+                    index,
+                    self.samples.len()
+                ),
             });
         }
 
@@ -663,7 +684,6 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
         Ok((image, label))
     }
 }
-
 
 #[cfg(test)]
 mod tests {

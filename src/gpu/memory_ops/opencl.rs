@@ -228,7 +228,7 @@ impl OpenCLOperations {
         T: Float + 'static + Clone,
     {
         // For now, fall back to CPU implementation
-        // TODO: Implement actual OpenCL kernel for attention
+        // Note: actual OpenCL kernel for attention not implemented in current version
         let query_cpu = Self::transfer_to_cpu(query, context)?;
         let key_cpu = Self::transfer_to_cpu(key, context)?;
         let value_cpu = Self::transfer_to_cpu(value, context)?;

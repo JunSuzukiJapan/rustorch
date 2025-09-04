@@ -4,9 +4,9 @@
 use crate::autograd::Variable;
 use crate::error::RusTorchResult;
 use crate::models::{Model, ModelBuilder, ModelMode};
+use crate::nn::transformer::TransformerEncoder;
 use crate::nn::{Dropout, Embedding, LayerNorm, Linear, Module};
 use crate::nn::{PositionalEmbedding, TransformerEncoderLayer};
-use crate::nn::transformer::TransformerEncoder;
 use num_traits::Float;
 use std::any::Any;
 use std::collections::HashMap;
