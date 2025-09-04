@@ -241,7 +241,7 @@ criterion_group!(
     bench_memory_efficiency,
 );
 
-#[cfg(not(feature = "async"))]
+#[cfg(not(feature = "nccl"))]
 criterion_group!(
     benches,
     bench_distributed_init,
