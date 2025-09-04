@@ -32,17 +32,3 @@ pub use sampler::{
     WeightedRandomSampler,
 };
 
-// Legacy components for backward compatibility (deprecated)
-#[deprecated(since = "0.6.0", note = "Use Phase 5 Dataset trait instead")]
-pub trait LegacyDataset<T: Float> {
-    /// Get dataset length
-    fn len(&self) -> usize;
-    
-    /// Get item at index, returns (input, target) pair
-    fn get(&self, index: usize) -> Option<(crate::tensor::Tensor<T>, crate::tensor::Tensor<T>)>;
-    
-    /// Check if dataset is empty
-    fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}

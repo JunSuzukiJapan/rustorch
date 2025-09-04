@@ -9,7 +9,8 @@ use crate::models::high_level::{HighLevelModel, FitConfig, TrainingHistory};
 use crate::nn::{Linear, Module};
 use crate::autograd::Variable;
 use crate::tensor::Tensor;
-use crate::data::{LegacyDataLoader, LegacyDataset, TensorDataset};
+use crate::data::{DataLoader, TensorDataset};
+use crate::data::sampler::{RandomSampler, SequentialSampler};
 use num_traits::Float;
 use std::fmt::Debug;
 use anyhow::Result;
@@ -138,8 +139,10 @@ where
     let val_data = create_dummy_dataset::<T>(200, 10)?;
 
     // 3. データローダー作成
-    let mut train_loader = LegacyDataLoader::new(&train_data, 32, true);
-    let mut val_loader = LegacyDataLoader::new(&val_data, 32, false);
+    let train_sampler = Box::new(RandomSampler::new(train_data.len()));
+    let mut train_loader = DataLoader::new(&train_data, train_sampler, 32);
+    let val_sampler = Box::new(SequentialSampler::new(val_data.len()));
+    let mut val_loader = DataLoader::new(&val_data, val_sampler, 32);
 
     // 4. モデルコンパイル（実際の実装では適切なオプティマイザーと損失関数を使用）
     // model.compile(
@@ -207,7 +210,8 @@ where
 
     // 3. バッチ予測の例
     let test_data = create_dummy_dataset::<T>(100, 5)?;
-    let mut test_loader = LegacyDataLoader::new(&test_data, 10, false);
+    let test_sampler = Box::new(SequentialSampler::new(test_data.len()));
+    let mut test_loader = DataLoader::new(&test_data, test_sampler, 10);
 
     let predictions = model.predict_batch(&mut test_loader)?;
     println!("Batch prediction completed: {} batches", predictions.len());
@@ -328,8 +332,7 @@ pub fn phase5_dataset_example<T>() -> Result<()>
 where
     T: Float + Send + Sync + 'static + Debug + Clone + From<f32>,
 {
-    use crate::data::{Dataset, DataLoader};
-    use crate::data::sampler::{SequentialSampler, RandomSampler};
+    use crate::data::Dataset;
     
     println!("=== Phase 5 Dataset API Example ===");
 

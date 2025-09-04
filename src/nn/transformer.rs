@@ -4,8 +4,9 @@
 use crate::autograd::Variable;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::nn::{
-    Dropout, LayerNorm, LegacyMultiheadAttention as MultiheadAttention, Linear, Module,
+    Dropout, LayerNorm, Linear, Module,
 };
+use crate::nn::attention::MultiheadAttention;
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive, One, ToPrimitive, Zero};

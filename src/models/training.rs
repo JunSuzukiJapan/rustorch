@@ -1,8 +1,6 @@
 //! モデル訓練・推論インターフェース
 //! Model training and inference interface
 
-#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
-
 use crate::autograd::Variable;
 use crate::data::{DataLoader, Dataset};
 use crate::models::Model;

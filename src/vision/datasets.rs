@@ -7,9 +7,7 @@
 //! このモジュールはtorchvision.datasetsと同様の人気のコンピュータビジョンデータセットを提供し、
 //! MNIST、CIFAR-10、CIFAR-100、カスタムデータセット用ユーティリティを含みます。
 
-#![allow(deprecated)] // Allow deprecated APIs for backward compatibility
-
-use crate::data::{Dataset, LegacyDataset};
+use crate::data::Dataset;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::vision::transforms::Transform;
@@ -21,10 +19,6 @@ use std::path::{Path, PathBuf};
 /// MNIST dataset
 /// MNISTデータセット
 #[derive(Debug)]
-#[deprecated(
-    since = "0.6.0",
-    note = "Use Phase 5 Dataset API with custom implementations"
-)]
 pub struct MNIST<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -166,25 +160,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
     }
 }
 
-// Legacy Dataset implementation (deprecated)
-#[allow(deprecated)]
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for MNIST<T> {
-    fn len(&self) -> usize {
-        Dataset::len(self)
-    }
-
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        Dataset::get_item(self, index).ok()
-    }
-}
 
 /// CIFAR-10 dataset
 /// CIFAR-10データセット
 #[derive(Debug)]
-#[deprecated(
-    since = "0.6.0",
-    note = "Use Phase 5 Dataset API with custom implementations"
-)]
 pub struct CIFAR10<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -343,25 +322,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
     }
 }
 
-// Legacy Dataset implementation (deprecated)
-#[allow(deprecated)]
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR10<T> {
-    fn len(&self) -> usize {
-        Dataset::len(self)
-    }
-
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        Dataset::get_item(self, index).ok()
-    }
-}
 
 /// CIFAR-100 dataset
 /// CIFAR-100データセット
 #[derive(Debug)]
-#[deprecated(
-    since = "0.6.0",
-    note = "Use Phase 5 Dataset API with custom implementations"
-)]
 pub struct CIFAR100<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -535,25 +499,10 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
     }
 }
 
-// Legacy Dataset implementation (deprecated)
-#[allow(deprecated)]
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR100<T> {
-    fn len(&self) -> usize {
-        Dataset::len(self)
-    }
-
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        Dataset::get_item(self, index).ok()
-    }
-}
 
 /// Custom image folder dataset
 /// カスタム画像フォルダデータセット
 #[derive(Debug)]
-#[deprecated(
-    since = "0.6.0",
-    note = "Use Phase 5 Dataset API with custom implementations"
-)]
 pub struct ImageFolder<T: Float> {
     /// Dataset root directory
     /// データセットルートディレクトリ
@@ -715,17 +664,6 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tenso
     }
 }
 
-// Legacy Dataset implementation (deprecated)
-#[allow(deprecated)]
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for ImageFolder<T> {
-    fn len(&self) -> usize {
-        Dataset::len(self)
-    }
-
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        Dataset::get_item(self, index).ok()
-    }
-}
 
 #[cfg(test)]
 mod tests {
