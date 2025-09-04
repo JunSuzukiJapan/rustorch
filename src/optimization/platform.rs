@@ -105,7 +105,10 @@ impl PlatformOptimizer {
                 if total_mem > 0 {
                     total_mem as usize
                 } else {
-                    8_usize.saturating_mul(1024).saturating_mul(1024).saturating_mul(1024)
+                    8_usize
+                        .saturating_mul(1024)
+                        .saturating_mul(1024)
+                        .saturating_mul(1024)
                 }
             }
         }
