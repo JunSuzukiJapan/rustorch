@@ -125,8 +125,10 @@ fn run_training_simulation(
             // Forward pass
             let input_var = Variable::new(input, false);
             let output = ddp_model.forward(&input_var)?;
-            let output_tensor = output.data().read().unwrap();
-            assert_eq!(output_tensor.shape(), &[batch_size, 10]);
+            {
+                let output_data = output.data().read().unwrap();
+                assert_eq!(output_data.shape(), &[batch_size, 10]);
+            }
 
             // Simulate backward pass and gradient synchronization
             ddp_model.sync_gradients()?;
