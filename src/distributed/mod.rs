@@ -319,14 +319,26 @@ pub fn finalize() -> RusTorchResult<()> {
 
 /// Data parallel training module
 /// データ並列学習モジュール
+pub mod api;
+pub mod async_gradient;
 pub mod backends;
 pub mod cluster;
 pub mod common;
 pub mod data_parallel;
 pub mod model_parallel;
 pub mod multi_gpu_validation;
+pub mod nccl_integration;
 pub mod optimizer;
 pub mod performance;
+pub mod simple_ddp;
+
+// Re-export PyTorch-compatible API
+pub use api::*;
+pub use simple_ddp::{SimpleDistributedDataParallel, wrap_simple};
+pub use async_gradient::{AsyncGradientSynchronizer, AsyncConfig, Priority};
+
+#[cfg(feature = "nccl")]
+pub use nccl_integration::{NCCLBackendOptimized, NCCLOps, NCCLOptimizations, NCCLProfiler};
 
 #[cfg(test)]
 mod tests {

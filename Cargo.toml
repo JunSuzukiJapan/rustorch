@@ -307,6 +307,11 @@ name = "optimization_benchmark"
 path = "benches/optimization_benchmark.rs"
 harness = false
 
+[[bench]]
+name = "distributed_benchmark"
+path = "benches/distributed_benchmark.rs"
+harness = false
+
 [[example]]
 name = "model_hub_demo"
 path = "examples/model_hub_demo.rs"
@@ -326,6 +331,11 @@ required-features = ["webgpu"]
 name = "webgpu_simple_demo"
 path = "examples/webgpu_simple_demo.rs"
 required-features = ["webgpu"]
+
+[[example]]
+name = "distributed_training_demo"
+path = "examples/distributed_training_demo.rs"
+required-features = []
 
 [lints.clippy]
 # Allow common warnings in examples, tests, and benches
