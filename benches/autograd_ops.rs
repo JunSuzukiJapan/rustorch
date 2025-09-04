@@ -49,7 +49,7 @@ fn bench_backward_propagation(c: &mut Criterion) {
             let c = a.matmul(&b);
             let d = &c + &a;
             let e = &d * &b;
-            let loss = e.mean();
+            let loss = e.mean_autograd();
 
             loss.backward();
             black_box(());

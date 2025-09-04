@@ -314,6 +314,22 @@ name = "distributed_benchmark"
 path = "benches/distributed_benchmark.rs"
 harness = false
 
+
+[[bench]]
+name = "tensor_ops"
+path = "benches/tensor_ops.rs"
+harness = false
+
+[[bench]]
+name = "autograd_ops"
+path = "benches/autograd_ops.rs"
+harness = false
+
+[[bench]]
+name = "nn_benchmark"
+path = "benches/nn_benchmark.rs"
+harness = false
+
 [[example]]
 name = "model_hub_demo"
 path = "examples/model_hub_demo.rs"
