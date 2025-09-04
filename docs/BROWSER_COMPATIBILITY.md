@@ -1,6 +1,9 @@
 # Browser Compatibility Guide for RusTorch WASM
 # RusTorch WASM ブラウザ互換性ガイド
 
+> 📋 **Complete API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)  
+> 🔗 **Setup Guide**: [WASM Guide](WASM_GUIDE.md)
+
 ## Supported Browsers / サポートブラウザ
 
 ### Chrome (Primary Target) / Chrome（主要ターゲット）

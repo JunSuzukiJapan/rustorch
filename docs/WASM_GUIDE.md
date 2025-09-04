@@ -9,6 +9,8 @@
 
 RusTorch provides comprehensive WebAssembly support for running machine learning operations directly in web browsers. This includes neural network training, inference, computer vision pipelines, and GPU acceleration via WebGPU.
 
+> 📋 **Complete API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+
 RusTorchは、Webブラウザで直接機械学習演算を実行するための包括的なWebAssemblyサポートを提供します。ニューラルネットワークの学習、推論、コンピュータビジョンパイプライン、WebGPUによるGPU加速が含まれます。
 
 ## Quick Start / クイックスタート

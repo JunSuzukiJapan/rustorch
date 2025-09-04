@@ -5,6 +5,9 @@
 
 This guide provides comprehensive performance analysis, optimization strategies, and benchmarking methodologies for RusTorch WASM implementations across different browsers and hardware configurations.
 
+> 📋 **API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)  
+> 🔧 **Setup Guide**: [WASM Guide](WASM_GUIDE.md)
+
 このガイドでは、異なるブラウザとハードウェア構成での RusTorch WASM 実装に対する包括的なパフォーマンス分析、最適化戦略、ベンチマーク手法を提供します。
 
 ## Performance Benchmarking / パフォーマンスベンチマーク

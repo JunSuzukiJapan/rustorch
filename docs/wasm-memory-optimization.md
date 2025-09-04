@@ -1,5 +1,8 @@
 # WASM Memory Optimization Guide
 
+> 📋 **API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)  
+> 🔧 **Setup Guide**: [WASM Guide](WASM_GUIDE.md)
+
 ## Overview
 
 RusTorch WASM modules implement an advanced memory pooling system that significantly improves performance by reusing allocated buffers and reducing garbage collection pressure in JavaScript environments.
