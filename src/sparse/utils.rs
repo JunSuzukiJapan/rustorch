@@ -1,10 +1,10 @@
 //! Sparse tensor utilities and conversions
 //! スパーステンソルユーティリティと変換
 
+use super::{SparseFormat, SparseOps, SparseTensor};
 use crate::error::{RusTorchError, RusTorchResult};
-use super::{SparseTensor, SparseFormat, SparseOps};
-use ndarray::{ArrayD, Array1, Array2};
-use num_traits::{Float, Zero, One, FromPrimitive};
+use ndarray::{Array1, Array2, ArrayD};
+use num_traits::{Float, FromPrimitive, One, Zero};
 use std::collections::{HashMap, HashSet};
 use std::iter::Sum;
 
@@ -19,24 +19,30 @@ impl<T: Float + Copy + PartialOrd + Sum + std::fmt::Display> SparseAnalyzer<T> {
     /// テンソルのスパースパターンを解析
     pub fn analyze_pattern(tensor: &SparseTensor<T>) -> SparsePatternAnalysis<T> {
         let mut analysis = SparsePatternAnalysis::new();
-        
+
         // Basic statistics
         analysis.total_elements = tensor.dense_size();
         analysis.non_zero_elements = tensor.nnz;
         analysis.sparsity_ratio = tensor.sparsity();
         analysis.format = tensor.format;
-        
+
         // Value distribution statistics
         if !tensor.values.is_empty() {
             let values_slice = tensor.values.as_slice().unwrap();
-            analysis.min_value = values_slice.iter().fold(T::infinity(), |a, &b| if a < b { a } else { b });
-            analysis.max_value = values_slice.iter().fold(T::neg_infinity(), |a, &b| if a > b { a } else { b });
-            analysis.mean_abs_value = values_slice.iter().map(|&x| x.abs()).sum::<T>() / T::from(tensor.nnz).unwrap();
+            analysis.min_value = values_slice
+                .iter()
+                .fold(T::infinity(), |a, &b| if a < b { a } else { b });
+            analysis.max_value =
+                values_slice
+                    .iter()
+                    .fold(T::neg_infinity(), |a, &b| if a > b { a } else { b });
+            analysis.mean_abs_value =
+                values_slice.iter().map(|&x| x.abs()).sum::<T>() / T::from(tensor.nnz).unwrap();
         }
 
         // Pattern regularity analysis
         analysis.pattern_regularity = Self::compute_pattern_regularity(tensor);
-        
+
         // Memory efficiency
         let dense_memory = tensor.dense_size() * std::mem::size_of::<T>();
         let sparse_memory = tensor.memory_usage();
@@ -54,26 +60,29 @@ impl<T: Float + Copy + PartialOrd + Sum + std::fmt::Display> SparseAnalyzer<T> {
 
         let row_indices = &tensor.indices[0];
         let col_indices = &tensor.indices[1];
-        
+
         // Analyze row distribution uniformity
         let mut row_counts = HashMap::new();
         for &row in row_indices.iter() {
             *row_counts.entry(row).or_insert(0) += 1;
         }
-        
+
         // Calculate coefficient of variation for row distribution
         let row_count_values: Vec<_> = row_counts.values().collect();
         if row_count_values.is_empty() {
             return 0.0;
         }
-        
-        let mean = row_count_values.iter().map(|&&x| x as f64).sum::<f64>() / row_count_values.len() as f64;
-        let variance = row_count_values.iter()
+
+        let mean = row_count_values.iter().map(|&&x| x as f64).sum::<f64>()
+            / row_count_values.len() as f64;
+        let variance = row_count_values
+            .iter()
             .map(|&&x| (x as f64 - mean).powi(2))
-            .sum::<f64>() / row_count_values.len() as f64;
-        
+            .sum::<f64>()
+            / row_count_values.len() as f64;
+
         let cv = variance.sqrt() / mean;
-        
+
         // Lower coefficient of variation indicates more regular pattern
         (1.0 / (1.0 + cv)).clamp(0.0, 1.0)
     }
@@ -198,21 +207,24 @@ impl<T: Float + std::fmt::Display> SparsePatternAnalysis<T> {
     /// 解析に基づく最適化を推奨
     pub fn optimization_recommendations(&self) -> Vec<String> {
         let mut recommendations = Vec::new();
-        
+
         if self.sparsity_ratio > 0.95 {
-            recommendations.push("Very high sparsity - consider COO format for memory efficiency".to_string());
+            recommendations
+                .push("Very high sparsity - consider COO format for memory efficiency".to_string());
         } else if self.sparsity_ratio < 0.5 {
             recommendations.push("Low sparsity - consider dense representation".to_string());
         }
-        
+
         if self.pattern_regularity > 0.8 {
-            recommendations.push("High pattern regularity - structured pruning may be beneficial".to_string());
+            recommendations
+                .push("High pattern regularity - structured pruning may be beneficial".to_string());
         }
-        
+
         if self.memory_efficiency < 0.3 {
-            recommendations.push("Low memory efficiency - sparse format may not be optimal".to_string());
+            recommendations
+                .push("Low memory efficiency - sparse format may not be optimal".to_string());
         }
-        
+
         recommendations
     }
 }
@@ -244,7 +256,7 @@ impl SparseValidator {
                             message: format!("COO indices dimension {} length mismatch", dim),
                         });
                     }
-                    
+
                     // Check bounds for COO indices
                     if dim < tensor.shape.len() {
                         let max_allowed = tensor.shape[dim];
@@ -252,7 +264,10 @@ impl SparseValidator {
                             if idx >= max_allowed {
                                 return Err(RusTorchError::InvalidParameters {
                                     operation: "sparse_validation".to_string(),
-                                    message: format!("Index {} exceeds dimension {} size {}", idx, dim, max_allowed),
+                                    message: format!(
+                                        "Index {} exceeds dimension {} size {}",
+                                        idx, dim, max_allowed
+                                    ),
                                 });
                             }
                         }
@@ -274,14 +289,17 @@ impl SparseValidator {
                         message: "CSR col_indices length must match nnz".to_string(),
                     });
                 }
-                
+
                 // Check column indices bounds
                 let max_cols = tensor.shape[1];
                 for &col_idx in tensor.indices[1].iter() {
                     if col_idx >= max_cols {
                         return Err(RusTorchError::InvalidParameters {
                             operation: "sparse_validation".to_string(),
-                            message: format!("Column index {} exceeds matrix width {}", col_idx, max_cols),
+                            message: format!(
+                                "Column index {} exceeds matrix width {}",
+                                col_idx, max_cols
+                            ),
                         });
                     }
                 }
@@ -373,7 +391,7 @@ impl SparseValidator {
         // Check for duplicate indices (optional - could be expensive)
         if tensor.shape.len() == 2 {
             let mut coordinate_set = HashSet::new();
-            
+
             for i in 0..tensor.nnz {
                 let coord = (tensor.indices[0][i], tensor.indices[1][i]);
                 if coordinate_set.contains(&coord) {
@@ -427,12 +445,12 @@ impl SparseConverter {
         target_format: SparseFormat,
     ) -> RusTorchResult<Vec<SparseTensor<T>>> {
         let mut results = Vec::with_capacity(tensors.len());
-        
+
         for tensor in tensors {
             let converted = Self::convert(tensor, target_format)?;
             results.push(converted);
         }
-        
+
         Ok(results)
     }
 }
@@ -455,9 +473,7 @@ impl SparseIO {
 
     /// Load sparse tensor from binary format (placeholder)
     /// バイナリ形式からスパーステンソルを読み込み（プレースホルダー）
-    pub fn load_binary<T: Float>(
-        _path: &std::path::Path,
-    ) -> RusTorchResult<SparseTensor<T>> {
+    pub fn load_binary<T: Float>(_path: &std::path::Path) -> RusTorchResult<SparseTensor<T>> {
         Err(RusTorchError::NotImplemented {
             feature: "Sparse tensor binary deserialization".to_string(),
         })
@@ -491,7 +507,18 @@ pub struct BenchmarkResult {
     pub throughput_ops: f64,
 }
 
-impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + Sum + num_traits::FromPrimitive + 'static> SparseBenchmark<T> {
+impl<
+        T: Float
+            + Copy
+            + Zero
+            + One
+            + std::ops::AddAssign
+            + PartialOrd
+            + Sum
+            + num_traits::FromPrimitive
+            + 'static,
+    > SparseBenchmark<T>
+{
     /// Create new benchmark suite
     /// 新しいベンチマークスイートを作成
     pub fn new() -> Self {
@@ -503,26 +530,31 @@ impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + Sum + num
 
     /// Benchmark sparse matrix-vector multiplication
     /// スパース行列ベクトル乗算のベンチマーク
-    pub fn benchmark_spmv(&mut self, tensor: &SparseTensor<T>, vector: &Array1<T>, iterations: usize) -> RusTorchResult<()>
+    pub fn benchmark_spmv(
+        &mut self,
+        tensor: &SparseTensor<T>,
+        vector: &Array1<T>,
+        iterations: usize,
+    ) -> RusTorchResult<()>
     where
         T: Zero + One + std::ops::AddAssign + num_traits::FromPrimitive,
     {
         let start_time = std::time::Instant::now();
-        
+
         for _ in 0..iterations {
             let _ = tensor.spmv(vector)?;
         }
-        
+
         let elapsed = start_time.elapsed();
         let time_per_op = elapsed.as_nanos() / iterations as u128;
-        
+
         let result = BenchmarkResult {
             operation: "spmv".to_string(),
             time_ns: time_per_op as u64,
             memory_bytes: tensor.memory_usage(),
             throughput_ops: 1_000_000_000.0 / time_per_op as f64,
         };
-        
+
         self.results.insert("spmv".to_string(), result);
         Ok(())
     }
@@ -538,14 +570,14 @@ impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + Sum + num
         // Benchmark sparse operation
         self.benchmark_spmv(sparse_tensor, vector, 100)?;
         let sparse_time = self.results["spmv"].time_ns;
-        
+
         // Benchmark dense operation
         let start_time = std::time::Instant::now();
         for _ in 0..100 {
             let _ = dense_equivalent.dot(vector);
         }
         let dense_time = start_time.elapsed().as_nanos() / 100;
-        
+
         // Return speedup ratio (> 1.0 means sparse is faster)
         Ok(dense_time as f64 / sparse_time as f64)
     }
@@ -555,7 +587,7 @@ impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + Sum + num
     pub fn report(&self) -> String {
         let mut report = String::from("Sparse Operations Benchmark Report:\n");
         report.push_str("=====================================\n");
-        
+
         for (op, result) in &self.results {
             report.push_str(&format!(
                 "{}: {:.2}μs, {:.1}MB/s throughput\n",
@@ -564,7 +596,7 @@ impl<T: Float + Copy + Zero + One + std::ops::AddAssign + PartialOrd + Sum + num
                 result.throughput_ops / 1_000_000.0
             ));
         }
-        
+
         report
     }
 }
@@ -581,10 +613,10 @@ mod tests {
         ];
         let values = Array1::from_vec(vec![1.0f32, 2.0, 3.0]);
         let shape = vec![4, 4];
-        
+
         let sparse_tensor = SparseTensor::from_coo(indices, values, shape).unwrap();
         let analysis = SparseAnalyzer::analyze_pattern(&sparse_tensor);
-        
+
         assert_eq!(analysis.total_elements, 16);
         assert_eq!(analysis.non_zero_elements, 3);
         assert!(analysis.sparsity_ratio > 0.8);
@@ -592,16 +624,13 @@ mod tests {
 
     #[test]
     fn test_sparse_validator() {
-        let indices = vec![
-            Array1::from_vec(vec![0, 1]),
-            Array1::from_vec(vec![0, 1]),
-        ];
+        let indices = vec![Array1::from_vec(vec![0, 1]), Array1::from_vec(vec![0, 1])];
         let values = Array1::from_vec(vec![1.0f32, 2.0]);
         let shape = vec![2, 2];
-        
+
         let sparse_tensor = SparseTensor::from_coo(indices, values.clone(), shape).unwrap();
         assert!(SparseValidator::validate(&sparse_tensor).is_ok());
-        
+
         // Test invalid tensor
         let invalid_indices = vec![
             Array1::from_vec(vec![0, 5]), // Invalid index 5 for 2x2 tensor
@@ -614,15 +643,12 @@ mod tests {
     #[test]
     fn test_sparse_converter() {
         // Simple 2x2 test case
-        let indices = vec![
-            Array1::from_vec(vec![0, 1]),
-            Array1::from_vec(vec![0, 1]),
-        ];
+        let indices = vec![Array1::from_vec(vec![0, 1]), Array1::from_vec(vec![0, 1])];
         let values = Array1::from_vec(vec![1.0f32, 2.0]);
         let shape = vec![2, 2];
-        
+
         let coo_tensor = SparseTensor::from_coo(indices, values, shape).unwrap();
-        
+
         // Test only COO -> CSR for now
         match SparseConverter::convert(&coo_tensor, SparseFormat::CSR) {
             Ok(csr_tensor) => {
@@ -639,18 +665,23 @@ mod tests {
     #[test]
     fn test_sparse_benchmark() {
         let mut benchmark = SparseBenchmark::new();
-        
+
         let sparse_tensor = SparseTensor::from_coo(
             vec![Array1::from_vec(vec![0, 1]), Array1::from_vec(vec![0, 1])],
             Array1::from_vec(vec![1.0f32, 2.0]),
             vec![2, 2],
-        ).unwrap().to_csr().unwrap();
-        
+        )
+        .unwrap()
+        .to_csr()
+        .unwrap();
+
         let vector = Array1::from_vec(vec![1.0, 2.0]);
-        
-        benchmark.benchmark_spmv(&sparse_tensor, &vector, 10).unwrap();
+
+        benchmark
+            .benchmark_spmv(&sparse_tensor, &vector, 10)
+            .unwrap();
         assert!(benchmark.results.contains_key("spmv"));
-        
+
         let report = benchmark.report();
         assert!(report.contains("spmv"));
     }

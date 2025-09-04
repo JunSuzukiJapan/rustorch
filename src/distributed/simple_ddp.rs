@@ -1,13 +1,13 @@
 //! Simplified DistributedDataParallel implementation
 //! 簡略化DistributedDataParallel実装
 
-use crate::error::{RusTorchError, RusTorchResult};
+use super::{api, DistributedDataParallelTrait, DistributedScalar, ReduceOp};
 use crate::autograd::Variable;
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::nn::Module;
 use crate::tensor::Tensor;
-use std::sync::{Arc, Mutex};
 use std::marker::PhantomData;
-use super::{ReduceOp, api, DistributedScalar, DistributedDataParallelTrait};
+use std::sync::{Arc, Mutex};
 
 /// Simplified DistributedDataParallel for RusTorch
 /// RusTorch用簡略化DistributedDataParallel
@@ -40,7 +40,7 @@ where
     pub fn new(module: M, device_ids: Option<Vec<usize>>) -> RusTorchResult<Self> {
         if !api::is_initialized() {
             return Err(RusTorchError::distributed(
-                "Distributed not initialized. Call distributed::init_process_group() first."
+                "Distributed not initialized. Call distributed::init_process_group() first.",
             ));
         }
 
@@ -59,7 +59,7 @@ where
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         let module = self.module.lock().unwrap();
         let output = module.forward(input);
-        
+
         // Automatically sync gradients after forward if enabled
         if self.sync_gradients {
             // For simplicity, we'll sync after each forward pass
@@ -74,7 +74,7 @@ where
     pub fn sync_gradients(&self) -> RusTorchResult<()> {
         // For this simplified version, we just simulate gradient sync
         // 簡略化版では、勾配同期をシミュレート
-        
+
         // In a full implementation, we would:
         // 1. Get all parameters from the module
         // 2. Extract gradients from each parameter
@@ -112,11 +112,11 @@ where
     fn device_ids(&self) -> &[usize] {
         &self.device_ids
     }
-    
+
     fn distributed_forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         self.forward(input)
     }
-    
+
     fn sync_gradients(&self) -> RusTorchResult<()> {
         self.sync_gradients()
     }
@@ -137,15 +137,15 @@ where
 
 #[cfg(test)]
 mod tests {
+    use super::super::DistributedBackend;
     use super::*;
     use crate::nn::Linear;
-    use super::super::DistributedBackend;
 
     #[test]
     fn test_simple_ddp_creation() {
         // This would require distributed initialization
         let linear: Linear<f32> = Linear::new(10, 5);
-        
+
         // Test should fail because distributed not initialized
         let ddp_result = SimpleDistributedDataParallel::new(linear, Some(vec![0]));
         assert!(ddp_result.is_err());
@@ -159,10 +159,7 @@ mod tests {
         std::env::set_var("MASTER_ADDR", "localhost");
         std::env::set_var("MASTER_PORT", "29510");
 
-        let _ = api::init_process_group(
-            DistributedBackend::TCP,
-            None, None, None, None,
-        );
+        let _ = api::init_process_group(DistributedBackend::TCP, None, None, None, None);
 
         let linear: Linear<f32> = Linear::new(5, 3);
         if let Ok(ddp) = SimpleDistributedDataParallel::new(linear, Some(vec![0, 1])) {

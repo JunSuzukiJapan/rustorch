@@ -3,17 +3,17 @@
 //!
 //! This module provides a comprehensive torch.distributed compatible API
 //! for distributed training in RusTorch.
-//! 
+//!
 //! このモジュールは、RusTorchでの分散学習のための
 //! 包括的なtorch.distributed互換APIを提供します。
 
+use super::{get_distributed_state, DistributedBackend, ProcessGroup, ReduceOp};
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
 use crate::nn::Module;
+use crate::tensor::Tensor;
 use num_traits::Float;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use super::{DistributedBackend, ProcessGroup, ReduceOp, get_distributed_state};
 
 /// Initialize distributed training process group
 /// 分散学習プロセスグループを初期化
@@ -32,7 +32,11 @@ pub fn init_process_group(
     };
 
     let world_size = world_size
-        .or_else(|| std::env::var("WORLD_SIZE").ok().and_then(|s| s.parse().ok()))
+        .or_else(|| {
+            std::env::var("WORLD_SIZE")
+                .ok()
+                .and_then(|s| s.parse().ok())
+        })
         .ok_or_else(|| RusTorchError::distributed("WORLD_SIZE not specified"))?;
 
     let rank = rank
@@ -40,7 +44,7 @@ pub fn init_process_group(
         .ok_or_else(|| RusTorchError::distributed("RANK not specified"))?;
 
     let process_group = ProcessGroup::new(rank, world_size, backend, master_addr, master_port);
-    
+
     // Set timeout if specified
     if let Some(_timeout) = timeout {
         // TODO: Implement timeout configuration
@@ -93,10 +97,10 @@ pub fn all_reduce<T: Float + Send + Sync + 'static>(
 
     // For now, perform synchronous operation
     let _ = (group, async_op);
-    
+
     // Use default implementation from common module
     super::common::CommonOps::default_all_reduce(tensor, op)?;
-    
+
     Ok(None) // No handle for sync operations
 }
 
@@ -133,7 +137,7 @@ pub fn broadcast<T: Float + Send + Sync + 'static>(
     }
 
     super::common::CommonOps::default_broadcast(tensor, src)?;
-    
+
     let _ = (group, async_op);
     Ok(None)
 }
@@ -175,9 +179,9 @@ pub fn scatter<T: Float + Send + Sync + 'static>(
     if let Some(tensors) = scatter_list {
         if get_rank() == src {
             let scattered = super::common::CommonOps::default_gather(
-                &tensors[get_rank()], 
-                get_world_size(), 
-                src
+                &tensors[get_rank()],
+                get_world_size(),
+                src,
             )?;
             if !scattered.is_empty() {
                 *tensor = scattered[get_rank()].clone();
@@ -204,11 +208,7 @@ pub fn gather<T: Float + Send + Sync + 'static>(
 
     if get_rank() == dst {
         if let Some(list) = gather_list {
-            let gathered = super::common::CommonOps::default_gather(
-                tensor, 
-                get_world_size(), 
-                dst
-            )?;
+            let gathered = super::common::CommonOps::default_gather(tensor, get_world_size(), dst)?;
             *list = gathered;
         }
     }
@@ -219,14 +219,17 @@ pub fn gather<T: Float + Send + Sync + 'static>(
 
 /// Barrier synchronization
 /// バリア同期
-pub fn barrier(group: Option<&ProcessGroup>, async_op: bool) -> RusTorchResult<Option<DistributedRequest>> {
+pub fn barrier(
+    group: Option<&ProcessGroup>,
+    async_op: bool,
+) -> RusTorchResult<Option<DistributedRequest>> {
     if !is_initialized() {
         return Err(RusTorchError::distributed("Process group not initialized"));
     }
 
     // Simple barrier implementation - in production would use actual synchronization
     // シンプルなバリア実装 - プロダクションでは実際の同期を使用
-    
+
     let _ = (group, async_op);
     Ok(None)
 }
@@ -362,9 +365,9 @@ fn parse_init_method(init_method: &str) -> RusTorchResult<(String, u16)> {
     if init_method.starts_with("tcp://") {
         let addr_port = init_method.strip_prefix("tcp://").unwrap();
         if let Some((addr, port_str)) = addr_port.split_once(':') {
-            let port = port_str.parse::<u16>().map_err(|_| {
-                RusTorchError::distributed("Invalid port in init_method")
-            })?;
+            let port = port_str
+                .parse::<u16>()
+                .map_err(|_| RusTorchError::distributed("Invalid port in init_method"))?;
             Ok((addr.to_string(), port))
         } else {
             Err(RusTorchError::distributed("Invalid init_method format"))
@@ -379,7 +382,7 @@ fn parse_init_method(init_method: &str) -> RusTorchResult<(String, u16)> {
 fn get_master_info_from_env() -> RusTorchResult<(String, u16)> {
     let addr = std::env::var("MASTER_ADDR")
         .map_err(|_| RusTorchError::distributed("MASTER_ADDR not set"))?;
-    
+
     let port = std::env::var("MASTER_PORT")
         .map_err(|_| RusTorchError::distributed("MASTER_PORT not set"))?
         .parse::<u16>()
@@ -414,7 +417,7 @@ mod tests {
     fn test_distributed_request() {
         let req = DistributedRequest::new();
         assert!(!req.is_completed());
-        
+
         assert!(req.wait().is_ok());
         assert!(req.is_completed());
     }

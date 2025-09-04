@@ -1,12 +1,14 @@
 //! Quantization-Aware Training (QAT) support
 //! 量子化認識学習（QAT）サポート
 
-use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
-use crate::autograd::Variable;
-use crate::nn::Module;
-use super::schemes::{QuantizationScheme, QuantizationParams, SymmetricQuantization, AsymmetricQuantization};
 use super::calibration::Observer;
+use super::schemes::{
+    AsymmetricQuantization, QuantizationParams, QuantizationScheme, SymmetricQuantization,
+};
+use crate::autograd::Variable;
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::nn::Module;
+use crate::tensor::Tensor;
 use ndarray::ArrayD;
 use num_traits::Float;
 use std::marker::PhantomData;
@@ -18,19 +20,19 @@ pub trait QATModule<T: Float> {
     /// Enable QAT mode (fake quantization during training)
     /// QATモードを有効化（学習中の偽量子化）
     fn enable_qat(&mut self);
-    
+
     /// Disable QAT mode (normal training)
     /// QATモードを無効化（通常学習）
     fn disable_qat(&mut self);
-    
+
     /// Check if QAT is enabled
     /// QATが有効かチェック
     fn is_qat_enabled(&self) -> bool;
-    
+
     /// Get quantization parameters
     /// 量子化パラメータを取得
     fn get_quantization_params(&self) -> Option<(f32, i32)>;
-    
+
     /// Set quantization parameters
     /// 量子化パラメータを設定
     fn set_quantization_params(&mut self, scale: f32, zero_point: i32);
@@ -113,7 +115,7 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
         if let Some(observer) = &self.observer {
             let mut obs = observer.lock().unwrap();
             obs.observe(&input_guard.data);
-            
+
             // Update quantization parameters from observer
             // 観測器から量子化パラメータを更新
             if let Ok((new_scale, new_zero_point)) = obs.get_quantization_params(self.scheme) {
@@ -125,26 +127,29 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
         // Apply fake quantization with straight-through estimator
         // ストレートスルー推定器を使用した偽量子化を適用
         let quantized_data = self.fake_quantize_tensor(&input_guard.data)?;
-        
-        Ok(Variable::new(Tensor::from_ndarray(quantized_data), input.requires_grad()))
+
+        Ok(Variable::new(
+            Tensor::from_ndarray(quantized_data),
+            input.requires_grad(),
+        ))
     }
 
     /// Fake quantize a tensor (simulate quantization without actually quantizing)
     /// テンソルの偽量子化（実際に量子化せずに量子化をシミュレート）
     fn fake_quantize_tensor(&self, data: &ArrayD<T>) -> RusTorchResult<ArrayD<T>> {
         let (qmin, qmax) = self.get_quantization_range();
-        
+
         let quantized_data = data.mapv(|val| {
             // Convert to f32 for quantization math
             let val_f32 = val.to_f32().unwrap_or(0.0);
-            
+
             // Quantize: round((x - zero_point) / scale)
-            let quantized_int = ((val_f32 / self.scale).round() as i32 + self.zero_point)
-                .clamp(qmin, qmax);
-            
+            let quantized_int =
+                ((val_f32 / self.scale).round() as i32 + self.zero_point).clamp(qmin, qmax);
+
             // Dequantize back to floating point (straight-through for gradients)
             let dequantized_f32 = (quantized_int - self.zero_point) as f32 * self.scale;
-            
+
             // Convert back to T
             T::from_f32(dequantized_f32).unwrap_or(val)
         });
@@ -167,12 +172,8 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     /// データから量子化パラメータをキャリブレート
     pub fn calibrate(&mut self, data: &ArrayD<T>) -> RusTorchResult<()> {
         let (scale, zero_point) = match self.scheme {
-            QuantizationScheme::Symmetric => {
-                SymmetricQuantization::compute_params(data)?
-            },
-            QuantizationScheme::Asymmetric => {
-                AsymmetricQuantization::compute_params(data)?
-            },
+            QuantizationScheme::Symmetric => SymmetricQuantization::compute_params(data)?,
+            QuantizationScheme::Asymmetric => AsymmetricQuantization::compute_params(data)?,
             _ => {
                 // For per-channel schemes, use asymmetric for simplicity
                 AsymmetricQuantization::compute_params(data)?
@@ -210,26 +211,26 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
             enabled: true,
         }
     }
-    
+
     /// Apply fake quantization to input and weights
     /// 入力と重みに偽量子化を適用
     pub fn apply_quantization(
         &self,
         input: &Variable<T>,
-        weight: &Variable<T>
+        weight: &Variable<T>,
     ) -> RusTorchResult<(Variable<T>, Variable<T>)> {
         let quantized_input = if self.enabled {
             self.activation_fake_quant.forward(input)?
         } else {
             input.clone()
         };
-        
+
         let quantized_weight = if self.enabled {
             self.weight_fake_quant.forward(weight)?
         } else {
             weight.clone()
         };
-        
+
         Ok((quantized_input, quantized_weight))
     }
 }
@@ -256,7 +257,7 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
         // 小さなランダム値で重みを初期化
         let weight_data = ArrayD::from_shape_fn(
             vec![out_features, in_features],
-            |_| T::from_f32(0.01).unwrap_or_else(T::zero) // Small initialization
+            |_| T::from_f32(0.01).unwrap_or_else(T::zero), // Small initialization
         );
         let weight = Variable::new(Tensor::from_ndarray(weight_data), true);
 
@@ -277,7 +278,8 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         // Use QAT config to apply quantization
         // QAT設定を使用して量子化を適用
-        let (quantized_input, quantized_weight) = self.qat_config.apply_quantization(input, &self.weight)?;
+        let (quantized_input, quantized_weight) =
+            self.qat_config.apply_quantization(input, &self.weight)?;
 
         // Perform linear transformation: output = input @ weight.T + bias
         // 線形変換を実行：output = input @ weight.T + bias
@@ -295,15 +297,15 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     ) -> RusTorchResult<Variable<T>> {
         // Simplified linear operation - in full implementation would use proper matrix multiplication
         // 簡略化線形演算 - 完全実装では適切な行列乗算を使用
-        
+
         let input_tensor = input.data();
         let input_guard = input_tensor.read().unwrap();
         let input_shape = input_guard.shape();
-        
+
         let weight_tensor = weight.data();
         let weight_guard = weight_tensor.read().unwrap();
         let weight_shape = weight_guard.shape();
-        
+
         if input_shape.len() < 2 || weight_shape.len() != 2 {
             return Err(RusTorchError::TensorOp {
                 message: "Invalid shapes for linear layer".to_string(),
@@ -334,7 +336,7 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
                 for i in 0..in_features {
                     sum = sum + input_guard.data[[b, i]] * weight_guard.data[[o, i]];
                 }
-                
+
                 // Add bias if present
                 // バイアスが存在する場合は加算
                 if let Some(ref bias) = self.bias {
@@ -342,16 +344,21 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
                     let bias_guard = bias_tensor.read().unwrap();
                     sum = sum + bias_guard.data[o];
                 }
-                
+
                 output_data[[b, o]] = sum;
             }
         }
 
-        Ok(Variable::new(Tensor::from_ndarray(output_data), input.requires_grad()))
+        Ok(Variable::new(
+            Tensor::from_ndarray(output_data),
+            input.requires_grad(),
+        ))
     }
 }
 
-impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T> for QATLinear<T> {
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T>
+    for QATLinear<T>
+{
     fn enable_qat(&mut self) {
         self.qat_config.enabled = true;
         self.qat_config.weight_fake_quant.enabled = true;
@@ -370,7 +377,10 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
 
     fn get_quantization_params(&self) -> Option<(f32, i32)> {
         if self.qat_config.enabled {
-            Some((self.qat_config.weight_fake_quant.scale, self.qat_config.weight_fake_quant.zero_point))
+            Some((
+                self.qat_config.weight_fake_quant.scale,
+                self.qat_config.weight_fake_quant.zero_point,
+            ))
         } else {
             None
         }
@@ -412,7 +422,7 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     ) -> Self {
         let weight_data = ArrayD::from_shape_fn(
             vec![out_channels, in_channels, kernel_size.0, kernel_size.1],
-            |_| T::from_f32(0.01).unwrap_or_else(T::zero)
+            |_| T::from_f32(0.01).unwrap_or_else(T::zero),
         );
         let weight = Variable::new(Tensor::from_ndarray(weight_data), true);
 
@@ -433,19 +443,25 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
     pub fn forward(&self, input: &Variable<T>) -> RusTorchResult<Variable<T>> {
         // Use QAT config to apply quantization
         // QAT設定を使用して量子化を適用
-        let (quantized_input, quantized_weight) = self.qat_config.apply_quantization(input, &self.weight)?;
+        let (quantized_input, quantized_weight) =
+            self.qat_config.apply_quantization(input, &self.weight)?;
 
         // Simplified convolution - in practice would implement proper conv2d
         // 簡略化畳み込み - 実際には適切なconv2dを実装
         let input_tensor = quantized_input.data();
         let input_guard = input_tensor.read().unwrap();
         let output_data = input_guard.data.clone(); // Placeholder
-        
-        Ok(Variable::new(Tensor::from_ndarray(output_data), input.requires_grad()))
+
+        Ok(Variable::new(
+            Tensor::from_ndarray(output_data),
+            input.requires_grad(),
+        ))
     }
 }
 
-impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T> for QATConv2d<T> {
+impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive> QATModule<T>
+    for QATConv2d<T>
+{
     fn enable_qat(&mut self) {
         self.qat_config.enabled = true;
         self.qat_config.weight_fake_quant.enabled = true;
@@ -464,7 +480,10 @@ impl<T: Float + Send + Sync + ndarray::ScalarOperand + num_traits::FromPrimitive
 
     fn get_quantization_params(&self) -> Option<(f32, i32)> {
         if self.qat_config.enabled {
-            Some((self.qat_config.weight_fake_quant.scale, self.qat_config.weight_fake_quant.zero_point))
+            Some((
+                self.qat_config.weight_fake_quant.scale,
+                self.qat_config.weight_fake_quant.zero_point,
+            ))
         } else {
             None
         }
@@ -542,10 +561,12 @@ mod tests {
     #[test]
     fn test_fake_quantize() {
         let fake_quant = FakeQuantize::<f32>::new(QuantizationScheme::Symmetric, 8);
-        
-        let data = Array2::from_shape_vec((2, 2), vec![1.0f32, 2.0, 3.0, 4.0]).unwrap().into_dyn();
+
+        let data = Array2::from_shape_vec((2, 2), vec![1.0f32, 2.0, 3.0, 4.0])
+            .unwrap()
+            .into_dyn();
         let input = Variable::new(Tensor::from_ndarray(data), false);
-        
+
         let output = fake_quant.forward(&input).unwrap();
         let output_tensor = output.data();
         let output_guard = output_tensor.read().unwrap();
@@ -555,17 +576,19 @@ mod tests {
     #[test]
     fn test_qat_linear() {
         let mut linear = QATLinear::<f32>::new(3, 2);
-        
-        let input_data = Array2::from_shape_vec((1, 3), vec![1.0f32, 2.0, 3.0]).unwrap().into_dyn();
+
+        let input_data = Array2::from_shape_vec((1, 3), vec![1.0f32, 2.0, 3.0])
+            .unwrap()
+            .into_dyn();
         let input = Variable::new(Tensor::from_ndarray(input_data), false);
-        
+
         assert!(linear.is_qat_enabled());
-        
+
         let output = linear.forward(&input).unwrap();
         let output_tensor = output.data();
         let output_guard = output_tensor.read().unwrap();
         assert_eq!(output_guard.shape(), &[1, 2]);
-        
+
         // Test disabling QAT
         linear.disable_qat();
         assert!(!linear.is_qat_enabled());
@@ -574,9 +597,9 @@ mod tests {
     #[test]
     fn test_qat_conv2d() {
         let mut conv = QATConv2d::<f32>::new(3, 16, (3, 3), (1, 1), (1, 1));
-        
+
         assert!(conv.is_qat_enabled());
-        
+
         conv.set_quantization_params(0.1, 0);
         assert_eq!(conv.get_quantization_params(), Some((0.1, 0)));
     }
@@ -585,17 +608,21 @@ mod tests {
     fn test_qat_trainer() {
         let mut trainer = QATTrainer::new(0.001f32, 100);
         let mut linear = QATLinear::<f32>::new(2, 1);
-        
-        let input_data = Array2::from_shape_vec((1, 2), vec![1.0f32, 2.0]).unwrap().into_dyn();
+
+        let input_data = Array2::from_shape_vec((1, 2), vec![1.0f32, 2.0])
+            .unwrap()
+            .into_dyn();
         let input = Variable::new(Tensor::from_ndarray(input_data), false);
-        
-        let target_data = Array2::from_shape_vec((1, 1), vec![3.0f32]).unwrap().into_dyn();
+
+        let target_data = Array2::from_shape_vec((1, 1), vec![3.0f32])
+            .unwrap()
+            .into_dyn();
         let target = Variable::new(Tensor::from_ndarray(target_data), false);
-        
+
         // Initially should disable QAT (calibration phase)
         trainer.train_step(&mut linear, &input, &target).unwrap();
         assert!(!linear.is_qat_enabled());
-        
+
         // After calibration steps, should enable QAT
         trainer.current_step = 101;
         trainer.train_step(&mut linear, &input, &target).unwrap();

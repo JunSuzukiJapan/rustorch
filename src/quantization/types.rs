@@ -4,9 +4,9 @@
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::device::Device;
 use ndarray::{ArrayD, IxDyn};
-use num_traits::{Signed, Unsigned, Zero, One, FromPrimitive, ToPrimitive};
+use num_traits::{FromPrimitive, One, Signed, ToPrimitive, Unsigned, Zero};
 use std::fmt;
-use std::ops::{Add, Sub, Mul, Div};
+use std::ops::{Add, Div, Mul, Sub};
 
 /// Supported quantization data types
 /// サポートされている量子化データ型
@@ -55,7 +55,7 @@ pub trait QuantizableInteger: Copy + Send + Sync + fmt::Debug + Zero + 'static {
     const BITS: u8;
     const MIN_VALUE: i32;
     const MAX_VALUE: i32;
-    
+
     fn from_i32_clamped(value: i32) -> Self;
     fn to_i32(&self) -> i32;
 }
@@ -64,11 +64,11 @@ impl QuantizableInteger for i8 {
     const BITS: u8 = 8;
     const MIN_VALUE: i32 = i8::MIN as i32;
     const MAX_VALUE: i32 = i8::MAX as i32;
-    
+
     fn from_i32_clamped(value: i32) -> Self {
         value.clamp(Self::MIN_VALUE, Self::MAX_VALUE) as i8
     }
-    
+
     fn to_i32(&self) -> i32 {
         *self as i32
     }
@@ -78,11 +78,11 @@ impl QuantizableInteger for u8 {
     const BITS: u8 = 8;
     const MIN_VALUE: i32 = u8::MIN as i32;
     const MAX_VALUE: i32 = u8::MAX as i32;
-    
+
     fn from_i32_clamped(value: i32) -> Self {
         value.clamp(Self::MIN_VALUE, Self::MAX_VALUE) as u8
     }
-    
+
     fn to_i32(&self) -> i32 {
         *self as i32
     }
@@ -92,11 +92,11 @@ impl QuantizableInteger for i16 {
     const BITS: u8 = 16;
     const MIN_VALUE: i32 = i16::MIN as i32;
     const MAX_VALUE: i32 = i16::MAX as i32;
-    
+
     fn from_i32_clamped(value: i32) -> Self {
         value.clamp(Self::MIN_VALUE, Self::MAX_VALUE) as i16
     }
-    
+
     fn to_i32(&self) -> i32 {
         *self as i32
     }
@@ -111,7 +111,7 @@ impl Int4 {
     pub fn new(value: i8) -> Self {
         Self(value.clamp(-8, 7))
     }
-    
+
     pub fn value(&self) -> i8 {
         self.0
     }
@@ -132,53 +132,69 @@ impl Mul for Int4 {
 }
 
 impl Zero for Int4 {
-    fn zero() -> Self { Int4(0) }
-    fn is_zero(&self) -> bool { self.0 == 0 }
+    fn zero() -> Self {
+        Int4(0)
+    }
+    fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl One for Int4 {
-    fn one() -> Self { Int4(1) }
+    fn one() -> Self {
+        Int4(1)
+    }
 }
 
 impl FromPrimitive for Int4 {
     fn from_i32(n: i32) -> Option<Self> {
         Some(Int4::new(n as i8))
     }
-    
+
     fn from_i64(n: i64) -> Option<Self> {
         Some(Int4::new(n as i8))
     }
-    
+
     fn from_u64(n: u64) -> Option<Self> {
         Some(Int4::new(n as i8))
     }
-    
+
     fn from_f32(n: f32) -> Option<Self> {
         Some(Int4::new(n as i8))
     }
-    
+
     fn from_f64(n: f64) -> Option<Self> {
         Some(Int4::new(n as i8))
     }
 }
 
 impl ToPrimitive for Int4 {
-    fn to_i32(&self) -> Option<i32> { Some(self.0 as i32) }
-    fn to_i64(&self) -> Option<i64> { Some(self.0 as i64) }
-    fn to_u64(&self) -> Option<u64> { Some(self.0 as u64) }
-    fn to_f32(&self) -> Option<f32> { Some(self.0 as f32) }
-    fn to_f64(&self) -> Option<f64> { Some(self.0 as f64) }
+    fn to_i32(&self) -> Option<i32> {
+        Some(self.0 as i32)
+    }
+    fn to_i64(&self) -> Option<i64> {
+        Some(self.0 as i64)
+    }
+    fn to_u64(&self) -> Option<u64> {
+        Some(self.0 as u64)
+    }
+    fn to_f32(&self) -> Option<f32> {
+        Some(self.0 as f32)
+    }
+    fn to_f64(&self) -> Option<f64> {
+        Some(self.0 as f64)
+    }
 }
 
 impl QuantizableInteger for Int4 {
     const BITS: u8 = 4;
     const MIN_VALUE: i32 = -8;
     const MAX_VALUE: i32 = 7;
-    
+
     fn from_i32_clamped(value: i32) -> Self {
         Int4::new(value as i8)
     }
-    
+
     fn to_i32(&self) -> i32 {
         self.0 as i32
     }
@@ -211,11 +227,17 @@ impl<Q: QuantizableInteger> QuantizedTensor<Q> {
     pub fn new(data: ArrayD<Q>, scale: f32, zero_point: i32, device: Device) -> Self {
         let qtype = match Q::BITS {
             4 => QuantizationType::Int4,
-            8 => if Q::MIN_VALUE >= 0 { QuantizationType::UInt8 } else { QuantizationType::Int8 },
+            8 => {
+                if Q::MIN_VALUE >= 0 {
+                    QuantizationType::UInt8
+                } else {
+                    QuantizationType::Int8
+                }
+            }
             16 => QuantizationType::Int16,
             _ => QuantizationType::Int8, // Default fallback
         };
-        
+
         Self {
             data,
             scale,
@@ -247,7 +269,8 @@ impl<Q: QuantizableInteger> QuantizedTensor<Q> {
     /// 浮動小数点テンソルに非量子化
     pub fn dequantize<T: num_traits::Float + FromPrimitive>(&self) -> ArrayD<T> {
         self.data.mapv(|q_val| {
-            let fp_val = (QuantizableInteger::to_i32(&q_val) as f32 - self.zero_point as f32) * self.scale;
+            let fp_val =
+                (QuantizableInteger::to_i32(&q_val) as f32 - self.zero_point as f32) * self.scale;
             T::from_f32(fp_val).unwrap_or_else(T::zero)
         })
     }
@@ -270,9 +293,9 @@ impl<Q: QuantizableInteger> QuantizedTensor<Q> {
     /// Check if two quantized tensors have compatible quantization parameters
     /// 二つの量子化テンソルが互換性のある量子化パラメータを持つかチェック
     pub fn is_compatible_with(&self, other: &QuantizedTensor<Q>) -> bool {
-        (self.scale - other.scale).abs() < f32::EPSILON &&
-        self.zero_point == other.zero_point &&
-        self.qtype == other.qtype
+        (self.scale - other.scale).abs() < f32::EPSILON
+            && self.zero_point == other.zero_point
+            && self.qtype == other.qtype
     }
 
     /// Reshape the quantized tensor
@@ -286,7 +309,8 @@ impl<Q: QuantizableInteger> QuantizedTensor<Q> {
             });
         }
 
-        let reshaped_data = self.data
+        let reshaped_data = self
+            .data
             .clone()
             .to_shape(IxDyn(new_shape))
             .map_err(|e| RusTorchError::TensorOp {
@@ -345,7 +369,8 @@ impl<'a, Q: QuantizableInteger> QuantizedTensorView<'a, Q> {
     /// ビューを浮動小数点に非量子化
     pub fn dequantize<T: num_traits::Float + FromPrimitive>(&self) -> ArrayD<T> {
         self.data.mapv(|q_val| {
-            let fp_val = (QuantizableInteger::to_i32(&q_val) as f32 - self.zero_point as f32) * self.scale;
+            let fp_val =
+                (QuantizableInteger::to_i32(&q_val) as f32 - self.zero_point as f32) * self.scale;
             T::from_f32(fp_val).unwrap_or_else(T::zero)
         })
     }
@@ -382,10 +407,10 @@ mod tests {
     fn test_int4() {
         let val = Int4::new(10); // Should clamp to 7
         assert_eq!(val.value(), 7);
-        
+
         let val = Int4::new(-10); // Should clamp to -8
         assert_eq!(val.value(), -8);
-        
+
         assert_eq!(Int4::BITS, 4);
         assert_eq!(Int4::MIN_VALUE, -8);
         assert_eq!(Int4::MAX_VALUE, 7);
@@ -395,7 +420,7 @@ mod tests {
     fn test_quantized_tensor_creation() {
         let data = Array2::<i8>::zeros((2, 3)).into_dyn();
         let qtensor = QuantizedTensor::new(data, 0.1, 0, Device::default());
-        
+
         assert_eq!(qtensor.shape(), &[2, 3]);
         assert_eq!(qtensor.numel(), 6);
         assert_eq!(qtensor.scale, 0.1);
@@ -404,12 +429,14 @@ mod tests {
 
     #[test]
     fn test_quantized_tensor_dequantize() {
-        let data = Array2::from_shape_vec((2, 2), vec![10i8, 20, 30, 40]).unwrap().into_dyn();
+        let data = Array2::from_shape_vec((2, 2), vec![10i8, 20, 30, 40])
+            .unwrap()
+            .into_dyn();
         let qtensor = QuantizedTensor::new(data, 0.1, 0, Device::default());
-        
+
         let dequantized: ArrayD<f32> = qtensor.dequantize();
         let expected_values = vec![1.0f32, 2.0, 3.0, 4.0];
-        
+
         for (actual, expected) in dequantized.iter().zip(expected_values.iter()) {
             assert!((actual - expected).abs() < 1e-6);
         }
@@ -417,9 +444,11 @@ mod tests {
 
     #[test]
     fn test_quantized_tensor_reshape() {
-        let data = Array2::from_shape_vec((2, 2), vec![1i8, 2, 3, 4]).unwrap().into_dyn();
+        let data = Array2::from_shape_vec((2, 2), vec![1i8, 2, 3, 4])
+            .unwrap()
+            .into_dyn();
         let qtensor = QuantizedTensor::new(data, 1.0, 0, Device::default());
-        
+
         let reshaped = qtensor.reshape(&[4, 1]).unwrap();
         assert_eq!(reshaped.shape(), &[4, 1]);
         assert_eq!(reshaped.numel(), 4);
@@ -429,13 +458,18 @@ mod tests {
     fn test_compatibility_check() {
         let data1 = Array2::<i8>::zeros((2, 2)).into_dyn();
         let data2 = Array2::<i8>::zeros((3, 3)).into_dyn();
-        
+
         let qtensor1 = QuantizedTensor::new(data1, 0.1, 0, Device::default());
         let qtensor2 = QuantizedTensor::new(data2, 0.1, 0, Device::default());
-        
+
         assert!(qtensor1.is_compatible_with(&qtensor2));
-        
-        let qtensor3 = QuantizedTensor::new(Array2::<i8>::zeros((2, 2)).into_dyn(), 0.2, 0, Device::default());
+
+        let qtensor3 = QuantizedTensor::new(
+            Array2::<i8>::zeros((2, 2)).into_dyn(),
+            0.2,
+            0,
+            Device::default(),
+        );
         assert!(!qtensor1.is_compatible_with(&qtensor3));
     }
 }

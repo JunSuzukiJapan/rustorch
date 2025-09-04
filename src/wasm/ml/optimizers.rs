@@ -54,14 +54,14 @@ impl WasmSGD {
         // Convert to f64 for enhanced optimizer
         let params_f64: Vec<f64> = parameters.iter().map(|&x| x as f64).collect();
         let grads_f64: Vec<f64> = gradients.iter().map(|&x| x as f64).collect();
-        
+
         // Use enhanced SGD implementation (would need to be implemented)
         // For now, use simple SGD logic
         let mut updated_params = params_f64;
         for (i, grad) in grads_f64.iter().enumerate() {
             updated_params[i] -= self.learning_rate as f64 * grad;
         }
-        
+
         // Convert back to f32
         updated_params.iter().map(|&x| x as f32).collect()
     }

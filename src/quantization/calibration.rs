@@ -1,11 +1,11 @@
 //! Calibration and statistical observation for quantization
 //! 量子化のためのキャリブレーションと統計観測
 
+use super::schemes::{CalibrationMethod, QuantizationScheme};
+use super::types::{QuantizableInteger, QuantizedTensor};
+use super::TensorQuantization;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use super::{TensorQuantization};
-use super::schemes::{QuantizationScheme, CalibrationMethod};
-use super::types::{QuantizedTensor, QuantizableInteger};
 use ndarray::ArrayD;
 use num_traits::Float;
 use std::collections::HashMap;
@@ -16,19 +16,19 @@ pub trait Observer<T: Float> {
     /// Observe a batch of data
     /// データのバッチを観測
     fn observe(&mut self, data: &ArrayD<T>);
-    
+
     /// Get the observed minimum value
     /// 観測された最小値を取得
     fn min_val(&self) -> Option<T>;
-    
+
     /// Get the observed maximum value
     /// 観測された最大値を取得  
     fn max_val(&self) -> Option<T>;
-    
+
     /// Reset observer state
     /// 観測器の状態をリセット
     fn reset(&mut self);
-    
+
     /// Get quantization parameters based on observations
     /// 観測に基づいて量子化パラメータを取得
     fn get_quantization_params(&self, scheme: QuantizationScheme) -> RusTorchResult<(f32, i32)>;
@@ -67,17 +67,33 @@ impl<T: Float> Observer<T> for MinMaxObserver<T> {
             return;
         }
 
-        let data_min = data.iter().fold(T::infinity(), |acc, &x| if acc < x { acc } else { x });
-        let data_max = data.iter().fold(T::neg_infinity(), |acc, &x| if acc > x { acc } else { x });
+        let data_min = data
+            .iter()
+            .fold(T::infinity(), |acc, &x| if acc < x { acc } else { x });
+        let data_max = data
+            .iter()
+            .fold(T::neg_infinity(), |acc, &x| if acc > x { acc } else { x });
 
         self.min_val = Some(match self.min_val {
             None => data_min,
-            Some(current_min) => if current_min < data_min { current_min } else { data_min },
+            Some(current_min) => {
+                if current_min < data_min {
+                    current_min
+                } else {
+                    data_min
+                }
+            }
         });
 
         self.max_val = Some(match self.max_val {
-            None => data_max,  
-            Some(current_max) => if current_max > data_max { current_max } else { data_max },
+            None => data_max,
+            Some(current_max) => {
+                if current_max > data_max {
+                    current_max
+                } else {
+                    data_max
+                }
+            }
         });
 
         self.num_observations += 1;
@@ -110,21 +126,30 @@ impl<T: Float> Observer<T> for MinMaxObserver<T> {
 
         match scheme {
             QuantizationScheme::Symmetric => {
-                let abs_max = if min_val.abs() > max_val.abs() { min_val.abs() } else { max_val.abs() };
-                let scale = if abs_max.is_zero() { 1.0f32 } else { abs_max.to_f32().unwrap_or(1.0) / 127.0 };
+                let abs_max = if min_val.abs() > max_val.abs() {
+                    min_val.abs()
+                } else {
+                    max_val.abs()
+                };
+                let scale = if abs_max.is_zero() {
+                    1.0f32
+                } else {
+                    abs_max.to_f32().unwrap_or(1.0) / 127.0
+                };
                 Ok((scale, 0))
-            },
+            }
             QuantizationScheme::Asymmetric => {
                 let range = max_val - min_val;
                 if range.is_zero() {
                     Ok((1.0, 0))
                 } else {
                     let scale = range.to_f32().unwrap_or(1.0) / 255.0; // INT8 range: 256 levels
-                    let zero_point = (-128.0 - min_val.to_f32().unwrap_or(0.0) / scale).round() as i32;
+                    let zero_point =
+                        (-128.0 - min_val.to_f32().unwrap_or(0.0) / scale).round() as i32;
                     let zero_point = zero_point.clamp(-128, 127);
                     Ok((scale, zero_point))
                 }
-            },
+            }
             _ => {
                 // For per-channel schemes, fall back to asymmetric
                 // チャンネル別スキームの場合、非対称にフォールバック
@@ -166,7 +191,7 @@ impl<T: Float> HistogramObserver<T> {
         if self.bin_edges.is_empty() {
             let range = max_val - min_val;
             let bin_width = range / T::from(self.num_bins).unwrap_or_else(|| T::one());
-            
+
             self.bin_edges = (0..=self.num_bins)
                 .map(|i| min_val + bin_width * T::from(i).unwrap_or_else(T::zero))
                 .collect();
@@ -218,9 +243,15 @@ impl<T: Float> HistogramObserver<T> {
             }
         }
 
-        let min_range = self.bin_edges.get(lower_bin).copied()
+        let min_range = self
+            .bin_edges
+            .get(lower_bin)
+            .copied()
             .unwrap_or_else(|| self.min_val.unwrap_or_else(T::zero));
-        let max_range = self.bin_edges.get(upper_bin + 1).copied()
+        let max_range = self
+            .bin_edges
+            .get(upper_bin + 1)
+            .copied()
             .unwrap_or_else(|| self.max_val.unwrap_or_else(T::one));
 
         Ok((min_range, max_range))
@@ -233,18 +264,34 @@ impl<T: Float> Observer<T> for HistogramObserver<T> {
             return;
         }
 
-        let data_min = data.iter().fold(T::infinity(), |acc, &x| if acc < x { acc } else { x });
-        let data_max = data.iter().fold(T::neg_infinity(), |acc, &x| if acc > x { acc } else { x });
+        let data_min = data
+            .iter()
+            .fold(T::infinity(), |acc, &x| if acc < x { acc } else { x });
+        let data_max = data
+            .iter()
+            .fold(T::neg_infinity(), |acc, &x| if acc > x { acc } else { x });
 
         // Update global min/max
         self.min_val = Some(match self.min_val {
             None => data_min,
-            Some(current_min) => if current_min < data_min { current_min } else { data_min },
+            Some(current_min) => {
+                if current_min < data_min {
+                    current_min
+                } else {
+                    data_min
+                }
+            }
         });
 
         self.max_val = Some(match self.max_val {
             None => data_max,
-            Some(current_max) => if current_max > data_max { current_max } else { data_max },
+            Some(current_max) => {
+                if current_max > data_max {
+                    current_max
+                } else {
+                    data_max
+                }
+            }
         });
 
         // Initialize bins if needed
@@ -284,22 +331,31 @@ impl<T: Float> Observer<T> for HistogramObserver<T> {
 
         match scheme {
             QuantizationScheme::Symmetric => {
-                let abs_max = if range_min.abs() > range_max.abs() { range_min.abs() } else { range_max.abs() };
-                let scale = if abs_max.is_zero() { 1.0f32 } else { abs_max.to_f32().unwrap_or(1.0) / 127.0 };
+                let abs_max = if range_min.abs() > range_max.abs() {
+                    range_min.abs()
+                } else {
+                    range_max.abs()
+                };
+                let scale = if abs_max.is_zero() {
+                    1.0f32
+                } else {
+                    abs_max.to_f32().unwrap_or(1.0) / 127.0
+                };
                 Ok((scale, 0))
-            },
+            }
             QuantizationScheme::Asymmetric => {
                 let range = range_max - range_min;
                 if range.is_zero() {
                     Ok((1.0, 0))
                 } else {
                     let scale = range.to_f32().unwrap_or(1.0) / 255.0;
-                    let zero_point = (-128.0 - range_min.to_f32().unwrap_or(0.0) / scale).round() as i32;
+                    let zero_point =
+                        (-128.0 - range_min.to_f32().unwrap_or(0.0) / scale).round() as i32;
                     let zero_point = zero_point.clamp(-128, 127);
                     Ok((scale, zero_point))
                 }
-            },
-            _ => self.get_quantization_params(QuantizationScheme::Asymmetric)
+            }
+            _ => self.get_quantization_params(QuantizationScheme::Asymmetric),
         }
     }
 }
@@ -341,12 +397,14 @@ impl<T: Float> StaticQuantizer<T> {
     /// Observe data for calibration
     /// キャリブレーションのためのデータ観測
     pub fn observe(&mut self, name: &str, data: &ArrayD<T>) -> RusTorchResult<()> {
-        let observer = self.observers.get_mut(name)
+        let observer = self
+            .observers
+            .get_mut(name)
             .ok_or_else(|| RusTorchError::TensorOp {
                 message: format!("Observer for '{}' not found", name),
                 source: None,
             })?;
-        
+
         observer.observe(data);
         Ok(())
     }
@@ -374,9 +432,9 @@ impl<T: Float> StaticQuantizer<T> {
     /// Quantize a tensor using calibrated parameters
     /// キャリブレーション済みパラメータを使用してテンソルを量子化
     pub fn quantize<Q: QuantizableInteger>(
-        &self, 
-        name: &str, 
-        tensor: &Tensor<T>
+        &self,
+        name: &str,
+        tensor: &Tensor<T>,
     ) -> RusTorchResult<QuantizedTensor<Q>>
     where
         T: super::Quantizable<QuantizedType = Q>,
@@ -388,7 +446,8 @@ impl<T: Float> StaticQuantizer<T> {
             });
         }
 
-        let (scale, zero_point) = self.get_params(name)
+        let (scale, zero_point) = self
+            .get_params(name)
             .ok_or_else(|| RusTorchError::TensorOp {
                 message: format!("No calibration parameters for '{}'", name),
                 source: None,
@@ -399,7 +458,7 @@ impl<T: Float> StaticQuantizer<T> {
             let q_val = val.quantize(scale, zero_point);
             q_val
         });
-        
+
         Ok(QuantizedTensor::new(
             quantized_data,
             scale,
@@ -434,15 +493,15 @@ impl<T: Float> Default for StaticQuantizer<T> {
 /// Convenience function for batch calibration
 /// バッチキャリブレーション用の便利関数
 pub fn calibrate_batch<T: Float>(
-    data_batches: &[ArrayD<T>], 
-    scheme: QuantizationScheme
+    data_batches: &[ArrayD<T>],
+    scheme: QuantizationScheme,
 ) -> RusTorchResult<(f32, i32)> {
     let mut observer = MinMaxObserver::new();
-    
+
     for batch in data_batches {
         observer.observe(batch);
     }
-    
+
     observer.get_quantization_params(scheme)
 }
 
@@ -454,16 +513,16 @@ mod tests {
     #[test]
     fn test_min_max_observer() {
         let mut observer = MinMaxObserver::new();
-        
+
         let batch1 = Array1::from_vec(vec![1.0f32, 2.0, 3.0]).into_dyn();
         let batch2 = Array1::from_vec(vec![0.0f32, 4.0, 5.0]).into_dyn();
-        
+
         observer.observe(&batch1);
         observer.observe(&batch2);
-        
+
         assert_eq!(observer.min_val(), Some(0.0));
         assert_eq!(observer.max_val(), Some(5.0));
-        
+
         let (scale, zero_point) = observer
             .get_quantization_params(QuantizationScheme::Symmetric)
             .unwrap();
@@ -474,13 +533,13 @@ mod tests {
     #[test]
     fn test_histogram_observer() {
         let mut observer = HistogramObserver::new(10);
-        
+
         let data = Array1::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0]).into_dyn();
         observer.observe(&data);
-        
+
         assert_eq!(observer.min_val(), Some(1.0));
         assert_eq!(observer.max_val(), Some(5.0));
-        
+
         let (range_min, range_max) = observer.compute_optimal_range((0.1, 0.9)).unwrap();
         assert!(range_min >= 1.0);
         assert!(range_max <= 5.0);
@@ -489,17 +548,17 @@ mod tests {
     #[test]
     fn test_static_quantizer() {
         let mut quantizer = StaticQuantizer::<f32>::new();
-        
+
         let observer = Box::new(MinMaxObserver::new());
         quantizer.add_observer("layer1".to_string(), observer);
-        
+
         let data = Array1::from_vec(vec![1.0f32, 2.0, 3.0]).into_dyn();
         quantizer.observe("layer1", &data).unwrap();
-        
+
         assert!(!quantizer.is_calibrated());
         quantizer.calibrate(QuantizationScheme::Symmetric).unwrap();
         assert!(quantizer.is_calibrated());
-        
+
         let params = quantizer.get_params("layer1");
         assert!(params.is_some());
         let (scale, zero_point) = params.unwrap();
@@ -512,9 +571,10 @@ mod tests {
         let batch1 = Array1::from_vec(vec![1.0f32, 2.0]).into_dyn();
         let batch2 = Array1::from_vec(vec![3.0f32, 4.0]).into_dyn();
         let batches = vec![batch1, batch2];
-        
-        let (scale, zero_point) = calibrate_batch(&batches, QuantizationScheme::Asymmetric).unwrap();
-        
+
+        let (scale, zero_point) =
+            calibrate_batch(&batches, QuantizationScheme::Asymmetric).unwrap();
+
         assert!(scale > 0.0);
         // For asymmetric quantization of positive values, zero_point should be negative
         assert!(zero_point <= 0);
@@ -523,15 +583,15 @@ mod tests {
     #[test]
     fn test_observer_reset() {
         let mut observer = MinMaxObserver::new();
-        
+
         let data = Array1::from_vec(vec![1.0f32, 2.0, 3.0]).into_dyn();
         observer.observe(&data);
-        
+
         assert!(observer.min_val().is_some());
         assert!(observer.max_val().is_some());
-        
+
         observer.reset();
-        
+
         assert!(observer.min_val().is_none());
         assert!(observer.max_val().is_none());
     }

@@ -1,14 +1,14 @@
 //! Sparse neural network layers
 //! スパースニューラルネットワーク層
 
-use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
-use crate::autograd::Variable;
-use crate::nn::Module;
-use super::{SparseTensor, SparseFormat, SparseOps};
 use super::pruning::{ModelPruner, PruningConfig, PruningStrategy};
-use ndarray::{ArrayD, Array1, Array2};
-use num_traits::{Float, Zero, One, FromPrimitive};
+use super::{SparseFormat, SparseOps, SparseTensor};
+use crate::autograd::Variable;
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::nn::Module;
+use crate::tensor::Tensor;
+use ndarray::{Array1, Array2, ArrayD};
+use num_traits::{Float, FromPrimitive, One, Zero};
 use std::collections::HashMap;
 
 /// Sparse linear layer with efficient sparse matrix operations
@@ -29,7 +29,19 @@ pub struct SparseLinear<T: Float> {
     pub pruning_config: Option<PruningConfig>,
 }
 
-impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sync + ndarray::ScalarOperand + FromPrimitive> SparseLinear<T> {
+impl<
+        T: Float
+            + Zero
+            + One
+            + std::ops::AddAssign
+            + Copy
+            + PartialOrd
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive,
+    > SparseLinear<T>
+{
     /// Create sparse linear layer from dense weights
     /// 密重みからスパース線形層を作成
     pub fn from_dense(
@@ -38,7 +50,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
         threshold: T,
     ) -> RusTorchResult<Self> {
         let (out_features, in_features) = weight.dim();
-        
+
         // Convert to sparse CSR format for efficient SpMV
         let weight_dense = weight.into_dyn();
         let sparse_weight = SparseTensor::from_dense(&weight_dense, threshold)?;
@@ -61,7 +73,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
         pruning_config: PruningConfig,
     ) -> RusTorchResult<Self> {
         let (out_features, in_features) = weight.dim();
-        
+
         // Apply initial pruning
         let pruner = ModelPruner::new(pruning_config.clone());
         let weight_dense = weight.into_dyn();
@@ -114,7 +126,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
             };
 
             let result = self.weight.spmv(&input_vector)?;
-            
+
             // Add bias if present
             let final_result = if let Some(ref bias) = self.bias {
                 &result + bias
@@ -134,7 +146,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
         };
 
         let reshaped_output = output_data.to_shape(output_shape)?.into_owned().into_dyn();
-        
+
         Ok(Variable::new(
             Tensor::from_ndarray(reshaped_output),
             input.requires_grad(),
@@ -147,7 +159,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
         if let Some(ref mut config) = self.pruning_config {
             config.target_sparsity = new_sparsity;
             let pruner = ModelPruner::new(config.clone());
-            
+
             // Convert to dense, prune, convert back to sparse
             let dense_weight = self.weight.to_dense()?;
             let new_sparse_weight = pruner.prune_tensor(&dense_weight)?;
@@ -167,7 +179,7 @@ impl<T: Float + Zero + One + std::ops::AddAssign + Copy + PartialOrd + Send + Sy
     pub fn memory_efficiency(&self) -> f64 {
         let sparse_memory = self.weight.memory_usage();
         let dense_memory = self.in_features * self.out_features * std::mem::size_of::<T>();
-        
+
         1.0 - (sparse_memory as f64 / dense_memory as f64)
     }
 }
@@ -190,7 +202,19 @@ pub struct SparseConv2d<T: Float> {
     pub kernel_size: (usize, usize),
 }
 
-impl<T: Float + Zero + One + Copy + PartialOrd + Send + Sync + ndarray::ScalarOperand + FromPrimitive + std::ops::AddAssign> SparseConv2d<T> {
+impl<
+        T: Float
+            + Zero
+            + One
+            + Copy
+            + PartialOrd
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive
+            + std::ops::AddAssign,
+    > SparseConv2d<T>
+{
     /// Create sparse convolutional layer (simplified implementation)
     /// スパース畳み込み層を作成（簡略化実装）
     pub fn from_dense(
@@ -203,13 +227,15 @@ impl<T: Float + Zero + One + Copy + PartialOrd + Send + Sync + ndarray::ScalarOp
         if weight.ndim() != 4 {
             return Err(RusTorchError::InvalidParameters {
                 operation: "sparse_conv2d_creation".to_string(),
-                message: "Conv2D weights must be 4D (out_channels, in_channels, height, width)".to_string(),
+                message: "Conv2D weights must be 4D (out_channels, in_channels, height, width)"
+                    .to_string(),
             });
         }
 
         let shape = weight.shape();
-        let (out_channels, in_channels, kernel_h, kernel_w) = (shape[0], shape[1], shape[2], shape[3]);
-        
+        let (out_channels, in_channels, kernel_h, kernel_w) =
+            (shape[0], shape[1], shape[2], shape[3]);
+
         let sparse_weight = SparseTensor::from_dense(&weight, threshold)?;
 
         Ok(Self {
@@ -237,12 +263,12 @@ impl<T: Float + Zero + One + Copy + PartialOrd + Send + Sync + ndarray::ScalarOp
         // Calculate sparsity per output channel
         // 出力チャンネル毎のスパース率を計算
         let mut sparsities = Vec::with_capacity(self.out_channels);
-        
+
         // This is a simplified calculation - would need proper filter extraction
         for _ in 0..self.out_channels {
             sparsities.push(self.weight.sparsity());
         }
-        
+
         sparsities
     }
 }
@@ -264,7 +290,18 @@ pub struct SparseEmbedding<T: Float> {
     pub padding_idx: Option<usize>,
 }
 
-impl<T: Float + Zero + One + Copy + Send + Sync + ndarray::ScalarOperand + FromPrimitive + std::ops::AddAssign> SparseEmbedding<T> {
+impl<
+        T: Float
+            + Zero
+            + One
+            + Copy
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive
+            + std::ops::AddAssign,
+    > SparseEmbedding<T>
+{
     /// Create sparse embedding layer
     /// スパース埋め込み層を作成
     pub fn new(
@@ -277,28 +314,25 @@ impl<T: Float + Zero + One + Copy + Send + Sync + ndarray::ScalarOperand + FromP
         // ランダムスパース重みで初期化
         let total_elements = num_embeddings * embedding_dim;
         let nnz = ((1.0 - sparsity) * total_elements as f32) as usize;
-        
+
         // Generate random indices and values for initialization
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        
+
         let mut row_indices = Vec::with_capacity(nnz);
         let mut col_indices = Vec::with_capacity(nnz);
         let mut values = Vec::with_capacity(nnz);
-        
+
         for _ in 0..nnz {
             row_indices.push(rng.gen_range(0..num_embeddings));
             col_indices.push(rng.gen_range(0..embedding_dim));
             values.push(T::from(rng.gen_range(-0.1..0.1)).unwrap());
         }
-        
-        let indices = vec![
-            Array1::from_vec(row_indices),
-            Array1::from_vec(col_indices),
-        ];
+
+        let indices = vec![Array1::from_vec(row_indices), Array1::from_vec(col_indices)];
         let values_array = Array1::from_vec(values);
         let shape = vec![num_embeddings, embedding_dim];
-        
+
         let weight = SparseTensor::from_coo(indices, values_array, shape)?.to_csr()?;
 
         Ok(Self {
@@ -319,7 +353,10 @@ impl<T: Float + Zero + One + Copy + Send + Sync + ndarray::ScalarOperand + FromP
             if idx >= self.num_embeddings {
                 return Err(RusTorchError::InvalidParameters {
                     operation: "sparse_embedding_lookup".to_string(),
-                    message: format!("Index {} out of bounds for vocabulary size {}", idx, self.num_embeddings),
+                    message: format!(
+                        "Index {} out of bounds for vocabulary size {}",
+                        idx, self.num_embeddings
+                    ),
                 });
             }
 
@@ -332,10 +369,10 @@ impl<T: Float + Zero + One + Copy + Send + Sync + ndarray::ScalarOperand + FromP
             if self.weight.format == SparseFormat::CSR {
                 let row_ptr = &self.weight.indices[0];
                 let col_indices = &self.weight.indices[1];
-                
+
                 let start = row_ptr[idx];
                 let end = row_ptr[idx + 1];
-                
+
                 for i in start..end {
                     let col = col_indices[i];
                     output[[b, col]] = self.weight.values[i];
@@ -367,12 +404,24 @@ pub struct SparseAttention<T: Float> {
     pub dropout: f32,
 }
 
-impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sync + ndarray::ScalarOperand + FromPrimitive> SparseAttention<T> {
+impl<
+        T: Float
+            + Zero
+            + One
+            + Copy
+            + std::ops::AddAssign
+            + PartialOrd
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive,
+    > SparseAttention<T>
+{
     /// Create sparse attention module
     /// スパースアテンションモジュールを作成
     pub fn new(embed_dim: usize, num_heads: usize, dropout: f32) -> Self {
         let head_dim = embed_dim / num_heads;
-        
+
         Self {
             attention_mask: None,
             embed_dim,
@@ -391,7 +440,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
                 message: "Attention mask must be 2D".to_string(),
             });
         }
-        
+
         self.attention_mask = Some(mask);
         Ok(())
     }
@@ -405,7 +454,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
         value: &Array2<T>,
     ) -> RusTorchResult<Array2<T>> {
         let (seq_len, embed_dim) = query.dim();
-        
+
         if embed_dim != self.embed_dim {
             return Err(RusTorchError::ShapeMismatch {
                 expected: vec![self.embed_dim],
@@ -416,7 +465,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
         // Simplified attention computation
         // QK^T attention scores
         let scores = query.dot(&key.t());
-        
+
         // Apply sparse mask if available
         let masked_scores = if let Some(ref mask) = self.attention_mask {
             let dense_mask = mask.to_dense()?;
@@ -426,7 +475,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
                     actual: dense_mask.shape().to_vec(),
                 });
             }
-            
+
             // Apply mask (multiply by mask, add large negative for masked positions)
             scores.clone() // Placeholder - would implement proper masking
         } else {
@@ -435,7 +484,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
 
         // Apply softmax (simplified - would implement proper softmax)
         let attention_weights = masked_scores; // Placeholder
-        
+
         // Apply attention to values
         let output = attention_weights.dot(value);
 
@@ -445,9 +494,9 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
     /// Calculate attention sparsity statistics
     /// アテンションスパース統計を計算
     pub fn attention_stats(&self) -> Option<(f64, usize)> {
-        self.attention_mask.as_ref().map(|mask| {
-            (mask.sparsity(), mask.nnz)
-        })
+        self.attention_mask
+            .as_ref()
+            .map(|mask| (mask.sparsity(), mask.nnz))
     }
 }
 
@@ -466,7 +515,19 @@ pub struct SparseTransformerBlock<T: Float> {
     pub norm2: Option<Array1<T>>,
 }
 
-impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sync + ndarray::ScalarOperand + FromPrimitive> SparseTransformerBlock<T> {
+impl<
+        T: Float
+            + Zero
+            + One
+            + Copy
+            + std::ops::AddAssign
+            + PartialOrd
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive,
+    > SparseTransformerBlock<T>
+{
     /// Create sparse transformer block
     /// スパースTransformerブロックを作成
     pub fn new(
@@ -477,7 +538,7 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
         ffn_sparsity: f32,
     ) -> RusTorchResult<Self> {
         let attention = SparseAttention::new(embed_dim, num_heads, 0.1);
-        
+
         // Create sparse FFN layers
         let ffn_config = PruningConfig {
             target_sparsity: ffn_sparsity,
@@ -521,19 +582,19 @@ impl<T: Float + Zero + One + Copy + std::ops::AddAssign + PartialOrd + Send + Sy
     /// 包括的スパース統計を取得
     pub fn sparsity_report(&self) -> HashMap<String, f64> {
         let mut report = HashMap::new();
-        
+
         if let Some((attn_sparsity, _)) = self.attention.attention_stats() {
             report.insert("attention".to_string(), attn_sparsity);
         }
-        
+
         for (i, layer) in self.ffn.iter().enumerate() {
             report.insert(format!("ffn_{}", i), layer.sparsity());
         }
-        
+
         // Calculate overall block sparsity
         let total_sparsity = report.values().sum::<f64>() / report.len() as f64;
         report.insert("overall".to_string(), total_sparsity);
-        
+
         report
     }
 }
@@ -545,13 +606,15 @@ mod tests {
 
     #[test]
     fn test_sparse_linear_creation() {
-        let weight = Array2::from_shape_vec((3, 4), vec![
-            1.0f32, 0.0, 2.0, 0.0,
-            0.0, 3.0, 0.0, 4.0,
-            5.0, 0.0, 0.0, 6.0,
-        ]).unwrap();
+        let weight = Array2::from_shape_vec(
+            (3, 4),
+            vec![
+                1.0f32, 0.0, 2.0, 0.0, 0.0, 3.0, 0.0, 4.0, 5.0, 0.0, 0.0, 6.0,
+            ],
+        )
+        .unwrap();
         let bias = Some(Array1::zeros(3));
-        
+
         let sparse_linear = SparseLinear::from_dense(weight, bias, 0.5).unwrap();
         assert_eq!(sparse_linear.in_features, 4);
         assert_eq!(sparse_linear.out_features, 3);
@@ -560,20 +623,17 @@ mod tests {
 
     #[test]
     fn test_sparse_linear_forward() {
-        let weight = Array2::from_shape_vec((2, 3), vec![
-            1.0f32, 0.0, 2.0,
-            0.0, 3.0, 0.0,
-        ]).unwrap();
-        
+        let weight = Array2::from_shape_vec((2, 3), vec![1.0f32, 0.0, 2.0, 0.0, 3.0, 0.0]).unwrap();
+
         let sparse_linear = SparseLinear::from_dense(weight, None, 0.1).unwrap();
-        
+
         let input_data = Array1::from_vec(vec![1.0f32, 2.0, 3.0]).into_dyn();
         let input_var = Variable::new(Tensor::from_ndarray(input_data), false);
-        
+
         let output = sparse_linear.forward(&input_var).unwrap();
         let output_tensor = output.data();
         let output_guard = output_tensor.read().unwrap();
-        
+
         assert_eq!(output_guard.shape(), &[2]);
     }
 
@@ -583,7 +643,7 @@ mod tests {
         assert_eq!(sparse_embedding.num_embeddings, 10);
         assert_eq!(sparse_embedding.embedding_dim, 4);
         assert!(sparse_embedding.weight.sparsity() > 0.6);
-        
+
         let indices = Array1::from_vec(vec![1, 3, 5]);
         let embeddings = sparse_embedding.forward(&indices).unwrap();
         assert_eq!(embeddings.shape(), [3, 4]);
@@ -592,18 +652,15 @@ mod tests {
     #[test]
     fn test_sparse_conv2d_creation() {
         let weight = ArrayD::from_shape_vec(
-            vec![2, 3, 3, 3], 
-            (0..54).map(|x| if x % 3 == 0 { x as f32 } else { 0.0 }).collect()
-        ).unwrap();
-        
-        let sparse_conv = SparseConv2d::from_dense(
-            weight, 
-            None, 
-            (1, 1), 
-            (0, 0), 
-            0.5
-        ).unwrap();
-        
+            vec![2, 3, 3, 3],
+            (0..54)
+                .map(|x| if x % 3 == 0 { x as f32 } else { 0.0 })
+                .collect(),
+        )
+        .unwrap();
+
+        let sparse_conv = SparseConv2d::from_dense(weight, None, (1, 1), (0, 0), 0.5).unwrap();
+
         assert_eq!(sparse_conv.in_channels, 3);
         assert_eq!(sparse_conv.out_channels, 2);
         assert!(sparse_conv.weight.sparsity() > 0.6);
@@ -613,7 +670,7 @@ mod tests {
     fn test_sparse_transformer_block() {
         let block = SparseTransformerBlock::<f32>::new(16, 4, 32, 0.8, 0.7).unwrap(); // Much smaller dimensions
         let sparsity_report = block.sparsity_report();
-        
+
         assert!(sparsity_report.contains_key("overall"));
         assert!(sparsity_report["overall"] > 0.5); // Lower threshold for smaller dimensions
     }

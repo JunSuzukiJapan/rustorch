@@ -2,19 +2,19 @@
 //! Chrome ブラウザGPU加速用WebGPUバックエンド
 
 #[cfg(feature = "webgpu")]
-use wasm_bindgen::prelude::*;
-#[cfg(feature = "webgpu")]
-use wgpu::*;
-#[cfg(feature = "webgpu")]
-use wgpu::util::{DeviceExt, BufferInitDescriptor};
-#[cfg(feature = "webgpu")]
-use std::collections::HashMap;
-#[cfg(feature = "webgpu")]
-use std::borrow;
-#[cfg(feature = "webgpu")]
 use bytemuck;
 #[cfg(feature = "webgpu")]
 use js_sys;
+#[cfg(feature = "webgpu")]
+use std::borrow;
+#[cfg(feature = "webgpu")]
+use std::collections::HashMap;
+#[cfg(feature = "webgpu")]
+use wasm_bindgen::prelude::*;
+#[cfg(feature = "webgpu")]
+use wgpu::util::{BufferInitDescriptor, DeviceExt};
+#[cfg(feature = "webgpu")]
+use wgpu::*;
 
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
@@ -41,7 +41,7 @@ pub struct WebGPUContext {
 impl WebGPUContext {
     pub async fn new() -> Result<WebGPUContext, JsValue> {
         console_error_panic_hook::set_once();
-        
+
         // Request WebGPU adapter with Chrome optimization
         let instance = Instance::new(InstanceDescriptor {
             backends: Backends::BROWSER_WEBGPU,
@@ -58,7 +58,11 @@ impl WebGPUContext {
             .ok_or_else(|| JsValue::from_str("Failed to find WebGPU adapter"))?;
 
         let adapter_info = adapter.get_info();
-        console_log!("WebGPU Adapter: {} ({:?})", adapter_info.name, adapter_info.backend);
+        console_log!(
+            "WebGPU Adapter: {} ({:?})",
+            adapter_info.name,
+            adapter_info.backend
+        );
 
         // Request device with compute shader support
         let (device, queue) = adapter
@@ -116,21 +120,23 @@ impl WebGPUContext {
     }
 
     pub async fn read_buffer_data(&self, buffer_label: &str) -> Result<Vec<f32>, JsValue> {
-        let buffer = self.buffer_cache.get(buffer_label)
+        let buffer = self
+            .buffer_cache
+            .get(buffer_label)
             .ok_or_else(|| JsValue::from_str("Buffer not found"))?;
 
         let buffer_slice = buffer.slice(..);
         buffer_slice.map_async(MapMode::Read, |_| {});
-        
+
         // Wait for the mapping to complete
         self.device.poll(Maintain::Wait);
 
         let data = buffer_slice.get_mapped_range();
         let result: Vec<f32> = bytemuck::cast_slice(&data).to_vec();
-        
+
         drop(data);
         buffer.unmap();
-        
+
         Ok(result)
     }
 
@@ -140,24 +146,35 @@ impl WebGPUContext {
             source: ShaderSource::Wgsl(shader_source.into()),
         });
 
-        let compute_pipeline = self.device.create_compute_pipeline(&ComputePipelineDescriptor {
-            label: Some(label),
-            layout: None,
-            module: &shader_module,
-            entry_point: Some("main"),
-            compilation_options: Default::default(),
-            cache: None,
-        });
+        let compute_pipeline = self
+            .device
+            .create_compute_pipeline(&ComputePipelineDescriptor {
+                label: Some(label),
+                layout: None,
+                module: &shader_module,
+                entry_point: Some("main"),
+                compilation_options: Default::default(),
+                cache: None,
+            });
 
-        self.compute_pipeline_cache.insert(label.to_string(), compute_pipeline);
+        self.compute_pipeline_cache
+            .insert(label.to_string(), compute_pipeline);
         true
     }
 
-    pub fn dispatch_compute(&self, pipeline_label: &str, workgroup_x: u32, workgroup_y: u32, workgroup_z: u32) -> bool {
+    pub fn dispatch_compute(
+        &self,
+        pipeline_label: &str,
+        workgroup_x: u32,
+        workgroup_y: u32,
+        workgroup_z: u32,
+    ) -> bool {
         if let Some(pipeline) = self.compute_pipeline_cache.get(pipeline_label) {
-            let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
-                label: Some("Compute Encoder"),
-            });
+            let mut encoder = self
+                .device
+                .create_command_encoder(&CommandEncoderDescriptor {
+                    label: Some("Compute Encoder"),
+                });
 
             {
                 let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -189,31 +206,69 @@ impl WebGPUContext {
     }
 
     // Tensor operation execution functions with binding groups
-    pub async fn tensor_add(&mut self, a_label: &str, b_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        self.execute_binary_operation("tensor_add", a_label, b_label, output_label).await
+    pub async fn tensor_add(
+        &mut self,
+        a_label: &str,
+        b_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        self.execute_binary_operation("tensor_add", a_label, b_label, output_label)
+            .await
     }
 
-    pub async fn tensor_mul(&mut self, a_label: &str, b_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        self.execute_binary_operation("tensor_mul", a_label, b_label, output_label).await
+    pub async fn tensor_mul(
+        &mut self,
+        a_label: &str,
+        b_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        self.execute_binary_operation("tensor_mul", a_label, b_label, output_label)
+            .await
     }
 
-    pub async fn tensor_relu(&mut self, input_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        self.execute_unary_operation("tensor_relu", input_label, output_label).await
+    pub async fn tensor_relu(
+        &mut self,
+        input_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        self.execute_unary_operation("tensor_relu", input_label, output_label)
+            .await
     }
 
-    pub async fn tensor_sigmoid(&mut self, input_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        self.execute_unary_operation("tensor_sigmoid", input_label, output_label).await
+    pub async fn tensor_sigmoid(
+        &mut self,
+        input_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        self.execute_unary_operation("tensor_sigmoid", input_label, output_label)
+            .await
     }
 
-    pub async fn tensor_matmul(&mut self, a_label: &str, b_label: &str, output_label: &str, m: u32, n: u32, k: u32) -> Result<bool, JsValue> {
-        let pipeline = self.compute_pipeline_cache.get("tensor_matmul")
+    pub async fn tensor_matmul(
+        &mut self,
+        a_label: &str,
+        b_label: &str,
+        output_label: &str,
+        m: u32,
+        n: u32,
+        k: u32,
+    ) -> Result<bool, JsValue> {
+        let pipeline = self
+            .compute_pipeline_cache
+            .get("tensor_matmul")
             .ok_or_else(|| JsValue::from_str("Matrix multiplication pipeline not found"))?;
 
-        let a_buffer = self.buffer_cache.get(a_label)
+        let a_buffer = self
+            .buffer_cache
+            .get(a_label)
             .ok_or_else(|| JsValue::from_str("Buffer A not found"))?;
-        let b_buffer = self.buffer_cache.get(b_label)
+        let b_buffer = self
+            .buffer_cache
+            .get(b_label)
             .ok_or_else(|| JsValue::from_str("Buffer B not found"))?;
-        let output_buffer = self.buffer_cache.get(output_label)
+        let output_buffer = self
+            .buffer_cache
+            .get(output_label)
             .ok_or_else(|| JsValue::from_str("Output buffer not found"))?;
 
         // Create dimensions buffer
@@ -247,9 +302,11 @@ impl WebGPUContext {
             ],
         });
 
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("MatMul Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("MatMul Encoder"),
+            });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -258,7 +315,7 @@ impl WebGPUContext {
             });
             compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             let workgroup_x = (n + 7) / 8;
             let workgroup_y = (m + 7) / 8;
             compute_pass.dispatch_workgroups(workgroup_x, workgroup_y, 1);
@@ -269,15 +326,29 @@ impl WebGPUContext {
     }
 
     // Helper function for binary operations (add, mul)
-    async fn execute_binary_operation(&mut self, operation: &str, a_label: &str, b_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        let pipeline = self.compute_pipeline_cache.get(operation)
+    async fn execute_binary_operation(
+        &mut self,
+        operation: &str,
+        a_label: &str,
+        b_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        let pipeline = self
+            .compute_pipeline_cache
+            .get(operation)
             .ok_or_else(|| JsValue::from_str(&format!("Pipeline {} not found", operation)))?;
 
-        let a_buffer = self.buffer_cache.get(a_label)
+        let a_buffer = self
+            .buffer_cache
+            .get(a_label)
             .ok_or_else(|| JsValue::from_str("Buffer A not found"))?;
-        let b_buffer = self.buffer_cache.get(b_label)
+        let b_buffer = self
+            .buffer_cache
+            .get(b_label)
             .ok_or_else(|| JsValue::from_str("Buffer B not found"))?;
-        let output_buffer = self.buffer_cache.get(output_label)
+        let output_buffer = self
+            .buffer_cache
+            .get(output_label)
             .ok_or_else(|| JsValue::from_str("Output buffer not found"))?;
 
         let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
@@ -299,9 +370,11 @@ impl WebGPUContext {
             ],
         });
 
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some(&format!("{} Encoder", operation)),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some(&format!("{} Encoder", operation)),
+            });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -310,7 +383,7 @@ impl WebGPUContext {
             });
             compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             // Calculate workgroups based on buffer size
             let workgroup_count = (output_buffer.size() as u32 / 4 + 63) / 64; // f32 = 4 bytes, workgroup_size = 64
             compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
@@ -321,13 +394,24 @@ impl WebGPUContext {
     }
 
     // Helper function for unary operations (relu, sigmoid)
-    async fn execute_unary_operation(&mut self, operation: &str, input_label: &str, output_label: &str) -> Result<bool, JsValue> {
-        let pipeline = self.compute_pipeline_cache.get(operation)
+    async fn execute_unary_operation(
+        &mut self,
+        operation: &str,
+        input_label: &str,
+        output_label: &str,
+    ) -> Result<bool, JsValue> {
+        let pipeline = self
+            .compute_pipeline_cache
+            .get(operation)
             .ok_or_else(|| JsValue::from_str(&format!("Pipeline {} not found", operation)))?;
 
-        let input_buffer = self.buffer_cache.get(input_label)
+        let input_buffer = self
+            .buffer_cache
+            .get(input_label)
             .ok_or_else(|| JsValue::from_str("Input buffer not found"))?;
-        let output_buffer = self.buffer_cache.get(output_label)
+        let output_buffer = self
+            .buffer_cache
+            .get(output_label)
             .ok_or_else(|| JsValue::from_str("Output buffer not found"))?;
 
         let bind_group = self.device.create_bind_group(&BindGroupDescriptor {
@@ -345,9 +429,11 @@ impl WebGPUContext {
             ],
         });
 
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some(&format!("{} Encoder", operation)),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some(&format!("{} Encoder", operation)),
+            });
 
         {
             let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
@@ -356,7 +442,7 @@ impl WebGPUContext {
             });
             compute_pass.set_pipeline(pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             // Calculate workgroups based on buffer size
             let workgroup_count = (output_buffer.size() as u32 / 4 + 63) / 64; // f32 = 4 bytes, workgroup_size = 64
             compute_pass.dispatch_workgroups(workgroup_count, 1, 1);
@@ -560,7 +646,7 @@ impl ChromeWebGPUOptimizer {
     #[wasm_bindgen(constructor)]
     pub async fn new() -> Result<ChromeWebGPUOptimizer, JsValue> {
         let context = WebGPUContext::new().await?;
-        
+
         let mut workgroup_sizes = HashMap::new();
         workgroup_sizes.insert("tensor_add".to_string(), (64, 1, 1));
         workgroup_sizes.insert("tensor_mul".to_string(), (64, 1, 1));
@@ -570,9 +656,9 @@ impl ChromeWebGPUOptimizer {
         workgroup_sizes.insert("tensor_softmax".to_string(), (64, 1, 1));
 
         let mut optimal_buffer_sizes = HashMap::new();
-        optimal_buffer_sizes.insert("small".to_string(), 1024 * 1024);      // 1MB
+        optimal_buffer_sizes.insert("small".to_string(), 1024 * 1024); // 1MB
         optimal_buffer_sizes.insert("medium".to_string(), 16 * 1024 * 1024); // 16MB
-        optimal_buffer_sizes.insert("large".to_string(), 64 * 1024 * 1024);  // 64MB
+        optimal_buffer_sizes.insert("large".to_string(), 64 * 1024 * 1024); // 64MB
 
         Ok(ChromeWebGPUOptimizer {
             context,
@@ -635,18 +721,36 @@ impl ChromeWebGPUOptimizer {
         // Conservative performance estimates for Chrome WebGPU vs CPU
         match operation {
             "tensor_add" | "tensor_mul" => {
-                if data_size > 1000 { 2.0 } else { 1.2 }
+                if data_size > 1000 {
+                    2.0
+                } else {
+                    1.2
+                }
             }
             "tensor_matmul" => {
-                if data_size > 256 { 10.0 } else if data_size > 64 { 4.0 } else { 1.5 }
+                if data_size > 256 {
+                    10.0
+                } else if data_size > 64 {
+                    4.0
+                } else {
+                    1.5
+                }
             }
             "tensor_relu" | "tensor_sigmoid" => {
-                if data_size > 500 { 3.0 } else { 1.5 }
+                if data_size > 500 {
+                    3.0
+                } else {
+                    1.5
+                }
             }
             "tensor_softmax" => {
-                if data_size > 1000 { 5.0 } else { 2.0 }
+                if data_size > 1000 {
+                    5.0
+                } else {
+                    2.0
+                }
             }
-            _ => 1.0
+            _ => 1.0,
         }
     }
 }
@@ -664,7 +768,10 @@ pub struct WebGPUError {
 impl WebGPUError {
     #[wasm_bindgen(constructor)]
     pub fn new(message: String, error_type: String) -> WebGPUError {
-        WebGPUError { message, error_type }
+        WebGPUError {
+            message,
+            error_type,
+        }
     }
 
     pub fn message(&self) -> String {

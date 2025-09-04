@@ -1,12 +1,12 @@
 //! Model pruning algorithms for sparsification
 //! モデルスパース化用プルーニングアルゴリズム
 
+use super::SparseTensor;
+use crate::autograd::Variable;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use crate::autograd::Variable;
-use super::SparseTensor;
-use ndarray::{ArrayD, Array1, Array2, s};
-use num_traits::{Float, Zero, One, FromPrimitive};
+use ndarray::{s, Array1, Array2, ArrayD};
+use num_traits::{Float, FromPrimitive, One, Zero};
 use std::cmp::Ordering;
 
 /// Pruning strategy enumeration
@@ -84,7 +84,7 @@ impl PruningSchedule {
         if self.current_step >= self.num_steps {
             return self.final_sparsity;
         }
-        
+
         let progress = self.current_step as f32 / self.num_steps as f32;
         self.initial_sparsity + progress * (self.final_sparsity - self.initial_sparsity)
     }
@@ -109,7 +109,17 @@ pub struct ModelPruner<T: Float> {
 
 use std::collections::HashMap;
 
-impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromPrimitive + std::ops::AddAssign> ModelPruner<T> {
+impl<
+        T: Float
+            + PartialOrd
+            + Copy
+            + Send
+            + Sync
+            + ndarray::ScalarOperand
+            + FromPrimitive
+            + std::ops::AddAssign,
+    > ModelPruner<T>
+{
     /// Create a new model pruner
     /// 新しいモデルプルーナーを作成
     pub fn new(config: PruningConfig) -> Self {
@@ -169,7 +179,7 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
         let mut rng = rand::thread_rng();
         let mut all_indices: Vec<usize> = (0..total_elements).collect();
         all_indices.shuffle(&mut rng);
-        
+
         let kept_indices = &all_indices[..elements_to_keep];
         self.create_sparse_from_indices(tensor, kept_indices)
     }
@@ -185,12 +195,12 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
         }
 
         let target_sparsity = self.get_current_sparsity();
-        
+
         // For 2D tensors, prune entire rows (neurons)
         if tensor.ndim() == 2 {
             let rows = tensor.shape()[0];
             let rows_to_keep = ((1.0 - target_sparsity) * rows as f32) as usize;
-            
+
             // Calculate L2 norm for each row
             let mut row_norms: Vec<(usize, T)> = (0..rows)
                 .map(|i| {
@@ -199,10 +209,10 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
                     (i, norm_sq.sqrt())
                 })
                 .collect();
-            
+
             // Sort by norm (descending)
             row_norms.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(Ordering::Equal));
-            
+
             // Keep top rows
             let kept_rows: Vec<usize> = row_norms
                 .iter()
@@ -213,7 +223,7 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
             // Create indices for kept elements
             let mut kept_indices = Vec::new();
             let cols = tensor.shape()[1];
-            
+
             for &row in &kept_rows {
                 for col in 0..cols {
                     kept_indices.push(row * cols + col);
@@ -246,9 +256,9 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
     /// Helper function to create sparse tensor from kept indices
     /// 保持インデックスからスパーステンソルを作成するヘルパー関数
     fn create_sparse_from_indices(
-        &self, 
-        tensor: &ArrayD<T>, 
-        kept_indices: &[usize]
+        &self,
+        tensor: &ArrayD<T>,
+        kept_indices: &[usize],
     ) -> RusTorchResult<SparseTensor<T>> {
         let shape = tensor.shape().to_vec();
         let mut indices_per_dim = vec![Vec::new(); shape.len()];
@@ -264,7 +274,7 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
             let value = flat_tensor[flat_idx];
             if !value.is_zero() {
                 values.push(value);
-                
+
                 // Convert flat index to multi-dimensional coordinates
                 let mut remaining_idx = flat_idx;
                 for (dim, &dim_size) in shape.iter().enumerate().rev() {
@@ -297,26 +307,24 @@ impl<T: Float + PartialOrd + Copy + Send + Sync + ndarray::ScalarOperand + FromP
     /// 勾配ベースプルーニング用重要度スコアを更新
     pub fn update_importance_scores(&mut self, param_name: &str, gradients: &ArrayD<T>) {
         // Calculate importance as magnitude of gradients
-        let importance: Array1<T> = gradients
-            .iter()
-            .map(|&grad| grad.abs())
-            .collect();
-        
-        self.importance_scores.insert(param_name.to_string(), importance);
+        let importance: Array1<T> = gradients.iter().map(|&grad| grad.abs()).collect();
+
+        self.importance_scores
+            .insert(param_name.to_string(), importance);
     }
 
     /// Prune an entire model (collection of parameters)
     /// モデル全体（パラメータ集合）をプルーニング
     pub fn prune_model(
         &mut self,
-        parameters: &HashMap<String, Variable<T>>
+        parameters: &HashMap<String, Variable<T>>,
     ) -> RusTorchResult<HashMap<String, SparseTensor<T>>> {
         let mut pruned_params = HashMap::new();
 
         for (name, param) in parameters.iter() {
             let param_tensor = param.data();
             let param_guard = param_tensor.read().unwrap();
-            
+
             let sparse_param = self.prune_tensor(&param_guard.data)?;
             pruned_params.insert(name.clone(), sparse_param);
         }
@@ -372,7 +380,7 @@ impl<T: Float + PartialOrd + Copy> MagnitudePruner<T> {
         // Create pruned tensor
         let mut pruned = tensor.clone();
         let pruned_flat = pruned.as_slice_mut().unwrap();
-        
+
         for i in 0..elements_to_zero.min(magnitude_indices.len()) {
             let idx = magnitude_indices[i].0;
             pruned_flat[idx] = T::zero();
@@ -424,11 +432,11 @@ impl<T: Float + PartialOrd + Copy> StructuredPruner<T> {
     /// 2D重み行列に構造化プルーニングを適用
     pub fn prune_linear_weights(&self, weights: &Array2<T>) -> RusTorchResult<Array2<T>> {
         let (rows, cols) = weights.dim();
-        
+
         match self.granularity {
             StructuredGranularity::Neuron => {
                 let neurons_to_prune = (self.ratio * rows as f32) as usize;
-                
+
                 // Calculate L2 norm for each neuron (row)
                 let mut neuron_norms: Vec<(usize, T)> = (0..rows)
                     .map(|i| {
@@ -457,8 +465,11 @@ impl<T: Float + PartialOrd + Copy> StructuredPruner<T> {
                 let flattened = weights.clone().into_dyn();
                 let magnitude_pruner = MagnitudePruner::new(self.ratio, false);
                 let pruned_flat = magnitude_pruner.prune(&flattened)?;
-                
-                Ok(Array2::from_shape_vec((rows, cols), pruned_flat.into_raw_vec_and_offset().0)?)
+
+                Ok(Array2::from_shape_vec(
+                    (rows, cols),
+                    pruned_flat.into_raw_vec_and_offset().0,
+                )?)
             }
         }
     }
@@ -475,7 +486,10 @@ pub struct FisherPruner<T: Float> {
     pub n_samples: usize,
 }
 
-impl<T: Float + std::ops::AddAssign + Copy + ndarray::ScalarOperand + Send + Sync + FromPrimitive> FisherPruner<T> {
+impl<
+        T: Float + std::ops::AddAssign + Copy + ndarray::ScalarOperand + Send + Sync + FromPrimitive,
+    > FisherPruner<T>
+{
     /// Create Fisher information pruner
     /// フィッシャー情報プルーナーを作成
     pub fn new() -> Self {
@@ -490,7 +504,7 @@ impl<T: Float + std::ops::AddAssign + Copy + ndarray::ScalarOperand + Send + Syn
     pub fn update_fisher(&mut self, param_name: &str, gradients: &ArrayD<T>) {
         // Fisher information approximation: E[∇log p(x|θ)²]
         let squared_grads = gradients.mapv(|g| g * g);
-        
+
         match self.fisher_info.get_mut(param_name) {
             Some(existing) => {
                 // Running average update
@@ -498,26 +512,32 @@ impl<T: Float + std::ops::AddAssign + Copy + ndarray::ScalarOperand + Send + Syn
                 *existing = &*existing * (T::one() - alpha) + &squared_grads * alpha;
             }
             None => {
-                self.fisher_info.insert(param_name.to_string(), squared_grads);
+                self.fisher_info
+                    .insert(param_name.to_string(), squared_grads);
             }
         }
-        
+
         self.n_samples += 1;
     }
 
     /// Prune based on Fisher information scores
     /// フィッシャー情報スコアに基づくプルーニング
     pub fn prune_with_fisher(
-        &self, 
-        param_name: &str, 
-        tensor: &ArrayD<T>, 
-        target_sparsity: f32
+        &self,
+        param_name: &str,
+        tensor: &ArrayD<T>,
+        target_sparsity: f32,
     ) -> RusTorchResult<SparseTensor<T>> {
-        let fisher_scores = self.fisher_info.get(param_name)
-            .ok_or_else(|| RusTorchError::InvalidParameters {
-                operation: "fisher_pruning".to_string(),
-                message: format!("No Fisher information available for parameter: {}", param_name),
-            })?;
+        let fisher_scores =
+            self.fisher_info
+                .get(param_name)
+                .ok_or_else(|| RusTorchError::InvalidParameters {
+                    operation: "fisher_pruning".to_string(),
+                    message: format!(
+                        "No Fisher information available for parameter: {}",
+                        param_name
+                    ),
+                })?;
 
         if fisher_scores.shape() != tensor.shape() {
             return Err(RusTorchError::ShapeMismatch {
@@ -568,12 +588,14 @@ mod tests {
             structured: false,
             schedule: None,
         };
-        
+
         let pruner = ModelPruner::new(config);
-        
-        let tensor = Array2::from_shape_vec((2, 3), vec![1.0f32, -2.0, 0.5, -4.0, 3.0, 0.1]).unwrap().into_dyn();
+
+        let tensor = Array2::from_shape_vec((2, 3), vec![1.0f32, -2.0, 0.5, -4.0, 3.0, 0.1])
+            .unwrap()
+            .into_dyn();
         let sparse_result = pruner.prune_tensor(&tensor).unwrap();
-        
+
         // Should keep roughly 50% of elements (3 out of 6)
         assert!(sparse_result.nnz <= 3);
         assert!(sparse_result.sparsity() >= 0.4);
@@ -582,33 +604,37 @@ mod tests {
     #[test]
     fn test_structured_pruning() {
         let structured_pruner = StructuredPruner::new(StructuredGranularity::Neuron, 0.5);
-        
-        let weights = Array2::from_shape_vec((4, 3), vec![
-            1.0f32, 2.0, 3.0,  // Strong neuron
-            0.1, 0.1, 0.1,     // Weak neuron
-            -2.0, 1.5, -1.0,   // Medium neuron
-            0.05, 0.02, 0.03,  // Very weak neuron
-        ]).unwrap();
-        
+
+        let weights = Array2::from_shape_vec(
+            (4, 3),
+            vec![
+                1.0f32, 2.0, 3.0, // Strong neuron
+                0.1, 0.1, 0.1, // Weak neuron
+                -2.0, 1.5, -1.0, // Medium neuron
+                0.05, 0.02, 0.03, // Very weak neuron
+            ],
+        )
+        .unwrap();
+
         let pruned = structured_pruner.prune_linear_weights(&weights).unwrap();
-        
+
         // Should remove 2 weakest neurons (rows)
-        let zero_rows = (0..4).filter(|&i| {
-            pruned.row(i).iter().all(|&x| x == 0.0)
-        }).count();
-        
+        let zero_rows = (0..4)
+            .filter(|&i| pruned.row(i).iter().all(|&x| x == 0.0))
+            .count();
+
         assert_eq!(zero_rows, 2);
     }
 
     #[test]
     fn test_pruning_schedule() {
         let mut schedule = PruningSchedule::new(0.0, 0.9, 10);
-        
+
         assert_eq!(schedule.current_sparsity(), 0.0);
-        
+
         schedule.step();
         assert!(schedule.current_sparsity() > 0.0 && schedule.current_sparsity() < 0.9);
-        
+
         // Advance to end
         for _ in 0..10 {
             schedule.step();
@@ -619,13 +645,19 @@ mod tests {
     #[test]
     fn test_fisher_pruner() {
         let mut fisher_pruner = FisherPruner::new();
-        
-        let gradients = Array2::from_shape_vec((2, 2), vec![0.1f32, 0.9, 0.3, 0.7]).unwrap().into_dyn();
+
+        let gradients = Array2::from_shape_vec((2, 2), vec![0.1f32, 0.9, 0.3, 0.7])
+            .unwrap()
+            .into_dyn();
         fisher_pruner.update_fisher("layer1", &gradients);
-        
-        let weights = Array2::from_shape_vec((2, 2), vec![1.0f32, 2.0, 3.0, 4.0]).unwrap().into_dyn();
-        let sparse_result = fisher_pruner.prune_with_fisher("layer1", &weights, 0.5).unwrap();
-        
+
+        let weights = Array2::from_shape_vec((2, 2), vec![1.0f32, 2.0, 3.0, 4.0])
+            .unwrap()
+            .into_dyn();
+        let sparse_result = fisher_pruner
+            .prune_with_fisher("layer1", &weights, 0.5)
+            .unwrap();
+
         // Should keep elements with higher Fisher scores
         assert!(sparse_result.nnz == 2);
     }

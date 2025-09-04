@@ -44,7 +44,7 @@ impl WasmTensorPool {
     #[wasm_bindgen]
     pub fn get_buffer(&mut self, size: usize) -> Vec<f32> {
         self.total_allocations += 1;
-        
+
         let buffer = if size < 256 {
             if let Some(mut buf) = self.small_buffers.pop_front() {
                 buf.resize(size, 0.0);
@@ -80,7 +80,7 @@ impl WasmTensorPool {
     #[wasm_bindgen]
     pub fn return_buffer(&mut self, buffer: Vec<f32>) {
         let size = buffer.len();
-        
+
         if size < 256 && self.small_buffers.len() < self.max_pool_size / 3 {
             self.small_buffers.push_back(buffer);
         } else if size <= 262144 && self.medium_buffers.len() < self.max_pool_size / 3 {
@@ -94,10 +94,25 @@ impl WasmTensorPool {
     #[wasm_bindgen]
     pub fn get_stats(&self) -> js_sys::Object {
         let stats = js_sys::Object::new();
-        js_sys::Reflect::set(&stats, &"total_allocations".into(), &self.total_allocations.into()).ok();
+        js_sys::Reflect::set(
+            &stats,
+            &"total_allocations".into(),
+            &self.total_allocations.into(),
+        )
+        .ok();
         js_sys::Reflect::set(&stats, &"cache_hits".into(), &self.cache_hits.into()).ok();
-        js_sys::Reflect::set(&stats, &"memory_saved_mb".into(), &((self.memory_saved_bytes / 1024 / 1024) as f64).into()).ok();
-        js_sys::Reflect::set(&stats, &"cache_hit_rate".into(), &((self.cache_hits as f64 / self.total_allocations as f64) * 100.0).into()).ok();
+        js_sys::Reflect::set(
+            &stats,
+            &"memory_saved_mb".into(),
+            &((self.memory_saved_bytes / 1024 / 1024) as f64).into(),
+        )
+        .ok();
+        js_sys::Reflect::set(
+            &stats,
+            &"cache_hit_rate".into(),
+            &((self.cache_hits as f64 / self.total_allocations as f64) * 100.0).into(),
+        )
+        .ok();
         stats
     }
 
@@ -121,7 +136,7 @@ impl WasmTensorPool {
         } else {
             self.large_buffers.pop_front()
         };
-        
+
         if let Some(mut buf) = buffer {
             if buf.len() < size {
                 buf.resize(size, 0.0);

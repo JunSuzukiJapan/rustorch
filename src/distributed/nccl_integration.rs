@@ -7,15 +7,15 @@
 //! このモジュールは、RusTorch向けの包括的NCCL統合を提供し、
 //! 効率的なマルチGPUおよびマルチノード学習を可能にします。
 
+use super::{DistributedOps, ProcessGroup, ReduceOp};
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::tensor::Tensor;
 use crate::gpu::DeviceType;
+use crate::tensor::Tensor;
 use num_traits::Float;
-use std::sync::{Arc, Mutex};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::ptr;
-use super::{DistributedOps, ProcessGroup, ReduceOp};
+use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "nccl")]
 /// NCCL communicator handle
@@ -60,7 +60,7 @@ impl NCCLCommunicator {
         // In a full implementation, this would call NCCL APIs:
         // 完全な実装では、NCCL APIを呼び出し：
         // ncclCommInitRank(&comm, nranks, commId, rank);
-        
+
         Ok(Self {
             comm,
             device_id,
@@ -76,7 +76,9 @@ impl NCCLCommunicator {
         // Validate device placement
         // Check if tensor is on CUDA device (simplified check)
         if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
-            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
+            return Err(RusTorchError::gpu(
+                "Tensor must be on CUDA device for NCCL".to_string(),
+            ));
         }
 
         // In a full implementation:
@@ -87,7 +89,7 @@ impl NCCLCommunicator {
         // - Synchronize CUDA stream
 
         let _ = (tensor, op); // Suppress warnings for now
-        
+
         Ok(())
     }
 
@@ -96,7 +98,9 @@ impl NCCLCommunicator {
     pub fn all_gather<T: Float>(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>> {
         // Check if tensor is on CUDA device (simplified check)
         if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
-            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
+            return Err(RusTorchError::gpu(
+                "Tensor must be on CUDA device for NCCL".to_string(),
+            ));
         }
 
         // Create output tensors for each rank
@@ -119,7 +123,9 @@ impl NCCLCommunicator {
     pub fn broadcast<T: Float>(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()> {
         // Check if tensor is on CUDA device (simplified check)
         if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
-            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
+            return Err(RusTorchError::gpu(
+                "Tensor must be on CUDA device for NCCL".to_string(),
+            ));
         }
 
         if root >= self.nranks {
@@ -189,9 +195,9 @@ impl NCCLUniqueId {
     /// 新しい固有IDを生成（ランク0が呼び出すべき）
     pub fn new() -> RusTorchResult<Self> {
         let id = [0u8; 128];
-        
+
         // In a full implementation: ncclGetUniqueId(&id);
-        
+
         Ok(Self { id })
     }
 
@@ -210,7 +216,7 @@ impl NCCLUniqueId {
 
         let mut id = [0u8; 128];
         id.copy_from_slice(bytes);
-        
+
         Ok(Self { id })
     }
 }
@@ -282,7 +288,7 @@ impl NCCLBackendOptimized {
         comm_id: &NCCLUniqueId,
     ) -> RusTorchResult<Self> {
         let mut communicators = HashMap::new();
-        
+
         for &device_id in device_ids {
             let comm = NCCLCommunicator::new(
                 process_group.rank,
@@ -321,7 +327,7 @@ impl NCCLBackendOptimized {
     ) -> RusTorchResult<()> {
         // Group tensors into buckets for efficient communication
         let buckets = self.create_gradient_buckets(tensors)?;
-        
+
         for bucket in buckets {
             // Perform all-reduce on each bucket
             for mut tensor in bucket {
@@ -345,7 +351,7 @@ impl NCCLBackendOptimized {
 
         for tensor in tensors {
             let tensor_size = tensor.numel() * std::mem::size_of::<T>();
-            
+
             if current_size + tensor_size > bucket_size_bytes && !current_bucket.is_empty() {
                 buckets.push(current_bucket.clone());
                 current_bucket.clear();
@@ -365,13 +371,17 @@ impl NCCLBackendOptimized {
 
     /// Perform single all-reduce operation
     /// 単一all-reduce操作を実行
-    fn all_reduce_single<T: Float>(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
+    fn all_reduce_single<T: Float>(
+        &self,
+        tensor: &mut Tensor<T>,
+        op: ReduceOp,
+    ) -> RusTorchResult<()> {
         // Get the appropriate communicator for tensor's device
         let device_id = match tensor.device {
             crate::tensor::device::Device::Cuda(id) => id,
             _ => 0,
         };
-        
+
         if let Some(comm_arc) = self.get_communicator(device_id) {
             let comm = comm_arc.lock().unwrap();
             comm.all_reduce(tensor, op)?;
@@ -395,7 +405,9 @@ pub struct NCCLOps;
 impl NCCLOps {
     /// Initialize NCCL for multi-GPU training
     /// マルチGPU学習用NCCL初期化
-    pub fn init_multi_gpu(device_ids: &[usize]) -> RusTorchResult<HashMap<usize, NCCLCommunicator>> {
+    pub fn init_multi_gpu(
+        device_ids: &[usize],
+    ) -> RusTorchResult<HashMap<usize, NCCLCommunicator>> {
         if device_ids.is_empty() {
             return Err(RusTorchError::distributed("No device IDs provided"));
         }
@@ -449,10 +461,7 @@ impl NCCLOps {
 
     /// Get optimal NCCL configuration for current hardware
     /// 現在のハードウェア用最適NCCL設定を取得
-    pub fn get_optimal_config(
-        num_gpus: usize,
-        gpu_memory_gb: f32,
-    ) -> NCCLOptimizations {
+    pub fn get_optimal_config(num_gpus: usize, gpu_memory_gb: f32) -> NCCLOptimizations {
         let bucket_size_mb = if gpu_memory_gb > 16.0 {
             50 // Larger buckets for high-memory GPUs
         } else {
@@ -517,13 +526,16 @@ impl NCCLProfiler {
                 let min = times.iter().fold(f64::INFINITY, |a, &b| a.min(b));
                 let max = times.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
 
-                stats.insert(op.clone(), TimingStats {
-                    count: times.len(),
-                    average_ms: avg,
-                    min_ms: min,
-                    max_ms: max,
-                    total_ms: sum,
-                });
+                stats.insert(
+                    op.clone(),
+                    TimingStats {
+                        count: times.len(),
+                        average_ms: avg,
+                        min_ms: min,
+                        max_ms: max,
+                        total_ms: sum,
+                    },
+                );
             }
         }
 
@@ -591,7 +603,7 @@ pub mod fallback {
 
     pub fn nccl_not_available_error() -> RusTorchError {
         RusTorchError::backend_unavailable(
-            "NCCL backend not available. Compile with --features nccl"
+            "NCCL backend not available. Compile with --features nccl",
         )
     }
 
@@ -610,7 +622,7 @@ mod tests {
         let id1 = NCCLUniqueId::new().unwrap();
         let bytes = id1.as_bytes();
         let id2 = NCCLUniqueId::from_bytes(bytes).unwrap();
-        
+
         assert_eq!(id1.as_bytes(), id2.as_bytes());
     }
 
@@ -632,7 +644,7 @@ mod tests {
     #[test]
     fn test_nccl_profiler() {
         let profiler = NCCLProfiler::new();
-        
+
         {
             let _guard = profiler.start_timing("test_op");
             std::thread::sleep(std::time::Duration::from_millis(10));

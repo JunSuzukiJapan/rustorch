@@ -410,19 +410,14 @@ pub mod prelude {
     };
     pub use crate::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
     pub use crate::quantization::{
-        QuantizedTensor, QuantizationType, QuantizationScheme, TensorQuantization,
-        StaticQuantizer, MinMaxObserver, HistogramObserver,
-        QATLinear, QATConv2d, FakeQuantize, QATModule,
+        FakeQuantize, HistogramObserver, MinMaxObserver, QATConv2d, QATLinear, QATModule,
+        QuantizationScheme, QuantizationType, QuantizedTensor, StaticQuantizer, TensorQuantization,
     };
-    pub use crate::sparse::{
-        SparseTensor, SparseFormat, SparseOps,
-    };
+    pub use crate::sparse::pruning::{ModelPruner, PruningConfig, PruningStrategy};
     pub use crate::sparse::sparse_layers::{
-        SparseLinear, SparseConv2d, SparseEmbedding, SparseAttention,
+        SparseAttention, SparseConv2d, SparseEmbedding, SparseLinear,
     };
-    pub use crate::sparse::pruning::{
-        ModelPruner, PruningConfig, PruningStrategy,
-    };
+    pub use crate::sparse::{SparseFormat, SparseOps, SparseTensor};
     pub use crate::special::SpecialFunctions;
     pub use crate::special::{bessel_i, bessel_j, bessel_k, bessel_y};
     pub use crate::special::{beta, digamma, gamma, lbeta, lgamma};

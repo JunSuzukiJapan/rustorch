@@ -12,14 +12,14 @@
 //! - `GradientBucketManager`: Bucketing and batching / バケット化とバッチ処理
 //! - `compression`: Gradient compression utilities / 勾配圧縮ユーティリティ
 
+use super::{api, DistributedScalar, ReduceOp};
+use crate::autograd::Variable;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-use crate::autograd::Variable;
-use std::sync::{Arc, Mutex, mpsc};
 use std::collections::{HashMap, VecDeque};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
-use super::{ReduceOp, api, DistributedScalar};
 
 /// Asynchronous gradient synchronization coordinator
 /// 非同期勾配同期コーディネーター
@@ -201,7 +201,7 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
         priority: Priority,
     ) -> RusTorchResult<u64> {
         static mut REQUEST_ID: u64 = 0;
-        
+
         let request_id = unsafe {
             REQUEST_ID += 1;
             REQUEST_ID
@@ -226,7 +226,7 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
     /// 完了した同期をチェック
     pub fn check_completions(&self) -> Vec<GradientSyncCompletion> {
         let mut completions = Vec::new();
-        
+
         while let Ok(completion) = self.completion_receiver.try_recv() {
             completions.push(completion);
         }
@@ -238,16 +238,21 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
     /// 特定の同期完了を待機
     pub fn wait_for_completion(&self, request_id: u64, timeout: Duration) -> RusTorchResult<()> {
         let start = Instant::now();
-        
+
         while start.elapsed() < timeout {
-            if let Ok(completion) = self.completion_receiver.recv_timeout(Duration::from_millis(100)) {
+            if let Ok(completion) = self
+                .completion_receiver
+                .recv_timeout(Duration::from_millis(100))
+            {
                 if completion.request_id == request_id {
                     if completion.success {
                         return Ok(());
                     } else {
                         return Err(RusTorchError::distributed(&format!(
                             "Gradient sync failed: {}",
-                            completion.error.unwrap_or_else(|| "Unknown error".to_string())
+                            completion
+                                .error
+                                .unwrap_or_else(|| "Unknown error".to_string())
                         )));
                     }
                 }
@@ -286,12 +291,17 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
         while !pending_ids.is_empty() && start.elapsed() < timeout {
             let completions = self.check_completions();
             for completion in completions {
-                if let Some(pos) = pending_ids.iter().position(|&id| id == completion.request_id) {
+                if let Some(pos) = pending_ids
+                    .iter()
+                    .position(|&id| id == completion.request_id)
+                {
                     pending_ids.remove(pos);
                     if !completion.success {
                         return Err(RusTorchError::distributed(&format!(
                             "Gradient sync failed: {}",
-                            completion.error.unwrap_or_else(|| "Unknown error".to_string())
+                            completion
+                                .error
+                                .unwrap_or_else(|| "Unknown error".to_string())
                         )));
                     }
                 }
@@ -300,7 +310,9 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
         }
 
         if !pending_ids.is_empty() {
-            return Err(RusTorchError::distributed("Some gradient syncs did not complete"));
+            return Err(RusTorchError::distributed(
+                "Some gradient syncs did not complete",
+            ));
         }
 
         Ok(())
@@ -322,12 +334,14 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
             }
 
             // Sort by priority
-            pending_requests.make_contiguous().sort_by_key(|req| req.priority);
+            pending_requests
+                .make_contiguous()
+                .sort_by_key(|req| req.priority);
 
             // Process requests
             while let Some(request) = pending_requests.pop_front() {
                 let start_time = Instant::now();
-                
+
                 let result = Self::process_gradient_sync(&request, &bucket_manager);
                 let duration = start_time.elapsed();
 
@@ -361,7 +375,7 @@ impl<T: DistributedScalar> AsyncGradientSynchronizer<T> {
 
         // Update the original parameter (this would need proper parameter tracking)
         // 元のパラメータを更新（適切なパラメータ追跡が必要）
-        
+
         Ok(())
     }
 }
@@ -394,7 +408,7 @@ impl<T: DistributedScalar> GradientBucketManager<T> {
             bucket.gradients.push(gradient);
             bucket.total_size += gradient_size;
             bucket.last_update = Instant::now();
-            
+
             // Mark as ready if bucket is full enough
             if bucket.total_size >= self.config.bucket_size_mb * 1024 * 1024 {
                 bucket.ready = true;
@@ -407,7 +421,11 @@ impl<T: DistributedScalar> GradientBucketManager<T> {
 
     /// Find or create appropriate bucket for gradient
     /// 勾配用の適切なバケットを検索または作成
-    fn find_or_create_bucket(&mut self, param_name: &str, gradient: &Tensor<T>) -> RusTorchResult<usize> {
+    fn find_or_create_bucket(
+        &mut self,
+        param_name: &str,
+        gradient: &Tensor<T>,
+    ) -> RusTorchResult<usize> {
         let gradient_size = self.estimate_tensor_size(gradient);
         let bucket_size_limit = self.config.bucket_size_mb * 1024 * 1024;
 
@@ -477,7 +495,7 @@ impl<T: DistributedScalar> Drop for AsyncGradientSynchronizer<T> {
 /// Gradient compression utilities
 /// 勾配圧縮ユーティリティ
 pub mod compression {
-    use super::{*, DistributedScalar};
+    use super::{DistributedScalar, *};
 
     /// Gradient compression algorithms
     /// 勾配圧縮アルゴリズム
@@ -504,17 +522,15 @@ pub mod compression {
         algorithm: CompressionAlgorithm,
     ) -> RusTorchResult<CompressedGradient<T>> {
         match algorithm {
-            CompressionAlgorithm::None => {
-                Ok(CompressedGradient {
-                    data: gradient.clone(),
-                    metadata: CompressionMetadata::None,
-                    original_shape: gradient.shape().to_vec(),
-                })
-            }
-            CompressionAlgorithm::TopK { k } => {
-                compress_top_k(gradient, k)
-            }
-            _ => Err(RusTorchError::distributed("Compression algorithm not implemented")),
+            CompressionAlgorithm::None => Ok(CompressedGradient {
+                data: gradient.clone(),
+                metadata: CompressionMetadata::None,
+                original_shape: gradient.shape().to_vec(),
+            }),
+            CompressionAlgorithm::TopK { k } => compress_top_k(gradient, k),
+            _ => Err(RusTorchError::distributed(
+                "Compression algorithm not implemented",
+            )),
         }
     }
 
@@ -525,9 +541,7 @@ pub mod compression {
     ) -> RusTorchResult<Tensor<T>> {
         match &compressed.metadata {
             CompressionMetadata::None => Ok(compressed.data.clone()),
-            CompressionMetadata::TopK { .. } => {
-                decompress_top_k(compressed)
-            }
+            CompressionMetadata::TopK { .. } => decompress_top_k(compressed),
             _ => Err(RusTorchError::distributed("Decompression not implemented")),
         }
     }
@@ -558,7 +572,10 @@ pub mod compression {
 
     /// Top-K compression implementation
     /// Top-K圧縮実装
-    fn compress_top_k<T: DistributedScalar>(gradient: &Tensor<T>, k: usize) -> RusTorchResult<CompressedGradient<T>> {
+    fn compress_top_k<T: DistributedScalar>(
+        gradient: &Tensor<T>,
+        k: usize,
+    ) -> RusTorchResult<CompressedGradient<T>> {
         let total_elements = gradient.numel();
         if k > total_elements {
             return Err(RusTorchError::tensor_op("K larger than tensor size"));
@@ -603,7 +620,7 @@ impl<T: DistributedScalar> AsyncGradContext<T> {
     /// 新しい非同期勾配コンテキストを作成
     pub fn new(config: AsyncConfig) -> RusTorchResult<Self> {
         let synchronizer = AsyncGradientSynchronizer::new(config)?;
-        
+
         Ok(Self {
             synchronizer: Arc::new(Mutex::new(synchronizer)),
             pending_ops: Arc::new(Mutex::new(HashMap::new())),
@@ -619,14 +636,14 @@ impl<T: DistributedScalar> AsyncGradContext<T> {
             let param_name = format!("param_{}", parameter.id());
             let gradient_clone = gradient.clone();
             drop(grad_guard);
-            
+
             let synchronizer = self.synchronizer.lock().unwrap();
             let request_id = synchronizer.submit_gradient(
                 param_name.clone(),
                 gradient_clone,
                 Priority::Normal,
             )?;
-            
+
             let mut pending = self.pending_ops.lock().unwrap();
             pending.insert(request_id, param_name);
         }
@@ -674,11 +691,10 @@ mod tests {
     #[test]
     fn test_compression_none() {
         let tensor: Tensor<f32> = Tensor::ones(&[2, 2]);
-        let compressed = compression::compress_gradient(
-            &tensor,
-            compression::CompressionAlgorithm::None,
-        ).unwrap();
-        
+        let compressed =
+            compression::compress_gradient(&tensor, compression::CompressionAlgorithm::None)
+                .unwrap();
+
         let decompressed = compression::decompress_gradient(&compressed).unwrap();
         assert_eq!(tensor.shape(), decompressed.shape());
     }

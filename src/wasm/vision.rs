@@ -504,7 +504,7 @@ impl WasmVision {
 
         Ok(edges)
     }
-    
+
     /// Apply corner detection (Harris corner detector)
     /// コーナー検出（Harris検出器）
     #[wasm_bindgen]
@@ -520,44 +520,50 @@ impl WasmVision {
         }
 
         let mut response = vec![0.0; height * width];
-        
+
         // Compute gradients
         for y in 1..(height - 1) {
             for x in 1..(width - 1) {
                 let mut ixx = 0.0f32;
                 let mut iyy = 0.0f32;
                 let mut ixy = 0.0f32;
-                
+
                 // Harris window (3x3)
                 for wy in 0..3 {
                     for wx in 0..3 {
                         let py = y + wy - 1;
                         let px = x + wx - 1;
-                        
+
                         // Compute gradients using Sobel
-                        let ix = (image_data[py * width + (px + 1).min(width - 1)] - 
-                                image_data[py * width + px.max(1) - 1]) * 0.5;
-                        let iy = (image_data[(py + 1).min(height - 1) * width + px] - 
-                                image_data[py.max(1) - 1 * width + px]) * 0.5;
-                        
+                        let ix = (image_data[py * width + (px + 1).min(width - 1)]
+                            - image_data[py * width + px.max(1) - 1])
+                            * 0.5;
+                        let iy = (image_data[(py + 1).min(height - 1) * width + px]
+                            - image_data[py.max(1) - 1 * width + px])
+                            * 0.5;
+
                         ixx += ix * ix;
                         iyy += iy * iy;
                         ixy += ix * iy;
                     }
                 }
-                
+
                 // Harris response: det(M) - k * trace(M)^2
                 let det = ixx * iyy - ixy * ixy;
                 let trace = ixx + iyy;
                 let harris_response = det - k * trace * trace;
-                
-                response[y * width + x] = if harris_response > threshold { harris_response } else { 0.0 };
+
+                response[y * width + x] = if harris_response > threshold {
+                    harris_response
+                } else {
+                    0.0
+                };
             }
         }
 
         Ok(response)
     }
-    
+
     /// Apply morphological operations (opening/closing)
     /// モルフォロジー演算（オープニング/クロージング）
     #[wasm_bindgen]
@@ -570,7 +576,7 @@ impl WasmVision {
         let eroded = Self::morphological_erosion_f32(image_data, height, width, kernel_size)?;
         Self::morphological_dilation_f32(eroded, height, width, kernel_size)
     }
-    
+
     #[wasm_bindgen]
     pub fn morphological_closing(
         image_data: Vec<f32>,
@@ -581,7 +587,7 @@ impl WasmVision {
         let dilated = Self::morphological_dilation_f32(image_data, height, width, kernel_size)?;
         Self::morphological_erosion_f32(dilated, height, width, kernel_size)
     }
-    
+
     /// Compute local binary patterns
     /// 局所二値パターンを計算
     #[wasm_bindgen]
@@ -596,36 +602,41 @@ impl WasmVision {
         }
 
         let mut lbp = vec![0u8; height * width];
-        
+
         for y in radius..(height - radius) {
             for x in radius..(width - radius) {
                 let center_val = image_data[y * width + x];
                 let mut pattern = 0u8;
-                
+
                 // 8-neighbor sampling
                 let neighbors = [
-                    (-1, -1), (-1, 0), (-1, 1),
-                    (0, 1), (1, 1), (1, 0),
-                    (1, -1), (0, -1)
+                    (-1, -1),
+                    (-1, 0),
+                    (-1, 1),
+                    (0, 1),
+                    (1, 1),
+                    (1, 0),
+                    (1, -1),
+                    (0, -1),
                 ];
-                
+
                 for (i, (dy, dx)) in neighbors.iter().enumerate() {
                     let ny = (y as i32 + dy * radius as i32) as usize;
                     let nx = (x as i32 + dx * radius as i32) as usize;
                     let neighbor_val = image_data[ny * width + nx];
-                    
+
                     if neighbor_val >= center_val {
                         pattern |= 1 << i;
                     }
                 }
-                
+
                 lbp[y * width + x] = pattern;
             }
         }
 
         Ok(lbp)
     }
-    
+
     // Helper functions for f32 morphological operations
     fn morphological_dilation_f32(
         image_data: Vec<f32>,
@@ -635,11 +646,11 @@ impl WasmVision {
     ) -> Result<Vec<f32>, JsValue> {
         let mut result = image_data.clone();
         let half_kernel = kernel_size / 2;
-        
+
         for y in half_kernel..height - half_kernel {
             for x in half_kernel..width - half_kernel {
                 let mut max_val = 0.0f32;
-                
+
                 for ky in 0..kernel_size {
                     for kx in 0..kernel_size {
                         let img_y = y + ky - half_kernel;
@@ -648,14 +659,14 @@ impl WasmVision {
                         max_val = max_val.max(image_data[idx]);
                     }
                 }
-                
+
                 result[y * width + x] = max_val;
             }
         }
-        
+
         Ok(result)
     }
-    
+
     fn morphological_erosion_f32(
         image_data: Vec<f32>,
         height: usize,
@@ -664,11 +675,11 @@ impl WasmVision {
     ) -> Result<Vec<f32>, JsValue> {
         let mut result = image_data.clone();
         let half_kernel = kernel_size / 2;
-        
+
         for y in half_kernel..height - half_kernel {
             for x in half_kernel..width - half_kernel {
                 let mut min_val = 1.0f32;
-                
+
                 for ky in 0..kernel_size {
                     for kx in 0..kernel_size {
                         let img_y = y + ky - half_kernel;
@@ -677,11 +688,11 @@ impl WasmVision {
                         min_val = min_val.min(image_data[idx]);
                     }
                 }
-                
+
                 result[y * width + x] = min_val;
             }
         }
-        
+
         Ok(result)
     }
 
