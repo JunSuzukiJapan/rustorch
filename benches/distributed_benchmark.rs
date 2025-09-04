@@ -148,7 +148,7 @@ fn bench_gradient_sync(c: &mut Criterion) {
 
 /// Benchmark async gradient operations
 /// 非同期勾配操作ベンチマーク
-#[cfg(feature = "async")]
+#[cfg(feature = "nccl")]
 fn bench_async_gradient_ops(c: &mut Criterion) {
     use rustorch::distributed::async_gradient::{AsyncConfig, AsyncGradientSynchronizer, Priority};
 
@@ -229,7 +229,7 @@ fn bench_memory_efficiency(c: &mut Criterion) {
     let _ = destroy_process_group();
 }
 
-#[cfg(feature = "async")]
+#[cfg(feature = "nccl")]
 criterion_group!(
     benches,
     bench_distributed_init,

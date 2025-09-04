@@ -3,8 +3,6 @@
 
 #[cfg(test)]
 mod tests {
-    use rustorch::tensor::Tensor;
-    use std::time::Instant;
 
     #[test]
     fn test_metal_gpu_benchmark() {

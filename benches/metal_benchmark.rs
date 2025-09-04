@@ -68,7 +68,7 @@ fn bench_metal_matrix(c: &mut Criterion) {
 
 /// Metal GPU operations benchmark
 fn bench_metal_operations(c: &mut Criterion) {
-    let mut group = c.benchmark_group("metal_operations");
+    let group = c.benchmark_group("metal_operations");
 
     #[cfg(all(target_os = "macos", feature = "metal"))]
     {
