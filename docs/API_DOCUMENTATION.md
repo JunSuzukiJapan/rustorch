@@ -21,7 +21,7 @@ rustorch/
 ├── gpu/                 # GPU acceleration (CUDA/Metal/OpenCL/WebGPU)
 ├── sparse/              # Sparse tensor operations and pruning (Phase 12)
 ├── serialization/       # Model serialization and JIT compilation (Phase 9)
-└── wasm/                # WebAssembly bindings
+└── wasm/                # WebAssembly bindings (see [WASM API Documentation](WASM_API_DOCUMENTATION.md))
 ```
 
 ## 📊 Tensor Module
@@ -1330,84 +1330,35 @@ ModelIO::save_with_options(&model, "portable_model.bin", compat_options)?;
 
 ## 🌐 WebAssembly Support
 
-### WASM Bindings
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+
+For browser-based machine learning applications, RusTorch provides comprehensive WebAssembly bindings including:
+
+- **Core tensor operations** - WASM-optimized tensor arithmetic and manipulation
+- **Neural network layers** - Linear layers, activations, and model inference
+- **Browser integration** - Storage persistence, canvas rendering, performance monitoring
+- **WebGPU acceleration** - Chrome-optimized GPU acceleration for enhanced performance
+- **Advanced features** - Optimizers, data transforms, quality metrics, anomaly detection
+- **Memory management** - Efficient allocation, cleanup, and garbage collection
+- **Signal processing** - FFT operations and filtering for audio/signal data
+- **JavaScript interoperability** - Seamless data exchange with browser environments
+
+### Quick Start Example
 
 ```rust
 use rustorch::wasm::*;
 use wasm_bindgen::prelude::*;
 
-#[wasm_bindgen]
-pub struct WasmTensor {
-    inner: Tensor<f32>,
-}
+// Create WASM tensor
+let data = vec![1.0, 2.0, 3.0, 4.0];
+let tensor = WasmTensor::new(data, vec![2, 2]);
 
-#[wasm_bindgen]
-impl WasmTensor {
-    #[wasm_bindgen(constructor)]
-    pub fn new(data: &[f32], shape: &[usize]) -> WasmTensor {
-        WasmTensor {
-            inner: Tensor::from_vec(data.to_vec(), shape.to_vec()),
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn add(&self, other: &WasmTensor) -> WasmTensor {
-        WasmTensor {
-            inner: self.inner.add(&other.inner),
-        }
-    }
-
-    #[wasm_bindgen]
-    pub fn to_array(&self) -> Vec<f32> {
-        self.inner.to_vec()
-    }
-}
-
-// Neural network for WASM
-#[wasm_bindgen]
-pub struct WasmModel {
-    model: Sequential<f32>,
-}
-
-#[wasm_bindgen]
-impl WasmModel {
-    #[wasm_bindgen(constructor)]
-    pub fn new() -> WasmModel {
-        let model = Sequential::<f32>::new()
-            .add_layer(Box::new(Linear::<f32>::new(2, 10)))
-            .add_activation(Box::new(ReLU::<f32>::new()))
-            .add_layer(Box::new(Linear::<f32>::new(10, 1)));
-        
-        WasmModel { model }
-    }
-
-    #[wasm_bindgen]
-    pub fn predict(&self, input: &[f32]) -> Vec<f32> {
-        let input_tensor = Tensor::from_vec(input.to_vec(), vec![1, input.len()]);
-        let output = self.model.forward(&input_tensor);
-        output.to_vec()
-    }
-}
+// Neural network inference
+let model = WasmModel::new();
+let predictions = model.predict(&input_data);
 ```
 
-### WebGPU Integration
-
-```rust
-use rustorch::gpu::webgpu::*;
-
-// WebGPU context
-let webgpu_context = WebGpuContext::new().await?;
-let device = webgpu_context.device();
-let queue = webgpu_context.queue();
-
-// WebGPU tensors
-let webgpu_tensor = WebGpuTensor::<f32>::new(&device, &[1024, 1024]);
-let result = webgpu_tensor.matmul(&other_webgpu_tensor).await?;
-
-// Shader-based operations
-let custom_shader = webgpu_context.create_compute_shader(shader_source)?;
-let result = custom_shader.execute(&[&input_tensor], &output_shape).await?;
-```
+**📚 For detailed WASM API documentation, examples, and browser integration guides, see:** [WASM API Documentation](WASM_API_DOCUMENTATION.md)
 
 ## 📊 FFT and Signal Processing
 
@@ -1754,7 +1705,7 @@ fn gpu_training() -> Result<()> {
 | `linalg` | Linear algebra operations | SVD, QR, eigenvalues, matrix decomposition, solving |
 | `gpu` | GPU acceleration | CUDA, Metal, OpenCL, WebGPU, memory management |
 | `fft` | Fourier transforms | FFT, RFFT, 2D FFT, N-dimensional FFT, window functions |
-| `wasm` | WebAssembly bindings | Browser support, JavaScript integration |
+| `wasm` | WebAssembly bindings | Browser support, JavaScript integration ([WASM docs](WASM_API_DOCUMENTATION.md)) |
 
 ### Feature Flags
 
@@ -1766,7 +1717,7 @@ fn gpu_training() -> Result<()> {
 | `metal` | Apple GPU acceleration | Metal framework (macOS) |
 | `opencl` | OpenCL GPU acceleration | OpenCL drivers |
 | `webgpu` | WebGPU browser acceleration | WebGPU API |
-| `wasm` | WebAssembly compilation | wasm-bindgen |
+| `wasm` | WebAssembly compilation | wasm-bindgen ([WASM API docs](WASM_API_DOCUMENTATION.md)) |
 | `model-hub` | Model downloading and caching | HTTP client, crypto |
 | `safetensors` | SafeTensors format support | Memory mapping |
 | `onnx` | ONNX model import/export | ONNX Runtime |
@@ -2690,179 +2641,9 @@ println!("{}", benchmark.report());
 
 ## 🌐 WebAssembly (WASM) Module
 
-### WASM Tensor Operations
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
 
-```rust
-use rustorch::wasm::{WasmTensor, WasmLinear};
-
-// Create WASM-compatible tensor
-let data = vec![1.0, 2.0, 3.0, 4.0];
-let shape = vec![2, 2];
-let wasm_tensor = WasmTensor::new(data, shape);
-
-// Basic tensor operations
-let tensor_a = WasmTensor::new(vec![1.0, 2.0], vec![2, 1]);
-let tensor_b = WasmTensor::new(vec![3.0, 4.0], vec![2, 1]);
-let result = tensor_a.add(&tensor_b)?;
-
-// Matrix operations
-let result = tensor_a.matmul(&tensor_b)?;
-let transposed = tensor_a.transpose();
-
-// Element-wise operations
-let squared = tensor_a.square();
-let sqrt_result = tensor_a.sqrt();
-let sum = tensor_a.sum();
-let mean = tensor_a.mean();
-```
-
-### WASM Neural Network Layers
-
-```rust
-use rustorch::wasm::{WasmLinear, WasmActivation};
-
-// Linear layer with bias
-let linear = WasmLinear::new(
-    in_features: 784,
-    out_features: 10,
-    bias: true
-);
-
-// Custom weight initialization
-let custom_weights = vec![/* weight values */];
-let custom_bias = Some(vec![/* bias values */]);
-let linear_custom = WasmLinear::with_weights(784, 10, custom_weights, custom_bias)?;
-
-// Forward pass
-let input = vec![/* input data */];
-let output = linear.forward(input, batch_size: 1)?;
-
-// Activation functions
-let activated = WasmActivation::relu(output);
-let sigmoid_result = WasmActivation::sigmoid(input);
-let tanh_result = WasmActivation::tanh(input);
-let leaky_relu = WasmActivation::leaky_relu(input, alpha: 0.01);
-```
-
-### Browser Integration
-
-```rust
-use rustorch::wasm::{BrowserStorage, BrowserCanvas, PerformanceMonitor};
-
-// Browser storage for model persistence
-let storage = BrowserStorage::new();
-storage.save_tensor("model_weights", &wasm_tensor)?;
-let loaded_tensor = storage.load_tensor("model_weights")?;
-
-// Canvas rendering for visualizations
-let canvas = BrowserCanvas::new("canvas-id")?;
-canvas.draw_tensor(&wasm_tensor)?;
-canvas.draw_heatmap(&activation_map, width: 256, height: 256)?;
-
-// Performance monitoring
-let monitor = PerformanceMonitor::new();
-monitor.start_timer("inference");
-// ... model inference ...
-let elapsed = monitor.end_timer("inference")?;
-```
-
-### WebGPU Acceleration
-
-```rust
-use rustorch::wasm::WebGPUSimple;
-
-// Initialize WebGPU for Chrome
-let mut webgpu = WebGPUSimple::new();
-webgpu.initialize().await?;
-
-// Check GPU capabilities
-let info = webgpu.get_device_info()?;
-let supports_compute = webgpu.supports_compute_shaders()?;
-
-// Basic GPU operations
-let gpu_result = webgpu.matrix_multiply(&matrix_a, &matrix_b).await?;
-let gpu_conv = webgpu.convolution_2d(&input, &kernel).await?;
-```
-
-### Advanced WASM Features
-
-```rust
-use rustorch::wasm::{
-    WasmOptimizer, DataTransforms, QualityMetrics, AnomalyDetection
-};
-
-// Enhanced optimizers
-let optimizer = WasmOptimizer::adam(learning_rate: 0.001, beta1: 0.9, beta2: 0.999)?;
-optimizer.step(&gradients, &mut parameters)?;
-
-// Data preprocessing
-let transforms = DataTransforms::new();
-let normalized = transforms.normalize(&data, mean: 0.0, std: 1.0)?;
-let augmented = transforms.random_rotation(&image_data, angle: 30.0)?;
-
-// Quality assessment
-let metrics = QualityMetrics::new();
-let data_quality = metrics.assess_data_quality(&dataset)?;
-let model_quality = metrics.evaluate_model_performance(&predictions, &targets)?;
-
-// Anomaly detection
-let detector = AnomalyDetection::new();
-let anomalies = detector.detect_outliers(&data, threshold: 2.0)?;
-let model_drift = detector.detect_model_drift(&current_output, &baseline_output)?;
-```
-
-### Memory Management
-
-```rust
-use rustorch::wasm::{WasmMemoryManager, WasmMemoryPool};
-
-// Memory pool for efficient allocation
-let memory_pool = WasmMemoryPool::new(max_size_mb: 256);
-let tensor_memory = memory_pool.allocate_tensor(&shape)?;
-
-// Memory monitoring
-let manager = WasmMemoryManager::new();
-let usage = manager.get_memory_usage();
-manager.cleanup_unused_tensors();
-
-// Garbage collection optimization
-manager.force_gc_if_needed(threshold: 0.8)?;
-```
-
-### Signal Processing
-
-```rust
-use rustorch::wasm::WasmSignal;
-
-// FFT operations
-let signal = WasmSignal::new();
-let fft_result = signal.fft(&time_domain_data)?;
-let ifft_result = signal.ifft(&frequency_domain_data)?;
-
-// Filtering operations
-let filtered = signal.lowpass_filter(&noisy_signal, cutoff: 0.3)?;
-let convolved = signal.convolve(&signal_a, &signal_b)?;
-```
-
-### WASM Utilities and Helpers
-
-```rust
-use rustorch::wasm::{WasmUtilities, WasmInterop};
-
-// JavaScript interoperability
-let interop = WasmInterop::new();
-let js_array = interop.tensor_to_js_array(&wasm_tensor)?;
-let wasm_tensor = interop.js_array_to_tensor(&js_array, &shape)?;
-
-// Type conversions and validation
-let utilities = WasmUtilities::new();
-let validated_data = utilities.validate_and_convert(&input_data)?;
-let shape_valid = utilities.validate_shape(&shape, max_dims: 4)?;
-```
-
-### Backward Compatibility
-
-All existing APIs remain fully functional. The new builder pattern and enhanced operations are additive features that don't break existing code.
+The WASM module provides comprehensive browser-based machine learning capabilities. For detailed API reference, examples, and integration guides, see the dedicated [WASM API Documentation](WASM_API_DOCUMENTATION.md).
 
 For complete documentation and examples, visit the [examples directory](../examples/) or generate local docs:
 
