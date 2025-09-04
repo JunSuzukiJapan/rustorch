@@ -32,8 +32,8 @@ COPY src ./src
 COPY examples ./examples
 COPY benches ./benches
 
-# Build the application
-RUN cargo build --release
+# Build the library only (excluding problematic binaries)
+RUN cargo build --release --lib
 
 # Production stage
 FROM debian:bookworm-slim
@@ -50,11 +50,10 @@ RUN apt-get update && apt-get install -y \
 RUN useradd -m -u 1001 rustorch
 
 # Create necessary directories
-RUN mkdir -p /app/data /app/models /app/output && \
+RUN mkdir -p /app/data /app/models /app/output /app/lib && \
     chown -R rustorch:rustorch /app
 
-# Copy built binary and examples
-COPY --from=builder /usr/src/rustorch/target/release/deps/* /app/bin/
+# Copy examples only
 COPY --from=builder /usr/src/rustorch/examples /app/examples/
 
 # Copy library files
