@@ -1152,7 +1152,7 @@ pub mod advanced {
     }
 }
 
-// Temporarily disabled tests - need to fix bool/i64 tensor creation
+// Tests temporarily disabled - bool tensor creation issue needs fixing
 /*
 #[cfg(test)]
 mod tests {
@@ -1270,6 +1270,49 @@ mod tests {
         // Check that counts sum to total elements
         let total_count: f32 = counts.data.as_slice().unwrap().iter().sum();
         assert_eq!(total_count, 5.0);
+    }
+
+    #[test]
+    fn test_scatter() {
+        let input = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+        let index = ArrayD::from_shape_vec(vec![2], vec![0i64, 2]).unwrap();
+        let src = Tensor::from_vec(vec![10.0f32, 11.0], vec![2]);
+
+        let result = indexing::scatter(&input, 1, &index, &src).unwrap();
+
+        // Should scatter src values into columns 0 and 2
+        assert_eq!(result.shape(), &[2, 3]);
+        // First row: [10.0, 2.0, 11.0] (scattered 10.0 at col 0, 11.0 at col 2)
+        assert_eq!(result.data.as_slice().unwrap()[0], 10.0); // row 0, col 0
+        assert_eq!(result.data.as_slice().unwrap()[2], 11.0); // row 0, col 2
+    }
+
+    #[test]
+    fn test_index_select() {
+        let input = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]);
+        let index = ArrayD::from_shape_vec(vec![2], vec![0i64, 2]).unwrap();
+
+        let result = indexing::index_select(&input, 1, &index).unwrap();
+
+        // Should select columns 0 and 2
+        // Row 0: [1, 3], Row 1: [4, 6]
+        let expected = vec![1.0f32, 3.0, 4.0, 6.0];
+        assert_eq!(result.data.as_slice().unwrap(), &expected);
+        assert_eq!(result.shape(), &[2, 2]);
+    }
+
+    #[test]
+    fn test_where_operation() {
+        let input_a = Tensor::from_vec(vec![1.0f32, 2.0, 3.0, 4.0], vec![2, 2]);
+        let input_b = Tensor::from_vec(vec![10.0f32, 20.0, 30.0, 40.0], vec![2, 2]);
+        let condition = ArrayD::from_shape_vec(vec![2, 2], vec![true, false, true, false]).unwrap();
+
+        let result = conditional::where_(&input_a, &condition, &input_b).unwrap();
+
+        // Should select from input_a where true, input_b where false
+        let expected = vec![1.0f32, 20.0, 3.0, 40.0];
+        assert_eq!(result.data.as_slice().unwrap(), &expected);
+        assert_eq!(result.shape(), &[2, 2]);
     }
 }
 */
