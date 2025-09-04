@@ -359,6 +359,10 @@ pub mod execution;
 /// クロスプラットフォーム最適化モジュール
 pub mod optimization;
 
+/// Quantization support for model compression and acceleration (Phase 11)
+/// モデル圧縮・高速化のための量子化サポート（フェーズ11）
+pub mod quantization;
+
 /// WebAssembly support and bindings
 /// WebAssemblyサポートとバインディング
 #[cfg(feature = "wasm")]
@@ -400,6 +404,11 @@ pub mod prelude {
         LSTMCell, Linear, MaxPool2d, Module, RNNCell, GRU, LSTM, RNN,
     };
     pub use crate::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
+    pub use crate::quantization::{
+        QuantizedTensor, QuantizationType, QuantizationScheme, TensorQuantization,
+        StaticQuantizer, MinMaxObserver, HistogramObserver,
+        QATLinear, QATConv2d, FakeQuantize, QATModule,
+    };
     pub use crate::special::SpecialFunctions;
     pub use crate::special::{bessel_i, bessel_j, bessel_k, bessel_y};
     pub use crate::special::{beta, digamma, gamma, lbeta, lgamma};
