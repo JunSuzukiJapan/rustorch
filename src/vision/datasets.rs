@@ -9,7 +9,7 @@
 
 #![allow(deprecated)] // Allow deprecated APIs for backward compatibility
 
-use crate::data::LegacyDataset;
+use crate::data::{Dataset, LegacyDataset};
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
 use crate::vision::transforms::Transform;
@@ -132,14 +132,18 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> MNIST<T> {
     }
 }
 
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for MNIST<T> {
+// Phase 5 Dataset implementation
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for MNIST<T> {
     fn len(&self) -> usize {
         self.images.len()
     }
 
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        if index >= self.len() {
-            return None;
+    fn get_item(&self, index: usize) -> Result<(Tensor<T>, Tensor<T>), crate::data::DataError> {
+        if index >= self.images.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "MNIST::get_item".to_string(),
+                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+            });
         }
 
         let mut image = self.images[index].clone();
@@ -158,7 +162,19 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for MNIS
             }
         }
 
-        Some((image, label))
+        Ok((image, label))
+    }
+}
+
+// Legacy Dataset implementation (deprecated)
+#[allow(deprecated)]
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for MNIST<T> {
+    fn len(&self) -> usize {
+        Dataset::len(self)
+    }
+
+    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
+        Dataset::get_item(self, index).ok()
     }
 }
 
@@ -293,14 +309,18 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR10<T> {
     }
 }
 
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR10<T> {
+// Phase 5 Dataset implementation
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for CIFAR10<T> {
     fn len(&self) -> usize {
         self.images.len()
     }
 
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        if index >= self.len() {
-            return None;
+    fn get_item(&self, index: usize) -> Result<(Tensor<T>, Tensor<T>), crate::data::DataError> {
+        if index >= self.images.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "CIFAR10::get_item".to_string(),
+                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+            });
         }
 
         let mut image = self.images[index].clone();
@@ -319,7 +339,19 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFA
             }
         }
 
-        Some((image, label))
+        Ok((image, label))
+    }
+}
+
+// Legacy Dataset implementation (deprecated)
+#[allow(deprecated)]
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR10<T> {
+    fn len(&self) -> usize {
+        Dataset::len(self)
+    }
+
+    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
+        Dataset::get_item(self, index).ok()
     }
 }
 
@@ -467,14 +499,18 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> CIFAR100<T> {
     }
 }
 
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR100<T> {
+// Phase 5 Dataset implementation
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for CIFAR100<T> {
     fn len(&self) -> usize {
         self.images.len()
     }
 
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        if index >= self.len() {
-            return None;
+    fn get_item(&self, index: usize) -> Result<(Tensor<T>, Tensor<T>), crate::data::DataError> {
+        if index >= self.images.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "CIFAR100::get_item".to_string(),
+                message: format!("Index {} out of bounds for dataset of size {}", index, self.images.len()),
+            });
         }
 
         let mut image = self.images[index].clone();
@@ -495,7 +531,19 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFA
             }
         }
 
-        Some((image, label))
+        Ok((image, label))
+    }
+}
+
+// Legacy Dataset implementation (deprecated)
+#[allow(deprecated)]
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for CIFAR100<T> {
+    fn len(&self) -> usize {
+        Dataset::len(self)
+    }
+
+    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
+        Dataset::get_item(self, index).ok()
     }
 }
 
@@ -631,14 +679,18 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> ImageFolder<T> {
     }
 }
 
-impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for ImageFolder<T> {
+// Phase 5 Dataset implementation
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> Dataset<(Tensor<T>, Tensor<T>)> for ImageFolder<T> {
     fn len(&self) -> usize {
         self.samples.len()
     }
 
-    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
-        if index >= self.len() {
-            return None;
+    fn get_item(&self, index: usize) -> Result<(Tensor<T>, Tensor<T>), crate::data::DataError> {
+        if index >= self.samples.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "ImageFolder::get_item".to_string(),
+                message: format!("Index {} out of bounds for dataset of size {}", index, self.samples.len()),
+            });
         }
 
         let (_path, class_idx) = &self.samples[index];
@@ -659,7 +711,19 @@ impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for Imag
             }
         }
 
-        Some((image, label))
+        Ok((image, label))
+    }
+}
+
+// Legacy Dataset implementation (deprecated)
+#[allow(deprecated)]
+impl<T: Float + From<f32> + From<u8> + Copy + 'static> LegacyDataset<T> for ImageFolder<T> {
+    fn len(&self) -> usize {
+        Dataset::len(self)
+    }
+
+    fn get(&self, index: usize) -> Option<(Tensor<T>, Tensor<T>)> {
+        Dataset::get_item(self, index).ok()
     }
 }
 
@@ -677,7 +741,7 @@ mod tests {
         assert!(mnist.is_ok());
 
         let mnist = mnist.unwrap();
-        assert!(mnist.len() > 0);
+        assert!(Dataset::len(&mnist) > 0);
         assert_eq!(mnist.num_classes(), 10);
     }
 
@@ -690,7 +754,7 @@ mod tests {
         assert!(cifar10.is_ok());
 
         let cifar10 = cifar10.unwrap();
-        assert!(cifar10.len() > 0);
+        assert!(Dataset::len(&cifar10) > 0);
         assert_eq!(cifar10.num_classes(), 10);
         assert_eq!(cifar10.class_names().len(), 10);
     }
@@ -704,7 +768,7 @@ mod tests {
         assert!(cifar100.is_ok());
 
         let cifar100 = cifar100.unwrap();
-        assert!(cifar100.len() > 0);
+        assert!(Dataset::len(&cifar100) > 0);
         assert_eq!(cifar100.num_fine_classes(), 100);
         assert_eq!(cifar100.num_coarse_classes(), 20);
 

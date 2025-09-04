@@ -384,7 +384,8 @@ pub mod prelude {
     pub use crate::convert::{
         SimpleConversionError, SimplePyTorchConverter, SimplifiedPyTorchModel,
     };
-    pub use crate::data::{DataLoader, Dataset, TensorDataset};
+    pub use crate::data::{Dataset, TensorDataset};
+    pub use crate::data::dataloader::DataLoader;
     pub use crate::distributions::{
         Bernoulli, Beta, Categorical, Exponential, Gamma, Normal, Uniform,
     };

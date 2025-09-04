@@ -7,7 +7,7 @@ use super::callbacks::Callback;
 use super::metrics::{MetricsCollector, TrainingMetrics};
 use super::state::{BatchState, EpochState, TrainingState};
 use crate::autograd::Variable;
-use crate::data::LegacyDataLoader;
+use crate::data::{LegacyDataLoader, LegacyDataset};
 use crate::nn::loss::Loss;
 use crate::optim::Optimizer;
 use num_traits::Float;
