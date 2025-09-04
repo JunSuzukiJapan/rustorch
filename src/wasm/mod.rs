@@ -79,3 +79,7 @@ pub mod webgpu_simple; // Simplified WebGPU implementation for basic operations
 // Phase 2 WASM enhancements
 #[cfg(feature = "wasm")]
 pub mod storage; // Browser model persistence and storage utilities
+
+// Phase 3 WASM enhancements  
+#[cfg(feature = "wasm")]
+pub mod linalg; // Basic linear algebra (BLAS-free, small matrices only)
