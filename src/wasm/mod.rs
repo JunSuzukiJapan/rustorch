@@ -75,3 +75,7 @@ pub mod special_enhanced; // Complete special functions with performance optimiz
 // pub mod webgpu_tensor; // WebGPU tensor operations integration with RusTorch API (temporarily disabled)
 #[cfg(feature = "webgpu")]
 pub mod webgpu_simple; // Simplified WebGPU implementation for basic operations
+
+// Phase 2 WASM enhancements
+#[cfg(feature = "wasm")]
+pub mod storage; // Browser model persistence and storage utilities
