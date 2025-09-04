@@ -2406,6 +2406,174 @@ let result = tensor
 let result = shape_ops!(tensor, squeeze, unsqueeze(1), flatten).unwrap();
 ```
 
+## 🔧 Sparse Tensor Module (Phase 12)
+
+### Sparse Tensor Creation and Formats
+
+```rust
+use rustorch::sparse::{SparseTensor, SparseFormat};
+use ndarray::Array1;
+
+// COO (Coordinate) format creation
+let indices = vec![
+    Array1::from_vec(vec![0, 1, 2]),  // Row indices
+    Array1::from_vec(vec![1, 2, 0]),  // Column indices
+];
+let values = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+let shape = vec![3, 3];
+let sparse_tensor = SparseTensor::from_coo(indices, values, shape)?;
+
+// Convert between formats
+let csr_tensor = sparse_tensor.to_csr()?;     // COO → CSR
+let coo_tensor = csr_tensor.to_coo()?;        // CSR → COO
+let dense_tensor = sparse_tensor.to_dense()?; // Sparse → Dense
+```
+
+### Sparse Operations
+
+```rust
+use rustorch::sparse::SparseOps;
+
+// Sparse matrix-vector multiplication
+let vector = Array1::from_vec(vec![1.0, 2.0, 3.0]);
+let result = sparse_tensor.spmv(&vector)?;
+
+// Sparse matrix-matrix multiplication
+let matrix = Array2::from_shape_vec((3, 2), vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0])?;
+let result = sparse_tensor.spmm(&matrix)?;
+
+// Sparse arithmetic operations
+let sum = sparse_a.sparse_add(&sparse_b)?;
+let product = sparse_a.sparse_mul(&sparse_b)?;
+let transposed = sparse_tensor.transpose()?;
+```
+
+### Sparse Neural Network Layers
+
+```rust
+use rustorch::sparse::sparse_layers::{SparseLinear, SparseConv2d, SparseEmbedding};
+use rustorch::sparse::pruning::PruningConfig;
+
+// Sparse linear layer
+let sparse_linear = SparseLinear::new(
+    input_size: 784,
+    output_size: 10,
+    sparsity: 0.9,      // 90% sparsity
+    Some(PruningConfig::magnitude(0.1))
+)?;
+
+// Sparse convolution layer
+let sparse_conv = SparseConv2d::new(
+    in_channels: 3,
+    out_channels: 64,
+    kernel_size: (3, 3),
+    sparsity: 0.8,
+    Some(PruningConfig::structured(0.5))
+)?;
+
+// Sparse embedding layer
+let sparse_embedding = SparseEmbedding::new(
+    num_embeddings: 10000,
+    embedding_dim: 256,
+    sparsity: 0.95
+)?;
+```
+
+### Model Pruning Algorithms
+
+```rust
+use rustorch::sparse::pruning::{ModelPruner, PruningAlgorithm, PruningSchedule};
+
+// Magnitude-based pruning
+let magnitude_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Magnitude,
+    sparsity_ratio: 0.8,
+    schedule: PruningSchedule::Gradual { steps: 1000 },
+});
+
+// Structured pruning
+let structured_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Structured,
+    sparsity_ratio: 0.5,
+    schedule: PruningSchedule::OneShot,
+});
+
+// Fisher information pruning
+let fisher_pruner = ModelPruner::new(PruningConfig {
+    algorithm: PruningAlgorithm::Fisher,
+    sparsity_ratio: 0.9,
+    schedule: PruningSchedule::Gradual { steps: 500 },
+});
+
+// Apply pruning to model
+let pruned_weights = magnitude_pruner.prune_weights(&weights)?;
+let mask = magnitude_pruner.create_mask(&weights)?;
+```
+
+### GPU-Accelerated Sparse Operations
+
+```rust
+use rustorch::sparse::gpu_ops::{CudaSparseOps, MetalSparseOps, SparseBatchProcessor};
+
+// CUDA acceleration (if available)
+#[cfg(feature = "cuda")]
+{
+    let cuda_ops = CudaSparseOps::init()?;
+    let result = cuda_ops.spmv(&sparse_matrix, &vector)?;
+    let batch_result = cuda_ops.sparse_add(&sparse_a, &sparse_b)?;
+}
+
+// Metal acceleration for Apple Silicon
+#[cfg(feature = "metal")]
+{
+    let metal_ops = MetalSparseOps::new()?;
+    let result = metal_ops.spmv(&sparse_matrix, &vector)?;
+}
+
+// Batch processing for efficiency
+let mut batch_processor = SparseBatchProcessor::new(max_batch_size: 32);
+batch_processor.add_to_batch(sparse_tensor1)?;
+batch_processor.add_to_batch(sparse_tensor2)?;
+let results = batch_processor.process_batch()?;
+```
+
+### Sparse Utilities and Analysis
+
+```rust
+use rustorch::sparse::utils::{SparseAnalyzer, SparseValidator, SparseConverter};
+
+// Analyze sparse tensor patterns
+let analyzer = SparseAnalyzer::new();
+let sparsity_ratio = analyzer.sparsity_ratio(&sparse_tensor);
+let pattern_analysis = analyzer.analyze_pattern(&sparse_tensor)?;
+let hotspots = analyzer.identify_hotspots(&sparse_tensor, threshold: 0.1)?;
+
+// Validate sparse tensor integrity
+let validator = SparseValidator::new();
+let is_valid = validator.validate_coo(&sparse_tensor)?;
+let integrity_check = validator.check_integrity(&sparse_tensor)?;
+
+// Convert and optimize formats
+let converter = SparseConverter::new();
+let optimized = converter.optimize_for_operations(&sparse_tensor, operation_type)?;
+let converted = converter.convert_with_validation(&sparse_tensor, SparseFormat::CSR)?;
+```
+
+### Performance Benchmarking
+
+```rust
+use rustorch::sparse::utils::SparseBenchmark;
+
+// Benchmark sparse operations
+let benchmark = SparseBenchmark::new();
+let spmv_time = benchmark.time_spmv(&sparse_matrix, &vector, iterations: 1000)?;
+let format_time = benchmark.time_format_conversion(&sparse_tensor, SparseFormat::CSR)?;
+let memory_usage = benchmark.analyze_memory_usage(&sparse_tensor)?;
+
+println!("SpMV time: {:.2}ms", spmv_time);
+println!("Memory usage: {} bytes", memory_usage);
+```
+
 ### Backward Compatibility
 
 All existing APIs remain fully functional. The new builder pattern and enhanced operations are additive features that don't break existing code.
