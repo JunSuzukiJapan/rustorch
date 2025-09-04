@@ -189,7 +189,7 @@ impl WasmModelStorage {
         let idb_factory = window.indexed_db()?.ok_or("IndexedDB not supported")?;
         
         // Open database
-        let db_request = idb_factory.open("rustorch_models")?;
+        let db_request = idb_factory.open("rustorch_models").map_err(|_| "Failed to open database")?;
         let db_promise = js_sys::Promise::new(&mut |resolve, reject| {
             let onupgradeneeded = Closure::wrap(Box::new(move |event: web_sys::Event| {
                 if let Some(target) = event.target() {
@@ -240,7 +240,7 @@ impl WasmModelStorage {
         let window = web_sys::window().ok_or("No window object")?;
         let idb_factory = window.indexed_db()?.ok_or("IndexedDB not supported")?;
         
-        let db_request = idb_factory.open("rustorch_models")?;
+        let db_request = idb_factory.open("rustorch_models").map_err(|_| "Failed to open database")?;
         let db_promise = js_sys::Promise::new(&mut |resolve, reject| {
             let onsuccess = Closure::wrap(Box::new(move |event: web_sys::Event| {
                 if let Some(target) = event.target() {
@@ -297,7 +297,7 @@ impl WasmModelStorage {
         let window = web_sys::window().ok_or("No window object")?;
         let idb_factory = window.indexed_db()?.ok_or("IndexedDB not supported")?;
         
-        let db_request = idb_factory.open("rustorch_models")?;
+        let db_request = idb_factory.open("rustorch_models").map_err(|_| "Failed to open database")?;
         let db_promise = js_sys::Promise::new(&mut |resolve, reject| {
             let onsuccess = Closure::wrap(Box::new(move |event: web_sys::Event| {
                 if let Some(target) = event.target() {
@@ -332,7 +332,7 @@ impl WasmModelStorage {
         let window = web_sys::window().ok_or("No window object")?;
         let idb_factory = window.indexed_db()?.ok_or("IndexedDB not supported")?;
         
-        let db_request = idb_factory.open("rustorch_models")?;
+        let db_request = idb_factory.open("rustorch_models").map_err(|_| "Failed to open database")?;
         let db_promise = js_sys::Promise::new(&mut |resolve, reject| {
             let onsuccess = Closure::wrap(Box::new(move |event: web_sys::Event| {
                 if let Some(target) = event.target() {
@@ -385,7 +385,7 @@ impl WasmModelStorage {
         
         let mut model_names = Vec::new();
         for i in 0..keys_array.length() {
-            if let Ok(key) = keys_array.get(i).as_string() {
+            if let Some(key) = keys_array.get(i).as_string() {
                 if !key.ends_with("_metadata") && !key.contains('_') {
                     model_names.push(key);
                 }
@@ -473,8 +473,8 @@ impl WasmModelCompression {
             let mut count = 1u8;
             
             // Count consecutive equal values (up to 255)
-            while i + count as usize < weights.len() 
-                && weights[i + count as usize] == current 
+            while i + (count as usize) < weights.len() 
+                && weights[i + (count as usize)] == current 
                 && count < 255 {
                 count += 1;
             }

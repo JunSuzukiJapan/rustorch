@@ -10,6 +10,8 @@ use wgpu::util::{DeviceExt, BufferInitDescriptor};
 #[cfg(feature = "webgpu")]
 use std::collections::HashMap;
 #[cfg(feature = "webgpu")]
+use std::borrow;
+#[cfg(feature = "webgpu")]
 use bytemuck;
 #[cfg(feature = "webgpu")]
 use js_sys;
@@ -27,7 +29,6 @@ macro_rules! console_log {
 }
 
 #[cfg(feature = "webgpu")]
-#[wasm_bindgen]
 pub struct WebGPUContext {
     device: Device,
     queue: Queue,
@@ -37,9 +38,7 @@ pub struct WebGPUContext {
 }
 
 #[cfg(feature = "webgpu")]
-#[wasm_bindgen]
 impl WebGPUContext {
-    #[wasm_bindgen(constructor)]
     pub async fn new() -> Result<WebGPUContext, JsValue> {
         console_error_panic_hook::set_once();
         
@@ -86,17 +85,14 @@ impl WebGPUContext {
         })
     }
 
-    #[wasm_bindgen]
     pub fn get_adapter_name(&self) -> String {
         self.adapter_info.name.clone()
     }
 
-    #[wasm_bindgen]
     pub fn get_backend_type(&self) -> String {
         format!("{:?}", self.adapter_info.backend)
     }
 
-    #[wasm_bindgen]
     pub fn create_buffer(&mut self, label: &str, size: u64, usage: u32) -> bool {
         let buffer = self.device.create_buffer(&BufferDescriptor {
             label: Some(label),
@@ -109,7 +105,6 @@ impl WebGPUContext {
         true
     }
 
-    #[wasm_bindgen]
     pub fn write_buffer_data(&mut self, buffer_label: &str, data: &[f32]) -> bool {
         if let Some(buffer) = self.buffer_cache.get(buffer_label) {
             let data_bytes = bytemuck::cast_slice(data);
@@ -120,7 +115,6 @@ impl WebGPUContext {
         }
     }
 
-    #[wasm_bindgen]
     pub async fn read_buffer_data(&self, buffer_label: &str) -> Result<Vec<f32>, JsValue> {
         let buffer = self.buffer_cache.get(buffer_label)
             .ok_or_else(|| JsValue::from_str("Buffer not found"))?;
@@ -140,7 +134,6 @@ impl WebGPUContext {
         Ok(result)
     }
 
-    #[wasm_bindgen]
     pub fn create_compute_pipeline(&mut self, label: &str, shader_source: &str) -> bool {
         let shader_module = self.device.create_shader_module(ShaderModuleDescriptor {
             label: Some(&format!("{}_shader", label)),
@@ -160,7 +153,6 @@ impl WebGPUContext {
         true
     }
 
-    #[wasm_bindgen]
     pub fn dispatch_compute(&self, pipeline_label: &str, workgroup_x: u32, workgroup_y: u32, workgroup_z: u32) -> bool {
         if let Some(pipeline) = self.compute_pipeline_cache.get(pipeline_label) {
             let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
@@ -183,44 +175,36 @@ impl WebGPUContext {
         }
     }
 
-    #[wasm_bindgen]
     pub fn get_buffer_count(&self) -> u32 {
         self.buffer_cache.len() as u32
     }
 
-    #[wasm_bindgen]
     pub fn get_pipeline_count(&self) -> u32 {
         self.compute_pipeline_cache.len() as u32
     }
 
-    #[wasm_bindgen]
     pub fn clear_cache(&mut self) {
         self.buffer_cache.clear();
         self.compute_pipeline_cache.clear();
     }
 
     // Tensor operation execution functions with binding groups
-    #[wasm_bindgen]
     pub async fn tensor_add(&mut self, a_label: &str, b_label: &str, output_label: &str) -> Result<bool, JsValue> {
         self.execute_binary_operation("tensor_add", a_label, b_label, output_label).await
     }
 
-    #[wasm_bindgen]
     pub async fn tensor_mul(&mut self, a_label: &str, b_label: &str, output_label: &str) -> Result<bool, JsValue> {
         self.execute_binary_operation("tensor_mul", a_label, b_label, output_label).await
     }
 
-    #[wasm_bindgen]
     pub async fn tensor_relu(&mut self, input_label: &str, output_label: &str) -> Result<bool, JsValue> {
         self.execute_unary_operation("tensor_relu", input_label, output_label).await
     }
 
-    #[wasm_bindgen]
     pub async fn tensor_sigmoid(&mut self, input_label: &str, output_label: &str) -> Result<bool, JsValue> {
         self.execute_unary_operation("tensor_sigmoid", input_label, output_label).await
     }
 
-    #[wasm_bindgen]
     pub async fn tensor_matmul(&mut self, a_label: &str, b_label: &str, output_label: &str, m: u32, n: u32, k: u32) -> Result<bool, JsValue> {
         let pipeline = self.compute_pipeline_cache.get("tensor_matmul")
             .ok_or_else(|| JsValue::from_str("Matrix multiplication pipeline not found"))?;
@@ -406,27 +390,22 @@ impl WebGPUTensor {
         }
     }
 
-    #[wasm_bindgen]
     pub fn data(&self) -> Vec<f32> {
         self.data.clone()
     }
 
-    #[wasm_bindgen]
     pub fn shape(&self) -> Vec<u32> {
         self.shape.clone()
     }
 
-    #[wasm_bindgen]
     pub fn buffer_label(&self) -> String {
         self.buffer_label.clone()
     }
 
-    #[wasm_bindgen]
     pub fn numel(&self) -> u32 {
         self.shape.iter().product()
     }
 
-    #[wasm_bindgen]
     pub fn byte_size(&self) -> u32 {
         self.numel() * 4 // f32 = 4 bytes
     }
@@ -602,7 +581,6 @@ impl ChromeWebGPUOptimizer {
         })
     }
 
-    #[wasm_bindgen]
     pub fn initialize_shaders(&mut self) -> bool {
         let shaders = [
             ("tensor_add", TENSOR_ADD_SHADER),
@@ -624,7 +602,6 @@ impl ChromeWebGPUOptimizer {
         true
     }
 
-    #[wasm_bindgen]
     pub fn get_recommended_workgroup_size(&self, operation: &str, data_size: u32) -> Vec<u32> {
         if let Some(&(x, y, z)) = self.workgroup_sizes.get(operation) {
             // Adjust workgroup size based on data size for optimal performance
@@ -644,7 +621,6 @@ impl ChromeWebGPUOptimizer {
         }
     }
 
-    #[wasm_bindgen]
     pub fn get_optimal_buffer_size(&self, data_size_bytes: u64) -> u64 {
         if data_size_bytes <= self.optimal_buffer_sizes["small"] {
             self.optimal_buffer_sizes["small"]
@@ -655,7 +631,6 @@ impl ChromeWebGPUOptimizer {
         }
     }
 
-    #[wasm_bindgen]
     pub fn estimate_performance_gain(&self, operation: &str, data_size: u32) -> f32 {
         // Conservative performance estimates for Chrome WebGPU vs CPU
         match operation {
@@ -692,12 +667,10 @@ impl WebGPUError {
         WebGPUError { message, error_type }
     }
 
-    #[wasm_bindgen]
     pub fn message(&self) -> String {
         self.message.clone()
     }
 
-    #[wasm_bindgen]
     pub fn error_type(&self) -> String {
         self.error_type.clone()
     }

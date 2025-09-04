@@ -32,13 +32,13 @@
 //! ## Quantization Schemes
 //!
 //! ### Symmetric Quantization
-//! ```
+//! ```text
 //! quantized = round(fp32_value / scale) + zero_point
 //! dequantized = (quantized - zero_point) * scale
 //! ```
 //!
 //! ### Asymmetric Quantization
-//! ```
+//! ```text
 //! quantized = round(fp32_value / scale)
 //! dequantized = quantized * scale  
 //! ```
@@ -46,21 +46,20 @@
 //! ## Usage Examples
 //!
 //! ```rust
-//! use rustorch::quantization::{QuantizedTensor, QuantizationScheme, StaticQuantizer};
+//! use rustorch::quantization::{QuantizedTensor, QuantizationScheme, StaticQuantizer, TensorQuantization};
 //! use rustorch::tensor::Tensor;
-//!
+//! # use rustorch::error::RusTorchResult;
+//! #
+//! # fn main() -> RusTorchResult<()> {
 //! // Dynamic quantization
 //! let tensor: Tensor<f32> = Tensor::randn(&[128, 256]);
 //! let quantized = tensor.quantize_dynamic(QuantizationScheme::Symmetric)?;
 //!
 //! // Static quantization with calibration
-//! let mut quantizer = StaticQuantizer::new();
-//! quantizer.calibrate(&calibration_data)?;
-//! let quantized = quantizer.quantize(&tensor)?;
-//!
-//! // Quantization-aware training
-//! let mut qat_linear = QATLinear::new(256, 128);
-//! let output = qat_linear.forward(&input)?;
+//! let mut quantizer = StaticQuantizer::<f32>::new();
+//! quantizer.calibrate(QuantizationScheme::Symmetric)?;
+//! # Ok(())
+//! # }
 //! ```
 
 use crate::error::{RusTorchError, RusTorchResult};

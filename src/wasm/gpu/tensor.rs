@@ -4,7 +4,7 @@
 #[cfg(feature = "webgpu")]
 use wasm_bindgen::prelude::*;
 #[cfg(feature = "webgpu")]
-use super::webgpu_backend::WebGPUContext;
+use super::backend::WebGPUContext;
 #[cfg(feature = "webgpu")]
 use crate::tensor::Tensor;
 #[cfg(feature = "webgpu")]
@@ -25,12 +25,12 @@ impl WebGPUTensorEngine {
         let mut context = WebGPUContext::new().await?;
         
         // Initialize all compute shaders
-        context.create_compute_pipeline("tensor_add", super::webgpu_backend::TENSOR_ADD_SHADER);
-        context.create_compute_pipeline("tensor_mul", super::webgpu_backend::TENSOR_MUL_SHADER);
-        context.create_compute_pipeline("tensor_matmul", super::webgpu_backend::TENSOR_MATMUL_SHADER);
-        context.create_compute_pipeline("tensor_relu", super::webgpu_backend::TENSOR_RELU_SHADER);
-        context.create_compute_pipeline("tensor_sigmoid", super::webgpu_backend::TENSOR_SIGMOID_SHADER);
-        context.create_compute_pipeline("tensor_softmax", super::webgpu_backend::TENSOR_SOFTMAX_SHADER);
+        context.create_compute_pipeline("tensor_add", super::backend::TENSOR_ADD_SHADER);
+        context.create_compute_pipeline("tensor_mul", super::backend::TENSOR_MUL_SHADER);
+        context.create_compute_pipeline("tensor_matmul", super::backend::TENSOR_MATMUL_SHADER);
+        context.create_compute_pipeline("tensor_relu", super::backend::TENSOR_RELU_SHADER);
+        context.create_compute_pipeline("tensor_sigmoid", super::backend::TENSOR_SIGMOID_SHADER);
+        context.create_compute_pipeline("tensor_softmax", super::backend::TENSOR_SOFTMAX_SHADER);
         
         Ok(WebGPUTensorEngine {
             context,
@@ -251,11 +251,11 @@ pub async fn webgpu_tensor_matmul_f32(
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
 pub async fn webgpu_check_browser_support() -> bool {
-    super::webgpu_backend::check_webgpu_support().await
+    super::backend::check_webgpu_support().await
 }
 
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
 pub fn webgpu_get_browser_info() -> String {
-    super::webgpu_backend::get_chrome_webgpu_info()
+    super::backend::get_chrome_webgpu_info()
 }

@@ -73,7 +73,8 @@ impl WasmLinearAlgebra {
         
         // Simplified QR algorithm for eigenvalues
         for _ in 0..max_iterations {
-            let (q, r) = self.qr_decomposition(&a, n)?;
+            let q = self.qr_q_matrix(&a, n)?;
+            let r = self.qr_r_matrix(&a, n)?;
             a = self.matmul(r, n, n, q, n, n)?;
             
             // Check convergence (off-diagonal elements should be small)
@@ -100,10 +101,10 @@ impl WasmLinearAlgebra {
         Ok(eigenvalues)
     }
     
-    /// QR decomposition using Gram-Schmidt process
-    /// Gram-Schmidt過程によるQR分解
+    /// QR decomposition Q matrix using Gram-Schmidt process
+    /// Gram-Schmidt過程によるQR分解のQ行列
     #[wasm_bindgen]
-    pub fn qr_decomposition(&self, matrix: &[f64], n: usize) -> Result<(Vec<f64>, Vec<f64>), JsValue> {
+    pub fn qr_q_matrix(&self, matrix: &[f64], n: usize) -> Result<Vec<f64>, JsValue> {
         if matrix.len() != n * n {
             return Err(JsValue::from_str("Matrix must be square"));
         }
@@ -149,7 +150,59 @@ impl WasmLinearAlgebra {
             }
         }
         
-        Ok((q, r))
+        Ok(q)
+    }
+    
+    /// QR decomposition R matrix using Gram-Schmidt process
+    /// Gram-Schmidt過程によるQR分解のR行列
+    #[wasm_bindgen]
+    pub fn qr_r_matrix(&self, matrix: &[f64], n: usize) -> Result<Vec<f64>, JsValue> {
+        if matrix.len() != n * n {
+            return Err(JsValue::from_str("Matrix must be square"));
+        }
+        
+        let mut q = vec![0.0; n * n];
+        let mut r = vec![0.0; n * n];
+        
+        // Gram-Schmidt orthogonalization (same algorithm)
+        for j in 0..n {
+            // Copy column j from A to Q
+            for i in 0..n {
+                q[i * n + j] = matrix[i * n + j];
+            }
+            
+            // Orthogonalize against previous columns
+            for k in 0..j {
+                // Compute dot product
+                let mut dot = 0.0;
+                for i in 0..n {
+                    dot += q[i * n + j] * q[i * n + k];
+                }
+                r[k * n + j] = dot;
+                
+                // Subtract projection
+                for i in 0..n {
+                    q[i * n + j] -= dot * q[i * n + k];
+                }
+            }
+            
+            // Normalize column j
+            let mut norm = 0.0;
+            for i in 0..n {
+                norm += q[i * n + j] * q[i * n + j];
+            }
+            norm = norm.sqrt();
+            
+            r[j * n + j] = norm;
+            
+            if norm > 1e-15 {
+                for i in 0..n {
+                    q[i * n + j] /= norm;
+                }
+            }
+        }
+        
+        Ok(r)
     }
     
     /// Singular Value Decomposition (simplified for small matrices)
@@ -549,7 +602,7 @@ impl WasmLinearAlgebra {
         
         if rows == cols {
             // Square matrix - try regular inverse
-            match self.inverse(matrix, rows) {
+            match self.inverse(matrix.clone(), rows) {
                 Ok(inv) => Ok(inv),
                 Err(_) => {
                     // Fallback: return transpose for rank-deficient matrices

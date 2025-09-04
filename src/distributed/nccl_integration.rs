@@ -54,7 +54,7 @@ impl NCCLCommunicator {
         device_id: usize,
         comm_id: &NCCLUniqueId,
     ) -> RusTorchResult<Self> {
-        let mut comm: *mut c_void = ptr::null_mut();
+        let comm: *mut c_void = ptr::null_mut();
         let streams = Vec::new();
 
         // In a full implementation, this would call NCCL APIs:
@@ -74,8 +74,9 @@ impl NCCLCommunicator {
     /// NCCLを使用したall-reduce操作
     pub fn all_reduce<T: Float>(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
         // Validate device placement
-        if !tensor.is_cuda() {
-            return Err(RusTorchError::device_mismatch("Tensor must be on CUDA device for NCCL"));
+        // Check if tensor is on CUDA device (simplified check)
+        if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
+            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
         }
 
         // In a full implementation:
@@ -93,8 +94,9 @@ impl NCCLCommunicator {
     /// Perform all-gather operation using NCCL
     /// NCCLを使用したall-gather操作
     pub fn all_gather<T: Float>(&self, tensor: &Tensor<T>) -> RusTorchResult<Vec<Tensor<T>>> {
-        if !tensor.is_cuda() {
-            return Err(RusTorchError::device_mismatch("Tensor must be on CUDA device for NCCL"));
+        // Check if tensor is on CUDA device (simplified check)
+        if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
+            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
         }
 
         // Create output tensors for each rank
@@ -115,8 +117,9 @@ impl NCCLCommunicator {
     /// Perform broadcast operation using NCCL
     /// NCCLを使用したbroadcast操作
     pub fn broadcast<T: Float>(&self, tensor: &mut Tensor<T>, root: usize) -> RusTorchResult<()> {
-        if !tensor.is_cuda() {
-            return Err(RusTorchError::device_mismatch("Tensor must be on CUDA device for NCCL"));
+        // Check if tensor is on CUDA device (simplified check)
+        if !matches!(tensor.device, crate::tensor::device::Device::Cuda(_)) {
+            return Err(RusTorchError::gpu("Tensor must be on CUDA device for NCCL".to_string()));
         }
 
         if root >= self.nranks {
@@ -185,7 +188,7 @@ impl NCCLUniqueId {
     /// Generate a new unique ID (should be called by rank 0)
     /// 新しい固有IDを生成（ランク0が呼び出すべき）
     pub fn new() -> RusTorchResult<Self> {
-        let mut id = [0u8; 128];
+        let id = [0u8; 128];
         
         // In a full implementation: ncclGetUniqueId(&id);
         
@@ -311,7 +314,7 @@ impl NCCLBackendOptimized {
 
     /// Perform optimized all-reduce with bucketing
     /// バケット化による最適化all-reduce
-    pub fn all_reduce_bucketed<T: Float>(
+    pub fn all_reduce_bucketed<T: Float + 'static>(
         &self,
         tensors: &mut [Tensor<T>],
         op: ReduceOp,
@@ -331,7 +334,7 @@ impl NCCLBackendOptimized {
 
     /// Create gradient buckets for efficient communication
     /// 効率的な通信のための勾配バケット作成
-    fn create_gradient_buckets<T: Float>(
+    fn create_gradient_buckets<T: Float + 'static>(
         &self,
         tensors: &[Tensor<T>],
     ) -> RusTorchResult<Vec<Vec<Tensor<T>>>> {
@@ -364,7 +367,10 @@ impl NCCLBackendOptimized {
     /// 単一all-reduce操作を実行
     fn all_reduce_single<T: Float>(&self, tensor: &mut Tensor<T>, op: ReduceOp) -> RusTorchResult<()> {
         // Get the appropriate communicator for tensor's device
-        let device_id = tensor.device().unwrap_or(DeviceType::Cpu).device_id().unwrap_or(0);
+        let device_id = match tensor.device {
+            crate::tensor::device::Device::Cuda(id) => id,
+            _ => 0,
+        };
         
         if let Some(comm_arc) = self.get_communicator(device_id) {
             let comm = comm_arc.lock().unwrap();
@@ -414,12 +420,13 @@ impl NCCLOps {
         op: ReduceOp,
     ) -> RusTorchResult<()> {
         for tensor in tensors.iter_mut() {
-            if let Some(device) = tensor.device() {
-                if let Some(device_id) = device.device_id() {
+            match tensor.device {
+                crate::tensor::device::Device::Cuda(device_id) => {
                     if let Some(comm) = communicators.get(&device_id) {
                         comm.all_reduce(tensor, op)?;
                     }
                 }
+                _ => {} // Skip non-CUDA tensors
             }
         }
 
