@@ -21,9 +21,15 @@ fi
 export CONDA_PREFIX=${NB_PYTHON_PREFIX}
 export VIRTUAL_ENV=${NB_PYTHON_PREFIX}
 
+# Set library paths for BLAS/LAPACK (in case needed)
+export PKG_CONFIG_PATH="${NB_PYTHON_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
+export LIBRARY_PATH="${NB_PYTHON_PREFIX}/lib:${LIBRARY_PATH}"
+export LD_LIBRARY_PATH="${NB_PYTHON_PREFIX}/lib:${LD_LIBRARY_PATH}"
+
 # Build wheel and install (compatible with conda environment)
 echo "📦 Building wheel..."
-maturin build --release --out dist --compatibility linux
+# Build without linalg feature to avoid LAPACK/BLAS dependency issues in Binder
+maturin build --release --out dist --compatibility linux --no-default-features
 
 # Install the built wheel
 echo "📥 Installing wheel..."
