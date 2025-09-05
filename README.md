@@ -53,50 +53,17 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ## 🚀 Quick Start
 
-**📓 For complete Jupyter setup guide, see [README_JUPYTER.md](README_JUPYTER.md)**
+### 📓 Interactive Jupyter Demos
+Experience RusTorch in your browser with zero setup:
 
-### Python Jupyter Lab Demo
+| Demo Type | Launch Command | Description |
+|-----------|----------------|-------------|
+| 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
+| ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
+| 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
+| 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | Run immediately in browser |
 
-📓 **[Complete Jupyter Setup Guide](README_JUPYTER.md)** | **[Jupyter Guide (日本語)](docs/jupyter-wasm-guide.md)**
-
-#### Standard CPU Demo
-Launch RusTorch with Jupyter Lab in one command:
-
-```bash
-./start_jupyter.sh
-```
-
-#### WebGPU Accelerated Demo
-Launch RusTorch with WebGPU support for browser-based GPU acceleration:
-
-```bash
-./start_jupyter_webgpu.sh
-```
-
-Both scripts will:
-- 📦 Create virtual environment automatically
-- 🔧 Build RusTorch Python bindings
-- 🚀 Launch Jupyter Lab with demo notebook
-- 📍 Open demo notebook ready to run
-
-**WebGPU Features:**
-- 🌐 Browser-based GPU acceleration
-- ⚡ High-performance matrix operations in browser
-- 🔄 Automatic fallback to CPU when GPU unavailable
-- 🎯 Chrome/Edge optimized (recommended browsers)
-
-#### Rust Kernel for Jupyter
-Launch native Rust kernel in Jupyter (evcxr_jupyter):
-
-```bash
-./quick_start_rust_kernel.sh
-```
-
-This will:
-- 🦀 Install evcxr_jupyter Rust kernel
-- 📓 Create Rust kernel demo notebook
-- 🚀 Launch Jupyter with native Rust support
-- 📍 Direct tensor operations in Rust
+📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
 
 ### Installation
 
@@ -104,7 +71,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.5.15"
+rustorch = "0.6.1"
 
 # Optional features
 [features]
@@ -119,7 +86,7 @@ wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML
 webgpu = ["rustorch/webgpu"]            # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.5.15", default-features = false }
+rustorch = { version = "0.6.1", default-features = false }
 ```
 
 ### Basic Usage
