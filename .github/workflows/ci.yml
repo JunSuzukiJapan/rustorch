@@ -490,6 +490,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./target/doc
+          force_orphan: true
 
   # Release to crates.io
   publish:
