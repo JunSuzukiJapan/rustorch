@@ -108,7 +108,9 @@
       "Bash(timeout 30 cargo test --lib --no-default-features vision:: data:: distributed:: -- --test-threads=1)",
       "Bash(timeout 30 cargo test --lib --no-default-features training:: validation:: utils:: -- --test-threads=1)",
       "Bash(timeout 30 cargo test --lib --no-default-features vision data distributed training validation utils -- --test-threads=1)",
-      "Bash(timeout 30 cargo test --lib --features metal gpu -- --test-threads=1)"
+      "Bash(timeout 30 cargo test --lib --features metal gpu -- --test-threads=1)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
     ],
     "deny": [],
     "ask": [],
