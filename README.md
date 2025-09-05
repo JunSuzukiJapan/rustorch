@@ -54,16 +54,20 @@ For detailed features, see [Features Documentation](docs/features.md).
 ## 🚀 Quick Start
 
 ### 📓 Interactive Jupyter Demos
-Experience RusTorch in your browser with zero setup:
 
-**🚀 Quick Launcher (Returning Users)**: `./start_jupyter_quick.sh` - Interactive menu for fast restarts
+**🚀 First Time Setup** - Choose your preferred demo and run the setup command:
 
-| Demo Type | Initial Setup Command | Description |
-|-----------|----------------------|-------------|
+| Demo Type | Setup Command | Description |
+|-----------|---------------|-------------|
 | 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
 | 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
-| 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | Run immediately in browser |
+| 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | No setup needed - run in browser |
+
+**⚡ Quick Restart** - After initial setup, use the fast launcher:
+```bash
+./start_jupyter_quick.sh  # Interactive menu for returning users
+```
 
 📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
 
