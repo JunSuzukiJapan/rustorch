@@ -344,28 +344,6 @@ cargo run --bin manual_quick_bench
 
 For detailed performance analysis, see [Performance Documentation](docs/performance.md).
 
-## ⚠️ Version Notice - GPU Acceleration
-
-**GPU機能に関する重要な注意事項:**
-
-### 🚨 Yanked Versions (GPU回帰問題)
-以下のバージョンはGPU加速が正常に動作しない問題があったため、crates.ioからyankされています：
-
-```
-❌ GPU使用不可: v0.5.0 〜 v0.5.14 (全15バージョン)
-✅ GPU加速復活: v0.5.15以降
-```
-
-**問題の詳細:**
-- **原因**: Phase 4リファクタリング（コミット: 782f6cb）でGPU実装が退化
-- **症状**: 全GPU操作がCPUフォールバックに退化（Metal/CUDA/OpenCL）
-- **期間**: 約1ヶ月間（2025年8月28日〜2025年9月3日）
-- **修復**: v0.5.15でGPU加速を完全復活
-
-**推奨事項:**
-- 📌 **v0.5.15以降を使用** してGPU機能をご利用ください
-- 🔄 既存プロジェクトは `rustorch = "0.5.15"` に更新してください
-- 📋 詳細は [GPU回帰分析レポート](docs/GPU_REGRESSION_ANALYSIS.md) をご覧ください
 
 ## 🧪 Testing
 
