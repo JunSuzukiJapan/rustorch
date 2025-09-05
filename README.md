@@ -56,8 +56,10 @@ For detailed features, see [Features Documentation](docs/features.md).
 ### 📓 Interactive Jupyter Demos
 Experience RusTorch in your browser with zero setup:
 
-| Demo Type | Launch Command | Description |
-|-----------|----------------|-------------|
+**🚀 Quick Launcher (Returning Users)**: `./start_jupyter_quick.sh` - Interactive menu for fast restarts
+
+| Demo Type | Initial Setup Command | Description |
+|-----------|----------------------|-------------|
 | 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
 | 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
