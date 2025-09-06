@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["InterpolationMode"],"struct":["CenterCrop","Compose","Normalize","RandomCrop","RandomHorizontalFlip","RandomRotation","Resize","ToTensor"],"trait":["Transform"]};

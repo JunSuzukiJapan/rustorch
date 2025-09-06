@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["SimpleConversionError"],"struct":["LayerDescription","SimpleLayerDescription","SimplePyTorchConverter","SimplifiedPyTorchModel"]};

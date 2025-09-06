@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["batch_qoperations","check_cpu_features","qlinear_cpu_optimized"]};

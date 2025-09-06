@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_optimized","dot_product_optimized","get_optimization_info","matmul_optimized","mean_optimized","mul_optimized","mul_scalar_optimized","sum_optimized","variance_optimized"]};

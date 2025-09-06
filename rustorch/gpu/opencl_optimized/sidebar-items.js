@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["opencl_matmul_f32"],"struct":["OpenClDeviceInfo","OpenClMatrixExecutor"]};

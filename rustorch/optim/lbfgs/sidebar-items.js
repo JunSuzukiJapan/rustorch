@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LineSearchMethod"],"struct":["LBFGS","LBFGSMemory"]};

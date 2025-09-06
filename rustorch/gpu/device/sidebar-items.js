@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CpuDevice","CpuStream","DeviceCapabilities","DeviceInfo","DeviceRegistry","GpuBackend"],"trait":["GpuDevice","GpuStream"]};

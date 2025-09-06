@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantizationType"],"struct":["Int4","QuantizedTensor","QuantizedTensorView"],"trait":["QuantizableInteger"]};

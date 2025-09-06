@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GradientSyncStrategy","OptimizerType","ReduceOp"],"struct":["DistributedOptimizer","DistributedOptimizerBuilder","GradientBucket"]};

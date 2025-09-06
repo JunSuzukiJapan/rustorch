@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["shared_normalizations"],"trait":["NormalizationFunction"]};

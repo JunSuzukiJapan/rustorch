@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AutoSimd","ScalarFallback"],"trait":["SimdElementwise","SimdMatrix","SimdReduction"]};

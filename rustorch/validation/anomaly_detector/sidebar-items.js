@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AnomalyType","StatisticalMethod"],"struct":["AnomalyConfiguration","AnomalyDetector","AnomalyInfo","AnomalyResult","AnomalyStatistics","OutlierDetection"]};

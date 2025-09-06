@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AllocationPattern"],"struct":["AllocationRecord","AnalyticsConfig","AnalyticsStats","FragmentationAnalysis","LeakStats","MemoryAnalytics","MemoryHotspot","MemoryReport"]};

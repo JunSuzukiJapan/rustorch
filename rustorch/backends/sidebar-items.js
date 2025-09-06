@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeviceType"],"mod":["compute_backend","cpu_unified"],"struct":["BackendFactory","ConvolutionParams","DeviceInfo"],"trait":["ComputeBackend","DeviceBuffer"],"type":["BackendResult"]};

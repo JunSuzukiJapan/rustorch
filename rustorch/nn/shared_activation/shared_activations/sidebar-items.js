@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["leaky_relu_derivative_vec","leaky_relu_vec","relu_derivative_vec","relu_vec","sigmoid_derivative_vec","sigmoid_vec","softmax_derivative_vec","softmax_vec","tanh_derivative_vec","tanh_vec"]};

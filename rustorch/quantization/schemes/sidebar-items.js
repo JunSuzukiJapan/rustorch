@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CalibrationMethod","QuantizationScheme"],"struct":["AsymmetricQuantization","PerChannelQuantization","SymmetricQuantization"],"trait":["QuantizationParams"]};

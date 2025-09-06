@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["import_model","import_pretrained"],"mod":["formats","onnx","pytorch"],"struct":["ImportedModel","LayerInfo","ModelArchitecture","ModelImporter","ModelMetadata","ModelStructure","TensorSpec"],"type":["ImportResult"]};

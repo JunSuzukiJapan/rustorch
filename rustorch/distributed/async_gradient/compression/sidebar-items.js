@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CompressionAlgorithm","CompressionMetadata"],"fn":["compress_gradient","decompress_gradient"],"struct":["CompressedGradient"]};

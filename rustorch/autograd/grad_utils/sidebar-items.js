@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["grad","gradient","is_variable_in_graph","validate_grad_setup"],"type":["GradError"]};

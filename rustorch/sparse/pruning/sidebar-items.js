@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PruningStrategy","StructuredGranularity"],"struct":["FisherPruner","MagnitudePruner","ModelPruner","PruningConfig","PruningSchedule","StructuredPruner"]};

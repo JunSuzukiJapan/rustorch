@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bernoulli","beta","categorical","distribution","exponential","gamma","normal","uniform"],"struct":["DistributionUtils"],"trait":["DistributionTrait"]};

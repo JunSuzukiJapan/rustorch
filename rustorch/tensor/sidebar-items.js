@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["complex","complex_impl","core","device","gpu_parallel","memory","numeric_safety","operations","ops","parallel_errors","parallel_impl","parallel_ops","parallel_traits","shared_ops","simd_avx512","simd_integration","type_safe","utilities"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["gather","index_select","scatter","scatter_"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CIFAR10","CIFAR100","ImageFolder","MNIST"]};
