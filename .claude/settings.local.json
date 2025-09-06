@@ -111,7 +111,8 @@
       "Bash(timeout 30 cargo test --lib --features metal gpu -- --test-threads=1)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(gh pr view:*)"
     ],
     "deny": [],
     "ask": [],
