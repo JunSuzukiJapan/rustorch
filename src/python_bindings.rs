@@ -10,6 +10,16 @@ use numpy::{PyArray1, PyReadonlyArray1, ToPyArray, IntoPyArray};
 use crate::tensor::operations::zero_copy::TensorIterOps;
 #[cfg(feature = "python")]
 use crate::tensor::Tensor;
+#[cfg(feature = "python")]
+use crate::nn::{Linear, Module};
+#[cfg(feature = "python")]
+use crate::autograd::Variable;
+#[cfg(feature = "python")]
+use crate::nn::activation::{relu, sigmoid, tanh, softmax, gelu, leaky_relu, swish, elu, selu, mish};
+#[cfg(feature = "python")]
+use crate::nn::loss::{mse_loss, cross_entropy_loss, MSELoss, CrossEntropyLoss};
+#[cfg(feature = "python")]
+use crate::tensor::device::Device;
 
 #[cfg(feature = "python")]
 /// Python wrapper for RusTorch Tensor
@@ -189,15 +199,335 @@ impl PyTensor {
 }
 
 #[cfg(feature = "python")]
+/// Python wrapper for RusTorch Variable
+#[pyclass]
+pub struct PyVariable {
+    variable: Variable<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyVariable {
+    #[new]
+    pub fn new(data: Vec<f32>, shape: Vec<usize>, requires_grad: Option<bool>) -> PyResult<Self> {
+        let tensor = Tensor::from_vec(data, shape);
+        let variable = Variable::new(tensor, requires_grad.unwrap_or(false));
+        Ok(PyVariable { variable })
+    }
+
+    pub fn data(&self) -> PyTensor {
+        let data_binding = self.variable.data();
+        let data = data_binding.read().unwrap();
+        let shape = data.shape().to_vec();
+        let values: Vec<f32> = data.iter().cloned().collect();
+        let tensor = Tensor::from_vec(values, shape);
+        PyTensor { tensor }
+    }
+
+    pub fn requires_grad(&self) -> bool {
+        self.variable.requires_grad()
+    }
+
+    pub fn shape(&self) -> Vec<usize> {
+        let data_binding = self.variable.data();
+        let data = data_binding.read().unwrap();
+        data.shape().to_vec()
+    }
+
+    /// Apply ReLU activation
+    pub fn relu(&self) -> PyVariable {
+        let result = relu(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Sigmoid activation
+    pub fn sigmoid(&self) -> PyVariable {
+        let result = sigmoid(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Tanh activation
+    pub fn tanh(&self) -> PyVariable {
+        let result = tanh(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Softmax activation
+    pub fn softmax(&self) -> PyVariable {
+        let result = softmax(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply GELU activation
+    pub fn gelu(&self) -> PyVariable {
+        let result = gelu(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Leaky ReLU activation
+    pub fn leaky_relu(&self, alpha: f32) -> PyVariable {
+        let result = leaky_relu(&self.variable, alpha);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Swish activation
+    pub fn swish(&self) -> PyVariable {
+        let result = swish(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply ELU activation
+    pub fn elu(&self, alpha: f32) -> PyVariable {
+        let result = elu(&self.variable, alpha);
+        PyVariable { variable: result }
+    }
+
+    /// Apply SELU activation
+    pub fn selu(&self) -> PyVariable {
+        let result = selu(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    /// Apply Mish activation
+    pub fn mish(&self) -> PyVariable {
+        let result = mish(&self.variable);
+        PyVariable { variable: result }
+    }
+
+    pub fn __repr__(&self) -> String {
+        let data_binding = self.variable.data();
+        let data = data_binding.read().unwrap();
+        format!("PyVariable(shape={:?}, requires_grad={})", 
+                data.shape(), self.variable.requires_grad())
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch Linear layer
+#[pyclass]
+pub struct PyLinear {
+    linear: Linear<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyLinear {
+    #[new]
+    pub fn new(input_size: usize, output_size: usize, bias: Option<bool>) -> PyResult<Self> {
+        let linear = if bias.unwrap_or(true) {
+            Linear::new(input_size, output_size)
+        } else {
+            Linear::new_no_bias(input_size, output_size)
+        };
+        Ok(PyLinear { linear })
+    }
+
+    pub fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let output = self.linear.forward(&input.variable);
+        Ok(PyVariable { variable: output })
+    }
+
+    pub fn input_size(&self) -> usize {
+        self.linear.input_size()
+    }
+
+    pub fn output_size(&self) -> usize {
+        self.linear.output_size()
+    }
+
+    pub fn parameters(&self) -> Vec<PyVariable> {
+        self.linear.parameters()
+            .into_iter()
+            .map(|param| PyVariable { variable: param })
+            .collect()
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyLinear(in_features={}, out_features={})",
+                self.linear.input_size(), self.linear.output_size())
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch MSE Loss
+#[pyclass]
+pub struct PyMSELoss {
+    loss: MSELoss,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyMSELoss {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyMSELoss { loss: MSELoss })
+    }
+
+    pub fn forward(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        let result = mse_loss(&predictions.variable, &targets.variable);
+        Ok(PyVariable { variable: result })
+    }
+
+    pub fn __call__(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(predictions, targets)
+    }
+
+    pub fn __repr__(&self) -> String {
+        "PyMSELoss()".to_string()
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch CrossEntropy Loss  
+#[pyclass]
+pub struct PyCrossEntropyLoss {
+    loss: CrossEntropyLoss<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyCrossEntropyLoss {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyCrossEntropyLoss { 
+            loss: CrossEntropyLoss::new() 
+        })
+    }
+
+    pub fn forward(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        let result = cross_entropy_loss(&predictions.variable, &targets.variable);
+        Ok(PyVariable { variable: result })
+    }
+
+    pub fn __call__(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(predictions, targets)
+    }
+
+    pub fn __repr__(&self) -> String {
+        "PyCrossEntropyLoss()".to_string()
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch Device
+#[pyclass]
+pub struct PyDevice {
+    device: Device,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyDevice {
+    /// Create CPU device
+    #[staticmethod]
+    pub fn cpu() -> PyResult<Self> {
+        Ok(PyDevice { device: Device::Cpu })
+    }
+
+    /// Create CUDA device with optional device index
+    #[staticmethod]
+    pub fn cuda(device_id: Option<usize>) -> PyResult<Self> {
+        let device_id = device_id.unwrap_or(0);
+        Ok(PyDevice { device: Device::Cuda(device_id) })
+    }
+
+    /// Create MPS device (Apple Metal Performance Shaders)
+    #[staticmethod]
+    pub fn mps() -> PyResult<Self> {
+        Ok(PyDevice { device: Device::Mps })
+    }
+
+    /// Create WASM device
+    #[staticmethod]
+    pub fn wasm() -> PyResult<Self> {
+        Ok(PyDevice { device: Device::Wasm })
+    }
+
+    /// Check if device is CPU
+    pub fn is_cpu(&self) -> bool {
+        self.device.is_cpu()
+    }
+
+    /// Check if device is CUDA
+    pub fn is_cuda(&self) -> bool {
+        self.device.is_cuda()
+    }
+
+    /// Check if device is MPS
+    pub fn is_mps(&self) -> bool {
+        self.device.is_mps()
+    }
+
+    /// Check if device is WASM
+    pub fn is_wasm(&self) -> bool {
+        self.device.is_wasm()
+    }
+
+    /// Get CUDA device index if applicable
+    pub fn cuda_index(&self) -> Option<usize> {
+        self.device.cuda_index()
+    }
+
+    /// Get device type as string
+    pub fn type_str(&self) -> String {
+        match self.device {
+            Device::Cpu => "cpu".to_string(),
+            Device::Cuda(idx) => format!("cuda:{}", idx),
+            Device::Mps => "mps".to_string(),
+            Device::Wasm => "wasm".to_string(),
+        }
+    }
+
+    pub fn __str__(&self) -> String {
+        format!("{}", self.device)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyDevice({})", self.device)
+    }
+
+    pub fn __eq__(&self, other: &PyDevice) -> bool {
+        self.device == other.device
+    }
+}
+
+#[cfg(feature = "python")]
 /// A Python module implemented in Rust
 #[pymodule]
 fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTensor>()?;
+    m.add_class::<PyVariable>()?;
+    m.add_class::<PyLinear>()?;
+    m.add_class::<PyMSELoss>()?;
+    m.add_class::<PyCrossEntropyLoss>()?;
+    m.add_class::<PyDevice>()?;
 
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
     m.add_function(wrap_pyfunction!(randn, m)?)?;
     m.add_function(wrap_pyfunction!(from_numpy, m)?)?;
+    
+    // Activation functions
+    m.add_function(wrap_pyfunction!(py_relu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_sigmoid, m)?)?;
+    m.add_function(wrap_pyfunction!(py_tanh, m)?)?;
+    m.add_function(wrap_pyfunction!(py_softmax, m)?)?;
+    m.add_function(wrap_pyfunction!(py_gelu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_leaky_relu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_swish, m)?)?;
+    m.add_function(wrap_pyfunction!(py_elu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_selu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_mish, m)?)?;
+    
+    // Loss functions
+    m.add_function(wrap_pyfunction!(py_mse_loss, m)?)?;
+    m.add_function(wrap_pyfunction!(py_cross_entropy_loss, m)?)?;
+    
+    // Device management
+    m.add_function(wrap_pyfunction!(py_device_cpu, m)?)?;
+    m.add_function(wrap_pyfunction!(py_device_cuda, m)?)?;
+    m.add_function(wrap_pyfunction!(py_device_mps, m)?)?;
+    m.add_function(wrap_pyfunction!(py_device_wasm, m)?)?;
 
     Ok(())
 }
@@ -232,4 +562,105 @@ fn randn(shape: Vec<usize>) -> PyResult<PyTensor> {
 #[pyfunction]
 fn from_numpy(array: PyReadonlyArray1<f32>) -> PyResult<PyTensor> {
     PyTensor::from_numpy(array)
+}
+
+// Activation functions
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_relu(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.relu())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_sigmoid(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.sigmoid())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_tanh(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.tanh())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_softmax(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.softmax())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_gelu(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.gelu())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_leaky_relu(x: &PyVariable, alpha: f32) -> PyResult<PyVariable> {
+    Ok(x.leaky_relu(alpha))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_swish(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.swish())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_elu(x: &PyVariable, alpha: f32) -> PyResult<PyVariable> {
+    Ok(x.elu(alpha))
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_selu(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.selu())
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_mish(x: &PyVariable) -> PyResult<PyVariable> {
+    Ok(x.mish())
+}
+
+// Loss functions
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_mse_loss(predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+    let result = mse_loss(&predictions.variable, &targets.variable);
+    Ok(PyVariable { variable: result })
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_cross_entropy_loss(predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+    let result = cross_entropy_loss(&predictions.variable, &targets.variable);
+    Ok(PyVariable { variable: result })
+}
+
+// Device management functions
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_device_cpu() -> PyResult<PyDevice> {
+    PyDevice::cpu()
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_device_cuda(device_id: Option<usize>) -> PyResult<PyDevice> {
+    PyDevice::cuda(device_id)
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_device_mps() -> PyResult<PyDevice> {
+    PyDevice::mps()
+}
+
+#[cfg(feature = "python")]
+#[pyfunction]
+fn py_device_wasm() -> PyResult<PyDevice> {
+    PyDevice::wasm()
 }
