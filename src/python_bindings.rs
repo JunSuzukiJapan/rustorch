@@ -20,6 +20,8 @@ use crate::nn::activation::{relu, sigmoid, tanh, softmax, gelu, leaky_relu, swis
 use crate::nn::loss::{mse_loss, cross_entropy_loss, MSELoss, CrossEntropyLoss};
 #[cfg(feature = "python")]
 use crate::tensor::device::Device;
+#[cfg(feature = "python")]
+use crate::optim::{SGD, Adam, Optimizer};
 
 #[cfg(feature = "python")]
 /// Python wrapper for RusTorch Tensor
@@ -492,6 +494,174 @@ impl PyDevice {
 }
 
 #[cfg(feature = "python")]
+/// Python wrapper for RusTorch SGD optimizer
+#[pyclass]
+pub struct PySGD {
+    optimizer: SGD,
+    parameters: Vec<pyo3::Py<PyVariable>>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PySGD {
+    #[new]
+    pub fn new(
+        params: &pyo3::Bound<'_, pyo3::types::PyList>,
+        lr: f32,
+        momentum: Option<f32>,
+        weight_decay: Option<f32>,
+        nesterov: Option<bool>,
+    ) -> PyResult<Self> {
+        let mut parameters = Vec::new();
+        for item in params.iter() {
+            let py_var: pyo3::Py<PyVariable> = item.extract()?;
+            parameters.push(py_var);
+        }
+        
+        let mut optimizer = if let Some(momentum_val) = momentum {
+            if let Some(weight_decay_val) = weight_decay {
+                SGD::with_weight_decay(lr, momentum_val, weight_decay_val)
+            } else {
+                SGD::with_momentum(lr, momentum_val)
+            }
+        } else {
+            SGD::new(lr)
+        };
+        
+        if let Some(nesterov_val) = nesterov {
+            optimizer = SGD::with_nesterov(lr, momentum.unwrap_or(0.0), nesterov_val);
+        }
+
+        Ok(PySGD { optimizer, parameters })
+    }
+
+    /// Perform a single optimization step
+    pub fn step(&mut self, py: pyo3::Python<'_>) -> PyResult<()> {
+        for param in &self.parameters {
+            let param_borrowed = param.borrow(py);
+            let param_data = param_borrowed.variable.data();
+            let param_tensor = param_data.read().unwrap();
+            
+            let grad_arc = param_borrowed.variable.grad();
+            let grad_lock = grad_arc.read().unwrap();
+            
+            if let Some(grad_tensor) = grad_lock.as_ref() {
+                self.optimizer.step(&param_tensor, grad_tensor);
+            }
+        }
+        Ok(())
+    }
+
+    /// Set learning rate
+    pub fn set_lr(&mut self, lr: f32) {
+        self.optimizer.set_learning_rate(lr);
+    }
+
+    /// Get current learning rate
+    pub fn get_lr(&self) -> f32 {
+        self.optimizer.learning_rate()
+    }
+
+    /// Zero gradients of all parameters
+    pub fn zero_grad(&mut self, py: pyo3::Python<'_>) -> PyResult<()> {
+        for param in &self.parameters {
+            let param_borrowed = param.borrow(py);
+            let grad_arc = param_borrowed.variable.grad();
+            let mut grad_lock = grad_arc.write().unwrap();
+            *grad_lock = None;
+        }
+        Ok(())
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PySGD(lr={})", self.optimizer.learning_rate())
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch Adam optimizer
+#[pyclass]
+pub struct PyAdam {
+    optimizer: Adam,
+    parameters: Vec<pyo3::Py<PyVariable>>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyAdam {
+    #[new]
+    pub fn new(
+        params: &pyo3::Bound<'_, pyo3::types::PyList>,
+        lr: Option<f32>,
+        beta1: Option<f32>,
+        beta2: Option<f32>,
+        eps: Option<f32>,
+        weight_decay: Option<f32>,
+    ) -> PyResult<Self> {
+        let mut parameters = Vec::new();
+        for item in params.iter() {
+            let py_var: pyo3::Py<PyVariable> = item.extract()?;
+            parameters.push(py_var);
+        }
+        
+        let lr = lr.unwrap_or(0.001);
+        let beta1 = beta1.unwrap_or(0.9);
+        let beta2 = beta2.unwrap_or(0.999);
+        let eps = eps.unwrap_or(1e-8);
+
+        let optimizer = if let Some(weight_decay_val) = weight_decay {
+            Adam::with_weight_decay(lr, beta1, beta2, eps, weight_decay_val)
+        } else {
+            Adam::new(lr, beta1, beta2, eps)
+        };
+
+        Ok(PyAdam { optimizer, parameters })
+    }
+
+    /// Perform a single optimization step
+    pub fn step(&mut self, py: pyo3::Python<'_>) -> PyResult<()> {
+        for param in &self.parameters {
+            let param_borrowed = param.borrow(py);
+            let param_data = param_borrowed.variable.data();
+            let param_tensor = param_data.read().unwrap();
+            
+            let grad_arc = param_borrowed.variable.grad();
+            let grad_lock = grad_arc.read().unwrap();
+            
+            if let Some(grad_tensor) = grad_lock.as_ref() {
+                self.optimizer.step(&param_tensor, grad_tensor);
+            }
+        }
+        Ok(())
+    }
+
+    /// Set learning rate
+    pub fn set_lr(&mut self, lr: f32) {
+        self.optimizer.set_learning_rate(lr);
+    }
+
+    /// Get current learning rate
+    pub fn get_lr(&self) -> f32 {
+        self.optimizer.learning_rate()
+    }
+
+    /// Zero gradients of all parameters
+    pub fn zero_grad(&mut self, py: pyo3::Python<'_>) -> PyResult<()> {
+        for param in &self.parameters {
+            let param_borrowed = param.borrow(py);
+            let grad_arc = param_borrowed.variable.grad();
+            let mut grad_lock = grad_arc.write().unwrap();
+            *grad_lock = None;
+        }
+        Ok(())
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyAdam(lr={})", self.optimizer.learning_rate())
+    }
+}
+
+#[cfg(feature = "python")]
 /// A Python module implemented in Rust
 #[pymodule]
 fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -501,6 +671,8 @@ fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyMSELoss>()?;
     m.add_class::<PyCrossEntropyLoss>()?;
     m.add_class::<PyDevice>()?;
+    m.add_class::<PySGD>()?;
+    m.add_class::<PyAdam>()?;
 
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
