@@ -22,6 +22,8 @@ use crate::nn::loss::{mse_loss, cross_entropy_loss, MSELoss, CrossEntropyLoss};
 use crate::tensor::device::Device;
 #[cfg(feature = "python")]
 use crate::optim::{SGD, Adam, Optimizer};
+#[cfg(feature = "python")]
+use crate::nn::{Conv2d, BatchNorm2d};
 
 #[cfg(feature = "python")]
 /// Python wrapper for RusTorch Tensor
@@ -662,6 +664,125 @@ impl PyAdam {
 }
 
 #[cfg(feature = "python")]
+/// Python wrapper for RusTorch Conv2d layer
+#[pyclass]
+pub struct PyConv2d {
+    layer: Conv2d<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyConv2d {
+    #[new]
+    pub fn new(
+        in_channels: usize,
+        out_channels: usize,
+        kernel_size: (usize, usize),
+        stride: Option<(usize, usize)>,
+        padding: Option<(usize, usize)>,
+        bias: Option<bool>,
+    ) -> PyResult<Self> {
+        let layer = Conv2d::new(in_channels, out_channels, kernel_size, stride, padding, bias);
+        Ok(PyConv2d { layer })
+    }
+
+    /// Forward pass through the convolution layer
+    pub fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let output_var = self.layer.forward(&input.variable);
+        Ok(PyVariable { 
+            variable: output_var 
+        })
+    }
+
+    /// Get layer parameters (weights and biases)
+    pub fn parameters(&self) -> PyResult<Vec<PyVariable>> {
+        let params = self.layer.parameters();
+        let py_params = params
+            .into_iter()
+            .map(|param| PyVariable { variable: param })
+            .collect();
+        Ok(py_params)
+    }
+
+    /// Compute output size given input dimensions
+    pub fn compute_output_size(&self, input_height: usize, input_width: usize) -> (usize, usize) {
+        self.layer.compute_output_size(input_height, input_width)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyConv2d(in_channels={}, out_channels={}, kernel_size={:?}, stride={:?}, padding={:?})", 
+                self.layer.in_channels(), 
+                self.layer.out_channels(), 
+                self.layer.kernel_size(), 
+                self.layer.stride(), 
+                self.layer.padding())
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch BatchNorm2d layer
+#[pyclass]
+pub struct PyBatchNorm2d {
+    layer: BatchNorm2d<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyBatchNorm2d {
+    #[new]
+    pub fn new(
+        num_features: usize,
+        eps: Option<f32>,
+        momentum: Option<f32>,
+        affine: Option<bool>,
+    ) -> PyResult<Self> {
+        let layer = BatchNorm2d::new(num_features, eps, momentum, affine);
+        Ok(PyBatchNorm2d { layer })
+    }
+
+    /// Forward pass through the batch normalization layer
+    pub fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let output_var = self.layer.forward(&input.variable);
+        Ok(PyVariable { 
+            variable: output_var 
+        })
+    }
+
+    /// Get layer parameters (weight and bias)
+    pub fn parameters(&self) -> PyResult<Vec<PyVariable>> {
+        let params = self.layer.parameters();
+        let py_params = params
+            .into_iter()
+            .map(|param| PyVariable { variable: param })
+            .collect();
+        Ok(py_params)
+    }
+
+    /// Set training mode
+    pub fn train(&self) {
+        self.layer.train();
+    }
+
+    /// Set evaluation mode
+    pub fn eval(&self) {
+        self.layer.eval();
+    }
+
+    /// Check if layer is in training mode
+    pub fn is_training(&self) -> bool {
+        self.layer.is_training()
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyBatchNorm2d(num_features={}, eps={:.6}, momentum={:.3}, training={})", 
+                self.layer.num_features(),
+                self.layer.eps(),
+                self.layer.momentum(),
+                self.layer.is_training())
+    }
+}
+
+#[cfg(feature = "python")]
 /// A Python module implemented in Rust
 #[pymodule]
 fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -673,6 +794,8 @@ fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyDevice>()?;
     m.add_class::<PySGD>()?;
     m.add_class::<PyAdam>()?;
+    m.add_class::<PyConv2d>()?;
+    m.add_class::<PyBatchNorm2d>()?;
 
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
