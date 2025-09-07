@@ -6,24 +6,42 @@
 
 ```
 notebooks/
-├── ja/                    # 日本語ノートブック
-│   └── quickstart_ja.md
-├── en/                    # English notebooks  
-│   └── quickstart_en.md
-├── zh/                    # 中文笔记本
-│   └── quickstart_zh.md
-├── es/                    # Español notebooks
-│   └── quickstart_es.md
-├── fr/                    # Français notebooks
-│   └── quickstart_fr.md
-├── de/                    # Deutsch notebooks
-│   └── quickstart_de.md
-├── ko/                    # 한국어 notebooks
-│   └── quickstart_ko.md
-├── ru/                    # Русский notebooks
-│   └── quickstart_ru.md
-└── pt/                    # Português notebooks
-    └── quickstart_pt.md
+├── ja/                              # 日本語ノートブック
+│   ├── quickstart_ja.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── en/                              # English notebooks  
+│   ├── quickstart_en.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── zh/                              # 中文笔记本
+│   ├── quickstart_zh.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── es/                              # Español notebooks
+│   ├── quickstart_es.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── fr/                              # Français notebooks
+│   ├── quickstart_fr.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── de/                              # Deutsch notebooks
+│   ├── quickstart_de.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── ko/                              # 한국어 notebooks
+│   ├── quickstart_ko.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+├── ru/                              # Русский notebooks
+│   ├── quickstart_ru.md
+│   ├── python_api_reference.md
+│   └── python_bindings_overview.md
+└── pt/                              # Português notebooks
+    ├── quickstart_pt.md
+    ├── python_api_reference.md
+    └── python_bindings_overview.md
 ```
 
 ## 🚀 Getting Started
