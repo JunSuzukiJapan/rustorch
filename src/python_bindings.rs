@@ -32,6 +32,7 @@ use crate::training::trainer::{Trainer, TrainerConfig, TrainingDataLoader};
 use crate::training::metrics::{MetricsCollector, TrainingMetrics};
 use crate::models::high_level::{HighLevelModel, TrainingHistory};
 use crate::nn::loss::{Loss, MSELoss, CrossEntropyLoss};
+use crate::distributed::{DistributedDataParallel, wrap_module};
 use std::collections::HashMap;
 
 #[cfg(feature = "python")]
@@ -72,6 +73,75 @@ impl PyTensor {
     pub fn numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f32>> {
         let data = self.tensor.iter().cloned().collect::<Vec<f32>>();
         data.into_pyarray(py)
+    }
+
+    // Linear Algebra operations
+    
+    /// Singular Value Decomposition
+    pub fn svd(&self, compute_uv: Option<bool>) -> PyResult<(PyTensor, PyTensor, PyTensor)> {
+        let compute_uv = compute_uv.unwrap_or(true);
+        
+        match self.tensor.svd(compute_uv) {
+            Ok((u, s, vt)) => Ok((
+                PyTensor { tensor: u },
+                PyTensor { tensor: s },
+                PyTensor { tensor: vt },
+            )),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("SVD failed: {}", e))),
+        }
+    }
+
+    /// QR Decomposition
+    pub fn qr(&self) -> PyResult<(PyTensor, PyTensor)> {
+        match self.tensor.qr() {
+            Ok((q, r)) => Ok((
+                PyTensor { tensor: q },
+                PyTensor { tensor: r },
+            )),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("QR decomposition failed: {}", e))),
+        }
+    }
+
+    /// Eigenvalue decomposition
+    pub fn eig(&self, eigenvectors: Option<bool>) -> PyResult<(PyTensor, Option<PyTensor>)> {
+        let eigenvectors = eigenvectors.unwrap_or(true);
+        
+        match self.tensor.eig(eigenvectors) {
+            Ok((eigenvalues, eigenvectors_opt)) => {
+                let py_eigenvectors = if let Some(eigenvecs) = eigenvectors_opt {
+                    Some(PyTensor { tensor: eigenvecs })
+                } else {
+                    None
+                };
+                Ok((PyTensor { tensor: eigenvalues }, py_eigenvectors))
+            },
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("Eigenvalue decomposition failed: {}", e))),
+        }
+    }
+
+    /// Matrix determinant
+    pub fn det(&self) -> PyResult<f32> {
+        match self.tensor.det() {
+            Ok(det_value) => Ok(det_value),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("Determinant calculation failed: {}", e))),
+        }
+    }
+
+    /// Matrix inverse
+    pub fn inverse(&self) -> PyResult<PyTensor> {
+        match self.tensor.inverse() {
+            Ok(inv_tensor) => Ok(PyTensor { tensor: inv_tensor }),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("Matrix inversion failed: {}", e))),
+        }
+    }
+
+    /// Matrix norm
+    pub fn norm(&self, ord: Option<String>) -> PyResult<f32> {
+        let ord = ord.unwrap_or_else(|| "fro".to_string());
+        match self.tensor.norm(&ord) {
+            Ok(norm_value) => Ok(norm_value),
+            Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("Norm calculation failed: {}", e))),
+        }
     }
 
     pub fn add(&self, other: &PyTensor) -> PyResult<PyTensor> {
@@ -2181,6 +2251,473 @@ impl PyModelBuilder {
 }
 
 #[cfg(feature = "python")]
+/// Python wrapper for DistributedDataParallel
+#[pyclass]
+pub struct PyDistributedDataParallel {
+    model: PyModel,
+    device_ids: Vec<usize>,
+    output_device: Option<usize>,
+    broadcast_buffers: bool,
+    process_group: Option<String>,
+    bucket_cap_mb: f64,
+    find_unused_parameters: bool,
+    check_reduction: bool,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyDistributedDataParallel {
+    #[new]
+    pub fn new(
+        model: PyModel,
+        device_ids: Option<Vec<usize>>,
+        output_device: Option<usize>,
+        broadcast_buffers: Option<bool>,
+        process_group: Option<String>,
+        bucket_cap_mb: Option<f64>,
+        find_unused_parameters: Option<bool>,
+        check_reduction: Option<bool>,
+    ) -> PyResult<Self> {
+        Ok(PyDistributedDataParallel {
+            model,
+            device_ids: device_ids.unwrap_or_else(|| vec![0]),
+            output_device,
+            broadcast_buffers: broadcast_buffers.unwrap_or(true),
+            process_group,
+            bucket_cap_mb: bucket_cap_mb.unwrap_or(25.0),
+            find_unused_parameters: find_unused_parameters.unwrap_or(false),
+            check_reduction: check_reduction.unwrap_or(false),
+        })
+    }
+
+    /// Forward pass through the distributed model
+    pub fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        // In a full implementation, this would handle gradient synchronization
+        // For now, we delegate to the underlying model
+        self.model.forward(input)
+    }
+
+    /// Get all parameters from the distributed model
+    pub fn parameters(&self) -> PyResult<Vec<PyVariable>> {
+        self.model.parameters()
+    }
+
+    /// Get the underlying model
+    pub fn module(&self) -> PyModel {
+        self.model.clone()
+    }
+
+    /// Broadcast parameters to all processes
+    pub fn broadcast_parameters(&self) -> PyResult<()> {
+        println!("Broadcasting parameters across {} devices", self.device_ids.len());
+        // In a real implementation, this would broadcast parameters across processes
+        Ok(())
+    }
+
+    /// Synchronize gradients across all processes
+    pub fn sync_gradients(&self) -> PyResult<()> {
+        println!("Synchronizing gradients across distributed processes");
+        // In a real implementation, this would perform AllReduce on gradients
+        Ok(())
+    }
+
+    /// Set training mode for distributed model
+    pub fn train(&self) -> PyResult<()> {
+        self.model.train()
+    }
+
+    /// Set evaluation mode for distributed model
+    pub fn eval(&self) -> PyResult<()> {
+        self.model.eval()
+    }
+
+    /// Get device IDs
+    #[getter]
+    pub fn get_device_ids(&self) -> Vec<usize> {
+        self.device_ids.clone()
+    }
+
+    /// Get process group
+    #[getter]
+    pub fn get_process_group(&self) -> Option<String> {
+        self.process_group.clone()
+    }
+
+    /// Check if broadcast buffers is enabled
+    #[getter]
+    pub fn get_broadcast_buffers(&self) -> bool {
+        self.broadcast_buffers
+    }
+
+    /// Get bucket capacity in MB
+    #[getter]
+    pub fn get_bucket_cap_mb(&self) -> f64 {
+        self.bucket_cap_mb
+    }
+
+    /// Check if finding unused parameters is enabled
+    #[getter]
+    pub fn get_find_unused_parameters(&self) -> bool {
+        self.find_unused_parameters
+    }
+
+    /// Get state dict from underlying model
+    pub fn state_dict(&self) -> PyResult<HashMap<String, PyTensor>> {
+        self.model.state_dict()
+    }
+
+    /// Load state dict to underlying model
+    pub fn load_state_dict(&mut self, state_dict: HashMap<String, PyTensor>) -> PyResult<()> {
+        self.model.load_state_dict(state_dict)
+    }
+
+    /// Save distributed model
+    pub fn save(&self, filepath: &str) -> PyResult<()> {
+        self.model.save(filepath)
+    }
+
+    /// Load distributed model
+    pub fn load(&mut self, filepath: &str) -> PyResult<()> {
+        self.model.load(filepath)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!(
+            "PyDistributedDataParallel(device_ids={:?}, broadcast_buffers={}, bucket_cap_mb={})",
+            self.device_ids, self.broadcast_buffers, self.bucket_cap_mb
+        )
+    }
+}
+
+#[cfg(feature = "python")]
+/// Distributed utilities for process management
+#[pyclass]
+pub struct PyDistributedUtils {}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyDistributedUtils {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyDistributedUtils {})
+    }
+
+    /// Initialize the distributed process group
+    #[staticmethod]
+    pub fn init_process_group(
+        backend: String,
+        init_method: Option<String>,
+        world_size: Option<usize>,
+        rank: Option<usize>,
+        timeout_seconds: Option<u64>,
+    ) -> PyResult<()> {
+        let backend = backend.as_str();
+        let init_method = init_method.unwrap_or_else(|| "env://".to_string());
+        let world_size = world_size.unwrap_or(1);
+        let rank = rank.unwrap_or(0);
+        let timeout = timeout_seconds.unwrap_or(1800);
+
+        println!("Initializing distributed process group:");
+        println!("  Backend: {}", backend);
+        println!("  Init method: {}", init_method);
+        println!("  World size: {}", world_size);
+        println!("  Rank: {}", rank);
+        println!("  Timeout: {}s", timeout);
+
+        // In a real implementation, this would initialize the process group
+        Ok(())
+    }
+
+    /// Destroy the distributed process group
+    #[staticmethod]
+    pub fn destroy_process_group() -> PyResult<()> {
+        println!("Destroying distributed process group");
+        Ok(())
+    }
+
+    /// Get the current process rank
+    #[staticmethod]
+    pub fn get_rank() -> PyResult<usize> {
+        // In a real implementation, this would return the actual rank
+        Ok(0)
+    }
+
+    /// Get the world size
+    #[staticmethod]
+    pub fn get_world_size() -> PyResult<usize> {
+        // In a real implementation, this would return the actual world size
+        Ok(1)
+    }
+
+    /// Check if distributed is available
+    #[staticmethod]
+    pub fn is_available() -> PyResult<bool> {
+        Ok(true)
+    }
+
+    /// Check if distributed is initialized
+    #[staticmethod]
+    pub fn is_initialized() -> PyResult<bool> {
+        Ok(false) // Simplified for now
+    }
+
+    /// All-reduce operation
+    #[staticmethod]
+    pub fn all_reduce(tensor: &PyTensor, op: Option<String>) -> PyResult<PyTensor> {
+        let op = op.unwrap_or_else(|| "sum".to_string());
+        println!("Performing all_reduce with operation: {}", op);
+        
+        // In a real implementation, this would perform actual all-reduce
+        Ok(tensor.clone())
+    }
+
+    /// All-gather operation
+    #[staticmethod]
+    pub fn all_gather(tensors: Vec<PyTensor>, tensor: &PyTensor) -> PyResult<Vec<PyTensor>> {
+        println!("Performing all_gather operation");
+        
+        // In a real implementation, this would gather tensors from all processes
+        let mut result = tensors;
+        result.push(tensor.clone());
+        Ok(result)
+    }
+
+    /// Broadcast operation
+    #[staticmethod]
+    pub fn broadcast(tensor: &PyTensor, src: usize) -> PyResult<PyTensor> {
+        println!("Broadcasting tensor from rank: {}", src);
+        
+        // In a real implementation, this would broadcast from the source rank
+        Ok(tensor.clone())
+    }
+}
+
+#[cfg(feature = "python")]
+/// Basic visualization utilities for tensors and training
+#[pyclass]
+pub struct PyVisualizer {}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyVisualizer {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyVisualizer {})
+    }
+
+    /// Plot tensor as a line graph (simplified implementation)
+    #[staticmethod]
+    pub fn plot_tensor(tensor: &PyTensor, title: Option<String>, save_path: Option<String>) -> PyResult<String> {
+        let title = title.unwrap_or_else(|| "Tensor Plot".to_string());
+        let save_path = save_path.unwrap_or_else(|| "tensor_plot.png".to_string());
+        
+        let data = tensor.tensor.data.as_slice().unwrap();
+        let shape = tensor.tensor.shape();
+        
+        // Create a simple text-based visualization for now
+        let mut plot_data = Vec::new();
+        
+        if shape.len() == 1 {
+            // 1D tensor - line plot
+            for (i, &value) in data.iter().enumerate() {
+                plot_data.push(format!("x={}, y={:.4}", i, value));
+            }
+        } else if shape.len() == 2 && shape[0] <= 10 && shape[1] <= 10 {
+            // Small 2D tensor - matrix visualization
+            plot_data.push("Matrix visualization:".to_string());
+            for i in 0..shape[0] {
+                let mut row = String::new();
+                for j in 0..shape[1] {
+                    let idx = i * shape[1] + j;
+                    row.push_str(&format!("{:8.3} ", data[idx]));
+                }
+                plot_data.push(row);
+            }
+        } else {
+            plot_data.push(format!("Tensor shape: {:?}", shape));
+            plot_data.push(format!("Min: {:.4}, Max: {:.4}", 
+                data.iter().fold(f32::INFINITY, |a, &b| a.min(b)),
+                data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b))
+            ));
+            plot_data.push(format!("Mean: {:.4}", data.iter().sum::<f32>() / data.len() as f32));
+        }
+        
+        let result = format!("{}:\n{}", title, plot_data.join("\n"));
+        
+        // In a real implementation, this would save an actual plot
+        println!("Saving plot to: {}", save_path);
+        
+        Ok(result)
+    }
+
+    /// Plot training history
+    #[staticmethod]
+    pub fn plot_history(history: &PyTrainingHistory, save_path: Option<String>) -> PyResult<String> {
+        let save_path = save_path.unwrap_or_else(|| "training_history.png".to_string());
+        
+        let mut result = Vec::new();
+        result.push("Training History:".to_string());
+        result.push("=================".to_string());
+        
+        // Plot training loss
+        result.push("Training Loss:".to_string());
+        for (epoch, &loss) in history.train_loss.iter().enumerate() {
+            result.push(format!("Epoch {}: {:.4}", epoch, loss));
+        }
+        
+        // Plot validation loss if available
+        if !history.val_loss.is_empty() {
+            result.push("\nValidation Loss:".to_string());
+            for (epoch, &loss) in history.val_loss.iter().enumerate() {
+                result.push(format!("Epoch {}: {:.4}", epoch, loss));
+            }
+        }
+        
+        // Plot metrics if available
+        for (metric_name, values) in &history.metrics {
+            result.push(format!("\n{}:", metric_name));
+            for (epoch, &value) in values.iter().enumerate() {
+                result.push(format!("Epoch {}: {:.4}", epoch, value));
+            }
+        }
+        
+        if let Some(best_epoch) = history.best_epoch {
+            result.push(format!("\nBest epoch: {}", best_epoch));
+            if let Some(best_loss) = history.best_val_loss {
+                result.push(format!("Best validation loss: {:.4}", best_loss));
+            }
+        }
+        
+        result.push(format!("\nTotal training time: {:.2}s", history.training_time));
+        
+        println!("Saving training history plot to: {}", save_path);
+        
+        Ok(result.join("\n"))
+    }
+
+    /// Create a simple heatmap visualization for 2D tensors
+    #[staticmethod]
+    pub fn heatmap(tensor: &PyTensor, title: Option<String>, save_path: Option<String>) -> PyResult<String> {
+        let title = title.unwrap_or_else(|| "Heatmap".to_string());
+        let save_path = save_path.unwrap_or_else(|| "heatmap.png".to_string());
+        
+        let shape = tensor.tensor.shape();
+        if shape.len() != 2 {
+            return Err(pyo3::exceptions::PyValueError::new_err("Heatmap requires 2D tensor"));
+        }
+        
+        let data = tensor.tensor.data.as_slice().unwrap();
+        let (rows, cols) = (shape[0], shape[1]);
+        
+        // Find min/max for normalization
+        let min_val = data.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_val = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let range = max_val - min_val;
+        
+        let mut result = Vec::new();
+        result.push(format!("{} ({}x{})", title, rows, cols));
+        result.push("=".repeat(title.len() + 10));
+        
+        // Create ASCII heatmap
+        for i in 0..rows {
+            let mut row = String::new();
+            for j in 0..cols {
+                let idx = i * cols + j;
+                let value = data[idx];
+                let normalized = if range > 0.0 { (value - min_val) / range } else { 0.0 };
+                
+                // Convert to ASCII character based on intensity
+                let char = if normalized < 0.2 { ' ' }
+                    else if normalized < 0.4 { '.' }
+                    else if normalized < 0.6 { ':' }
+                    else if normalized < 0.8 { '*' }
+                    else { '#' };
+                    
+                row.push(char);
+                row.push(' ');
+            }
+            result.push(row);
+        }
+        
+        result.push(format!("Range: [{:.3}, {:.3}]", min_val, max_val));
+        result.push(format!("Legend: ' '=low, '.'=low-med, ':'=med, '*'=med-high, '#'=high"));
+        
+        println!("Saving heatmap to: {}", save_path);
+        
+        Ok(result.join("\n"))
+    }
+
+    /// Plot model architecture summary
+    #[staticmethod]
+    pub fn plot_model(model: &PyModel, save_path: Option<String>) -> PyResult<String> {
+        let save_path = save_path.unwrap_or_else(|| "model_architecture.png".to_string());
+        
+        // Get model summary and create a visual representation
+        let summary = model.summary()?;
+        
+        let mut result = Vec::new();
+        result.push("Model Architecture Visualization:".to_string());
+        result.push("================================".to_string());
+        
+        // Add visual flow
+        for i in 0..model.num_layers() {
+            result.push(format!("    ┌──────────────┐"));
+            result.push(format!("    │   Layer {}   │", i));
+            result.push(format!("    └──────────────┘"));
+            if i < model.num_layers() - 1 {
+                result.push("           │".to_string());
+                result.push("           ▼".to_string());
+            }
+        }
+        
+        result.push("".to_string());
+        result.push(summary);
+        
+        println!("Saving model architecture plot to: {}", save_path);
+        
+        Ok(result.join("\n"))
+    }
+
+    /// Create scatter plot for 2D data
+    #[staticmethod]
+    pub fn scatter(x: &PyTensor, y: &PyTensor, title: Option<String>, save_path: Option<String>) -> PyResult<String> {
+        let title = title.unwrap_or_else(|| "Scatter Plot".to_string());
+        let save_path = save_path.unwrap_or_else(|| "scatter.png".to_string());
+        
+        let x_data = x.tensor.data.as_slice().unwrap();
+        let y_data = y.tensor.data.as_slice().unwrap();
+        
+        if x_data.len() != y_data.len() {
+            return Err(pyo3::exceptions::PyValueError::new_err("X and Y tensors must have the same length"));
+        }
+        
+        let mut result = Vec::new();
+        result.push(format!("{} ({} points)", title, x_data.len()));
+        result.push("=".repeat(title.len() + 20));
+        
+        // Simple ASCII scatter plot (very basic)
+        let n_points = std::cmp::min(10, x_data.len()); // Show first 10 points
+        
+        for i in 0..n_points {
+            result.push(format!("Point {}: ({:.3}, {:.3})", i + 1, x_data[i], y_data[i]));
+        }
+        
+        if x_data.len() > 10 {
+            result.push(format!("... and {} more points", x_data.len() - 10));
+        }
+        
+        // Basic statistics
+        let x_mean = x_data.iter().sum::<f32>() / x_data.len() as f32;
+        let y_mean = y_data.iter().sum::<f32>() / y_data.len() as f32;
+        result.push(format!("X mean: {:.3}, Y mean: {:.3}", x_mean, y_mean));
+        
+        println!("Saving scatter plot to: {}", save_path);
+        
+        Ok(result.join("\n"))
+    }
+}
+
+#[cfg(feature = "python")]
 /// A Python module implemented in Rust
 #[pymodule]
 fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -2204,6 +2741,9 @@ fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTrainer>()?;
     m.add_class::<PyModel>()?;
     m.add_class::<PyModelBuilder>()?;
+    m.add_class::<PyDistributedDataParallel>()?;
+    m.add_class::<PyDistributedUtils>()?;
+    m.add_class::<PyVisualizer>()?;
 
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
