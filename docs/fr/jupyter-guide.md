@@ -29,7 +29,20 @@ Un guide étape par étape pour utiliser facilement RusTorch WASM dans Jupyter N
 
 ### 🚀 Démarrage Rapide (Recommandé)
 
-**Méthode la plus simple** : Lancez Jupyter Lab avec une commande
+#### Installateur Universel (Nouveau)
+**La méthode la plus simple** : Un installateur qui détecte automatiquement votre environnement
+```bash
+./install_jupyter.sh
+```
+
+**Ce qu'il fait :**
+- 🔍 **Détection Automatique** : Détecte automatiquement votre environnement (OS, CPU, GPU)
+- 🦀🐍 **Environnement Hybride** : Installe un environnement dual Python+Rust par défaut
+- 📦 **Commande Globale** : Crée une commande `rustorch-jupyter` qui fonctionne partout
+- ⚡ **Optimisation** : S'adapte à votre matériel (CUDA, Metal, WebGPU, CPU)
+
+#### Méthode Classique
+**Méthode traditionnelle** : Lance seulement Python avec RusTorch
 ```bash
 ./start_jupyter.sh
 ```
@@ -39,6 +52,13 @@ Ce script fait automatiquement :
 - Installe les dépendances (numpy, jupyter, matplotlib)
 - Construit les bindings Python RusTorch
 - Lance Jupyter Lab avec le notebook de démonstration ouvert
+
+#### Prochains Lancements
+```bash
+rustorch-jupyter          # Commande globale (après installateur)
+# OU
+./start_jupyter_quick.sh  # Menu interactif
+```
 
 ### Installation Manuelle
 
@@ -82,6 +102,28 @@ wasm-pack build --target web --out-dir pkg
 # Démarrer Jupyter Lab
 jupyter lab
 ```
+
+## Types d'Environnement
+
+### 🦀🐍 Environnement Hybride (Par Défaut)
+- **Idéal pour** : Développement ML complet
+- **Fonctionnalités** : Kernels Python + Rust, bridge RusTorch, notebooks d'exemple
+- **Matériel** : S'adapte au GPU disponible (CUDA/Metal/CPU)
+
+### 🐍 Environnement Python
+- **Idéal pour** : Développeurs Python qui veulent les fonctionnalités RusTorch
+- **Fonctionnalités** : Kernel Python avec bindings Python RusTorch
+- **Matériel** : Optimisé pour CPU/GPU
+
+### ⚡ Environnement WebGPU
+- **Idéal pour** : Accélération GPU basée sur navigateur
+- **Fonctionnalités** : WebAssembly + WebGPU, optimisé pour Chrome
+- **Matériel** : Navigateurs modernes avec support WebGPU
+
+### 🦀 Environnement Kernel Rust
+- **Idéal pour** : Développement natif Rust
+- **Fonctionnalités** : Kernel evcxr, accès direct à la bibliothèque RusTorch
+- **Matériel** : Performance native, toutes les fonctionnalités disponibles
 
 ## Utilisation de Base
 

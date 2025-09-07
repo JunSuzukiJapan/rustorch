@@ -387,6 +387,12 @@ cargo fmt --check
 cargo clippy --all-targets --all-features
 ```
 
+## 🔒 API Stability / API安定性
+
+**English**: Starting from v0.6.0, RusTorch has reached a stable API milestone. We are committed to maintaining backward compatibility and will avoid major breaking changes in the near future. This ensures a reliable foundation for production applications and long-term projects.
+
+**日本語**: v0.6.0以降、RusTorchは安定したAPIマイルストーンに達しました。後方互換性を維持することをお約束し、近い将来において大規模な破壊的変更は行いません。これにより、本番アプリケーションと長期プロジェクトに信頼性の高い基盤を提供します。
+
 ## License
 
 Licensed under either of:

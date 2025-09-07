@@ -29,7 +29,20 @@ Una guida passo-passo per usare facilmente RusTorch WASM in Jupyter Notebook, pr
 
 ### 🚀 Avvio Rapido (Raccomandato)
 
-**Metodo più semplice**: Lancia Jupyter Lab con un comando
+#### Installatore Universale (Nuovo)
+**Il metodo più semplice**: Un installatore che rileva automaticamente il tuo ambiente
+```bash
+./install_jupyter.sh
+```
+
+**Cosa fa:**
+- 🔍 **Auto-rilevamento**: Rileva automaticamente il tuo ambiente (OS, CPU, GPU)
+- 🦀🐍 **Ambiente Ibrido**: Installa ambiente dual Python+Rust per default
+- 📦 **Comando Globale**: Crea comando `rustorch-jupyter` che funziona ovunque
+- ⚡ **Ottimizzazione**: Si adatta al tuo hardware (CUDA, Metal, WebGPU, CPU)
+
+#### Metodo Classico
+**Metodo tradizionale**: Lancia solo Python con RusTorch
 ```bash
 ./start_jupyter.sh
 ```
@@ -39,6 +52,13 @@ Questo script automaticamente:
 - Installa dipendenze (numpy, jupyter, matplotlib)
 - Costruisce i binding Python RusTorch
 - Lancia Jupyter Lab con notebook demo aperto
+
+#### Prossimi Avvii
+```bash
+rustorch-jupyter          # Comando globale (dopo installatore)
+# O
+./start_jupyter_quick.sh  # Menu interattivo
+```
 
 ### Installazione Manuale
 
@@ -82,6 +102,28 @@ wasm-pack build --target web --out-dir pkg
 # Avviare Jupyter Lab
 jupyter lab
 ```
+
+## Tipi di Ambiente
+
+### 🦀🐍 Ambiente Ibrido (Predefinito)
+- **Ideale per**: Sviluppo ML completo
+- **Caratteristiche**: Kernel Python + Rust, bridge RusTorch, notebook di esempio
+- **Hardware**: Si adatta alla GPU disponibile (CUDA/Metal/CPU)
+
+### 🐍 Ambiente Python
+- **Ideale per**: Sviluppatori Python che vogliono funzionalità RusTorch
+- **Caratteristiche**: Kernel Python con binding Python RusTorch
+- **Hardware**: Ottimizzato per CPU/GPU
+
+### ⚡ Ambiente WebGPU
+- **Ideale per**: Accelerazione GPU basata su browser
+- **Caratteristiche**: WebAssembly + WebGPU, ottimizzato per Chrome
+- **Hardware**: Browser moderni con supporto WebGPU
+
+### 🦀 Ambiente Kernel Rust
+- **Ideale per**: Sviluppo nativo Rust
+- **Caratteristiche**: Kernel evcxr, accesso diretto alla libreria RusTorch
+- **Hardware**: Prestazioni native, tutte le funzionalità disponibili
 
 ## Uso Base
 

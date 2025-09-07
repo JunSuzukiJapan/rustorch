@@ -1,23 +1,43 @@
-# 🚀 RusTorch Jupyter Quick Start
+# 📓 RusTorch Jupyter Documentation Hub
 
-新規ユーザーがRusTorchを簡単にJupyterで使い始めるためのガイドです。
+Central documentation hub for all RusTorch Jupyter environments and setups.
 
-## 🎯 Option 1: ワンライナーセットアップ（推奨）
+新規ユーザーがRusTorchを簡単にJupyterで使い始めるための統合ドキュメントハブです。
 
-**標準版（Python bindings + Jupyter）:**
+## 🚀 Quick Access / クイックアクセス
+
+### Universal Setup / 万能セットアップ
 ```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start.sh | bash
+./install_jupyter.sh  # Auto-detects environment, installs hybrid setup by default
 ```
 
-**🌟 WebGPU対応版（ブラウザGPU加速 + Jupyter）:**
+### Next Time Launch / 次回起動
 ```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
+rustorch-jupyter      # Global command (after install) / グローバルコマンド
+./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
 ```
 
-**🦀 Rustカーネル版（Jupyter内で直接Rust実行）:**
-```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
-```
+## 🦀🐍 New: Hybrid Environment (Default)
+
+**🌟 最新機能**: Python + Rust デュアルカーネル環境がデフォルトに！
+
+**What you get / 取得できるもの:**
+- 🐍 Python kernel with RusTorch bindings
+- 🦀 Rust kernel (evcxr) for native performance  
+- 🔗 Seamless data exchange between languages
+- ⚡ Auto-optimized for your hardware (CUDA/Metal/CPU)
+
+## 📚 Complete Documentation / 完全ドキュメント
+
+### 🇺🇸 English Documentation
+- **[📖 Comprehensive Jupyter Guide](docs/en/jupyter-comprehensive-guide.md)** - Complete setup and usage guide
+- **[🌐 WebGPU WASM Guide](docs/en/jupyter-guide.md)** - Browser GPU acceleration
+- **[⚙️ WebAssembly Integration](jupyter/README.md)** - Technical WASM implementation
+
+### 🇯🇵 日本語ドキュメント  
+- **[📖 包括的Jupyterガイド](docs/jupyter-comprehensive-guide-ja.md)** - 完全なセットアップと使用ガイド
+- **[🌐 WebGPU WASMガイド](docs/jupyter-wasm-guide.md)** - ブラウザGPU加速
+- **[⚙️ WebAssembly統合](jupyter/README.md)** - 技術的WASM実装
 
 **🦀🚀 GPU対応Rustカーネル版（GPU加速 + Jupyter内で直接Rust実行）:**
 ```bash

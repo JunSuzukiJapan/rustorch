@@ -29,7 +29,20 @@
 
 ### 🚀 快速开始（推荐）
 
-**最简单的方法**：一个命令启动Jupyter Lab
+#### 通用安装程序（新功能）
+**最简单的方法**：自动检测环境的安装程序
+```bash
+./install_jupyter.sh
+```
+
+**功能：**
+- 🔍 **自动检测**：自动检测您的环境（OS、CPU、GPU）
+- 🦀🐍 **混合环境**：默认安装Python+Rust双核环境
+- 📦 **全局命令**：创建可在任何地方使用的`rustorch-jupyter`命令
+- ⚡ **优化**：适配您的硬件（CUDA、Metal、WebGPU、CPU）
+
+#### 传统方法
+**传统方法**：仅启动带RusTorch的Python
 ```bash
 ./start_jupyter.sh
 ```
@@ -39,6 +52,13 @@
 - 安装依赖项（numpy、jupyter、matplotlib）
 - 构建RusTorch Python绑定
 - 启动Jupyter Lab并打开演示笔记本
+
+#### 后续启动
+```bash
+rustorch-jupyter          # 全局命令（使用安装程序后）
+# 或
+./start_jupyter_quick.sh  # 交互式菜单
+```
 
 ### 手动安装
 
@@ -82,6 +102,28 @@ wasm-pack build --target web --out-dir pkg
 # 启动Jupyter Lab
 jupyter lab
 ```
+
+## 环境类型
+
+### 🦀🐍 混合环境（默认）
+- **适用于**：全栈ML开发
+- **特性**：Python + Rust内核、RusTorch桥接、示例笔记本
+- **硬件**：适应可用GPU（CUDA/Metal/CPU）
+
+### 🐍 Python环境
+- **适用于**：希望使用RusTorch功能的Python开发者
+- **特性**：带有RusTorch Python绑定的Python内核
+- **硬件**：CPU/GPU优化
+
+### ⚡ WebGPU环境
+- **适用于**：基于浏览器的GPU加速
+- **特性**：WebAssembly + WebGPU，Chrome优化
+- **硬件**：支持WebGPU的现代浏览器
+
+### 🦀 Rust内核环境
+- **适用于**：原生Rust开发
+- **特性**：evcxr内核，直接访问RusTorch库
+- **硬件**：原生性能，所有功能可用
 
 ## 基本用法
 
