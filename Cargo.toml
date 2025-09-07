@@ -87,6 +87,7 @@ dirs = { version = "5.0", optional = true }
 
 # Python bindings
 pyo3 = { version = "0.24.1", optional = true, features = ["extension-module"] }
+numpy = { version = "0.24", optional = true }
 
 # Safetensors and ONNX dependencies
 safetensors = { version = "0.4", optional = true }
@@ -166,7 +167,7 @@ model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-type
 safetensors = ["dep:safetensors", "dep:memmap2", "dep:bytemuck"]
 onnx = ["dep:ort"]
 model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
-python = ["dep:pyo3"]
+python = ["dep:pyo3", "dep:numpy"]
 ci-fast = []
 memory-debug = []
 
