@@ -55,18 +55,27 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ### 📓 Interactive Jupyter Demos
 
-**🚀 First Time Setup** - Choose your preferred demo and run the setup command:
+**🌟 Universal One-Liner** - Smart installer (defaults to hybrid environment):
+```bash
+./install_jupyter.sh  # Installs Python+Rust dual-kernel environment + global launcher
+```
+*🦀🐍 Default: Hybrid environment with both Python and Rust kernels*
+
+**🚀 Manual Setup** - Or choose specific demo type:
 
 | Demo Type | Setup Command | Description |
 |-----------|---------------|-------------|
+| 🦀🐍 **Hybrid** | `./start_jupyter_hybrid.sh` | Python + Rust dual-kernel environment |
 | 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
 | 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
 | 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | No setup needed - run in browser |
 
-**⚡ Quick Restart** - After initial setup, use the fast launcher:
+**⚡ Quick Restart** - After any setup:
 ```bash
-./start_jupyter_quick.sh  # Interactive menu for returning users
+./start_jupyter_quick.sh  # Interactive menu
+# OR (after universal installer):
+rustorch-jupyter          # Global command from anywhere
 ```
 
 📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
