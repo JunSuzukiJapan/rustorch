@@ -10,8 +10,20 @@ notebooks/
 │   └── quickstart_ja.md
 ├── en/                    # English notebooks  
 │   └── quickstart_en.md
-└── zh/                    # 中文笔记本
-    └── quickstart_zh.md
+├── zh/                    # 中文笔记本
+│   └── quickstart_zh.md
+├── es/                    # Español notebooks
+│   └── quickstart_es.md
+├── fr/                    # Français notebooks
+│   └── quickstart_fr.md
+├── de/                    # Deutsch notebooks
+│   └── quickstart_de.md
+├── ko/                    # 한국어 notebooks
+│   └── quickstart_ko.md
+├── ru/                    # Русский notebooks
+│   └── quickstart_ru.md
+└── pt/                    # Português notebooks
+    └── quickstart_pt.md
 ```
 
 ## 🚀 Getting Started
@@ -40,15 +52,27 @@ jupyter lab
 jupyter lab ja/quickstart_ja.md    # Japanese
 jupyter lab en/quickstart_en.md    # English  
 jupyter lab zh/quickstart_zh.md    # Chinese
+jupyter lab es/quickstart_es.md    # Spanish
+jupyter lab fr/quickstart_fr.md    # French
+jupyter lab de/quickstart_de.md    # German
+jupyter lab ko/quickstart_ko.md    # Korean
+jupyter lab ru/quickstart_ru.md    # Russian
+jupyter lab pt/quickstart_pt.md    # Portuguese
 ```
 
 ### 3. Enable Executable Notebooks
 
 ```bash
-# Convert .md to executable notebook format
+# Convert .md to executable notebook format (examples)
 jupytext --set-formats ipynb,md:myst ja/quickstart_ja.md
 jupytext --set-formats ipynb,md:myst en/quickstart_en.md
 jupytext --set-formats ipynb,md:myst zh/quickstart_zh.md
+jupytext --set-formats ipynb,md:myst es/quickstart_es.md
+jupytext --set-formats ipynb,md:myst fr/quickstart_fr.md
+jupytext --set-formats ipynb,md:myst de/quickstart_de.md
+jupytext --set-formats ipynb,md:myst ko/quickstart_ko.md
+jupytext --set-formats ipynb,md:myst ru/quickstart_ru.md
+jupytext --set-formats ipynb,md:myst pt/quickstart_pt.md
 ```
 
 ## 🌍 Language Selection
@@ -58,6 +82,12 @@ Choose your preferred language:
 - **🇯🇵 日本語**: [`ja/quickstart_ja.md`](ja/quickstart_ja.md) - 日本語でRusTorchを学習
 - **🇺🇸 English**: [`en/quickstart_en.md`](en/quickstart_en.md) - Learn RusTorch in English
 - **🇨🇳 中文**: [`zh/quickstart_zh.md`](zh/quickstart_zh.md) - 用中文学习RusTorch
+- **🇪🇸 Español**: [`es/quickstart_es.md`](es/quickstart_es.md) - Aprende RusTorch en Español
+- **🇫🇷 Français**: [`fr/quickstart_fr.md`](fr/quickstart_fr.md) - Apprenez RusTorch en Français
+- **🇩🇪 Deutsch**: [`de/quickstart_de.md`](de/quickstart_de.md) - Lernen Sie RusTorch auf Deutsch
+- **🇰🇷 한국어**: [`ko/quickstart_ko.md`](ko/quickstart_ko.md) - 한국어로 RusTorch 배우기
+- **🇷🇺 Русский**: [`ru/quickstart_ru.md`](ru/quickstart_ru.md) - Изучайте RusTorch на русском языке
+- **🇧🇷 Português**: [`pt/quickstart_pt.md`](pt/quickstart_pt.md) - Aprenda RusTorch em Português
 
 ## 💡 Usage Tips
 
