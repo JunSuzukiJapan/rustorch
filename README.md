@@ -55,11 +55,22 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ### 📓 Interactive Jupyter Demos
 
-**🌟 Universal One-Liner** - Smart installer (defaults to hybrid environment):
 ```bash
+# 1. Install / インストール
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+
+# 2. Launch / 起動  
+rustorch-jupyter          # Global command / グローバルコマンド
+# または / or
+./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
+
+# 3. Start coding! / コーディング開始！
 ```
-*🦀🐍 Default: Installs Python+Rust dual-kernel environment + global launcher*
+
+**🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
+**🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
+
+---
 
 **🚀 Manual Setup** - Or choose specific demo type:
 
@@ -70,13 +81,6 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
 | 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
 | 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | No setup needed - run in browser |
-
-**⚡ Quick Restart** - After any setup:
-```bash
-./start_jupyter_quick.sh  # Interactive menu
-# OR (after universal installer):
-rustorch-jupyter          # Global command from anywhere
-```
 
 📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
 

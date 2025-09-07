@@ -4,24 +4,30 @@ Central documentation hub for all RusTorch Jupyter environments and setups.
 
 新規ユーザーがRusTorchを簡単にJupyterで使い始めるための統合ドキュメントハブです。
 
-## 🚀 Quick Access / クイックアクセス
+## 🚀 Quick Start / クイックスタート
 
-### Universal Setup / 万能セットアップ
 ```bash
+# 1. Install / インストール
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
-```
 
-### Next Time Launch / 次回起動
-```bash
-rustorch-jupyter      # Global command (after install) / グローバルコマンド
+# 2. Launch / 起動  
+rustorch-jupyter          # Global command / グローバルコマンド
+# または / or
 ./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
+
+# 3. Start coding! / コーディング開始！
 ```
 
-## 🦀🐍 New: Hybrid Environment (Default)
+**🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
+**🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
+
+---
+
+## 🦀🐍 What You Get: Hybrid Environment (Default)
 
 **🌟 最新機能**: Python + Rust デュアルカーネル環境がデフォルトに！
 
-**What you get / 取得できるもの:**
+**Features / 機能:**
 - 🐍 Python kernel with RusTorch bindings
 - 🦀 Rust kernel (evcxr) for native performance  
 - 🔗 Seamless data exchange between languages
@@ -90,17 +96,13 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 
 ---
 
-## 🛠️ 手動セットアップ（上級者向け）
+## 🛠️ Manual Setup / 手動セットアップ
 
-```bash
-# 1. リポジトリをクローン
-git clone https://github.com/JunSuzukiJapan/rustorch.git
-cd rustorch
+For advanced users who prefer manual installation:  
+上級者向けの手動インストール方法:
 
-# 2. Jupyterを起動
-./start_jupyter.sh              # 標準版
-./start_jupyter_webgpu.sh       # WebGPU対応版
-```
+**📖 [Complete Manual Setup Guide](docs/en/jupyter-comprehensive-guide.md#manual-setup)**  
+**📖 [手動セットアップガイド](docs/jupyter-comprehensive-guide-ja.md#手動セットアップ)**
 
 ---
 
