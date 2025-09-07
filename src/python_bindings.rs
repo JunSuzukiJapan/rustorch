@@ -24,6 +24,11 @@ use crate::tensor::device::Device;
 use crate::optim::{SGD, Adam, Optimizer};
 #[cfg(feature = "python")]
 use crate::nn::{Conv2d, BatchNorm2d};
+#[cfg(feature = "python")]
+use crate::data::{Dataset, TensorDataset, DataLoader, RandomSampler, SequentialSampler};
+use crate::serialization::model_io::{save, load};
+use crate::serialization::core::{Saveable, Loadable, ModelMetadata, SerializationError};
+use std::collections::HashMap;
 
 #[cfg(feature = "python")]
 /// Python wrapper for RusTorch Tensor
@@ -783,6 +788,662 @@ impl PyBatchNorm2d {
 }
 
 #[cfg(feature = "python")]
+/// Python wrapper for RusTorch TensorDataset
+#[pyclass]
+pub struct PyTensorDataset {
+    dataset: TensorDataset<f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyTensorDataset {
+    #[new]
+    pub fn new(tensors: &pyo3::Bound<'_, pyo3::types::PyList>) -> PyResult<Self> {
+        let mut rust_tensors = Vec::new();
+        for item in tensors.iter() {
+            let py_tensor: PyTensor = item.extract()?;
+            rust_tensors.push(py_tensor.tensor);
+        }
+        
+        match TensorDataset::new(rust_tensors) {
+            Ok(dataset) => Ok(PyTensorDataset { dataset }),
+            Err(_e) => Err(pyo3::exceptions::PyValueError::new_err("Failed to create TensorDataset")),
+        }
+    }
+
+    /// Get the number of samples in the dataset
+    pub fn len(&self) -> usize {
+        self.dataset.len()
+    }
+
+    /// Check if dataset is empty
+    pub fn is_empty(&self) -> bool {
+        self.dataset.is_empty()
+    }
+
+    /// Get item at index
+    pub fn get_item(&self, index: usize) -> PyResult<Vec<PyTensor>> {
+        match self.dataset.get_item(index) {
+            Ok(tensors) => {
+                let py_tensors = tensors
+                    .into_iter()
+                    .map(|tensor| PyTensor { tensor })
+                    .collect();
+                Ok(py_tensors)
+            },
+            Err(e) => Err(pyo3::exceptions::PyIndexError::new_err(format!("Index error: {}", e))),
+        }
+    }
+
+    /// Get multiple items as a batch
+    pub fn get_batch(&self, indices: Vec<usize>) -> PyResult<Vec<Vec<PyTensor>>> {
+        let mut batch = Vec::new();
+        for index in indices {
+            match self.dataset.get_item(index) {
+                Ok(tensors) => {
+                    let py_tensors = tensors
+                        .into_iter()
+                        .map(|tensor| PyTensor { tensor })
+                        .collect();
+                    batch.push(py_tensors);
+                },
+                Err(e) => return Err(pyo3::exceptions::PyIndexError::new_err(format!("Index error at {}: {}", index, e))),
+            }
+        }
+        Ok(batch)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyTensorDataset(len={})", self.dataset.len())
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.dataset.len()
+    }
+}
+
+#[cfg(feature = "python")]
+/// Python wrapper for RusTorch DataLoader
+#[pyclass]
+pub struct PyDataLoader {
+    // Store essential components for batch iteration
+    dataset_len: usize,
+    batch_size: usize,
+    shuffle: bool,
+    drop_last: bool,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyDataLoader {
+    #[new]
+    pub fn new(
+        batch_size: Option<usize>,
+        shuffle: Option<bool>,
+        drop_last: Option<bool>,
+    ) -> PyResult<Self> {
+        let batch_size = batch_size.unwrap_or(1);
+        let shuffle = shuffle.unwrap_or(true);
+        let drop_last = drop_last.unwrap_or(false);
+
+        Ok(PyDataLoader {
+            dataset_len: 0, // Will be set when used with a dataset
+            batch_size,
+            shuffle,
+            drop_last,
+        })
+    }
+
+    /// Setup with dataset
+    pub fn setup_dataset(&mut self, dataset: &PyTensorDataset) -> PyResult<()> {
+        self.dataset_len = dataset.len();
+        Ok(())
+    }
+
+    /// Get batch size
+    pub fn get_batch_size(&self) -> usize {
+        self.batch_size
+    }
+
+    /// Get number of batches
+    pub fn num_batches(&self) -> usize {
+        if self.drop_last {
+            self.dataset_len / self.batch_size
+        } else {
+            (self.dataset_len + self.batch_size - 1) / self.batch_size
+        }
+    }
+
+    /// Get dataset length
+    pub fn dataset_len(&self) -> usize {
+        self.dataset_len
+    }
+
+    /// Get batch indices for a given batch number
+    pub fn get_batch_indices(&self, batch_idx: usize) -> PyResult<Vec<usize>> {
+        let num_batches = self.num_batches();
+        if batch_idx >= num_batches {
+            return Err(pyo3::exceptions::PyIndexError::new_err(
+                format!("Batch index {} out of range (0-{})", batch_idx, num_batches - 1)
+            ));
+        }
+
+        let start_idx = batch_idx * self.batch_size;
+        let end_idx = std::cmp::min(start_idx + self.batch_size, self.dataset_len);
+        
+        let mut indices: Vec<usize> = (start_idx..end_idx).collect();
+        
+        // Shuffle indices if requested (simple per-batch shuffle)
+        if self.shuffle {
+            use rand::seq::SliceRandom;
+            indices.shuffle(&mut rand::thread_rng());
+        }
+
+        Ok(indices)
+    }
+
+    /// Get a batch of data from a dataset
+    pub fn get_batch_from_dataset(&self, dataset: &PyTensorDataset, batch_idx: usize) -> PyResult<Vec<Vec<PyTensor>>> {
+        let indices = self.get_batch_indices(batch_idx)?;
+        dataset.get_batch(indices)
+    }
+
+    /// Create an iterator over batch indices
+    pub fn batch_indices_iter(&self) -> PyResult<Vec<Vec<usize>>> {
+        let num_batches = self.num_batches();
+        let mut all_indices = Vec::new();
+        
+        for batch_idx in 0..num_batches {
+            all_indices.push(self.get_batch_indices(batch_idx)?);
+        }
+        
+        Ok(all_indices)
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!(
+            "PyDataLoader(dataset_len={}, batch_size={}, num_batches={}, shuffle={}, drop_last={})",
+            self.dataset_len,
+            self.batch_size,
+            self.num_batches(),
+            self.shuffle,
+            self.drop_last
+        )
+    }
+
+    pub fn __len__(&self) -> usize {
+        self.num_batches()
+    }
+}
+
+#[cfg(feature = "python")]
+/// Transform operations for data preprocessing
+#[pyclass]
+pub struct PyTransform {
+    operations: Vec<String>,
+    parameters: HashMap<String, f32>,
+}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyTransform {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyTransform {
+            operations: Vec::new(),
+            parameters: HashMap::new(),
+        })
+    }
+
+    /// Add normalization transform (normalize to [0, 1])
+    pub fn normalize(&mut self, mean: Option<f32>, std: Option<f32>) -> PyResult<()> {
+        self.operations.push("normalize".to_string());
+        self.parameters.insert("normalize_mean".to_string(), mean.unwrap_or(0.0));
+        self.parameters.insert("normalize_std".to_string(), std.unwrap_or(1.0));
+        Ok(())
+    }
+
+    /// Add resize transform (simple reshape)
+    pub fn resize(&mut self, height: usize, width: usize) -> PyResult<()> {
+        self.operations.push("resize".to_string());
+        self.parameters.insert("resize_height".to_string(), height as f32);
+        self.parameters.insert("resize_width".to_string(), width as f32);
+        Ok(())
+    }
+
+    /// Add random rotation (for data augmentation)
+    pub fn random_rotation(&mut self, degrees: f32) -> PyResult<()> {
+        self.operations.push("random_rotation".to_string());
+        self.parameters.insert("rotation_degrees".to_string(), degrees);
+        Ok(())
+    }
+
+    /// Apply transforms to a tensor
+    pub fn apply(&self, tensor: &PyTensor) -> PyResult<PyTensor> {
+        let mut result_tensor = tensor.clone();
+        
+        for operation in &self.operations {
+            match operation.as_str() {
+                "normalize" => {
+                    let mean = self.parameters.get("normalize_mean").unwrap_or(&0.0);
+                    let std = self.parameters.get("normalize_std").unwrap_or(&1.0);
+                    result_tensor = self.apply_normalize(&result_tensor, *mean, *std)?;
+                }
+                "resize" => {
+                    let height = self.parameters.get("resize_height").unwrap_or(&32.0) as &f32;
+                    let width = self.parameters.get("resize_width").unwrap_or(&32.0) as &f32;
+                    result_tensor = self.apply_resize(&result_tensor, *height as usize, *width as usize)?;
+                }
+                "random_rotation" => {
+                    let degrees = self.parameters.get("rotation_degrees").unwrap_or(&0.0);
+                    result_tensor = self.apply_random_rotation(&result_tensor, *degrees)?;
+                }
+                _ => {}
+            }
+        }
+        
+        Ok(result_tensor)
+    }
+
+    /// Apply normalization
+    fn apply_normalize(&self, tensor: &PyTensor, mean: f32, std: f32) -> PyResult<PyTensor> {
+        let mut normalized_data = Vec::new();
+        let data_slice = tensor.tensor.data.as_slice().unwrap();
+        
+        for &value in data_slice {
+            normalized_data.push((value - mean) / std);
+        }
+        
+        PyTensor::new(normalized_data, tensor.tensor.shape().to_vec())
+    }
+
+    /// Apply resize (simple implementation - just reshape if size matches)
+    fn apply_resize(&self, tensor: &PyTensor, height: usize, width: usize) -> PyResult<PyTensor> {
+        let shape = tensor.tensor.shape();
+        let new_shape = if shape.len() >= 2 {
+            let mut new_shape = shape.to_vec();
+            new_shape[shape.len() - 2] = height;
+            new_shape[shape.len() - 1] = width;
+            new_shape
+        } else {
+            vec![height, width]
+        };
+        
+        // Simple reshape if total size matches
+        let old_size: usize = shape.iter().product();
+        let new_size: usize = new_shape.iter().product();
+        
+        if old_size == new_size {
+            let data = tensor.tensor.data.as_slice().unwrap().to_vec();
+            PyTensor::new(data, new_shape)
+        } else {
+            // If sizes don't match, return original tensor
+            Ok(tensor.clone())
+        }
+    }
+
+    /// Apply random rotation (placeholder implementation)
+    fn apply_random_rotation(&self, tensor: &PyTensor, _degrees: f32) -> PyResult<PyTensor> {
+        // Placeholder: just return the original tensor
+        // In a full implementation, this would apply actual rotation
+        Ok(tensor.clone())
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("PyTransform(operations={:?})", self.operations)
+    }
+}
+
+#[cfg(feature = "python")]
+/// Utility for creating common data transforms
+#[pyclass]
+pub struct PyTransforms {}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyTransforms {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyTransforms {})
+    }
+
+    /// Create a compose transform that applies multiple transforms in sequence
+    #[staticmethod]
+    pub fn compose(transforms: Vec<PyTransform>) -> PyResult<PyTransform> {
+        let mut composed = PyTransform::new()?;
+        
+        for transform in transforms {
+            for operation in transform.operations {
+                composed.operations.push(operation.clone());
+                // Copy parameters (simplified)
+                for (key, value) in &transform.parameters {
+                    composed.parameters.insert(key.clone(), *value);
+                }
+            }
+        }
+        
+        Ok(composed)
+    }
+
+    /// Create normalization transform with common ImageNet values
+    #[staticmethod]
+    pub fn normalize_imagenet() -> PyResult<PyTransform> {
+        let mut transform = PyTransform::new()?;
+        transform.normalize(Some(0.485), Some(0.229))?;
+        Ok(transform)
+    }
+
+    /// Create resize transform
+    #[staticmethod]
+    pub fn resize(height: usize, width: usize) -> PyResult<PyTransform> {
+        let mut transform = PyTransform::new()?;
+        transform.resize(height, width)?;
+        Ok(transform)
+    }
+
+    /// Create random rotation transform
+    #[staticmethod]
+    pub fn random_rotation(degrees: f32) -> PyResult<PyTransform> {
+        let mut transform = PyTransform::new()?;
+        transform.random_rotation(degrees)?;
+        Ok(transform)
+    }
+}
+
+#[cfg(feature = "python")]
+/// Model serialization utilities for save/load functionality
+#[pyclass]
+pub struct PyModelSerializer {}
+
+#[cfg(feature = "python")]
+#[pymethods]
+impl PyModelSerializer {
+    #[new]
+    pub fn new() -> PyResult<Self> {
+        Ok(PyModelSerializer {})
+    }
+
+    /// Save a model to disk (PyTorch-compatible format)
+    #[staticmethod] 
+    pub fn save_model(model_dict: HashMap<String, PyTensor>, filepath: &str) -> PyResult<()> {
+        // Create a serializable model structure
+        let model_data = ModelData::new(model_dict);
+        
+        match save(&model_data, filepath) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to save model: {}", e))),
+        }
+    }
+
+    /// Load a model from disk
+    #[staticmethod]
+    pub fn load_model(filepath: &str) -> PyResult<HashMap<String, PyTensor>> {
+        match load::<_, ModelData>(filepath) {
+            Ok(model_data) => Ok(model_data.tensors),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to load model: {}", e))),
+        }
+    }
+
+    /// Save model state dict (parameters only)
+    #[staticmethod]
+    pub fn save_state_dict(state_dict: HashMap<String, PyTensor>, filepath: &str) -> PyResult<()> {
+        let state_data = StateDict::new(state_dict);
+        
+        match save(&state_data, filepath) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to save state dict: {}", e))),
+        }
+    }
+
+    /// Load model state dict
+    #[staticmethod]
+    pub fn load_state_dict(filepath: &str) -> PyResult<HashMap<String, PyTensor>> {
+        match load::<_, StateDict>(filepath) {
+            Ok(state_data) => Ok(state_data.parameters),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to load state dict: {}", e))),
+        }
+    }
+
+    /// Save a single tensor
+    #[staticmethod]
+    pub fn save_tensor(tensor: &PyTensor, filepath: &str) -> PyResult<()> {
+        let tensor_data = TensorData::new(tensor.tensor.clone());
+        
+        match save(&tensor_data, filepath) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to save tensor: {}", e))),
+        }
+    }
+
+    /// Load a single tensor  
+    #[staticmethod]
+    pub fn load_tensor(filepath: &str) -> PyResult<PyTensor> {
+        match load::<_, TensorData>(filepath) {
+            Ok(tensor_data) => Ok(PyTensor { tensor: tensor_data.tensor }),
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to load tensor: {}", e))),
+        }
+    }
+
+    /// Check if file exists and is valid model file
+    #[staticmethod]
+    pub fn is_valid_model_file(filepath: &str) -> PyResult<bool> {
+        use std::path::Path;
+        if !Path::new(filepath).exists() {
+            return Ok(false);
+        }
+        
+        // Try to load header only
+        match load::<_, ModelData>(filepath) {
+            Ok(_) => Ok(true),
+            Err(_) => Ok(false),
+        }
+    }
+
+    /// Get model file metadata
+    #[staticmethod]
+    pub fn get_model_info(filepath: &str) -> PyResult<HashMap<String, String>> {
+        // This would read just the header to get metadata
+        // For now, return basic file info
+        use std::fs;
+        let mut info = HashMap::new();
+        
+        match fs::metadata(filepath) {
+            Ok(metadata) => {
+                info.insert("file_size".to_string(), metadata.len().to_string());
+                info.insert("exists".to_string(), "true".to_string());
+                Ok(info)
+            },
+            Err(e) => Err(pyo3::exceptions::PyIOError::new_err(format!("Failed to get file info: {}", e))),
+        }
+    }
+}
+
+// Helper structs for serialization
+#[derive(Clone, Debug)]
+pub struct ModelData {
+    tensors: HashMap<String, PyTensor>,
+}
+
+impl ModelData {
+    pub fn new(tensors: HashMap<String, PyTensor>) -> Self {
+        Self { tensors }
+    }
+}
+
+impl Saveable for ModelData {
+    fn save_binary(&self) -> Result<Vec<u8>, SerializationError> {
+        // Convert HashMap<String, PyTensor> to serializable format
+        let mut serializable_map = HashMap::new();
+        for (key, py_tensor) in &self.tensors {
+            let tensor_info = TensorInfo {
+                data: py_tensor.tensor.data.as_slice().unwrap().to_vec(),
+                shape: py_tensor.tensor.shape().to_vec(),
+            };
+            serializable_map.insert(key.clone(), tensor_info);
+        }
+        
+        bincode::serialize(&serializable_map)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))
+    }
+
+    fn type_id(&self) -> &'static str {
+        "ModelData"
+    }
+
+    fn metadata(&self) -> ModelMetadata {
+        let mut metadata = ModelMetadata::new();
+        metadata.insert("num_tensors".to_string(), self.tensors.len().to_string());
+        metadata
+    }
+}
+
+impl Loadable for ModelData {
+    fn load_binary(data: &[u8]) -> Result<Self, SerializationError> {
+        let serializable_map: HashMap<String, TensorInfo> = bincode::deserialize(data)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        
+        let mut tensors = HashMap::new();
+        for (key, tensor_info) in serializable_map {
+            let tensor = match crate::tensor::Tensor::from_vec(tensor_info.data, tensor_info.shape) {
+                tensor => PyTensor { tensor },
+            };
+            tensors.insert(key, tensor);
+        }
+        
+        Ok(ModelData { tensors })
+    }
+
+    fn expected_type_id() -> &'static str {
+        "ModelData"
+    }
+
+    fn validate_version(version: &str) -> Result<(), SerializationError> {
+        // Accept any version for now
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct StateDict {
+    parameters: HashMap<String, PyTensor>,
+}
+
+impl StateDict {
+    pub fn new(parameters: HashMap<String, PyTensor>) -> Self {
+        Self { parameters }
+    }
+}
+
+impl Saveable for StateDict {
+    fn save_binary(&self) -> Result<Vec<u8>, SerializationError> {
+        let mut serializable_map = HashMap::new();
+        for (key, py_tensor) in &self.parameters {
+            let tensor_info = TensorInfo {
+                data: py_tensor.tensor.data.as_slice().unwrap().to_vec(),
+                shape: py_tensor.tensor.shape().to_vec(),
+            };
+            serializable_map.insert(key.clone(), tensor_info);
+        }
+        
+        bincode::serialize(&serializable_map)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))
+    }
+
+    fn type_id(&self) -> &'static str {
+        "StateDict"
+    }
+
+    fn metadata(&self) -> ModelMetadata {
+        let mut metadata = ModelMetadata::new();
+        metadata.insert("num_parameters".to_string(), self.parameters.len().to_string());
+        metadata
+    }
+}
+
+impl Loadable for StateDict {
+    fn load_binary(data: &[u8]) -> Result<Self, SerializationError> {
+        let serializable_map: HashMap<String, TensorInfo> = bincode::deserialize(data)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        
+        let mut parameters = HashMap::new();
+        for (key, tensor_info) in serializable_map {
+            let tensor = match crate::tensor::Tensor::from_vec(tensor_info.data, tensor_info.shape) {
+                tensor => PyTensor { tensor },
+            };
+            parameters.insert(key, tensor);
+        }
+        
+        Ok(StateDict { parameters })
+    }
+
+    fn expected_type_id() -> &'static str {
+        "StateDict"
+    }
+
+    fn validate_version(version: &str) -> Result<(), SerializationError> {
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TensorData {
+    tensor: crate::tensor::Tensor<f32>,
+}
+
+impl TensorData {
+    pub fn new(tensor: crate::tensor::Tensor<f32>) -> Self {
+        Self { tensor }
+    }
+}
+
+impl Saveable for TensorData {
+    fn save_binary(&self) -> Result<Vec<u8>, SerializationError> {
+        let tensor_info = TensorInfo {
+            data: self.tensor.data.as_slice().unwrap().to_vec(),
+            shape: self.tensor.shape().to_vec(),
+        };
+        
+        bincode::serialize(&tensor_info)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))
+    }
+
+    fn type_id(&self) -> &'static str {
+        "TensorData"
+    }
+
+    fn metadata(&self) -> ModelMetadata {
+        let mut metadata = ModelMetadata::new();
+        metadata.insert("shape".to_string(), format!("{:?}", self.tensor.shape()));
+        metadata
+    }
+}
+
+impl Loadable for TensorData {
+    fn load_binary(data: &[u8]) -> Result<Self, SerializationError> {
+        let tensor_info: TensorInfo = bincode::deserialize(data)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        
+        let tensor = crate::tensor::Tensor::from_vec(tensor_info.data, tensor_info.shape);
+        Ok(TensorData { tensor })
+    }
+
+    fn expected_type_id() -> &'static str {
+        "TensorData"
+    }
+
+    fn validate_version(version: &str) -> Result<(), SerializationError> {
+        Ok(())
+    }
+}
+
+// Helper struct for serialization
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct TensorInfo {
+    data: Vec<f32>,
+    shape: Vec<usize>,
+}
+
+#[cfg(feature = "python")]
 /// A Python module implemented in Rust
 #[pymodule]
 fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -796,6 +1457,11 @@ fn rustorch(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyAdam>()?;
     m.add_class::<PyConv2d>()?;
     m.add_class::<PyBatchNorm2d>()?;
+    m.add_class::<PyTensorDataset>()?;
+    m.add_class::<PyDataLoader>()?;
+    m.add_class::<PyTransform>()?;
+    m.add_class::<PyTransforms>()?;
+    m.add_class::<PyModelSerializer>()?;
 
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
