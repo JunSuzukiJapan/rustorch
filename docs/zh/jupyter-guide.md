@@ -32,7 +32,7 @@
 #### 通用安装程序（新功能）
 **最简单的方法**：自动检测环境的安装程序
 ```bash
-./install_jupyter.sh
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **功能：**

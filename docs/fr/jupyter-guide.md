@@ -32,7 +32,7 @@ Un guide étape par étape pour utiliser facilement RusTorch WASM dans Jupyter N
 #### Installateur Universel (Nouveau)
 **La méthode la plus simple** : Un installateur qui détecte automatiquement votre environnement
 ```bash
-./install_jupyter.sh
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **Ce qu'il fait :**

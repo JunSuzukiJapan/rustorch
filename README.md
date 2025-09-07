@@ -57,9 +57,9 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 **🌟 Universal One-Liner** - Smart installer (defaults to hybrid environment):
 ```bash
-./install_jupyter.sh  # Installs Python+Rust dual-kernel environment + global launcher
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
-*🦀🐍 Default: Hybrid environment with both Python and Rust kernels*
+*🦀🐍 Default: Installs Python+Rust dual-kernel environment + global launcher*
 
 **🚀 Manual Setup** - Or choose specific demo type:
 

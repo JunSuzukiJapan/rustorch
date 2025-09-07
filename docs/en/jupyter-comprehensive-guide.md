@@ -42,12 +42,12 @@ rustorch-jupyter          # Global command (after installer)
 
 **Auto-Detection Installation:**
 ```bash
-./install_jupyter.sh
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **Custom Installation Path:**
 ```bash
-RUSTORCH_INSTALL_PATH=/usr/local/bin ./install_jupyter.sh
+RUSTORCH_INSTALL_PATH=/usr/local/bin bash <(curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh)
 ```
 
 **Interactive Options:**

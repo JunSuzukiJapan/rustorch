@@ -32,7 +32,7 @@
 #### 범용 설치 프로그램 (신규)
 **가장 쉬운 방법**: 환경을 자동으로 감지하는 설치 프로그램
 ```bash
-./install_jupyter.sh
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **기능:**

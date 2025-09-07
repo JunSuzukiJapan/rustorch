@@ -8,7 +8,7 @@ Central documentation hub for all RusTorch Jupyter environments and setups.
 
 ### Universal Setup / 万能セットアップ
 ```bash
-./install_jupyter.sh  # Auto-detects environment, installs hybrid setup by default
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 ### Next Time Launch / 次回起動

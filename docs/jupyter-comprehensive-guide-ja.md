@@ -42,12 +42,12 @@ rustorch-jupyter          # グローバルコマンド（インストーラー�
 
 **自動検出インストール：**
 ```bash
-./install_jupyter.sh
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **カスタムインストールパス：**
 ```bash
-RUSTORCH_INSTALL_PATH=/usr/local/bin ./install_jupyter.sh
+RUSTORCH_INSTALL_PATH=/usr/local/bin bash <(curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh)
 ```
 
 **対話式オプション：**

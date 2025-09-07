@@ -24,7 +24,7 @@ The easiest way to set up any RusTorch Jupyter environment:
 最も簡単な方法でRusTorch Jupyter環境をセットアップ：
 
 ```bash
-./install_jupyter.sh  # Auto-detects environment and installs hybrid setup
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
 ```
 
 **What you get / 取得できるもの:**
