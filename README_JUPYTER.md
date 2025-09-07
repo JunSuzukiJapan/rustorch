@@ -1,23 +1,49 @@
-# 🚀 RusTorch Jupyter Quick Start
+# 📓 RusTorch Jupyter Documentation Hub
 
-新規ユーザーがRusTorchを簡単にJupyterで使い始めるためのガイドです。
+Central documentation hub for all RusTorch Jupyter environments and setups.
 
-## 🎯 Option 1: ワンライナーセットアップ（推奨）
+新規ユーザーがRusTorchを簡単にJupyterで使い始めるための統合ドキュメントハブです。
 
-**標準版（Python bindings + Jupyter）:**
+## 🚀 Quick Start / クイックスタート
+
 ```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start.sh | bash
+# 1. Install / インストール
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+
+# 2. Launch / 起動  
+rustorch-jupyter          # Global command / グローバルコマンド
+# または / or
+./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
+
+# 3. Start coding! / コーディング開始！
 ```
 
-**🌟 WebGPU対応版（ブラウザGPU加速 + Jupyter）:**
-```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_webgpu.sh | bash
-```
+**🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
+**🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
 
-**🦀 Rustカーネル版（Jupyter内で直接Rust実行）:**
-```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start_rust_kernel.sh | bash
-```
+---
+
+## 🦀🐍 What You Get: Hybrid Environment (Default)
+
+**🌟 最新機能**: Python + Rust デュアルカーネル環境がデフォルトに！
+
+**Features / 機能:**
+- 🐍 Python kernel with RusTorch bindings
+- 🦀 Rust kernel (evcxr) for native performance  
+- 🔗 Seamless data exchange between languages
+- ⚡ Auto-optimized for your hardware (CUDA/Metal/CPU)
+
+## 📚 Complete Documentation / 完全ドキュメント
+
+### 🇺🇸 English Documentation
+- **[📖 Comprehensive Jupyter Guide](docs/en/jupyter-comprehensive-guide.md)** - Complete setup and usage guide
+- **[🌐 WebGPU WASM Guide](docs/en/jupyter-guide.md)** - Browser GPU acceleration
+- **[⚙️ WebAssembly Integration](jupyter/README.md)** - Technical WASM implementation
+
+### 🇯🇵 日本語ドキュメント  
+- **[📖 包括的Jupyterガイド](docs/jupyter-comprehensive-guide-ja.md)** - 完全なセットアップと使用ガイド
+- **[🌐 WebGPU WASMガイド](docs/jupyter-wasm-guide.md)** - ブラウザGPU加速
+- **[⚙️ WebAssembly統合](jupyter/README.md)** - 技術的WASM実装
 
 **🦀🚀 GPU対応Rustカーネル版（GPU加速 + Jupyter内で直接Rust実行）:**
 ```bash
@@ -70,17 +96,13 @@ curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_s
 
 ---
 
-## 🛠️ 手動セットアップ（上級者向け）
+## 🛠️ Manual Setup / 手動セットアップ
 
-```bash
-# 1. リポジトリをクローン
-git clone https://github.com/JunSuzukiJapan/rustorch.git
-cd rustorch
+For advanced users who prefer manual installation:  
+上級者向けの手動インストール方法:
 
-# 2. Jupyterを起動
-./start_jupyter.sh              # 標準版
-./start_jupyter_webgpu.sh       # WebGPU対応版
-```
+**📖 [Complete Manual Setup Guide](docs/en/jupyter-comprehensive-guide.md#manual-setup)**  
+**📖 [手動セットアップガイド](docs/jupyter-comprehensive-guide-ja.md#手動セットアップ)**
 
 ---
 

@@ -22,6 +22,9 @@ check_setup() {
         "rust")
             command -v evcxr_jupyter >/dev/null 2>&1
             ;;
+        "hybrid")
+            [ -d ".venv-hybrid" ] && command -v evcxr_jupyter >/dev/null 2>&1
+            ;;
     esac
 }
 
@@ -47,12 +50,18 @@ else
     echo "🦀 [3] Rust Kernel    - ⚠️  Setup required (run ./quick_start_rust_kernel.sh first)"
 fi
 
+if check_setup "hybrid"; then
+    echo "🦀🐍 [4] Hybrid Demo    - Python + Rust dual-kernel environment"
+else
+    echo "🦀🐍 [4] Hybrid Demo    - ⚠️  Setup required (run ./start_jupyter_hybrid.sh first)"
+fi
+
 echo ""
-echo "🌐 [4] Online Binder   - Run immediately in browser (no local setup needed)"
+echo "🌐 [5] Online Binder   - Run immediately in browser (no local setup needed)"
 echo "❌ [q] Quit"
 echo ""
 
-read -p "Choose demo type [1-4/q]: " choice
+read -p "Choose demo type [1-5/q]: " choice
 
 case $choice in
     1)
@@ -89,6 +98,17 @@ case $choice in
         fi
         ;;
     4)
+        if check_setup "hybrid"; then
+            echo "🦀🐍 Starting Hybrid demo..."
+            source .venv-hybrid/bin/activate
+            jupyter lab --port=8888 --no-browser notebooks/hybrid/
+        else
+            echo "❌ Hybrid environment not found. Run setup first:"
+            echo "   ./start_jupyter_hybrid.sh"
+            exit 1
+        fi
+        ;;
+    5)
         echo "🌐 Opening Binder in browser..."
         if command -v open >/dev/null 2>&1; then
             open "https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab"
@@ -104,7 +124,7 @@ case $choice in
         exit 0
         ;;
     *)
-        echo "❌ Invalid choice. Please run again and select 1-4 or q."
+        echo "❌ Invalid choice. Please run again and select 1-5 or q."
         exit 1
         ;;
 esac

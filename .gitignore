@@ -20,6 +20,7 @@ pr-audit-report.json
 
 # Jupyter
 .venv/
+.venv-hybrid/
 
 # OS generated files
 .DS_Store

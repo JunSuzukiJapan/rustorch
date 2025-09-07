@@ -29,16 +29,36 @@ Una guía paso a paso para usar fácilmente RusTorch WASM en Jupyter Notebook, d
 
 ### 🚀 Inicio Rápido (Recomendado)
 
-**Método más fácil**: Lanza Jupyter Lab con un comando
+#### Instalador Universal (Nuevo)
+**El método más fácil**: Un instalador que detecta tu entorno automáticamente
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+```
+
+**Lo que hace:**
+- 🔍 **Auto-detección**: Detecta automáticamente tu entorno (OS, CPU, GPU)
+- 🦀🐍 **Entorno Híbrido**: Instala ambiente dual Python+Rust por defecto
+- 📦 **Comando Global**: Crea comando `rustorch-jupyter` que funciona desde cualquier lugar
+- ⚡ **Optimización**: Se adapta a tu hardware (CUDA, Metal, WebGPU, CPU)
+
+#### Método Clásico
+**Método tradicional**: Lanza solo Python con RusTorch
 ```bash
 ./start_jupyter.sh
 ```
 
 Este script automáticamente:
 - Crea y activa entorno virtual
-- Instala dependencias (numpy, jupyter, matplotlib)
+- Instala dependencias (numpy, jupyter, matplotlib)  
 - Construye bindings Python de RusTorch
 - Lanza Jupyter Lab con notebook demo abierto
+
+#### Próximo Lanzamiento
+```bash
+rustorch-jupyter          # Comando global (después del instalador)
+# O
+./start_jupyter_quick.sh  # Menú interactivo
+```
 
 ### Instalación Manual
 
@@ -82,6 +102,28 @@ wasm-pack build --target web --out-dir pkg
 # Iniciar Jupyter Lab
 jupyter lab
 ```
+
+## Tipos de Entorno
+
+### 🦀🐍 Entorno Híbrido (Predeterminado)
+- **Mejor para**: Desarrollo completo de ML
+- **Características**: Kernels Python + Rust, bridge RusTorch, notebooks de ejemplo
+- **Hardware**: Se adapta a GPU disponible (CUDA/Metal/CPU)
+
+### 🐍 Entorno Python
+- **Mejor para**: Desarrolladores Python que quieren características RusTorch
+- **Características**: Kernel Python con bindings Python RusTorch
+- **Hardware**: Optimizado para CPU/GPU
+
+### ⚡ Entorno WebGPU
+- **Mejor para**: Aceleración GPU basada en navegador
+- **Características**: WebAssembly + WebGPU, optimizado para Chrome
+- **Hardware**: Navegadores modernos con soporte WebGPU
+
+### 🦀 Entorno Kernel Rust
+- **Mejor para**: Desarrollo nativo de Rust
+- **Características**: Kernel evcxr, acceso directo a librería RusTorch
+- **Hardware**: Rendimiento nativo, todas las características disponibles
 
 ## Uso Básico
 

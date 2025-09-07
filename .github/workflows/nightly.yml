@@ -29,11 +29,11 @@ jobs:
           brew install openblas
         shell: bash
 
-      - name: Install MPI (Linux)
+      - name: Install BLAS/LAPACK (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libopenmpi-dev openmpi-bin pkg-config
+          sudo apt-get install -y libblas-dev liblapack-dev libopenblas-dev pkg-config
         shell: bash
 
       - name: Run extended tests
@@ -44,8 +44,8 @@ jobs:
             cargo test --verbose --features "metal" --release --examples
           elif [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             # On Linux, enable all features except macOS-specific ones
-            cargo test --verbose --features "linalg-system,mpi" --release
-            cargo test --verbose --features "linalg-system,mpi" --release --examples
+            cargo test --verbose --features "linalg-system" --release
+            cargo test --verbose --features "linalg-system" --release --examples
           else
             # On Windows, enable all features except platform-specific ones
             cargo test --verbose --features "linalg-system" --release

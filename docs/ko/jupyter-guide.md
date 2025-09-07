@@ -29,7 +29,20 @@
 
 ### 🚀 빠른 시작 (권장)
 
-**가장 쉬운 방법**: 한 명령으로 Jupyter Lab 시작
+#### 범용 설치 프로그램 (신규)
+**가장 쉬운 방법**: 환경을 자동으로 감지하는 설치 프로그램
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+```
+
+**기능:**
+- 🔍 **자동 감지**: 환경을 자동으로 감지 (OS, CPU, GPU)
+- 🦀🐍 **하이브리드 환경**: 기본적으로 Python+Rust 이중 환경 설치
+- 📦 **전역 명령어**: 어디서든 작동하는 `rustorch-jupyter` 명령어 생성
+- ⚡ **최적화**: 하드웨어에 맞게 최적화 (CUDA, Metal, WebGPU, CPU)
+
+#### 기존 방법
+**전통적인 방법**: RusTorch가 포함된 Python만 시작
 ```bash
 ./start_jupyter.sh
 ```
@@ -39,6 +52,13 @@
 - 의존성 설치 (numpy, jupyter, matplotlib)
 - RusTorch Python 바인딩 빌드
 - 데모 노트북과 함께 Jupyter Lab 시작
+
+#### 다음 실행
+```bash
+rustorch-jupyter          # 전역 명령어 (설치 프로그램 사용 후)
+# 또는
+./start_jupyter_quick.sh  # 대화형 메뉴
+```
 
 ### 수동 설치
 
@@ -82,6 +102,28 @@ wasm-pack build --target web --out-dir pkg
 # Jupyter Lab 시작
 jupyter lab
 ```
+
+## 환경 유형
+
+### 🦀🐍 하이브리드 환경 (기본값)
+- **적합한 용도**: 풀스택 ML 개발
+- **기능**: Python + Rust 커널, RusTorch 브리지, 예제 노트북
+- **하드웨어**: 사용 가능한 GPU에 적응 (CUDA/Metal/CPU)
+
+### 🐍 Python 환경
+- **적합한 용도**: RusTorch 기능을 원하는 Python 개발자
+- **기능**: RusTorch Python 바인딩이 있는 Python 커널
+- **하드웨어**: CPU/GPU 최적화
+
+### ⚡ WebGPU 환경
+- **적합한 용도**: 브라우저 기반 GPU 가속
+- **기능**: WebAssembly + WebGPU, Chrome 최적화
+- **하드웨어**: WebGPU 지원이 있는 최신 브라우저
+
+### 🦀 Rust 커널 환경
+- **적합한 용도**: 네이티브 Rust 개발
+- **기능**: evcxr 커널, RusTorch 라이브러리에 직접 액세스
+- **하드웨어**: 네이티브 성능, 모든 기능 사용 가능
 
 ## 기본 사용법
 

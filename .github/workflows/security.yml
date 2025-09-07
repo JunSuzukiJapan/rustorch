@@ -136,8 +136,6 @@ jobs:
             liblapack-dev \
             libblas-dev \
             pkg-config \
-            libopenmpi-dev \
-            openmpi-bin
         shell: bash
 
       - name: Initialize CodeQL

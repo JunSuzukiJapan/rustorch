@@ -112,7 +112,12 @@
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
       "Bash(git fetch:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(./install_jupyter.sh:*)",
+      "Bash(pkill:*)",
+      "Read(//Users/junsuzuki/**)",
+      "Bash(git remote get-url:*)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": [],

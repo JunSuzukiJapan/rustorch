@@ -17,7 +17,27 @@ Complete Jupyter Lab integration for RusTorch WASM, enabling interactive machine
 
 ## Quick Start / クイックスタート
 
-### 1. Installation / インストール
+### 🚀 Universal Installer (Recommended) / 万能インストーラー（推奨）
+
+The easiest way to set up any RusTorch Jupyter environment:
+
+最も簡単な方法でRusTorch Jupyter環境をセットアップ：
+
+```bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+```
+
+**What you get / 取得できるもの:**
+- 🦀🐍 **Hybrid Environment**: Python + Rust dual-kernel
+- 🔍 **Auto-Detection**: Optimal setup for your hardware
+- 📦 **Global Command**: `rustorch-jupyter` works from anywhere
+- 📓 **Sample Notebooks**: Ready-to-use examples
+
+### 🌐 WebGPU Setup (Advanced) / WebGPUセットアップ（上級者向け）
+
+For browser GPU acceleration specifically:
+
+ブラウザGPU加速専用の場合：
 
 ```bash
 # Build RusTorch WASM package

@@ -55,19 +55,32 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ### 📓 Interactive Jupyter Demos
 
-**🚀 First Time Setup** - Choose your preferred demo and run the setup command:
+```bash
+# 1. Install / インストール
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+
+# 2. Launch / 起動  
+rustorch-jupyter          # Global command / グローバルコマンド
+# または / or
+./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
+
+# 3. Start coding! / コーディング開始！
+```
+
+**🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
+**🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
+
+---
+
+**🚀 Manual Setup** - Or choose specific demo type:
 
 | Demo Type | Setup Command | Description |
 |-----------|---------------|-------------|
+| 🦀🐍 **Hybrid** | `./start_jupyter_hybrid.sh` | Python + Rust dual-kernel environment |
 | 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
 | 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
 | 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | No setup needed - run in browser |
-
-**⚡ Quick Restart** - After initial setup, use the fast launcher:
-```bash
-./start_jupyter_quick.sh  # Interactive menu for returning users
-```
 
 📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
 
@@ -377,6 +390,12 @@ cargo fmt --check
 # Run clippy
 cargo clippy --all-targets --all-features
 ```
+
+## 🔒 API Stability / API安定性
+
+**English**: Starting from v0.6.0, RusTorch has reached a stable API milestone. We are committed to maintaining backward compatibility and will avoid major breaking changes in the near future. This ensures a reliable foundation for production applications and long-term projects.
+
+**日本語**: v0.6.0以降、RusTorchは安定したAPIマイルストーンに達しました。後方互換性を維持することをお約束し、近い将来において大規模な破壊的変更は行いません。これにより、本番アプリケーションと長期プロジェクトに信頼性の高い基盤を提供します。
 
 ## License
 
