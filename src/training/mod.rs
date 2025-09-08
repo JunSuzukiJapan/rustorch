@@ -6,11 +6,11 @@
 //!
 //! ## 主要コンポーネント
 //!
-//! - [`Trainer`]: 汎用的な学習ループの実装
-//! - [`TrainingState`]: 訓練状態の管理
-//! - [`Metrics`]: メトリクスの収集と計算
-//! - [`EarlyStopping`]: 早期停止の実装
-//! - [`Checkpoint`]: モデルの保存と復元
+//! - \[`Trainer`\]: 汎用的な学習ループの実装
+//! - \[`TrainingState`\]: 訓練状態の管理
+//! - \[`Metrics`\]: メトリクスの収集と計算
+//! - \[`EarlyStopping`\]: 早期停止の実装
+//! - \[`Checkpoint`\]: モデルの保存と復元
 
 pub mod callbacks;
 pub mod checkpoint;

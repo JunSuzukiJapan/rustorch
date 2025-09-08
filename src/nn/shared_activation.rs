@@ -36,14 +36,14 @@ pub trait ActivationFunction<T> {
 pub mod shared_activations {
     use super::*;
 
-    /// ReLU implementation for Vec<T>
-    /// Vec<T>用ReLU実装
+    /// ReLU implementation for `Vec<T>`
+    /// `Vec<T>`用ReLU実装
     pub fn relu_vec<T: Float>(input: &[T]) -> Vec<T> {
         input.iter().map(|&x| x.max(T::zero())).collect()
     }
 
-    /// ReLU derivative for Vec<T>
-    /// Vec<T>用ReLU微分
+    /// ReLU derivative for `Vec<T>`
+    /// `Vec<T>`用ReLU微分
     pub fn relu_derivative_vec<T: Float>(input: &[T]) -> Vec<T> {
         input
             .iter()
@@ -51,8 +51,8 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Sigmoid implementation for Vec<T>
-    /// Vec<T>用Sigmoid実装
+    /// Sigmoid implementation for `Vec<T>`
+    /// `Vec<T>`用Sigmoid実装
     pub fn sigmoid_vec<T: Float>(input: &[T]) -> Vec<T> {
         input
             .iter()
@@ -60,8 +60,8 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Sigmoid derivative for Vec<T>
-    /// Vec<T>用Sigmoid微分
+    /// Sigmoid derivative for `Vec<T>`
+    /// `Vec<T>`用Sigmoid微分
     pub fn sigmoid_derivative_vec<T: Float>(input: &[T]) -> Vec<T> {
         input
             .iter()
@@ -72,14 +72,14 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Tanh implementation for Vec<T>
-    /// Vec<T>用Tanh実装
+    /// Tanh implementation for `Vec<T>`
+    /// `Vec<T>`用Tanh実装
     pub fn tanh_vec<T: Float>(input: &[T]) -> Vec<T> {
         input.iter().map(|&x| x.tanh()).collect()
     }
 
-    /// Tanh derivative for Vec<T>
-    /// Vec<T>用Tanh微分
+    /// Tanh derivative for `Vec<T>`
+    /// `Vec<T>`用Tanh微分
     pub fn tanh_derivative_vec<T: Float>(input: &[T]) -> Vec<T> {
         input
             .iter()
@@ -90,8 +90,8 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Leaky ReLU implementation for Vec<T>
-    /// Vec<T>用Leaky ReLU実装
+    /// Leaky ReLU implementation for `Vec<T>`
+    /// `Vec<T>`用Leaky ReLU実装
     pub fn leaky_relu_vec<T: Float>(input: &[T], alpha: T) -> Vec<T> {
         input
             .iter()
@@ -99,8 +99,8 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Leaky ReLU derivative for Vec<T>
-    /// Vec<T>用Leaky ReLU微分
+    /// Leaky ReLU derivative for `Vec<T>`
+    /// `Vec<T>`用Leaky ReLU微分
     pub fn leaky_relu_derivative_vec<T: Float>(input: &[T], alpha: T) -> Vec<T> {
         input
             .iter()
@@ -108,8 +108,8 @@ pub mod shared_activations {
             .collect()
     }
 
-    /// Softmax implementation for Vec<T>
-    /// Vec<T>用Softmax実装
+    /// Softmax implementation for `Vec<T>`
+    /// `Vec<T>`用Softmax実装
     pub fn softmax_vec<T: Float>(input: &[T]) -> Vec<T> {
         if input.is_empty() {
             return Vec::new();
@@ -128,8 +128,8 @@ pub mod shared_activations {
         }
     }
 
-    /// Softmax derivative for Vec<T>
-    /// Vec<T>用Softmax微分
+    /// Softmax derivative for `Vec<T>`
+    /// `Vec<T>`用Softmax微分
     pub fn softmax_derivative_vec<T: Float>(softmax_output: &[T], grad_output: &[T]) -> Vec<T> {
         if softmax_output.len() != grad_output.len() {
             return Vec::new();

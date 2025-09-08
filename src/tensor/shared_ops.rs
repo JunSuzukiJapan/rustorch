@@ -3,8 +3,8 @@
 
 use num_traits::Float;
 
-/// Common tensor operations that both Tensor<T> and WasmTensor can implement
-/// Tensor<T>とWasmTensorの両方が実装できる共通テンソル操作
+/// Common tensor operations that both `Tensor<T>` and WasmTensor can implement
+/// `Tensor<T>`とWasmTensorの両方が実装できる共通テンソル操作
 pub trait CommonTensorOps<T> {
     type Error;
 
@@ -33,8 +33,8 @@ pub trait CommonTensorOps<T> {
         Self: Sized;
 }
 
-/// Core tensor operations trait that both Tensor<T> and WasmTensor can implement
-/// Tensor<T>とWasmTensorの両方が実装できるコアテンソル操作トレイト
+/// Core tensor operations trait that both `Tensor<T>` and WasmTensor can implement
+/// `Tensor<T>`とWasmTensorの両方が実装できるコアテンソル操作トレイト
 pub trait TensorOps<T> {
     type Error;
     type Shape;

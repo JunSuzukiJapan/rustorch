@@ -10,14 +10,15 @@
 
 | Language | README | Jupyter Guide |
 |----------|---------|---------------|
-| 🇺🇸 [English](docs/en/README.md) | [📖 Main](docs/en/README.md) | [📓 Jupyter](docs/en/jupyter-guide.md) |
-| 🇫🇷 [Français](docs/fr/README.md) | [📖 Principal](docs/fr/README.md) | [📓 Jupyter](docs/fr/jupyter-guide.md) |
-| 🇮🇹 [Italiano](docs/it/README.md) | [📖 Principale](docs/it/README.md) | [📓 Jupyter](docs/it/jupyter-guide.md) |
-| 🇪🇸 [Español](docs/es/README.md) | [📖 Principal](docs/es/README.md) | [📓 Jupyter](docs/es/jupyter-guide.md) |
-| 🇨🇳 [中文](docs/zh/README.md) | [📖 主要](docs/zh/README.md) | [📓 Jupyter](docs/zh/jupyter-guide.md) |
-| 🇰🇷 [한국어](docs/ko/README.md) | [📖 메인](docs/ko/README.md) | [📓 Jupyter](docs/ko/jupyter-guide.md) |
-| 🇩🇪 [Deutsch](docs/de/README.md) | [📖 Hauptseite](docs/de/README.md) | [📓 Jupyter](docs/de/jupyter-guide.md) |
-| 🇷🇺 [Русский](docs/ru/README.md) | [📖 Основной](docs/ru/README.md) | [📓 Jupyter](docs/ru/jupyter-guide.md) |
+| 🇺🇸 [English](docs/i18n/en/README.md) | [📖 Main](docs/i18n/en/README.md) | [📓 Jupyter](docs/i18n/en/jupyter-guide.md) |
+| 🇫🇷 [Français](docs/i18n/fr/README.md) | [📖 Principal](docs/i18n/fr/README.md) | [📓 Jupyter](docs/i18n/fr/jupyter-guide.md) |
+| 🇮🇹 [Italiano](docs/i18n/it/README.md) | [📖 Principale](docs/i18n/it/README.md) | [📓 Jupyter](docs/i18n/it/jupyter-guide.md) |
+| 🇪🇸 [Español](docs/i18n/es/README.md) | [📖 Principal](docs/i18n/es/README.md) | [📓 Jupyter](docs/i18n/es/jupyter-guide.md) |
+| 🇨🇳 [中文](docs/i18n/zh/README.md) | [📖 主要](docs/i18n/zh/README.md) | [📓 Jupyter](docs/i18n/zh/jupyter-guide.md) |
+| 🇰🇷 [한국어](docs/i18n/ko/README.md) | [📖 메인](docs/i18n/ko/README.md) | [📓 Jupyter](docs/i18n/ko/jupyter-guide.md) |
+| 🇩🇪 [Deutsch](docs/i18n/de/README.md) | [📖 Hauptseite](docs/i18n/de/README.md) | [📓 Jupyter](docs/i18n/de/jupyter-guide.md) |
+| 🇷🇺 [Русский](docs/i18n/ru/README.md) | [📖 Основной](docs/i18n/ru/README.md) | [📓 Jupyter](docs/i18n/ru/jupyter-guide.md) |
+| 🇵🇹 [Português](docs/i18n/pt/README.md) | [📖 Principal](docs/i18n/pt/README.md) | [📓 Jupyter](docs/i18n/pt/jupyter-guide.md) |
 
 ---
 
