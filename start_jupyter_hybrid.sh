@@ -140,10 +140,20 @@ def tensor(data):
     return rustorch.create_tensor(data)
 EOF
 
-# Create example notebooks
-echo "📓 Creating example notebooks..."
-echo "📓 サンプルノートブックを作成中..."
+# Download sample notebooks from repository
+echo "📓 Downloading sample notebooks..."
+echo "📓 サンプルノートブックをダウンロード中..."
 
+# Download notebook downloader script if needed
+if [ ! -f "download_notebooks.sh" ]; then
+    curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/download_notebooks.sh" -o "download_notebooks.sh"
+    chmod +x download_notebooks.sh
+fi
+
+# Download notebooks using the dedicated script
+./download_notebooks.sh notebooks
+
+# Ensure hybrid directory exists with fallback basic notebooks
 mkdir -p notebooks/hybrid
 
 # Python + Rust example notebook
@@ -282,9 +292,14 @@ echo "📋 Available kernels / 利用可能なカーネル:"
 echo "  🐍 Python 3 - Standard Python with RusTorch bridge"
 echo "  🦀 Rust - Native Rust with evcxr kernel"
 echo ""
-echo "📓 Example notebooks created in:"
+echo "📓 Sample notebooks available in:"
 echo "  📁 notebooks/hybrid/python_rust_demo.ipynb"
 echo "  📁 notebooks/hybrid/pure_rust_demo.ipynb"
+echo "  📁 notebooks/rustorch_demo.ipynb (Basic demo)"
+echo "  📁 notebooks/webgpu_ml_demo.ipynb (WebGPU demo)"
+echo "  📁 notebooks/en/rustorch_demo_en.ipynb (English version)"
+echo "  📁 notebooks/ja/quickstart_ja.md (Japanese quickstart)"
+echo "  📁 And many more in language-specific directories!"
 echo ""
 echo "🚀 Starting Jupyter Lab..."
 echo "🚀 Jupyter Labを起動中..."
