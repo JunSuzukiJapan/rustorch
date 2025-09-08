@@ -5,12 +5,14 @@ edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Python bindings for RusTorch deep learning library"
 
+[workspace]
+
 [lib]
 name = "_rustorch_py"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.20", features = ["extension-module"] }
+pyo3 = { version = "0.24.1", features = ["extension-module"] }
 
 [build-dependencies]
-pyo3-build-config = "0.20"
+pyo3-build-config = "0.24.1"

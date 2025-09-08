@@ -1,7 +1,7 @@
 //! Enhanced Python bindings for RusTorch with Rust→Python communication
 
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyTuple};
+use pyo3::types::PyList;
 use pyo3::exceptions::{PyException, PyRuntimeError, PyTypeError};
 use std::collections::HashMap;
 
@@ -19,7 +19,7 @@ fn add_numbers(a: f32, b: f32) -> f32 {
 
 /// Process a list of numbers (testing list handling)
 #[pyfunction]
-fn sum_list(numbers: &PyList) -> PyResult<f32> {
+fn sum_list(numbers: &Bound<'_, PyList>) -> PyResult<f32> {
     let mut total = 0.0;
     for item in numbers.iter() {
         total += item.extract::<f32>()?;
@@ -60,7 +60,7 @@ impl PyCallbackRegistry {
     /// Register a Python function that can be called from Rust
     fn register_callback(&mut self, name: String, callback: PyObject, py: Python) -> PyResult<()> {
         // Verify it's callable
-        if !callback.as_ref(py).is_callable() {
+        if !callback.bind(py).is_callable() {
             return Err(PyErr::new::<PyTypeError, _>(
                 format!("Object '{}' is not callable", name)
             ));
@@ -76,11 +76,12 @@ impl PyCallbackRegistry {
     }
     
     /// Call a Python function from Rust with arguments
-    fn call_python_function(&self, name: &str, args: &PyList, py: Python) -> PyResult<PyObject> {
+    fn call_python_function(&self, name: &str, args: &Bound<'_, PyList>, py: Python) -> PyResult<PyObject> {
         match self.callbacks.get(name) {
             Some(callback) => {
-                let args_tuple = PyTuple::new(py, args);
-                callback.call1(py, args_tuple)
+                // Convert bound result to PyObject and use args as tuple
+                let result = callback.bind(py).call1((args,))?;
+                Ok(result.into())
             }
             None => Err(PyErr::new::<pyo3::exceptions::PyKeyError, _>(
                 format!("Callback '{}' not found", name)
@@ -107,9 +108,9 @@ fn call_python_from_rust(
     message: String,
     py: Python
 ) -> PyResult<String> {
-    let args = PyList::new(py, &[message.into_py(py)]);
+    let args = PyList::new(py, &[message])?;
     
-    match registry.call_python_function(&callback_name, args, py) {
+    match registry.call_python_function(&callback_name, &args, py) {
         Ok(result) => {
             match result.extract::<String>(py) {
                 Ok(result_str) => Ok(result_str),
@@ -133,21 +134,17 @@ fn progress_callback_example(
         std::thread::sleep(std::time::Duration::from_millis(50));
         
         let progress = (step as f64 / total_steps as f64) * 100.0;
-        let args = PyList::new(py, &[
-            step.into_py(py),
-            total_steps.into_py(py), 
-            progress.into_py(py)
-        ]);
+        let args = PyList::new(py, &[step, total_steps, progress as usize])?;
         
-        if let Ok(result) = registry.call_python_function("progress", args, py) {
+        if let Ok(result) = registry.call_python_function("progress", &args, py) {
             if let Ok(msg) = result.extract::<String>(py) {
                 results.push(msg);
             }
         }
     }
     
-    let args = PyList::new(py, &[results.len().into_py(py)]);
-    if let Ok(_) = registry.call_python_function("completed", args, py) {
+    let args = PyList::new(py, &[results.len()])?;
+    if let Ok(_) = registry.call_python_function("completed", &args, py) {
         results.push("Operation completed".to_string());
     }
     
@@ -281,7 +278,7 @@ fn try_catch(operation: PyObject, error_handler: Option<PyObject>, py: Python) -
 
 /// Enhanced Python module with Rust→Python communication
 #[pymodule]
-fn _rustorch_py(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _rustorch_py(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Basic functions
     m.add_function(wrap_pyfunction!(hello_from_rust, m)?)?;
     m.add_function(wrap_pyfunction!(add_numbers, m)?)?;
