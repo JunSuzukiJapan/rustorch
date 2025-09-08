@@ -226,8 +226,32 @@ main() {
     echo "🚀 Starting Installation / インストール開始"
     echo "==========================================="
     
-    # Run the appropriate installation command
-    eval "$install_command"
+    # Download and run the appropriate installation command
+    local script_name=$(basename "$install_command")
+    echo "📥 Downloading $script_name..."
+    
+    if curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script_name" -o "$script_name"; then
+        chmod +x "$script_name"
+        echo "✅ Downloaded $script_name successfully"
+        eval "$install_command"
+    else
+        echo "❌ Failed to download $script_name"
+        echo "🔄 Attempting alternative approach..."
+        
+        # Fallback: Try to clone the repository
+        if command -v git >/dev/null 2>&1; then
+            echo "📦 Cloning RusTorch repository..."
+            git clone https://github.com/JunSuzukiJapan/rustorch.git rustorch-temp
+            cd rustorch-temp
+            chmod +x *.sh
+            eval "$install_command"
+            cd ..
+            rm -rf rustorch-temp
+        else
+            echo "❌ Git not found. Please install git or download the repository manually."
+            exit 1
+        fi
+    fi
     
     echo ""
     echo "📦 Creating launcher script / ランチャースクリプト作成"
