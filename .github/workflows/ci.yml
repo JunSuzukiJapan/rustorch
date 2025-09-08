@@ -359,7 +359,7 @@ jobs:
           auto-push: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-          skip-fetch-gh-pages: false
+          skip-fetch-gh-pages: true
 
   # Feature-enabled benchmarks (with linalg)
   benchmark_linalg:
