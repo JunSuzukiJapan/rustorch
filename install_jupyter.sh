@@ -188,14 +188,21 @@ main() {
     echo "     GPU最適化された単一環境"
     echo ""
     
-    # Ask user for setup type
+    # Ask user for setup type (auto-select default for non-interactive mode)
     echo "Choose installation type:"
     echo "[1] Hybrid (Default - Python + Rust dual-kernel) ⭐"
     echo "[2] GPU-Optimized ($gpu_specific_strategy)"
     echo "[q] Cancel"
     echo ""
-    read -p "Select [1/2/q] (default: 1): " -n 1 -r
-    echo
+    
+    # Check if running interactively
+    if [[ -t 0 ]]; then
+        read -p "Select [1/2/q] (default: 1): " -n 1 -r
+        echo
+    else
+        echo "Non-interactive mode detected. Auto-selecting default option [1]..."
+        REPLY="1"
+    fi
     
     case $REPLY in
         1|"")
