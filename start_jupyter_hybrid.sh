@@ -151,7 +151,7 @@ if [ ! -f "download_notebooks.sh" ]; then
 fi
 
 # Download notebooks using the dedicated script
-./download_notebooks.sh notebooks
+./download_notebooks.sh all notebooks
 
 # Ensure hybrid directory exists with fallback basic notebooks
 mkdir -p notebooks/hybrid
