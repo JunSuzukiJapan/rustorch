@@ -117,7 +117,8 @@
       "Bash(pkill:*)",
       "Read(//Users/junsuzuki/**)",
       "Bash(git remote get-url:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "ask": [],

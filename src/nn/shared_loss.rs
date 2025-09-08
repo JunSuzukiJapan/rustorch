@@ -48,8 +48,8 @@ pub trait LossFunction<T> {
 pub mod shared_losses {
     use super::*;
 
-    /// MSE loss implementation for Vec<T>
-    /// Vec<T>用MSE損失実装
+    /// MSE loss implementation for `Vec<T>`
+    /// `Vec<T>`用MSE損失実装
     pub fn mse_loss_vec<T: Float>(predictions: &[T], targets: &[T]) -> Result<T, &'static str> {
         if predictions.len() != targets.len() {
             return Err("Predictions and targets must have the same length");
@@ -71,8 +71,8 @@ pub mod shared_losses {
         Ok(sum_squared_error / T::from(predictions.len()).unwrap_or(T::one()))
     }
 
-    /// MAE loss implementation for Vec<T>
-    /// Vec<T>用MAE損失実装
+    /// MAE loss implementation for `Vec<T>`
+    /// `Vec<T>`用MAE損失実装
     pub fn mae_loss_vec<T: Float>(predictions: &[T], targets: &[T]) -> Result<T, &'static str> {
         if predictions.len() != targets.len() {
             return Err("Predictions and targets must have the same length");
@@ -91,8 +91,8 @@ pub mod shared_losses {
         Ok(sum_abs_error / T::from(predictions.len()).unwrap_or(T::one()))
     }
 
-    /// Binary Cross Entropy loss implementation for Vec<T>
-    /// Vec<T>用バイナリクロスエントロピー損失実装
+    /// Binary Cross Entropy loss implementation for `Vec<T>`
+    /// `Vec<T>`用バイナリクロスエントロピー損失実装
     pub fn bce_loss_vec<T: Float>(predictions: &[T], targets: &[T]) -> Result<T, &'static str> {
         if predictions.len() != targets.len() {
             return Err("Predictions and targets must have the same length");
@@ -116,8 +116,8 @@ pub mod shared_losses {
         Ok(sum_loss / T::from(predictions.len()).unwrap_or(T::one()))
     }
 
-    /// Cross Entropy loss implementation for Vec<T>
-    /// Vec<T>用クロスエントロピー損失実装
+    /// Cross Entropy loss implementation for `Vec<T>`
+    /// `Vec<T>`用クロスエントロピー損失実装
     pub fn cross_entropy_loss_vec<T: Float>(
         log_probs: &[T],
         targets: &[T],
