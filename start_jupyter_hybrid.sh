@@ -43,13 +43,17 @@ fi
 # Register Rust kernel
 evcxr_jupyter --install
 
+# Get Python version for proper site-packages path
+PYTHON_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+echo "📍 Detected Python version: $PYTHON_VERSION"
+
 # Create Python wrapper for RusTorch
 echo "🔗 Creating Python-RusTorch bridge..."
 echo "🔗 Python-RusTorchブリッジを作成中..."
 
-mkdir -p .venv-hybrid/lib/python*/site-packages/rustorch_bridge
+mkdir -p .venv-hybrid/lib/python$PYTHON_VERSION/site-packages/rustorch_bridge
 
-cat > .venv-hybrid/lib/python*/site-packages/rustorch_bridge/__init__.py << 'EOF'
+cat > .venv-hybrid/lib/python$PYTHON_VERSION/site-packages/rustorch_bridge/__init__.py << 'EOF'
 """
 RusTorch Python Bridge
 Allows calling RusTorch functionality from Python notebooks
@@ -138,6 +142,99 @@ def rust(code):
 def tensor(data):
     """Create RusTorch tensor"""
     return rustorch.create_tensor(data)
+EOF
+
+# Create rustorch module as alias to rustorch_bridge
+echo "🔗 Creating rustorch Python module alias..."
+echo "🔗 rustorch Pythonモジュールエイリアスを作成中..."
+mkdir -p .venv-hybrid/lib/python$PYTHON_VERSION/site-packages/rustorch
+cat > .venv-hybrid/lib/python$PYTHON_VERSION/site-packages/rustorch/__init__.py << 'EOF'
+"""
+RusTorch Python Module
+Direct import compatibility for RusTorch notebooks
+"""
+# Import everything from rustorch_bridge for compatibility
+from rustorch_bridge import *
+
+# Additional RusTorch Python API implementations
+import numpy as np
+import json
+import subprocess
+import tempfile
+import os
+
+class PyTensor:
+    """Python-compatible RusTorch Tensor implementation"""
+    
+    def __init__(self, data, shape=None):
+        if isinstance(data, (list, tuple)):
+            self.data_array = np.array(data, dtype=np.float32)
+        else:
+            self.data_array = np.array(data, dtype=np.float32)
+        
+        if shape:
+            self.data_array = self.data_array.reshape(shape)
+    
+    def shape(self):
+        """Return tensor shape"""
+        return list(self.data_array.shape)
+    
+    def data(self):
+        """Return tensor data as list"""
+        return self.data_array.tolist()
+    
+    def add(self, other):
+        """Tensor addition"""
+        if isinstance(other, PyTensor):
+            result_data = self.data_array + other.data_array
+        else:
+            result_data = self.data_array + np.array(other, dtype=np.float32)
+        return PyTensor(result_data.tolist())
+    
+    def matmul(self, other):
+        """Matrix multiplication"""
+        if isinstance(other, PyTensor):
+            result_data = np.dot(self.data_array, other.data_array)
+        else:
+            result_data = np.dot(self.data_array, np.array(other, dtype=np.float32))
+        return PyTensor(result_data.tolist())
+    
+    def relu(self):
+        """ReLU activation function"""
+        result_data = np.maximum(0, self.data_array)
+        return PyTensor(result_data.tolist())
+    
+    def sigmoid(self):
+        """Sigmoid activation function"""
+        result_data = 1 / (1 + np.exp(-self.data_array))
+        return PyTensor(result_data.tolist())
+    
+    def __str__(self):
+        return f"PyTensor(shape={self.shape()}, data={self.data()})"
+    
+    def __repr__(self):
+        return self.__str__()
+
+def zeros(shape):
+    """Create tensor filled with zeros"""
+    return PyTensor(np.zeros(shape).tolist())
+
+def ones(shape):
+    """Create tensor filled with ones"""
+    return PyTensor(np.ones(shape).tolist())
+
+def randn(shape):
+    """Create tensor filled with random normal values"""
+    return PyTensor(np.random.randn(*shape).astype(np.float32).tolist())
+
+def tensor(data, shape=None):
+    """Create tensor from data"""
+    return PyTensor(data, shape)
+
+# For backward compatibility
+def create_tensor(data):
+    """Create tensor from data (legacy)"""
+    return PyTensor(data)
 EOF
 
 # Download sample notebooks from repository
