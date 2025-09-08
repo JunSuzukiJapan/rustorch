@@ -305,4 +305,4 @@ echo "🚀 Starting Jupyter Lab..."
 echo "🚀 Jupyter Labを起動中..."
 
 # Start Jupyter Lab with both kernels
-jupyter lab --port=8888 --no-browser notebooks/hybrid/
+jupyter lab --port=8888 --no-browser notebooks/

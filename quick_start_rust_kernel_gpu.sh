@@ -602,7 +602,7 @@ EOF
 echo ""
 echo "🎯 Starting Jupyter Lab with GPU-enabled Rust kernel..."
 
-jupyter lab --port=8889 --no-browser notebooks/rustorch_gpu_rust_kernel_demo.ipynb &
+jupyter lab --port=8889 --no-browser notebooks/ &
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"

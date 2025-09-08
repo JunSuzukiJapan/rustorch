@@ -68,7 +68,7 @@ case $choice in
         if check_setup "python"; then
             echo "🐍 Starting Python demo..."
             source .venv/bin/activate
-            jupyter lab --port=8888 --no-browser notebooks/rustorch_demo.ipynb
+            jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Python environment not found. Run setup first:"
             echo "   ./start_jupyter.sh"
@@ -80,7 +80,7 @@ case $choice in
             echo "⚡ Starting WebGPU demo..."
             export JUPYTER_ENABLE_UNSAFE_EXTENSION=1
             export JUPYTER_CONFIG_DIR="$(pwd)/.jupyter"
-            jupyter lab --port=8888 --no-browser --allow-root --config=.jupyter/jupyter_lab_config.py notebooks/rustorch_webgpu_demo.ipynb
+            jupyter lab --port=8888 --no-browser --allow-root --config=.jupyter/jupyter_lab_config.py notebooks/
         else
             echo "❌ WebGPU setup not found. Run setup first:"
             echo "   ./start_jupyter_webgpu.sh"
@@ -90,7 +90,7 @@ case $choice in
     3)
         if check_setup "rust"; then
             echo "🦀 Starting Rust kernel demo..."
-            jupyter lab --port=8888 --no-browser notebooks/rustorch_rust_kernel_demo.ipynb
+            jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Rust kernel not found. Run setup first:"
             echo "   ./quick_start_rust_kernel.sh"
@@ -101,7 +101,7 @@ case $choice in
         if check_setup "hybrid"; then
             echo "🦀🐍 Starting Hybrid demo..."
             source .venv-hybrid/bin/activate
-            jupyter lab --port=8888 --no-browser notebooks/hybrid/
+            jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Hybrid environment not found. Run setup first:"
             echo "   ./start_jupyter_hybrid.sh"

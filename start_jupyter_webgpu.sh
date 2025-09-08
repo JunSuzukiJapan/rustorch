@@ -291,7 +291,7 @@ echo "🎯 Opening WebGPU demo notebook at http://localhost:8888"
 echo "WebGPUデモノートブックを http://localhost:8888 で開きます"
 
 # Launch with WebGPU demo
-jupyter lab --port=8888 --no-browser --allow-root --config=.jupyter/jupyter_lab_config.py notebooks/rustorch_webgpu_demo.ipynb
+jupyter lab --port=8888 --no-browser --allow-root --config=.jupyter/jupyter_lab_config.py notebooks/
 
 echo "✅ Jupyter Lab with WebGPU support started successfully!"
 echo "✅ WebGPU対応Jupyter Labが正常に起動しました！"

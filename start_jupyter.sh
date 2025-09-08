@@ -44,4 +44,4 @@ if [ ! -f "notebooks/rustorch_demo.ipynb" ]; then
 fi
 
 # Launch Jupyter Lab with demo notebook
-jupyter lab --port=8888 --no-browser notebooks/rustorch_demo.ipynb
+jupyter lab --port=8888 --no-browser notebooks/

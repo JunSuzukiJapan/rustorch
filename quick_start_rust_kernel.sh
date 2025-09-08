@@ -433,7 +433,7 @@ EOF
 echo ""
 echo "🎯 Starting Jupyter Lab with Rust kernel..."
 
-jupyter lab --port=8888 --no-browser notebooks/rustorch_rust_kernel_demo.ipynb
+jupyter lab --port=8888 --no-browser notebooks/
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
