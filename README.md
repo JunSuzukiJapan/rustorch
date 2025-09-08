@@ -56,17 +56,21 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 ### 📓 Interactive Jupyter Demos
 
+- **インストール (Install)**
 ```bash
-# 1. Install / インストール
 curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
-
-# 2. Launch / 起動  
-rustorch-jupyter          # Global command / グローバルコマンド
-# または / or
-./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
-
-# 3. Start coding! / コーディング開始！
 ```
+
+- **起動 (Launch)**
+```bash
+rustorch-jupyter          # Global command / グローバルコマンド
+```
+**あるいは (OR)**
+```bash
+./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
+```
+
+- **コーディング開始！(Start coding!)**
 
 **🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
 **🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
