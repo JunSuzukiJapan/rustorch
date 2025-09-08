@@ -18,6 +18,7 @@
 | 🇰🇷 [한국어](docs/ko/README.md) | [📖 메인](docs/ko/README.md) | [📓 Jupyter](docs/ko/jupyter-guide.md) |
 | 🇩🇪 [Deutsch](docs/de/README.md) | [📖 Hauptseite](docs/de/README.md) | [📓 Jupyter](docs/de/jupyter-guide.md) |
 | 🇷🇺 [Русский](docs/ru/README.md) | [📖 Основной](docs/ru/README.md) | [📓 Jupyter](docs/ru/jupyter-guide.md) |
+| 🇵🇹 [Português](docs/pt/README.md) | [📖 Principal](docs/pt/README.md) | [📓 Jupyter](docs/pt/jupyter-guide.md) |
 
 ---
 
