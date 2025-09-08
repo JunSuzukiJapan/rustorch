@@ -95,7 +95,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-rustorch = "0.6.1"
+rustorch = "0.6.13"
 
 # Optional features
 [features]
@@ -110,7 +110,7 @@ wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML
 webgpu = ["rustorch/webgpu"]            # Chrome-optimized WebGPU acceleration
 
 # To disable linalg features (avoid OpenBLAS/LAPACK dependencies):
-rustorch = { version = "0.6.1", default-features = false }
+rustorch = { version = "0.6.13", default-features = false }
 ```
 
 ### Basic Usage
