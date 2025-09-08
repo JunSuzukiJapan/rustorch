@@ -348,6 +348,15 @@ jobs:
           git clean -fd -e benchmark-results/ || true
         shell: bash
 
+      - name: Setup git for benchmark action
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config --global user.name "github-action-benchmark"
+          git config --global user.email "github@users.noreply.github.com"
+          # Fetch the gh-pages branch if it exists, or prepare to create it
+          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages && git rm -rf . && git checkout main
+        shell: bash
+
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         if: github.ref == 'refs/heads/main'
@@ -359,7 +368,13 @@ jobs:
           auto-push: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-          skip-fetch-gh-pages: true
+          skip-fetch-gh-pages: false
+          comment-always: false
+          summary-always: false
+          save-data-file: true
+          comment-on-alert: false
+          alert-threshold: 200%
+          fail-on-alert: false
 
   # Feature-enabled benchmarks (with linalg)
   benchmark_linalg:
