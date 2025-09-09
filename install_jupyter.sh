@@ -431,13 +431,23 @@ main() {
         
         # Now run the installer from the permanent location
         cd "$rustorch_home/rustorch"
-        cp "$OLDPWD/$script_name" .
+        
+        # Only copy if the file doesn't already exist or is different
+        if [[ ! -f "./$script_name" ]] || ! cmp -s "$OLDPWD/$script_name" "./$script_name"; then
+            cp "$OLDPWD/$script_name" .
+        fi
+        
         eval "./$script_name"
         project_dir="$rustorch_home/rustorch"
+        
+        # Store the original download location for cleanup
+        original_script_path="$OLDPWD/$script_name"
         cd - > /dev/null
         
-        # Clean up downloaded script from original location
-        rm -f "$script_name"
+        # Clean up downloaded script from original location (only if it's different from permanent location)
+        if [[ -f "$script_name" ]] && [[ "$PWD/$script_name" != "$rustorch_home/rustorch/$script_name" ]]; then
+            rm -f "$script_name"
+        fi
     else
         echo "❌ Failed to download $script_name"
         echo "🔄 Attempting alternative approach..."
