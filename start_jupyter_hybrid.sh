@@ -14,9 +14,21 @@ if [ ! -d ".venv-hybrid" ]; then
     echo "📦 Creating Python virtual environment..."
     echo "📦 Python仮想環境を作成中..."
     python3 -m venv .venv-hybrid
+    
+    # Verify creation was successful
+    if [ ! -f ".venv-hybrid/bin/activate" ]; then
+        echo "❌ Failed to create virtual environment"
+        echo "❌ 仮想環境の作成に失敗しました"
+        exit 1
+    fi
+else
+    echo "✅ Using existing virtual environment"
+    echo "✅ 既存の仮想環境を使用"
 fi
 
 # Activate virtual environment
+echo "🔌 Activating Python virtual environment..."
+echo "🔌 Python仮想環境をアクティベート中..."
 source .venv-hybrid/bin/activate
 
 # Upgrade pip and install base packages
