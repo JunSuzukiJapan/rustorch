@@ -423,7 +423,7 @@ main() {
             cd "$rustorch_home/rustorch"
             
             # Download all necessary scripts
-            for script in "start_jupyter_quick.sh" "download_notebooks.sh"; do
+            for script in "start_jupyter_quick.sh" "start_jupyter_hybrid.sh" "download_notebooks.sh"; do
                 curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script" -o "$script" || echo "Warning: Could not download $script"
                 chmod +x "$script" 2>/dev/null || true
             done

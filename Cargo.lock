@@ -2454,7 +2454,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.6.13"
+version = "0.6.15"
 dependencies = [
  "anyhow",
  "approx",
