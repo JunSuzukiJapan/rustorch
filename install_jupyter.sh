@@ -432,9 +432,13 @@ main() {
         # Now run the installer from the permanent location
         cd "$rustorch_home/rustorch"
         
-        # Only copy if the file doesn't already exist or is different
-        if [[ ! -f "./$script_name" ]] || ! cmp -s "$OLDPWD/$script_name" "./$script_name"; then
-            cp "$OLDPWD/$script_name" .
+        # Copy script safely, avoiding 'same file' errors
+        if [[ ! -f "./$script_name" ]]; then
+            cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Script already available"
+        elif ! cmp -s "$OLDPWD/$script_name" "./$script_name" 2>/dev/null; then
+            cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Using existing script"
+        else
+            echo "✅ Script already exists and is up to date"
         fi
         
         eval "./$script_name"
