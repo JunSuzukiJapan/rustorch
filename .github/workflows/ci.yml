@@ -175,7 +175,8 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            pkg-config
+            pkg-config \
+            gfortran
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -254,7 +255,13 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            pkg-config
+            pkg-config \
+            gfortran
+          # Verify libraries are properly installed
+          ldconfig -p | grep -E "(lapack|blas)" || echo "Warning: Libraries may not be in cache"
+          # Create symlinks if needed for standard library names
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/libblas.so || true
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/liblapack.so || true
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -393,7 +400,13 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            pkg-config
+            pkg-config \
+            gfortran
+          # Verify libraries are properly installed
+          ldconfig -p | grep -E "(lapack|blas)" || echo "Warning: Libraries may not be in cache"
+          # Create symlinks if needed for standard library names
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/libblas.so || true
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/liblapack.so || true
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -487,7 +500,8 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            pkg-config
+            pkg-config \
+            gfortran
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -525,7 +539,8 @@ jobs:
             libopenblas-dev \
             liblapack-dev \
             libblas-dev \
-            pkg-config
+            pkg-config \
+            gfortran
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
