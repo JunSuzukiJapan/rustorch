@@ -360,8 +360,6 @@ jobs:
         run: |
           git config --global user.name "github-action-benchmark"
           git config --global user.email "github@users.noreply.github.com"
-          # Fetch the gh-pages branch if it exists, or prepare to create it
-          git fetch origin gh-pages:gh-pages || git checkout --orphan gh-pages && git rm -rf . && git checkout main
         shell: bash
 
       - name: Store benchmark results
@@ -375,7 +373,7 @@ jobs:
           auto-push: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-          skip-fetch-gh-pages: false
+          skip-fetch-gh-pages: true
           comment-always: false
           summary-always: false
           save-data-file: true
