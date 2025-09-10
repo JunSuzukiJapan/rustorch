@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757482571304,
+  "lastUpdate": 1757498061306,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -28,6 +28,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30041,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "b5ad8d12eead070bea8cdc933dd9f716a58432cd",
+          "message": "fix: add missing BLAS/LAPACK dependencies in nightly workflow\n\n- Install libopenblas-dev, liblapack-dev, libblas-dev for linalg-system feature\n- Add library verification and symlink creation\n- Set proper PKG_CONFIG_PATH and LD_LIBRARY_PATH environment variables\n- Fix 'cannot find -llapack: No such file or directory' linker error\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-10T18:53:14+09:00",
+          "tree_id": "03fd6c0a1848276acffb88ade9f5838d9c71a398",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/b5ad8d12eead070bea8cdc933dd9f716a58432cd"
+        },
+        "date": 1757498060401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30011,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
