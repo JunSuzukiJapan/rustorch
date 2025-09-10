@@ -400,86 +400,80 @@ main() {
     
     # Set up working directory and track project path
     local project_dir=""
-    local script_name=$(basename "$install_command")
-    echo "📥 Downloading $script_name..."
+    local rustorch_home="$HOME/.rustorch"
+    mkdir -p "$rustorch_home"
     
-    if curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script_name" -o "$script_name"; then
-        chmod +x "$script_name"
-        echo "✅ Downloaded $script_name successfully"
+    # Primary approach: Clone the complete repository
+    if command -v git >/dev/null 2>&1; then
+        echo "📦 Setting up complete RusTorch project..."
         
-        # Create a permanent location for the RusTorch project
-        local rustorch_home="$HOME/.rustorch"
-        mkdir -p "$rustorch_home"
-        
-        # Use script download method but in permanent location
         if [[ -d "$rustorch_home/rustorch" ]]; then
             echo "🔄 Updating existing RusTorch installation..."
             cd "$rustorch_home/rustorch"
-            git pull 2>/dev/null || echo "Note: Could not update via git, using downloaded script"
+            git pull
         else
-            # Download other necessary files to create a working installation
-            echo "📦 Setting up RusTorch installation in $rustorch_home..."
-            mkdir -p "$rustorch_home/rustorch"
-            cd "$rustorch_home/rustorch"
-            
-            # Download all necessary scripts
-            for script in "start_jupyter_quick.sh" "start_jupyter_hybrid.sh" "download_notebooks.sh"; do
-                curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script" -o "$script" || echo "Warning: Could not download $script"
-                chmod +x "$script" 2>/dev/null || true
-            done
+            echo "📥 Cloning RusTorch repository..."
+            cd "$rustorch_home"
+            git clone https://github.com/JunSuzukiJapan/rustorch.git
+            cd rustorch
         fi
         
-        # Now run the installer from the permanent location
-        cd "$rustorch_home/rustorch"
-        
-        # Copy script safely, avoiding 'same file' errors
-        if [[ ! -f "./$script_name" ]]; then
-            cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Script already available"
-        elif ! cmp -s "$OLDPWD/$script_name" "./$script_name" 2>/dev/null; then
-            cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Using existing script"
-        else
-            echo "✅ Script already exists and is up to date"
-        fi
-        
-        eval "./$script_name"
+        chmod +x *.sh
+        eval "$install_command"
         project_dir="$rustorch_home/rustorch"
-        
-        # Store the original download location for cleanup
-        original_script_path="$OLDPWD/$script_name"
         cd - > /dev/null
-        
-        # Clean up downloaded script from original location (only if it's different from permanent location)
-        if [[ -f "$script_name" ]] && [[ "$PWD/$script_name" != "$rustorch_home/rustorch/$script_name" ]]; then
-            rm -f "$script_name"
-        fi
     else
-        echo "❌ Failed to download $script_name"
-        echo "🔄 Attempting alternative approach..."
+        echo "⚠️  Git not found. Using fallback approach..."
+        echo "🔄 Attempting script download method..."
         
-        # Fallback: Try to clone the repository
-        if command -v git >/dev/null 2>&1; then
-            echo "📦 Cloning RusTorch repository..."
+        # Fallback: Download essential files individually
+        local script_name=$(basename "$install_command")
+        echo "📥 Downloading $script_name..."
+        
+        if curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script_name" -o "$script_name"; then
+            chmod +x "$script_name"
+            echo "✅ Downloaded $script_name successfully"
             
-            # Create a permanent location for the RusTorch project
-            local rustorch_home="$HOME/.rustorch"
-            mkdir -p "$rustorch_home"
-            
+            # Create installation directory and download essential files
             if [[ -d "$rustorch_home/rustorch" ]]; then
-                echo "🔄 Updating existing RusTorch installation..."
+                echo "🔄 Updating existing installation..."
                 cd "$rustorch_home/rustorch"
-                git pull
             else
-                cd "$rustorch_home"
-                git clone https://github.com/JunSuzukiJapan/rustorch.git
-                cd rustorch
+                echo "📦 Setting up RusTorch installation in $rustorch_home..."
+                mkdir -p "$rustorch_home/rustorch"
+                cd "$rustorch_home/rustorch"
+                
+                # Download essential project files
+                echo "📥 Downloading essential project files..."
+                curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/Cargo.toml" -o "Cargo.toml" || echo "Warning: Could not download Cargo.toml"
+                
+                # Download all necessary scripts
+                for script in "start_jupyter_quick.sh" "start_jupyter_hybrid.sh" "download_notebooks.sh"; do
+                    curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script" -o "$script" || echo "Warning: Could not download $script"
+                    chmod +x "$script" 2>/dev/null || true
+                done
             fi
             
-            chmod +x *.sh
-            eval "$install_command"
+            # Copy and run installer script
+            if [[ ! -f "./$script_name" ]]; then
+                cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Script already available"
+            elif ! cmp -s "$OLDPWD/$script_name" "./$script_name" 2>/dev/null; then
+                cp "$OLDPWD/$script_name" . 2>/dev/null || echo "Note: Using existing script"
+            else
+                echo "✅ Script already exists and is up to date"
+            fi
+            
+            eval "./$script_name"
             project_dir="$rustorch_home/rustorch"
             cd - > /dev/null
+            
+            # Clean up
+            if [[ -f "$script_name" ]] && [[ "$PWD/$script_name" != "$rustorch_home/rustorch/$script_name" ]]; then
+                rm -f "$script_name"
+            fi
         else
-            echo "❌ Git not found. Please install git or download the repository manually."
+            echo "❌ Failed to download $script_name"
+            echo "❌ Both git and curl approaches failed. Please install git or check your internet connection."
             exit 1
         fi
     fi
