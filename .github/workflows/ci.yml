@@ -373,7 +373,7 @@ jobs:
           auto-push: true
           gh-pages-branch: gh-pages
           benchmark-data-dir-path: dev/bench
-          skip-fetch-gh-pages: true
+          skip-fetch-gh-pages: false
           comment-always: false
           summary-always: false
           save-data-file: true
