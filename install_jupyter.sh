@@ -408,9 +408,18 @@ main() {
         echo "📦 Setting up complete RusTorch project..."
         
         if [[ -d "$rustorch_home/rustorch" ]]; then
-            echo "🔄 Updating existing RusTorch installation..."
-            cd "$rustorch_home/rustorch"
-            git pull
+            # Check if it's a valid git repository
+            if [[ -d "$rustorch_home/rustorch/.git" ]]; then
+                echo "🔄 Updating existing RusTorch installation..."
+                cd "$rustorch_home/rustorch"
+                git pull
+            else
+                echo "🔄 Existing directory is not a git repository. Recreating..."
+                rm -rf "$rustorch_home/rustorch"
+                cd "$rustorch_home"
+                git clone https://github.com/JunSuzukiJapan/rustorch.git
+                cd rustorch
+            fi
         else
             echo "📥 Cloning RusTorch repository..."
             cd "$rustorch_home"
