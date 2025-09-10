@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["PlotFormat"],"fn":["create_dashboard","export_format","generate_filename","resize_svg","save_plot","wrap_in_html"],"struct":["ColorPalette","PlotStatistics"]};

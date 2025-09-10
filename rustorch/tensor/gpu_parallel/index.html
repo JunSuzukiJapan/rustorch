@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="GPU-Integrated Parallel Tensor Operations"><title>rustorch::tensor::gpu_parallel - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module gpu_<wbr>parallel</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#gpu-integrated-parallel-tensor-operations" title="GPU-Integrated Parallel Tensor Operations">GPU-Integrated Parallel Tensor Operations</a><ul><li><a href="#overview" title="Overview">Overview</a></li><li><a href="#supported-gpu-backends" title="Supported GPU Backends">Supported GPU Backends</a></li><li><a href="#key-features" title="Key Features">Key Features</a></li><li><a href="#usage-examples" title="Usage Examples">Usage Examples</a></li><li><a href="#performance-optimization" title="Performance Optimization">Performance Optimization</a></li><li><a href="#error-handling-and-fallback" title="Error Handling and Fallback">Error Handling and Fallback</a></li><li><a href="#feature-flags" title="Feature Flags">Feature Flags</a></li></ul></li></ul><h3><a href="#modules">Module Items</a></h3><ul class="block"><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#traits" title="Traits">Traits</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rustorch::<wbr>tensor</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">rustorch</a>::<wbr><a href="../index.html">tensor</a></div><h1>Module <span>gpu_parallel</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/rustorch/tensor/gpu_parallel.rs.html#1-1103">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="gpu-integrated-parallel-tensor-operations"><a class="doc-anchor" href="#gpu-integrated-parallel-tensor-operations">§</a>GPU-Integrated Parallel Tensor Operations</h2>
+<p>GPU統合並列テンソル操作</p>
+<p>This module provides seamless GPU acceleration for parallel tensor operations,
+combining the power of CUDA, Metal, and OpenCL with intelligent fallback to
+CPU parallelism when GPU resources are unavailable.</p>
+<h3 id="overview"><a class="doc-anchor" href="#overview">§</a>Overview</h3>
+<p>The GPU parallel system extends the core parallel traits with GPU acceleration:</p>
+<ul>
+<li><a href="trait.GpuParallelOp.html" title="trait rustorch::tensor::gpu_parallel::GpuParallelOp"><code>GpuParallelOp</code></a>: GPU-accelerated parallel operations</li>
+<li><a href="trait.GpuBatchParallelOp.html" title="trait rustorch::tensor::gpu_parallel::GpuBatchParallelOp"><code>GpuBatchParallelOp</code></a>: GPU batch processing operations</li>
+<li><a href="enum.GpuExecutionStrategy.html" title="enum rustorch::tensor::gpu_parallel::GpuExecutionStrategy"><code>GpuExecutionStrategy</code></a>: Configurable GPU execution strategies</li>
+<li><code>DeviceSelection</code>: Intelligent device selection utilities</li>
+</ul>
+<h3 id="supported-gpu-backends"><a class="doc-anchor" href="#supported-gpu-backends">§</a>Supported GPU Backends</h3>
+<ul>
+<li><strong>CUDA</strong>: NVIDIA GPU acceleration with cuBLAS/cuDNN integration</li>
+<li><strong>Metal</strong>: Apple Silicon GPU acceleration with Metal Performance Shaders</li>
+<li><strong>OpenCL</strong>: Cross-platform GPU acceleration for AMD/Intel/NVIDIA</li>
+</ul>
+<h3 id="key-features"><a class="doc-anchor" href="#key-features">§</a>Key Features</h3>
+<ul>
+<li><strong>Automatic Device Selection</strong>: Chooses optimal GPU device based on workload</li>
+<li><strong>Intelligent Fallback</strong>: Seamlessly falls back to CPU when GPU unavailable</li>
+<li><strong>Memory Management</strong>: Efficient GPU-CPU data transfer with minimal overhead</li>
+<li><strong>Batch Optimization</strong>: Specialized batch operations for neural network training</li>
+<li><strong>Error Recovery</strong>: Robust error handling with automatic fallback strategies</li>
+</ul>
+<h3 id="usage-examples"><a class="doc-anchor" href="#usage-examples">§</a>Usage Examples</h3><h4 id="basic-gpu-operations"><a class="doc-anchor" href="#basic-gpu-operations">§</a>Basic GPU Operations</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::{Tensor, gpu_parallel::<span class="kw-2">*</span>};
+<span class="kw">use </span>rustorch::gpu::DeviceType;
+
+<span class="kw">let </span>tensor1 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">1000</span>, <span class="number">1000</span>]);
+<span class="kw">let </span>tensor2 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">1000</span>, <span class="number">1000</span>]);
+
+<span class="comment">// GPU-accelerated element-wise operations
+</span><span class="kw">let </span>result = tensor1.gpu_elementwise_op(<span class="kw-2">&amp;</span>tensor2, |a, b| a + b)<span class="question-mark">?</span>;
+
+<span class="comment">// Basic tensor operations (GPU-accelerated when available)
+</span><span class="macro">println!</span>(<span class="string">"GPU operations completed successfully"</span>);</code></pre></div>
+<h4 id="device-management"><a class="doc-anchor" href="#device-management">§</a>Device Management</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::{Tensor, gpu_parallel::<span class="kw-2">*</span>};
+<span class="kw">use </span>rustorch::gpu::DeviceType;
+
+<span class="kw">let </span>tensor = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">1000</span>, <span class="number">1000</span>]);
+
+<span class="comment">// Perform GPU-accelerated operations (with CPU fallback)
+</span><span class="kw">let </span>result = tensor.gpu_elementwise_op(<span class="kw-2">&amp;</span>tensor, |a, b| a * <span class="number">2.0</span>)<span class="question-mark">?</span>;
+<span class="macro">println!</span>(<span class="string">"GPU operation completed: {:?}"</span>, result.shape());</code></pre></div>
+<h4 id="batch-gpu-operations"><a class="doc-anchor" href="#batch-gpu-operations">§</a>Batch GPU Operations</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::{Tensor, gpu_parallel::<span class="kw-2">*</span>};
+
+<span class="kw">let </span>batch_tensor1 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>]);  <span class="comment">// Small batch for testing
+</span><span class="kw">let </span>batch_tensor2 = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">4</span>]);
+
+<span class="comment">// GPU batch matrix multiplication
+</span><span class="kw">let </span>batch_result = batch_tensor1.gpu_batch_matmul(<span class="kw-2">&amp;</span>batch_tensor2)<span class="question-mark">?</span>;
+
+<span class="comment">// GPU batch normalization
+</span><span class="kw">let </span>normalized = batch_tensor1.gpu_batch_normalize(<span class="number">1e-5</span>)<span class="question-mark">?</span>;
+
+<span class="comment">// GPU batch convolution (placeholder for future implementation)
+// let conv_result = batch_tensor1.gpu_batch_conv2d(&amp;kernel, &amp;bias)?;</span></code></pre></div>
+<h4 id="execution-strategy-configuration"><a class="doc-anchor" href="#execution-strategy-configuration">§</a>Execution Strategy Configuration</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::gpu_parallel::<span class="kw-2">*</span>;
+
+<span class="comment">// Configure GPU execution strategy
+</span><span class="kw">let </span>strategy = GpuParallelStrategy::GpuPreferred;
+
+<span class="comment">// Use strategy for operations
+</span><span class="macro">println!</span>(<span class="string">"Using strategy: {:?}"</span>, strategy);
+</code></pre></div>
+<h3 id="performance-optimization"><a class="doc-anchor" href="#performance-optimization">§</a>Performance Optimization</h3>
+<ul>
+<li><strong>Memory Coalescing</strong>: Optimized memory access patterns for GPU efficiency</li>
+<li><strong>Kernel Fusion</strong>: Multiple operations fused into single GPU kernels</li>
+<li><strong>Asynchronous Execution</strong>: Non-blocking GPU operations with CPU overlap</li>
+<li><strong>Memory Pooling</strong>: Efficient GPU memory allocation and reuse</li>
+</ul>
+<h3 id="error-handling-and-fallback"><a class="doc-anchor" href="#error-handling-and-fallback">§</a>Error Handling and Fallback</h3>
+<p>The GPU parallel system provides robust error handling with automatic fallback:</p>
+<ul>
+<li><strong>Device Unavailable</strong>: Automatically falls back to CPU parallel execution</li>
+<li><strong>Memory Exhausted</strong>: Attempts smaller batch sizes or CPU fallback</li>
+<li><strong>Kernel Failures</strong>: Logs errors and uses CPU implementation</li>
+<li><strong>Driver Issues</strong>: Graceful degradation to CPU-only mode</li>
+</ul>
+<h3 id="feature-flags"><a class="doc-anchor" href="#feature-flags">§</a>Feature Flags</h3>
+<p>GPU backends are enabled through Cargo feature flags:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+rustorch = { version = &quot;0.1&quot;, features = [&quot;cuda&quot;, &quot;metal&quot;, &quot;opencl&quot;] }</code></pre></div>
+<ul>
+<li><code>cuda</code>: Enable NVIDIA CUDA support</li>
+<li><code>metal</code>: Enable Apple Metal support</li>
+<li><code>opencl</code>: Enable OpenCL support</li>
+<li><code>opengl</code>: Enable OpenGL support</li>
+</ul>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="gpu_parallel_utils/index.html" title="mod rustorch::tensor::gpu_parallel::gpu_parallel_utils">gpu_<wbr>parallel_<wbr>utils</a></dt><dd>GPU並列操作のユーティリティ
+Utilities for GPU parallel operations</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.GpuParallelConfig.html" title="struct rustorch::tensor::gpu_parallel::GpuParallelConfig">GpuParallel<wbr>Config</a></dt><dd>GPU並列設定
+GPU parallel configuration</dd><dt><a class="struct" href="struct.GpuParallelContext.html" title="struct rustorch::tensor::gpu_parallel::GpuParallelContext">GpuParallel<wbr>Context</a></dt><dd>GPU並列コンテキスト
+GPU parallel context</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.GpuExecutionStrategy.html" title="enum rustorch::tensor::gpu_parallel::GpuExecutionStrategy">GpuExecution<wbr>Strategy</a></dt><dd>GPU execution strategy for operations</dd><dt><a class="enum" href="enum.GpuParallelStrategy.html" title="enum rustorch::tensor::gpu_parallel::GpuParallelStrategy">GpuParallel<wbr>Strategy</a></dt><dd>GPU並列実行戦略
+GPU parallel execution strategy</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.GpuBatchParallelOp.html" title="trait rustorch::tensor::gpu_parallel::GpuBatchParallelOp">GpuBatch<wbr>Parallel<wbr>Op</a></dt><dd>GPU並列バッチ操作
+GPU parallel batch operations</dd><dt><a class="trait" href="trait.GpuParallelOp.html" title="trait rustorch::tensor::gpu_parallel::GpuParallelOp">GpuParallel<wbr>Op</a></dt><dd>GPU並列操作のトレイト
+Trait for GPU parallel operations</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.current_device.html" title="fn rustorch::tensor::gpu_parallel::current_device">current_<wbr>device</a></dt><dd>Get current device</dd><dt><a class="fn" href="fn.select_optimal_device.html" title="fn rustorch::tensor::gpu_parallel::select_optimal_device">select_<wbr>optimal_<wbr>device</a></dt><dd>Select optimal device for given tensor shape</dd></dl></section></div></main></body></html>

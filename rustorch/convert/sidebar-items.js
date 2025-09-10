@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["model_parser","parser","pytorch_to_rustorch_simplified"]};

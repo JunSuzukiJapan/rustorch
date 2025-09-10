@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Keras風のSequential API Keras-like Sequential API Keras風のSequential API Keras-like Sequential API"><title>rustorch::models::sequential - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module sequential</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#使用例" title="使用例">使用例</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In rustorch::<wbr>models</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">rustorch</a>::<wbr><a href="../index.html">models</a></div><h1>Module <span>sequential</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/rustorch/models/sequential.rs.html#1-568">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Keras風のSequential API
+Keras-like Sequential API
+Keras風のSequential API
+Keras-like Sequential API</p>
+<p>このモジュールは、レイヤーを順次積み重ねてニューラルネットワークを
+構築するためのシンプルで直感的なAPIを提供します。</p>
+<h3 id="使用例"><a class="doc-anchor" href="#使用例">§</a>使用例</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::models::sequential::Sequential;
+<span class="kw">use </span>rustorch::nn::{Linear, ReLU, Dropout};
+<span class="kw">use </span>rustorch::optim::Adam;
+<span class="kw">use </span>rustorch::nn::loss::CrossEntropyLoss;
+
+<span class="kw">let </span><span class="kw-2">mut </span>model = Sequential::new()
+    .add(Linear::new(<span class="number">784</span>, <span class="number">128</span>))
+    .add(ReLU::new())
+    .add(Dropout::new(<span class="number">0.2</span>, <span class="bool-val">false</span>))
+    .add(Linear::new(<span class="number">128</span>, <span class="number">64</span>))
+    .add(ReLU::new())
+    .add(Linear::new(<span class="number">64</span>, <span class="number">10</span>));
+
+<span class="comment">// モデルのコンパイル
+</span>model.compile(
+    Adam::default_params(<span class="number">0.001</span>),
+    CrossEntropyLoss::new(),
+    <span class="macro">vec!</span>[<span class="string">"accuracy"</span>.to_string()]
+);
+
+<span class="comment">// 訓練（実際の実装では DataLoader を使用）
+// model.fit(train_data, validation_data, epochs, batch_size, verbose);</span></code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Sequential.html" title="struct rustorch::models::sequential::Sequential">Sequential</a></dt><dd>Sequential APIの中核となるモデルクラス
+Core model class for Sequential API</dd><dt><a class="struct" href="struct.SequentialBuilder.html" title="struct rustorch::models::sequential::SequentialBuilder">Sequential<wbr>Builder</a></dt><dd>Sequential モデルのビルダー
+Sequential model builder</dd></dl></section></div></main></body></html>

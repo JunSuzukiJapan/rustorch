@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["benchmark_metal_performance","test_metal_gpu_basic","test_metal_tensor_operations"]};

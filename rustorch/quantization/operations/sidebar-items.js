@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["qconv1d","qlinear"],"trait":["DequantizeOps","QuantizedOps"]};

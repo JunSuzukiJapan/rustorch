@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["bessel","error","gamma","utils"],"trait":["SpecialFunctions"]};

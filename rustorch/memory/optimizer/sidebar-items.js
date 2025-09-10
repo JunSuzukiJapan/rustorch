@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OptimizationStrategy","PatternType"],"struct":["CacheEntry","LifecycleCharacteristics","MemoryOptimizer","MemoryPrediction","MemoryUsageSnapshot","OptimizationStats","OptimizerConfig","UsagePattern"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AdamConfig","AdamState","AdamUtils","GenericAdamOptimizer"],"trait":["AdamVariant"]};

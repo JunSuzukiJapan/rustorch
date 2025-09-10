@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CalibrationMode","QuantizationType"],"struct":["QuantizationAwareModule","QuantizationParams","QuantizedTensor","Quantizer"]};

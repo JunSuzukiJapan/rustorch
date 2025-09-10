@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["CheckpointInfo","CheckpointManager","CheckpointMetadata","CheckpointStatistics","SaveConfig"]};

@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Quantization support for model compression and acceleration (Phase 11) モデル圧縮・高速化のための量子化サポート（フェーズ11） Quantization support for RusTorch - Phase 11 Implementation RusTorch用量子化サポート - フェーズ11実装"><title>rustorch::quantization - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module quantization</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#key-features" title="Key Features">Key Features</a><ul><li><a href="#dynamic-quantization" title="Dynamic Quantization">Dynamic Quantization</a></li><li><a href="#static-quantization" title="Static Quantization">Static Quantization</a></li><li><a href="#quantization-aware-training-qat" title="Quantization-Aware Training (QAT)">Quantization-Aware Training (QAT)</a></li><li><a href="#hardware-optimization" title="Hardware Optimization">Hardware Optimization</a></li></ul></li><li><a href="#quantization-schemes" title="Quantization Schemes">Quantization Schemes</a><ul><li><a href="#symmetric-quantization" title="Symmetric Quantization">Symmetric Quantization</a></li><li><a href="#asymmetric-quantization" title="Asymmetric Quantization">Asymmetric Quantization</a></li></ul></li><li><a href="#usage-examples" title="Usage Examples">Usage Examples</a></li></ul><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate rustorch</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">rustorch</a></div><h1>Module <span>quantization</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/rustorch/quantization/mod.rs.html#1-429">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Quantization support for model compression and acceleration (Phase 11)
+モデル圧縮・高速化のための量子化サポート（フェーズ11）
+Quantization support for RusTorch - Phase 11 Implementation
+RusTorch用量子化サポート - フェーズ11実装</p>
+<p>This module provides comprehensive quantization support for deep learning models,
+enabling efficient inference and training with reduced precision arithmetic.</p>
+<p>このモジュールは深層学習モデルの包括的な量子化サポートを提供し、
+精度を下げた算術演算による効率的な推論と学習を可能にします。</p>
+<h3 id="key-features"><a class="doc-anchor" href="#key-features">§</a>Key Features</h3><h4 id="dynamic-quantization"><a class="doc-anchor" href="#dynamic-quantization">§</a>Dynamic Quantization</h4>
+<ul>
+<li>Runtime quantization of weights and activations</li>
+<li>Automatic calibration using statistical observers</li>
+<li>Per-tensor and per-channel quantization schemes</li>
+</ul>
+<h4 id="static-quantization"><a class="doc-anchor" href="#static-quantization">§</a>Static Quantization</h4>
+<ul>
+<li>Pre-calibrated quantization parameters</li>
+<li>Optimal for deployment scenarios</li>
+<li>Hardware-accelerated operations</li>
+</ul>
+<h4 id="quantization-aware-training-qat"><a class="doc-anchor" href="#quantization-aware-training-qat">§</a>Quantization-Aware Training (QAT)</h4>
+<ul>
+<li>Training with quantization simulation</li>
+<li>Straight-through estimators for gradients</li>
+<li>Fine-tuning of quantized models</li>
+</ul>
+<h4 id="hardware-optimization"><a class="doc-anchor" href="#hardware-optimization">§</a>Hardware Optimization</h4>
+<ul>
+<li>CPU SIMD optimizations for quantized operations</li>
+<li>CUDA kernels for GPU acceleration</li>
+<li>Metal Performance Shaders for Apple Silicon</li>
+</ul>
+<h3 id="quantization-schemes"><a class="doc-anchor" href="#quantization-schemes">§</a>Quantization Schemes</h3><h4 id="symmetric-quantization"><a class="doc-anchor" href="#symmetric-quantization">§</a>Symmetric Quantization</h4><div class="example-wrap"><pre class="language-text"><code>quantized = round(fp32_value / scale) + zero_point
+dequantized = (quantized - zero_point) * scale</code></pre></div><h4 id="asymmetric-quantization"><a class="doc-anchor" href="#asymmetric-quantization">§</a>Asymmetric Quantization</h4><div class="example-wrap"><pre class="language-text"><code>quantized = round(fp32_value / scale)
+dequantized = quantized * scale  </code></pre></div><h3 id="usage-examples"><a class="doc-anchor" href="#usage-examples">§</a>Usage Examples</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::quantization::{QuantizedTensor, QuantizationScheme, StaticQuantizer, TensorQuantization};
+<span class="kw">use </span>rustorch::tensor::Tensor;
+<span class="comment">// Dynamic quantization
+</span><span class="kw">let </span>tensor: Tensor&lt;f32&gt; = Tensor::randn(<span class="kw-2">&amp;</span>[<span class="number">128</span>, <span class="number">256</span>]);
+<span class="kw">let </span>quantized = tensor.quantize_dynamic(QuantizationScheme::Symmetric)<span class="question-mark">?</span>;
+
+<span class="comment">// Static quantization with calibration
+</span><span class="kw">let </span><span class="kw-2">mut </span>quantizer = StaticQuantizer::&lt;f32&gt;::new();
+quantizer.calibrate(QuantizationScheme::Symmetric)<span class="question-mark">?</span>;</code></pre></div>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.HistogramObserver"><code>pub use calibration::<a class="struct" href="calibration/struct.HistogramObserver.html" title="struct rustorch::quantization::calibration::HistogramObserver">HistogramObserver</a>;</code></dt><dt id="reexport.MinMaxObserver"><code>pub use calibration::<a class="struct" href="calibration/struct.MinMaxObserver.html" title="struct rustorch::quantization::calibration::MinMaxObserver">MinMaxObserver</a>;</code></dt><dt id="reexport.Observer"><code>pub use calibration::<a class="trait" href="calibration/trait.Observer.html" title="trait rustorch::quantization::calibration::Observer">Observer</a>;</code></dt><dt id="reexport.StaticQuantizer"><code>pub use calibration::<a class="struct" href="calibration/struct.StaticQuantizer.html" title="struct rustorch::quantization::calibration::StaticQuantizer">StaticQuantizer</a>;</code></dt><dt id="reexport.optimized_ops"><code>pub use hardware::<a class="mod" href="hardware/cpu/optimized_ops/index.html" title="mod rustorch::quantization::hardware::cpu::optimized_ops">optimized_ops</a>;</code></dt><dt id="reexport.DequantizeOps"><code>pub use operations::<a class="trait" href="operations/trait.DequantizeOps.html" title="trait rustorch::quantization::operations::DequantizeOps">DequantizeOps</a>;</code></dt><dt id="reexport.QuantizedOps"><code>pub use operations::<a class="trait" href="operations/trait.QuantizedOps.html" title="trait rustorch::quantization::operations::QuantizedOps">QuantizedOps</a>;</code></dt><dt id="reexport.FakeQuantize"><code>pub use qat::<a class="struct" href="qat/struct.FakeQuantize.html" title="struct rustorch::quantization::qat::FakeQuantize">FakeQuantize</a>;</code></dt><dt id="reexport.QATConv2d"><code>pub use qat::<a class="struct" href="qat/struct.QATConv2d.html" title="struct rustorch::quantization::qat::QATConv2d">QATConv2d</a>;</code></dt><dt id="reexport.QATLinear"><code>pub use qat::<a class="struct" href="qat/struct.QATLinear.html" title="struct rustorch::quantization::qat::QATLinear">QATLinear</a>;</code></dt><dt id="reexport.QATModule"><code>pub use qat::<a class="trait" href="qat/trait.QATModule.html" title="trait rustorch::quantization::qat::QATModule">QATModule</a>;</code></dt><dt id="reexport.AsymmetricQuantization"><code>pub use schemes::<a class="struct" href="schemes/struct.AsymmetricQuantization.html" title="struct rustorch::quantization::schemes::AsymmetricQuantization">AsymmetricQuantization</a>;</code></dt><dt id="reexport.QuantizationScheme"><code>pub use schemes::<a class="enum" href="schemes/enum.QuantizationScheme.html" title="enum rustorch::quantization::schemes::QuantizationScheme">QuantizationScheme</a>;</code></dt><dt id="reexport.SymmetricQuantization"><code>pub use schemes::<a class="struct" href="schemes/struct.SymmetricQuantization.html" title="struct rustorch::quantization::schemes::SymmetricQuantization">SymmetricQuantization</a>;</code></dt><dt id="reexport.QuantizationType"><code>pub use types::<a class="enum" href="types/enum.QuantizationType.html" title="enum rustorch::quantization::types::QuantizationType">QuantizationType</a>;</code></dt><dt id="reexport.QuantizedTensor"><code>pub use types::<a class="struct" href="types/struct.QuantizedTensor.html" title="struct rustorch::quantization::types::QuantizedTensor">QuantizedTensor</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="calibration/index.html" title="mod rustorch::quantization::calibration">calibration</a></dt><dd>Calibration and statistical observation
+キャリブレーションと統計観測
+Calibration and statistical observation for quantization
+量子化のためのキャリブレーションと統計観測</dd><dt><a class="mod" href="hardware/index.html" title="mod rustorch::quantization::hardware">hardware</a></dt><dd>Hardware-specific optimizations
+ハードウェア固有最適化
+Hardware-specific optimizations for quantized operations
+量子化演算のハードウェア固有最適化</dd><dt><a class="mod" href="observers/index.html" title="mod rustorch::quantization::observers">observers</a></dt><dd>Statistical observers for calibration
+キャリブレーション用統計観測器
+Statistical observers for quantization calibration
+量子化キャリブレーション用統計観測器</dd><dt><a class="mod" href="operations/index.html" title="mod rustorch::quantization::operations">operations</a></dt><dd>Quantized tensor operations
+量子化テンソル演算
+Quantized tensor operations and arithmetic
+量子化テンソル演算と算術</dd><dt><a class="mod" href="qat/index.html" title="mod rustorch::quantization::qat">qat</a></dt><dd>Quantization-aware training support
+量子化認識学習サポート
+Quantization-Aware Training (QAT) support
+量子化認識学習（QAT）サポート</dd><dt><a class="mod" href="schemes/index.html" title="mod rustorch::quantization::schemes">schemes</a></dt><dd>Quantization schemes and algorithms
+量子化スキームとアルゴリズム
+Quantization schemes and algorithms
+量子化スキームとアルゴリズム</dd><dt><a class="mod" href="types/index.html" title="mod rustorch::quantization::types">types</a></dt><dd>Quantized tensor data types and core structures
+量子化テンソルデータ型とコア構造
+Quantized tensor types and data structures
+量子化テンソル型とデータ構造</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.QuantParamCalculator.html" title="struct rustorch::quantization::QuantParamCalculator">Quant<wbr>Param<wbr>Calculator</a></dt><dd>Unified quantization parameter calculator
+統一量子化パラメータ計算器</dd><dt><a class="struct" href="struct.QuantizationConfig.html" title="struct rustorch::quantization::QuantizationConfig">Quantization<wbr>Config</a></dt><dd>Global quantization configuration
+グローバル量子化設定</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Quantizable.html" title="trait rustorch::quantization::Quantizable">Quantizable</a></dt><dd>Trait for quantizable data types
+量子化可能なデータ型のトレイト</dd><dt><a class="trait" href="trait.TensorQuantization.html" title="trait rustorch::quantization::TensorQuantization">Tensor<wbr>Quantization</a></dt><dd>Main quantization API for tensors
+テンソル用メイン量子化API</dd></dl></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["buffer","cpu_fallback","cuda","manager","metal","opencl","transfer"]};

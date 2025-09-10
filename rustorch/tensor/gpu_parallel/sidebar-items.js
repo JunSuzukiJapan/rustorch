@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GpuExecutionStrategy","GpuParallelStrategy"],"fn":["current_device","select_optimal_device"],"mod":["gpu_parallel_utils"],"struct":["GpuParallelConfig","GpuParallelContext"],"trait":["GpuBatchParallelOp","GpuParallelOp"]};

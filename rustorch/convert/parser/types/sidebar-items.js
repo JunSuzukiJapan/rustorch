@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LayerType"],"struct":["LayerInfo","ModelGraph"]};

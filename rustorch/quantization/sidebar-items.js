@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["calibration","hardware","observers","operations","qat","schemes","types"],"struct":["QuantParamCalculator","QuantizationConfig"],"trait":["Quantizable","TensorQuantization"]};

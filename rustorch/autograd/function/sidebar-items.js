@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AddFunction","MatMulFunction","MulFunction","SubFunction","SumFunction"],"trait":["Function"]};

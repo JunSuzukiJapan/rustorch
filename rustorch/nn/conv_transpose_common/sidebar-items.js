@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_bias_nd","calculate_fan_in","initialize_bias","initialize_weights","validate_input_shape","validate_parameters"]};

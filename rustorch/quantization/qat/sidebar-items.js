@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["FakeQuantize","QATConfig","QATConv2d","QATLinear","QATTrainer"],"trait":["QATModule"]};

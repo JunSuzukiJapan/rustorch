@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CompressionType","DeploymentTarget","ExtendedModelFormat","FormatFeature","ModelFormat"],"struct":["CustomFormat","FormatCompatibility","FormatValidator","OptimizationProfile"]};

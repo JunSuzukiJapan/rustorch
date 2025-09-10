@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AVX512_ALIGNMENT","AVX512_F32_LANES","AVX512_F64_LANES"],"fn":["is_avx512_available"],"struct":["Avx512F32Ops","Avx512F64Ops"],"trait":["Avx512TensorOps"]};

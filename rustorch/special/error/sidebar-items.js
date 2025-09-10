@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["erf","erf_scalar","erf_series","erfc","erfc_scalar","erfcinv","erfcinv_scalar","erfcx_scalar","erfinv","erfinv_scalar"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["QuantizedOperation"],"fn":["qconv2d_cpu","qmatmul_cpu"],"mod":["optimized_ops"],"struct":["CpuFeatures","CpuQuantizedOps"]};

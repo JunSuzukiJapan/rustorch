@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MetalKernelType"],"fn":["metal_elementwise_add_f32","metal_matmul_f32","metal_reduce_sum_f32"],"struct":["MetalBuffer","MetalKernelExecutor","MetalKernelParams"]};

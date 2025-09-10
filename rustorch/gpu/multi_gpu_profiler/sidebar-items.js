@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BottleneckType","RecommendationType"],"fn":["profile_multi_gpu_operation"],"struct":["CommunicationMetrics","GpuMetrics","MultiGpuProfiler","OptimizationRecommendation","PerformanceBottleneck","PerformanceReport","PerformanceSnapshot","PerformanceTrends","TrainingSessionMetrics"]};

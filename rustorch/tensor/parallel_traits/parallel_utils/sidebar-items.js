@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["parallel_batch_process","parallel_chunks","safe_parallel_index"]};

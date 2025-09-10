@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="GPU acceleration support (CUDA, Metal, OpenCL) GPU加速サポート（CUDA、Metal、OpenCL）"><title>rustorch::gpu - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module gpu</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#gpu-acceleration-module" title="GPU Acceleration Module">GPU Acceleration Module</a><ul><li><a href="#supported-gpu-backends" title="Supported GPU Backends">Supported GPU Backends</a></li><li><a href="#core-components" title="Core Components">Core Components</a></li><li><a href="#key-features" title="Key Features">Key Features</a></li><li><a href="#usage-examples" title="Usage Examples">Usage Examples</a></li><li><a href="#feature-flags" title="Feature Flags">Feature Flags</a></li><li><a href="#error-handling" title="Error Handling">Error Handling</a></li><li><a href="#performance-considerations" title="Performance Considerations">Performance Considerations</a></li></ul></li></ul><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate rustorch</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">rustorch</a></div><h1>Module <span>gpu</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/rustorch/gpu/mod.rs.html#1-571">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>GPU acceleration support (CUDA, Metal, OpenCL)
+GPU加速サポート（CUDA、Metal、OpenCL）</p>
+<h2 id="gpu-acceleration-module"><a class="doc-anchor" href="#gpu-acceleration-module">§</a>GPU Acceleration Module</h2>
+<p>RusTorchのGPU加速モジュール</p>
+<p>This module provides comprehensive GPU acceleration support for RusTorch,
+including device management, memory allocation, and kernel execution
+across multiple GPU backends (CUDA, Metal, OpenCL).</p>
+<h3 id="supported-gpu-backends"><a class="doc-anchor" href="#supported-gpu-backends">§</a>Supported GPU Backends</h3>
+<ul>
+<li><strong>CUDA</strong>: NVIDIA GPU acceleration with cuBLAS/cuDNN integration</li>
+<li><strong>Metal</strong>: Apple Silicon GPU acceleration with Metal Performance Shaders</li>
+<li><strong>OpenCL</strong>: Cross-platform GPU acceleration for AMD/Intel/NVIDIA</li>
+</ul>
+<h3 id="core-components"><a class="doc-anchor" href="#core-components">§</a>Core Components</h3>
+<ul>
+<li><code>DeviceType</code>: GPU device type enumeration (CUDA, Metal, OpenCL)</li>
+<li><code>GpuContext</code>: GPU context management and device state</li>
+<li><code>DeviceManager</code>: Global device management and selection</li>
+<li><code>GpuMemoryPool</code>: Efficient GPU memory allocation and pooling</li>
+<li><code>cuda_kernels</code>: CUDA-specific kernel implementations</li>
+<li><code>metal_kernels</code>: Metal-specific kernel implementations</li>
+<li><code>opencl_kernels</code>: OpenCL-specific kernel implementations</li>
+</ul>
+<h3 id="key-features"><a class="doc-anchor" href="#key-features">§</a>Key Features</h3>
+<ul>
+<li><strong>Automatic Device Detection</strong>: Discovers available GPU devices at runtime</li>
+<li><strong>Intelligent Device Selection</strong>: Chooses optimal device based on workload</li>
+<li><strong>Memory Management</strong>: Efficient GPU memory allocation with pooling</li>
+<li><strong>Error Handling</strong>: Robust error handling with automatic fallback</li>
+<li><strong>Cross-Platform</strong>: Unified API across different GPU vendors</li>
+</ul>
+<h3 id="usage-examples"><a class="doc-anchor" href="#usage-examples">§</a>Usage Examples</h3><h4 id="device-management"><a class="doc-anchor" href="#device-management">§</a>Device Management</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::gpu::get_device_manager;
+<span class="comment">// Example GPU usage (implementation dependent on backend)
+
+// Get available devices
+</span><span class="kw">let </span>manager = get_device_manager();
+<span class="kw">let </span>devices = manager.available_devices();
+<span class="macro">println!</span>(<span class="string">"Available devices: {:?}"</span>, devices);
+
+<span class="comment">// Check current device
+</span><span class="kw">let </span>current = manager.current_device();
+<span class="macro">println!</span>(<span class="string">"Current device: {:?}"</span>, current);</code></pre></div>
+<h4 id="gpu-context-creation"><a class="doc-anchor" href="#gpu-context-creation">§</a>GPU Context Creation</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::gpu::{GpuContext, DeviceType};
+
+<span class="comment">// Create GPU context - will fallback to CPU if CUDA unavailable
+</span><span class="kw">let </span>context_result = GpuContext::new(DeviceType::Cuda(<span class="number">0</span>));
+<span class="kw">if let </span><span class="prelude-val">Ok</span>(context) = context_result {
+    <span class="macro">println!</span>(<span class="string">"Created context for device: {:?}"</span>, context.device());
+    <span class="comment">// GPU context created successfully
+</span>} <span class="kw">else </span>{
+    <span class="macro">println!</span>(<span class="string">"CUDA not available, using CPU fallback"</span>);
+}</code></pre></div>
+<h4 id="memory-pool-operations"><a class="doc-anchor" href="#memory-pool-operations">§</a>Memory Pool Operations</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::gpu::{DeviceType, memory::GpuMemoryPool};
+
+<span class="comment">// Try to create GPU memory pool - fallback if CUDA unavailable
+</span><span class="kw">let </span>pool_result = GpuMemoryPool::new(DeviceType::Cuda(<span class="number">0</span>), <span class="number">1024 </span>* <span class="number">1024 </span>* <span class="number">100</span>);
+<span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>pool) = pool_result {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(buffer) = pool.allocate(<span class="number">1024 </span>* <span class="number">1024</span>) {
+        <span class="macro">println!</span>(<span class="string">"Allocated buffer size: {}"</span>, buffer.size);
+    }
+} <span class="kw">else </span>{
+    <span class="macro">println!</span>(<span class="string">"GPU memory pool unavailable, using system memory"</span>);
+}</code></pre></div>
+<h3 id="feature-flags"><a class="doc-anchor" href="#feature-flags">§</a>Feature Flags</h3>
+<p>GPU backends are controlled by Cargo feature flags:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies]
+rustorch = { version = &quot;0.1&quot;, features = [&quot;cuda&quot;, &quot;metal&quot;, &quot;opencl&quot;] }</code></pre></div>
+<ul>
+<li><code>cuda</code>: Enable NVIDIA CUDA support</li>
+<li><code>metal</code>: Enable Apple Metal support</li>
+<li><code>opencl</code>: Enable OpenCL support</li>
+</ul>
+<h3 id="error-handling"><a class="doc-anchor" href="#error-handling">§</a>Error Handling</h3>
+<p>The GPU module provides comprehensive error handling through <code>GpuError</code>:</p>
+<ul>
+<li><strong>DeviceNotFound</strong>: Requested GPU device is not available</li>
+<li><strong>OutOfMemory</strong>: Insufficient GPU memory for operation</li>
+<li><strong>KernelLaunchFailed</strong>: GPU kernel execution failed</li>
+<li><strong>DriverError</strong>: GPU driver or runtime error</li>
+<li><strong>UnsupportedOperation</strong>: Operation not supported on current device</li>
+</ul>
+<h3 id="performance-considerations"><a class="doc-anchor" href="#performance-considerations">§</a>Performance Considerations</h3>
+<ul>
+<li><strong>Memory Coalescing</strong>: Optimize memory access patterns for GPU efficiency</li>
+<li><strong>Kernel Occupancy</strong>: Balance thread blocks for optimal GPU utilization</li>
+<li><strong>Memory Bandwidth</strong>: Minimize GPU-CPU data transfers</li>
+<li><strong>Asynchronous Execution</strong>: Use streams for overlapping computation and transfer</li>
+</ul>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.KernelMetrics"><code>pub use unified_kernel_simple::<a class="struct" href="unified_kernel_simple/struct.KernelMetrics.html" title="struct rustorch::gpu::unified_kernel_simple::KernelMetrics">KernelMetrics</a>;</code></dt><dt id="reexport.KernelOp"><code>pub use unified_kernel_simple::<a class="enum" href="unified_kernel_simple/enum.KernelOp.html" title="enum rustorch::gpu::unified_kernel_simple::KernelOp">KernelOp</a>;</code></dt><dt id="reexport.KernelParams"><code>pub use unified_kernel_simple::<a class="struct" href="unified_kernel_simple/struct.KernelParams.html" title="struct rustorch::gpu::unified_kernel_simple::KernelParams">KernelParams</a>;</code></dt><dt id="reexport.KernelSelector"><code>pub use unified_kernel_simple::<a class="struct" href="unified_kernel_simple/struct.KernelSelector.html" title="struct rustorch::gpu::unified_kernel_simple::KernelSelector">KernelSelector</a>;</code></dt><dt id="reexport.UnifiedKernelExecutor"><code>pub use unified_kernel_simple::<a class="struct" href="unified_kernel_simple/struct.UnifiedKernelExecutor.html" title="struct rustorch::gpu::unified_kernel_simple::UnifiedKernelExecutor">UnifiedKernelExecutor</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="benchmark/index.html" title="mod rustorch::gpu::benchmark">benchmark</a></dt><dd>Performance benchmark suite for GPU operations
+GPU演算用パフォーマンスベンチマークスイート
+GPU Performance Benchmark Module
+GPUパフォーマンスベンチマークモジュール</dd><dt><a class="mod" href="conv_ops/index.html" title="mod rustorch::gpu::conv_ops">conv_<wbr>ops</a></dt><dd>GPU convolution operations and cuDNN/MPS integration
+GPU畳み込み演算とcuDNN/MPS統合
+GPU Convolution Operations
+GPU畳み込み演算</dd><dt><a class="mod" href="cuda_enhanced/index.html" title="mod rustorch::gpu::cuda_enhanced">cuda_<wbr>enhanced</a></dt><dd>Enhanced CUDA cuBLAS integration for high-performance matrix operations
+高性能行列演算のための強化されたCUDA cuBLAS統合</dd><dt><a class="mod" href="cuda_kernels/index.html" title="mod rustorch::gpu::cuda_kernels">cuda_<wbr>kernels</a></dt><dd>CUDA kernel implementations
+CUDAカーネル実装
+CUDA kernel implementations for GPU acceleration
+GPU加速のためのCUDAカーネル実装</dd><dt><a class="mod" href="custom_kernels/index.html" title="mod rustorch::gpu::custom_kernels">custom_<wbr>kernels</a></dt><dd>Custom GPU kernels for specialized tensor operations
+特殊テンソル演算用のカスタムGPUカーネル</dd><dt><a class="mod" href="device/index.html" title="mod rustorch::gpu::device">device</a></dt><dd>Device management module for GPU operations
+GPU操作のためのデバイス管理モジュール</dd><dt><a class="mod" href="distributed_training/index.html" title="mod rustorch::gpu::distributed_training">distributed_<wbr>training</a></dt><dd>Distributed training infrastructure for multi-GPU learning
+マルチGPU学習用分散学習インフラストラクチャ
+Distributed Training System for Multi-GPU Operations
+マルチGPU操作用分散学習システム</dd><dt><a class="mod" href="kernels/index.html" title="mod rustorch::gpu::kernels">kernels</a></dt><dd>GPU kernel execution and management
+GPUカーネル実行と管理</dd><dt><a class="mod" href="matrix_ops/index.html" title="mod rustorch::gpu::matrix_ops">matrix_<wbr>ops</a></dt><dd>GPU matrix operations and BLAS integration
+GPU行列演算とBLAS統合
+GPU Matrix Operations
+GPU行列演算</dd><dt><a class="mod" href="memory/index.html" title="mod rustorch::gpu::memory">memory</a></dt><dd>GPU memory management and allocation
+GPUメモリ管理とアロケーション</dd><dt><a class="mod" href="memory_ops/index.html" title="mod rustorch::gpu::memory_ops">memory_<wbr>ops</a></dt><dd>GPU memory operations (modular implementation)
+GPUメモリ操作（モジュラー実装）
+GPU Memory Module
+GPUメモリモジュール</dd><dt><a class="mod" href="memory_transfer/index.html" title="mod rustorch::gpu::memory_transfer">memory_<wbr>transfer</a></dt><dd>GPU memory transfer operations
+GPUメモリ転送操作
+GPU Memory Transfer Operations (Legacy Compatibility Layer)
+GPUメモリ転送操作（レガシー互換性レイヤー）</dd><dt><a class="mod" href="metal_kernels/index.html" title="mod rustorch::gpu::metal_kernels">metal_<wbr>kernels</a></dt><dd>Metal Performance Shaders kernel implementations for GPU acceleration
+GPU加速のためのMetal Performance Shadersカーネル実装</dd><dt><a class="mod" href="multi_gpu/index.html" title="mod rustorch::gpu::multi_gpu">multi_<wbr>gpu</a></dt><dd>Multi-GPU distributed processing and communication
+マルチGPU分散処理と通信
+Multi-GPU Support Module</dd><dt><a class="mod" href="multi_gpu_profiler/index.html" title="mod rustorch::gpu::multi_gpu_profiler">multi_<wbr>gpu_<wbr>profiler</a></dt><dd>Multi-GPU performance profiling and benchmarking
+マルチGPUパフォーマンスプロファイリングとベンチマーキング
+Multi-GPU Performance Profiler
+マルチGPUパフォーマンスプロファイラー</dd><dt><a class="mod" href="opencl_kernels/index.html" title="mod rustorch::gpu::opencl_kernels">opencl_<wbr>kernels</a></dt><dd>OpenCL kernel implementations for GPU acceleration
+GPU加速のためのOpenCLカーネル実装</dd><dt><a class="mod" href="opencl_optimized/index.html" title="mod rustorch::gpu::opencl_optimized">opencl_<wbr>optimized</a></dt><dd>Optimized OpenCL implementation for cross-platform GPU acceleration
+クロスプラットフォームGPU加速のための最適化OpenCL実装</dd><dt><a class="mod" href="performance_benchmark/index.html" title="mod rustorch::gpu::performance_benchmark">performance_<wbr>benchmark</a></dt><dd>Performance Benchmark Suite for GPU Kernels
+GPUカーネル用パフォーマンスベンチマークスイート</dd><dt><a class="mod" href="reduction_ops/index.html" title="mod rustorch::gpu::reduction_ops">reduction_<wbr>ops</a></dt><dd>GPU reduction operations and optimizations
+GPUリダクション演算と最適化
+GPU Reduction Operations
+GPU リダクション演算</dd><dt><a class="mod" href="simple_metal_test/index.html" title="mod rustorch::gpu::simple_metal_test">simple_<wbr>metal_<wbr>test</a></dt><dd>Simple Metal GPU testing and benchmarking
+シンプルなMetal GPUテストとベンチマーク
+Simple Metal GPU functionality test
+シンプルなMetal GPU機能テスト</dd><dt><a class="mod" href="sync_primitives/index.html" title="mod rustorch::gpu::sync_primitives">sync_<wbr>primitives</a></dt><dd>GPU synchronization primitives for multi-GPU operations
+マルチGPU操作用GPU同期プリミティブ
+GPU Synchronization Primitives
+GPU同期プリミティブ</dd><dt><a class="mod" href="unified_kernel_simple/index.html" title="mod rustorch::gpu::unified_kernel_simple">unified_<wbr>kernel_<wbr>simple</a></dt><dd>Unified kernel interface for cross-platform GPU acceleration (simplified)
+クロスプラットフォームGPU加速のための統一カーネルインターフェース（簡潔版）
+Simplified unified kernel interface for cross-platform GPU acceleration
+クロスプラットフォームGPU加速のための簡潔な統一カーネルインターフェース</dd><dt><a class="mod" href="validation/index.html" title="mod rustorch::gpu::validation">validation</a></dt><dd>GPU kernel validation and testing
+GPUカーネル検証とテスト</dd><dt><a class="mod" href="verification_tests/index.html" title="mod rustorch::gpu::verification_tests">verification_<wbr>tests</a></dt><dd>GPU vs CPU verification tests
+GPU vs CPU検証テスト
+GPU vs CPU Verification Tests for RusTorch
+RusTorch用GPU vs CPU検証テスト</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.DeviceManager.html" title="struct rustorch::gpu::DeviceManager">Device<wbr>Manager</a></dt><dd>GPU device manager
+GPUデバイスマネージャー</dd><dt><a class="struct" href="struct.GpuContext.html" title="struct rustorch::gpu::GpuContext">GpuContext</a></dt><dd>GPU operation context
+GPU演算コンテキスト</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.DeviceType.html" title="enum rustorch::gpu::DeviceType">Device<wbr>Type</a></dt><dd>GPU device types
+GPU デバイスタイプ</dd><dt><a class="enum" href="enum.MemoryLayout.html" title="enum rustorch::gpu::MemoryLayout">Memory<wbr>Layout</a></dt><dd>GPU memory layout
+GPUメモリレイアウト</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.current_device.html" title="fn rustorch::gpu::current_device">current_<wbr>device</a></dt><dd>Get the current device
+現在のデバイスを取得</dd><dt><a class="fn" href="fn.get_device_manager.html" title="fn rustorch::gpu::get_device_manager">get_<wbr>device_<wbr>manager</a></dt><dd>Get the global device manager
+グローバルデバイスマネージャーを取得</dd><dt><a class="fn" href="fn.is_gpu_available.html" title="fn rustorch::gpu::is_gpu_available">is_<wbr>gpu_<wbr>available</a></dt><dd>Check if any GPU is available
+何らかのGPUが利用可能かチェック</dd><dt><a class="fn" href="fn.set_device.html" title="fn rustorch::gpu::set_device">set_<wbr>device</a></dt><dd>Set the current device globally
+グローバルに現在のデバイスを設定</dd></dl></section></div></main></body></html>

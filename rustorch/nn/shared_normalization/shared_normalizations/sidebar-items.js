@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply_normalization","batch_norm_1d","compute_mean","compute_variance","layer_norm_1d"]};

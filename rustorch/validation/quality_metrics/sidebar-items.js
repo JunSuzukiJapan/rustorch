@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["IssueCategory","IssueSeverity","QualityDimension","TrendDirection"],"struct":["AggregatedQualityStats","DataCharacteristics","DataQualityAssessment","DataRange","DistributionStats","MetricThresholds","QualityIssue","QualityMetrics","QualityScore","QualityTrend"]};

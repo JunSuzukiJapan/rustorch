@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ModelMode"],"mod":["cnn","high_level","rnn","sequential","sequential_basic","serialization","training","transformer_models"],"struct":["InferenceEngine","Metrics"],"trait":["Model","ModelBuilder"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["detect_format","load","save"],"struct":["ModelCheckpoint","SafeTensorFormat","StateDict"]};

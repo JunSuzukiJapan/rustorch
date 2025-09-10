@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["arithmetic","core","math","matrix","tensor_ops"]};

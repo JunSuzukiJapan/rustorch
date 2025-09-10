@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_f32_pool","get_f64_pool","get_global_memory_manager_f32","get_global_memory_manager_f64"],"mod":["analytics","enhanced_pool","optimizer","pressure_monitor"],"struct":["ComprehensiveMemoryManager","ComprehensiveReport","MemoryPool","OptimizationSummary","PoolStats","SystemHealthStatus"]};

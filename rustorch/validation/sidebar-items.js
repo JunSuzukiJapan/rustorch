@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["anomaly_detector","consistency_checker","core","quality_metrics","quality_reporter","real_time_validator"],"struct":["DataValidationFramework","FrameworkConfig","FrameworkStatistics","ValidationSummary"]};

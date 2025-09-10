@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BatchSampler","RandomSampler","SequentialSampler","SubsetRandomSampler","WeightedRandomSampler"],"trait":["Sampler"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ViolationSeverity"],"struct":["ConsistencyChecker","ConsistencyResult","ConsistencyStatistics","ConsistencyViolation","DataConsistency","DataLocation","ReferentialIntegrity","ShapeConsistencyRule"],"trait":["ConsistencyRule"]};

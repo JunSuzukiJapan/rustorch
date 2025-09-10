@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["collect_conv_parameters"],"struct":["ConvOps","Validator"],"trait":["ConvolutionBase","PoolingBase"],"type":["NNResult"]};

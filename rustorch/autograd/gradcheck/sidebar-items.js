@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["gradcheck","gradcheck_simple"],"struct":["GradCheckConfig","GradCheckResult"]};

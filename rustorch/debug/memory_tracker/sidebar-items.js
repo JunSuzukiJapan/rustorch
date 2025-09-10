@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AllocationInfo","ComponentMemoryStats","MemoryReport","MemoryTracker"]};

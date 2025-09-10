@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["evaluate_gpu_efficiency","optimize_batch_size","select_optimal_device"]};

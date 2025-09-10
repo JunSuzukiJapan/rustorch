@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Visualization tools for plots, graphs, and data analysis プロット、グラフ、データ解析用の可視化ツール"><title>rustorch::visualization - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module visualization</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#可視化ツール--visualization-tools" title="可視化ツール / Visualization Tools">可視化ツール / Visualization Tools</a><ul><li><a href="#-features--機能" title="✨ Features / 機能">✨ Features / 機能</a></li><li><a href="#-quick-start--クイックスタート" title="🚀 Quick Start / クイックスタート">🚀 Quick Start / クイックスタート</a></li><li><a href="#-supported-visualizations--対応する可視化" title="📊 Supported Visualizations / 対応する可視化">📊 Supported Visualizations / 対応する可視化</a></li></ul></li></ul><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#traits" title="Traits">Traits</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate rustorch</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">rustorch</a></div><h1>Module <span>visualization</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/rustorch/visualization/mod.rs.html#1-221">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Visualization tools for plots, graphs, and data analysis
+プロット、グラフ、データ解析用の可視化ツール</p>
+<h2 id="可視化ツール--visualization-tools"><a class="doc-anchor" href="#可視化ツール--visualization-tools">§</a>可視化ツール / Visualization Tools</h2>
+<p>RusTorchの包括的な可視化機能を提供するモジュールです。
+機械学習のワークフロー全体にわたって、データの理解とモデルの解釈を支援します。</p>
+<p>This module provides comprehensive visualization capabilities for RusTorch,
+supporting data understanding and model interpretation throughout the machine learning workflow.</p>
+<h3 id="-features--機能"><a class="doc-anchor" href="#-features--機能">§</a>✨ Features / 機能</h3>
+<ul>
+<li><strong>📈 Training Curves</strong>: Loss and metrics visualization with customizable styling</li>
+<li><strong>🔢 Tensor Visualization</strong>: Heatmaps, bar charts, and 3D slice views</li>
+<li><strong>🕸️ Computation Graphs</strong>: SVG and DOT format graph visualization</li>
+<li><strong>🎨 Color Palettes</strong>: Professional colormaps (Viridis, Plasma, Jet, etc.)</li>
+<li><strong>📊 Dashboard Creation</strong>: Multi-plot HTML dashboards</li>
+<li><strong>💾 Multiple Formats</strong>: SVG, HTML, DOT output support</li>
+</ul>
+<h3 id="-quick-start--クイックスタート"><a class="doc-anchor" href="#-quick-start--クイックスタート">§</a>🚀 Quick Start / クイックスタート</h3>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::visualization::<span class="kw-2">*</span>;
+<span class="kw">use </span>rustorch::models::high_level::TrainingHistory;
+<span class="kw">use </span>rustorch::tensor::Tensor;
+<span class="kw">use </span>rustorch::autograd::Variable;
+<span class="kw">use </span>std::collections::HashMap;
+
+<span class="kw">fn </span>main() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
+    <span class="comment">// Create sample training history
+    </span><span class="kw">let </span><span class="kw-2">mut </span>history = TrainingHistory::&lt;f32&gt;::new();
+    history.add_epoch(<span class="number">1.0</span>, <span class="prelude-val">Some</span>(<span class="number">1.2</span>), HashMap::new());
+
+    <span class="comment">// Training curve visualization
+    </span><span class="kw">let </span>plotter = TrainingPlotter::new();
+    <span class="kw">let </span>svg = plotter.plot_training_curves(<span class="kw-2">&amp;</span>history)<span class="question-mark">?</span>;
+
+    <span class="comment">// Tensor visualization
+    </span><span class="kw">let </span>tensor = Tensor::from_vec(<span class="macro">vec!</span>[<span class="number">1.0f32</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>], <span class="macro">vec!</span>[<span class="number">2</span>, <span class="number">2</span>]);
+    <span class="kw">let </span>viz = TensorVisualizer::new();
+    <span class="kw">let </span>heatmap = viz.plot_heatmap(<span class="kw-2">&amp;</span>tensor)<span class="question-mark">?</span>;
+
+    <span class="comment">// Computation graph
+    </span><span class="kw">let </span>variable = Variable::new(tensor, <span class="bool-val">true</span>);
+    <span class="kw">let </span><span class="kw-2">mut </span>graph_viz = GraphVisualizer::new();
+    graph_viz.build_graph(<span class="kw-2">&amp;</span>variable)<span class="question-mark">?</span>;
+    <span class="kw">let </span>graph_svg = graph_viz.to_svg();
+     
+    <span class="prelude-val">Ok</span>(())
+}</code></pre></div>
+<h3 id="-supported-visualizations--対応する可視化"><a class="doc-anchor" href="#-supported-visualizations--対応する可視化">§</a>📊 Supported Visualizations / 対応する可視化</h3><div><table><thead><tr><th>Type</th><th>Description</th><th>Output Formats</th></tr></thead><tbody>
+<tr><td>Training Curves</td><td>Loss and metrics over time</td><td>SVG, HTML</td></tr>
+<tr><td>Tensor Heatmaps</td><td>2D tensor value visualization</td><td>SVG, HTML</td></tr>
+<tr><td>Bar Charts</td><td>1D tensor value distribution</td><td>SVG, HTML</td></tr>
+<tr><td>3D Slices</td><td>Multi-dimensional tensor slicing</td><td>SVG, HTML</td></tr>
+<tr><td>Computation Graph</td><td>Variable and operation flow</td><td>SVG, DOT</td></tr>
+<tr><td>Dashboard</td><td>Multi-plot combination view</td><td>HTML</td></tr>
+</tbody></table>
+</div></div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.GraphEdge"><code>pub use graph_viz::<a class="struct" href="graph/edges/struct.GraphEdge.html" title="struct rustorch::visualization::graph::edges::GraphEdge">GraphEdge</a>;</code></dt><dt id="reexport.GraphLayout"><code>pub use graph_viz::<a class="enum" href="graph/layouts/enum.GraphLayout.html" title="enum rustorch::visualization::graph::layouts::GraphLayout">GraphLayout</a>;</code></dt><dt id="reexport.GraphNode"><code>pub use graph_viz::<a class="struct" href="graph/nodes/struct.GraphNode.html" title="struct rustorch::visualization::graph::nodes::GraphNode">GraphNode</a>;</code></dt><dt id="reexport.GraphVisualizer"><code>pub use graph_viz::<a class="struct" href="graph/visualizer/struct.GraphVisualizer.html" title="struct rustorch::visualization::graph::visualizer::GraphVisualizer">GraphVisualizer</a>;</code></dt><dt id="reexport.ChartType"><code>pub use plotting::<a class="enum" href="plotting/enum.ChartType.html" title="enum rustorch::visualization::plotting::ChartType">ChartType</a>;</code></dt><dt id="reexport.PlotConfig"><code>pub use plotting::<a class="struct" href="plotting/struct.PlotConfig.html" title="struct rustorch::visualization::plotting::PlotConfig">PlotConfig</a>;</code></dt><dt id="reexport.PlotStyle"><code>pub use plotting::<a class="enum" href="plotting/enum.PlotStyle.html" title="enum rustorch::visualization::plotting::PlotStyle">PlotStyle</a>;</code></dt><dt id="reexport.TrainingPlotter"><code>pub use plotting::<a class="struct" href="plotting/struct.TrainingPlotter.html" title="struct rustorch::visualization::plotting::TrainingPlotter">TrainingPlotter</a>;</code></dt><dt id="reexport.ColorMap"><code>pub use tensor_viz::<a class="enum" href="tensor/colormap/enum.ColorMap.html" title="enum rustorch::visualization::tensor::colormap::ColorMap">ColorMap</a>;</code></dt><dt id="reexport.TensorPlotConfig"><code>pub use tensor_viz::<a class="struct" href="tensor/config/struct.TensorPlotConfig.html" title="struct rustorch::visualization::tensor::config::TensorPlotConfig">TensorPlotConfig</a>;</code></dt><dt id="reexport.TensorVisualizer"><code>pub use tensor_viz::<a class="struct" href="tensor/visualizer/struct.TensorVisualizer.html" title="struct rustorch::visualization::tensor::visualizer::TensorVisualizer">TensorVisualizer</a>;</code></dt><dt id="reexport.export_format"><code>pub use utils::<a class="fn" href="utils/fn.export_format.html" title="fn rustorch::visualization::utils::export_format">export_format</a>;</code></dt><dt id="reexport.save_plot"><code>pub use utils::<a class="fn" href="utils/fn.save_plot.html" title="fn rustorch::visualization::utils::save_plot">save_plot</a>;</code></dt><dt id="reexport.PlotFormat"><code>pub use utils::<a class="enum" href="utils/enum.PlotFormat.html" title="enum rustorch::visualization::utils::PlotFormat">PlotFormat</a>;</code></dt><dt id="reexport.TensorSpec"><code>pub use crate::model_import::<a class="struct" href="../model_import/struct.TensorSpec.html" title="struct rustorch::model_import::TensorSpec">TensorSpec</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="graph/index.html" title="mod rustorch::visualization::graph">graph</a></dt><dd>計算グラフの可視化機能
+Computation graph visualization functionality
+Computation Graph Visualization Module
+計算グラフ可視化モジュール</dd><dt><a class="mod" href="graph_viz/index.html" title="mod rustorch::visualization::graph_viz">graph_<wbr>viz</a></dt><dd>Graph Visualization (Legacy)
+グラフ可視化（レガシー）</dd><dt><a class="mod" href="plotting/index.html" title="mod rustorch::visualization::plotting">plotting</a></dt><dd>学習曲線のプロット機能
+Training curve plotting functionality
+学習曲線プロット機能
+Training curve plotting functionality</dd><dt><a class="mod" href="tensor/index.html" title="mod rustorch::visualization::tensor">tensor</a></dt><dd>テンソルの可視化機能
+Tensor visualization functionality
+Tensor Visualization Module
+テンソル可視化モジュール</dd><dt><a class="mod" href="tensor_viz/index.html" title="mod rustorch::visualization::tensor_viz">tensor_<wbr>viz</a></dt><dd>Tensor Visualization (Legacy)
+テンソル可視化（レガシー）</dd><dt><a class="mod" href="utils/index.html" title="mod rustorch::visualization::utils">utils</a></dt><dd>可視化ユーティリティ
+Visualization utilities
+可視化ユーティリティ
+Visualization utilities</dd></dl><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.PlotData.html" title="struct rustorch::visualization::PlotData">Plot<wbr>Data</a></dt><dd>プロットデータ
+Plot data structure</dd><dt><a class="struct" href="struct.PlotMetadata.html" title="struct rustorch::visualization::PlotMetadata">Plot<wbr>Metadata</a></dt><dd>メタデータ
+Metadata for plots</dd></dl><h2 id="traits" class="section-header">Traits<a href="#traits" class="anchor">§</a></h2><dl class="item-table"><dt><a class="trait" href="trait.Visualizable.html" title="trait rustorch::visualization::Visualizable">Visualizable</a></dt><dd>基本的な可視化トレイト
+Base visualization trait</dd></dl></section></div></main></body></html>

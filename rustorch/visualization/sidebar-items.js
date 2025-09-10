@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["graph","graph_viz","plotting","tensor","tensor_viz","utils"],"struct":["PlotData","PlotMetadata"],"trait":["Visualizable"]};

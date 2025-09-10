@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["edges","layouts","nodes","styles","visualizer"]};

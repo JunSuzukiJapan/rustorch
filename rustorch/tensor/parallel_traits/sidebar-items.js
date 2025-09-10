@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ParallelStrategy"],"mod":["parallel_utils"],"struct":["ParallelConfig","ParallelContext"],"trait":["BatchParallelOp","MatrixParallelOp","ParallelOp","ReductionParallelOp","SimdParallelOp"]};

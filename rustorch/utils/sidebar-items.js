@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["kaiming_init","mse_loss","softmax","to_column_vector","to_row_vector"]};

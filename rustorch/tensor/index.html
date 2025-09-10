@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Tensor operations and data structures テンソル操作とデータ構造"><title>rustorch::tensor - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="rustorch" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../rustorch/index.html">rustorch</a><span class="version">0.6.17</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module tensor</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#tensor-operations-and-data-structures" title="Tensor Operations and Data Structures">Tensor Operations and Data Structures</a><ul><li><a href="#core-components" title="Core Components">Core Components</a></li><li><a href="#key-features" title="Key Features">Key Features</a></li><li><a href="#usage-examples" title="Usage Examples">Usage Examples</a></li></ul></li></ul><h3><a href="#reexports">Module Items</a></h3><ul class="block"><li><a href="#reexports" title="Re-exports">Re-exports</a></li><li><a href="#modules" title="Modules">Modules</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate rustorch</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">rustorch</a></div><h1>Module <span>tensor</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/rustorch/tensor/mod.rs.html#1-142">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Tensor operations and data structures
+テンソル操作とデータ構造</p>
+<h2 id="tensor-operations-and-data-structures"><a class="doc-anchor" href="#tensor-operations-and-data-structures">§</a>Tensor Operations and Data Structures</h2>
+<p>テンソル操作とデータ構造</p>
+<p>This module provides the core tensor functionality for RusTorch, including
+basic tensor operations, advanced parallel processing, GPU acceleration,
+and memory optimization features.</p>
+<h3 id="core-components"><a class="doc-anchor" href="#core-components">§</a>Core Components</h3>
+<ul>
+<li><code>core</code>: The main tensor data structure with n-dimensional array support</li>
+<li><code>operations</code>: Mathematical operations and arithmetic for tensors</li>
+<li><code>parallel_traits</code>: Unified parallel tensor operations system</li>
+<li><code>gpu_parallel</code>: GPU-accelerated tensor operations with device management</li>
+<li><code>memory_optimized</code>: Advanced memory management strategies</li>
+<li><code>zero_copy</code>: Zero-copy tensor views and shared ownership</li>
+<li><code>simd_aligned</code>: SIMD-aligned tensor operations for vectorization</li>
+</ul>
+<h3 id="key-features"><a class="doc-anchor" href="#key-features">§</a>Key Features</h3><h4 id="high-performance-computing"><a class="doc-anchor" href="#high-performance-computing">§</a>High-Performance Computing</h4>
+<ul>
+<li><strong>Parallel Processing</strong>: Automatic parallelization for large tensor operations</li>
+<li><strong>SIMD Acceleration</strong>: AVX2/SSE4.1 vectorized operations for f32 tensors</li>
+<li><strong>GPU Integration</strong>: CUDA/Metal/OpenCL support with intelligent fallback</li>
+<li><strong>Memory Optimization</strong>: Pool allocation, zero-copy views, and cache-friendly operations</li>
+</ul>
+<h4 id="mathematical-operations"><a class="doc-anchor" href="#mathematical-operations">§</a>Mathematical Operations</h4>
+<ul>
+<li><strong>Element-wise Operations</strong>: Addition, multiplication, trigonometric functions</li>
+<li><strong>Linear Algebra</strong>: Matrix multiplication, decompositions, eigenvalues</li>
+<li><strong>Broadcasting</strong>: NumPy-style broadcasting for operations on different shapes</li>
+<li><strong>Reduction Operations</strong>: Sum, mean, variance, and statistical functions</li>
+</ul>
+<h4 id="memory-management"><a class="doc-anchor" href="#memory-management">§</a>Memory Management</h4>
+<ul>
+<li><strong>Zero-Copy Views</strong>: Efficient tensor slicing without data duplication</li>
+<li><strong>Memory Pooling</strong>: Reduced allocation overhead for frequent operations</li>
+<li><strong>SIMD Alignment</strong>: 32-byte aligned allocation for optimal vectorization</li>
+<li><strong>Shared Ownership</strong>: Thread-safe reference counting for tensor sharing</li>
+</ul>
+<h3 id="usage-examples"><a class="doc-anchor" href="#usage-examples">§</a>Usage Examples</h3><h4 id="basic-tensor-operations"><a class="doc-anchor" href="#basic-tensor-operations">§</a>Basic Tensor Operations</h4>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>rustorch::tensor::Tensor;
+
+<span class="comment">// Create tensors
+</span><span class="kw">let </span>a = Tensor::&lt;f32&gt;::ones(<span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">3</span>]);
+<span class="kw">let </span>b = Tensor::&lt;f32&gt;::zeros(<span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">3</span>]);
+
+<span class="comment">// Basic arithmetic
+</span><span class="kw">let </span>c = <span class="kw-2">&amp;</span>a + <span class="kw-2">&amp;</span>b;
+<span class="kw">let </span>d = a.matmul(<span class="kw-2">&amp;</span>b);
+
+<span class="comment">// Mathematical functions (using ndarray methods)
+</span><span class="kw">let </span>e = a.data.mapv(|x| x.sin());
+<span class="kw">let </span>f = a.data.mapv(|x| x.exp());</code></pre></div>
+<h4 id="parallel-operations"><a class="doc-anchor" href="#parallel-operations">§</a>Parallel Operations</h4>
+<p>RusTorch provides efficient parallel tensor operations for high-performance computing.</p>
+<h4 id="gpu-acceleration"><a class="doc-anchor" href="#gpu-acceleration">§</a>GPU Acceleration</h4>
+<p>RusTorch supports GPU acceleration with automatic fallback to CPU when GPU is unavailable.</p>
+<h4 id="memory-optimization"><a class="doc-anchor" href="#memory-optimization">§</a>Memory Optimization</h4>
+<p>Advanced memory management strategies for optimal performance and memory usage.</p>
+</div></details><h2 id="reexports" class="section-header">Re-exports<a href="#reexports" class="anchor">§</a></h2><dl class="item-table reexports"><dt id="reexport.ParallelResult"><code>pub use crate::error::<a class="type" href="../error/type.RusTorchResult.html" title="type rustorch::error::RusTorchResult">RusTorchResult</a> as ParallelResult;</code></dt><dt id="reexport.Tensor"><code>pub use core::<a class="struct" href="core/struct.Tensor.html" title="struct rustorch::tensor::core::Tensor">Tensor</a>;</code></dt><dt id="reexport.Device"><code>pub use device::<a class="enum" href="device/enum.Device.html" title="enum rustorch::tensor::device::Device">Device</a>;</code></dt><dt id="reexport.MemoryOptimization"><code>pub use memory::optimization::<a class="trait" href="memory/optimization/trait.MemoryOptimization.html" title="trait rustorch::tensor::memory::optimization::MemoryOptimization">MemoryOptimization</a>;</code></dt><dt id="reexport.TensorMemoryInfo"><code>pub use memory::optimization::<a class="struct" href="memory/optimization/struct.TensorMemoryInfo.html" title="struct rustorch::tensor::memory::optimization::TensorMemoryInfo">TensorMemoryInfo</a>;</code></dt><dt id="reexport.TensorIterOps"><code>pub use operations::zero_copy::<a class="trait" href="operations/zero_copy/trait.TensorIterOps.html" title="trait rustorch::tensor::operations::zero_copy::TensorIterOps">TensorIterOps</a>;</code></dt><dt id="reexport.ZeroCopyOps"><code>pub use operations::zero_copy::<a class="trait" href="operations/zero_copy/trait.ZeroCopyOps.html" title="trait rustorch::tensor::operations::zero_copy::ZeroCopyOps">ZeroCopyOps</a>;</code></dt></dl><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><dl class="item-table"><dt><a class="mod" href="complex/index.html" title="mod rustorch::tensor::complex">complex</a></dt><dd>Complex number support for tensors
+テンソルの複素数サポート
+Complex number support for tensors - Legacy compatibility layer
+テンソルの複素数サポート - レガシー互換レイヤー</dd><dt><a class="mod" href="complex_impl/index.html" title="mod rustorch::tensor::complex_impl">complex_<wbr>impl</a></dt><dd>Modular complex number implementation
+モジュール化された複素数実装
+Complex number support for tensors - Modular Organization
+テンソルの複素数サポート - モジュール構成</dd><dt><a class="mod" href="core/index.html" title="mod rustorch::tensor::core">core</a></dt><dd>Core tensor data structure
+コアテンソルデータ構造<br />
+Core tensor data structure and basic operations
+コアテンソルデータ構造と基本操作</dd><dt><a class="mod" href="device/index.html" title="mod rustorch::tensor::device">device</a></dt><dd>Device management for tensor operations
+テンソル操作用デバイス管理
+Device management for tensor operations
+テンソル操作用デバイス管理</dd><dt><a class="mod" href="gpu_parallel/index.html" title="mod rustorch::tensor::gpu_parallel">gpu_<wbr>parallel</a></dt><dd>GPU-Integrated Parallel Tensor Operations</dd><dt><a class="mod" href="memory/index.html" title="mod rustorch::tensor::memory">memory</a></dt><dd>Modern memory management system
+現代的なメモリ管理システム
+Memory Management Module for RusTorch Tensors
+RusTorchテンソルのメモリ管理モジュール</dd><dt><a class="mod" href="numeric_safety/index.html" title="mod rustorch::tensor::numeric_safety">numeric_<wbr>safety</a></dt><dd>Numeric safety and overflow protection
+数値安全性とオーバーフロー保護
+Numeric safety and overflow protection
+数値安全性とオーバーフロー保護</dd><dt><a class="mod" href="operations/index.html" title="mod rustorch::tensor::operations">operations</a></dt><dd>Organized tensor operations by category (trait-based system)
+カテゴリ別に整理されたテンソル操作（トレイトベースシステム）
+Organized tensor operations module
+整理されたテンソル操作モジュール</dd><dt><a class="mod" href="ops/index.html" title="mod rustorch::tensor::ops">ops</a></dt><dd>Organized tensor operations by category (new modular system)
+カテゴリ別に整理されたテンソル操作（新しいモジュールシステム）
+Modular tensor operations
+モジュール化されたテンソル演算</dd><dt><a class="mod" href="parallel_errors/index.html" title="mod rustorch::tensor::parallel_errors">parallel_<wbr>errors</a></dt><dd>並列テンソル操作の統一エラーハンドリング
+Unified error handling for parallel tensor operations - now using RusTorchError only</dd><dt><a class="mod" href="parallel_impl/index.html" title="mod rustorch::tensor::parallel_impl">parallel_<wbr>impl</a></dt><dd>並列テンソル操作の実装
+Implementation of parallel tensor operations</dd><dt><a class="mod" href="parallel_ops/index.html" title="mod rustorch::tensor::parallel_ops">parallel_<wbr>ops</a></dt><dd>Parallel tensor operations module
+並列テンソル演算モジュール</dd><dt><a class="mod" href="parallel_traits/index.html" title="mod rustorch::tensor::parallel_traits">parallel_<wbr>traits</a></dt><dd>Parallel Tensor Operations Traits</dd><dt><a class="mod" href="shared_ops/index.html" title="mod rustorch::tensor::shared_ops">shared_<wbr>ops</a></dt><dd>Shared operations between regular and WASM tensors
+通常テンソルとWASMテンソル間の共通操作
+Shared tensor operations for both regular and WASM tensors
+通常テンソルとWASMテンソル両方用の共通操作</dd><dt><a class="mod" href="simd_avx512/index.html" title="mod rustorch::tensor::simd_avx512">simd_<wbr>avx512</a></dt><dd>AVX-512 SIMD optimizations for high-performance tensor operations
+高性能テンソル演算のためのAVX-512 SIMD最適化</dd><dt><a class="mod" href="simd_integration/index.html" title="mod rustorch::tensor::simd_integration">simd_<wbr>integration</a></dt><dd>Parallel tensor operations for batch processing and SIMD acceleration
+バッチ処理とSIMD加速のための並列テンソル操作</dd><dt><a class="mod" href="type_safe/index.html" title="mod rustorch::tensor::type_safe">type_<wbr>safe</a></dt><dd>Type-safe tensor operations with compile-time verification
+コンパイル時検証付きの型安全テンソル操作
+Type-safe tensor shapes and operations
+型安全なテンソル形状と操作</dd><dt><a class="mod" href="utilities/index.html" title="mod rustorch::tensor::utilities">utilities</a></dt><dd>Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
+フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
+Phase 8: Tensor Utilities Implementation - Refactored
+フェーズ8: テンソルユーティリティ実装 - リファクタリング版</dd></dl></section></div></main></body></html>

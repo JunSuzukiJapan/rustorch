@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["activation_ops","math_funcs","math_ops","shape_ops","stats_ops"],"trait":["CommonTensorOps","TensorOps"]};

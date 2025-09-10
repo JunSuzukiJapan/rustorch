@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OpenClKernelType"],"fn":["opencl_elementwise_add_f32","opencl_matmul_f32","opencl_reduce_sum_f32"],"struct":["OpenClBuffer","OpenClKernelExecutor","OpenClKernelParams"]};

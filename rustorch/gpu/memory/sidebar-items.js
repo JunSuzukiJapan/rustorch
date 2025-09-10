@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DataTransfer","GpuMemoryManager","GpuMemoryPool","MemoryAllocation","MemoryStats"]};
