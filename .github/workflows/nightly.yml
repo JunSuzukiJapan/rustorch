@@ -105,7 +105,9 @@ jobs:
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/libblas.so || true
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libopenblas.so /usr/lib/x86_64-linux-gnu/liblapack.so || true
           
-          cargo bench --features "linalg-system" -- --output-format json > benchmark-results.json
+          # Run benchmarks and capture output
+          echo "Running performance benchmarks..." > benchmark-results.json
+          cargo bench --features "linalg-system" 2>&1 | tee -a benchmark-results.json
         shell: bash
         env:
           PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig"
