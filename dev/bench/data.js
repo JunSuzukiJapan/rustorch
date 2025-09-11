@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757498061306,
+  "lastUpdate": 1757585451167,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -59,6 +59,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30011,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "c111b18f14d07a92c7083833e3bb0e1a621d2665",
+          "message": "fix: remove unsupported --output-format option from cargo bench\n\n- Replace --output-format json with tee to capture benchmark output\n- Fix 'Unrecognized option: output-format' error in nightly benchmarks\n- Maintain benchmark results collection for performance regression analysis\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-11T19:09:40+09:00",
+          "tree_id": "6636a38d7cc221fde489709a4821dbd66378930b",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/c111b18f14d07a92c7083833e3bb0e1a621d2665"
+        },
+        "date": 1757585449560,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
