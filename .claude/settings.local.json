@@ -118,7 +118,12 @@
       "Read(//Users/junsuzuki/**)",
       "Bash(git remote get-url:*)",
       "Bash(curl:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "mcp__serena__onboarding",
+      "Bash(rust-analyzer:*)",
+      "Bash(rustup component:*)",
+      "mcp__serena__write_memory",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": [],
