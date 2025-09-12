@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757585451167,
+  "lastUpdate": 1757651311433,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -90,6 +90,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30010,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "6393b7b6c8581fbc67e8b69bc6a4f0a9a4943dcf",
+          "message": "fix: resolve Windows heap corruption in nightly tests\n\n- Use --no-default-features for Windows to avoid BLAS/LAPACK linking issues\n- Skip stress tests on Windows to prevent STATUS_HEAP_CORRUPTION (0xc0000374)\n- Maintain full feature testing on Linux and macOS where libraries work properly\n- Improve Windows CI stability while preserving comprehensive testing on other platforms\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-12T13:27:27+09:00",
+          "tree_id": "fc09e5434a230ab3e2f12a1b6bd977309aadee97",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/6393b7b6c8581fbc67e8b69bc6a4f0a9a4943dcf"
+        },
+        "date": 1757651309877,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30012,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
