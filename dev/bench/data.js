@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757651311433,
+  "lastUpdate": 1757651399491,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -121,6 +121,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30012,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "50342e457a65bf7a26483ade5415950e82c0375e",
+          "message": "update: local settings and final cleanup\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-12T13:29:03+09:00",
+          "tree_id": "742fc1115ed95fe04382975604598fe4c895feb0",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/50342e457a65bf7a26483ade5415950e82c0375e"
+        },
+        "date": 1757651398266,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
