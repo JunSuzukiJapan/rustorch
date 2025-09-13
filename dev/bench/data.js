@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757651399491,
+  "lastUpdate": 1757741758005,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -152,6 +152,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30010,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "f1fe7ab0a67e9f865c0e2b5d6bec19661683f7b8",
+          "message": "fix: implement conservative Windows testing strategy for nightly CI\n\n- Skip problematic auto_device and GPU-related tests on Windows\n- Use single-threaded execution to prevent heap corruption\n- Focus on core functionality testing only on Windows platform\n- Addresses STATUS_HEAP_CORRUPTION issues in nightly Windows tests\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-13T14:34:29+09:00",
+          "tree_id": "a472fa0081a8a88f2cfdb1d04277dcd634720143",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/f1fe7ab0a67e9f865c0e2b5d6bec19661683f7b8"
+        },
+        "date": 1757741756169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
