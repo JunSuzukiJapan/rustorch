@@ -1,6 +1,6 @@
 {
   "name": "rustorch-jupyter",
-  "version": "0.6.0",
+  "version": "0.6.18",
   "description": "Jupyter Lab integration for RusTorch WASM - Interactive machine learning in browser environments",
   "main": "rustorch_jupyter.js",
   "type": "module",
