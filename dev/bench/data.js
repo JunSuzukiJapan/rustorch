@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757741758005,
+  "lastUpdate": 1757746545711,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -183,6 +183,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2365939a9d83ed433a38eb9b80f5b8b99ad942d2",
+          "message": "feat: synchronize all version references to 0.6.18 (#26)\n\n- Updated Cargo.toml from 0.6.17 to 0.6.18\n- Updated all Jupyter notebooks in notebooks/ to use rustorch 0.6.18\n- Updated jupyter/package.json to version 0.6.18\n- Synchronized multilingual notebooks: en, es, fr, it, ko, zh, ja\n- Ensured consistent version alignment across all components\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-13T15:54:47+09:00",
+          "tree_id": "d701e1f7a58bd8335e3b1b6a7aaa5ace37a7a3f0",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/2365939a9d83ed433a38eb9b80f5b8b99ad942d2"
+        },
+        "date": 1757746544621,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
