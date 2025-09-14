@@ -411,7 +411,7 @@ impl PyModel {
     /// 予測実行
     pub fn predict(&self, input: &PyVariable) -> PyResult<PyVariable> {
         // Simplified prediction
-        Ok(input.clone())
+        input.clone().try_into()
     }
 
     /// Get model summary

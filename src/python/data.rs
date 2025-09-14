@@ -383,10 +383,8 @@ impl PyTransform {
             // Simplified flip - reverse order of elements
             let mut data: Vec<f32> = tensor.iter().cloned().collect();
             data.reverse();
-            match crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()) {
-                Ok(flipped) => Ok(flipped),
-                Err(e) => Err(to_py_err(e)),
-            }
+            crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec())
+                .map_err(to_py_err)
         } else {
             Ok(tensor.clone())
         }
@@ -403,14 +401,9 @@ pub struct PyTransforms {
 #[pymethods]
 impl PyTransforms {
     #[new]
-    pub fn new(transforms: &pyo3::types::PyList) -> PyResult<Self> {
-        let mut transform_vec = Vec::new();
-        for item in transforms.iter() {
-            let transform: PyTransform = item.extract()?;
-            transform_vec.push(transform);
-        }
+    pub fn new(transforms: Vec<PyTransform>) -> PyResult<Self> {
         Ok(PyTransforms {
-            transforms: transform_vec,
+            transforms,
         })
     }
 

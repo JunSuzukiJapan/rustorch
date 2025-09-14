@@ -123,7 +123,15 @@
       "Bash(rust-analyzer:*)",
       "Bash(rustup component:*)",
       "mcp__serena__write_memory",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(for file in */*.ipynb)",
+      "Bash(do echo \"Updating $file\")",
+      "Bash(done)",
+      "mcp__serena__read_memory",
+      "mcp__serena__get_current_config",
+      "mcp__serena__think_about_collected_information",
+      "mcp__serena__replace_symbol_body",
+      "Bash(timeout 30 cargo test --lib memory::enhanced_pool::tests::test_garbage_collection -- --test-threads=1)"
     ],
     "deny": [],
     "ask": [],
