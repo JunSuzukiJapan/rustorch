@@ -588,10 +588,10 @@ mod tests {
     #[cfg(not(feature = "ci-fast"))]
     fn test_monitor_lifecycle() {
         let config = MonitorConfig {
-            monitor_interval: Duration::from_millis(5),  // Even shorter for CI
+            monitor_interval: Duration::from_millis(5), // Even shorter for CI
             ..MonitorConfig::default()
         };
-        
+
         // Use timeout wrapper for entire test
         let test_result = std::panic::catch_unwind(|| {
             let monitor = AdaptivePressureMonitor::new(config);
@@ -605,13 +605,11 @@ mod tests {
             thread::sleep(Duration::from_millis(2));
 
             // Stop monitoring with timeout protection
-            let stop_result = std::panic::catch_unwind(|| {
-                monitor.stop_monitoring()
-            });
+            let stop_result = std::panic::catch_unwind(|| monitor.stop_monitoring());
 
             // Force cleanup regardless of stop result
             drop(monitor);
-            
+
             // Test passes if we get here without hanging
         });
 

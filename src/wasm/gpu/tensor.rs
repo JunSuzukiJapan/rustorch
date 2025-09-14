@@ -20,22 +20,25 @@ pub struct WebGPUTensorEngine {
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
 impl WebGPUTensorEngine {
-    #[wasm_bindgen(constructor)]
-    pub async fn new() -> Result<WebGPUTensorEngine, JsValue> {
-        let mut context = WebGPUContext::new().await?;
+    #[wasm_bindgen]
+    impl WebGPUTensorEngine {
+        #[wasm_bindgen]
+        pub async fn create() -> Result<WebGPUTensorEngine, JsValue> {
+            let mut context = WebGPUContext::new().await?;
 
-        // Initialize all compute shaders
-        context.create_compute_pipeline("tensor_add", super::backend::TENSOR_ADD_SHADER);
-        context.create_compute_pipeline("tensor_mul", super::backend::TENSOR_MUL_SHADER);
-        context.create_compute_pipeline("tensor_matmul", super::backend::TENSOR_MATMUL_SHADER);
-        context.create_compute_pipeline("tensor_relu", super::backend::TENSOR_RELU_SHADER);
-        context.create_compute_pipeline("tensor_sigmoid", super::backend::TENSOR_SIGMOID_SHADER);
-        context.create_compute_pipeline("tensor_softmax", super::backend::TENSOR_SOFTMAX_SHADER);
+            // Initialize all compute shaders
+            context.create_compute_pipeline("tensor_add", super::backend::TENSOR_ADD_SHADER);
+            context.create_compute_pipeline("tensor_mul", super::backend::TENSOR_MUL_SHADER);
+            context.create_compute_pipeline("tensor_matmul", super::backend::TENSOR_MATMUL_SHADER);
+            context.create_compute_pipeline("tensor_relu", super::backend::TENSOR_RELU_SHADER);
+            context.create_compute_pipeline("tensor_sigmoid", super::backend::TENSOR_SIGMOID_SHADER);
+            context.create_compute_pipeline("tensor_softmax", super::backend::TENSOR_SOFTMAX_SHADER);
 
-        Ok(WebGPUTensorEngine {
-            context,
-            buffer_counter: 0,
-        })
+            Ok(WebGPUTensorEngine {
+                context,
+                buffer_counter: 0,
+            })
+        }
     }
 
     #[wasm_bindgen]

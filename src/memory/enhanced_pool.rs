@@ -639,13 +639,13 @@ mod tests {
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);
 
         // Use smaller arrays for faster CI execution
-        let shape = &[2, 2];  // Reduced from [2, 3]
-        
+        let shape = &[2, 2]; // Reduced from [2, 3]
+
         // Allocate and deallocate with timeout protection
         let alloc_result = std::panic::catch_unwind(|| {
             let array1 = pool.allocate(shape)?;
             pool.deallocate(array1)?;
-            
+
             // Allocate same size - should reuse
             let array2 = pool.allocate(shape)?;
             Ok::<_, crate::error::RusTorchError>(array2)
@@ -654,7 +654,7 @@ mod tests {
         match alloc_result {
             Ok(Ok(array2)) => {
                 assert_eq!(array2.shape(), shape);
-                
+
                 // Try to get stats, but don't fail if it times out
                 if let Ok(stats) = pool.get_stats() {
                     // Cache hit ratio check is optional in CI
@@ -674,8 +674,9 @@ mod tests {
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);
 
         // Create some arrays with shorter retention time for CI
-        for _ in 0..5 {  // Reduced from 10 to 5
-            let array = pool.allocate(&[3, 3]).unwrap();  // Smaller arrays
+        for _ in 0..5 {
+            // Reduced from 10 to 5
+            let array = pool.allocate(&[3, 3]).unwrap(); // Smaller arrays
             pool.deallocate(array).unwrap();
         }
 
@@ -683,9 +684,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(1));
 
         // Force garbage collection with timeout protection
-        let gc_result = std::panic::catch_unwind(|| {
-            pool.garbage_collect()
-        });
+        let gc_result = std::panic::catch_unwind(|| pool.garbage_collect());
 
         match gc_result {
             Ok(gc_stats) => {
