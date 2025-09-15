@@ -20,8 +20,8 @@ pub struct WebGPUTensorEngine {
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
 impl WebGPUTensorEngine {
-    #[wasm_bindgen(constructor)]
-    pub async fn new() -> Result<WebGPUTensorEngine, JsValue> {
+    #[wasm_bindgen]
+    pub async fn create() -> Result<WebGPUTensorEngine, JsValue> {
         let mut context = WebGPUContext::new().await?;
 
         // Initialize all compute shaders

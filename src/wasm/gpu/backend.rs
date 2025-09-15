@@ -643,8 +643,8 @@ pub struct ChromeWebGPUOptimizer {
 #[cfg(feature = "webgpu")]
 #[wasm_bindgen]
 impl ChromeWebGPUOptimizer {
-    #[wasm_bindgen(constructor)]
-    pub async fn new() -> Result<ChromeWebGPUOptimizer, JsValue> {
+    #[wasm_bindgen]
+    pub async fn create() -> Result<ChromeWebGPUOptimizer, JsValue> {
         let context = WebGPUContext::new().await?;
 
         let mut workgroup_sizes = HashMap::new();

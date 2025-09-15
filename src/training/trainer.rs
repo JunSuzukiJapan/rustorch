@@ -24,7 +24,7 @@ pub struct TrainerConfig {
     /// 検証頻度（エポック単位）
     pub validation_frequency: usize,
     /// グラディエントクリッピングの閾値
-    pub gradient_clip_value: Option<f64>,
+    pub gradient_clip_value: Option<f32>,
     /// デバイス設定
     pub device: String,
     /// 混合精度学習を使用するかどうか
@@ -312,7 +312,7 @@ where
 
     /// グラディエントクリッピング
     /// Gradient clipping
-    fn clip_gradients<M>(&self, _model: &M, _clip_value: f64)
+    fn clip_gradients<M>(&self, _model: &M, _clip_value: f32)
     where
         M: TrainableModel<T>,
     {
@@ -494,7 +494,7 @@ where
 
     /// グラディエントクリッピングを設定
     /// Set gradient clipping
-    pub fn gradient_clip_value(mut self, value: f64) -> Self {
+    pub fn gradient_clip_value(mut self, value: f32) -> Self {
         self.config.gradient_clip_value = Some(value);
         self
     }

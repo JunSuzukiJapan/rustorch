@@ -410,8 +410,8 @@ impl PyModel {
     /// Make predictions
     /// 予測実行
     pub fn predict(&self, input: &PyVariable) -> PyResult<PyVariable> {
-        // Simplified prediction
-        Ok(input.clone())
+        // Simplified prediction - return a copy of the input
+        input.clone()
     }
 
     /// Get model summary

@@ -324,12 +324,10 @@ impl PyTransform {
         std: f32,
     ) -> PyResult<crate::tensor::Tensor<f32>> {
         // Simple normalization: (x - mean) / std
+        use crate::tensor::operations::zero_copy::TensorIterOps;
         let data: Vec<f32> = tensor.iter().map(|&x| (x - mean) / std).collect();
 
-        match crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()) {
-            Ok(normalized) => Ok(normalized),
-            Err(e) => Err(to_py_err(e)),
-        }
+        crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
     }
 
     /// Resize tensor (simplified implementation)
@@ -381,12 +379,10 @@ impl PyTransform {
 
         if should_flip {
             // Simplified flip - reverse order of elements
+            use crate::tensor::operations::zero_copy::TensorIterOps;
             let mut data: Vec<f32> = tensor.iter().cloned().collect();
             data.reverse();
-            match crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()) {
-                Ok(flipped) => Ok(flipped),
-                Err(e) => Err(to_py_err(e)),
-            }
+            crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
         } else {
             Ok(tensor.clone())
         }
@@ -403,15 +399,8 @@ pub struct PyTransforms {
 #[pymethods]
 impl PyTransforms {
     #[new]
-    pub fn new(transforms: &pyo3::types::PyList) -> PyResult<Self> {
-        let mut transform_vec = Vec::new();
-        for item in transforms.iter() {
-            let transform: PyTransform = item.extract()?;
-            transform_vec.push(transform);
-        }
-        Ok(PyTransforms {
-            transforms: transform_vec,
-        })
+    pub fn new(transforms: Vec<PyTransform>) -> PyResult<Self> {
+        Ok(PyTransforms { transforms })
     }
 
     /// Apply all transforms sequentially
