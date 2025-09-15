@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757932944909,
+  "lastUpdate": 1757935997744,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -245,6 +245,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30011,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "00a32231600348c376516c0f368396e65cf633d1",
+          "message": "ci: force synchronization to resolve WebAssembly formatting issues\n\nThe CI is reporting syntax errors in WebAssembly files that don't exist locally.\nThis commit forces a resync to ensure GitHub repository matches local state.",
+          "timestamp": "2025-09-15T20:32:12+09:00",
+          "tree_id": "93dea865d9e88370aa9b9b302e5319ba2e0c726d",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/00a32231600348c376516c0f368396e65cf633d1"
+        },
+        "date": 1757935996501,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30014,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
