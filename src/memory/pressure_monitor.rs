@@ -591,10 +591,10 @@ mod tests {
         if std::env::var("CI").is_ok() {
             return;
         }
-        
+
         let config = MonitorConfig::default();
         let monitor = AdaptivePressureMonitor::new(config);
-        
+
         // Just test object creation - monitoring functionality skipped in CI
         drop(monitor);
     }

@@ -327,8 +327,7 @@ impl PyTransform {
         use crate::tensor::operations::zero_copy::TensorIterOps;
         let data: Vec<f32> = tensor.iter().map(|&x| (x - mean) / std).collect();
 
-        crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec())
-            .map_err(to_py_err)
+        crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
     }
 
     /// Resize tensor (simplified implementation)
@@ -383,8 +382,7 @@ impl PyTransform {
             use crate::tensor::operations::zero_copy::TensorIterOps;
             let mut data: Vec<f32> = tensor.iter().cloned().collect();
             data.reverse();
-            crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec())
-                .map_err(to_py_err)
+            crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
         } else {
             Ok(tensor.clone())
         }

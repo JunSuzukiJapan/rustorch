@@ -639,7 +639,7 @@ mod tests {
         if std::env::var("CI").is_ok() {
             return;
         }
-        
+
         let config = PoolConfig::default();
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);
 
@@ -648,7 +648,7 @@ mod tests {
         if let Ok(array) = pool.allocate(shape) {
             let _ = pool.deallocate(array);
         }
-        
+
         // Test passes if we reach here
     }
 
@@ -659,13 +659,14 @@ mod tests {
         if std::env::var("CI").is_ok() {
             return;
         }
-        
+
         let config = PoolConfig::default();
         let pool: EnhancedMemoryPool<f32> = EnhancedMemoryPool::new(config);
 
         // Minimal test for CI environments
-        for _ in 0..2 {  // Further reduced iterations
-            let array = pool.allocate(&[2, 2]).unwrap();  // Minimal arrays
+        for _ in 0..2 {
+            // Further reduced iterations
+            let array = pool.allocate(&[2, 2]).unwrap(); // Minimal arrays
             pool.deallocate(array).unwrap();
         }
 

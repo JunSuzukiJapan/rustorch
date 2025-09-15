@@ -644,30 +644,27 @@ pub struct ChromeWebGPUOptimizer {
 #[wasm_bindgen]
 impl ChromeWebGPUOptimizer {
     #[wasm_bindgen]
-    impl ChromeWebGPUOptimizer {
-        #[wasm_bindgen]
-        pub async fn create() -> Result<ChromeWebGPUOptimizer, JsValue> {
-            let context = WebGPUContext::new().await?;
+    pub async fn create() -> Result<ChromeWebGPUOptimizer, JsValue> {
+        let context = WebGPUContext::new().await?;
 
-            let mut workgroup_sizes = HashMap::new();
-            workgroup_sizes.insert("tensor_add".to_string(), (64, 1, 1));
-            workgroup_sizes.insert("tensor_mul".to_string(), (64, 1, 1));
-            workgroup_sizes.insert("tensor_matmul".to_string(), (8, 8, 1));
-            workgroup_sizes.insert("tensor_relu".to_string(), (64, 1, 1));
-            workgroup_sizes.insert("tensor_sigmoid".to_string(), (64, 1, 1));
-            workgroup_sizes.insert("tensor_softmax".to_string(), (64, 1, 1));
+        let mut workgroup_sizes = HashMap::new();
+        workgroup_sizes.insert("tensor_add".to_string(), (64, 1, 1));
+        workgroup_sizes.insert("tensor_mul".to_string(), (64, 1, 1));
+        workgroup_sizes.insert("tensor_matmul".to_string(), (8, 8, 1));
+        workgroup_sizes.insert("tensor_relu".to_string(), (64, 1, 1));
+        workgroup_sizes.insert("tensor_sigmoid".to_string(), (64, 1, 1));
+        workgroup_sizes.insert("tensor_softmax".to_string(), (64, 1, 1));
 
-            let mut optimal_buffer_sizes = HashMap::new();
-            optimal_buffer_sizes.insert("small".to_string(), 1024 * 1024); // 1MB
-            optimal_buffer_sizes.insert("medium".to_string(), 16 * 1024 * 1024); // 16MB
-            optimal_buffer_sizes.insert("large".to_string(), 64 * 1024 * 1024); // 64MB
+        let mut optimal_buffer_sizes = HashMap::new();
+        optimal_buffer_sizes.insert("small".to_string(), 1024 * 1024); // 1MB
+        optimal_buffer_sizes.insert("medium".to_string(), 16 * 1024 * 1024); // 16MB
+        optimal_buffer_sizes.insert("large".to_string(), 64 * 1024 * 1024); // 64MB
 
-            Ok(ChromeWebGPUOptimizer {
-                context,
-                workgroup_sizes,
-                optimal_buffer_sizes,
-            })
-        }
+        Ok(ChromeWebGPUOptimizer {
+            context,
+            workgroup_sizes,
+            optimal_buffer_sizes,
+        })
     }
 
     pub fn initialize_shaders(&mut self) -> bool {

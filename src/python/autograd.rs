@@ -160,7 +160,9 @@ impl PyVariable {
         // Create new variable with same data but no gradients
         let tensor_data = self.variable.data().read().unwrap().clone();
         let detached_var = Variable::new(tensor_data, false);
-        Ok(PyVariable { variable: detached_var })
+        Ok(PyVariable {
+            variable: detached_var,
+        })
     }
 
     /// Clone the Variable

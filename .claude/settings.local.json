@@ -131,7 +131,9 @@
       "mcp__serena__get_current_config",
       "mcp__serena__think_about_collected_information",
       "mcp__serena__replace_symbol_body",
-      "Bash(timeout 30 cargo test --lib memory::enhanced_pool::tests::test_garbage_collection -- --test-threads=1)"
+      "Bash(timeout 30 cargo test --lib memory::enhanced_pool::tests::test_garbage_collection -- --test-threads=1)",
+      "Bash(sort:*)",
+      "Bash(gh pr checks:*)"
     ],
     "deny": [],
     "ask": [],
