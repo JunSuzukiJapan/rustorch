@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757746545711,
+  "lastUpdate": 1757932944909,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -214,6 +214,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30010,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "13f01c59a97c2f740589e425eaf77d3ef1b6af98",
+          "message": "fix: resolve CI extended nightly test timeouts and macOS warnings (#27)\n\n* fix: resolve CI memory test timeouts in extended nightly tests\n\n- Add timeout protection with panic catching for garbage collection test\n- Reduce array sizes and iterations to minimize CI resource usage\n- Implement graceful error handling for memory reuse test\n- Add safe thread cleanup for monitor lifecycle test\n- Ensure tests pass in CI stress environments across all platforms\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: resolve compilation errors across all optional features\n\n- Fix Python bindings type errors in data transforms and training modules\n- Fix f32/f64 type mismatches in gradient clipping configurations\n- Fix PyList iteration and function return type errors in Python bindings\n- Ensure consistent type usage across training and autograd modules\n- All core library clippy warnings resolved\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: complete compilation error resolution for all modules\n\n- Fix Python autograd type errors by replacing complex operations with NotImplementedError\n- Fix Python data module tensor iteration with proper TensorIterOps import\n- Fix Python training predict method to use clone() instead of try_into()\n- Fix WebAssembly deprecated constructor warnings by replacing with create() methods\n- Resolve tensor iteration and from_vec return type issues\n- All core library functionality preserved while fixing optional feature compilation\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: resolve CI extended nightly test issues comprehensively\n\nMemory Tests:\n- Skip memory tests entirely in CI environments using env variable check\n- Prevent timeout issues by avoiding heavy GC and thread operations\n- Simplify tests to basic object creation only in CI\n\nmacOS Configuration:\n- Add OpenBLAS environment variables to resolve keg-only warnings\n- Set LDFLAGS, CPPFLAGS, PKG_CONFIG_PATH for proper library linking\n- Eliminate \"openblas is keg-only\" configuration warnings\n\nCI Stability:\n- Complete timeout protection across all three problematic tests\n- Environment-aware test execution for better CI reliability\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: resolve WebAssembly syntax errors and code formatting issues\n\n- Fix nested impl blocks in ChromeWebGPUOptimizer and WebGPUTensorEngine\n- Remove invalid constructor syntax causing compilation errors\n- Apply proper code formatting with cargo fmt\n- Resolve Code Quality CI check failures\n\nThis addresses the formatting issues that caused CI checks to fail.\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-15T19:41:15+09:00",
+          "tree_id": "0486b2fd13acfc364be1d0e9fa26a9b1ae9e504c",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/13f01c59a97c2f740589e425eaf77d3ef1b6af98"
+        },
+        "date": 1757932943682,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30011,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
