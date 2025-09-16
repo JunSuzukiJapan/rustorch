@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758001544953,
+  "lastUpdate": 1758006175311,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -307,6 +307,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30011,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "287c09104937ab2ff4a2c33ffd4a20f7c161138a",
+          "message": "fix: resolve code formatting issues in execution module\n\n- Fix assert! macro formatting to match Rust standards\n- Remove trailing whitespace\n- Ensure CI code quality checks pass\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-16T16:01:10+09:00",
+          "tree_id": "91c2574f23dddf36a08ff267dbfcaeb3b4207843",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/287c09104937ab2ff4a2c33ffd4a20f7c161138a"
+        },
+        "date": 1758006174045,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30012,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
