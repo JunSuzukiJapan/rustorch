@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1757935997744,
+  "lastUpdate": 1758001544953,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -276,6 +276,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30014,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "b55f576219642d0f2c6e52855d19aff80710c879",
+          "message": "feat: add Japanese documentation and fix CI performance test\n\n- Add Japanese Jupyter guide (docs/i18n/ja/jupyter-guide.md)\n- Update README multilingual table to include Japanese\n- Fix CI optimization effectiveness test with lenient 5x threshold\n- Improve error message with detailed performance ratio reporting\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-16T14:44:41+09:00",
+          "tree_id": "8a59041b1cc7f6608a995051ce2bdc97b13800c8",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/b55f576219642d0f2c6e52855d19aff80710c879"
+        },
+        "date": 1758001543914,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30011,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
