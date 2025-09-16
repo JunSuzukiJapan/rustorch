@@ -11,6 +11,7 @@
 | Language | README | Jupyter Guide |
 |----------|---------|---------------|
 | 🇺🇸 [English](docs/i18n/en/README.md) | [📖 Main](docs/i18n/en/README.md) | [📓 Jupyter](docs/i18n/en/jupyter-guide.md) |
+| 🇯🇵 [日本語](docs/i18n/ja/README.md) | [📖 メイン](docs/i18n/ja/README.md) | [📓 Jupyter](docs/i18n/ja/jupyter-guide.md) |
 | 🇫🇷 [Français](docs/i18n/fr/README.md) | [📖 Principal](docs/i18n/fr/README.md) | [📓 Jupyter](docs/i18n/fr/jupyter-guide.md) |
 | 🇮🇹 [Italiano](docs/i18n/it/README.md) | [📖 Principale](docs/i18n/it/README.md) | [📓 Jupyter](docs/i18n/it/jupyter-guide.md) |
 | 🇪🇸 [Español](docs/i18n/es/README.md) | [📖 Principal](docs/i18n/es/README.md) | [📓 Jupyter](docs/i18n/es/jupyter-guide.md) |
