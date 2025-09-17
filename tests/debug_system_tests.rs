@@ -117,15 +117,15 @@ mod debug_system_tests {
         let total_time: f64 = operation_times.iter().map(|entry| entry.duration_ms).sum();
         let average_time = total_time / operation_times.len() as f64;
 
-        // Count slow operations (>100ms)
+        // Count slow operations (>=100ms)
         let slow_ops = operation_times
             .iter()
-            .filter(|entry| entry.duration_ms > 100.0)
+            .filter(|entry| entry.duration_ms >= 100.0)
             .count();
 
         assert_eq!(operation_times.len(), 4);
         assert!(average_time > 0.0);
-        assert_eq!(slow_ops, 2); // very_slow_op and slow_op
+        assert_eq!(slow_ops, 2); // very_slow_op (250ms) and slow_op (>=100ms)
 
         // Find bottlenecks
         let mut sorted_ops = operation_times.clone();

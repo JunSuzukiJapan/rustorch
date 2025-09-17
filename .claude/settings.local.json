@@ -133,7 +133,10 @@
       "mcp__serena__replace_symbol_body",
       "Bash(timeout 30 cargo test --lib memory::enhanced_pool::tests::test_garbage_collection -- --test-threads=1)",
       "Bash(sort:*)",
-      "Bash(gh pr checks:*)"
+      "Bash(gh pr checks:*)",
+      "Bash(gh run watch:*)",
+      "mcp__morphllm-fast-apply__read_file",
+      "mcp__morphllm-fast-apply__tiny_edit_file"
     ],
     "deny": [],
     "ask": [],
