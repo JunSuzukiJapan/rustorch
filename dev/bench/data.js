@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758006175311,
+  "lastUpdate": 1758102914977,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -338,6 +338,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30012,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "f311fa49b9c565a8879c7dd832caeacd35fb9a43",
+          "message": "fix: resolve CI failures on Windows and Ubuntu\n\n- Windows CI: Add comprehensive exclusions for memory optimization tests\n  to prevent heap corruption from unsafe SIMD operations\n- Ubuntu CI: Fix timing boundary condition in performance profiling test\n  (changed >100ms to >=100ms for slow operation detection)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-17T18:54:10+09:00",
+          "tree_id": "d73dfdf17a830f2d779e12d50dcfc7bd9f85d3af",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/f311fa49b9c565a8879c7dd832caeacd35fb9a43"
+        },
+        "date": 1758102913748,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
