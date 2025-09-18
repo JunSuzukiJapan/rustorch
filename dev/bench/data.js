@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758102914977,
+  "lastUpdate": 1758176187192,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -369,6 +369,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "f27de4b1fcdea707da49dc06f532a7ac04d904dd",
+          "message": "fix: resolve distributed tests failures in CI environment\n\n- Add graceful handling for CI environments where distributed processing\n  infrastructure is not available\n- Convert hard failures to skip patterns with informative messages\n- All 9 distributed tests now pass in both local and CI environments\n- Tests properly handle initialization failures and missing backends\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-18T15:14:46+09:00",
+          "tree_id": "c0481a17f6afb58c1e6267649bf0844e9a350b25",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/f27de4b1fcdea707da49dc06f532a7ac04d904dd"
+        },
+        "date": 1758176185350,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
