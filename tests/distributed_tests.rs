@@ -28,10 +28,13 @@ fn test_distributed_initialization() {
 
     // Skip test if initialization fails in CI/unsupported environments
     if result.is_err() {
-        println!("Skipping distributed initialization test - not supported in this environment: {:?}", result);
+        println!(
+            "Skipping distributed initialization test - not supported in this environment: {:?}",
+            result
+        );
         return;
     }
-    
+
     assert!(is_initialized());
     assert_eq!(api::get_rank(), 0);
     assert_eq!(api::get_world_size(), 1);
@@ -55,7 +58,10 @@ fn test_ddp_wrapper() {
 
     let init_result = init_process_group(DistributedBackend::TCP, None, None, None, None);
     if init_result.is_err() {
-        println!("Skipping DDP wrapper test - initialization failed: {:?}", init_result);
+        println!(
+            "Skipping DDP wrapper test - initialization failed: {:?}",
+            init_result
+        );
         return;
     }
 
@@ -64,7 +70,10 @@ fn test_ddp_wrapper() {
     let ddp_result = wrap_module(linear, Some(vec![0]));
 
     if ddp_result.is_err() {
-        println!("Skipping DDP wrapper test - DDP not available: {:?}", ddp_result);
+        println!(
+            "Skipping DDP wrapper test - DDP not available: {:?}",
+            ddp_result
+        );
         destroy_process_group().ok();
         return;
     }
@@ -182,7 +191,10 @@ fn test_gradient_synchronization() {
     let ddp = match wrap_module(linear, Some(vec![0])) {
         Ok(ddp) => ddp,
         Err(e) => {
-            println!("Skipping gradient synchronization test - DDP not available: {:?}", e);
+            println!(
+                "Skipping gradient synchronization test - DDP not available: {:?}",
+                e
+            );
             destroy_process_group().ok();
             return;
         }
@@ -246,7 +258,7 @@ fn test_distributed_performance() {
             println!("Skipping performance test for size {:?} - distributed operation not available in CI", size);
             continue;
         }
-        
+
         println!("All-reduce for {:?}: {:?}", size, duration);
     }
 
@@ -266,10 +278,12 @@ fn test_distributed_error_handling() {
 
     let mut tensor: Tensor<f32> = Tensor::ones(&[2, 2]);
     let result = all_reduce(&mut tensor, ReduceOp::Sum, None, false);
-    
+
     // This should fail without initialization, but error handling may vary by environment
     if result.is_ok() {
-        println!("Warning: All-reduce succeeded without initialization - unexpected in test environment");
+        println!(
+            "Warning: All-reduce succeeded without initialization - unexpected in test environment"
+        );
     }
 
     // Test invalid operations
@@ -328,7 +342,10 @@ fn test_distributed_training_scenario() -> RusTorchResult<()> {
 
     // Try to initialize process group, skip test if it fails in CI
     if let Err(e) = init_process_group(DistributedBackend::TCP, None, None, None, None) {
-        println!("Skipping distributed training scenario test - initialization failed in CI: {:?}", e);
+        println!(
+            "Skipping distributed training scenario test - initialization failed in CI: {:?}",
+            e
+        );
         return Ok(());
     }
 
@@ -337,7 +354,10 @@ fn test_distributed_training_scenario() -> RusTorchResult<()> {
     let ddp_model = match wrap_module(model, Some(vec![0])) {
         Ok(ddp) => ddp,
         Err(e) => {
-            println!("Skipping training scenario - DDP wrapper creation failed: {:?}", e);
+            println!(
+                "Skipping training scenario - DDP wrapper creation failed: {:?}",
+                e
+            );
             destroy_process_group().ok();
             return Ok(());
         }
