@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758176187192,
+  "lastUpdate": 1758179162857,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -400,6 +400,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30010,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "e2526f6028f7b0a16556f03ddf35c230040210c4",
+          "message": "fix: resolve code formatting issues in distributed tests\n\n- Apply cargo fmt to fix long println! statements\n- Ensure CI formatting compliance\n- No functional changes, only formatting improvements\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-18T16:04:41+09:00",
+          "tree_id": "3f17cebea38d49df1a7f1536a60c2171f947f356",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/e2526f6028f7b0a16556f03ddf35c230040210c4"
+        },
+        "date": 1758179161020,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30013,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
