@@ -180,16 +180,20 @@ pub mod distributed_training;
 /// マルチGPUパフォーマンスプロファイリングとベンチマーキング
 pub mod multi_gpu_profiler;
 
+/// Hybrid execution engine for CoreML + GPU fallback
+/// CoreML + GPU フォールバック用ハイブリッド実行エンジン
+#[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+pub mod hybrid_executor;
+
 use std::fmt;
 // use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
 
-/// GPU device types
-/// GPU デバイスタイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+/// GPU device types with CoreML and hybrid support
+/// GPU デバイスタイプ（CoreMLとハイブリッド対応）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DeviceType {
     /// CPU device
     /// CPUデバイス
-    #[default]
     Cpu,
     /// CUDA GPU device
     /// CUDA GPUデバイス
@@ -200,6 +204,119 @@ pub enum DeviceType {
     /// OpenCL GPU device
     /// OpenCL GPUデバイス
     OpenCL(usize),
+    /// CoreML device (Apple Neural Engine + GPU)
+    /// CoreMLデバイス（Apple Neural Engine + GPU）
+    #[cfg(feature = "coreml")]
+    CoreML(usize),
+    /// Hybrid CoreML with GPU fallback
+    /// GPU フォールバック付きハイブリッドCoreML
+    #[cfg(feature = "coreml-hybrid")]
+    CoreMLHybrid {
+        coreml_id: usize,
+        fallback_gpu: Option<GpuDevice>,
+    },
+    /// Auto-select best available device
+    /// 利用可能な最高性能デバイスを自動選択
+    Auto,
+}
+
+/// GPU device types for fallback
+/// フォールバック用GPUデバイスタイプ
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum GpuDevice {
+    Cuda(usize),
+    Metal(usize),
+    OpenCL(usize),
+}
+/// Operation types for device capability checking
+/// デバイス能力チェック用演算タイプ
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum OpType {
+    /// Linear algebra operations (matmul, etc.)
+    LinearAlgebra,
+    /// Convolution operations
+    Convolution,
+    /// Activation functions
+    Activation,
+    /// Reduction operations (sum, mean, etc.)
+    Reduction,
+    /// Normalization operations
+    Normalization,
+    /// Complex number operations (CoreML unsupported)
+    ComplexMath,
+    /// Statistical distributions (CoreML unsupported)
+    Distribution,
+    /// Custom kernel operations (CoreML unsupported)
+    CustomKernel,
+    /// Distributed operations (CoreML unsupported)
+    DistributedOps,
+}
+
+/// Device capability information
+/// デバイス能力情報
+#[derive(Debug)]
+pub struct DeviceCapability {
+    pub device_type: DeviceType,
+    pub supports_f16: bool,
+    pub supports_f32: bool,
+    pub supports_f64: bool,
+    pub supports_complex: bool,
+    pub supports_distributed: bool,
+    pub max_memory_gb: f32,
+    pub supported_operations: std::collections::HashSet<OpType>,
+}
+
+impl DeviceCapability {
+    /// Check if device supports specific operation
+    /// デバイスが特定の演算をサポートするかチェック
+    pub fn supports_operation(&self, op_type: &OpType) -> bool {
+        self.supported_operations.contains(op_type)
+    }
+
+    /// Get CoreML capability
+    /// CoreML能力を取得
+    #[cfg(feature = "coreml")]
+    pub fn coreml_capability() -> Self {
+        let mut supported_ops = std::collections::HashSet::new();
+        supported_ops.insert(OpType::LinearAlgebra);
+        supported_ops.insert(OpType::Convolution);
+        supported_ops.insert(OpType::Activation);
+        supported_ops.insert(OpType::Reduction);
+        supported_ops.insert(OpType::Normalization);
+
+        Self {
+            device_type: DeviceType::CoreML(0),
+            supports_f16: true,
+            supports_f32: true,
+            supports_f64: false,  // CoreML limitation
+            supports_complex: false,  // CoreML limitation
+            supports_distributed: false,  // CoreML limitation
+            max_memory_gb: 8.0,  // Typical Apple Silicon unified memory
+            supported_operations: supported_ops,
+        }
+    }
+}
+
+impl Default for DeviceType {
+    fn default() -> Self {
+        // Auto-select best available device
+        #[cfg(feature = "coreml")]
+        if crate::device::DeviceManager::is_coreml_available() {
+            return DeviceType::CoreML(0);
+        }
+        
+        #[cfg(feature = "cuda")]
+        if crate::device::DeviceManager::is_cuda_available() {
+            return DeviceType::Cuda(0);
+        }
+        
+        #[cfg(feature = "metal")]
+        if crate::device::DeviceManager::is_metal_available() {
+            return DeviceType::Metal(0);
+        }
+        
+        DeviceType::Cpu
+    }
 }
 
 impl fmt::Display for DeviceType {
