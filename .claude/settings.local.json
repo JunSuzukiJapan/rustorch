@@ -150,7 +150,11 @@
       "Bash(timeout 60 cargo run --example device_performance_comparison --features metal)",
       "Bash(timeout 90 cargo run --example device_performance_comparison --features metal)",
       "Bash(timeout 30 cargo run --example device_performance_comparison --features metal)",
-      "Bash(timeout 90 cargo run --example device_performance_comparison --features \"coreml metal\")"
+      "Bash(timeout 90 cargo run --example device_performance_comparison --features \"coreml metal\")",
+      "mcp__serena__insert_before_symbol",
+      "Bash(timeout 30 cargo check --features \"coreml metal\")",
+      "Bash(timeout 90 cargo run --example device_performance_comparison --features coreml)",
+      "Bash(timeout 30 cargo run --example device_performance_comparison --features coreml)"
     ],
     "deny": [],
     "ask": [],

@@ -3,6 +3,8 @@ use crate::dtype::DType;
 /// CoreML + GPU フォールバック用ハイブリッド実行エンジン
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::gpu::{DeviceCapability, DeviceType, GpuDevice, OpType};
+use crate::gpu::smart_device_selector::{SmartDeviceSelector, OperationProfile, OperationType};
+use crate::gpu::device_cache::{DeviceCache, CoreMLCache};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -36,12 +38,22 @@ pub struct HybridExecutor {
     // Performance thresholds
     small_tensor_threshold: usize, // < 1MB → CPU
     large_tensor_threshold: usize, // > 100MB → best GPU
+
+    // Smart device selection
+    smart_selector: SmartDeviceSelector,
+    device_cache: DeviceCache,
 }
 
 impl HybridExecutor {
     /// Create new hybrid executor
     /// 新しいハイブリッド実行器を作成
     pub fn new() -> Self {
+        // Initialize device cache and detect available devices
+        let device_cache = DeviceCache::new();
+        device_cache.warmup(); // Pre-populate cache
+
+        let available_devices = Self::detect_available_devices(&device_cache);
+
         let mut executor = Self {
             primary_device: DeviceType::Auto,
             fallback_devices: Vec::new(),
@@ -49,6 +61,8 @@ impl HybridExecutor {
             operation_routing: HashMap::new(),
             small_tensor_threshold: 1_000_000,   // 1MB
             large_tensor_threshold: 100_000_000, // 100MB
+            smart_selector: SmartDeviceSelector::new(available_devices),
+            device_cache,
         };
 
         executor.initialize_device_capabilities();
@@ -236,6 +250,107 @@ impl HybridExecutor {
         }
 
         // GPU capabilities would be detected at runtime
+    }
+
+    /// Detect available devices using device cache
+    /// デバイスキャッシュを使用して利用可能デバイスを検出
+    fn detect_available_devices(device_cache: &DeviceCache) -> Vec<DeviceType> {
+        let mut available = Vec::new();
+
+        // Always include CPU
+        available.push(DeviceType::Cpu);
+
+        // Check CoreML availability
+        if device_cache.is_device_available(&DeviceType::CoreML(0)) {
+            available.push(DeviceType::CoreML(0));
+        }
+
+        // Check Metal availability
+        if device_cache.is_device_available(&DeviceType::Metal(0)) {
+            available.push(DeviceType::Metal(0));
+        }
+
+        // Check CUDA availability
+        if device_cache.is_device_available(&DeviceType::Cuda(0)) {
+            available.push(DeviceType::Cuda(0));
+        }
+
+        available
+    }
+
+    /// Smart device selection for operation
+    /// 操作用スマートデバイス選択
+    pub fn select_optimal_device(&self, tensor_info: &TensorInfo, op_type: OpType) -> DeviceType {
+        // Convert OpType to OperationType
+        let operation_type = match op_type {
+            OpType::LinearAlgebra => OperationType::MatrixMultiplication,
+            OpType::Activation => OperationType::Activation,
+            OpType::Convolution => OperationType::Convolution,
+            OpType::Reduction | OpType::Normalization => OperationType::ElementWise,
+            _ => OperationType::ElementWise,
+        };
+
+        // Create operation profile
+        let profile = OperationProfile::new(
+            operation_type,
+            &tensor_info.shape,
+            self.get_dtype_size(&tensor_info.dtype),
+        );
+
+        // Use smart selector for optimal device
+        let selected = self.smart_selector.select_device(&profile);
+
+        // Validate device is actually available
+        if self.device_cache.is_device_available(&selected) {
+            selected
+        } else {
+            // Fallback to first available device
+            self.fallback_devices.first().cloned().unwrap_or(DeviceType::Cpu)
+        }
+    }
+
+    /// Get fallback chain for specific operation
+    /// 特定操作用のフォールバックチェーンを取得
+    pub fn get_operation_fallback_chain(&self, tensor_info: &TensorInfo, op_type: OpType) -> Vec<DeviceType> {
+        // Convert OpType to OperationType
+        let operation_type = match op_type {
+            OpType::LinearAlgebra => OperationType::MatrixMultiplication,
+            OpType::Activation => OperationType::Activation,
+            OpType::Convolution => OperationType::Convolution,
+            OpType::Reduction | OpType::Normalization => OperationType::ElementWise,
+            _ => OperationType::ElementWise,
+        };
+
+        // Create operation profile
+        let profile = OperationProfile::new(
+            operation_type,
+            &tensor_info.shape,
+            self.get_dtype_size(&tensor_info.dtype),
+        );
+
+        // Get smart fallback chain
+        self.smart_selector.get_fallback_chain(&profile)
+    }
+
+    /// Get data type size in bytes
+    /// データタイプのサイズをバイト単位で取得
+    fn get_dtype_size(&self, dtype: &DType) -> usize {
+        match dtype {
+            DType::Float16 | DType::BFloat16 => 2,
+            DType::Float32 => 4,
+            DType::Float64 => 8,
+            DType::Int8 => 1,
+            DType::Int16 => 2,
+            DType::Int32 => 4,
+            DType::Int64 => 8,
+            DType::UInt8 => 1,
+            DType::UInt16 => 2,
+            DType::UInt32 => 4,
+            DType::UInt64 => 8,
+            DType::Bool => 1,
+            DType::Complex64 => 8,  // 2 * 32-bit floats
+            DType::Complex128 => 16, // 2 * 64-bit floats
+        }
     }
 
     /// Build fallback device chain based on actual hardware availability

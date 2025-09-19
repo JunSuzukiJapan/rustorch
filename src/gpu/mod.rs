@@ -121,6 +121,10 @@ pub mod benchmark;
 /// GPU畳み込み演算とcuDNN/MPS統合
 pub mod conv_ops;
 pub mod cuda_enhanced;
+
+/// Device caching module for optimized initialization
+/// 最適化された初期化用デバイスキャッシュモジュール
+pub mod device_cache;
 /// CUDA kernel implementations
 /// CUDAカーネル実装
 pub mod cuda_kernels;
@@ -166,6 +170,11 @@ pub mod unified_kernel_simple;
 /// GPU kernel validation and testing
 /// GPUカーネル検証とテスト
 pub mod validation;
+
+/// Smart device selection module for optimized operation routing
+/// 最適化された操作ルーティング用スマートデバイス選択モジュール
+pub mod smart_device_selector;
+
 /// GPU vs CPU verification tests
 /// GPU vs CPU検証テスト
 pub mod verification_tests;

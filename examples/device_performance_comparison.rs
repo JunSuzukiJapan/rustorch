@@ -46,8 +46,9 @@ impl Default for BenchmarkConfig {
         Self {
             matrix_size: 128,
             activation_size: [16, 32, 64, 64],
-            conv_input_size: [8, 16, 32, 32],
-            conv_output_channels: 32,
+            // Small convolution: should go directly to CPU
+            conv_input_size: [2, 4, 16, 16], // 2 batch, 4 channels, 16x16 (256 spatial)
+            conv_output_channels: 8,
             conv_kernel_size: 3,
             iterations: 3,
         }
