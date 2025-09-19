@@ -382,6 +382,18 @@ impl DeviceManager {
     pub fn is_coreml_available() -> bool {
         false
     }
+
+    /// Check if Metal is available on this system
+    #[cfg(feature = "metal")]
+    pub fn is_metal_available() -> bool {
+        // Metal is only available on macOS
+        cfg!(target_os = "macos")
+    }
+
+    #[cfg(not(feature = "metal"))]
+    pub fn is_metal_available() -> bool {
+        false
+    }
 }
 
 impl Default for DeviceManager {

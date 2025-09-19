@@ -348,13 +348,16 @@ impl Default for DeviceType {
         }
 
         #[cfg(feature = "cuda")]
-        if crate::device::DeviceManager::is_cuda_available() {
+        if crate::backends::DeviceManager::is_cuda_available() {
             return DeviceType::Cuda(0);
         }
 
         #[cfg(feature = "metal")]
-        if crate::device::DeviceManager::is_metal_available() {
-            return DeviceType::Metal(0);
+        {
+            use crate::gpu::metal_kernels::MetalKernelExecutor;
+            if MetalKernelExecutor::new().is_ok() {
+                return DeviceType::Metal(0);
+            }
         }
 
         DeviceType::Cpu

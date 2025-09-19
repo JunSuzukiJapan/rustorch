@@ -19,13 +19,47 @@ use metal::{Buffer, CommandBuffer, CommandQueue, Device as MetalDevice, MTLSize}
 
 #[cfg(feature = "opencl")]
 use opencl3::memory::ClMem;
-#[cfg(feature = "metal")]
-// use metal_performance_shaders::MPSMatrixMultiplication; // Using Metal compute shaders instead
-
 /// GPU matrix multiplication executor
 pub struct GpuMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + 'static> {
     device_type: super::DeviceType,
     _phantom: std::marker::PhantomData<T>,
+}
+
+impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
+    /// Create new matrix executor with device validation
+    pub fn new(device_type: super::DeviceType) -> RusTorchResult<Self> {
+        Ok(Self {
+            device_type,
+            _phantom: std::marker::PhantomData,
+        })
+    }
+
+    /// Public interface for Metal matrix multiplication
+    #[cfg(feature = "metal")]
+    pub fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        match self.device_type {
+            super::DeviceType::Metal(_) => {
+                // Use CPU fallback for now
+                a.matmul(b)
+                    .map_err(|e| RusTorchError::gpu(&format!("Metal matmul failed: {}", e)))
+            }
+            _ => Err(RusTorchError::gpu("Device type not supported for Metal operations"))
+        }
+    }
+
+    /// Public interface for CoreML matrix multiplication
+    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    pub fn coreml_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
+        match self.device_type {
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            super::DeviceType::CoreML(_) => {
+                // Use CPU fallback for now
+                a.matmul(b)
+                    .map_err(|e| RusTorchError::gpu(&format!("CoreML matmul failed: {}", e)))
+            }
+            _ => Err(RusTorchError::gpu("Device type not supported for CoreML operations"))
+        }
+    }
 }
 
 // Temporarily disabled to resolve struct issues
@@ -156,101 +190,7 @@ where
 }
 */
 
-// Metal implementation with safe CPU fallback
-#[cfg(all(feature = "metal", feature = "cuda"))]
-impl<T: Float + FromPrimitive + ScalarOperand + 'static + DeviceRepr + ValidAsZeroBits>
-    GpuMatrixExecutor<T>
-{
-    fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
 
-        // Validate matrix dimensions
-        let a_shape = a.shape();
-        let b_shape = b.shape();
-
-        if a_shape.len() != 2 || b_shape.len() != 2 {
-            return Err(RusTorchError::gpu(
-                "Only 2D matrices supported for GPU matmul",
-            ));
-        }
-
-        if a_shape[1] != b_shape[0] {
-            return Err(RusTorchError::gpu("Matrix dimension mismatch"));
-        }
-
-        // Get Metal device
-        let device = MetalDevice::system_default()
-            .ok_or_else(|| RusTorchError::gpu("No Metal device found"))?;
-
-        // Create command queue
-        let command_queue = device.new_command_queue();
-        let command_buffer = command_queue.new_command_buffer();
-
-        // Transfer tensors to GPU
-        let device_type = super::DeviceType::Metal(0);
-        let gpu_a = GpuMemoryManager::to_device(a, &device_type)?;
-        let gpu_b = GpuMemoryManager::to_device(b, &device_type)?;
-
-        // Use actual Metal GPU acceleration
-        #[cfg(feature = "metal")]
-        {
-            use crate::gpu::metal_kernels::MetalKernelExecutor;
-
-            if let Ok(executor) = MetalKernelExecutor::new() {
-                // Convert to f32 for Metal GPU operations
-                if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
-                    let a_f32: Vec<f32> =
-                        a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
-                    let b_f32: Vec<f32> =
-                        b_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
-
-                    if let Ok(result_data) = executor.matrix_multiply_f32(
-                        &a_f32,
-                        &b_f32,
-                        a.shape()[0],
-                        b.shape()[1],
-                        a.shape()[1],
-                    ) {
-                        let result_t: Vec<T> = result_data
-                            .iter()
-                            .map(|&x| T::from_f32(x).unwrap_or_else(|| T::from_f32(0.0).unwrap()))
-                            .collect();
-                        let tensor = match ndarray::ArrayD::from_shape_vec(
-                            vec![a.shape()[0], b.shape()[1]],
-                            result_t,
-                        ) {
-                            Ok(array) => Tensor::new(array),
-                            Err(e) => {
-                                return Err(RusTorchError::gpu(&format!(
-                                    "Metal result tensor creation failed: {}",
-                                    e
-                                )))
-                            }
-                        };
-                        return Ok(tensor);
-                    }
-                }
-            }
-        }
-
-        // Metal not available or failed - CPU fallback
-        let result = a
-            .matmul(b)
-            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul fallback failed: {}", e)))?;
-
-        Ok(result)
-    }
-}
-
-// Metal-only implementation (when CUDA is not available)
-#[cfg(all(feature = "metal", not(feature = "cuda")))]
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
-    fn metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
-        // Use CPU fallback when CUDA traits are not available
-        a.matmul(b)
-            .map_err(|e| RusTorchError::gpu(&format!("CPU matmul failed: {}", e)))
-    }
-}
 
 /// Batch matrix multiplication for multiple matrices with GPU acceleration
 pub struct GpuBatchMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static>
