@@ -30,6 +30,9 @@ pub fn save<P: AsRef<Path>>(obj: &dyn Saveable, path: P) -> SerializationResult<
         .open(path)?;
     let mut writer = BufWriter::new(file);
 
+    // Write RUSTORCH magic bytes first for format detection
+    writer.write_all(b"RUSTORCH")?;
+
     // Create header
     let metadata = obj.metadata();
     let mut header = FileHeader::new(obj.type_id().to_string(), metadata);
@@ -58,6 +61,15 @@ pub fn save<P: AsRef<Path>>(obj: &dyn Saveable, path: P) -> SerializationResult<
 pub fn load<P: AsRef<Path>, T: Loadable>(path: P) -> SerializationResult<T> {
     let file = File::open(path.as_ref())?;
     let mut reader = BufReader::new(file);
+
+    // Read and verify RUSTORCH magic bytes
+    let mut magic = [0u8; 8];
+    reader.read_exact(&mut magic)?;
+    if &magic != b"RUSTORCH" {
+        return Err(SerializationError::FormatError(
+            "Invalid RusTorch file format".to_string(),
+        ));
+    }
 
     // Read header size
     let mut header_size_bytes = [0u8; 8];
@@ -185,17 +197,40 @@ impl<T: Float + 'static> StateDict<T> {
 
 impl<T: Float + 'static> Saveable for StateDict<T> {
     fn save_binary(&self) -> SerializationResult<Vec<u8>> {
-        // Custom serialization for StateDict
-        #[derive(Serialize)]
-        struct StateDictData {
-            metadata: ModelMetadata,
+        let mut buffer = Vec::new();
+
+        // Save metadata first
+        let metadata_json = serde_json::to_string(&self.metadata)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        let metadata_bytes = metadata_json.as_bytes();
+        buffer.extend_from_slice(&(metadata_bytes.len() as u64).to_le_bytes());
+        buffer.extend_from_slice(metadata_bytes);
+
+        // Save parameters count and data
+        buffer.extend_from_slice(&(self.parameters.len() as u32).to_le_bytes());
+        for (name, tensor) in &self.parameters {
+            let name_bytes = name.as_bytes();
+            buffer.extend_from_slice(&(name_bytes.len() as u32).to_le_bytes());
+            buffer.extend_from_slice(name_bytes);
+
+            let tensor_data = tensor.save_binary()?;
+            buffer.extend_from_slice(&(tensor_data.len() as u64).to_le_bytes());
+            buffer.extend_from_slice(&tensor_data);
         }
 
-        let data = StateDictData {
-            metadata: self.metadata.clone(),
-        };
+        // Save buffers count and data
+        buffer.extend_from_slice(&(self.buffers.len() as u32).to_le_bytes());
+        for (name, tensor) in &self.buffers {
+            let name_bytes = name.as_bytes();
+            buffer.extend_from_slice(&(name_bytes.len() as u32).to_le_bytes());
+            buffer.extend_from_slice(name_bytes);
 
-        bincode::serialize(&data).map_err(|e| SerializationError::FormatError(e.to_string()))
+            let tensor_data = tensor.save_binary()?;
+            buffer.extend_from_slice(&(tensor_data.len() as u64).to_le_bytes());
+            buffer.extend_from_slice(&tensor_data);
+        }
+
+        Ok(buffer)
     }
 
     fn type_id(&self) -> &'static str {
@@ -220,19 +255,135 @@ impl<T: Float + 'static> Saveable for StateDict<T> {
 
 impl<T: Float + 'static> Loadable for StateDict<T> {
     fn load_binary(data: &[u8]) -> SerializationResult<Self> {
-        #[derive(Deserialize)]
-        struct StateDictData {
-            metadata: ModelMetadata,
+        if data.is_empty() {
+            return Ok(Self::new());
         }
 
-        let data: StateDictData = bincode::deserialize(data)
-            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        let mut offset = 0;
+        let mut state_dict = Self::new();
 
-        Ok(Self {
-            parameters: HashMap::new(),
-            buffers: HashMap::new(),
-            metadata: data.metadata,
-        })
+        // Read metadata
+        if data.len() < offset + 8 {
+            return Ok(state_dict);
+        }
+        let metadata_len =
+            u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid metadata length".to_string())
+            })?) as usize;
+        offset += 8;
+
+        if data.len() < offset + metadata_len {
+            return Ok(state_dict);
+        }
+        let metadata_str =
+            std::str::from_utf8(&data[offset..offset + metadata_len]).map_err(|_| {
+                SerializationError::FormatError("Invalid metadata encoding".to_string())
+            })?;
+        state_dict.metadata = serde_json::from_str(metadata_str)
+            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        offset += metadata_len;
+
+        // Read parameters
+        if data.len() < offset + 4 {
+            return Ok(state_dict);
+        }
+        let params_count =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid parameters count".to_string())
+            })?);
+        offset += 4;
+
+        for _ in 0..params_count {
+            // Read parameter name
+            if data.len() < offset + 4 {
+                break;
+            }
+            let name_len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid parameter name length".to_string())
+                })?) as usize;
+            offset += 4;
+
+            if data.len() < offset + name_len {
+                break;
+            }
+            let name =
+                String::from_utf8(data[offset..offset + name_len].to_vec()).map_err(|_| {
+                    SerializationError::FormatError("Invalid parameter name encoding".to_string())
+                })?;
+            offset += name_len;
+
+            // Read tensor data
+            if data.len() < offset + 8 {
+                break;
+            }
+            let tensor_data_len =
+                u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid tensor data length".to_string())
+                })?) as usize;
+            offset += 8;
+
+            if data.len() < offset + tensor_data_len {
+                break;
+            }
+            let tensor_data = &data[offset..offset + tensor_data_len];
+            if let Ok(tensor) = Tensor::<T>::load_binary(tensor_data) {
+                state_dict.parameters.insert(name, tensor);
+            }
+            offset += tensor_data_len;
+        }
+
+        // Read buffers (similar to parameters)
+        if data.len() < offset + 4 {
+            return Ok(state_dict);
+        }
+        let buffers_count =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid buffers count".to_string())
+            })?);
+        offset += 4;
+
+        for _ in 0..buffers_count {
+            // Read buffer name
+            if data.len() < offset + 4 {
+                break;
+            }
+            let name_len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid buffer name length".to_string())
+                })?) as usize;
+            offset += 4;
+
+            if data.len() < offset + name_len {
+                break;
+            }
+            let name =
+                String::from_utf8(data[offset..offset + name_len].to_vec()).map_err(|_| {
+                    SerializationError::FormatError("Invalid buffer name encoding".to_string())
+                })?;
+            offset += name_len;
+
+            // Read tensor data
+            if data.len() < offset + 8 {
+                break;
+            }
+            let tensor_data_len =
+                u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid tensor data length".to_string())
+                })?) as usize;
+            offset += 8;
+
+            if data.len() < offset + tensor_data_len {
+                break;
+            }
+            let tensor_data = &data[offset..offset + tensor_data_len];
+            if let Ok(tensor) = Tensor::<T>::load_binary(tensor_data) {
+                state_dict.buffers.insert(name, tensor);
+            }
+            offset += tensor_data_len;
+        }
+
+        Ok(state_dict)
     }
 
     fn expected_type_id() -> &'static str {
@@ -384,26 +535,50 @@ impl<T: Float + 'static> ModelCheckpoint<T> {
 
 impl<T: Float + 'static> Saveable for ModelCheckpoint<T> {
     fn save_binary(&self) -> SerializationResult<Vec<u8>> {
-        #[derive(Serialize)]
-        struct CheckpointData {
-            epoch: usize,
-            step: usize,
-            optimizer_state: HashMap<String, Vec<u8>>,
-            scheduler_state: HashMap<String, Vec<u8>>,
-            metrics: HashMap<String, f64>,
-            timestamp: u64,
+        let mut buffer = Vec::new();
+
+        // Save epoch and step
+        buffer.extend_from_slice(&(self.epoch as u64).to_le_bytes());
+        buffer.extend_from_slice(&(self.step as u64).to_le_bytes());
+
+        // Save model state
+        let model_state_data = self.model_state.save_binary()?;
+        buffer.extend_from_slice(&(model_state_data.len() as u64).to_le_bytes());
+        buffer.extend_from_slice(&model_state_data);
+
+        // Save optimizer state
+        buffer.extend_from_slice(&(self.optimizer_state.len() as u32).to_le_bytes());
+        for (key, value) in &self.optimizer_state {
+            let key_bytes = key.as_bytes();
+            buffer.extend_from_slice(&(key_bytes.len() as u32).to_le_bytes());
+            buffer.extend_from_slice(key_bytes);
+            buffer.extend_from_slice(&(value.len() as u64).to_le_bytes());
+            buffer.extend_from_slice(value);
         }
 
-        let data = CheckpointData {
-            epoch: self.epoch,
-            step: self.step,
-            optimizer_state: self.optimizer_state.clone(),
-            scheduler_state: self.scheduler_state.clone(),
-            metrics: self.metrics.clone(),
-            timestamp: self.timestamp,
-        };
+        // Save scheduler state
+        buffer.extend_from_slice(&(self.scheduler_state.len() as u32).to_le_bytes());
+        for (key, value) in &self.scheduler_state {
+            let key_bytes = key.as_bytes();
+            buffer.extend_from_slice(&(key_bytes.len() as u32).to_le_bytes());
+            buffer.extend_from_slice(key_bytes);
+            buffer.extend_from_slice(&(value.len() as u64).to_le_bytes());
+            buffer.extend_from_slice(value);
+        }
 
-        bincode::serialize(&data).map_err(|e| SerializationError::FormatError(e.to_string()))
+        // Save metrics
+        buffer.extend_from_slice(&(self.metrics.len() as u32).to_le_bytes());
+        for (key, value) in &self.metrics {
+            let key_bytes = key.as_bytes();
+            buffer.extend_from_slice(&(key_bytes.len() as u32).to_le_bytes());
+            buffer.extend_from_slice(key_bytes);
+            buffer.extend_from_slice(&value.to_le_bytes());
+        }
+
+        // Save timestamp
+        buffer.extend_from_slice(&self.timestamp.to_le_bytes());
+
+        Ok(buffer)
     }
 
     fn type_id(&self) -> &'static str {
@@ -425,28 +600,190 @@ impl<T: Float + 'static> Saveable for ModelCheckpoint<T> {
 
 impl<T: Float + 'static> Loadable for ModelCheckpoint<T> {
     fn load_binary(data: &[u8]) -> SerializationResult<Self> {
-        #[derive(Deserialize)]
-        struct CheckpointData {
-            epoch: usize,
-            step: usize,
-            optimizer_state: HashMap<String, Vec<u8>>,
-            scheduler_state: HashMap<String, Vec<u8>>,
-            metrics: HashMap<String, f64>,
-            timestamp: u64,
+        if data.is_empty() {
+            return Ok(Self::new(0, 0, StateDict::new()));
         }
 
-        let data: CheckpointData = bincode::deserialize(data)
-            .map_err(|e| SerializationError::FormatError(e.to_string()))?;
+        let mut offset = 0;
+        let mut checkpoint = Self::new(0, 0, StateDict::new());
 
-        Ok(Self {
-            epoch: data.epoch,
-            step: data.step,
-            model_state: StateDict::new(), // Empty state dict
-            optimizer_state: data.optimizer_state,
-            scheduler_state: data.scheduler_state,
-            metrics: data.metrics,
-            timestamp: data.timestamp,
-        })
+        // Read epoch and step
+        if data.len() < offset + 16 {
+            return Ok(checkpoint);
+        }
+        checkpoint.epoch = u64::from_le_bytes(
+            data[offset..offset + 8]
+                .try_into()
+                .map_err(|_| SerializationError::FormatError("Invalid epoch".to_string()))?,
+        ) as usize;
+        offset += 8;
+
+        checkpoint.step = u64::from_le_bytes(
+            data[offset..offset + 8]
+                .try_into()
+                .map_err(|_| SerializationError::FormatError("Invalid step".to_string()))?,
+        ) as usize;
+        offset += 8;
+
+        // Read model state
+        if data.len() < offset + 8 {
+            return Ok(checkpoint);
+        }
+        let model_state_len =
+            u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid model state length".to_string())
+            })?) as usize;
+        offset += 8;
+
+        if data.len() < offset + model_state_len {
+            return Ok(checkpoint);
+        }
+        let model_state_data = &data[offset..offset + model_state_len];
+        if let Ok(model_state) = StateDict::<T>::load_binary(model_state_data) {
+            checkpoint.model_state = model_state;
+        }
+        offset += model_state_len;
+
+        // Read optimizer state
+        if data.len() < offset + 4 {
+            return Ok(checkpoint);
+        }
+        let optimizer_count =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid optimizer count".to_string())
+            })?);
+        offset += 4;
+
+        for _ in 0..optimizer_count {
+            // Read key
+            if data.len() < offset + 4 {
+                break;
+            }
+            let key_len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid key length".to_string())
+                })?) as usize;
+            offset += 4;
+
+            if data.len() < offset + key_len {
+                break;
+            }
+            let key = String::from_utf8(data[offset..offset + key_len].to_vec())
+                .map_err(|_| SerializationError::FormatError("Invalid key encoding".to_string()))?;
+            offset += key_len;
+
+            // Read value
+            if data.len() < offset + 8 {
+                break;
+            }
+            let value_len =
+                u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid value length".to_string())
+                })?) as usize;
+            offset += 8;
+
+            if data.len() < offset + value_len {
+                break;
+            }
+            let value = data[offset..offset + value_len].to_vec();
+            checkpoint.optimizer_state.insert(key, value);
+            offset += value_len;
+        }
+
+        // Read scheduler state (similar pattern)
+        if data.len() < offset + 4 {
+            return Ok(checkpoint);
+        }
+        let scheduler_count =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid scheduler count".to_string())
+            })?);
+        offset += 4;
+
+        for _ in 0..scheduler_count {
+            // Read key
+            if data.len() < offset + 4 {
+                break;
+            }
+            let key_len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid key length".to_string())
+                })?) as usize;
+            offset += 4;
+
+            if data.len() < offset + key_len {
+                break;
+            }
+            let key = String::from_utf8(data[offset..offset + key_len].to_vec())
+                .map_err(|_| SerializationError::FormatError("Invalid key encoding".to_string()))?;
+            offset += key_len;
+
+            // Read value
+            if data.len() < offset + 8 {
+                break;
+            }
+            let value_len =
+                u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid value length".to_string())
+                })?) as usize;
+            offset += 8;
+
+            if data.len() < offset + value_len {
+                break;
+            }
+            let value = data[offset..offset + value_len].to_vec();
+            checkpoint.scheduler_state.insert(key, value);
+            offset += value_len;
+        }
+
+        // Read metrics
+        if data.len() < offset + 4 {
+            return Ok(checkpoint);
+        }
+        let metrics_count =
+            u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid metrics count".to_string())
+            })?);
+        offset += 4;
+
+        for _ in 0..metrics_count {
+            // Read key
+            if data.len() < offset + 4 {
+                break;
+            }
+            let key_len =
+                u32::from_le_bytes(data[offset..offset + 4].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid key length".to_string())
+                })?) as usize;
+            offset += 4;
+
+            if data.len() < offset + key_len {
+                break;
+            }
+            let key = String::from_utf8(data[offset..offset + key_len].to_vec())
+                .map_err(|_| SerializationError::FormatError("Invalid key encoding".to_string()))?;
+            offset += key_len;
+
+            // Read value (f64)
+            if data.len() < offset + 8 {
+                break;
+            }
+            let value = f64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                SerializationError::FormatError("Invalid metric value".to_string())
+            })?);
+            checkpoint.metrics.insert(key, value);
+            offset += 8;
+        }
+
+        // Read timestamp
+        if data.len() >= offset + 8 {
+            checkpoint.timestamp =
+                u64::from_le_bytes(data[offset..offset + 8].try_into().map_err(|_| {
+                    SerializationError::FormatError("Invalid timestamp".to_string())
+                })?);
+        }
+
+        Ok(checkpoint)
     }
 
     fn expected_type_id() -> &'static str {
@@ -566,12 +903,22 @@ impl<T: Float + 'static> Loadable for Tensor<T> {
             )));
         }
 
-        let float_data = unsafe {
-            std::slice::from_raw_parts(
-                data[cursor..cursor + data_len].as_ptr() as *const T,
-                actual_elements,
-            )
-        };
+        // Ensure proper alignment for T
+        let element_size = std::mem::size_of::<T>();
+        let ptr = data[cursor..cursor + data_len].as_ptr();
+
+        // Check alignment
+        if (ptr as usize) % std::mem::align_of::<T>() != 0 {
+            // If not aligned, copy to properly aligned buffer
+            let mut aligned_data = vec![0u8; data_len];
+            aligned_data.copy_from_slice(&data[cursor..cursor + data_len]);
+            let float_data = unsafe {
+                std::slice::from_raw_parts(aligned_data.as_ptr() as *const T, actual_elements)
+            };
+            return Ok(Tensor::from_vec(float_data.to_vec(), shape));
+        }
+
+        let float_data = unsafe { std::slice::from_raw_parts(ptr as *const T, actual_elements) };
 
         Ok(Tensor::from_vec(float_data.to_vec(), shape))
     }

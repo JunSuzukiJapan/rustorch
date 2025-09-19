@@ -136,7 +136,9 @@
       "Bash(gh pr checks:*)",
       "Bash(gh run watch:*)",
       "mcp__morphllm-fast-apply__read_file",
-      "mcp__morphllm-fast-apply__tiny_edit_file"
+      "mcp__morphllm-fast-apply__tiny_edit_file",
+      "Bash(RUST_BACKTRACE=1 cargo test test_precision_conversion --test phase9_serialization_tests --no-default-features)",
+      "Bash(timeout 60 cargo test --test phase9_serialization_tests --no-default-features)"
     ],
     "deny": [],
     "ask": [],

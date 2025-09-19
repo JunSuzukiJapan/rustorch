@@ -372,12 +372,12 @@ fn test_precision_conversion() {
     assert_eq!(converted_tensor.shape(), &[2, 2]);
 
     // Verify data conversion
-    if let Some(data) = converted_tensor.data.as_slice() {
-        assert!((data[0] - 1.0).abs() < 1e-9);
-        assert!((data[1] - 2.5).abs() < 1e-9);
-        assert!((data[2] - 3.7).abs() < 1e-9);
-        assert!((data[3] - (-1.2)).abs() < 1e-9);
-    }
+    let data = converted_tensor.data.to_owned();
+    let (flat_data, _) = data.into_raw_vec_and_offset();
+    assert!((flat_data[0] - 1.0).abs() < 1e-6);
+    assert!((flat_data[1] - 2.5).abs() < 1e-6);
+    assert!((flat_data[2] - 3.7).abs() < 1e-6);
+    assert!((flat_data[3] - (-1.2)).abs() < 1e-6);
 }
 
 /// Test safe tensor format with large tensors

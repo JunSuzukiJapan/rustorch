@@ -321,14 +321,16 @@ pub mod conversion {
         let mut converted = HashMap::new();
 
         for (name, tensor) in tensors {
-            if let Some(data) = tensor.data.as_slice() {
-                let converted_data: Vec<T> = data
-                    .iter()
-                    .map(|&x| <T as From<f64>>::from(x.into()))
-                    .collect();
-                let converted_tensor = Tensor::from_vec(converted_data, tensor.shape().to_vec());
-                converted.insert(name.clone(), converted_tensor);
-            }
+            // Use to_owned() to get owned data instead of as_slice() which may return None for non-contiguous arrays
+            let data = tensor.data.to_owned();
+            let (flat_data, _offset) = data.into_raw_vec_and_offset();
+
+            let converted_data: Vec<T> = flat_data
+                .iter()
+                .map(|&x| <T as From<f64>>::from(x.into()))
+                .collect();
+            let converted_tensor = Tensor::from_vec(converted_data, tensor.shape().to_vec());
+            converted.insert(name.clone(), converted_tensor);
         }
 
         converted
