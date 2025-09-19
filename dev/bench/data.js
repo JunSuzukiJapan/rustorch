@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758179162857,
+  "lastUpdate": 1758269673035,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -431,6 +431,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30013,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "cbf2984ebb00e28b43aa3375e0654d2b9f50db10",
+          "message": "fix: resolve Phase 9 serialization test failures\n\n- Fixed format detection by adding RUSTORCH magic bytes to file headers\n- Enhanced JIT module with traced_function and function_call operation support\n- Completely rewrote StateDict and ModelCheckpoint binary serialization\n- Fixed memory alignment issues in Tensor deserialization\n- Updated precision conversion to use modern ndarray methods\n- Resolved all 6 failing CI tests (16/16 now passing)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-19T17:13:23+09:00",
+          "tree_id": "94ba939137a0bb06c44d09d955097222842983a4",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/cbf2984ebb00e28b43aa3375e0654d2b9f50db10"
+        },
+        "date": 1758269671226,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
