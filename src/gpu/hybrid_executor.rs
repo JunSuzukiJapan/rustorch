@@ -283,11 +283,17 @@ impl HybridExecutor {
     pub fn select_optimal_device(&self, tensor_info: &TensorInfo, op_type: OpType) -> DeviceType {
         // Convert OpType to OperationType
         let operation_type = match op_type {
+            // CoreML-supported operations
             OpType::LinearAlgebra => OperationType::MatrixMultiplication,
             OpType::Activation => OperationType::Activation,
             OpType::Convolution => OperationType::Convolution,
             OpType::Reduction | OpType::Normalization => OperationType::ElementWise,
-            _ => OperationType::ElementWise,
+            
+            // CoreML-unsupported operations - bypass CoreML entirely
+            OpType::ComplexMath => OperationType::ComplexNumber,
+            OpType::Distribution => OperationType::StatisticalDistribution,
+            OpType::CustomKernel => OperationType::CustomKernel,
+            OpType::DistributedOps => OperationType::DistributedOp,
         };
 
         // Create operation profile

@@ -367,4 +367,43 @@ mod tests {
             _ => panic!("Inconsistent cache results"),
         }
     }
+
+    #[test]
+    fn test_unsupported_operation_bypass() {
+        use crate::gpu::smart_device_selector::{SmartDeviceSelector, OperationProfile, OperationType};
+        use crate::gpu::DeviceType;
+
+        let available_devices = vec![DeviceType::CoreML(0), DeviceType::Metal(0), DeviceType::Cpu];
+        let selector = SmartDeviceSelector::new(available_devices);
+
+        // Test CoreML-supported operation
+        let supported_profile = OperationProfile::new(
+            OperationType::MatrixMultiplication,
+            &[128, 128],
+            4, // f32
+        );
+        let selected = selector.select_device(&supported_profile);
+        // Should allow CoreML for supported operations
+        assert!(matches!(selected, DeviceType::CoreML(_)) || matches!(selected, DeviceType::Metal(_)));
+
+        // Test CoreML-unsupported operations
+        let unsupported_ops = vec![
+            OperationType::ComplexNumber,
+            OperationType::StatisticalDistribution,
+            OperationType::CustomKernel,
+            OperationType::DistributedOp,
+        ];
+
+        for op_type in unsupported_ops {
+            let unsupported_profile = OperationProfile::new(
+                op_type,
+                &[128, 128],
+                8, // Complex64
+            );
+            let selected = selector.select_device(&unsupported_profile);
+            // Should bypass CoreML and select GPU or CPU directly
+            assert!(!matches!(selected, DeviceType::CoreML(_)));
+            assert!(matches!(selected, DeviceType::Metal(_)) || matches!(selected, DeviceType::Cpu));
+        }
+    }
 }

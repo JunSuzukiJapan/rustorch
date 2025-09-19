@@ -15,6 +15,12 @@ pub enum OperationType {
     Activation,
     Convolution,
     ElementWise,
+    // CoreML unsupported operations - bypass CoreML entirely
+    // CoreML非対応演算 - CoreMLを完全にバイパス
+    ComplexNumber,      // Complex64/Complex128 operations
+    StatisticalDistribution, // Probability distributions
+    CustomKernel,       // Custom GPU kernels
+    DistributedOp,      // Multi-GPU distributed operations
 }
 
 /// Operation characteristics for smart selection
@@ -105,10 +111,18 @@ impl SmartDeviceSelector {
     /// 指定された操作に最適なデバイスを選択
     pub fn select_device(&self, profile: &OperationProfile) -> DeviceType {
         match profile.op_type {
+            // CoreML-supported operations - go through normal selection logic
             OperationType::MatrixMultiplication => self.select_for_matrix_mul(profile),
             OperationType::Activation => self.select_for_activation(profile),
             OperationType::Convolution => self.select_for_convolution(profile),
             OperationType::ElementWise => self.select_for_elementwise(profile),
+            
+            // CoreML-unsupported operations - bypass CoreML entirely
+            // CoreML非対応演算 - CoreMLを完全にバイパス
+            OperationType::ComplexNumber | 
+            OperationType::StatisticalDistribution | 
+            OperationType::CustomKernel | 
+            OperationType::DistributedOp => self.select_non_coreml_device(profile),
         }
     }
 
@@ -209,6 +223,26 @@ impl SmartDeviceSelector {
     /// デバイスが利用可能かチェック
     fn is_device_available(&self, device: &DeviceType) -> bool {
         self.available_devices.iter().any(|d| std::mem::discriminant(d) == std::mem::discriminant(device))
+    }
+
+    /// Select device for CoreML-unsupported operations (GPU/CPU only)
+    /// CoreML非対応演算用デバイス選択（GPU/CPUのみ）
+    fn select_non_coreml_device(&self, profile: &OperationProfile) -> DeviceType {
+        // For unsupported operations, prefer GPU over CPU for better performance
+        // 非対応演算では、パフォーマンス向上のためGPUをCPUより優先
+        
+        // Find first available GPU (Metal, CUDA, OpenCL)
+        for device in &self.available_devices {
+            match device {
+                DeviceType::Metal(_) | DeviceType::Cuda(_) | DeviceType::OpenCL(_) => {
+                    return device.clone();
+                }
+                _ => continue,
+            }
+        }
+        
+        // If no GPU available, fallback to CPU
+        DeviceType::Cpu
     }
 
     /// Get fallback chain for operation
