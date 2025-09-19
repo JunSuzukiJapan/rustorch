@@ -673,6 +673,15 @@ impl DeviceInfo {
                 // OpenCL work group size
                 (64, 1, 1)
             }
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(_) => {
+                // CoreML doesn't use block-based execution
+                (1, 1, 1)
+            }
+            DeviceType::Auto => {
+                // Default block size for auto device
+                (128, 1, 1)
+            }
         }
     }
 
@@ -793,6 +802,9 @@ impl DeviceRegistry {
                 DeviceType::Cuda(_) => 10.0,
                 DeviceType::Metal(_) => 8.0,
                 DeviceType::OpenCL(_) => 6.0,
+                #[cfg(feature = "coreml")]
+                DeviceType::CoreML(_) => 12.0, // High score for CoreML on Apple Silicon
+                DeviceType::Auto => 0.5, // Low score for auto device selection
             };
 
             // Adjust score based on data size

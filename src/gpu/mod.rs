@@ -111,6 +111,9 @@
 //! - **Memory Bandwidth**: Minimize GPU-CPU data transfers
 //! - **Asynchronous Execution**: Use streams for overlapping computation and transfer
 
+/// GPU activation operations and optimization
+/// GPU活性化関数演算と最適化
+pub mod activation_ops;
 /// Performance benchmark suite for GPU operations
 /// GPU演算用パフォーマンスベンチマークスイート
 pub mod benchmark;
@@ -148,6 +151,9 @@ pub mod metal_kernels;
 pub mod opencl_kernels;
 pub mod opencl_optimized;
 pub mod performance_benchmark;
+/// GPU performance optimizer
+/// GPUパフォーマンス最適化器
+pub mod performance_optimizer;
 /// GPU reduction operations and optimizations
 /// GPUリダクション演算と最適化
 pub mod reduction_ops;
@@ -182,8 +188,44 @@ pub mod multi_gpu_profiler;
 
 /// Hybrid execution engine for CoreML + GPU fallback
 /// CoreML + GPU フォールバック用ハイブリッド実行エンジン
-#[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
 pub mod hybrid_executor;
+
+/// CoreML unified trait implementations
+/// CoreML統一trait実装
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+pub mod coreml_ops;
+
+/// CoreML backend implementation with objc2 bindings
+/// objc2バインディング付きCoreMLバックエンド実装
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+pub mod coreml_backend;
+
+/// Advanced CoreML Model Management System
+/// 高度なCoreMLモデル管理システム
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+pub mod coreml_model_manager;
+
+// Re-export GPU traits
+pub use activation_ops::GpuActivation;
+pub use conv_ops::GpuConvolution;
+pub use matrix_ops::GpuLinearAlgebra;
 
 use std::fmt;
 // use crate::error::{RusTorchError, RusTorchResult}; // Currently unused
@@ -288,10 +330,10 @@ impl DeviceCapability {
             device_type: DeviceType::CoreML(0),
             supports_f16: true,
             supports_f32: true,
-            supports_f64: false,  // CoreML limitation
-            supports_complex: false,  // CoreML limitation
-            supports_distributed: false,  // CoreML limitation
-            max_memory_gb: 8.0,  // Typical Apple Silicon unified memory
+            supports_f64: false,         // CoreML limitation
+            supports_complex: false,     // CoreML limitation
+            supports_distributed: false, // CoreML limitation
+            max_memory_gb: 8.0,          // Typical Apple Silicon unified memory
             supported_operations: supported_ops,
         }
     }
@@ -301,20 +343,20 @@ impl Default for DeviceType {
     fn default() -> Self {
         // Auto-select best available device
         #[cfg(feature = "coreml")]
-        if crate::device::DeviceManager::is_coreml_available() {
+        if crate::backends::DeviceManager::is_coreml_available() {
             return DeviceType::CoreML(0);
         }
-        
+
         #[cfg(feature = "cuda")]
         if crate::device::DeviceManager::is_cuda_available() {
             return DeviceType::Cuda(0);
         }
-        
+
         #[cfg(feature = "metal")]
         if crate::device::DeviceManager::is_metal_available() {
             return DeviceType::Metal(0);
         }
-        
+
         DeviceType::Cpu
     }
 }
@@ -326,6 +368,16 @@ impl fmt::Display for DeviceType {
             DeviceType::Cuda(id) => write!(f, "cuda:{}", id),
             DeviceType::Metal(id) => write!(f, "metal:{}", id),
             DeviceType::OpenCL(id) => write!(f, "opencl:{}", id),
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(id) => write!(f, "coreml:{}", id),
+            #[cfg(feature = "coreml-hybrid")]
+            DeviceType::CoreMLHybrid {
+                coreml_id,
+                fallback_gpu,
+            } => {
+                write!(f, "coreml_hybrid:{}:{:?}", coreml_id, fallback_gpu)
+            }
+            DeviceType::Auto => write!(f, "auto"),
         }
     }
 }
@@ -363,6 +415,22 @@ impl DeviceType {
                 #[cfg(not(feature = "opencl"))]
                 false
             }
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(_) => {
+                // Check if CoreML is available on this platform
+                cfg!(target_os = "macos")
+            }
+            #[cfg(feature = "coreml-hybrid")]
+            DeviceType::CoreMLHybrid { fallback_gpu, .. } => {
+                // Check if CoreML is available, or if fallback GPU is available
+                cfg!(target_os = "macos")
+                    || fallback_gpu.map_or(false, |gpu| match gpu {
+                        GpuDevice::Cuda(id) => DeviceType::Cuda(id).is_available(),
+                        GpuDevice::Metal(id) => DeviceType::Metal(id).is_available(),
+                        GpuDevice::OpenCL(id) => DeviceType::OpenCL(id).is_available(),
+                    })
+            }
+            DeviceType::Auto => true, // Auto always "available" - selects best device
         }
     }
 }
@@ -447,6 +515,27 @@ impl GpuContext {
                         "OpenCL support not compiled",
                     ))
                 }
+            }
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(_) => {
+                Ok(GpuContext {
+                    device,
+                    memory_pool_size: 1024 * 1024 * 1024, // 1GB default
+                    stream_count: 1,
+                })
+            }
+            #[cfg(feature = "coreml-hybrid")]
+            DeviceType::CoreMLHybrid { .. } => {
+                Ok(GpuContext {
+                    device,
+                    memory_pool_size: 1024 * 1024 * 1024, // 1GB default
+                    stream_count: 2,
+                })
+            }
+            DeviceType::Auto => {
+                // Auto-select best available device
+                let best_device = DeviceType::default();
+                Self::new(best_device)
             }
         }
     }

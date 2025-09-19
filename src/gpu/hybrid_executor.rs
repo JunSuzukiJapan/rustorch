@@ -1,8 +1,8 @@
+use crate::dtype::DType;
 /// Hybrid execution engine for CoreML + GPU fallback system
 /// CoreML + GPU フォールバック用ハイブリッド実行エンジン
-
 use crate::error::{RusTorchError, RusTorchResult};
-use crate::gpu::{DeviceType, GpuDevice, OpType, DeviceCapability};
+use crate::gpu::{DeviceCapability, DeviceType, GpuDevice, OpType};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -10,7 +10,7 @@ use std::sync::Arc;
 /// デバイス選択用テンソル情報
 #[derive(Debug, Clone)]
 pub struct TensorInfo {
-    pub dtype: crate::DType,
+    pub dtype: DType,
     pub shape: Vec<usize>,
     pub requires_custom_kernel: bool,
     pub memory_size_bytes: usize,
@@ -20,9 +20,9 @@ pub struct TensorInfo {
 /// デバイス間転送方法
 #[derive(Debug, Clone, Copy)]
 pub enum TransferMethod {
-    ZeroCopy,     // Metal ↔ CoreML
-    HostStaging,  // CUDA → CoreML via host memory
-    Standard,     // General case
+    ZeroCopy,    // Metal ↔ CoreML
+    HostStaging, // CUDA → CoreML via host memory
+    Standard,    // General case
 }
 
 /// Hybrid execution engine managing device selection and fallback
@@ -34,8 +34,8 @@ pub struct HybridExecutor {
     operation_routing: HashMap<OpType, Vec<DeviceType>>,
 
     // Performance thresholds
-    small_tensor_threshold: usize,  // < 1MB → CPU
-    large_tensor_threshold: usize,  // > 100MB → best GPU
+    small_tensor_threshold: usize, // < 1MB → CPU
+    large_tensor_threshold: usize, // > 100MB → best GPU
 }
 
 impl HybridExecutor {
@@ -105,11 +105,10 @@ impl HybridExecutor {
 
                 // Check data type support
                 match tensor_info.dtype {
-                    crate::DType::F16 | crate::DType::F32 => {
+                    DType::Float16 | DType::Float32 => {
                         // Check tensor dimension limits
-                        tensor_info.shape.len() <= 5 &&
-                        !tensor_info.requires_custom_kernel
-                    },
+                        tensor_info.shape.len() <= 5 && !tensor_info.requires_custom_kernel
+                    }
                     _ => false,
                 }
             } else {
@@ -128,7 +127,9 @@ impl HybridExecutor {
         // Check operation routing table
         if let Some(devices) = self.operation_routing.get(op_type) {
             for &device in devices {
-                if self.is_device_available(device) && self.is_operation_efficient(device, tensor_info) {
+                if self.is_device_available(device)
+                    && self.is_operation_efficient(device, tensor_info)
+                {
                     return Some(device);
                 }
             }
@@ -159,13 +160,13 @@ impl HybridExecutor {
         match device {
             DeviceType::Cpu => true,
             #[cfg(feature = "cuda")]
-            DeviceType::Cuda(_) => crate::device::DeviceManager::is_cuda_available(),
+            DeviceType::Cuda(_) => crate::backends::DeviceManager::is_cuda_available(),
             #[cfg(feature = "metal")]
-            DeviceType::Metal(_) => crate::device::DeviceManager::is_metal_available(),
+            DeviceType::Metal(_) => crate::backends::DeviceManager::is_metal_available(),
             #[cfg(feature = "opencl")]
-            DeviceType::OpenCL(_) => crate::device::DeviceManager::is_opencl_available(),
+            DeviceType::OpenCL(_) => crate::backends::DeviceManager::is_opencl_available(),
             #[cfg(feature = "coreml")]
-            DeviceType::CoreML(_) => crate::device::DeviceManager::is_coreml_available(),
+            DeviceType::CoreML(_) => crate::backends::DeviceManager::is_coreml_available(),
             _ => false,
         }
     }
@@ -175,7 +176,10 @@ impl HybridExecutor {
     fn is_operation_efficient(&self, device: DeviceType, tensor_info: &TensorInfo) -> bool {
         // Large tensors benefit more from GPU acceleration
         if tensor_info.memory_size_bytes > self.large_tensor_threshold {
-            return matches!(device, DeviceType::Cuda(_) | DeviceType::Metal(_) | DeviceType::CoreML(_));
+            return matches!(
+                device,
+                DeviceType::Cuda(_) | DeviceType::Metal(_) | DeviceType::CoreML(_)
+            );
         }
 
         true
@@ -184,7 +188,11 @@ impl HybridExecutor {
     /// Get next fallback device
     /// 次のフォールバックデバイスを取得
     pub fn next_fallback_device(&self, failed_device: DeviceType) -> DeviceType {
-        if let Some(pos) = self.fallback_devices.iter().position(|&d| d == failed_device) {
+        if let Some(pos) = self
+            .fallback_devices
+            .iter()
+            .position(|&d| d == failed_device)
+        {
             if pos + 1 < self.fallback_devices.len() {
                 return self.fallback_devices[pos + 1];
             }
@@ -206,21 +214,25 @@ impl HybridExecutor {
         cpu_ops.insert(OpType::Distribution);
         cpu_ops.insert(OpType::DistributedOps);
 
-        self.capability_cache.insert(DeviceType::Cpu, DeviceCapability {
-            device_type: DeviceType::Cpu,
-            supports_f16: false,
-            supports_f32: true,
-            supports_f64: true,
-            supports_complex: true,
-            supports_distributed: true,
-            max_memory_gb: 32.0,
-            supported_operations: cpu_ops,
-        });
+        self.capability_cache.insert(
+            DeviceType::Cpu,
+            DeviceCapability {
+                device_type: DeviceType::Cpu,
+                supports_f16: false,
+                supports_f32: true,
+                supports_f64: true,
+                supports_complex: true,
+                supports_distributed: true,
+                max_memory_gb: 32.0,
+                supported_operations: cpu_ops,
+            },
+        );
 
         // CoreML capability
         #[cfg(feature = "coreml")]
         {
-            self.capability_cache.insert(DeviceType::CoreML(0), DeviceCapability::coreml_capability());
+            self.capability_cache
+                .insert(DeviceType::CoreML(0), DeviceCapability::coreml_capability());
         }
 
         // GPU capabilities would be detected at runtime
@@ -286,25 +298,34 @@ impl HybridExecutor {
     /// 演算ルーティングテーブルを設定
     fn setup_operation_routing(&mut self) {
         // Complex math: Skip CoreML, go to GPU
-        self.operation_routing.insert(OpType::ComplexMath, vec![
-            DeviceType::Cuda(0),
-            DeviceType::Metal(0),
-            DeviceType::OpenCL(0),
-            DeviceType::Cpu,
-        ]);
+        self.operation_routing.insert(
+            OpType::ComplexMath,
+            vec![
+                DeviceType::Cuda(0),
+                DeviceType::Metal(0),
+                DeviceType::OpenCL(0),
+                DeviceType::Cpu,
+            ],
+        );
 
         // Distributed ops: Skip CoreML and single GPU
-        self.operation_routing.insert(OpType::DistributedOps, vec![
-            DeviceType::Cpu,  // NCCL/MPI fallback to CPU coordination
-        ]);
+        self.operation_routing.insert(
+            OpType::DistributedOps,
+            vec![
+                DeviceType::Cpu, // NCCL/MPI fallback to CPU coordination
+            ],
+        );
 
         // Custom kernels: GPU only
-        self.operation_routing.insert(OpType::CustomKernel, vec![
-            DeviceType::Cuda(0),
-            DeviceType::Metal(0),
-            DeviceType::OpenCL(0),
-            DeviceType::Cpu,
-        ]);
+        self.operation_routing.insert(
+            OpType::CustomKernel,
+            vec![
+                DeviceType::Cuda(0),
+                DeviceType::Metal(0),
+                DeviceType::OpenCL(0),
+                DeviceType::Cpu,
+            ],
+        );
     }
 
     /// Check if any GPU support is available
@@ -312,9 +333,9 @@ impl HybridExecutor {
     pub fn has_gpu_support(&self) -> bool {
         #[cfg(any(feature = "cuda", feature = "metal", feature = "opencl"))]
         {
-            self.is_device_available(DeviceType::Cuda(0)) ||
-            self.is_device_available(DeviceType::Metal(0)) ||
-            self.is_device_available(DeviceType::OpenCL(0))
+            self.is_device_available(DeviceType::Cuda(0))
+                || self.is_device_available(DeviceType::Metal(0))
+                || self.is_device_available(DeviceType::OpenCL(0))
         }
         #[cfg(not(any(feature = "cuda", feature = "metal", feature = "opencl")))]
         {
@@ -326,6 +347,52 @@ impl HybridExecutor {
 impl Default for HybridExecutor {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl HybridExecutor {
+    /// Execute operation with hybrid device selection
+    /// ハイブリッドデバイス選択で演算を実行
+    pub fn hybrid_operation<F, R>(
+        &self,
+        op_type: OpType,
+        tensor_info: TensorInfo,
+        operation: F,
+    ) -> RusTorchResult<R>
+    where
+        F: Fn(DeviceType) -> RusTorchResult<R>,
+    {
+        // Get optimal device for this operation
+        let device = self.select_device(op_type, &tensor_info);
+
+        // Try to execute on selected device
+        match operation(device) {
+            Ok(result) => Ok(result),
+            Err(err) => {
+                // If failed, try fallback devices
+                for fallback_device in self.get_fallback_chain(device) {
+                    if let Ok(result) = operation(fallback_device) {
+                        return Ok(result);
+                    }
+                }
+                // If all devices failed, return original error
+                Err(err)
+            }
+        }
+    }
+
+    /// Get fallback device chain for a given device
+    /// 指定デバイスのフォールバックチェーンを取得
+    fn get_fallback_chain(&self, device: DeviceType) -> Vec<DeviceType> {
+        match device {
+            DeviceType::CoreML(_) => {
+                vec![DeviceType::Metal(0), DeviceType::Cuda(0), DeviceType::Cpu]
+            }
+            DeviceType::Metal(_) => vec![DeviceType::Cuda(0), DeviceType::Cpu],
+            DeviceType::Cuda(_) => vec![DeviceType::Metal(0), DeviceType::Cpu],
+            DeviceType::OpenCL(_) => vec![DeviceType::Cpu],
+            _ => vec![DeviceType::Cpu],
+        }
     }
 }
 

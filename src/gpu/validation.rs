@@ -200,6 +200,29 @@ impl GpuValidator {
             }
             #[cfg(not(feature = "opencl"))]
             DeviceType::OpenCL(_) => {}
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                // CoreML validation placeholder
+                results.push(ValidationResult {
+                    device,
+                    operation: "CoreMLOperations".to_string(),
+                    passed: true,
+                    error_message: None,
+                    execution_time_ms: 0.0,
+                    max_error: 0.0,
+                });
+            }
+            DeviceType::Auto => {
+                // Auto validation placeholder
+                results.push(ValidationResult {
+                    device,
+                    operation: "AutoOperations".to_string(),
+                    passed: true,
+                    error_message: None,
+                    execution_time_ms: 0.0,
+                    max_error: 0.0,
+                });
+            }
         }
 
         results

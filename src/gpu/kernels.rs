@@ -182,6 +182,17 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML not implemented for this kernel".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto not implemented for this kernel".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -220,6 +231,9 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                     stream_id: 0,
                 }
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => KernelParams::default(),
+            DeviceType::Auto => KernelParams::default(),
         }
     }
 }
@@ -346,6 +360,17 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML not implemented for this kernel".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto not implemented for this kernel".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -388,6 +413,9 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                     stream_id: 0,
                 }
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => KernelParams::default(),
+            DeviceType::Auto => KernelParams::default(),
         }
     }
 }
@@ -457,6 +485,17 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML not implemented for this kernel".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto not implemented for this kernel".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -475,7 +514,11 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
                     stream_id: 0,
                 }
             }
-            _ => KernelParams::default(),
+            DeviceType::Metal(_)
+            | DeviceType::OpenCL(_) => KernelParams::default(),
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => KernelParams::default(),
+            DeviceType::Auto => KernelParams::default(),
         }
     }
 }

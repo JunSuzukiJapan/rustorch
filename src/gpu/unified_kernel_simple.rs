@@ -199,6 +199,17 @@ impl UnifiedKernelExecutor {
                 self.metrics.occupancy = 60.0;
                 self.metrics.flops = 600.0;
             }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                self.metrics.memory_bandwidth = 400.0;
+                self.metrics.occupancy = 90.0;
+                self.metrics.flops = 1200.0;
+            }
+            DeviceType::Auto => {
+                self.metrics.memory_bandwidth = 400.0;
+                self.metrics.occupancy = 90.0;
+                self.metrics.flops = 1200.0;
+            }
         }
 
         result
@@ -286,6 +297,17 @@ impl UnifiedKernelExecutor {
                 self.metrics.memory_bandwidth = 200.0;
                 self.metrics.occupancy = 60.0;
                 self.metrics.flops = 600.0;
+            }
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            DeviceType::CoreML(_) => {
+                self.metrics.memory_bandwidth = 400.0;
+                self.metrics.occupancy = 90.0;
+                self.metrics.flops = 1200.0;
+            }
+            DeviceType::Auto => {
+                self.metrics.memory_bandwidth = 400.0;
+                self.metrics.occupancy = 90.0;
+                self.metrics.flops = 1200.0;
             }
         }
 

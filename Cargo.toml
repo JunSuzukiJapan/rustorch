@@ -119,6 +119,7 @@ cudarc = { version = "0.11", optional = true, features = ["f16", "cublas", "cuda
 metal = { version = "0.32", optional = true }
 objc = { version = "0.2", optional = true }
 objc2-core-ml = { version = "0.2", optional = true }
+objc2-foundation = { version = "0.2", optional = true }
 # objc_exception は macOS 専用の依存関係として後で追加します
 opencl3 = { version = "0.9", optional = true }
 
@@ -163,7 +164,7 @@ opencl = ["dep:opencl3"]
 metal = ["dep:metal", "dep:objc"]
 nccl = ["dep:nccl"]
 # CoreML support for Apple devices
-coreml = ["dep:objc2-core-ml", "dep:metal"]
+coreml = ["dep:objc2-core-ml", "dep:objc2-foundation", "dep:metal"]
 coreml-hybrid = ["coreml", "metal", "cuda"]  # CoreML + GPU hybrid execution
 coreml-fallback = ["coreml-hybrid"]          # Automatic fallback system
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]

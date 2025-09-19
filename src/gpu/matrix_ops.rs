@@ -304,6 +304,15 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                     // CPU fallback
                     a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
                 }
+                #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+                super::DeviceType::CoreML(_) => {
+                    // CoreML not yet supported for matrix operations
+                    a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+                }
+                super::DeviceType::Auto => {
+                    // Auto-select best device - fallback to CPU for now
+                    a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+                }
             }
         } else {
             // No GPU context - use CPU fallback with optimized implementation

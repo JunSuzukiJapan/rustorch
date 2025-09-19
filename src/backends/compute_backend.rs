@@ -370,6 +370,18 @@ impl DeviceManager {
     }
 
     // Helper methods for selection strategies (simplified for CPU-only implementation)
+
+    /// Check if CoreML is available on this system
+    #[cfg(feature = "coreml")]
+    pub fn is_coreml_available() -> bool {
+        // CoreML is only available on macOS
+        cfg!(target_os = "macos")
+    }
+
+    #[cfg(not(feature = "coreml"))]
+    pub fn is_coreml_available() -> bool {
+        false
+    }
 }
 
 impl Default for DeviceManager {
