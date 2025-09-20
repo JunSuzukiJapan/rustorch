@@ -7,6 +7,56 @@ use crate::error::RusTorchResult;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
 
+/// CoreML specific errors
+/// CoreML固有エラー
+#[derive(Debug, thiserror::Error)]
+pub enum CoreMLError {
+    /// Operation not supported by CoreML
+    /// CoreMLでサポートされていない操作
+    #[error("CoreML does not support operation: {operation}")]
+    UnsupportedOperation {
+        /// Operation name that is not supported
+        /// サポートされていない操作名
+        operation: String,
+    },
+    /// CoreML not available on this platform
+    /// このプラットフォームでCoreMLが利用不可
+    #[error("CoreML not available")]
+    NotAvailable,
+    /// CoreML backend error
+    /// CoreMLバックエンドエラー
+    #[error("CoreML backend error: {message}")]
+    Backend {
+        /// Backend error message
+        /// バックエンドエラーメッセージ
+        message: String,
+    },
+}
+
+impl From<CoreMLError> for crate::error::RusTorchError {
+    fn from(err: CoreMLError) -> Self {
+        match err {
+            CoreMLError::UnsupportedOperation { operation } => {
+                crate::error::RusTorchError::InvalidOperation {
+                    operation,
+                    message: "CoreML does not support this operation".to_string(),
+                }
+            }
+            CoreMLError::NotAvailable => {
+                crate::error::RusTorchError::BackendUnavailable {
+                    backend: "CoreML".to_string(),
+                }
+            }
+            CoreMLError::Backend { message } => {
+                crate::error::RusTorchError::Device {
+                    device: "CoreML".to_string(),
+                    message,
+                }
+            }
+        }
+    }
+}
+
 /// Linear algebra operations module
 /// 線形代数演算モジュール
 pub mod linear_algebra;

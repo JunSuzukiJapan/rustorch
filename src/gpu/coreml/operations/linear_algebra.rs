@@ -2,6 +2,7 @@
 //! CoreML線形代数演算
 
 use super::*;
+use crate::gpu::coreml::common::coreml_feature;
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
@@ -31,7 +32,7 @@ where
 
 /// Matrix multiplication operation for CoreML
 /// CoreML用行列乗算演算
-pub struct MatMulOperation<T> {
+pub struct MatMulOperation<T: Float> {
     lhs: Tensor<T>,
     rhs: Tensor<T>,
 }
@@ -94,12 +95,13 @@ where
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
         self.validate_dimensions()?;
 
-        coreml_feature! {
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
             // Use CoreML backend for actual computation
-            use crate::gpu::coreml_backend::CoreMLGraph;
+            use crate::gpu::coreml::backend::CoreMLGraph;
 
             let graph = CoreMLGraph::new(device_id)?;
-            graph.matmul(&self.lhs, &self.rhs)
+            return graph.matmul(&self.lhs, &self.rhs);
         }
 
         #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -170,14 +172,15 @@ where
             ));
         }
 
-        coreml_feature! {
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
             // Use CoreML backend for transpose
-            use crate::gpu::coreml_backend::CoreMLGraph;
+            use crate::gpu::coreml::backend::CoreMLGraph;
 
             let graph = CoreMLGraph::new(0)?;
             // TODO: Implement transpose in CoreML backend
             // For now, fallback to CPU implementation
-            Ok(self.transpose())
+            return self.transpose();
         }
 
         #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -193,8 +196,8 @@ mod tests {
 
     #[test]
     fn test_matmul_operation_validation() {
-        let a = Tensor::<f32>::zeros(&[2, 3]);
-        let b = Tensor::<f32>::zeros(&[3, 4]);
+        let a = Tensor::<f32>::zeros(&[64, 64]); // 4096 elements > 1024
+        let b = Tensor::<f32>::zeros(&[64, 64]); // 4096 elements > 1024
         let operation = MatMulOperation::new(a, b);
 
         assert!(operation.validate_dimensions().is_ok());

@@ -2,6 +2,7 @@
 //! CoreML活性化関数演算
 
 use super::*;
+use crate::gpu::coreml::common::coreml_feature;
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
@@ -47,7 +48,7 @@ where
 
 /// Generic activation operation for CoreML
 /// CoreML用汎用活性化演算
-pub struct ActivationOperation<T> {
+pub struct ActivationOperation<T: Float> {
     input: Tensor<T>,
     activation_type: CoreMLActivationType,
     parameters: ActivationParameters,
@@ -131,8 +132,10 @@ where
     T: Float + FromPrimitive + ScalarOperand + 'static,
 {
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
-        coreml_feature! {
-            use crate::gpu::coreml_backend::{CoreMLGraph, ActivationType};
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
+            use crate::gpu::coreml::backend::CoreMLGraph;
+            use crate::gpu::coreml::common::CoreMLActivationType as ActivationType;
 
             let graph = CoreMLGraph::new(device_id)?;
 
@@ -152,7 +155,7 @@ where
                 }
             };
 
-            graph.activation(&self.input, backend_activation)
+            return graph.activation(&self.input, backend_activation);
         }
 
         #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -281,10 +284,10 @@ mod tests {
 
     #[test]
     fn test_activation_operation_creation() {
-        let input = Tensor::<f32>::zeros(&[10, 10]);
+        let input = Tensor::<f32>::zeros(&[20, 20]); // 400 elements > 256 threshold for ReLU
         let operation = ActivationOperation::new(input, CoreMLActivationType::ReLU);
 
-        assert!(operation.is_efficient_on_coreml()); // 100 elements > 256 threshold for ReLU
+        assert!(operation.is_efficient_on_coreml()); // 400 elements > 256 threshold for ReLU
     }
 
     #[test]
@@ -298,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_supported_activations() {
-        let input = Tensor::<f32>::zeros(&[32, 32]); // 1024 elements
+        let input = Tensor::<f32>::zeros(&[40, 40]); // 1600 elements > 1024 for Softmax/GELU
 
         let supported_types = vec![
             CoreMLActivationType::ReLU,

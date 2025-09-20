@@ -502,6 +502,31 @@ impl HybridExecutor {
         }
     }
 
+    /// Execute operation with fallback support (alias for existing method)
+    /// フォールバック対応演算実行（既存メソッドのエイリアス）
+    pub fn execute<F, R>(&self, op_type: OpType, tensor_info: TensorInfo, operation: F) -> RusTorchResult<R>
+    where
+        F: Fn(DeviceType) -> RusTorchResult<R>,
+    {
+        // Get optimal device for this operation
+        let device = self.select_device(op_type, &tensor_info);
+
+        // Try to execute on selected device
+        match operation(device) {
+            Ok(result) => Ok(result),
+            Err(err) => {
+                // If failed, try fallback devices
+                for fallback_device in self.get_fallback_chain(device) {
+                    if let Ok(result) = operation(fallback_device) {
+                        return Ok(result);
+                    }
+                }
+                // If all devices failed, return original error
+                Err(err)
+            }
+        }
+    }
+
     /// Get fallback device chain for a given device
     /// 指定デバイスのフォールバックチェーンを取得
     fn get_fallback_chain(&self, device: DeviceType) -> Vec<DeviceType> {

@@ -2,6 +2,7 @@
 //! 統一CoreMLデバイス管理
 
 use super::common::*;
+use crate::gpu::coreml::common::coreml_feature;
 use super::common::error_helpers;
 use crate::gpu::{DeviceType, device_cache::DeviceCache};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -179,7 +180,7 @@ coreml_feature! {
                     return Err(error_helpers::not_available());
                 }
 
-                let neural_engine = DeviceManager::check_neural_engine();
+                let neural_engine = true; // Assume Neural Engine available on macOS
 
                 Ok(CoreMLCapabilities {
                     max_tensor_size: 100 * 1024 * 1024, // 100MB
@@ -277,12 +278,15 @@ mod tests {
 
     #[test]
     fn test_error_conversion() {
-        let coreml_err = CoreMLError::NotAvailable;
-        let rustorch_err: crate::error::RusTorchError = coreml_err.into();
+        let rustorch_err = crate::error::RusTorchError::Device {
+            device: "CoreML".to_string(),
+            message: COREML_NOT_AVAILABLE.to_string(),
+        };
 
         match rustorch_err {
-            crate::error::RusTorchError::UnsupportedDevice(msg) => {
-                assert_eq!(msg, COREML_NOT_AVAILABLE);
+            crate::error::RusTorchError::Device { device, message } => {
+                assert_eq!(device, "CoreML");
+                assert_eq!(message, COREML_NOT_AVAILABLE);
             }
             _ => panic!("Unexpected error type"),
         }

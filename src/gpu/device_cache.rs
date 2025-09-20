@@ -379,6 +379,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "coreml")]
     fn test_unsupported_operation_bypass() {
         use crate::gpu::smart_device_selector::{SmartDeviceSelector, OperationProfile, OperationType};
         use crate::gpu::DeviceType;

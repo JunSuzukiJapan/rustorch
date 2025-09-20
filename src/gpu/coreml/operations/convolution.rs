@@ -2,6 +2,7 @@
 //! CoreML畳み込み演算
 
 use super::*;
+use crate::gpu::coreml::common::coreml_feature;
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
@@ -51,7 +52,7 @@ where
 
 /// Convolution operation for CoreML
 /// CoreML用畳み込み演算
-pub struct ConvolutionOperation<T> {
+pub struct ConvolutionOperation<T: Float> {
     input: Tensor<T>,
     kernel: Tensor<T>,
     stride: Vec<usize>,
@@ -229,12 +230,13 @@ where
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
         self.validate_parameters()?;
 
-        coreml_feature! {
-            use crate::gpu::coreml_backend::CoreMLGraph;
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
+            use crate::gpu::coreml::backend::CoreMLGraph;
 
             let graph = CoreMLGraph::new(device_id)?;
 
-            match self.conv_type {
+            return match self.conv_type {
                 ConvolutionType::Conv2D => {
                     graph.conv2d(&self.input, &self.kernel, &self.stride, &self.padding)
                 }
@@ -256,7 +258,7 @@ where
                         "Grouped convolution not yet implemented in CoreML backend"
                     ))
                 }
-            }
+            };
         }
 
         #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -367,8 +369,8 @@ mod tests {
 
     #[test]
     fn test_conv2d_parameter_validation() {
-        let input = Tensor::<f32>::zeros(&[1, 3, 32, 32]);   // [N, C, H, W]
-        let kernel = Tensor::<f32>::zeros(&[16, 3, 3, 3]);   // [out_ch, in_ch, kH, kW]
+        let input = Tensor::<f32>::zeros(&[1, 8, 32, 32]);   // [N, C, H, W] - 8 channels >= 4
+        let kernel = Tensor::<f32>::zeros(&[16, 8, 3, 3]);   // [out_ch, in_ch, kH, kW]
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 

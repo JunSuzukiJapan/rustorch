@@ -10,8 +10,17 @@ macro_rules! coreml_feature {
             #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
             $item
         )*
-    }
+    };
+    ({ $($stmt:stmt)* }) => {
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
+            $($stmt)*
+        }
+    };
 }
+
+// Re-export the macro
+pub use coreml_feature;
 
 /// Macro for CoreML availability check
 /// CoreML可用性チェック用マクロ

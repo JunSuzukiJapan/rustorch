@@ -64,7 +64,7 @@ impl CoreMLHybridExecutor {
     /// Create new hybrid executor
     /// 新しいハイブリッド実行器を作成
     pub fn new(strategy: HybridStrategy) -> CoreMLResult<Self> {
-        let backend = Arc::new(CoreMLBackend::global().clone());
+        let backend = Arc::new((*CoreMLBackend::global()).clone());
 
         Ok(Self {
             backend,
@@ -217,6 +217,7 @@ impl CoreMLHybridExecutor {
     /// パフォーマンストラッキング付きでCPUを実行
     fn execute_cpu_with_stats<T, CpuFn>(&self, cpu_fallback: CpuFn) -> Result<Tensor<T>, RusTorchError>
     where
+        T: num_traits::Float + 'static,
         CpuFn: FnOnce() -> Result<Tensor<T>, RusTorchError>,
     {
         let start_time = std::time::Instant::now();

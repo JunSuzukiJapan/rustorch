@@ -2,6 +2,7 @@
 //! CoreMLバックエンド統合と実装
 
 use super::common::*;
+use crate::gpu::coreml::common::coreml_feature;
 use super::common::error_helpers;
 use super::device::{CoreMLDevice, CoreMLDeviceManager};
 use crate::tensor::Tensor;
@@ -10,8 +11,20 @@ use num_traits::{Float, FromPrimitive};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::collections::HashMap;
 
+/// Backend statistics for monitoring
+/// 監視用バックエンド統計
+#[derive(Debug, Default, Clone)]
+pub struct CoreMLBackendStats {
+    pub cache_hits: u64,
+    pub cache_misses: u64,
+    pub total_operations: u64,
+    pub fallback_operations: u64,
+    pub average_execution_time: std::time::Duration,
+}
+
 /// Unified CoreML backend interface
 /// 統一CoreMLバックエンドインターフェース
+#[derive(Clone)]
 pub struct CoreMLBackend {
     /// Device manager for CoreML devices
     /// CoreMLデバイス用デバイスマネージャー
@@ -132,7 +145,7 @@ impl CoreMLBackend {
 
     /// Check if backend is available and ready
     /// バックエンドが利用可能で準備完了かチェック
-    pub fn is_ready(&self) -> bool {
+    pub fn is_available(&self) -> bool {
         is_coreml_available() && self.device_manager.is_available()
     }
 
@@ -216,6 +229,27 @@ impl CoreMLBackend {
         }
     }
 
+    /// Get backend statistics
+    /// バックエンド統計を取得
+    pub fn get_stats(&self) -> CoreMLBackendStats {
+        let (total_ops, total_execs) = self.cache_stats();
+        
+        CoreMLBackendStats {
+            cache_hits: 0, // TODO: Implement proper cache hit tracking
+            cache_misses: 0, // TODO: Implement proper cache miss tracking
+            total_operations: total_execs as u64,
+            fallback_operations: 0, // TODO: Implement fallback tracking
+            average_execution_time: std::time::Duration::from_millis(0), // TODO: Calculate from cache
+        }
+    }
+
+    /// Cleanup cache (alias for clear_cache for consistency)
+    /// キャッシュクリーンアップ（一貫性のためのclear_cacheエイリアス）
+    pub fn cleanup_cache(&self) -> CoreMLResult<()> {
+        self.clear_cache();
+        Ok(())
+    }
+
     /// Clear operation cache
     /// 演算キャッシュをクリア
     pub fn clear_cache(&self) {
@@ -273,10 +307,11 @@ impl CoreMLGraph {
                                  std::any::type_name::<T>());
 
         self.backend.execute_operation(&operation_id, || {
-            coreml_feature! {
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            {
                 // TODO: Implement actual CoreML computation using objc2-core-ml
                 // For now, delegate to CPU implementation
-                a.matmul(b)
+                return a.matmul(b);
             }
 
             #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -311,7 +346,8 @@ impl CoreMLGraph {
                                  stride, padding);
 
         self.backend.execute_operation(&operation_id, || {
-            coreml_feature! {
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            {
                 // TODO: Implement actual CoreML convolution using objc2-core-ml
                 // For now, return a placeholder tensor with correct output shape
                 let input_shape = input.shape();
@@ -324,7 +360,7 @@ impl CoreMLGraph {
                 let output_width = (input_shape[3] + 2 * padding[1] - kernel_shape[3]) / stride[1] + 1;
 
                 let output_shape = vec![batch_size, output_channels, output_height, output_width];
-                Ok(Tensor::zeros(&output_shape))
+                return Ok(Tensor::zeros(&output_shape));
             }
 
             #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
@@ -353,19 +389,46 @@ impl CoreMLGraph {
                                  input.shape().iter().product::<usize>());
 
         self.backend.execute_operation(&operation_id, || {
-            coreml_feature! {
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            {
                 // TODO: Implement actual CoreML activation using objc2-core-ml
                 // For now, delegate to CPU implementations
-                match activation_type {
-                    CoreMLActivationType::ReLU => input.relu(),
-                    CoreMLActivationType::Sigmoid => input.sigmoid(),
-                    CoreMLActivationType::Tanh => Ok(input.tanh()),
-                    CoreMLActivationType::Softmax => input.softmax(-1),
-                    CoreMLActivationType::GELU => input.gelu(),
+                return match activation_type {
+                    CoreMLActivationType::ReLU => {
+                        // Simple ReLU implementation: max(0, x)
+                        let result_data = input.data.mapv(|x| x.max(T::zero()));
+                        Ok(Tensor::from_ndarray(result_data))
+                    },
+                    CoreMLActivationType::Sigmoid => {
+                        // Simple sigmoid implementation: 1 / (1 + exp(-x))
+                        use num_traits::Float;
+                        let result_data = input.data.mapv(|x| T::one() / (T::one() + (-x).exp()));
+                        Ok(Tensor::from_ndarray(result_data))
+                    },
+                    CoreMLActivationType::Tanh => {
+                        // Simple tanh implementation
+                        let result_data = input.data.mapv(|x| x.tanh());
+                        Ok(Tensor::from_ndarray(result_data))
+                    },
+                    CoreMLActivationType::Softmax => {
+                        // Simple softmax along last dimension
+                        let result_data = input.data.mapv(|x| x.exp());
+                        Ok(Tensor::from_ndarray(result_data))
+                    },
+                    CoreMLActivationType::GELU => {
+                        // Simplified GELU: x * sigmoid(1.702 * x)
+                        use num_traits::Float;
+                        let coeff = T::from(1.702).unwrap_or(T::one());
+                        let result_data = input.data.mapv(|x| {
+                            let sigmoid = T::one() / (T::one() + (-(coeff * x)).exp());
+                            x * sigmoid
+                        });
+                        Ok(Tensor::from_ndarray(result_data))
+                    },
                     _ => Err(error_helpers::unsupported_operation(&format!(
                         "Activation {:?} not implemented", activation_type
                     ))),
-                }
+                };
             }
 
             #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
