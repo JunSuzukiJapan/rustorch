@@ -185,7 +185,8 @@
       "Bash(gh release view:*)",
       "Bash(timeout 30 cargo test --features python python_bindings_tests)",
       "Bash(timeout 30 cargo build --lib --no-default-features)",
-      "Bash(timeout 30 cargo clippy --no-default-features -- -W clippy::all)"
+      "Bash(timeout 30 cargo clippy --no-default-features -- -W clippy::all)",
+      "Bash(git update-index:*)"
     ],
     "deny": [],
     "ask": [],
