@@ -3,8 +3,8 @@
 
 use crate::optim::{Adam, Optimizer, SGD};
 use crate::python::autograd::PyVariable;
-use crate::python::error::to_py_err;
-use crate::python::interop::pylist_to_vec_f32;
+use crate::python::common::{conversions, to_py_err, validation};
+use pyo3::exceptions::*;
 use pyo3::prelude::*;
 use std::collections::HashMap;
 
@@ -26,16 +26,38 @@ impl PySGD {
         weight_decay: Option<f32>,
         nesterov: Option<bool>,
     ) -> PyResult<Self> {
+        use crate::python::common::{
+            conversions::pylist_to_vec_usize, validation::validate_learning_rate,
+        };
+
+        // Validate learning rate
+        validate_learning_rate(lr as f64)?;
+
         // Extract parameters from Python list
         let mut parameters = Vec::new();
-        for item in params.iter() {
-            let param: pyo3::Py<PyVariable> = item.extract()?;
+        for (i, item) in params.iter().enumerate() {
+            let param: pyo3::Py<PyVariable> = item
+                .extract()
+                .map_err(|_| PyTypeError::new_err(format!("Parameter {} is not a Variable", i)))?;
             parameters.push(param);
+        }
+
+        if parameters.is_empty() {
+            return Err(PyValueError::new_err("Parameter list cannot be empty"));
         }
 
         let momentum = momentum.unwrap_or(0.0);
         let weight_decay = weight_decay.unwrap_or(0.0);
         let nesterov = nesterov.unwrap_or(false);
+
+        // Validate momentum and weight_decay
+        if !(0.0..=1.0).contains(&momentum) {
+            return Err(PyValueError::new_err("Momentum must be in [0, 1]"));
+        }
+
+        if weight_decay < 0.0 {
+            return Err(PyValueError::new_err("Weight decay must be non-negative"));
+        }
 
         // SGD::new only takes learning_rate parameter
         let optimizer = SGD::new(lr);
@@ -48,16 +70,39 @@ impl PySGD {
     /// Perform optimization step
     /// 最適化ステップを実行
     pub fn step(&mut self, py: Python<'_>) -> PyResult<()> {
+        use crate::python::common::to_py_err;
+
+        if self.parameters.is_empty() {
+            return Ok(()); // No parameters to optimize
+        }
+
         // Extract gradients from parameters
         let mut gradients = Vec::new();
         let mut param_vars = Vec::new();
 
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
+
+            // Check if parameter requires gradient
+            if !param.requires_grad() {
+                continue;
+            }
+
             if let Some(grad) = param.grad() {
                 gradients.push(grad.tensor.clone());
-                param_vars.push(param.variable.data().read().unwrap().clone());
+
+                // Safe access to parameter data
+                match param.variable.data().try_read() {
+                    Ok(data) => param_vars.push(data.clone()),
+                    Err(_) => {
+                        return Err(PyRuntimeError::new_err("Failed to access parameter data"))
+                    }
+                }
             }
+        }
+
+        if gradients.is_empty() {
+            return Ok(()); // No gradients to optimize
         }
 
         // Perform optimization step for each parameter
@@ -72,7 +117,7 @@ impl PySGD {
     pub fn zero_grad(&mut self, py: Python<'_>) -> PyResult<()> {
         for param_py in &self.parameters {
             let mut param = param_py.borrow_mut(py);
-            param.zero_grad();
+            param.zero_grad()?;
         }
         Ok(())
     }
@@ -85,24 +130,33 @@ impl PySGD {
 
     /// Set learning rate
     /// 学習率を設定
-    pub fn set_learning_rate(&mut self, lr: f32) {
+    pub fn set_learning_rate(&mut self, lr: f32) -> PyResult<()> {
+        use crate::python::common::validation::validate_learning_rate;
+        validate_learning_rate(lr as f64)?;
         self.optimizer.set_learning_rate(lr);
+        Ok(())
     }
 
-    /// Get momentum
-    /// モーメンタムを取得
+    /// Get number of parameters
+    /// パラメータ数を取得
+    pub fn param_count(&self) -> usize {
+        self.parameters.len()
+    }
+
+    /// Get momentum (placeholder - not implemented in underlying SGD)
+    /// モーメンタムを取得（プレースホルダー - 基底SGDでは未実装）
     pub fn momentum(&self) -> f32 {
         0.0 // Default momentum value
     }
 
-    /// Get weight decay
-    /// 重み減衰を取得
+    /// Get weight decay (placeholder - not implemented in underlying SGD)
+    /// 重み減衰を取得（プレースホルダー - 基底SGDでは未実装）
     pub fn weight_decay(&self) -> f32 {
         0.0 // Default weight_decay value
     }
 
-    /// Get nesterov setting
-    /// Nesterov設定を取得
+    /// Get nesterov setting (placeholder - not implemented in underlying SGD)
+    /// Nesterov設定を取得（プレースホルダー - 基底SGDでは未実装）
     pub fn nesterov(&self) -> bool {
         false // Default nesterov value
     }
@@ -118,19 +172,50 @@ impl PySGD {
             "nesterov".to_string(),
             if self.nesterov() { 1.0 } else { 0.0 },
         );
+        state.insert("param_count".to_string(), self.param_count() as f32);
         state
+    }
+
+    /// Load optimizer state
+    /// オプティマイザー状態をロード
+    pub fn load_state_dict(&mut self, state: HashMap<String, f32>) -> PyResult<()> {
+        if let Some(&lr) = state.get("lr") {
+            self.set_learning_rate(lr)?;
+        }
+
+        // Note: Other parameters (momentum, weight_decay, nesterov) are not
+        // currently supported by the underlying SGD implementation
+
+        Ok(())
     }
 
     /// String representation
     /// 文字列表現
     pub fn __repr__(&self) -> String {
         format!(
-            "SGD(lr={}, momentum={}, weight_decay={}, nesterov={})",
+            "SGD(params={}, lr={}, momentum={}, weight_decay={}, nesterov={})",
+            self.param_count(),
             self.learning_rate(),
             self.momentum(),
             self.weight_decay(),
             self.nesterov()
         )
+    }
+
+    /// Clone the object (not supported)
+    /// オブジェクトのクローン（サポートされていません）
+    pub fn __copy__(&self) -> PyResult<Self> {
+        Err(PyNotImplementedError::new_err(
+            "SGD optimizer cloning is not supported",
+        ))
+    }
+
+    /// Deep copy the object (not supported)
+    /// オブジェクトの深いコピー（サポートされていません）
+    pub fn __deepcopy__(&self, _memo: &Bound<'_, pyo3::types::PyDict>) -> PyResult<Self> {
+        Err(PyNotImplementedError::new_err(
+            "SGD optimizer deep copying is not supported",
+        ))
     }
 }
 
@@ -153,26 +238,45 @@ impl PyAdam {
         weight_decay: Option<f32>,
         amsgrad: Option<bool>,
     ) -> PyResult<Self> {
+        use crate::python::common::validation::{
+            validate_beta, validate_epsilon, validate_learning_rate,
+        };
+
         // Extract parameters from Python list
         let mut parameters = Vec::new();
-        for item in params.iter() {
-            let param: pyo3::Py<PyVariable> = item.extract()?;
+        for (i, item) in params.iter().enumerate() {
+            let param: pyo3::Py<PyVariable> = item
+                .extract()
+                .map_err(|_| PyTypeError::new_err(format!("Parameter {} is not a Variable", i)))?;
             parameters.push(param);
+        }
+
+        if parameters.is_empty() {
+            return Err(PyValueError::new_err("Parameter list cannot be empty"));
         }
 
         let lr = lr.unwrap_or(0.001);
         let betas = betas.unwrap_or_else(|| vec![0.9, 0.999]);
         let eps = eps.unwrap_or(1e-8);
         let weight_decay = weight_decay.unwrap_or(0.0);
-        let amsgrad = amsgrad.unwrap_or(false);
+        let _amsgrad = amsgrad.unwrap_or(false);
+
+        // Validate parameters
+        validate_learning_rate(lr as f64)?;
+        validate_epsilon(eps as f64)?;
 
         if betas.len() != 2 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "betas must contain exactly 2 values",
-            ));
+            return Err(PyValueError::new_err("betas must contain exactly 2 values"));
         }
 
-        // Adam::new only takes 4 parameters, not Result
+        validate_beta(betas[0] as f64, "beta1")?;
+        validate_beta(betas[1] as f64, "beta2")?;
+
+        if weight_decay < 0.0 {
+            return Err(PyValueError::new_err("Weight decay must be non-negative"));
+        }
+
+        // Adam::new only takes 4 parameters
         let optimizer = Adam::new(lr, betas[0], betas[1], eps);
         Ok(PyAdam {
             optimizer,
@@ -183,16 +287,39 @@ impl PyAdam {
     /// Perform optimization step
     /// 最適化ステップを実行
     pub fn step(&mut self, py: Python<'_>) -> PyResult<()> {
+        use crate::python::common::to_py_err;
+
+        if self.parameters.is_empty() {
+            return Ok(());
+        }
+
         // Extract gradients from parameters
         let mut gradients = Vec::new();
         let mut param_vars = Vec::new();
 
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
+
+            // Check if parameter requires gradient
+            if !param.requires_grad() {
+                continue;
+            }
+
             if let Some(grad) = param.grad() {
                 gradients.push(grad.tensor.clone());
-                param_vars.push(param.variable.data().read().unwrap().clone());
+
+                // Safe access to parameter data
+                match param.variable.data().try_read() {
+                    Ok(data) => param_vars.push(data.clone()),
+                    Err(_) => {
+                        return Err(PyRuntimeError::new_err("Failed to access parameter data"))
+                    }
+                }
             }
+        }
+
+        if gradients.is_empty() {
+            return Ok(());
         }
 
         // Perform optimization step for each parameter
@@ -207,7 +334,7 @@ impl PyAdam {
     pub fn zero_grad(&mut self, py: Python<'_>) -> PyResult<()> {
         for param_py in &self.parameters {
             let mut param = param_py.borrow_mut(py);
-            param.zero_grad();
+            param.zero_grad()?;
         }
         Ok(())
     }
@@ -220,36 +347,45 @@ impl PyAdam {
 
     /// Set learning rate
     /// 学習率を設定
-    pub fn set_learning_rate(&mut self, lr: f32) {
+    pub fn set_learning_rate(&mut self, lr: f32) -> PyResult<()> {
+        use crate::python::common::validation::validate_learning_rate;
+        validate_learning_rate(lr as f64)?;
         self.optimizer.set_learning_rate(lr);
+        Ok(())
     }
 
-    /// Get beta1 parameter
-    /// beta1パラメータを取得
+    /// Get number of parameters
+    /// パラメータ数を取得
+    pub fn param_count(&self) -> usize {
+        self.parameters.len()
+    }
+
+    /// Get beta1 parameter (placeholder - not accessible from underlying Adam)
+    /// beta1パラメータを取得（プレースホルダー - 基底Adamからアクセス不可）
     pub fn beta1(&self) -> f32 {
         0.9 // Default beta1 value
     }
 
-    /// Get beta2 parameter
-    /// beta2パラメータを取得
+    /// Get beta2 parameter (placeholder - not accessible from underlying Adam)
+    /// beta2パラメータを取得（プレースホルダー - 基底Adamからアクセス不可）
     pub fn beta2(&self) -> f32 {
         0.999 // Default beta2 value
     }
 
-    /// Get epsilon parameter
-    /// epsilonパラメータを取得
+    /// Get epsilon parameter (placeholder - not accessible from underlying Adam)
+    /// epsilonパラメータを取得（プレースホルダー - 基底Adamからアクセス不可）
     pub fn eps(&self) -> f32 {
         1e-8 // Default eps value
     }
 
-    /// Get weight decay
-    /// 重み減衰を取得
+    /// Get weight decay (placeholder - not implemented in underlying Adam)
+    /// 重み減衰を取得（プレースホルダー - 基底Adamでは未実装）
     pub fn weight_decay(&self) -> f32 {
         0.0 // Default weight_decay value
     }
 
-    /// Get amsgrad setting
-    /// AMSGrad設定を取得
+    /// Get amsgrad setting (placeholder - not implemented in underlying Adam)
+    /// AMSGrad設定を取得（プレースホルダー - 基底Adamでは未実装）
     pub fn amsgrad(&self) -> bool {
         false // Default amsgrad value
     }
@@ -267,14 +403,29 @@ impl PyAdam {
             "amsgrad".to_string(),
             if self.amsgrad() { 1.0 } else { 0.0 },
         );
+        state.insert("param_count".to_string(), self.param_count() as f32);
         state
+    }
+
+    /// Load optimizer state
+    /// オプティマイザー状態をロード
+    pub fn load_state_dict(&mut self, state: HashMap<String, f32>) -> PyResult<()> {
+        if let Some(&lr) = state.get("lr") {
+            self.set_learning_rate(lr)?;
+        }
+
+        // Note: Other parameters (beta1, beta2, eps, weight_decay, amsgrad) are not
+        // currently accessible or modifiable in the underlying Adam implementation
+
+        Ok(())
     }
 
     /// String representation
     /// 文字列表現
     pub fn __repr__(&self) -> String {
         format!(
-            "Adam(lr={}, betas=({}, {}), eps={}, weight_decay={}, amsgrad={})",
+            "Adam(params={}, lr={}, betas=({}, {}), eps={}, weight_decay={}, amsgrad={})",
+            self.param_count(),
             self.learning_rate(),
             self.beta1(),
             self.beta2(),
@@ -282,6 +433,22 @@ impl PyAdam {
             self.weight_decay(),
             self.amsgrad()
         )
+    }
+
+    /// Clone the object (not supported)
+    /// オブジェクトのクローン（サポートされていません）
+    pub fn __copy__(&self) -> PyResult<Self> {
+        Err(PyNotImplementedError::new_err(
+            "Adam optimizer cloning is not supported",
+        ))
+    }
+
+    /// Deep copy the object (not supported)
+    /// オブジェクトの深いコピー（サポートされていません）
+    pub fn __deepcopy__(&self, _memo: &Bound<'_, pyo3::types::PyDict>) -> PyResult<Self> {
+        Err(PyNotImplementedError::new_err(
+            "Adam optimizer deep copying is not supported",
+        ))
     }
 }
 
