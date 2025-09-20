@@ -11,11 +11,12 @@ use std::sync::{Arc, RwLock};
 pub fn to_py_err(error: RusTorchError) -> PyErr {
     match error {
         RusTorchError::ShapeMismatch { expected, actual } => PyValueError::new_err(format!(
-            "Shape mismatch: expected {:?}, got {:?}", expected, actual
+            "Shape mismatch: expected {:?}, got {:?}",
+            expected, actual
         )),
-        RusTorchError::Device { device, message } => PyRuntimeError::new_err(format!(
-            "Device error on {}: {}", device, message
-        )),
+        RusTorchError::Device { device, message } => {
+            PyRuntimeError::new_err(format!("Device error on {}: {}", device, message))
+        }
         RusTorchError::TensorOp { message, .. } => PyRuntimeError::new_err(message),
         _ => PyRuntimeError::new_err(error.to_string()),
     }
@@ -66,7 +67,9 @@ pub mod validation {
         }
 
         if dims.iter().any(|&d| d == 0) {
-            return Err(PyValueError::new_err("Tensor dimensions cannot contain zero"));
+            return Err(PyValueError::new_err(
+                "Tensor dimensions cannot contain zero",
+            ));
         }
 
         let total_elements: usize = dims.iter().product();
@@ -125,13 +128,12 @@ pub mod conversions {
 
     /// Convert Python list to Vec<usize> with validation
     /// Python listをVec<usize>に検証付きで変換
-    pub fn pylist_to_vec_usize(
-        list: &Bound<'_, pyo3::types::PyList>,
-    ) -> PyResult<Vec<usize>> {
+    pub fn pylist_to_vec_usize(list: &Bound<'_, pyo3::types::PyList>) -> PyResult<Vec<usize>> {
         let mut result = Vec::with_capacity(list.len());
 
         for (i, item) in list.iter().enumerate() {
-            let value: usize = item.extract()
+            let value: usize = item
+                .extract()
                 .map_err(|_| PyTypeError::new_err(format!("Item {} is not a valid integer", i)))?;
             result.push(value);
         }
@@ -141,13 +143,12 @@ pub mod conversions {
 
     /// Convert Python list to Vec<f32> with validation
     /// Python listをVec<f32>に検証付きで変換
-    pub fn pylist_to_vec_f32(
-        list: &Bound<'_, pyo3::types::PyList>,
-    ) -> PyResult<Vec<f32>> {
+    pub fn pylist_to_vec_f32(list: &Bound<'_, pyo3::types::PyList>) -> PyResult<Vec<f32>> {
         let mut result = Vec::with_capacity(list.len());
 
         for (i, item) in list.iter().enumerate() {
-            let value: f32 = item.extract()
+            let value: f32 = item
+                .extract()
                 .map_err(|_| PyTypeError::new_err(format!("Item {} is not a valid float", i)))?;
             result.push(value);
         }
@@ -157,9 +158,7 @@ pub mod conversions {
 
     /// Safe tensor shape conversion
     /// 安全なテンソル形状変換
-    pub fn pylist_to_shape(
-        list: &Bound<'_, pyo3::types::PyList>,
-    ) -> PyResult<Vec<usize>> {
+    pub fn pylist_to_shape(list: &Bound<'_, pyo3::types::PyList>) -> PyResult<Vec<usize>> {
         let shape = pylist_to_vec_usize(list)?;
         crate::python::common::validation::validate_dimensions(&shape)?;
         Ok(shape)

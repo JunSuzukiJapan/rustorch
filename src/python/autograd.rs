@@ -2,11 +2,11 @@
 //! 自動微分のPythonバインディング
 
 use crate::autograd::Variable;
-use crate::python::common::{to_py_err, validation, conversions, memory};
+use crate::python::common::{conversions, memory, to_py_err, validation};
 use crate::python::tensor::PyTensor;
 use numpy::PyArray1;
-use pyo3::prelude::*;
 use pyo3::exceptions::*;
+use pyo3::prelude::*;
 
 /// Python wrapper for Variable (automatic differentiation)
 /// Variable（自動微分）のPythonラッパー
@@ -66,18 +66,22 @@ impl PyVariable {
     /// 内部テンソルデータを取得
     pub fn data(&self) -> PyResult<PyTensor> {
         use crate::python::common::memory::safe_read;
-        safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| {
-            PyTensor {
+        safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| PyTensor {
                 tensor: tensor.clone(),
-            }
-        })
+            },
+        )
     }
 
     /// Get gradient if available
     /// 勾配が利用可能な場合は取得
     pub fn grad(&self) -> Option<PyTensor> {
         use crate::python::common::memory::safe_read;
-        match safe_read(&self.variable.grad(), |grad_opt: &Option<crate::tensor::Tensor<f32>>| grad_opt.clone()) {
+        match safe_read(
+            &self.variable.grad(),
+            |grad_opt: &Option<crate::tensor::Tensor<f32>>| grad_opt.clone(),
+        ) {
             Ok(Some(grad)) => Some(PyTensor { tensor: grad }),
             _ => None,
         }
@@ -103,16 +107,21 @@ impl PyVariable {
     /// テンソル形状を取得
     pub fn shape(&self) -> Vec<usize> {
         use crate::python::common::memory::safe_read;
-        safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| tensor.shape().to_vec()).unwrap_or_default()
+        safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.shape().to_vec(),
+        )
+        .unwrap_or_default()
     }
 
     /// Get number of elements
     /// 要素数を取得
     pub fn numel(&self) -> usize {
         use crate::python::common::memory::safe_read;
-        safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| {
-            tensor.shape().iter().product()
-        })
+        safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.shape().iter().product(),
+        )
         .unwrap_or(0)
     }
 
@@ -120,12 +129,13 @@ impl PyVariable {
     /// NumPy配列に変換
     pub fn numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f32>> {
         use crate::python::common::{conversions::vec_to_pyarray, memory::safe_read};
-        
-        let data = safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| {
-            tensor.data.as_slice().unwrap_or(&[]).to_vec()
-        })
+
+        let data = safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.data.as_slice().unwrap_or(&[]).to_vec(),
+        )
         .unwrap_or_default();
-        
+
         vec_to_pyarray(data, py)
     }
 
@@ -137,7 +147,7 @@ impl PyVariable {
         _retain_graph: Option<bool>,
     ) -> PyResult<()> {
         use crate::python::common::to_py_err;
-        
+
         match gradient {
             Some(grad) => {
                 self.variable.backward_with_grad(Some(grad.tensor.clone()));
@@ -161,8 +171,11 @@ impl PyVariable {
     /// 計算グラフから切り離し
     pub fn detach(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let tensor_data = safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| tensor.clone())?;
+
+        let tensor_data = safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.clone(),
+        )?;
         let detached_var = Variable::new(tensor_data, false);
         Ok(PyVariable {
             variable: detached_var,
@@ -183,10 +196,12 @@ impl PyVariable {
     /// Reshape Variable
     /// Variableの形状変更
     pub fn reshape(&self, shape: Vec<usize>) -> PyResult<PyVariable> {
-        use crate::python::common::{to_py_err, validation::validate_dimensions, memory::safe_read};
-        
+        use crate::python::common::{
+            memory::safe_read, to_py_err, validation::validate_dimensions,
+        };
+
         validate_dimensions(&shape)?;
-        
+
         let current_elements = self.numel();
         let new_elements: usize = shape.iter().product();
         if current_elements != new_elements {
@@ -196,126 +211,158 @@ impl PyVariable {
             )));
         }
 
-        let result_tensor = safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| {
-            tensor.reshape(&shape)
-        })?.map_err(to_py_err)?;
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.reshape(&shape),
+        )?
+        .map_err(to_py_err)?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Transpose Variable
     /// Variableの転置
     pub fn transpose(&self) -> PyResult<PyVariable> {
-        use crate::python::common::{to_py_err, memory::safe_read};
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor: &crate::tensor::Tensor<f32>| {
-            tensor.transpose()
-        })?.map_err(to_py_err)?;
+        use crate::python::common::{memory::safe_read, to_py_err};
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor: &crate::tensor::Tensor<f32>| tensor.transpose(),
+        )?
+        .map_err(to_py_err)?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Power operation
     /// べき乗演算
     pub fn pow(&self, exponent: f32) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| x.powf(exponent));
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data = tensor_data.data.mapv(|x| x.powf(exponent));
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Exponential function
     /// 指数関数
     pub fn exp(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| x.exp());
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data = tensor_data.data.mapv(|x| x.exp());
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Natural logarithm
     /// 自然対数
     pub fn log(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| {
-                if x <= 0.0 {
-                    f32::NAN
-                } else {
-                    x.ln()
-                }
-            });
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data =
+                    tensor_data
+                        .data
+                        .mapv(|x| if x <= 0.0 { f32::NAN } else { x.ln() });
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Sine function
     /// サイン関数
     pub fn sin(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| x.sin());
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data = tensor_data.data.mapv(|x| x.sin());
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Cosine function
     /// コサイン関数
     pub fn cos(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| x.cos());
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data = tensor_data.data.mapv(|x| x.cos());
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Square root
     /// 平方根
     pub fn sqrt(&self) -> PyResult<PyVariable> {
         use crate::python::common::memory::safe_read;
-        
-        let result_tensor = safe_read(&self.variable.data(), |tensor_data: &crate::tensor::Tensor<f32>| {
-            let result_data = tensor_data.data.mapv(|x| {
-                if x < 0.0 {
-                    f32::NAN
-                } else {
-                    x.sqrt()
-                }
-            });
-            crate::tensor::Tensor::from_ndarray(result_data)
-        })?;
+
+        let result_tensor = safe_read(
+            &self.variable.data(),
+            |tensor_data: &crate::tensor::Tensor<f32>| {
+                let result_data =
+                    tensor_data
+                        .data
+                        .mapv(|x| if x < 0.0 { f32::NAN } else { x.sqrt() });
+                crate::tensor::Tensor::from_ndarray(result_data)
+            },
+        )?;
 
         let result_var = Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Arithmetic operations - currently simplified
     /// 算術演算 - 現在は簡略化
-    
+
     /// Add two Variables
     /// Variable加算
     pub fn __add__(&self, _other: &PyVariable) -> PyResult<PyVariable> {

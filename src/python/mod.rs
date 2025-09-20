@@ -13,9 +13,9 @@
 //! - visualization: 可視化機能
 
 #[cfg(feature = "python")]
-pub mod tensor;
-#[cfg(feature = "python")]
 pub mod common;
+#[cfg(feature = "python")]
+pub mod tensor;
 
 #[cfg(feature = "python")]
 pub mod autograd;

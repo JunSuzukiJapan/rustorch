@@ -1,6 +1,17 @@
 # Pre-publish checklist
 
-## 1.ビルドとテスト
+  - すべてのテスト
+  - すべてのベンチマーク
+  - すべてのexamples
+  - doctest
+  - cargo doc
+  - ビルド確認 lib
+  - ビルド確認 wasm
+  - ビルド確認 docker
+  - clippy 警告もゼロに
+  - フォーマット 
+
+<!-- ## 1.ビルドとテスト
 ```bash
 cargo build --all-targets --no-default-features"
 cargo build --all-targets --features "linalg-netlib"
@@ -53,7 +64,7 @@ cargo build --all-targets --features "linalg-netlib"
 ## 10. WASMのビルド
 ```bash
 cargo build --all-targets --features "linalg-netlib,wasm" --target wasm32-unknown-unknown
-```
+``` -->
 
 <!-- ## 11. プッシュ
 ```bash

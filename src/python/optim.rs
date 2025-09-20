@@ -3,9 +3,9 @@
 
 use crate::optim::{Adam, Optimizer, SGD};
 use crate::python::autograd::PyVariable;
-use crate::python::common::{to_py_err, validation, conversions};
-use pyo3::prelude::*;
+use crate::python::common::{conversions, to_py_err, validation};
 use pyo3::exceptions::*;
+use pyo3::prelude::*;
 use std::collections::HashMap;
 
 /// Python wrapper for SGD optimizer
@@ -27,17 +27,17 @@ impl PySGD {
         nesterov: Option<bool>,
     ) -> PyResult<Self> {
         use crate::python::common::{
-            validation::validate_learning_rate,
-            conversions::pylist_to_vec_usize,
+            conversions::pylist_to_vec_usize, validation::validate_learning_rate,
         };
-        
+
         // Validate learning rate
         validate_learning_rate(lr as f64)?;
-        
+
         // Extract parameters from Python list
         let mut parameters = Vec::new();
         for (i, item) in params.iter().enumerate() {
-            let param: pyo3::Py<PyVariable> = item.extract()
+            let param: pyo3::Py<PyVariable> = item
+                .extract()
                 .map_err(|_| PyTypeError::new_err(format!("Parameter {} is not a Variable", i)))?;
             parameters.push(param);
         }
@@ -54,7 +54,7 @@ impl PySGD {
         if !(0.0..=1.0).contains(&momentum) {
             return Err(PyValueError::new_err("Momentum must be in [0, 1]"));
         }
-        
+
         if weight_decay < 0.0 {
             return Err(PyValueError::new_err("Weight decay must be non-negative"));
         }
@@ -71,7 +71,7 @@ impl PySGD {
     /// 最適化ステップを実行
     pub fn step(&mut self, py: Python<'_>) -> PyResult<()> {
         use crate::python::common::to_py_err;
-        
+
         if self.parameters.is_empty() {
             return Ok(()); // No parameters to optimize
         }
@@ -82,19 +82,21 @@ impl PySGD {
 
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
-            
+
             // Check if parameter requires gradient
             if !param.requires_grad() {
                 continue;
             }
-            
+
             if let Some(grad) = param.grad() {
                 gradients.push(grad.tensor.clone());
-                
+
                 // Safe access to parameter data
                 match param.variable.data().try_read() {
                     Ok(data) => param_vars.push(data.clone()),
-                    Err(_) => return Err(PyRuntimeError::new_err("Failed to access parameter data")),
+                    Err(_) => {
+                        return Err(PyRuntimeError::new_err("Failed to access parameter data"))
+                    }
                 }
             }
         }
@@ -180,10 +182,10 @@ impl PySGD {
         if let Some(&lr) = state.get("lr") {
             self.set_learning_rate(lr)?;
         }
-        
-        // Note: Other parameters (momentum, weight_decay, nesterov) are not 
+
+        // Note: Other parameters (momentum, weight_decay, nesterov) are not
         // currently supported by the underlying SGD implementation
-        
+
         Ok(())
     }
 
@@ -237,15 +239,14 @@ impl PyAdam {
         amsgrad: Option<bool>,
     ) -> PyResult<Self> {
         use crate::python::common::validation::{
-            validate_learning_rate,
-            validate_beta,
-            validate_epsilon,
+            validate_beta, validate_epsilon, validate_learning_rate,
         };
-        
+
         // Extract parameters from Python list
         let mut parameters = Vec::new();
         for (i, item) in params.iter().enumerate() {
-            let param: pyo3::Py<PyVariable> = item.extract()
+            let param: pyo3::Py<PyVariable> = item
+                .extract()
                 .map_err(|_| PyTypeError::new_err(format!("Parameter {} is not a Variable", i)))?;
             parameters.push(param);
         }
@@ -263,14 +264,14 @@ impl PyAdam {
         // Validate parameters
         validate_learning_rate(lr as f64)?;
         validate_epsilon(eps as f64)?;
-        
+
         if betas.len() != 2 {
             return Err(PyValueError::new_err("betas must contain exactly 2 values"));
         }
-        
+
         validate_beta(betas[0] as f64, "beta1")?;
         validate_beta(betas[1] as f64, "beta2")?;
-        
+
         if weight_decay < 0.0 {
             return Err(PyValueError::new_err("Weight decay must be non-negative"));
         }
@@ -287,7 +288,7 @@ impl PyAdam {
     /// 最適化ステップを実行
     pub fn step(&mut self, py: Python<'_>) -> PyResult<()> {
         use crate::python::common::to_py_err;
-        
+
         if self.parameters.is_empty() {
             return Ok(());
         }
@@ -298,19 +299,21 @@ impl PyAdam {
 
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
-            
+
             // Check if parameter requires gradient
             if !param.requires_grad() {
                 continue;
             }
-            
+
             if let Some(grad) = param.grad() {
                 gradients.push(grad.tensor.clone());
-                
+
                 // Safe access to parameter data
                 match param.variable.data().try_read() {
                     Ok(data) => param_vars.push(data.clone()),
-                    Err(_) => return Err(PyRuntimeError::new_err("Failed to access parameter data")),
+                    Err(_) => {
+                        return Err(PyRuntimeError::new_err("Failed to access parameter data"))
+                    }
                 }
             }
         }
@@ -410,10 +413,10 @@ impl PyAdam {
         if let Some(&lr) = state.get("lr") {
             self.set_learning_rate(lr)?;
         }
-        
-        // Note: Other parameters (beta1, beta2, eps, weight_decay, amsgrad) are not 
+
+        // Note: Other parameters (beta1, beta2, eps, weight_decay, amsgrad) are not
         // currently accessible or modifiable in the underlying Adam implementation
-        
+
         Ok(())
     }
 

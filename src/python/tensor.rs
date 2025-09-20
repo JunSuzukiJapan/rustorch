@@ -1,13 +1,13 @@
 //! Python bindings for tensor operations
 //! テンソル操作のPythonバインディング
 
-use crate::python::common::{to_py_err, validation, conversions};
+use crate::python::common::{conversions, to_py_err, validation};
 use crate::tensor::device::Device;
 use crate::tensor::operations::zero_copy::TensorIterOps;
 use crate::tensor::Tensor;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, ToPyArray};
-use pyo3::prelude::*;
 use pyo3::exceptions::*;
+use pyo3::prelude::*;
 
 /// Python wrapper for RusTorch Tensor
 /// RusTorch TensorのPythonラッパー
@@ -79,7 +79,7 @@ impl PyTensor {
         if start >= end {
             return Err(PyValueError::new_err("Start must be less than end"));
         }
-        
+
         let size = ((end - start) / step).ceil() as usize;
         let data: Vec<f32> = (0..size).map(|i| start + i as f32 * step).collect();
         let shape = vec![size];
@@ -128,9 +128,9 @@ impl PyTensor {
     /// Reshape tensor
     /// テンソルの形状を変更
     pub fn reshape(&self, shape: Vec<usize>) -> PyResult<Self> {
-        use crate::python::common::{validation::validate_dimensions, to_py_err};
+        use crate::python::common::{to_py_err, validation::validate_dimensions};
         validate_dimensions(&shape)?;
-        
+
         let current_elements = self.numel();
         let new_elements: usize = shape.iter().product();
         if current_elements != new_elements {
@@ -139,7 +139,7 @@ impl PyTensor {
                 current_elements, new_elements
             )));
         }
-        
+
         match self.tensor.reshape(&shape) {
             Ok(tensor) => Ok(PyTensor { tensor }),
             Err(e) => Err(to_py_err(e)),
@@ -160,7 +160,9 @@ impl PyTensor {
     /// テンソル加算
     pub fn __add__(&self, other: &PyTensor) -> PyResult<Self> {
         if self.shape() != other.shape() {
-            return Err(PyValueError::new_err("Tensor shapes must match for addition"));
+            return Err(PyValueError::new_err(
+                "Tensor shapes must match for addition",
+            ));
         }
         let result_tensor = &self.tensor + &other.tensor;
         Ok(PyTensor {
@@ -172,7 +174,9 @@ impl PyTensor {
     /// テンソル減算
     pub fn __sub__(&self, other: &PyTensor) -> PyResult<Self> {
         if self.shape() != other.shape() {
-            return Err(PyValueError::new_err("Tensor shapes must match for subtraction"));
+            return Err(PyValueError::new_err(
+                "Tensor shapes must match for subtraction",
+            ));
         }
         let result_tensor = &self.tensor - &other.tensor;
         Ok(PyTensor {
@@ -184,7 +188,9 @@ impl PyTensor {
     /// テンソル乗算
     pub fn __mul__(&self, other: &PyTensor) -> PyResult<Self> {
         if self.shape() != other.shape() {
-            return Err(PyValueError::new_err("Tensor shapes must match for multiplication"));
+            return Err(PyValueError::new_err(
+                "Tensor shapes must match for multiplication",
+            ));
         }
         let result_tensor = &self.tensor * &other.tensor;
         Ok(PyTensor {
@@ -197,22 +203,24 @@ impl PyTensor {
     pub fn __matmul__(&self, other: &PyTensor) -> PyResult<Self> {
         let self_shape = self.shape();
         let other_shape = other.shape();
-        
+
         // Basic matrix multiplication shape validation
         if self_shape.len() < 2 || other_shape.len() < 2 {
-            return Err(PyValueError::new_err("Matrix multiplication requires at least 2D tensors"));
+            return Err(PyValueError::new_err(
+                "Matrix multiplication requires at least 2D tensors",
+            ));
         }
-        
+
         let self_cols = self_shape[self_shape.len() - 1];
         let other_rows = other_shape[other_shape.len() - 2];
-        
+
         if self_cols != other_rows {
             return Err(PyValueError::new_err(format!(
                 "Matrix multiplication shape mismatch: {} vs {}",
                 self_cols, other_rows
             )));
         }
-        
+
         // For now, use element-wise multiplication as placeholder
         let result_tensor = &self.tensor * &other.tensor;
         Ok(PyTensor {

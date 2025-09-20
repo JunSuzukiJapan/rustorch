@@ -3,12 +3,11 @@
 
 #[cfg(all(test, feature = "python"))]
 mod python_bindings_tests {
-    use rustorch::python::common::{
-        to_py_err, validation, conversions, memory,
-        PyWrapper, ThreadSafePyWrapper,
-    };
-    use rustorch::error::RusTorchError;
     use pyo3::exceptions::*;
+    use rustorch::error::RusTorchError;
+    use rustorch::python::common::{
+        conversions, memory, to_py_err, validation, PyWrapper, ThreadSafePyWrapper,
+    };
     use std::sync::{Arc, RwLock};
 
     #[test]
@@ -236,9 +235,9 @@ mod python_bindings_tests {
 
 #[cfg(all(test, feature = "python"))]
 mod integration_tests {
-    use rustorch::python::tensor::PyTensor;
-    use rustorch::python::autograd::PyVariable;
     use pyo3::Python;
+    use rustorch::python::autograd::PyVariable;
+    use rustorch::python::tensor::PyTensor;
 
     #[test]
     fn test_tensor_creation_and_operations() {
@@ -354,8 +353,8 @@ mod integration_tests {
 // Performance and stress tests
 #[cfg(all(test, feature = "python"))]
 mod performance_tests {
-    use rustorch::python::tensor::PyTensor;
     use rustorch::python::common::validation;
+    use rustorch::python::tensor::PyTensor;
     use std::time::Instant;
 
     #[test]
@@ -365,7 +364,7 @@ mod performance_tests {
         // Create moderately large tensors
         for _ in 0..100 {
             let size = 100;
-            let data: Vec<f32> = (0..size*size).map(|i| i as f32).collect();
+            let data: Vec<f32> = (0..size * size).map(|i| i as f32).collect();
             let tensor = PyTensor::new(data, vec![size, size]);
             assert!(tensor.is_ok());
         }
@@ -398,9 +397,9 @@ mod performance_tests {
 
     #[test]
     fn test_memory_safety_stress() {
+        use rustorch::python::common::memory;
         use std::sync::{Arc, RwLock};
         use std::thread;
-        use rustorch::python::common::memory;
 
         let data = Arc::new(RwLock::new(0i32));
         let mut handles = vec![];
