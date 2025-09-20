@@ -764,4 +764,51 @@
 <a href=#764 id=764 data-nosnippet>764</a>        meta.insert(<span class="string">"numel"</span>.to_string(), <span class="self">self</span>.numel().to_string());
 <a href=#765 id=765 data-nosnippet>765</a>        meta
 <a href=#766 id=766 data-nosnippet>766</a>    }
-<a href=#767 id=767 data-nosnippet>767</a>}</code></pre></div></section></main></body></html>
+<a href=#767 id=767 data-nosnippet>767</a>}
+<a href=#768 id=768 data-nosnippet>768</a>
+<a href=#769 id=769 data-nosnippet>769</a><span class="comment">// Hybrid execution implementation for Tensor
+<a href=#770 id=770 data-nosnippet>770</a>// TensorのHybridExecution実装
+<a href=#771 id=771 data-nosnippet>771</a></span><span class="attr">#[cfg(any(
+<a href=#772 id=772 data-nosnippet>772</a>    feature = <span class="string">"coreml"</span>,
+<a href=#773 id=773 data-nosnippet>773</a>    feature = <span class="string">"coreml-hybrid"</span>,
+<a href=#774 id=774 data-nosnippet>774</a>    feature = <span class="string">"coreml-fallback"</span>,
+<a href=#775 id=775 data-nosnippet>775</a>    feature = <span class="string">"metal"</span>,
+<a href=#776 id=776 data-nosnippet>776</a>    feature = <span class="string">"cuda"
+<a href=#777 id=777 data-nosnippet>777</a></span>))]
+<a href=#778 id=778 data-nosnippet>778</a></span><span class="kw">impl</span>&lt;T: Float + <span class="lifetime">'static</span>&gt; <span class="kw">crate</span>::gpu::hybrid_executor::HybridExecution&lt;T&gt; <span class="kw">for </span>Tensor&lt;T&gt; {
+<a href=#779 id=779 data-nosnippet>779</a>    <span class="kw">fn </span>hybrid_operation&lt;F, R&gt;(
+<a href=#780 id=780 data-nosnippet>780</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#781 id=781 data-nosnippet>781</a>        op_type: <span class="kw">crate</span>::gpu::OpType,
+<a href=#782 id=782 data-nosnippet>782</a>        operation: F,
+<a href=#783 id=783 data-nosnippet>783</a>    ) -&gt; <span class="kw">crate</span>::error::RusTorchResult&lt;R&gt;
+<a href=#784 id=784 data-nosnippet>784</a>    <span class="kw">where
+<a href=#785 id=785 data-nosnippet>785</a>        </span>F: Fn(<span class="kw">crate</span>::gpu::DeviceType) -&gt; <span class="kw">crate</span>::error::RusTorchResult&lt;R&gt;,
+<a href=#786 id=786 data-nosnippet>786</a>    {
+<a href=#787 id=787 data-nosnippet>787</a>        <span class="kw">use </span><span class="kw">crate</span>::gpu::hybrid_executor::HybridExecutor;
+<a href=#788 id=788 data-nosnippet>788</a>
+<a href=#789 id=789 data-nosnippet>789</a>        <span class="kw">let </span>tensor_info = <span class="self">self</span>.tensor_info();
+<a href=#790 id=790 data-nosnippet>790</a>        <span class="kw">let </span>executor = HybridExecutor::new();
+<a href=#791 id=791 data-nosnippet>791</a>        executor.execute(op_type, tensor_info, operation)
+<a href=#792 id=792 data-nosnippet>792</a>    }
+<a href=#793 id=793 data-nosnippet>793</a>
+<a href=#794 id=794 data-nosnippet>794</a>    <span class="kw">fn </span>tensor_info(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::gpu::hybrid_executor::TensorInfo {
+<a href=#795 id=795 data-nosnippet>795</a>        <span class="kw">use </span><span class="kw">crate</span>::dtype::DType;
+<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">use </span>std::mem;
+<a href=#797 id=797 data-nosnippet>797</a>
+<a href=#798 id=798 data-nosnippet>798</a>        <span class="comment">// Determine DType based on generic type T
+<a href=#799 id=799 data-nosnippet>799</a>        </span><span class="kw">let </span>dtype = <span class="kw">if </span>std::any::TypeId::of::&lt;T&gt;() == std::any::TypeId::of::&lt;f32&gt;() {
+<a href=#800 id=800 data-nosnippet>800</a>            DType::Float32
+<a href=#801 id=801 data-nosnippet>801</a>        } <span class="kw">else if </span>std::any::TypeId::of::&lt;T&gt;() == std::any::TypeId::of::&lt;f64&gt;() {
+<a href=#802 id=802 data-nosnippet>802</a>            DType::Float64
+<a href=#803 id=803 data-nosnippet>803</a>        } <span class="kw">else </span>{
+<a href=#804 id=804 data-nosnippet>804</a>            DType::Float32 <span class="comment">// Default fallback
+<a href=#805 id=805 data-nosnippet>805</a>        </span>};
+<a href=#806 id=806 data-nosnippet>806</a>
+<a href=#807 id=807 data-nosnippet>807</a>        <span class="kw">crate</span>::gpu::hybrid_executor::TensorInfo {
+<a href=#808 id=808 data-nosnippet>808</a>            dtype,
+<a href=#809 id=809 data-nosnippet>809</a>            shape: <span class="self">self</span>.shape().to_vec(),
+<a href=#810 id=810 data-nosnippet>810</a>            requires_custom_kernel: <span class="bool-val">false</span>, <span class="comment">// For now, assume standard kernels
+<a href=#811 id=811 data-nosnippet>811</a>            </span>memory_size_bytes: <span class="self">self</span>.numel() * mem::size_of::&lt;T&gt;(),
+<a href=#812 id=812 data-nosnippet>812</a>        }
+<a href=#813 id=813 data-nosnippet>813</a>    }
+<a href=#814 id=814 data-nosnippet>814</a>}</code></pre></div></section></main></body></html>

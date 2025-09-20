@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["GpuBatchMatrixExecutor"],"trait":["GpuLinearAlgebra"]};
+window.SIDEBAR_ITEMS = {"struct":["GpuBatchMatrixExecutor","GpuMatrixExecutor"],"trait":["GpuLinearAlgebra"]};

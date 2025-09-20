@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OptimizationStrategy","ThermalState"],"struct":["DeviceProfile","PerformanceBenchmark","PerformanceMetrics","PerformanceOptimizer","PerformanceStats"]};

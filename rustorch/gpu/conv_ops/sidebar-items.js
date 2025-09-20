@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["GpuPoolingExecutor"],"trait":["GpuConvolution","GpuPooling"]};
+window.SIDEBAR_ITEMS = {"trait":["GpuConvolution"]};
