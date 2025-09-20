@@ -184,7 +184,7 @@ impl DeviceCache {
             #[cfg(not(feature = "opencl"))]
             DeviceType::OpenCL(_) => false,
 
-            #[cfg(any(feature = "coreml-hybrid"))]
+            #[cfg(feature = "coreml-hybrid")]
             DeviceType::CoreMLHybrid { .. } => {
                 // Check if CoreML or fallback GPU is available
                 cfg!(target_os = "macos")
