@@ -17,6 +17,7 @@ use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+#[cfg(all(any(feature = "cuda", feature = "metal", feature = "opencl"), not(feature = "metal")))]
 use rustorch::error::RusTorchError;
 #[cfg(any(
     feature = "coreml",
@@ -236,12 +237,6 @@ impl PerformanceBenchmark {
         Ok(start.elapsed() / self.config.iterations as u32)
     }
 
-    #[cfg(not(feature = "metal"))]
-    fn benchmark_metal_matrix_multiply(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice(
-            "Metal not available".to_string(),
-        ))
-    }
 
     /// Benchmark Metal activation functions
     /// Metal活性化関数のベンチマーク
@@ -274,12 +269,6 @@ impl PerformanceBenchmark {
         Ok(start.elapsed() / self.config.iterations as u32)
     }
 
-    #[cfg(not(feature = "metal"))]
-    fn benchmark_metal_activation(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice(
-            "Metal not available".to_string(),
-        ))
-    }
 
     /// Benchmark Metal convolution
     /// Metal畳み込みのベンチマーク
@@ -310,12 +299,6 @@ impl PerformanceBenchmark {
         Ok(start.elapsed() / self.config.iterations as u32)
     }
 
-    #[cfg(not(feature = "metal"))]
-    fn benchmark_metal_convolution(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice(
-            "Metal not available".to_string(),
-        ))
-    }
 
     /// Benchmark GPU-only performance (using Metal on Apple Silicon)
     /// GPUのみのパフォーマンスをベンチマーク（Apple SiliconでMetal使用）
@@ -329,7 +312,12 @@ impl PerformanceBenchmark {
 
         // Matrix multiplication benchmark with Metal
         println!("  📊 Metal matrix multiplication benchmark...");
-        match self.benchmark_metal_matrix_multiply() {
+        #[cfg(feature = "metal")]
+        let matrix_result = self.benchmark_metal_matrix_multiply();
+        #[cfg(not(feature = "metal"))]
+        let matrix_result: RusTorchResult<Duration> = Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()));
+
+        match matrix_result {
             Ok(duration) => {
                 result.matrix_multiply_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
@@ -353,7 +341,12 @@ impl PerformanceBenchmark {
 
         // Activation functions benchmark with Metal
         println!("  🔥 Metal activation functions benchmark...");
-        match self.benchmark_metal_activation() {
+        #[cfg(feature = "metal")]
+        let activation_result = self.benchmark_metal_activation();
+        #[cfg(not(feature = "metal"))]
+        let activation_result: RusTorchResult<Duration> = Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()));
+
+        match activation_result {
             Ok(duration) => {
                 result.activation_functions_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
@@ -380,7 +373,12 @@ impl PerformanceBenchmark {
 
         // Convolution benchmark with Metal
         println!("  🌊 Metal convolution benchmark...");
-        match self.benchmark_metal_convolution() {
+        #[cfg(feature = "metal")]
+        let convolution_result = self.benchmark_metal_convolution();
+        #[cfg(not(feature = "metal"))]
+        let convolution_result: RusTorchResult<Duration> = Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()));
+
+        match convolution_result {
             Ok(duration) => {
                 result.convolution_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
