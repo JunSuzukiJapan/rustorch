@@ -286,10 +286,9 @@ impl PyVariable {
         let result_tensor = safe_read(
             &self.variable.data(),
             |tensor_data: &crate::tensor::Tensor<f32>| {
-                let result_data =
-                    tensor_data
-                        .data
-                        .mapv(|x| if x <= 0.0 { f32::NAN } else { x.ln() });
+                let result_data = tensor_data
+                    .data
+                    .mapv(|x| if x <= 0.0 { f32::NAN } else { x.ln() });
                 crate::tensor::Tensor::from_ndarray(result_data)
             },
         )?;
@@ -346,10 +345,9 @@ impl PyVariable {
         let result_tensor = safe_read(
             &self.variable.data(),
             |tensor_data: &crate::tensor::Tensor<f32>| {
-                let result_data =
-                    tensor_data
-                        .data
-                        .mapv(|x| if x < 0.0 { f32::NAN } else { x.sqrt() });
+                let result_data = tensor_data
+                    .data
+                    .mapv(|x| if x < 0.0 { f32::NAN } else { x.sqrt() });
                 crate::tensor::Tensor::from_ndarray(result_data)
             },
         )?;
