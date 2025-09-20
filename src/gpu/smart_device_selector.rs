@@ -132,9 +132,12 @@ impl SmartDeviceSelector {
         let size = profile.tensor_size;
 
         // Very large matrices: prefer CoreML if available
-        if size >= self.thresholds.coreml_min_size && size <= self.thresholds.coreml_max_size {
-            if self.is_device_available(&DeviceType::CoreML(0)) {
-                return DeviceType::CoreML(0);
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
+            if size >= self.thresholds.coreml_min_size && size <= self.thresholds.coreml_max_size {
+                if self.is_device_available(&DeviceType::CoreML(0)) {
+                    return DeviceType::CoreML(0);
+                }
             }
         }
 
@@ -162,9 +165,12 @@ impl SmartDeviceSelector {
         }
 
         // CoreML for medium-size tensors
-        if profile.tensor_size >= self.thresholds.coreml_min_size {
-            if self.is_device_available(&DeviceType::CoreML(0)) {
-                return DeviceType::CoreML(0);
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        {
+            if profile.tensor_size >= self.thresholds.coreml_min_size {
+                if self.is_device_available(&DeviceType::CoreML(0)) {
+                    return DeviceType::CoreML(0);
+                }
             }
         }
 
@@ -182,9 +188,12 @@ impl SmartDeviceSelector {
             let spatial_size = profile.dimensions[2] * profile.dimensions[3];
 
             // Large convolutions with many channels: CoreML
-            if channels >= 16 && spatial_size >= 1024 && batch_size >= 4 {
-                if self.is_device_available(&DeviceType::CoreML(0)) {
-                    return DeviceType::CoreML(0);
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            {
+                if channels >= 16 && spatial_size >= 1024 && batch_size >= 4 {
+                    if self.is_device_available(&DeviceType::CoreML(0)) {
+                        return DeviceType::CoreML(0);
+                    }
                 }
             }
 
@@ -210,8 +219,11 @@ impl SmartDeviceSelector {
             if self.is_device_available(&DeviceType::Metal(0)) {
                 return DeviceType::Metal(0);
             }
-            if self.is_device_available(&DeviceType::CoreML(0)) {
-                return DeviceType::CoreML(0);
+            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            {
+                if self.is_device_available(&DeviceType::CoreML(0)) {
+                    return DeviceType::CoreML(0);
+                }
             }
         }
 
@@ -272,6 +284,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_cpu_fallback_selection() {
+        let selector = SmartDeviceSelector::new(vec![
+            DeviceType::Cpu,
+        ]);
+
+        // Small matrix should use CPU
+        let profile = OperationProfile::new(
+            OperationType::MatrixMultiplication,
+            &[16, 16],
+            4
+        );
+
+        assert_eq!(selector.select_device(&profile), DeviceType::Cpu);
+    }
+
+    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[test]
     fn test_small_matrix_selection() {
         let selector = SmartDeviceSelector::new(vec![
             DeviceType::CoreML(0),
@@ -289,6 +318,7 @@ mod tests {
         assert_eq!(selector.select_device(&profile), DeviceType::Cpu);
     }
 
+    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
     #[test]
     fn test_large_matrix_selection() {
         let selector = SmartDeviceSelector::new(vec![
@@ -307,6 +337,7 @@ mod tests {
         assert_eq!(selector.select_device(&profile), DeviceType::CoreML(0));
     }
 
+    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
     #[test]
     fn test_small_convolution_selection() {
         let selector = SmartDeviceSelector::new(vec![
@@ -328,7 +359,6 @@ mod tests {
     #[test]
     fn test_activation_selection() {
         let selector = SmartDeviceSelector::new(vec![
-            DeviceType::CoreML(0),
             DeviceType::Metal(0),
             DeviceType::Cpu,
         ]);

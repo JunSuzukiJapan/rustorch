@@ -204,32 +204,14 @@ pub mod multi_gpu_profiler;
 ))]
 pub mod hybrid_executor;
 
-/// CoreML unified trait implementations
-/// CoreML統一trait実装
+/// Unified CoreML module for Apple Neural Engine integration
+/// Apple Neural Engine統合用統一CoreMLモジュール
 #[cfg(any(
     feature = "coreml",
     feature = "coreml-hybrid",
     feature = "coreml-fallback"
 ))]
-pub mod coreml_ops;
-
-/// CoreML backend implementation with objc2 bindings
-/// objc2バインディング付きCoreMLバックエンド実装
-#[cfg(any(
-    feature = "coreml",
-    feature = "coreml-hybrid",
-    feature = "coreml-fallback"
-))]
-pub mod coreml_backend;
-
-/// Advanced CoreML Model Management System
-/// 高度なCoreMLモデル管理システム
-#[cfg(any(
-    feature = "coreml",
-    feature = "coreml-hybrid",
-    feature = "coreml-fallback"
-))]
-pub mod coreml_model_manager;
+pub mod coreml;
 
 // Re-export GPU traits
 pub use activation_ops::GpuActivation;

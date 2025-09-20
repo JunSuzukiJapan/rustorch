@@ -70,7 +70,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -121,7 +121,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -172,7 +172,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -223,7 +223,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -274,7 +274,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -325,7 +325,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -376,7 +376,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {
@@ -427,7 +427,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLActivation, OpType};
+            use crate::gpu::{coreml::CoreMLActivation, OpType};
 
             return self.hybrid_operation(OpType::Activation, |device| {
                 match device {

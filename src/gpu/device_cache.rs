@@ -149,15 +149,13 @@ impl DeviceCache {
     fn check_device_availability_impl(&self, device: &DeviceType) -> bool {
         match device {
             DeviceType::Cpu => true, // CPU always available
+            DeviceType::Auto => true, // Auto always available (fallback logic)
 
             #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
             DeviceType::CoreML(_) => {
                 use crate::backends::DeviceManager;
                 DeviceManager::is_coreml_available()
             }
-
-            #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
-            DeviceType::CoreML(_) => false,
 
             #[cfg(feature = "metal")]
             DeviceType::Metal(_) => {
@@ -186,19 +184,31 @@ impl DeviceCache {
             #[cfg(not(feature = "opencl"))]
             DeviceType::OpenCL(_) => false,
 
-            DeviceType::Auto => true, // Auto always available (fallback logic)
+            #[cfg(any(feature = "coreml-hybrid"))]
+            DeviceType::CoreMLHybrid { .. } => {
+                // Check if CoreML or fallback GPU is available
+                cfg!(target_os = "macos")
+            }
+
         }
     }
 
     /// Warmup device cache by checking all common devices
     /// 一般的なデバイスをすべてチェックしてキャッシュをウォームアップ
     pub fn warmup(&self) {
-        let devices_to_check = vec![
+        #[allow(unused_mut)]
+        let mut devices_to_check = vec![
             DeviceType::Cpu,
-            DeviceType::CoreML(0),
-            DeviceType::Metal(0),
-            DeviceType::Cuda(0),
         ];
+
+        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        devices_to_check.push(DeviceType::CoreML(0));
+
+        #[cfg(feature = "metal")]
+        devices_to_check.push(DeviceType::Metal(0));
+
+        #[cfg(feature = "cuda")]
+        devices_to_check.push(DeviceType::Cuda(0));
 
         for device in devices_to_check {
             self.is_device_available(&device);

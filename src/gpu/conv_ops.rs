@@ -76,7 +76,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLConvolution, OpType};
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
             return self.hybrid_operation(OpType::Convolution, |device| {
                 match device {
@@ -133,7 +133,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLConvolution, OpType};
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
             return self.hybrid_operation(OpType::Convolution, |device| {
                 match device {
@@ -188,7 +188,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLConvolution, OpType};
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
             return self.hybrid_operation(OpType::Convolution, |device| {
                 match device {
@@ -244,7 +244,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLConvolution, OpType};
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
             return self.hybrid_operation(OpType::Convolution, |device| {
                 match device {
@@ -295,7 +295,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
         ))]
         {
             use crate::gpu::hybrid_executor::HybridExecution;
-            use crate::gpu::{coreml_ops::CoreMLConvolution, OpType};
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
             return self.hybrid_operation(OpType::Convolution, |device| {
                 match device {
