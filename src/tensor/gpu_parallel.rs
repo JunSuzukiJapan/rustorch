@@ -991,7 +991,11 @@ pub mod gpu_parallel_utils {
                 // OpenCL用バッチサイズ
                 std::cmp::min(1024, total_size)
             }
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             DeviceType::CoreML(_) => {
                 // CoreML用バッチサイズ
                 std::cmp::min(3072, total_size)

@@ -12,14 +12,18 @@
 //! Run with: cargo run --example device_performance_comparison --features coreml
 //! 実行方法: cargo run --example device_performance_comparison --features coreml
 
-use rustorch::tensor::Tensor;
 use rustorch::error::RusTorchResult;
-use std::time::{Duration, Instant};
+use rustorch::tensor::Tensor;
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
-#[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
-use rustorch::gpu::{GpuActivation, GpuConvolution};
 use rustorch::error::RusTorchError;
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+use rustorch::gpu::{GpuActivation, GpuConvolution};
 
 /// Benchmark configuration
 /// ベンチマーク設定
@@ -123,7 +127,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.activation_functions_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
-                println!("    ✅ Activation functions: {:.2}ms", result.activation_functions_ms);
+                println!(
+                    "    ✅ Activation functions: {:.2}ms",
+                    result.activation_functions_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ Activation functions failed: {}", e);
@@ -143,7 +150,8 @@ impl PerformanceBenchmark {
             }
         }
 
-        result.total_ms = result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
+        result.total_ms =
+            result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
         result.success_rate = (successful_operations as f64 / total_operations as f64) * 100.0;
 
         self.results.insert("CPU-only".to_string(), result);
@@ -230,7 +238,9 @@ impl PerformanceBenchmark {
 
     #[cfg(not(feature = "metal"))]
     fn benchmark_metal_matrix_multiply(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     /// Benchmark Metal activation functions
@@ -266,7 +276,9 @@ impl PerformanceBenchmark {
 
     #[cfg(not(feature = "metal"))]
     fn benchmark_metal_activation(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     /// Benchmark Metal convolution
@@ -300,7 +312,9 @@ impl PerformanceBenchmark {
 
     #[cfg(not(feature = "metal"))]
     fn benchmark_metal_convolution(&self) -> RusTorchResult<Duration> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     /// Benchmark GPU-only performance (using Metal on Apple Silicon)
@@ -319,7 +333,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.matrix_multiply_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
-                println!("    ✅ Metal Matrix multiply: {:.2}ms", result.matrix_multiply_ms);
+                println!(
+                    "    ✅ Metal Matrix multiply: {:.2}ms",
+                    result.matrix_multiply_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ Metal Matrix multiply failed: {}", e);
@@ -340,7 +357,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.activation_functions_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
-                println!("    ✅ Metal Activation functions: {:.2}ms", result.activation_functions_ms);
+                println!(
+                    "    ✅ Metal Activation functions: {:.2}ms",
+                    result.activation_functions_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ Metal Activation functions failed: {}", e);
@@ -348,7 +368,10 @@ impl PerformanceBenchmark {
                 match self.benchmark_cpu_activation() {
                     Ok(duration) => {
                         result.activation_functions_ms = duration.as_secs_f64() * 1000.0;
-                        println!("    🔄 Fallback to CPU: {:.2}ms", result.activation_functions_ms);
+                        println!(
+                            "    🔄 Fallback to CPU: {:.2}ms",
+                            result.activation_functions_ms
+                        );
                     }
                     Err(_) => {}
                 }
@@ -376,7 +399,8 @@ impl PerformanceBenchmark {
             }
         }
 
-        result.total_ms = result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
+        result.total_ms =
+            result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
         result.success_rate = (successful_operations as f64 / total_operations as f64) * 100.0;
 
         // If no Metal operations succeeded, mark as Metal unavailable
@@ -399,7 +423,11 @@ impl PerformanceBenchmark {
 
     /// Benchmark CoreML + CPU fallback performance
     /// CoreML + CPUフォールバックのパフォーマンスをベンチマーク
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     fn benchmark_coreml_cpu(&mut self) -> RusTorchResult<()> {
         println!("🧠 Benchmarking CoreML + CPU fallback performance...");
 
@@ -413,7 +441,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.matrix_multiply_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
-                println!("    ✅ CoreML Matrix multiply: {:.2}ms", result.matrix_multiply_ms);
+                println!(
+                    "    ✅ CoreML Matrix multiply: {:.2}ms",
+                    result.matrix_multiply_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ CoreML Matrix multiply failed: {}", e);
@@ -426,7 +457,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.activation_functions_ms = duration.as_secs_f64() * 1000.0;
                 successful_operations += 1;
-                println!("    ✅ CoreML Activation functions: {:.2}ms", result.activation_functions_ms);
+                println!(
+                    "    ✅ CoreML Activation functions: {:.2}ms",
+                    result.activation_functions_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ CoreML Activation functions failed: {}", e);
@@ -446,14 +480,19 @@ impl PerformanceBenchmark {
             }
         }
 
-        result.total_ms = result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
+        result.total_ms =
+            result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
         result.success_rate = (successful_operations as f64 / total_operations as f64) * 100.0;
 
         self.results.insert("CoreML+CPU".to_string(), result);
         Ok(())
     }
 
-    #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+    #[cfg(not(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    )))]
     fn benchmark_coreml_cpu(&mut self) -> RusTorchResult<()> {
         println!("🧠 CoreML + CPU benchmark skipped (CoreML features not enabled)");
         let mut result = BenchmarkResult::new("CoreML+CPU (unavailable)".to_string());
@@ -464,7 +503,11 @@ impl PerformanceBenchmark {
 
     /// Benchmark CoreML matrix multiplication
     /// CoreML行列乗算のベンチマーク
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     fn benchmark_coreml_matrix_multiply(&self) -> RusTorchResult<Duration> {
         use rustorch::gpu::matrix_ops::GpuMatrixExecutor;
         use rustorch::gpu::DeviceType;
@@ -485,7 +528,11 @@ impl PerformanceBenchmark {
 
     /// Benchmark CoreML activation functions
     /// CoreML活性化関数のベンチマーク
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     fn benchmark_coreml_activation(&self) -> RusTorchResult<Duration> {
         let shape = &self.config.activation_size;
         let tensor = Tensor::<f32>::ones(shape);
@@ -522,7 +569,11 @@ impl PerformanceBenchmark {
 
     /// Benchmark CoreML convolution
     /// CoreML畳み込みのベンチマーク
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     fn benchmark_coreml_convolution(&self) -> RusTorchResult<Duration> {
         use rustorch::backends::ConvolutionParams;
 
@@ -563,7 +614,11 @@ impl PerformanceBenchmark {
     /// Benchmark CoreML + GPU fallback performance
     /// CoreML + GPUフォールバックのパフォーマンスをベンチマーク
     #[cfg(all(
-        any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"),
+        any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ),
         any(feature = "cuda", feature = "metal", feature = "opencl")
     ))]
     fn benchmark_coreml_gpu(&mut self) -> RusTorchResult<()> {
@@ -579,7 +634,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.matrix_multiply_ms = duration.as_secs_f64() * 1000.0 * 0.8; // Simulate better performance with GPU fallback
                 successful_operations += 1;
-                println!("    ✅ CoreML+GPU Matrix multiply: {:.2}ms", result.matrix_multiply_ms);
+                println!(
+                    "    ✅ CoreML+GPU Matrix multiply: {:.2}ms",
+                    result.matrix_multiply_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ CoreML+GPU Matrix multiply failed: {}", e);
@@ -591,7 +649,10 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.activation_functions_ms = duration.as_secs_f64() * 1000.0 * 0.7; // Simulate better performance
                 successful_operations += 1;
-                println!("    ✅ CoreML+GPU Activation functions: {:.2}ms", result.activation_functions_ms);
+                println!(
+                    "    ✅ CoreML+GPU Activation functions: {:.2}ms",
+                    result.activation_functions_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ CoreML+GPU Activation functions failed: {}", e);
@@ -603,14 +664,18 @@ impl PerformanceBenchmark {
             Ok(duration) => {
                 result.convolution_ms = duration.as_secs_f64() * 1000.0 * 0.6; // Simulate best performance
                 successful_operations += 1;
-                println!("    ✅ CoreML+GPU Convolution: {:.2}ms", result.convolution_ms);
+                println!(
+                    "    ✅ CoreML+GPU Convolution: {:.2}ms",
+                    result.convolution_ms
+                );
             }
             Err(e) => {
                 println!("    ❌ CoreML+GPU Convolution failed: {}", e);
             }
         }
 
-        result.total_ms = result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
+        result.total_ms =
+            result.matrix_multiply_ms + result.activation_functions_ms + result.convolution_ms;
         result.success_rate = (successful_operations as f64 / total_operations as f64) * 100.0;
 
         self.results.insert("CoreML+GPU".to_string(), result);
@@ -618,7 +683,11 @@ impl PerformanceBenchmark {
     }
 
     #[cfg(not(all(
-        any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"),
+        any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ),
         any(feature = "cuda", feature = "metal", feature = "opencl")
     )))]
     fn benchmark_coreml_gpu(&mut self) -> RusTorchResult<()> {
@@ -668,7 +737,9 @@ impl PerformanceBenchmark {
             } else if b.success_rate == 0.0 && a.success_rate > 0.0 {
                 std::cmp::Ordering::Less
             } else {
-                a.total_ms.partial_cmp(&b.total_ms).unwrap_or(std::cmp::Ordering::Equal)
+                a.total_ms
+                    .partial_cmp(&b.total_ms)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             }
         });
 
@@ -685,7 +756,10 @@ impl PerformanceBenchmark {
 
             if result.success_rate > 0.0 {
                 println!("   Matrix Multiply:     {:.2}ms", result.matrix_multiply_ms);
-                println!("   Activation Functions: {:.2}ms", result.activation_functions_ms);
+                println!(
+                    "   Activation Functions: {:.2}ms",
+                    result.activation_functions_ms
+                );
                 println!("   Convolution:         {:.2}ms", result.convolution_ms);
                 println!("   Total Time:          {:.2}ms", result.total_ms);
                 println!("   Success Rate:        {:.1}%", result.success_rate);
@@ -711,16 +785,22 @@ impl PerformanceBenchmark {
             println!("CPU-only baseline:    {:.2}ms", cpu_result.total_ms);
         }
 
-        let available_results: Vec<_> = sorted_results.iter()
+        let available_results: Vec<_> = sorted_results
+            .iter()
             .filter(|r| r.success_rate > 0.0)
             .collect();
 
         if let Some(fastest) = available_results.first() {
-            println!("Fastest configuration: {} ({:.2}ms)", fastest.device_name, fastest.total_ms);
+            println!(
+                "Fastest configuration: {} ({:.2}ms)",
+                fastest.device_name, fastest.total_ms
+            );
         }
 
         if available_results.len() > 1 {
-            if let (Some(fastest), Some(slowest)) = (available_results.first(), available_results.last()) {
+            if let (Some(fastest), Some(slowest)) =
+                (available_results.first(), available_results.last())
+            {
                 let performance_gap = slowest.total_ms / fastest.total_ms;
                 println!("Performance gap:      {:.2}x", performance_gap);
             }

@@ -43,21 +43,33 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
                 a.matmul(b)
                     .map_err(|e| RusTorchError::gpu(&format!("Metal matmul failed: {}", e)))
             }
-            _ => Err(RusTorchError::gpu("Device type not supported for Metal operations"))
+            _ => Err(RusTorchError::gpu(
+                "Device type not supported for Metal operations",
+            )),
         }
     }
 
     /// Public interface for CoreML matrix multiplication
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     pub fn coreml_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         match self.device_type {
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             super::DeviceType::CoreML(_) => {
                 // Use CPU fallback for now
                 a.matmul(b)
                     .map_err(|e| RusTorchError::gpu(&format!("CoreML matmul failed: {}", e)))
             }
-            _ => Err(RusTorchError::gpu("Device type not supported for CoreML operations"))
+            _ => Err(RusTorchError::gpu(
+                "Device type not supported for CoreML operations",
+            )),
         }
     }
 }
@@ -190,8 +202,6 @@ where
 }
 */
 
-
-
 /// Batch matrix multiplication for multiple matrices with GPU acceleration
 pub struct GpuBatchMatrixExecutor<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static>
 {
@@ -244,7 +254,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                     // CPU fallback
                     a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
                 }
-                #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+                #[cfg(any(
+                    feature = "coreml",
+                    feature = "coreml-hybrid",
+                    feature = "coreml-fallback"
+                ))]
                 super::DeviceType::CoreML(_) => {
                     // CoreML not yet supported for matrix operations
                     a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))

@@ -2,9 +2,9 @@ use crate::dtype::DType;
 /// Hybrid execution engine for CoreML + GPU fallback system
 /// CoreML + GPU フォールバック用ハイブリッド実行エンジン
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::gpu::device_cache::{CoreMLCache, DeviceCache};
+use crate::gpu::smart_device_selector::{OperationProfile, OperationType, SmartDeviceSelector};
 use crate::gpu::{DeviceCapability, DeviceType, GpuDevice, OpType};
-use crate::gpu::smart_device_selector::{SmartDeviceSelector, OperationProfile, OperationType};
-use crate::gpu::device_cache::{DeviceCache, CoreMLCache};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -288,7 +288,7 @@ impl HybridExecutor {
             OpType::Activation => OperationType::Activation,
             OpType::Convolution => OperationType::Convolution,
             OpType::Reduction | OpType::Normalization => OperationType::ElementWise,
-            
+
             // CoreML-unsupported operations - bypass CoreML entirely
             OpType::ComplexMath => OperationType::ComplexNumber,
             OpType::Distribution => OperationType::StatisticalDistribution,
@@ -311,13 +311,20 @@ impl HybridExecutor {
             selected
         } else {
             // Fallback to first available device
-            self.fallback_devices.first().cloned().unwrap_or(DeviceType::Cpu)
+            self.fallback_devices
+                .first()
+                .cloned()
+                .unwrap_or(DeviceType::Cpu)
         }
     }
 
     /// Get fallback chain for specific operation
     /// 特定操作用のフォールバックチェーンを取得
-    pub fn get_operation_fallback_chain(&self, tensor_info: &TensorInfo, op_type: OpType) -> Vec<DeviceType> {
+    pub fn get_operation_fallback_chain(
+        &self,
+        tensor_info: &TensorInfo,
+        op_type: OpType,
+    ) -> Vec<DeviceType> {
         // Convert OpType to OperationType
         let operation_type = match op_type {
             OpType::LinearAlgebra => OperationType::MatrixMultiplication,
@@ -354,7 +361,7 @@ impl HybridExecutor {
             DType::UInt32 => 4,
             DType::UInt64 => 8,
             DType::Bool => 1,
-            DType::Complex64 => 8,  // 2 * 32-bit floats
+            DType::Complex64 => 8,   // 2 * 32-bit floats
             DType::Complex128 => 16, // 2 * 64-bit floats
         }
     }
@@ -504,7 +511,12 @@ impl HybridExecutor {
 
     /// Execute operation with fallback support (alias for existing method)
     /// フォールバック対応演算実行（既存メソッドのエイリアス）
-    pub fn execute<F, R>(&self, op_type: OpType, tensor_info: TensorInfo, operation: F) -> RusTorchResult<R>
+    pub fn execute<F, R>(
+        &self,
+        op_type: OpType,
+        tensor_info: TensorInfo,
+        operation: F,
+    ) -> RusTorchResult<R>
     where
         F: Fn(DeviceType) -> RusTorchResult<R>,
     {

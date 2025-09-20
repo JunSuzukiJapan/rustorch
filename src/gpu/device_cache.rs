@@ -128,7 +128,8 @@ impl DeviceCache {
         let cache = self.cache.lock().unwrap();
         let total_entries = cache.len();
         let valid_entries = cache.values().filter(|c| c.is_valid()).count();
-        let available_devices = cache.values()
+        let available_devices = cache
+            .values()
             .filter(|c| c.is_valid() && matches!(c.status, DeviceStatus::Available))
             .count();
 
@@ -148,10 +149,14 @@ impl DeviceCache {
     /// 実際のデバイス可用性チェック実装
     fn check_device_availability_impl(&self, device: &DeviceType) -> bool {
         match device {
-            DeviceType::Cpu => true, // CPU always available
+            DeviceType::Cpu => true,  // CPU always available
             DeviceType::Auto => true, // Auto always available (fallback logic)
 
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             DeviceType::CoreML(_) => {
                 use crate::backends::DeviceManager;
                 DeviceManager::is_coreml_available()
@@ -189,7 +194,6 @@ impl DeviceCache {
                 // Check if CoreML or fallback GPU is available
                 cfg!(target_os = "macos")
             }
-
         }
     }
 
@@ -197,11 +201,13 @@ impl DeviceCache {
     /// 一般的なデバイスをすべてチェックしてキャッシュをウォームアップ
     pub fn warmup(&self) {
         #[allow(unused_mut)]
-        let mut devices_to_check = vec![
-            DeviceType::Cpu,
-        ];
+        let mut devices_to_check = vec![DeviceType::Cpu];
 
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         devices_to_check.push(DeviceType::CoreML(0));
 
         #[cfg(feature = "metal")]
@@ -274,8 +280,10 @@ impl CoreMLCache {
         let result = self.initialize_coreml();
 
         // Cache the result
-        if let (Ok(mut initialized), Ok(mut cached_result)) =
-            (self.is_initialized.lock(), self.initialization_result.lock()) {
+        if let (Ok(mut initialized), Ok(mut cached_result)) = (
+            self.is_initialized.lock(),
+            self.initialization_result.lock(),
+        ) {
             *initialized = true;
             *cached_result = Some(result.clone());
         }
@@ -286,7 +294,11 @@ impl CoreMLCache {
     /// Actual CoreML initialization implementation
     /// 実際のCoreML初期化実装
     fn initialize_coreml(&self) -> Result<(), String> {
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             // Check if CoreML is available on this platform
             if !cfg!(target_os = "macos") {
@@ -303,7 +315,11 @@ impl CoreMLCache {
             }
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             Err("CoreML features not enabled".to_string())
         }
@@ -312,8 +328,10 @@ impl CoreMLCache {
     /// Reset initialization state (for testing)
     /// 初期化状態をリセット（テスト用）
     pub fn reset(&self) {
-        if let (Ok(mut initialized), Ok(mut result)) =
-            (self.is_initialized.lock(), self.initialization_result.lock()) {
+        if let (Ok(mut initialized), Ok(mut result)) = (
+            self.is_initialized.lock(),
+            self.initialization_result.lock(),
+        ) {
             *initialized = false;
             *result = None;
         }
@@ -372,7 +390,7 @@ mod tests {
 
         // Results should be consistent
         match (result1, result2) {
-            (Ok(()), Ok(())) => {},
+            (Ok(()), Ok(())) => {}
             (Err(e1), Err(e2)) => assert_eq!(e1, e2),
             _ => panic!("Inconsistent cache results"),
         }
@@ -381,7 +399,9 @@ mod tests {
     #[test]
     #[cfg(feature = "coreml")]
     fn test_unsupported_operation_bypass() {
-        use crate::gpu::smart_device_selector::{SmartDeviceSelector, OperationProfile, OperationType};
+        use crate::gpu::smart_device_selector::{
+            OperationProfile, OperationType, SmartDeviceSelector,
+        };
         use crate::gpu::DeviceType;
 
         let available_devices = vec![DeviceType::CoreML(0), DeviceType::Metal(0), DeviceType::Cpu];
@@ -395,7 +415,9 @@ mod tests {
         );
         let selected = selector.select_device(&supported_profile);
         // Should allow CoreML for supported operations
-        assert!(matches!(selected, DeviceType::CoreML(_)) || matches!(selected, DeviceType::Metal(_)));
+        assert!(
+            matches!(selected, DeviceType::CoreML(_)) || matches!(selected, DeviceType::Metal(_))
+        );
 
         // Test CoreML-unsupported operations
         let unsupported_ops = vec![
@@ -414,7 +436,9 @@ mod tests {
             let selected = selector.select_device(&unsupported_profile);
             // Should bypass CoreML and select GPU or CPU directly
             assert!(!matches!(selected, DeviceType::CoreML(_)));
-            assert!(matches!(selected, DeviceType::Metal(_)) || matches!(selected, DeviceType::Cpu));
+            assert!(
+                matches!(selected, DeviceType::Metal(_)) || matches!(selected, DeviceType::Cpu)
+            );
         }
     }
 }

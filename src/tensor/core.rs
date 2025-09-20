@@ -768,9 +768,19 @@ impl<T: Float + 'static> Tensor<T> {
 
 // Hybrid execution implementation for Tensor
 // TensorのHybridExecution実装
-#[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback", feature = "metal", feature = "cuda"))]
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback",
+    feature = "metal",
+    feature = "cuda"
+))]
 impl<T: Float + 'static> crate::gpu::hybrid_executor::HybridExecution<T> for Tensor<T> {
-    fn hybrid_operation<F, R>(&self, op_type: crate::gpu::OpType, operation: F) -> crate::error::RusTorchResult<R>
+    fn hybrid_operation<F, R>(
+        &self,
+        op_type: crate::gpu::OpType,
+        operation: F,
+    ) -> crate::error::RusTorchResult<R>
     where
         F: Fn(crate::gpu::DeviceType) -> crate::error::RusTorchResult<R>,
     {

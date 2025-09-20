@@ -55,7 +55,7 @@ where
 
         if lhs_shape.len() < 2 || rhs_shape.len() < 2 {
             return Err(error_helpers::unsupported_operation(
-                "Matrix multiplication requires at least 2D tensors"
+                "Matrix multiplication requires at least 2D tensors",
             ));
         }
 
@@ -65,8 +65,10 @@ where
         if lhs_cols != rhs_rows {
             return Err(error_helpers::tensor_op_error(&format!(
                 "Matrix dimension mismatch: {} x {} cannot multiply with {} x {}",
-                lhs_shape[lhs_shape.len() - 2], lhs_cols,
-                rhs_rows, rhs_shape[rhs_shape.len() - 1]
+                lhs_shape[lhs_shape.len() - 2],
+                lhs_cols,
+                rhs_rows,
+                rhs_shape[rhs_shape.len() - 1]
             )));
         }
 
@@ -95,7 +97,11 @@ where
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
         self.validate_dimensions()?;
 
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             // Use CoreML backend for actual computation
             use crate::gpu::coreml::backend::CoreMLGraph;
@@ -104,7 +110,11 @@ where
             return graph.matmul(&self.lhs, &self.rhs);
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             Err(error_helpers::feature_disabled())
         }
@@ -157,7 +167,7 @@ where
         let vec_shape = vector.shape();
         if vec_shape.len() != 1 && vec_shape.len() != 2 {
             return Err(error_helpers::unsupported_operation(
-                "Matrix-vector multiplication requires 1D or 2D vector"
+                "Matrix-vector multiplication requires 1D or 2D vector",
             ));
         }
 
@@ -168,11 +178,15 @@ where
         let shape = self.shape();
         if shape.len() < 2 {
             return Err(error_helpers::unsupported_operation(
-                "Transpose requires at least 2D tensor"
+                "Transpose requires at least 2D tensor",
             ));
         }
 
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             // Use CoreML backend for transpose
             use crate::gpu::coreml::backend::CoreMLGraph;
@@ -183,7 +197,11 @@ where
             return self.transpose();
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             Err(error_helpers::feature_disabled())
         }
@@ -216,8 +234,8 @@ mod tests {
 
     #[test]
     fn test_small_matrix_not_suitable() {
-        let a = Tensor::<f32>::zeros(&[2, 2]);   // 4 elements
-        let b = Tensor::<f32>::zeros(&[2, 2]);   // 4 elements
+        let a = Tensor::<f32>::zeros(&[2, 2]); // 4 elements
+        let b = Tensor::<f32>::zeros(&[2, 2]); // 4 elements
         let operation = MatMulOperation::new(a, b);
 
         assert!(operation.validate_dimensions().is_ok());

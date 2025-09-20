@@ -112,14 +112,14 @@ where
         // Check input dimensions (should be 4D: [N, C, H, W])
         if input_shape.len() != 4 {
             return Err(error_helpers::unsupported_operation(
-                "Convolution input must be 4D tensor [N, C, H, W]"
+                "Convolution input must be 4D tensor [N, C, H, W]",
             ));
         }
 
         // Check kernel dimensions (should be 4D: [out_channels, in_channels, kH, kW])
         if kernel_shape.len() != 4 {
             return Err(error_helpers::unsupported_operation(
-                "Convolution kernel must be 4D tensor [out_channels, in_channels, kH, kW]"
+                "Convolution kernel must be 4D tensor [out_channels, in_channels, kH, kW]",
             ));
         }
 
@@ -140,7 +140,7 @@ where
                 // For depthwise, kernel input channels should be 1
                 if kernel_input_channels != 1 {
                     return Err(error_helpers::unsupported_operation(
-                        "Depthwise convolution kernel should have 1 input channel"
+                        "Depthwise convolution kernel should have 1 input channel",
                     ));
                 }
             }
@@ -153,7 +153,7 @@ where
         // Validate stride and padding
         if self.stride.len() != 2 {
             return Err(error_helpers::unsupported_operation(
-                "Stride must have 2 elements [height, width]"
+                "Stride must have 2 elements [height, width]",
             ));
         }
 
@@ -210,13 +210,24 @@ where
 
         // Calculate padding (handle both 2 and 4 element padding)
         let (pad_top, pad_bottom, pad_left, pad_right) = if self.padding.len() == 2 {
-            (self.padding[0], self.padding[0], self.padding[1], self.padding[1])
+            (
+                self.padding[0],
+                self.padding[0],
+                self.padding[1],
+                self.padding[1],
+            )
         } else {
-            (self.padding[0], self.padding[1], self.padding[2], self.padding[3])
+            (
+                self.padding[0],
+                self.padding[1],
+                self.padding[2],
+                self.padding[3],
+            )
         };
 
         // Calculate output dimensions
-        let output_height = (input_height + pad_top + pad_bottom - kernel_height) / self.stride[0] + 1;
+        let output_height =
+            (input_height + pad_top + pad_bottom - kernel_height) / self.stride[0] + 1;
         let output_width = (input_width + pad_left + pad_right - kernel_width) / self.stride[1] + 1;
 
         vec![batch_size, output_channels, output_height, output_width]
@@ -230,7 +241,11 @@ where
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
         self.validate_parameters()?;
 
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             use crate::gpu::coreml::backend::CoreMLGraph;
 
@@ -243,25 +258,29 @@ where
                 ConvolutionType::TransposedConv2D => {
                     // TODO: Implement transposed convolution in backend
                     Err(error_helpers::unsupported_operation(
-                        "Transposed convolution not yet implemented in CoreML backend"
+                        "Transposed convolution not yet implemented in CoreML backend",
                     ))
                 }
                 ConvolutionType::DepthwiseConv2D => {
                     // TODO: Implement depthwise convolution in backend
                     Err(error_helpers::unsupported_operation(
-                        "Depthwise convolution not yet implemented in CoreML backend"
+                        "Depthwise convolution not yet implemented in CoreML backend",
                     ))
                 }
                 ConvolutionType::GroupedConv2D => {
                     // TODO: Implement grouped convolution in backend
                     Err(error_helpers::unsupported_operation(
-                        "Grouped convolution not yet implemented in CoreML backend"
+                        "Grouped convolution not yet implemented in CoreML backend",
                     ))
                 }
             };
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             Err(error_helpers::feature_disabled())
         }
@@ -369,18 +388,13 @@ mod tests {
 
     #[test]
     fn test_conv2d_parameter_validation() {
-        let input = Tensor::<f32>::zeros(&[1, 8, 32, 32]);   // [N, C, H, W] - 8 channels >= 4
-        let kernel = Tensor::<f32>::zeros(&[16, 8, 3, 3]);   // [out_ch, in_ch, kH, kW]
+        let input = Tensor::<f32>::zeros(&[1, 8, 32, 32]); // [N, C, H, W] - 8 channels >= 4
+        let kernel = Tensor::<f32>::zeros(&[16, 8, 3, 3]); // [out_ch, in_ch, kH, kW]
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 
-        let operation = ConvolutionOperation::new(
-            input,
-            kernel,
-            stride,
-            padding,
-            ConvolutionType::Conv2D,
-        );
+        let operation =
+            ConvolutionOperation::new(input, kernel, stride, padding, ConvolutionType::Conv2D);
 
         assert!(operation.validate_parameters().is_ok());
         assert!(operation.is_supported_by_coreml());
@@ -388,18 +402,13 @@ mod tests {
 
     #[test]
     fn test_conv2d_channel_mismatch() {
-        let input = Tensor::<f32>::zeros(&[1, 3, 32, 32]);   // 3 input channels
-        let kernel = Tensor::<f32>::zeros(&[16, 4, 3, 3]);   // 4 input channels - mismatch!
+        let input = Tensor::<f32>::zeros(&[1, 3, 32, 32]); // 3 input channels
+        let kernel = Tensor::<f32>::zeros(&[16, 4, 3, 3]); // 4 input channels - mismatch!
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 
-        let operation = ConvolutionOperation::new(
-            input,
-            kernel,
-            stride,
-            padding,
-            ConvolutionType::Conv2D,
-        );
+        let operation =
+            ConvolutionOperation::new(input, kernel, stride, padding, ConvolutionType::Conv2D);
 
         assert!(operation.validate_parameters().is_err());
         assert!(!operation.is_supported_by_coreml());
@@ -407,18 +416,13 @@ mod tests {
 
     #[test]
     fn test_small_convolution_not_efficient() {
-        let input = Tensor::<f32>::zeros(&[1, 1, 8, 8]);     // Too few channels and small spatial
+        let input = Tensor::<f32>::zeros(&[1, 1, 8, 8]); // Too few channels and small spatial
         let kernel = Tensor::<f32>::zeros(&[1, 1, 3, 3]);
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 
-        let operation = ConvolutionOperation::new(
-            input,
-            kernel,
-            stride,
-            padding,
-            ConvolutionType::Conv2D,
-        );
+        let operation =
+            ConvolutionOperation::new(input, kernel, stride, padding, ConvolutionType::Conv2D);
 
         assert!(operation.validate_parameters().is_ok());
         assert!(!operation.is_efficient_on_coreml()); // Too small/few channels
@@ -432,13 +436,8 @@ mod tests {
         let stride = vec![2, 2];
         let padding = vec![1, 1];
 
-        let operation = ConvolutionOperation::new(
-            input,
-            kernel,
-            stride,
-            padding,
-            ConvolutionType::Conv2D,
-        );
+        let operation =
+            ConvolutionOperation::new(input, kernel, stride, padding, ConvolutionType::Conv2D);
 
         let output_shape = operation.calculate_output_shape();
 
@@ -448,18 +447,13 @@ mod tests {
 
     #[test]
     fn test_execution_time_estimation() {
-        let input = Tensor::<f32>::zeros(&[1, 16, 64, 64]);  // Large enough for efficiency
+        let input = Tensor::<f32>::zeros(&[1, 16, 64, 64]); // Large enough for efficiency
         let kernel = Tensor::<f32>::zeros(&[32, 16, 3, 3]);
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 
-        let operation = ConvolutionOperation::new(
-            input,
-            kernel,
-            stride,
-            padding,
-            ConvolutionType::Conv2D,
-        );
+        let operation =
+            ConvolutionOperation::new(input, kernel, stride, padding, ConvolutionType::Conv2D);
 
         let estimated_time = operation.estimated_execution_time();
         assert!(estimated_time.is_some());
@@ -471,7 +465,7 @@ mod tests {
     #[test]
     fn test_depthwise_validation() {
         let input = Tensor::<f32>::zeros(&[1, 8, 32, 32]);
-        let kernel = Tensor::<f32>::zeros(&[8, 1, 3, 3]);    // Depthwise: input_channels = 1
+        let kernel = Tensor::<f32>::zeros(&[8, 1, 3, 3]); // Depthwise: input_channels = 1
         let stride = vec![1, 1];
         let padding = vec![1, 1];
 

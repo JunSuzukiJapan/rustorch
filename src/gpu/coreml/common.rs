@@ -27,9 +27,12 @@ pub use coreml_feature;
 #[macro_export]
 macro_rules! coreml_available {
     () => {
-        cfg!(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))
-            && cfg!(target_os = "macos")
-    }
+        cfg!(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )) && cfg!(target_os = "macos")
+    };
 }
 
 /// Result type for CoreML operations using unified RusTorchError
@@ -105,9 +108,9 @@ impl Default for CoreMLCapabilities {
         Self {
             max_tensor_size: 100 * 1024 * 1024, // 100MB default limit
             supports_f32: true,
-            supports_f64: false,      // CoreML limitation
-            supports_complex: false,  // CoreML limitation
-            neural_engine_available: false, // Detected at runtime
+            supports_f64: false,               // CoreML limitation
+            supports_complex: false,           // CoreML limitation
+            neural_engine_available: false,    // Detected at runtime
             gpu_acceleration_available: false, // Detected at runtime
         }
     }
@@ -144,9 +147,11 @@ pub mod error_helpers {
     /// Create a CoreML unsupported operation error
     /// CoreML非対応演算エラーを作成
     pub fn unsupported_operation(operation: &str) -> RusTorchError {
-        RusTorchError::UnsupportedOperation(
-            format!("{}: {}", super::COREML_UNSUPPORTED_OP, operation)
-        )
+        RusTorchError::UnsupportedOperation(format!(
+            "{}: {}",
+            super::COREML_UNSUPPORTED_OP,
+            operation
+        ))
     }
 
     /// Create a CoreML device error
@@ -177,7 +182,14 @@ pub fn is_coreml_available() -> bool {
 /// Runtime availability check (implementation dependent)
 /// ランタイム可用性チェック（実装依存）
 fn check_runtime_availability() -> bool {
-    #[cfg(all(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"), target_os = "macos"))]
+    #[cfg(all(
+        any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ),
+        target_os = "macos"
+    ))]
     {
         // Actual runtime check would go here
         // 実際のランタイムチェックはここに入る
@@ -185,7 +197,13 @@ fn check_runtime_availability() -> bool {
         DeviceManager::is_coreml_available()
     }
 
-    #[cfg(not(all(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"), target_os = "macos")))]
+    #[cfg(not(all(
+        any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ),
+        target_os = "macos"
+    )))]
     false
 }
-

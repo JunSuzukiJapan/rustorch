@@ -241,9 +241,12 @@ impl PyVariable {
     pub fn reshape(&self, shape: Vec<usize>) -> PyResult<PyVariable> {
         match self.variable.data().read().unwrap().reshape(&shape) {
             Ok(result_tensor) => {
-                let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-                Ok(PyVariable { variable: result_var })
-            },
+                let result_var =
+                    crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+                Ok(PyVariable {
+                    variable: result_var,
+                })
+            }
             Err(e) => Err(to_py_err(e)),
         }
     }
@@ -253,9 +256,12 @@ impl PyVariable {
     pub fn transpose(&self) -> PyResult<PyVariable> {
         match self.variable.data().read().unwrap().transpose() {
             Ok(result_tensor) => {
-                let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-                Ok(PyVariable { variable: result_var })
-            },
+                let result_var =
+                    crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+                Ok(PyVariable {
+                    variable: result_var,
+                })
+            }
             Err(e) => Err(to_py_err(e)),
         }
     }
@@ -268,8 +274,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.powf(exponent));
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Exponential function
@@ -280,8 +289,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.exp());
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Natural logarithm
@@ -292,8 +304,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.ln());
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Sine function
@@ -304,8 +319,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.sin());
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Cosine function
@@ -316,8 +334,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.cos());
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// Square root
@@ -328,8 +349,11 @@ impl PyVariable {
         let tensor_data = binding.read().unwrap();
         let result_data = tensor_data.data.mapv(|x| x.sqrt());
         let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
-        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
-        Ok(PyVariable { variable: result_var })
+        let result_var =
+            crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable {
+            variable: result_var,
+        })
     }
 
     /// String representation

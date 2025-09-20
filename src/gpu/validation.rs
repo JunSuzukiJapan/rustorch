@@ -200,7 +200,11 @@ impl GpuValidator {
             }
             #[cfg(not(feature = "opencl"))]
             DeviceType::OpenCL(_) => {}
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             DeviceType::CoreML(_) => {
                 // CoreML validation placeholder
                 results.push(ValidationResult {

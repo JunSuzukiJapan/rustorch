@@ -17,10 +17,10 @@ pub enum OperationType {
     ElementWise,
     // CoreML unsupported operations - bypass CoreML entirely
     // CoreML非対応演算 - CoreMLを完全にバイパス
-    ComplexNumber,      // Complex64/Complex128 operations
+    ComplexNumber,           // Complex64/Complex128 operations
     StatisticalDistribution, // Probability distributions
-    CustomKernel,       // Custom GPU kernels
-    DistributedOp,      // Multi-GPU distributed operations
+    CustomKernel,            // Custom GPU kernels
+    DistributedOp,           // Multi-GPU distributed operations
 }
 
 /// Operation characteristics for smart selection
@@ -77,7 +77,7 @@ impl Default for DeviceThresholds {
             coreml_max_size: 1_048_576, // 1024x1024 matrices maximum
 
             // Metal GPU thresholds
-            metal_min_size: 256,        // 16x16 matrices minimum
+            metal_min_size: 256, // 16x16 matrices minimum
 
             // Memory thresholds (4KB minimum for GPU operations)
             gpu_min_memory: 4096,
@@ -116,13 +116,13 @@ impl SmartDeviceSelector {
             OperationType::Activation => self.select_for_activation(profile),
             OperationType::Convolution => self.select_for_convolution(profile),
             OperationType::ElementWise => self.select_for_elementwise(profile),
-            
+
             // CoreML-unsupported operations - bypass CoreML entirely
             // CoreML非対応演算 - CoreMLを完全にバイパス
-            OperationType::ComplexNumber | 
-            OperationType::StatisticalDistribution | 
-            OperationType::CustomKernel | 
-            OperationType::DistributedOp => self.select_non_coreml_device(profile),
+            OperationType::ComplexNumber
+            | OperationType::StatisticalDistribution
+            | OperationType::CustomKernel
+            | OperationType::DistributedOp => self.select_non_coreml_device(profile),
         }
     }
 
@@ -132,7 +132,11 @@ impl SmartDeviceSelector {
         let size = profile.tensor_size;
 
         // Very large matrices: prefer CoreML if available
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             if size >= self.thresholds.coreml_min_size && size <= self.thresholds.coreml_max_size {
                 if self.is_device_available(&DeviceType::CoreML(0)) {
@@ -165,7 +169,11 @@ impl SmartDeviceSelector {
         }
 
         // CoreML for medium-size tensors
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             if profile.tensor_size >= self.thresholds.coreml_min_size {
                 if self.is_device_available(&DeviceType::CoreML(0)) {
@@ -188,7 +196,11 @@ impl SmartDeviceSelector {
             let spatial_size = profile.dimensions[2] * profile.dimensions[3];
 
             // Large convolutions with many channels: CoreML
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             {
                 if channels >= 16 && spatial_size >= 1024 && batch_size >= 4 {
                     if self.is_device_available(&DeviceType::CoreML(0)) {
@@ -219,7 +231,11 @@ impl SmartDeviceSelector {
             if self.is_device_available(&DeviceType::Metal(0)) {
                 return DeviceType::Metal(0);
             }
-            #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
             {
                 if self.is_device_available(&DeviceType::CoreML(0)) {
                     return DeviceType::CoreML(0);
@@ -234,7 +250,9 @@ impl SmartDeviceSelector {
     /// Check if device is available
     /// デバイスが利用可能かチェック
     fn is_device_available(&self, device: &DeviceType) -> bool {
-        self.available_devices.iter().any(|d| std::mem::discriminant(d) == std::mem::discriminant(device))
+        self.available_devices
+            .iter()
+            .any(|d| std::mem::discriminant(d) == std::mem::discriminant(device))
     }
 
     /// Select device for CoreML-unsupported operations (GPU/CPU only)
@@ -242,7 +260,7 @@ impl SmartDeviceSelector {
     fn select_non_coreml_device(&self, profile: &OperationProfile) -> DeviceType {
         // For unsupported operations, prefer GPU over CPU for better performance
         // 非対応演算では、パフォーマンス向上のためGPUをCPUより優先
-        
+
         // Find first available GPU (Metal, CUDA, OpenCL)
         for device in &self.available_devices {
             match device {
@@ -252,7 +270,7 @@ impl SmartDeviceSelector {
                 _ => continue,
             }
         }
-        
+
         // If no GPU available, fallback to CPU
         DeviceType::Cpu
     }
@@ -265,7 +283,10 @@ impl SmartDeviceSelector {
 
         // Add other available devices as fallbacks
         for device in &self.available_devices {
-            if !chain.iter().any(|d| std::mem::discriminant(d) == std::mem::discriminant(device)) {
+            if !chain
+                .iter()
+                .any(|d| std::mem::discriminant(d) == std::mem::discriminant(device))
+            {
                 chain.push(device.clone());
             }
         }
@@ -285,21 +306,19 @@ mod tests {
 
     #[test]
     fn test_cpu_fallback_selection() {
-        let selector = SmartDeviceSelector::new(vec![
-            DeviceType::Cpu,
-        ]);
+        let selector = SmartDeviceSelector::new(vec![DeviceType::Cpu]);
 
         // Small matrix should use CPU
-        let profile = OperationProfile::new(
-            OperationType::MatrixMultiplication,
-            &[16, 16],
-            4
-        );
+        let profile = OperationProfile::new(OperationType::MatrixMultiplication, &[16, 16], 4);
 
         assert_eq!(selector.select_device(&profile), DeviceType::Cpu);
     }
 
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     #[test]
     fn test_small_matrix_selection() {
         let selector = SmartDeviceSelector::new(vec![
@@ -309,18 +328,18 @@ mod tests {
         ]);
 
         // Small matrix (16x16 = 256 elements) - device selection depends on available devices
-        let profile = OperationProfile::new(
-            OperationType::MatrixMultiplication,
-            &[16, 16],
-            4
-        );
+        let profile = OperationProfile::new(OperationType::MatrixMultiplication, &[16, 16], 4);
 
         // With Metal available, it may be selected over CPU for small matrices
         let selected = selector.select_device(&profile);
         assert!(matches!(selected, DeviceType::Cpu | DeviceType::Metal(0)));
     }
 
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     #[test]
     fn test_large_matrix_selection() {
         let selector = SmartDeviceSelector::new(vec![
@@ -330,16 +349,16 @@ mod tests {
         ]);
 
         // Large matrix (512x512 = 262,144 elements) should use CoreML
-        let profile = OperationProfile::new(
-            OperationType::MatrixMultiplication,
-            &[512, 512],
-            4
-        );
+        let profile = OperationProfile::new(OperationType::MatrixMultiplication, &[512, 512], 4);
 
         assert_eq!(selector.select_device(&profile), DeviceType::CoreML(0));
     }
 
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     #[test]
     fn test_small_convolution_selection() {
         let selector = SmartDeviceSelector::new(vec![
@@ -352,7 +371,7 @@ mod tests {
         let profile = OperationProfile::new(
             OperationType::Convolution,
             &[1, 3, 32, 32], // Small batch, few channels
-            4
+            4,
         );
 
         assert_eq!(selector.select_device(&profile), DeviceType::Cpu);
@@ -360,16 +379,13 @@ mod tests {
 
     #[test]
     fn test_activation_selection() {
-        let selector = SmartDeviceSelector::new(vec![
-            DeviceType::Metal(0),
-            DeviceType::Cpu,
-        ]);
+        let selector = SmartDeviceSelector::new(vec![DeviceType::Metal(0), DeviceType::Cpu]);
 
         // Medium activation should prefer Metal GPU
         let profile = OperationProfile::new(
             OperationType::Activation,
             &[32, 64, 128, 128], // Large enough for GPU
-            4
+            4,
         );
 
         assert_eq!(selector.select_device(&profile), DeviceType::Metal(0));

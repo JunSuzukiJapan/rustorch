@@ -22,8 +22,8 @@ pub mod backend;
 pub mod integration;
 
 // Re-export main interfaces
+pub use backend::*;
 pub use common::*;
 pub use device::*;
-pub use operations::*;
-pub use backend::*;
 pub use integration::*;
+pub use operations::*;

@@ -176,7 +176,12 @@
       "Bash(timeout 30 cargo test --features coreml gpu --lib test_activation_operation_creation -- --exact --nocapture)",
       "Bash(timeout 60 cargo test --features coreml gpu --lib -- --nocapture test_activation_operation_creation)",
       "Bash(timeout 60 cargo test --features coreml gpu --lib -- --nocapture test_activation_operation_creation test_supported_activations test_conv2d_parameter_validation test_matmul_operation_validation test_small_matrix_selection)",
-      "Bash(timeout 30 cargo test --features coreml gpu --lib -- --test-threads=1 test_supported_activations)"
+      "Bash(timeout 30 cargo test --features coreml gpu --lib -- --test-threads=1 test_supported_activations)",
+      "Bash(timeout 15 cargo run --example neural_network_demo --no-default-features)",
+      "Bash(timeout 15 cargo run --example special_functions_demo --no-default-features)",
+      "Bash(timeout 15 cargo run --example fft_demo --no-default-features)",
+      "Bash(timeout 90 cargo bench --no-default-features)",
+      "Bash(docker build:*)"
     ],
     "deny": [],
     "ask": [],

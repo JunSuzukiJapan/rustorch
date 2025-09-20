@@ -2,8 +2,8 @@
 //! CoreML演算実装
 
 use super::common::*;
-use crate::tensor::Tensor;
 use crate::error::RusTorchResult;
+use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
 
@@ -42,17 +42,13 @@ impl From<CoreMLError> for crate::error::RusTorchError {
                     message: "CoreML does not support this operation".to_string(),
                 }
             }
-            CoreMLError::NotAvailable => {
-                crate::error::RusTorchError::BackendUnavailable {
-                    backend: "CoreML".to_string(),
-                }
-            }
-            CoreMLError::Backend { message } => {
-                crate::error::RusTorchError::Device {
-                    device: "CoreML".to_string(),
-                    message,
-                }
-            }
+            CoreMLError::NotAvailable => crate::error::RusTorchError::BackendUnavailable {
+                backend: "CoreML".to_string(),
+            },
+            CoreMLError::Backend { message } => crate::error::RusTorchError::Device {
+                device: "CoreML".to_string(),
+                message,
+            },
         }
     }
 }
@@ -70,9 +66,9 @@ pub mod convolution;
 pub mod activation;
 
 // Re-export operation traits
-pub use linear_algebra::*;
-pub use convolution::*;
 pub use activation::*;
+pub use convolution::*;
+pub use linear_algebra::*;
 
 /// Base trait for CoreML operations
 /// CoreML演算のベーストレイト
@@ -118,7 +114,7 @@ impl CoreMLExecutor {
     {
         if !operation.is_supported_by_coreml() {
             return Err(super::error_helpers::unsupported_operation(
-                "Operation not supported by CoreML"
+                "Operation not supported by CoreML",
             ));
         }
 
@@ -145,7 +141,11 @@ macro_rules! coreml_fallback {
             }
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         $cpu_fallback
     };
 }
@@ -165,7 +165,11 @@ mod tests {
     fn test_executor_creation() {
         let result = CoreMLExecutor::new(0);
 
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             // On CoreML-enabled builds, creation may succeed or fail depending on platform
             match result {
@@ -179,7 +183,11 @@ mod tests {
             }
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             // On non-CoreML builds, should always fail
             assert!(result.is_err());

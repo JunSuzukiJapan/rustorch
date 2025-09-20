@@ -27,7 +27,10 @@ impl PyTensorDataset {
     /// Create dataset from multiple tensors
     /// 複数のテンソルからデータセットを作成
     #[staticmethod]
-    pub fn from_tensors(py: Python, tensors: pyo3::Bound<'_, pyo3::types::PyList>) -> PyResult<PyTensorDataset> {
+    pub fn from_tensors(
+        py: Python,
+        tensors: pyo3::Bound<'_, pyo3::types::PyList>,
+    ) -> PyResult<PyTensorDataset> {
         if tensors.len() < 2 {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "At least 2 tensors are required (data and targets)",
@@ -327,7 +330,10 @@ impl PyTransform {
         use crate::tensor::operations::zero_copy::TensorIterOps;
         let data: Vec<f32> = tensor.iter().map(|&x| (x - mean) / std).collect();
 
-        Ok(crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()))
+        Ok(crate::tensor::Tensor::from_vec(
+            data,
+            tensor.shape().to_vec(),
+        ))
     }
 
     /// Resize tensor (simplified implementation)
@@ -382,7 +388,10 @@ impl PyTransform {
             use crate::tensor::operations::zero_copy::TensorIterOps;
             let mut data: Vec<f32> = tensor.iter().cloned().collect();
             data.reverse();
-            Ok(crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()))
+            Ok(crate::tensor::Tensor::from_vec(
+                data,
+                tensor.shape().to_vec(),
+            ))
         } else {
             Ok(tensor.clone())
         }

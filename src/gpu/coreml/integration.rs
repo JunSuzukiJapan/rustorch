@@ -1,12 +1,12 @@
 //! CoreML integration and hybrid execution patterns
 //! CoreML統合とハイブリッド実行パターン
 
+use super::backend::CoreMLBackend;
 use super::common::*;
 use super::device::CoreMLDeviceManager;
-use super::backend::CoreMLBackend;
 use super::operations::*;
-use crate::tensor::Tensor;
 use crate::error::RusTorchError;
+use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
 use std::sync::Arc;
@@ -75,19 +75,19 @@ impl CoreMLHybridExecutor {
 
     /// Execute operation with hybrid strategy
     /// ハイブリッド戦略で演算を実行
-    pub fn execute<T, Op, CpuFn>(&self, operation: &Op, cpu_fallback: CpuFn) -> Result<Tensor<T>, RusTorchError>
+    pub fn execute<T, Op, CpuFn>(
+        &self,
+        operation: &Op,
+        cpu_fallback: CpuFn,
+    ) -> Result<Tensor<T>, RusTorchError>
     where
         T: Float + FromPrimitive + ScalarOperand + 'static,
         Op: CoreMLOperation<T>,
         CpuFn: FnOnce() -> Result<Tensor<T>, RusTorchError>,
     {
         match self.decide_execution_path(operation) {
-            ExecutionPath::CoreML => {
-                self.execute_coreml_with_fallback(operation, cpu_fallback)
-            }
-            ExecutionPath::CPU => {
-                self.execute_cpu_with_stats(cpu_fallback)
-            }
+            ExecutionPath::CoreML => self.execute_coreml_with_fallback(operation, cpu_fallback),
+            ExecutionPath::CPU => self.execute_cpu_with_stats(cpu_fallback),
             ExecutionPath::TryBoth => {
                 // Try CoreML first, compare with CPU if both succeed
                 let coreml_result = self.try_coreml_execution(operation);
@@ -123,9 +123,7 @@ impl CoreMLHybridExecutor {
                     ExecutionPath::CPU
                 }
             }
-            HybridStrategy::Automatic => {
-                self.automatic_decision(operation)
-            }
+            HybridStrategy::Automatic => self.automatic_decision(operation),
         }
     }
 
@@ -147,8 +145,7 @@ impl CoreMLHybridExecutor {
             }
 
             // Use CoreML if success rate is good and it's faster
-            if stats.coreml_success_rate > 0.8 &&
-               stats.coreml_avg_time < stats.cpu_avg_time * 2 {
+            if stats.coreml_success_rate > 0.8 && stats.coreml_avg_time < stats.cpu_avg_time * 2 {
                 ExecutionPath::CoreML
             } else {
                 ExecutionPath::CPU
@@ -215,7 +212,10 @@ impl CoreMLHybridExecutor {
 
     /// Execute CPU with performance tracking
     /// パフォーマンストラッキング付きでCPUを実行
-    fn execute_cpu_with_stats<T, CpuFn>(&self, cpu_fallback: CpuFn) -> Result<Tensor<T>, RusTorchError>
+    fn execute_cpu_with_stats<T, CpuFn>(
+        &self,
+        cpu_fallback: CpuFn,
+    ) -> Result<Tensor<T>, RusTorchError>
     where
         T: num_traits::Float + 'static,
         CpuFn: FnOnce() -> Result<Tensor<T>, RusTorchError>,
@@ -252,8 +252,13 @@ impl CoreMLHybridExecutor {
             stats.total_operations += 1;
 
             // Update CoreML success rate
-            let success_count = (stats.coreml_success_rate * (stats.total_operations - 1) as f64) as usize;
-            let new_success_count = if coreml_success { success_count + 1 } else { success_count };
+            let success_count =
+                (stats.coreml_success_rate * (stats.total_operations - 1) as f64) as usize;
+            let new_success_count = if coreml_success {
+                success_count + 1
+            } else {
+                success_count
+            };
             stats.coreml_success_rate = new_success_count as f64 / stats.total_operations as f64;
 
             // Update timing averages
@@ -290,7 +295,9 @@ impl CoreMLHybridExecutor {
 
     /// Get current performance statistics
     /// 現在のパフォーマンス統計を取得
-    pub fn get_performance_stats(&self) -> Option<(f64, std::time::Duration, std::time::Duration, usize)> {
+    pub fn get_performance_stats(
+        &self,
+    ) -> Option<(f64, std::time::Duration, std::time::Duration, usize)> {
         if let Ok(stats) = self.performance_stats.lock() {
             Some((
                 stats.coreml_success_rate,
@@ -337,18 +344,18 @@ macro_rules! coreml_hybrid {
 
 /// Global hybrid executor instance
 /// グローバルハイブリッド実行器インスタンス
-static GLOBAL_HYBRID_EXECUTOR: std::sync::OnceLock<CoreMLHybridExecutor> = std::sync::OnceLock::new();
+static GLOBAL_HYBRID_EXECUTOR: std::sync::OnceLock<CoreMLHybridExecutor> =
+    std::sync::OnceLock::new();
 
 /// Get global hybrid executor
 /// グローバルハイブリッド実行器を取得
 pub fn global_hybrid_executor() -> &'static CoreMLHybridExecutor {
     GLOBAL_HYBRID_EXECUTOR.get_or_init(|| {
-        CoreMLHybridExecutor::new(HybridStrategy::Automatic)
-            .unwrap_or_else(|_| {
-                // Fallback to CPU-preferred strategy if initialization fails
-                CoreMLHybridExecutor::new(HybridStrategy::CPUPreferred)
-                    .expect("Failed to create fallback hybrid executor")
-            })
+        CoreMLHybridExecutor::new(HybridStrategy::Automatic).unwrap_or_else(|_| {
+            // Fallback to CPU-preferred strategy if initialization fails
+            CoreMLHybridExecutor::new(HybridStrategy::CPUPreferred)
+                .expect("Failed to create fallback hybrid executor")
+        })
     })
 }
 
@@ -385,8 +392,8 @@ mod tests {
 
     #[test]
     fn test_strategy_decisions() {
-        use crate::tensor::Tensor;
         use super::super::operations::linear_algebra::MatMulOperation;
+        use crate::tensor::Tensor;
 
         // Create a small matrix operation (not suitable for CoreML)
         let a = Tensor::<f32>::zeros(&[2, 2]);

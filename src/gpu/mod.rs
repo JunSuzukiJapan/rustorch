@@ -122,9 +122,6 @@ pub mod benchmark;
 pub mod conv_ops;
 pub mod cuda_enhanced;
 
-/// Device caching module for optimized initialization
-/// 最適化された初期化用デバイスキャッシュモジュール
-pub mod device_cache;
 /// CUDA kernel implementations
 /// CUDAカーネル実装
 pub mod cuda_kernels;
@@ -132,6 +129,9 @@ pub mod custom_kernels;
 /// Device management module for GPU operations
 /// GPU操作のためのデバイス管理モジュール
 pub mod device;
+/// Device caching module for optimized initialization
+/// 最適化された初期化用デバイスキャッシュモジュール
+pub mod device_cache;
 /// Integration tests for unified GPU kernel system
 /// 統一GPUカーネルシステムの統合テスト
 #[cfg(test)]

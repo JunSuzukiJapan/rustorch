@@ -1,10 +1,10 @@
 //! Unified CoreML device management
 //! 統一CoreMLデバイス管理
 
+use super::common::error_helpers;
 use super::common::*;
 use crate::gpu::coreml::common::coreml_feature;
-use super::common::error_helpers;
-use crate::gpu::{DeviceType, device_cache::DeviceCache};
+use crate::gpu::{device_cache::DeviceCache, DeviceType};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -232,7 +232,11 @@ coreml_feature! {
 
 /// Device not available implementation for non-CoreML builds
 /// 非CoreMLビルド用のデバイス非利用可能実装
-#[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+#[cfg(not(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+)))]
 impl CoreMLDevice {
     pub fn new(_device_id: usize) -> CoreMLResult<Self> {
         Err(error_helpers::feature_disabled())
@@ -250,7 +254,11 @@ impl CoreMLDevice {
         false
     }
 
-    pub fn validate_tensor<T>(&self, _tensor_size: usize, _dtype: &crate::dtype::DType) -> CoreMLResult<()> {
+    pub fn validate_tensor<T>(
+        &self,
+        _tensor_size: usize,
+        _dtype: &crate::dtype::DType,
+    ) -> CoreMLResult<()> {
         Err(error_helpers::feature_disabled())
     }
 }

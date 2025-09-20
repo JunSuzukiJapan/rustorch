@@ -115,14 +115,13 @@ where
         let elements: usize = self.input.shape().iter().product();
 
         match self.activation_type {
-            CoreMLActivationType::ReLU |
-            CoreMLActivationType::Sigmoid |
-            CoreMLActivationType::Tanh => elements > 256, // Efficient for medium+ sizes
-            CoreMLActivationType::Softmax |
-            CoreMLActivationType::GELU => elements > 1024, // More complex operations need larger sizes
-            CoreMLActivationType::LeakyReLU |
-            CoreMLActivationType::ELU |
-            CoreMLActivationType::Swish => elements > 512, // Moderately complex
+            CoreMLActivationType::ReLU
+            | CoreMLActivationType::Sigmoid
+            | CoreMLActivationType::Tanh => elements > 256, // Efficient for medium+ sizes
+            CoreMLActivationType::Softmax | CoreMLActivationType::GELU => elements > 1024, // More complex operations need larger sizes
+            CoreMLActivationType::LeakyReLU
+            | CoreMLActivationType::ELU
+            | CoreMLActivationType::Swish => elements > 512, // Moderately complex
         }
     }
 }
@@ -132,7 +131,11 @@ where
     T: Float + FromPrimitive + ScalarOperand + 'static,
 {
     fn execute_coreml(&self, device_id: usize) -> CoreMLResult<Tensor<T>> {
-        #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
         {
             use crate::gpu::coreml::backend::CoreMLGraph;
             use crate::gpu::coreml::common::CoreMLActivationType as ActivationType;
@@ -158,7 +161,11 @@ where
             return graph.activation(&self.input, backend_activation);
         }
 
-        #[cfg(not(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback")))]
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
         {
             Err(error_helpers::feature_disabled())
         }
@@ -168,11 +175,11 @@ where
         // Check if activation type is supported and size is efficient
         let is_supported = matches!(
             self.activation_type,
-            CoreMLActivationType::ReLU |
-            CoreMLActivationType::Sigmoid |
-            CoreMLActivationType::Tanh |
-            CoreMLActivationType::Softmax |
-            CoreMLActivationType::GELU
+            CoreMLActivationType::ReLU
+                | CoreMLActivationType::Sigmoid
+                | CoreMLActivationType::Tanh
+                | CoreMLActivationType::Softmax
+                | CoreMLActivationType::GELU
         );
 
         is_supported && self.is_efficient_on_coreml()
@@ -187,15 +194,17 @@ where
 
         // Rough estimation based on activation complexity
         let nanos_per_element = match self.activation_type {
-            CoreMLActivationType::ReLU => 1,        // Very fast
-            CoreMLActivationType::Sigmoid => 10,    // Moderate
-            CoreMLActivationType::Tanh => 8,        // Moderate
-            CoreMLActivationType::Softmax => 20,    // Complex (needs reduction)
-            CoreMLActivationType::GELU => 15,       // Complex
-            _ => 5,                                 // Default
+            CoreMLActivationType::ReLU => 1,     // Very fast
+            CoreMLActivationType::Sigmoid => 10, // Moderate
+            CoreMLActivationType::Tanh => 8,     // Moderate
+            CoreMLActivationType::Softmax => 20, // Complex (needs reduction)
+            CoreMLActivationType::GELU => 15,    // Complex
+            _ => 5,                              // Default
         };
 
-        Some(std::time::Duration::from_nanos((elements * nanos_per_element) as u64))
+        Some(std::time::Duration::from_nanos(
+            (elements * nanos_per_element) as u64,
+        ))
     }
 }
 
