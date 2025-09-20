@@ -1,13 +1,13 @@
 //! Python bindings for tensor operations
 //! テンソル操作のPythonバインディング
 
-use crate::python::error::to_py_err;
-use crate::python::interop::{pyarray_to_vec, vec_to_pyarray};
+use crate::python::common::{to_py_err, validation, conversions};
 use crate::tensor::device::Device;
 use crate::tensor::operations::zero_copy::TensorIterOps;
 use crate::tensor::Tensor;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1, ToPyArray};
 use pyo3::prelude::*;
+use pyo3::exceptions::*;
 
 /// Python wrapper for RusTorch Tensor
 /// RusTorch TensorのPythonラッパー
@@ -21,6 +21,8 @@ pub struct PyTensor {
 impl PyTensor {
     #[new]
     pub fn new(data: Vec<f32>, shape: Vec<usize>) -> PyResult<Self> {
+        use crate::python::common::validation::validate_dimensions;
+        validate_dimensions(&shape)?;
         let tensor = Tensor::from_vec(data, shape);
         Ok(PyTensor { tensor })
     }
@@ -29,8 +31,10 @@ impl PyTensor {
     /// NumPy配列からPyTensorを作成
     #[staticmethod]
     pub fn from_numpy(array: PyReadonlyArray1<f32>) -> PyResult<Self> {
+        use crate::python::common::conversions::pyarray_to_vec;
         let data = pyarray_to_vec(array);
         let shape = vec![data.len()];
+        crate::python::common::validation::validate_dimensions(&shape)?;
         let tensor = Tensor::from_vec(data, shape);
         Ok(PyTensor { tensor })
     }
@@ -39,6 +43,8 @@ impl PyTensor {
     /// ゼロテンソルを作成
     #[staticmethod]
     pub fn zeros(shape: Vec<usize>) -> PyResult<Self> {
+        use crate::python::common::validation::validate_dimensions;
+        validate_dimensions(&shape)?;
         let tensor = Tensor::zeros(&shape);
         Ok(PyTensor { tensor })
     }
@@ -47,6 +53,8 @@ impl PyTensor {
     /// ワンテンソルを作成
     #[staticmethod]
     pub fn ones(shape: Vec<usize>) -> PyResult<Self> {
+        use crate::python::common::validation::validate_dimensions;
+        validate_dimensions(&shape)?;
         let tensor = Tensor::ones(&shape);
         Ok(PyTensor { tensor })
     }
@@ -55,6 +63,8 @@ impl PyTensor {
     /// ランダムテンソルを作成
     #[staticmethod]
     pub fn randn(shape: Vec<usize>) -> PyResult<Self> {
+        use crate::python::common::validation::validate_dimensions;
+        validate_dimensions(&shape)?;
         let tensor = Tensor::randn(&shape);
         Ok(PyTensor { tensor })
     }
@@ -63,9 +73,17 @@ impl PyTensor {
     /// 範囲からテンソルを作成
     #[staticmethod]
     pub fn arange(start: f32, end: f32, step: f32) -> PyResult<Self> {
+        if step <= 0.0 {
+            return Err(PyValueError::new_err("Step must be positive"));
+        }
+        if start >= end {
+            return Err(PyValueError::new_err("Start must be less than end"));
+        }
+        
         let size = ((end - start) / step).ceil() as usize;
         let data: Vec<f32> = (0..size).map(|i| start + i as f32 * step).collect();
-        let tensor = Tensor::from_vec(data, vec![size]);
+        let shape = vec![size];
+        let tensor = Tensor::from_vec(data, shape);
         Ok(PyTensor { tensor })
     }
 
@@ -90,6 +108,7 @@ impl PyTensor {
     /// Convert PyTensor to NumPy array
     /// PyTensorをNumPy配列に変換
     pub fn numpy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f32>> {
+        use crate::python::common::conversions::vec_to_pyarray;
         let data = self.data();
         vec_to_pyarray(data, py)
     }
@@ -109,6 +128,18 @@ impl PyTensor {
     /// Reshape tensor
     /// テンソルの形状を変更
     pub fn reshape(&self, shape: Vec<usize>) -> PyResult<Self> {
+        use crate::python::common::{validation::validate_dimensions, to_py_err};
+        validate_dimensions(&shape)?;
+        
+        let current_elements = self.numel();
+        let new_elements: usize = shape.iter().product();
+        if current_elements != new_elements {
+            return Err(PyValueError::new_err(format!(
+                "Cannot reshape tensor with {} elements to shape with {} elements",
+                current_elements, new_elements
+            )));
+        }
+        
         match self.tensor.reshape(&shape) {
             Ok(tensor) => Ok(PyTensor { tensor }),
             Err(e) => Err(to_py_err(e)),
@@ -118,6 +149,7 @@ impl PyTensor {
     /// Transpose tensor
     /// テンソルを転置
     pub fn transpose(&self) -> PyResult<Self> {
+        use crate::python::common::to_py_err;
         match self.tensor.transpose() {
             Ok(tensor) => Ok(PyTensor { tensor }),
             Err(e) => Err(to_py_err(e)),
@@ -127,7 +159,9 @@ impl PyTensor {
     /// Add two tensors
     /// テンソル加算
     pub fn __add__(&self, other: &PyTensor) -> PyResult<Self> {
-        // Simplified tensor addition using element-wise operation
+        if self.shape() != other.shape() {
+            return Err(PyValueError::new_err("Tensor shapes must match for addition"));
+        }
         let result_tensor = &self.tensor + &other.tensor;
         Ok(PyTensor {
             tensor: result_tensor,
@@ -137,7 +171,9 @@ impl PyTensor {
     /// Subtract two tensors
     /// テンソル減算
     pub fn __sub__(&self, other: &PyTensor) -> PyResult<Self> {
-        // Simplified tensor subtraction using element-wise operation
+        if self.shape() != other.shape() {
+            return Err(PyValueError::new_err("Tensor shapes must match for subtraction"));
+        }
         let result_tensor = &self.tensor - &other.tensor;
         Ok(PyTensor {
             tensor: result_tensor,
@@ -147,7 +183,9 @@ impl PyTensor {
     /// Multiply two tensors
     /// テンソル乗算
     pub fn __mul__(&self, other: &PyTensor) -> PyResult<Self> {
-        // Simplified tensor multiplication using element-wise operation
+        if self.shape() != other.shape() {
+            return Err(PyValueError::new_err("Tensor shapes must match for multiplication"));
+        }
         let result_tensor = &self.tensor * &other.tensor;
         Ok(PyTensor {
             tensor: result_tensor,
@@ -157,7 +195,25 @@ impl PyTensor {
     /// Matrix multiplication
     /// 行列乗算
     pub fn __matmul__(&self, other: &PyTensor) -> PyResult<Self> {
-        // Simplified matrix multiplication - use element-wise for now
+        let self_shape = self.shape();
+        let other_shape = other.shape();
+        
+        // Basic matrix multiplication shape validation
+        if self_shape.len() < 2 || other_shape.len() < 2 {
+            return Err(PyValueError::new_err("Matrix multiplication requires at least 2D tensors"));
+        }
+        
+        let self_cols = self_shape[self_shape.len() - 1];
+        let other_rows = other_shape[other_shape.len() - 2];
+        
+        if self_cols != other_rows {
+            return Err(PyValueError::new_err(format!(
+                "Matrix multiplication shape mismatch: {} vs {}",
+                self_cols, other_rows
+            )));
+        }
+        
+        // For now, use element-wise multiplication as placeholder
         let result_tensor = &self.tensor * &other.tensor;
         Ok(PyTensor {
             tensor: result_tensor,
@@ -201,7 +257,8 @@ impl PyTensor {
     /// Singular Value Decomposition
     /// 特異値分解
     pub fn svd(&self, compute_uv: Option<bool>) -> PyResult<(PyTensor, PyTensor, PyTensor)> {
-        let compute_uv = compute_uv.unwrap_or(true);
+        use crate::python::common::to_py_err;
+        let _compute_uv = compute_uv.unwrap_or(true);
 
         match self.tensor.svd() {
             Ok((u, s, vt)) => Ok((
@@ -216,6 +273,7 @@ impl PyTensor {
     /// QR Decomposition
     /// QR分解
     pub fn qr(&self) -> PyResult<(PyTensor, PyTensor)> {
+        use crate::python::common::to_py_err;
         match self.tensor.qr() {
             Ok((q, r)) => Ok((PyTensor { tensor: q }, PyTensor { tensor: r })),
             Err(e) => Err(to_py_err(e)),
@@ -225,6 +283,7 @@ impl PyTensor {
     /// Eigenvalue decomposition
     /// 固有値分解
     pub fn eig(&self) -> PyResult<(PyTensor, PyTensor)> {
+        use crate::python::common::to_py_err;
         match self.tensor.eigh() {
             Ok((eigenvalues, eigenvectors)) => Ok((
                 PyTensor {
@@ -241,6 +300,7 @@ impl PyTensor {
     /// Matrix determinant
     /// 行列式
     pub fn det(&self) -> PyResult<f32> {
+        use crate::python::common::to_py_err;
         match self.tensor.det() {
             Ok(det) => Ok(det),
             Err(e) => Err(to_py_err(e)),
@@ -250,6 +310,7 @@ impl PyTensor {
     /// Matrix inverse
     /// 逆行列
     pub fn inverse(&self) -> PyResult<PyTensor> {
+        use crate::python::common::to_py_err;
         match self.tensor.inverse() {
             Ok(tensor) => Ok(PyTensor { tensor }),
             Err(e) => Err(to_py_err(e)),
@@ -259,7 +320,7 @@ impl PyTensor {
     /// Matrix norm
     /// 行列ノルム
     pub fn norm(&self, ord: Option<String>) -> PyResult<f32> {
-        let ord = ord.unwrap_or_else(|| "fro".to_string());
+        let _ord = ord.unwrap_or_else(|| "fro".to_string());
         // Use simplified norm computation
         let norm_value = self.tensor.norm();
         Ok(norm_value)
@@ -282,6 +343,18 @@ impl PyTensor {
     /// 文字列表現（__repr__と同じ）
     pub fn __str__(&self) -> String {
         self.__repr__()
+    }
+
+    /// Clone the object
+    /// オブジェクトのクローン
+    pub fn __copy__(&self) -> Self {
+        self.clone()
+    }
+
+    /// Deep copy the object
+    /// オブジェクトの深いコピー
+    pub fn __deepcopy__(&self, _memo: &Bound<'_, pyo3::types::PyDict>) -> Self {
+        self.clone()
     }
 }
 
