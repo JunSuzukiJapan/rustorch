@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758342339194,
+  "lastUpdate": 1758347533413,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -493,6 +493,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "68b1115065a9c2209c2bb242ebad838c4acf2e97",
+          "message": "feat: comprehensive Python bindings refactoring and version update to 0.6.20 (#29)\n\n* refactor: comprehensive Python bindings improvement\n\n### Key Improvements\n- **Unified Error Handling**: Standardized error conversion from Rust to Python\n- **Common Utilities**: Shared validation, conversion, and memory management functions\n- **Enhanced Type Safety**: Robust input validation throughout all modules\n- **Memory Safety**: Thread-safe Arc<RwLock<T>> access patterns\n- **Code Reusability**: 50% reduction in code duplication\n- **Comprehensive Testing**: Full test coverage for all binding components\n\n### Technical Changes\n- Add `src/python/common.rs` with shared utilities and traits\n- Refactor tensor.rs with enhanced validation and error handling\n- Improve autograd.rs with safe memory access patterns\n- Standardize optimizer implementations with consistent validation\n- Add comprehensive test suite with unit, integration, and performance tests\n- Update all import statements to use common utilities\n- Create detailed documentation and migration guide\n\n### Architecture\n- PyWrapper and ThreadSafePyWrapper traits for consistent patterns\n- Validation utilities for dimensions, learning rates, and parameters\n- Memory safety utilities with timeout-based access\n- Conversion utilities for NumPy interoperability\n- Unified error mapping from RusTorchError to Python exceptions\n\n### Performance\n- 10-30% performance improvements in common operations\n- Zero-copy operations where possible\n- Efficient validation with early returns\n- Optimized conversion routines\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat: complete comprehensive validation of Python bindings refactoring\n\nAll validation tasks completed successfully:\n✅ All tests passing (1139 tests)\n✅ All benchmarks running successfully\n✅ All examples executing correctly\n✅ Doctests passing (36 doctests)\n✅ Cargo documentation generated\n✅ Library build verified\n✅ WASM build successful\n✅ Docker build ready (daemon not running)\n✅ Zero clippy warnings\n✅ Code formatting applied\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat: update RusTorch version to 0.6.20 in all Jupyter notebooks\n\nUpdated version references across all notebook files:\n- jupyter/package.json: version updated to 0.6.20\n- All Rust kernel demo notebooks (9 files): :dep rustorch = \"0.6.20\"\n- Notebooks in multiple languages: en, es, fr, it, ja, ko, zh\n\nChanges:\n✅ jupyter/package.json - version: 0.6.19 → 0.6.20\n✅ All Rust kernel demos - rustorch dependency: 0.6.19 → 0.6.20\n✅ Verified no old version references remain\n✅ Dynamic version references maintained\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: apply additional code formatting for CI compliance\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-20T14:50:58+09:00",
+          "tree_id": "e2368901cb0573a4136f018853a84927fb96d5bc",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/68b1115065a9c2209c2bb242ebad838c4acf2e97"
+        },
+        "date": 1758347530939,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
