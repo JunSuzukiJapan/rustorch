@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758347533413,
+  "lastUpdate": 1758347851261,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -524,6 +524,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "255732a36f4e8462360e7c978ec7703c902bf49d",
+          "message": "chore: bump version to 0.6.20 for release",
+          "timestamp": "2025-09-20T14:56:23+09:00",
+          "tree_id": "d551a5f229888d82bc7b1df3e9a378badaab5b9e",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/255732a36f4e8462360e7c978ec7703c902bf49d"
+        },
+        "date": 1758347849227,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
