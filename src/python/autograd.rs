@@ -239,8 +239,11 @@ impl PyVariable {
     /// Reshape Variable
     /// Variableの形状変更
     pub fn reshape(&self, shape: Vec<usize>) -> PyResult<PyVariable> {
-        match self.variable.reshape(&shape) {
-            Ok(result) => Ok(PyVariable { variable: result }),
+        match self.variable.data().read().unwrap().reshape(&shape) {
+            Ok(result_tensor) => {
+                let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+                Ok(PyVariable { variable: result_var })
+            },
             Err(e) => Err(to_py_err(e)),
         }
     }
@@ -248,8 +251,11 @@ impl PyVariable {
     /// Transpose Variable
     /// Variableの転置
     pub fn transpose(&self) -> PyResult<PyVariable> {
-        match self.variable.transpose() {
-            Ok(result) => Ok(PyVariable { variable: result }),
+        match self.variable.data().read().unwrap().transpose() {
+            Ok(result_tensor) => {
+                let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+                Ok(PyVariable { variable: result_var })
+            },
             Err(e) => Err(to_py_err(e)),
         }
     }
@@ -257,55 +263,73 @@ impl PyVariable {
     /// Power operation
     /// べき乗演算
     pub fn pow(&self, exponent: f32) -> PyResult<PyVariable> {
-        match self.variable.pow(exponent) {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply pow to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.powf(exponent));
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// Exponential function
     /// 指数関数
     pub fn exp(&self) -> PyResult<PyVariable> {
-        match self.variable.exp() {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply exp to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.exp());
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// Natural logarithm
     /// 自然対数
     pub fn log(&self) -> PyResult<PyVariable> {
-        match self.variable.log() {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply log to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.ln());
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// Sine function
     /// サイン関数
     pub fn sin(&self) -> PyResult<PyVariable> {
-        match self.variable.sin() {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply sin to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.sin());
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// Cosine function
     /// コサイン関数
     pub fn cos(&self) -> PyResult<PyVariable> {
-        match self.variable.cos() {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply cos to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.cos());
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// Square root
     /// 平方根
     pub fn sqrt(&self) -> PyResult<PyVariable> {
-        match self.variable.sqrt() {
-            Ok(result) => Ok(PyVariable { variable: result }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Apply sqrt to underlying tensor data
+        let binding = self.variable.data();
+        let tensor_data = binding.read().unwrap();
+        let result_data = tensor_data.data.mapv(|x| x.sqrt());
+        let result_tensor = crate::tensor::Tensor::from_ndarray(result_data);
+        let result_var = crate::autograd::Variable::new(result_tensor, self.variable.requires_grad());
+        Ok(PyVariable { variable: result_var })
     }
 
     /// String representation

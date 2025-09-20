@@ -18,7 +18,7 @@ pub struct PyTensorDataset {
 impl PyTensorDataset {
     #[new]
     pub fn new(data: &PyTensor, targets: &PyTensor) -> PyResult<Self> {
-        match TensorDataset::new(data.tensor.clone(), targets.tensor.clone()) {
+        match TensorDataset::new(vec![data.tensor.clone(), targets.tensor.clone()]) {
             Ok(dataset) => Ok(PyTensorDataset { dataset }),
             Err(e) => Err(to_py_err(e)),
         }
@@ -27,19 +27,19 @@ impl PyTensorDataset {
     /// Create dataset from multiple tensors
     /// 複数のテンソルからデータセットを作成
     #[staticmethod]
-    pub fn from_tensors(py: Python, tensors: &pyo3::types::PyList) -> PyResult<PyTensorDataset> {
+    pub fn from_tensors(py: Python, tensors: pyo3::Bound<'_, pyo3::types::PyList>) -> PyResult<PyTensorDataset> {
         if tensors.len() < 2 {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "At least 2 tensors are required (data and targets)",
             ));
         }
 
-        let data_item: &PyTensor = tensors.get_item(0)?.extract()?;
-        let targets_item: &PyTensor = tensors.get_item(1)?.extract()?;
+        let data_item: PyTensor = tensors.get_item(0)?.extract()?;
+        let targets_item: PyTensor = tensors.get_item(1)?.extract()?;
         let data = data_item.tensor.clone();
         let targets = targets_item.tensor.clone();
 
-        match TensorDataset::new(data, targets) {
+        match TensorDataset::new(vec![data, targets]) {
             Ok(dataset) => Ok(PyTensorDataset { dataset }),
             Err(e) => Err(to_py_err(e)),
         }
@@ -84,7 +84,7 @@ impl PyTensorDataset {
     pub fn data(&self) -> PyTensor {
         // Assume first tensor is data
         PyTensor {
-            tensor: self.dataset.tensors[0].clone(),
+            tensor: self.dataset.tensors()[0].clone(),
         }
     }
 
@@ -93,7 +93,7 @@ impl PyTensorDataset {
     pub fn targets(&self) -> PyTensor {
         // Assume second tensor is targets
         PyTensor {
-            tensor: self.dataset.tensors[1].clone(),
+            tensor: self.dataset.tensors()[1].clone(),
         }
     }
 
@@ -103,7 +103,7 @@ impl PyTensorDataset {
         format!(
             "TensorDataset(length={}, data_shape={:?})",
             self.__len__(),
-            self.dataset.tensors[0].shape()
+            self.dataset.tensors()[0].shape()
         )
     }
 }
@@ -327,7 +327,7 @@ impl PyTransform {
         use crate::tensor::operations::zero_copy::TensorIterOps;
         let data: Vec<f32> = tensor.iter().map(|&x| (x - mean) / std).collect();
 
-        crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
+        Ok(crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()))
     }
 
     /// Resize tensor (simplified implementation)
@@ -382,7 +382,7 @@ impl PyTransform {
             use crate::tensor::operations::zero_copy::TensorIterOps;
             let mut data: Vec<f32> = tensor.iter().cloned().collect();
             data.reverse();
-            crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()).map_err(to_py_err)
+            Ok(crate::tensor::Tensor::from_vec(data, tensor.shape().to_vec()))
         } else {
             Ok(tensor.clone())
         }

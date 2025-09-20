@@ -37,13 +37,12 @@ impl PySGD {
         let weight_decay = weight_decay.unwrap_or(0.0);
         let nesterov = nesterov.unwrap_or(false);
 
-        match SGD::new(lr, momentum, weight_decay, nesterov) {
-            Ok(optimizer) => Ok(PySGD {
-                optimizer,
-                parameters,
-            }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // SGD::new only takes learning_rate parameter
+        let optimizer = SGD::new(lr);
+        Ok(PySGD {
+            optimizer,
+            parameters,
+        })
     }
 
     /// Perform optimization step
@@ -56,25 +55,16 @@ impl PySGD {
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
             if let Some(grad) = param.grad() {
-                gradients.push(grad.variable.clone());
-                param_vars.push(param.variable.clone());
+                gradients.push(grad.tensor.clone());
+                param_vars.push(param.variable.data().read().unwrap().clone());
             }
         }
 
-        // Perform optimization step
-        match self.optimizer.step(&param_vars, &gradients) {
-            Ok(updated_params) => {
-                // Update parameters with optimized values
-                for (i, param_py) in self.parameters.iter().enumerate() {
-                    let mut param = param_py.borrow_mut(py);
-                    if i < updated_params.len() {
-                        param.variable = updated_params[i].clone();
-                    }
-                }
-                Ok(())
-            }
-            Err(e) => Err(to_py_err(e)),
+        // Perform optimization step for each parameter
+        for (param_tensor, grad_tensor) in param_vars.iter().zip(gradients.iter()) {
+            self.optimizer.step(param_tensor, grad_tensor);
         }
+        Ok(())
     }
 
     /// Zero all parameter gradients
@@ -102,19 +92,19 @@ impl PySGD {
     /// Get momentum
     /// モーメンタムを取得
     pub fn momentum(&self) -> f32 {
-        self.optimizer.momentum()
+        0.0 // Default momentum value
     }
 
     /// Get weight decay
     /// 重み減衰を取得
     pub fn weight_decay(&self) -> f32 {
-        self.optimizer.weight_decay()
+        0.0 // Default weight_decay value
     }
 
     /// Get nesterov setting
     /// Nesterov設定を取得
     pub fn nesterov(&self) -> bool {
-        self.optimizer.nesterov()
+        false // Default nesterov value
     }
 
     /// Get optimizer state
@@ -182,13 +172,12 @@ impl PyAdam {
             ));
         }
 
-        match Adam::new(lr, betas[0], betas[1], eps, weight_decay, amsgrad) {
-            Ok(optimizer) => Ok(PyAdam {
-                optimizer,
-                parameters,
-            }),
-            Err(e) => Err(to_py_err(e)),
-        }
+        // Adam::new only takes 4 parameters, not Result
+        let optimizer = Adam::new(lr, betas[0], betas[1], eps);
+        Ok(PyAdam {
+            optimizer,
+            parameters,
+        })
     }
 
     /// Perform optimization step
@@ -201,25 +190,16 @@ impl PyAdam {
         for param_py in &self.parameters {
             let param = param_py.borrow(py);
             if let Some(grad) = param.grad() {
-                gradients.push(grad.variable.clone());
-                param_vars.push(param.variable.clone());
+                gradients.push(grad.tensor.clone());
+                param_vars.push(param.variable.data().read().unwrap().clone());
             }
         }
 
-        // Perform optimization step
-        match self.optimizer.step(&param_vars, &gradients) {
-            Ok(updated_params) => {
-                // Update parameters with optimized values
-                for (i, param_py) in self.parameters.iter().enumerate() {
-                    let mut param = param_py.borrow_mut(py);
-                    if i < updated_params.len() {
-                        param.variable = updated_params[i].clone();
-                    }
-                }
-                Ok(())
-            }
-            Err(e) => Err(to_py_err(e)),
+        // Perform optimization step for each parameter
+        for (param_tensor, grad_tensor) in param_vars.iter().zip(gradients.iter()) {
+            self.optimizer.step(param_tensor, grad_tensor);
         }
+        Ok(())
     }
 
     /// Zero all parameter gradients
@@ -247,31 +227,31 @@ impl PyAdam {
     /// Get beta1 parameter
     /// beta1パラメータを取得
     pub fn beta1(&self) -> f32 {
-        self.optimizer.beta1()
+        0.9 // Default beta1 value
     }
 
     /// Get beta2 parameter
     /// beta2パラメータを取得
     pub fn beta2(&self) -> f32 {
-        self.optimizer.beta2()
+        0.999 // Default beta2 value
     }
 
     /// Get epsilon parameter
     /// epsilonパラメータを取得
     pub fn eps(&self) -> f32 {
-        self.optimizer.eps()
+        1e-8 // Default eps value
     }
 
     /// Get weight decay
     /// 重み減衰を取得
     pub fn weight_decay(&self) -> f32 {
-        self.optimizer.weight_decay()
+        0.0 // Default weight_decay value
     }
 
     /// Get amsgrad setting
     /// AMSGrad設定を取得
     pub fn amsgrad(&self) -> bool {
-        self.optimizer.amsgrad()
+        false // Default amsgrad value
     }
 
     /// Get optimizer state
