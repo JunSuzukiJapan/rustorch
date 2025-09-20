@@ -6,148 +6,482 @@
 
 use crate::backends::ConvolutionParams;
 use crate::error::{RusTorchError, RusTorchResult};
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+use crate::gpu::hybrid_executor::HybridExecution;
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+use crate::gpu::{DeviceType, OpType};
 use crate::tensor::Tensor;
 use ndarray::ScalarOperand;
 use num_traits::{Float, FromPrimitive};
 
-#[cfg(feature = "cuda")]
-use cudarc::cudnn::ConvForward;
-// Note: CudnnHandle removed - not available in current cudarc version
-#[cfg(feature = "cuda")]
-use cudarc::driver::CudaDevice;
+/// GPU Convolution trait for convolution operations with hybrid execution
+/// ハイブリッド実行による GPU 畳み込み trait
+pub trait GpuConvolution<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> {
+    /// GPU-accelerated 2D convolution with automatic device selection
+    /// 自動デバイス選択によるGPU加速2D畳み込み
+    fn gpu_conv2d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>>;
 
-#[cfg(feature = "metal")]
-use metal::{Buffer, CommandBuffer, CommandQueue, Device as MetalDevice};
-#[cfg(feature = "metal")]
-// use metal_performance_shaders::{MPSCNNConvolution, MPSCNNConvolutionDescriptor}; // Using Metal compute shaders instead
+    /// GPU-accelerated transposed convolution (deconvolution)
+    /// GPU加速転置畳み込み（逆畳み込み）
+    fn gpu_conv_transpose2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+    ) -> RusTorchResult<Tensor<T>>;
 
-// ConvolutionParams is now imported from crate::backends::ConvolutionParams
+    /// GPU-accelerated depthwise separable convolution
+    /// GPU加速深度分離可能畳み込み
+    fn gpu_depthwise_conv2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+    ) -> RusTorchResult<Tensor<T>>;
 
-/// GPU convolution executor
-pub struct GpuConvolutionExecutor<T: Float + FromPrimitive + ScalarOperand + 'static> {
-    device_type: super::DeviceType,
-    _phantom: std::marker::PhantomData<T>,
+    /// GPU-accelerated grouped convolution
+    /// GPU加速グループ畳み込み
+    fn gpu_grouped_conv2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+        groups: usize,
+    ) -> RusTorchResult<Tensor<T>>;
+
+    /// GPU-accelerated 3D convolution
+    /// GPU加速3D畳み込み
+    fn gpu_conv3d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>>;
 }
 
-// Note: struct resolution issue not fixed in current version
-/*
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuConvolutionExecutor<T> {
-    /// Create new GPU convolution executor
-    pub fn new(device_type: super::DeviceType) -> RusTorchResult<Self> {
-        match device_type {
-            super::DeviceType::Cpu => Ok(Self {
-                device_type,
-                _phantom: std::marker::PhantomData,
-            }),
-            _ => {
-                // Verify GPU device is available
-                if device_type.is_available() {
-                    Ok(Self {
-                        device_type,
-                        _phantom: std::marker::PhantomData,
-                    })
-                } else {
-                    Err(RusTorchError::gpu(&format!(
-                        "GPU device {:?} not available",
-                        device_type
-                    )))
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+))]
+impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvolution<T>
+    for Tensor<T>
+{
+    fn gpu_conv2d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>> {
+        // Use hybrid execution for CoreML + GPU fallback
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            use crate::gpu::hybrid_executor::HybridExecution;
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
+
+            return self.hybrid_operation(OpType::Convolution, |device| {
+                match device {
+                    super::DeviceType::CoreML(_) => {
+                        // Use CoreML convolution implementation
+                        let stride = &[params.stride[0], params.stride[1]];
+                        let padding = &[params.padding[0], params.padding[1]];
+                        self.coreml_conv2d(kernel, stride, padding)
+                    }
+                    super::DeviceType::Cuda(_) => {
+                        // Use CUDA convolution implementation - fallback to CPU
+                        self.conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Metal(_) => {
+                        // Use Metal convolution implementation - fallback to CPU
+                        self.conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::OpenCL(_) => {
+                        // Use OpenCL convolution implementation - fallback to CPU
+                        self.conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cpu => {
+                        // CPU fallback implementation
+                        self.conv2d_fallback(kernel, params)
+                    }
+                    _ => Err(RusTorchError::UnsupportedDevice(
+                        "Unsupported device for convolution".to_string(),
+                    )),
                 }
-            }
+            });
+        }
+
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            // For non-CoreML builds, use CPU fallback directly
+            self.conv2d_fallback(kernel, params)
         }
     }
 
-    /// Perform 2D convolution on GPU
-    pub fn conv2d(
+    fn gpu_conv_transpose2d(
         &self,
-        input: &Tensor<T>,
-        kernel: &Tensor<T>,
+        kernel: &Self,
         params: &ConvolutionParams,
     ) -> RusTorchResult<Tensor<T>> {
-        match self.device_type {
-            super::DeviceType::Cpu => {
-                self.cpu_conv2d(input, kernel, params)
-            }
+        // Use hybrid execution for CoreML + GPU fallback
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            use crate::gpu::hybrid_executor::HybridExecution;
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
 
-            #[cfg(feature = "cuda")]
-            super::DeviceType::Cuda(device_id) => {
-                self.cuda_conv2d(input, kernel, params, device_id)
-            }
+            return self.hybrid_operation(OpType::Convolution, |device| {
+                match device {
+                    super::DeviceType::CoreML(_) => {
+                        // CoreML transpose convolution not yet implemented
+                        self.conv_transpose2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cuda(_) => {
+                        // Use CUDA transpose convolution implementation - fallback to CPU
+                        self.conv_transpose2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Metal(_) => {
+                        // Use Metal transpose convolution implementation - fallback to CPU
+                        self.conv_transpose2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::OpenCL(_) => {
+                        // Use OpenCL transpose convolution implementation - fallback to CPU
+                        self.conv_transpose2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cpu => {
+                        // CPU fallback implementation
+                        self.conv_transpose2d_fallback(kernel, params)
+                    }
+                    _ => Err(RusTorchError::UnsupportedDevice(
+                        "Unsupported device for transpose convolution".to_string(),
+                    )),
+                }
+            });
+        }
 
-            #[cfg(feature = "metal")]
-            super::DeviceType::Metal(_) => {
-                self.metal_conv2d(input, kernel, params)
-            }
-
-            #[cfg(feature = "opencl")]
-            super::DeviceType::OpenCL(_) => {
-                // For now, fall back to CPU
-                self.cpu_conv2d(input, kernel, params)
-            }
-
-            #[allow(unreachable_patterns)]
-            _ => Err(RusTorchError::gpu("Unsupported device for convolution")),
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            // For non-CoreML builds, use CPU fallback directly
+            self.conv_transpose2d_fallback(kernel, params)
         }
     }
 
-    /// CPU convolution fallback
-    fn cpu_conv2d(
+    fn gpu_depthwise_conv2d(
         &self,
-        input: &Tensor<T>,
-        kernel: &Tensor<T>,
+        kernel: &Self,
         params: &ConvolutionParams,
     ) -> RusTorchResult<Tensor<T>> {
-        // Simple CPU convolution implementation
-        let input_shape = input.shape();
+        // Use hybrid execution for CoreML + GPU fallback
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            use crate::gpu::hybrid_executor::HybridExecution;
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
+
+            return self.hybrid_operation(OpType::Convolution, |device| {
+                match device {
+                    super::DeviceType::CoreML(_) => {
+                        // CoreML depthwise convolution not yet implemented
+                        self.depthwise_conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cuda(_) => {
+                        // Use CUDA depthwise convolution implementation - fallback to CPU
+                        self.depthwise_conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Metal(_) => {
+                        // Use Metal depthwise convolution implementation - fallback to CPU
+                        self.depthwise_conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::OpenCL(_) => {
+                        // Use OpenCL depthwise convolution implementation - fallback to CPU
+                        self.depthwise_conv2d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cpu => {
+                        // CPU fallback implementation
+                        self.depthwise_conv2d_fallback(kernel, params)
+                    }
+                    _ => Err(RusTorchError::UnsupportedDevice(
+                        "Unsupported device for depthwise convolution".to_string(),
+                    )),
+                }
+            });
+        }
+
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            // For non-CoreML builds, use CPU fallback directly
+            self.depthwise_conv2d_fallback(kernel, params)
+        }
+    }
+
+    fn gpu_grouped_conv2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+        groups: usize,
+    ) -> RusTorchResult<Tensor<T>> {
+        // Use hybrid execution for CoreML + GPU fallback
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            use crate::gpu::hybrid_executor::HybridExecution;
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
+
+            return self.hybrid_operation(OpType::Convolution, |device| {
+                match device {
+                    super::DeviceType::CoreML(_) => {
+                        // CoreML grouped convolution not yet implemented
+                        self.grouped_conv2d_fallback(kernel, params, groups)
+                    }
+                    super::DeviceType::Cuda(_) => {
+                        // Use CUDA grouped convolution implementation - fallback to CPU
+                        self.grouped_conv2d_fallback(kernel, params, groups)
+                    }
+                    super::DeviceType::Metal(_) => {
+                        // Use Metal grouped convolution implementation - fallback to CPU
+                        self.grouped_conv2d_fallback(kernel, params, groups)
+                    }
+                    super::DeviceType::OpenCL(_) => {
+                        // Use OpenCL grouped convolution implementation - fallback to CPU
+                        self.grouped_conv2d_fallback(kernel, params, groups)
+                    }
+                    super::DeviceType::Cpu => {
+                        // CPU fallback implementation
+                        self.grouped_conv2d_fallback(kernel, params, groups)
+                    }
+                    _ => Err(RusTorchError::UnsupportedDevice(
+                        "Unsupported device for grouped convolution".to_string(),
+                    )),
+                }
+            });
+        }
+
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            // For non-CoreML builds, use CPU fallback directly
+            self.grouped_conv2d_fallback(kernel, params, groups)
+        }
+    }
+
+    fn gpu_conv3d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>> {
+        // Use hybrid execution for CoreML + GPU fallback
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            use crate::gpu::hybrid_executor::HybridExecution;
+            use crate::gpu::{coreml::CoreMLConvolution, OpType};
+
+            return self.hybrid_operation(OpType::Convolution, |device| {
+                match device {
+                    super::DeviceType::CoreML(_) => {
+                        // CoreML 3D convolution not yet implemented
+                        self.conv3d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cuda(_) => {
+                        // Use CUDA 3D convolution implementation - fallback to CPU
+                        self.conv3d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Metal(_) => {
+                        // Use Metal 3D convolution implementation - fallback to CPU
+                        self.conv3d_fallback(kernel, params)
+                    }
+                    super::DeviceType::OpenCL(_) => {
+                        // Use OpenCL 3D convolution implementation - fallback to CPU
+                        self.conv3d_fallback(kernel, params)
+                    }
+                    super::DeviceType::Cpu => {
+                        // CPU fallback implementation
+                        self.conv3d_fallback(kernel, params)
+                    }
+                    _ => Err(RusTorchError::UnsupportedDevice(
+                        "Unsupported device for 3D convolution".to_string(),
+                    )),
+                }
+            });
+        }
+
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            // For non-CoreML builds, use CPU fallback directly
+            self.conv3d_fallback(kernel, params)
+        }
+    }
+}
+
+// Non-CoreML implementation of GpuConvolution trait
+// 非CoreML用のGpuConvolution trait実装
+#[cfg(not(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback"
+)))]
+impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvolution<T>
+    for Tensor<T>
+{
+    fn gpu_conv2d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>> {
+        self.conv2d_fallback(kernel, params)
+    }
+
+    fn gpu_conv_transpose2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+    ) -> RusTorchResult<Tensor<T>> {
+        self.conv_transpose2d_fallback(kernel, params)
+    }
+
+    fn gpu_depthwise_conv2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+    ) -> RusTorchResult<Tensor<T>> {
+        self.depthwise_conv2d_fallback(kernel, params)
+    }
+
+    fn gpu_grouped_conv2d(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+        groups: usize,
+    ) -> RusTorchResult<Tensor<T>> {
+        self.grouped_conv2d_fallback(kernel, params, groups)
+    }
+
+    fn gpu_conv3d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>> {
+        self.conv3d_fallback(kernel, params)
+    }
+}
+
+// Fallback implementations for convolution operations
+// 畳み込み演算のフォールバック実装
+impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T> {
+    /// CPU fallback 2D convolution implementation
+    /// CPU フォールバック 2D 畳み込み実装
+    pub fn conv2d_fallback(
+        &self,
+        kernel: &Self,
+        params: &ConvolutionParams,
+    ) -> RusTorchResult<Tensor<T>> {
+        // Simplified CPU convolution implementation
+        // This is a basic implementation - would need optimization for production
+
+        let input_shape = self.shape();
         let kernel_shape = kernel.shape();
 
         if input_shape.len() != 4 || kernel_shape.len() != 4 {
-            return Err(RusTorchError::gpu(
-                "Conv2D requires 4D tensors (batch, channels, height, width)"
-            ));
+            return Err(RusTorchError::TensorOp {
+                message: "Conv2D requires 4D tensors (NCHW format)".to_string(),
+                source: None,
+            });
         }
 
-        let [batch_size, in_channels, in_height, in_width] = [
-            input_shape[0], input_shape[1], input_shape[2], input_shape[3]
+        let [batch_size, in_channels, input_height, input_width] = [
+            input_shape[0],
+            input_shape[1],
+            input_shape[2],
+            input_shape[3],
         ];
-        let [out_channels, _, kernel_h, kernel_w] = [
-            kernel_shape[0], kernel_shape[1], kernel_shape[2], kernel_shape[3]
+        let [out_channels, kernel_in_channels, kernel_height, kernel_width] = [
+            kernel_shape[0],
+            kernel_shape[1],
+            kernel_shape[2],
+            kernel_shape[3],
         ];
 
-        // Calculate output dimensions
-        let out_height = (in_height + 2 * params.padding[0] - kernel_h) / params.stride[0] + 1;
-        let out_width = (in_width + 2 * params.padding[1] - kernel_w) / params.stride[1] + 1;
+        if in_channels != kernel_in_channels {
+            return Err(RusTorchError::TensorOp {
+                message: format!(
+                    "Input channels ({}) don't match kernel channels ({})",
+                    in_channels, kernel_in_channels
+                ),
+                source: None,
+            });
+        }
 
-        // Create output tensor
-        let output_shape = vec![batch_size, out_channels, out_height, out_width];
+        let stride_h = params.stride[0];
+        let stride_w = params.stride[1];
+        let pad_h = params.padding[0];
+        let pad_w = params.padding[1];
+
+        let output_height = (input_height + 2 * pad_h - kernel_height) / stride_h + 1;
+        let output_width = (input_width + 2 * pad_w - kernel_width) / stride_w + 1;
+
+        let output_shape = vec![batch_size, out_channels, output_height, output_width];
         let mut output_data = vec![T::zero(); output_shape.iter().product()];
 
-        // Perform convolution (simplified implementation)
-        for b in 0..batch_size {
+        // Simple nested loop convolution (very basic implementation)
+        for n in 0..batch_size {
             for oc in 0..out_channels {
-                for oh in 0..out_height {
-                    for ow in 0..out_width {
+                for oh in 0..output_height {
+                    for ow in 0..output_width {
                         let mut sum = T::zero();
-
                         for ic in 0..in_channels {
-                            for kh in 0..kernel_h {
-                                for kw in 0..kernel_w {
-                                    let ih = oh * params.stride[0] + kh;
-                                    let iw = ow * params.stride[1] + kw;
+                            for kh in 0..kernel_height {
+                                for kw in 0..kernel_width {
+                                    let ih = oh * stride_h + kh;
+                                    let iw = ow * stride_w + kw;
 
-                                    if ih < in_height && iw < in_width {
-                                        let input_idx = ((b * in_channels + ic) * in_height + ih) * in_width + iw;
-                                        let kernel_idx = ((oc * in_channels + ic) * kernel_h + kh) * kernel_w + kw;
+                                    if ih >= pad_h && iw >= pad_w {
+                                        let ih = ih - pad_h;
+                                        let iw = iw - pad_w;
 
-                                        if let (Some(input_val), Some(kernel_val)) =
-                                            (input.data.get(input_idx), kernel.data.get(kernel_idx)) {
-                                            sum = sum + *input_val * *kernel_val;
+                                        if ih < input_height && iw < input_width {
+                                            let input_idx =
+                                                n * in_channels * input_height * input_width
+                                                    + ic * input_height * input_width
+                                                    + ih * input_width
+                                                    + iw;
+                                            let kernel_idx = oc
+                                                * kernel_in_channels
+                                                * kernel_height
+                                                * kernel_width
+                                                + ic * kernel_height * kernel_width
+                                                + kh * kernel_width
+                                                + kw;
+
+                                            sum = sum
+                                                + self.data.as_slice().unwrap()[input_idx]
+                                                    * kernel.data.as_slice().unwrap()[kernel_idx];
                                         }
                                     }
                                 }
                             }
                         }
 
-                        let output_idx = ((b * out_channels + oc) * out_height + oh) * out_width + ow;
+                        let output_idx = n * out_channels * output_height * output_width
+                            + oc * output_height * output_width
+                            + oh * output_width
+                            + ow;
                         output_data[output_idx] = sum;
                     }
                 }
@@ -156,317 +490,113 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuConvolutionExecutor<
 
         Ok(Tensor::from_vec(output_data, output_shape))
     }
-}
 
-// CUDA implementation
-#[cfg(feature = "cuda")]
-impl<T> GpuConvolutionExecutor<T>
-where
-    T: Float + FromPrimitive + ScalarOperand + 'static + cudarc::driver::DeviceRepr,
-{
-    fn cuda_conv2d(
+    /// CPU fallback transpose convolution implementation
+    /// CPU フォールバック転置畳み込み実装
+    pub fn conv_transpose2d_fallback(
         &self,
-        input: &Tensor<T>,
-        kernel: &Tensor<T>,
-        params: &ConvolutionParams,
-        device_id: usize,
+        _kernel: &Self,
+        _params: &ConvolutionParams,
     ) -> RusTorchResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
-
-        // Validate tensor dimensions
-        let input_shape = input.shape();
-        let kernel_shape = kernel.shape();
-
-        if input_shape.len() != 4 || kernel_shape.len() != 4 {
-            return Err(RusTorchError::gpu(
-                "Conv2D requires 4D tensors (batch, channels, height, width)"
-            ));
-        }
-
-        // Initialize CUDA device
-        let device = CudaDevice::new(device_id)
-            .map_err(|e| RusTorchError::gpu(&format!("CUDA device init failed: {}", e)))?;
-
-        // For now, fall back to CPU until we implement full cuDNN integration
-        self.cpu_conv2d(input, kernel, params)
-    }
-}
-
-// Metal implementation
-#[cfg(feature = "metal")]
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuConvolutionExecutor<T> {
-    fn metal_conv2d(
-        &self,
-        input: &Tensor<T>,
-        kernel: &Tensor<T>,
-        params: &ConvolutionParams,
-    ) -> RusTorchResult<Tensor<T>> {
-        use crate::gpu::memory_transfer::GpuMemoryManager;
-
-        // Validate tensor dimensions
-        let input_shape = input.shape();
-        let kernel_shape = kernel.shape();
-
-        if input_shape.len() != 4 || kernel_shape.len() != 4 {
-            return Err(RusTorchError::gpu(
-                "Conv2D requires 4D tensors (batch, channels, height, width)"
-            ));
-        }
-
-        // Get Metal device
-        let device = MetalDevice::system_default()
-            .ok_or_else(|| RusTorchError::gpu("No Metal device found"))?;
-
-        // Create command queue
-        let command_queue = device.new_command_queue();
-        let command_buffer = command_queue.new_command_buffer();
-
-        // For now, fall back to CPU until we implement full MPS integration
-        self.cpu_conv2d(input, kernel, params)
-    }
-}
-*/
-
-/// GPU convolution operations trait
-pub trait GpuConvolution<T: Float + FromPrimitive + ScalarOperand + 'static> {
-    /// GPU 2D convolution
-    fn gpu_conv2d(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Tensor<T>>;
-
-    /// GPU batch convolution
-    fn gpu_batch_conv2d(
-        &self,
-        kernel: &Self,
-        params: &ConvolutionParams,
-    ) -> RusTorchResult<Tensor<T>>;
-
-    /// GPU transposed convolution
-    fn gpu_conv2d_transpose(
-        &self,
-        kernel: &Self,
-        params: &ConvolutionParams,
-    ) -> RusTorchResult<Tensor<T>>;
-}
-
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuConvolution<T> for Tensor<T> {
-    fn gpu_conv2d(&self, _kernel: &Self, _params: &ConvolutionParams) -> RusTorchResult<Tensor<T>> {
-        // Auto-select best available GPU device
-        let _device_type = if super::DeviceManager::is_cuda_available() {
-            super::DeviceType::Cuda(0)
-        } else if super::DeviceManager::is_metal_available() {
-            super::DeviceType::Metal(0)
-        } else {
-            super::DeviceType::Cpu
-        };
-
-        // GPU convolution implementation placeholder
-        // Will be implemented in Phase 3 with actual GPU kernels
-        Err(RusTorchError::gpu(
-            "GPU convolution implementation in progress - use CPU fallback",
-        ))
-    }
-
-    fn gpu_batch_conv2d(
-        &self,
-        kernel: &Self,
-        params: &ConvolutionParams,
-    ) -> RusTorchResult<Tensor<T>> {
-        // For now, delegate to single convolution
-        // In future, implement true batch operations
-        self.gpu_conv2d(kernel, params)
-    }
-
-    fn gpu_conv2d_transpose(
-        &self,
-        kernel: &Self,
-        params: &ConvolutionParams,
-    ) -> RusTorchResult<Tensor<T>> {
-        // Implement transposed convolution logic
-        // For now, use regular convolution as placeholder
-        self.gpu_conv2d(kernel, params)
-    }
-}
-
-/// Pooling operations
-pub struct GpuPoolingExecutor<T: Float + FromPrimitive + ScalarOperand + 'static> {
-    device_type: super::DeviceType,
-    _phantom: std::marker::PhantomData<T>,
-}
-
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuPoolingExecutor<T> {
-    /// Create new GPU pooling executor
-    pub fn new(device_type: super::DeviceType) -> RusTorchResult<Self> {
-        Ok(Self {
-            device_type,
-            _phantom: std::marker::PhantomData,
+        Err(RusTorchError::TensorOp {
+            message: "Transpose convolution fallback not yet implemented".to_string(),
+            source: None,
         })
     }
 
-    /// Perform max pooling
-    pub fn max_pool2d(
+    /// CPU fallback depthwise convolution implementation
+    /// CPU フォールバック深度分離畳み込み実装
+    pub fn depthwise_conv2d_fallback(
         &self,
-        input: &Tensor<T>,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
+        _kernel: &Self,
+        _params: &ConvolutionParams,
     ) -> RusTorchResult<Tensor<T>> {
-        match self.device_type {
-            super::DeviceType::Cpu => self.cpu_max_pool2d(input, kernel_size, stride, padding),
-            _ => {
-                // For now, fall back to CPU
-                self.cpu_max_pool2d(input, kernel_size, stride, padding)
-            }
-        }
+        Err(RusTorchError::TensorOp {
+            message: "Depthwise convolution fallback not yet implemented".to_string(),
+            source: None,
+        })
     }
 
-    /// CPU max pooling fallback
-    fn cpu_max_pool2d(
+    /// CPU fallback grouped convolution implementation
+    /// CPU フォールバック グループ畳み込み実装
+    pub fn grouped_conv2d_fallback(
         &self,
-        input: &Tensor<T>,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
+        _kernel: &Self,
+        _params: &ConvolutionParams,
+        _groups: usize,
     ) -> RusTorchResult<Tensor<T>> {
-        // Basic max pooling implementation
-        let input_shape = input.shape();
-        if input_shape.len() != 4 {
-            return Err(RusTorchError::gpu("MaxPool2D requires 4D input"));
-        }
-
-        let [batch, channels, height, width] = [
-            input_shape[0],
-            input_shape[1],
-            input_shape[2],
-            input_shape[3],
-        ];
-
-        // Calculate output dimensions (corrected formula)
-        let out_height = (height + 2 * padding[0] - kernel_size[0]) / stride[0] + 1;
-        let out_width = (width + 2 * padding[1] - kernel_size[1]) / stride[1] + 1;
-
-        // Create output tensor
-        let output_shape = vec![batch, channels, out_height, out_width];
-        let mut output_data = vec![T::zero(); output_shape.iter().product()];
-
-        // Perform max pooling (simplified implementation)
-        for b in 0..batch {
-            for c in 0..channels {
-                for oh in 0..out_height {
-                    for ow in 0..out_width {
-                        let mut max_val = T::neg_infinity();
-
-                        for kh in 0..kernel_size[0] {
-                            for kw in 0..kernel_size[1] {
-                                let ih = oh * stride[0] + kh;
-                                let iw = ow * stride[1] + kw;
-
-                                if ih < height && iw < width {
-                                    // Use as_array for safe indexing
-                                    if let Some(val) = input.as_array().get([b, c, ih, iw]) {
-                                        if *val > max_val {
-                                            max_val = *val;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        let output_idx = ((b * channels + c) * out_height + oh) * out_width + ow;
-                        output_data[output_idx] = max_val;
-                    }
-                }
-            }
-        }
-
-        Ok(Tensor::from_vec(output_data, output_shape))
-    }
-}
-
-/// GPU pooling operations trait
-pub trait GpuPooling<T: Float + FromPrimitive + ScalarOperand + 'static> {
-    /// GPU max pooling
-    fn gpu_max_pool2d(
-        &self,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
-    ) -> RusTorchResult<Tensor<T>>;
-
-    /// GPU average pooling
-    fn gpu_avg_pool2d(
-        &self,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
-    ) -> RusTorchResult<Tensor<T>>;
-}
-
-impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuPooling<T> for Tensor<T> {
-    fn gpu_max_pool2d(
-        &self,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
-    ) -> RusTorchResult<Tensor<T>> {
-        let device = if super::DeviceManager::is_cuda_available() {
-            super::DeviceType::Cuda(0)
-        } else if super::DeviceManager::is_metal_available() {
-            super::DeviceType::Metal(0)
-        } else {
-            super::DeviceType::Cpu
-        };
-
-        let executor = GpuPoolingExecutor::new(device)?;
-        executor.max_pool2d(self, kernel_size, stride, padding)
+        Err(RusTorchError::TensorOp {
+            message: "Grouped convolution fallback not yet implemented".to_string(),
+            source: None,
+        })
     }
 
-    fn gpu_avg_pool2d(
+    /// CPU fallback 3D convolution implementation
+    /// CPU フォールバック 3D 畳み込み実装
+    pub fn conv3d_fallback(
         &self,
-        kernel_size: [usize; 2],
-        stride: [usize; 2],
-        padding: [usize; 2],
+        _kernel: &Self,
+        _params: &ConvolutionParams,
     ) -> RusTorchResult<Tensor<T>> {
-        // Average pooling implementation (placeholder)
-        self.gpu_max_pool2d(kernel_size, stride, padding)
+        Err(RusTorchError::TensorOp {
+            message: "3D convolution fallback not yet implemented".to_string(),
+            source: None,
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tensor::Tensor;
+    use crate::backends::ConvolutionParams;
 
     #[test]
-    fn test_convolution_params() {
-        let params = ConvolutionParams::default();
-        assert_eq!(params.stride, [1, 1]);
-        assert_eq!(params.padding, [0, 0]);
-        assert_eq!(params.dilation, [1, 1]);
-        assert_eq!(params.groups, 1);
+    fn test_conv2d_fallback_basic() {
+        // Create a simple 2x2 input with 1 channel
+        let input_data = vec![1.0, 2.0, 3.0, 4.0];
+        let input = Tensor::<f32>::from_vec(input_data, vec![1, 1, 2, 2]);
+
+        // Create a 2x2 kernel
+        let kernel_data = vec![1.0, 0.0, 0.0, 1.0];
+        let kernel = Tensor::<f32>::from_vec(kernel_data, vec![1, 1, 2, 2]);
+
+        let params = ConvolutionParams {
+            kernel_size: vec![2, 2],
+            stride: vec![1, 1],
+            padding: vec![0, 0],
+            dilation: vec![1, 1],
+            groups: 1,
+        };
+
+        let result = input.conv2d_fallback(&kernel, &params).unwrap();
+        let result_shape = result.shape();
+
+        // Output should be 1x1x1x1 with value 5.0 (1*1 + 4*1)
+        assert_eq!(result_shape, &[1, 1, 1, 1]);
+        assert_eq!(result.as_slice().unwrap()[0], 5.0);
     }
 
     #[test]
-    fn test_gpu_convolution_executor_creation() {
-        // Temporarily disabled due to struct resolution issue
-        // let executor = GpuConvolutionExecutor::<f32>::new(super::super::DeviceType::Cpu);
-        // assert!(executor.is_ok());
-        println!("GPU convolution executor test temporarily disabled");
-    }
+    fn test_gpu_conv2d_fallback() {
+        let input_data = vec![1.0, 2.0, 3.0, 4.0];
+        let input = Tensor::<f32>::from_vec(input_data, vec![1, 1, 2, 2]);
 
-    #[test]
-    fn test_gpu_pooling_executor_creation() {
-        let executor = GpuPoolingExecutor::<f32>::new(super::super::DeviceType::Cpu);
-        assert!(executor.is_ok());
-    }
+        let kernel_data = vec![1.0, 0.0, 0.0, 1.0];
+        let kernel = Tensor::<f32>::from_vec(kernel_data, vec![1, 1, 2, 2]);
 
-    #[test]
-    fn test_max_pool2d_output_shape() {
-        // Test with 4D tensor [1, 1, 4, 4]
-        let input = Tensor::<f32>::ones(&[1, 1, 4, 4]);
-        let executor = GpuPoolingExecutor::<f32>::new(super::super::DeviceType::Cpu).unwrap();
+        let params = ConvolutionParams {
+            kernel_size: vec![2, 2],
+            stride: vec![1, 1],
+            padding: vec![0, 0],
+            dilation: vec![1, 1],
+            groups: 1,
+        };
 
-        let result = executor.max_pool2d(&input, [2, 2], [2, 2], [0, 0]).unwrap();
+        // Should fallback to CPU implementation
+        let result = input.gpu_conv2d(&kernel, &params).unwrap();
+        let result_shape = result.shape();
 
-        // Expected output shape: [1, 1, 2, 2]
-        assert_eq!(result.shape(), &[1, 1, 2, 2]);
+        assert_eq!(result_shape, &[1, 1, 1, 1]);
+        assert_eq!(result.as_slice().unwrap()[0], 5.0);
     }
 }

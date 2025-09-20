@@ -81,6 +81,21 @@ impl GpuMemoryPool {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML memory allocation not supported".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto memory allocation not supported".to_string(),
+                ));
+            }
         };
 
         if base_ptr == 0 && !matches!(device, DeviceType::Cpu) {
@@ -279,6 +294,19 @@ impl GpuMemoryPool {
                     Self::align_to(size, 256)
                 }
             }
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            &DeviceType::CoreML(_) => {
+                // Default alignment for CoreML
+                Self::align_to(size, 128)
+            }
+            &DeviceType::Auto => {
+                // Default alignment for Auto
+                Self::align_to(size, 128)
+            }
         };
 
         // Ensure minimum alignment for the platform
@@ -363,6 +391,17 @@ impl Drop for GpuMemoryPool {
                 {
                     // OpenCL buffer deallocation would go here
                 }
+            }
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            DeviceType::CoreML(_) => {
+                // No manual deallocation needed for CoreML
+            }
+            DeviceType::Auto => {
+                // No manual deallocation needed for Auto
             }
         }
     }
@@ -507,6 +546,21 @@ impl DataTransfer {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
             }
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML data transfer not supported".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto data transfer not supported".to_string(),
+                ));
+            }
         }
 
         Ok(())
@@ -561,6 +615,21 @@ impl DataTransfer {
                 {
                     return Err(RusTorchError::gpu("OpenCL not supported"));
                 }
+            }
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            DeviceType::CoreML(_) => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "CoreML data transfer not supported".to_string(),
+                ));
+            }
+            DeviceType::Auto => {
+                return Err(RusTorchError::UnsupportedDevice(
+                    "Auto data transfer not supported".to_string(),
+                ));
             }
         }
 

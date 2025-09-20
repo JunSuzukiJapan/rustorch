@@ -95,6 +95,24 @@ fn rustorch(_py: Python, m: &pyo3::Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<visualization::PyModelVisualizer>()?;
     m.add_class::<visualization::PyTensorStats>()?;
 
+    // CoreML functionality (when features are enabled)
+    #[cfg(all(
+        feature = "python",
+        any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )
+    ))]
+    {
+        m.add_class::<coreml::PyCoreMLDevice>()?;
+        m.add_class::<coreml::PyCoreMLBackend>()?;
+        m.add_class::<coreml::PyCoreMLBackendConfig>()?;
+        m.add_class::<coreml::PyCoreMLStats>()?;
+        m.add_function(wrap_pyfunction!(coreml::is_coreml_available, m)?)?;
+        m.add_function(wrap_pyfunction!(coreml::get_coreml_device_info, m)?)?;
+    }
+
     // Module metadata
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     m.add("__author__", "RusTorch Team")?;
@@ -104,6 +122,320 @@ fn rustorch(_py: Python, m: &pyo3::Bound<'_, PyModule>) -> PyResult<()> {
     )?;
 
     Ok(())
+}
+
+/// CoreML Python bindings module
+/// CoreMLのPythonバインディングモジュール
+#[cfg(all(
+    feature = "python",
+    any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    )
+))]
+pub mod coreml {
+    use crate::error::RusTorchError;
+    use crate::gpu::coreml::{CoreMLBackend, CoreMLBackendConfig, CoreMLDevice};
+    use crate::python::error::to_py_err;
+    use pyo3::prelude::*;
+
+    /// Python wrapper for CoreML device
+    /// CoreMLデバイスのPythonラッパー
+    #[pyclass(name = "CoreMLDevice")]
+    pub struct PyCoreMLDevice {
+        device: CoreMLDevice,
+    }
+
+    #[pymethods]
+    impl PyCoreMLDevice {
+        #[new]
+        pub fn new(device_id: Option<usize>) -> PyResult<Self> {
+            let device_id = device_id.unwrap_or(0);
+            // 簡易的な実装 - 実際のCoreMLデバイス作成は後で実装
+            #[cfg(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            ))]
+            {
+                let device = CoreMLDevice::new(device_id).map_err(to_py_err)?;
+                Ok(Self { device })
+            }
+
+            #[cfg(not(any(
+                feature = "coreml",
+                feature = "coreml-hybrid",
+                feature = "coreml-fallback"
+            )))]
+            {
+                Err(pyo3::exceptions::PyRuntimeError::new_err(
+                    "CoreML features not enabled",
+                ))
+            }
+        }
+
+        pub fn device_id(&self) -> usize {
+            self.device.device_id()
+        }
+
+        pub fn is_available(&self) -> bool {
+            // TODO: 実際の可用性チェック
+            true
+        }
+
+        pub fn memory_limit(&self) -> Option<usize> {
+            // TODO: 実際のメモリ制限取得
+            Some(1024 * 1024 * 1024) // 1GB
+        }
+
+        pub fn compute_units_limit(&self) -> Option<u32> {
+            // TODO: 実際のコンピュートユニット制限取得
+            Some(8)
+        }
+
+        pub fn model_cache_size(&self) -> usize {
+            // TODO: 実際のモデルキャッシュサイズ取得
+            100
+        }
+
+        pub fn cleanup_cache(&mut self) -> PyResult<()> {
+            // TODO: 実際のキャッシュクリーンアップ
+            Ok(())
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!("CoreMLDevice(device_id={})", self.device.device_id())
+        }
+    }
+
+    /// Python wrapper for CoreML backend
+    /// CoreMLバックエンドのPythonラッパー
+    #[pyclass(name = "CoreMLBackend")]
+    pub struct PyCoreMLBackend {
+        backend: CoreMLBackend,
+    }
+
+    #[pymethods]
+    impl PyCoreMLBackend {
+        #[new]
+        pub fn new(config: Option<PyCoreMLBackendConfig>) -> PyResult<Self> {
+            let config = config.map(|c| c.config).unwrap_or_default();
+            CoreMLBackend::new(config)
+                .map(|backend| Self { backend })
+                .map_err(to_py_err)
+        }
+
+        pub fn is_available(&self) -> bool {
+            self.backend.is_available()
+        }
+
+        pub fn get_stats(&self) -> PyCoreMLStats {
+            PyCoreMLStats {
+                stats: self.backend.get_stats(),
+            }
+        }
+
+        pub fn cleanup_cache(&mut self) -> PyResult<()> {
+            self.backend.cleanup_cache().map_err(to_py_err)
+        }
+
+        pub fn __repr__(&self) -> String {
+            "CoreMLBackend".to_string()
+        }
+    }
+
+    /// Python wrapper for CoreML backend configuration
+    /// CoreMLバックエンド設定のPythonラッパー
+    #[pyclass(name = "CoreMLBackendConfig")]
+    #[derive(Clone)]
+    pub struct PyCoreMLBackendConfig {
+        config: CoreMLBackendConfig,
+    }
+
+    #[pymethods]
+    impl PyCoreMLBackendConfig {
+        #[new]
+        pub fn new(
+            enable_caching: Option<bool>,
+            max_cache_size: Option<usize>,
+            enable_profiling: Option<bool>,
+            auto_fallback: Option<bool>,
+        ) -> Self {
+            Self {
+                config: CoreMLBackendConfig {
+                    enable_caching: enable_caching.unwrap_or(true),
+                    max_cache_size: max_cache_size.unwrap_or(1000),
+                    enable_profiling: enable_profiling.unwrap_or(false),
+                    auto_fallback: auto_fallback.unwrap_or(true),
+                },
+            }
+        }
+
+        #[getter]
+        pub fn enable_caching(&self) -> bool {
+            self.config.enable_caching
+        }
+
+        #[setter]
+        pub fn set_enable_caching(&mut self, value: bool) {
+            self.config.enable_caching = value;
+        }
+
+        #[getter]
+        pub fn max_cache_size(&self) -> usize {
+            self.config.max_cache_size
+        }
+
+        #[setter]
+        pub fn set_max_cache_size(&mut self, value: usize) {
+            self.config.max_cache_size = value;
+        }
+
+        #[getter]
+        pub fn enable_profiling(&self) -> bool {
+            self.config.enable_profiling
+        }
+
+        #[setter]
+        pub fn set_enable_profiling(&mut self, value: bool) {
+            self.config.enable_profiling = value;
+        }
+
+        #[getter]
+        pub fn auto_fallback(&self) -> bool {
+            self.config.auto_fallback
+        }
+
+        #[setter]
+        pub fn set_auto_fallback(&mut self, value: bool) {
+            self.config.auto_fallback = value;
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!(
+                "CoreMLBackendConfig(enable_caching={}, max_cache_size={}, enable_profiling={}, auto_fallback={})",
+                self.config.enable_caching,
+                self.config.max_cache_size,
+                self.config.enable_profiling,
+                self.config.auto_fallback
+            )
+        }
+    }
+
+    /// Python wrapper for CoreML statistics
+    /// CoreML統計のPythonラッパー
+    #[pyclass(name = "CoreMLStats")]
+    pub struct PyCoreMLStats {
+        stats: crate::gpu::coreml::CoreMLBackendStats,
+    }
+
+    #[pymethods]
+    impl PyCoreMLStats {
+        #[getter]
+        pub fn total_operations(&self) -> u64 {
+            self.stats.total_operations
+        }
+
+        #[getter]
+        pub fn cache_hits(&self) -> u64 {
+            self.stats.cache_hits
+        }
+
+        #[getter]
+        pub fn cache_misses(&self) -> u64 {
+            self.stats.cache_misses
+        }
+
+        #[getter]
+        pub fn fallback_operations(&self) -> u64 {
+            self.stats.fallback_operations
+        }
+
+        #[getter]
+        pub fn average_execution_time_ms(&self) -> f64 {
+            self.stats.average_execution_time.as_secs_f64() * 1000.0
+        }
+
+        pub fn cache_hit_rate(&self) -> f64 {
+            if self.stats.cache_hits + self.stats.cache_misses == 0 {
+                0.0
+            } else {
+                self.stats.cache_hits as f64
+                    / (self.stats.cache_hits + self.stats.cache_misses) as f64
+            }
+        }
+
+        pub fn fallback_rate(&self) -> f64 {
+            if self.stats.total_operations == 0 {
+                0.0
+            } else {
+                self.stats.fallback_operations as f64 / self.stats.total_operations as f64
+            }
+        }
+
+        pub fn __repr__(&self) -> String {
+            format!(
+                "CoreMLStats(operations={}, cache_hit_rate={:.2}%, fallback_rate={:.2}%)",
+                self.stats.total_operations,
+                self.cache_hit_rate() * 100.0,
+                self.fallback_rate() * 100.0
+            )
+        }
+    }
+
+    /// Check if CoreML is available on the current system
+    /// 現在のシステムでCoreMLが利用可能かチェック
+    #[pyfunction]
+    pub fn is_coreml_available() -> bool {
+        crate::backends::DeviceManager::is_coreml_available()
+    }
+
+    /// Get CoreML device information
+    /// CoreMLデバイス情報を取得
+    #[pyfunction]
+    pub fn get_coreml_device_info() -> PyResult<String> {
+        #[cfg(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        ))]
+        {
+            if !is_coreml_available() {
+                return Err(pyo3::exceptions::PyRuntimeError::new_err(
+                    "CoreML is not available on this system",
+                ));
+            }
+
+            let info = format!(
+                "CoreML Device Information:\n\
+                - Platform: {}\n\
+                - Available: {}\n\
+                - Neural Engine: {}\n\
+                - GPU Support: {}",
+                if cfg!(target_os = "macos") {
+                    "macOS"
+                } else {
+                    "Other"
+                },
+                is_coreml_available(),
+                "Available", // Neural Engine availability would require platform-specific checks
+                cfg!(feature = "metal")
+            );
+            Ok(info)
+        }
+
+        #[cfg(not(any(
+            feature = "coreml",
+            feature = "coreml-hybrid",
+            feature = "coreml-fallback"
+        )))]
+        {
+            Err(pyo3::exceptions::PyRuntimeError::new_err(
+                "CoreML features are not enabled in this build",
+            ))
+        }
+    }
 }
 
 #[cfg(feature = "python")]

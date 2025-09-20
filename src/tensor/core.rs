@@ -765,3 +765,50 @@ impl<T: Float + 'static> Tensor<T> {
         meta
     }
 }
+
+// Hybrid execution implementation for Tensor
+// TensorのHybridExecution実装
+#[cfg(any(
+    feature = "coreml",
+    feature = "coreml-hybrid",
+    feature = "coreml-fallback",
+    feature = "metal",
+    feature = "cuda"
+))]
+impl<T: Float + 'static> crate::gpu::hybrid_executor::HybridExecution<T> for Tensor<T> {
+    fn hybrid_operation<F, R>(
+        &self,
+        op_type: crate::gpu::OpType,
+        operation: F,
+    ) -> crate::error::RusTorchResult<R>
+    where
+        F: Fn(crate::gpu::DeviceType) -> crate::error::RusTorchResult<R>,
+    {
+        use crate::gpu::hybrid_executor::HybridExecutor;
+
+        let tensor_info = self.tensor_info();
+        let executor = HybridExecutor::new();
+        executor.execute(op_type, tensor_info, operation)
+    }
+
+    fn tensor_info(&self) -> crate::gpu::hybrid_executor::TensorInfo {
+        use crate::dtype::DType;
+        use std::mem;
+
+        // Determine DType based on generic type T
+        let dtype = if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f32>() {
+            DType::Float32
+        } else if std::any::TypeId::of::<T>() == std::any::TypeId::of::<f64>() {
+            DType::Float64
+        } else {
+            DType::Float32 // Default fallback
+        };
+
+        crate::gpu::hybrid_executor::TensorInfo {
+            dtype,
+            shape: self.shape().to_vec(),
+            requires_custom_kernel: false, // For now, assume standard kernels
+            memory_size_bytes: self.numel() * mem::size_of::<T>(),
+        }
+    }
+}

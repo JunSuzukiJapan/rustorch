@@ -167,6 +167,13 @@ impl CustomKernelManager {
             DeviceType::Cpu => Err(RusTorchError::UnsupportedOperation(
                 "Custom kernels not supported on CPU".to_string(),
             )),
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(_) => Err(RusTorchError::UnsupportedOperation(
+                "Custom kernels not supported on CoreML".to_string(),
+            )),
+            DeviceType::Auto => Err(RusTorchError::UnsupportedOperation(
+                "Custom kernels not supported on Auto device".to_string(),
+            )),
         }
     }
 

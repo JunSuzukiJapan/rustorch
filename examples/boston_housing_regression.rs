@@ -227,7 +227,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             print!("  ");
         }
     }
-    if feature_names.len() % 3 != 0 {
+    if !feature_names.len().is_multiple_of(3) {
         println!();
     }
 

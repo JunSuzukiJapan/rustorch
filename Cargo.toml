@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.6.18"
+version = "0.6.19"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -118,6 +118,8 @@ wgpu-types = { version = "23.0", optional = true }
 cudarc = { version = "0.11", optional = true, features = ["f16", "cublas", "cuda-12050"] }
 metal = { version = "0.32", optional = true }
 objc = { version = "0.2", optional = true }
+objc2-core-ml = { version = "0.2", optional = true }
+objc2-foundation = { version = "0.2", optional = true }
 # objc_exception は macOS 専用の依存関係として後で追加します
 opencl3 = { version = "0.9", optional = true }
 
@@ -161,6 +163,10 @@ cuda = ["dep:cudarc", "dep:bytemuck"]
 opencl = ["dep:opencl3"]
 metal = ["dep:metal", "dep:objc"]
 nccl = ["dep:nccl"]
+# CoreML support for Apple devices
+coreml = ["dep:objc2-core-ml", "dep:objc2-foundation", "dep:metal"]
+coreml-hybrid = ["coreml", "metal", "cuda"]  # CoreML + GPU hybrid execution
+coreml-fallback = ["coreml-hybrid"]          # Automatic fallback system
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 webgpu = ["wasm", "dep:wgpu", "dep:wgpu-hal", "dep:wgpu-core", "dep:wgpu-types", "dep:bytemuck"]
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
