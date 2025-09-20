@@ -4,8 +4,7 @@
 //! This test suite validates the hybrid execution system that provides CoreML support
 //! through the unified GPU trait system with automatic fallback to GPU/CPU backends.
 
-use rustorch::error::RusTorchResult;
-use rustorch::gpu::{DeviceType, OpType};
+// Required imports removed as they are unused in current test configuration
 use rustorch::tensor::Tensor;
 
 #[cfg(any(
@@ -19,12 +18,11 @@ use rustorch::gpu::{GpuActivation, GpuConvolution, GpuLinearAlgebra};
 /// CoreML線形代数演算のテストモジュール
 #[cfg(test)]
 mod linear_algebra_tests {
-    use super::*;
 
     #[test]
     fn test_coreml_matmul_basic() {
-        let a = Tensor::zeros(&[2, 3]).unwrap();
-        let b = Tensor::zeros(&[3, 4]).unwrap();
+        let a = Tensor::zeros(&[2, 3]);
+        let b = Tensor::zeros(&[3, 4]);
 
         // Test matrix multiplication with hybrid execution
         // ハイブリッド実行による行列乗算テスト
@@ -46,8 +44,8 @@ mod linear_algebra_tests {
 
     #[test]
     fn test_coreml_matrix_vector_multiplication() {
-        let matrix = Tensor::eye(4).unwrap();
-        let vector = Tensor::ones(&[4, 1]).unwrap();
+        let matrix = Tensor::ones(&[4, 4]);
+        let vector = Tensor::ones(&[4, 1]);
 
         #[cfg(any(feature = "coreml", feature = "coreml-hybrid"))]
         {
@@ -60,7 +58,7 @@ mod linear_algebra_tests {
 
     #[test]
     fn test_coreml_transpose() {
-        let input = Tensor::zeros(&[3, 5]).unwrap();
+        let input = Tensor::zeros(&[3, 5]);
 
         #[cfg(any(feature = "coreml", feature = "coreml-hybrid"))]
         {
@@ -112,8 +110,6 @@ mod linear_algebra_tests {
 /// CoreML畳み込み演算のテストモジュール
 #[cfg(test)]
 mod convolution_tests {
-    use super::*;
-    use rustorch::backends::ConvolutionParams;
 
     #[test]
     #[cfg(any(feature = "coreml", feature = "coreml-hybrid"))]
@@ -218,7 +214,6 @@ mod convolution_tests {
 /// CoreML活性化関数演算のテストモジュール
 #[cfg(test)]
 mod activation_tests {
-    use super::*;
 
     #[test]
     #[cfg(any(feature = "coreml", feature = "coreml-hybrid"))]
@@ -353,7 +348,6 @@ mod activation_tests {
 /// ハイブリッド実行システムのテストモジュール
 #[cfg(test)]
 mod hybrid_execution_tests {
-    use super::*;
 
     #[test]
     #[cfg(any(feature = "coreml-hybrid", feature = "coreml-fallback"))]
@@ -477,8 +471,6 @@ mod hybrid_execution_tests {
 /// 複数演算を組み合わせた統合テスト
 #[cfg(test)]
 mod integration_tests {
-    use super::*;
-    use rustorch::backends::ConvolutionParams;
 
     #[test]
     #[cfg(any(feature = "coreml", feature = "coreml-hybrid"))]
@@ -575,7 +567,7 @@ mod integration_tests {
 /// CoreML演算のベンチマークテスト
 #[cfg(test)]
 mod benchmark_tests {
-    use super::*;
+    #[allow(unused_imports)]
     use std::time::Instant;
 
     #[test]

@@ -148,7 +148,7 @@ mod coreml_feature_tests {
         let b = Tensor::ones(&[4, 4]);
 
         // Should fall back to standard operations
-        let result = a.matmul(&b);
+        let result = a.dot(&b);
         assert!(result.is_ok());
     }
 
@@ -321,7 +321,7 @@ mod compatibility_tests {
         let tensor = Tensor::from_vec(data.clone(), vec![2, 2]);
 
         // Data should be preserved regardless of platform
-        let retrieved_data = tensor.data();
+        let retrieved_data = &tensor.data;
         for (original, retrieved) in data.iter().zip(retrieved_data.iter()) {
             assert!((original - retrieved).abs() < 1e-6);
         }
