@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758347851261,
+  "lastUpdate": 1758451812558,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -555,6 +555,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "d11bc914c37fe7ec8a274acc951920a3dbf5b338",
+          "message": "fix: correct conditional compilation for hybrid_executor imports\n\n- Remove metal and cuda features from hybrid_executor impl condition\n- hybrid_executor is only available with CoreML features (coreml, coreml-hybrid, coreml-fallback)\n- Fixes compilation errors when using metal feature without CoreML features\n- Resolves Extended Nightly Tests CI failures\n\nTested feature combinations:\n- ✅ --features metal\n- ✅ --no-default-features\n- ✅ --features coreml\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-21T19:48:48+09:00",
+          "tree_id": "c161a918e67771d0909c505bc822084585cc73bb",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/d11bc914c37fe7ec8a274acc951920a3dbf5b338"
+        },
+        "date": 1758451810319,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
