@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758451812558,
+  "lastUpdate": 1758452760314,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -586,6 +586,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "53539fa47d16474bd8fe7105fb13302b9529cfcd",
+          "message": "style: apply cargo fmt formatting and enhance IDE configuration\n\nCode formatting:\n- Fix conditional compilation attribute formatting (multi-line cfg attributes)\n- Remove extra blank lines between functions\n- Apply proper line wrapping for long error messages\n\nIDE enhancements:\n- Add .cargo/config.toml with clippy warnings and build optimization\n- Add rust-project.json for improved language server integration\n- Update .vscode/settings.json with rust-analyzer auto-refresh settings\n- Update Claude settings with git update-index permissions\n\nAll changes improve developer experience and ensure consistent code style.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-21T20:04:38+09:00",
+          "tree_id": "217ba86c2863959cf88280c7cafe1f02197e7112",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/53539fa47d16474bd8fe7105fb13302b9529cfcd"
+        },
+        "date": 1758452758241,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
