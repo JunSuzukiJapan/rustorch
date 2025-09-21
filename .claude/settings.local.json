@@ -189,7 +189,10 @@
       "Bash(git update-index:*)",
       "Bash(git config:*)",
       "Bash(timeout 15 cargo run --example device_performance_comparison --no-default-features)",
-      "Bash(timeout 30 cargo check --features metal)"
+      "Bash(timeout 30 cargo check --features metal)",
+      "Bash(rm:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
     ],
     "deny": [],
     "ask": [],

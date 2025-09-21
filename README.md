@@ -85,7 +85,7 @@ rustorch-jupyter          # Global command / グローバルコマンド
 | 🦀🐍 **Hybrid** | `./start_jupyter_hybrid.sh` | Python + Rust dual-kernel environment |
 | 🐍 **Python** | `./start_jupyter.sh` | Standard CPU-based ML demos |
 | ⚡ **WebGPU** | `./start_jupyter_webgpu.sh` | Browser GPU acceleration (Chrome) |
-| 🦀 **Rust Kernel** | `./quick_start_rust_kernel.sh` | Native Rust in Jupyter |
+| 🦀 **Rust Kernel** | `./scripts/quick_start_rust_kernel.sh` | Native Rust in Jupyter |
 | 🌐 **Online** | [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/JunSuzukiJapan/rustorch/main?urlpath=lab) | No setup needed - run in browser |
 
 📚 **Detailed Setup**: [Complete Jupyter Guide](README_JUPYTER.md) | [日本語ガイド](docs/jupyter-wasm-guide.md)
@@ -365,7 +365,7 @@ docker build -t rustorch:latest .
 docker run -it rustorch:latest
 
 # GPU-enabled deployment
-docker build -f Dockerfile.gpu -t rustorch:gpu .
+docker build -f docker/Dockerfile.gpu -t rustorch:gpu .
 docker run --gpus all -it rustorch:gpu
 ```
 
