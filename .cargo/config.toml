@@ -1,0 +1,14 @@
+[target.'cfg(all())']
+rustflags = ["-W", "clippy::all"]
+
+[env]
+RUST_BACKTRACE = "1"
+
+[build]
+jobs = 4
+
+[net]
+retry = 3
+
+[term]
+color = "always"

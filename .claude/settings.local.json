@@ -186,7 +186,10 @@
       "Bash(timeout 30 cargo test --features python python_bindings_tests)",
       "Bash(timeout 30 cargo build --lib --no-default-features)",
       "Bash(timeout 30 cargo clippy --no-default-features -- -W clippy::all)",
-      "Bash(git update-index:*)"
+      "Bash(git update-index:*)",
+      "Bash(git config:*)",
+      "Bash(timeout 15 cargo run --example device_performance_comparison --no-default-features)",
+      "Bash(timeout 30 cargo check --features metal)"
     ],
     "deny": [],
     "ask": [],
