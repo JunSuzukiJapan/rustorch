@@ -771,9 +771,7 @@ impl<T: Float + 'static> Tensor<T> {
 #[cfg(any(
     feature = "coreml",
     feature = "coreml-hybrid",
-    feature = "coreml-fallback",
-    feature = "metal",
-    feature = "cuda"
+    feature = "coreml-fallback"
 ))]
 impl<T: Float + 'static> crate::gpu::hybrid_executor::HybridExecution<T> for Tensor<T> {
     fn hybrid_operation<F, R>(
