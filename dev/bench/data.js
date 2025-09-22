@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758537537125,
+  "lastUpdate": 1758545888906,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -648,6 +648,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "3dadd2d586230ff007afe73206098f2eabd83c8b",
+          "message": "fix: specify config path for cargo deny check in CI workflows\n\n- Add --config config/deny.toml to cargo deny commands in ci.yml and security.yml\n- Resolves license check errors by ensuring CI uses proper deny.toml configuration\n- Required licenses (MIT, Apache-2.0, Unlicense) are already allowed in config\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-22T21:56:47+09:00",
+          "tree_id": "50996a740139061bb92ea42d69ce6a2c513f28df",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/3dadd2d586230ff007afe73206098f2eabd83c8b"
+        },
+        "date": 1758545886262,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
