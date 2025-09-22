@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758545888906,
+  "lastUpdate": 1758552647573,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -679,6 +679,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30010,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "ebd3e8219912b333a0905125d8e3b91031ccf96e",
+          "message": "fix: add BSD-2-Clause license to cargo deny configuration\n\nAdd BSD-2-Clause to allowed licenses list in config/deny.toml to resolve\nCI Code Quality failures. This license is used by zerocopy crate and other\ndependencies but was missing from the allow list, causing cargo deny to\nreject valid open source licenses.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-22T23:49:13+09:00",
+          "tree_id": "6113f6e4b1c4d0a954d4f3de96cf04e85d5f3cda",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/ebd3e8219912b333a0905125d8e3b91031ccf96e"
+        },
+        "date": 1758552645345,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
