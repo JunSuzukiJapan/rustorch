@@ -570,55 +570,59 @@
 <a href=#570 id=570 data-nosnippet>570</a>
 <a href=#571 id=571 data-nosnippet>571</a>    <span class="attr">#[test]
 <a href=#572 id=572 data-nosnippet>572</a>    </span><span class="kw">fn </span>test_metrics_recording() {
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span>optimizer = PerformanceOptimizer::new();
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>        <span class="kw">let </span>metrics = PerformanceMetrics {
-<a href=#576 id=576 data-nosnippet>576</a>            operation_type: <span class="string">"test_op"</span>.to_string(),
-<a href=#577 id=577 data-nosnippet>577</a>            execution_time: Duration::from_millis(<span class="number">100</span>),
-<a href=#578 id=578 data-nosnippet>578</a>            memory_usage: <span class="number">1024</span>,
-<a href=#579 id=579 data-nosnippet>579</a>            device_type: DeviceType::Cpu,
-<a href=#580 id=580 data-nosnippet>580</a>            tensor_size: <span class="number">512</span>,
-<a href=#581 id=581 data-nosnippet>581</a>            timestamp: Instant::now(),
-<a href=#582 id=582 data-nosnippet>582</a>            energy_consumption: <span class="number">10.0</span>,
-<a href=#583 id=583 data-nosnippet>583</a>            thermal_state: ThermalState::Normal,
-<a href=#584 id=584 data-nosnippet>584</a>        };
-<a href=#585 id=585 data-nosnippet>585</a>
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="macro">assert!</span>(optimizer.record_metrics(metrics).is_ok());
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span><span class="kw-2">mut </span>optimizer = PerformanceOptimizer::new();
+<a href=#574 id=574 data-nosnippet>574</a>        <span class="comment">// Disable auto-tuning for test performance
+<a href=#575 id=575 data-nosnippet>575</a>        </span>optimizer.auto_tuning_enabled = <span class="bool-val">false</span>;
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">let </span>metrics = PerformanceMetrics {
+<a href=#578 id=578 data-nosnippet>578</a>            operation_type: <span class="string">"test_op"</span>.to_string(),
+<a href=#579 id=579 data-nosnippet>579</a>            execution_time: Duration::from_millis(<span class="number">100</span>),
+<a href=#580 id=580 data-nosnippet>580</a>            memory_usage: <span class="number">1024</span>,
+<a href=#581 id=581 data-nosnippet>581</a>            device_type: DeviceType::Cpu,
+<a href=#582 id=582 data-nosnippet>582</a>            tensor_size: <span class="number">512</span>,
+<a href=#583 id=583 data-nosnippet>583</a>            timestamp: Instant::now(),
+<a href=#584 id=584 data-nosnippet>584</a>            energy_consumption: <span class="number">10.0</span>,
+<a href=#585 id=585 data-nosnippet>585</a>            thermal_state: ThermalState::Normal,
+<a href=#586 id=586 data-nosnippet>586</a>        };
 <a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a>        <span class="kw">let </span>stats = optimizer.get_performance_stats().unwrap();
-<a href=#589 id=589 data-nosnippet>589</a>        <span class="macro">assert_eq!</span>(stats.total_operations, <span class="number">1</span>);
-<a href=#590 id=590 data-nosnippet>590</a>    }
-<a href=#591 id=591 data-nosnippet>591</a>
-<a href=#592 id=592 data-nosnippet>592</a>    <span class="attr">#[test]
-<a href=#593 id=593 data-nosnippet>593</a>    </span><span class="kw">fn </span>test_thermal_state_monitoring() {
-<a href=#594 id=594 data-nosnippet>594</a>        <span class="kw">let </span>optimizer = PerformanceOptimizer::new();
-<a href=#595 id=595 data-nosnippet>595</a>
-<a href=#596 id=596 data-nosnippet>596</a>        <span class="kw">let </span>metrics = PerformanceMetrics {
-<a href=#597 id=597 data-nosnippet>597</a>            operation_type: <span class="string">"test_op"</span>.to_string(),
-<a href=#598 id=598 data-nosnippet>598</a>            execution_time: Duration::from_millis(<span class="number">100</span>),
-<a href=#599 id=599 data-nosnippet>599</a>            memory_usage: <span class="number">1024</span>,
-<a href=#600 id=600 data-nosnippet>600</a>            device_type: DeviceType::Cpu,
-<a href=#601 id=601 data-nosnippet>601</a>            tensor_size: <span class="number">512</span>,
-<a href=#602 id=602 data-nosnippet>602</a>            timestamp: Instant::now(),
-<a href=#603 id=603 data-nosnippet>603</a>            energy_consumption: <span class="number">10.0</span>,
-<a href=#604 id=604 data-nosnippet>604</a>            thermal_state: ThermalState::Elevated,
-<a href=#605 id=605 data-nosnippet>605</a>        };
-<a href=#606 id=606 data-nosnippet>606</a>
-<a href=#607 id=607 data-nosnippet>607</a>        optimizer.record_metrics(metrics).unwrap();
-<a href=#608 id=608 data-nosnippet>608</a>
-<a href=#609 id=609 data-nosnippet>609</a>        <span class="kw">let </span>thermal = optimizer.thermal_monitoring.lock().unwrap();
-<a href=#610 id=610 data-nosnippet>610</a>        <span class="macro">assert_eq!</span>(thermal.get(<span class="kw-2">&amp;</span>DeviceType::Cpu), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ThermalState::Elevated));
-<a href=#611 id=611 data-nosnippet>611</a>    }
+<a href=#588 id=588 data-nosnippet>588</a>        <span class="macro">assert!</span>(optimizer.record_metrics(metrics).is_ok());
+<a href=#589 id=589 data-nosnippet>589</a>
+<a href=#590 id=590 data-nosnippet>590</a>        <span class="kw">let </span>stats = optimizer.get_performance_stats().unwrap();
+<a href=#591 id=591 data-nosnippet>591</a>        <span class="macro">assert_eq!</span>(stats.total_operations, <span class="number">1</span>);
+<a href=#592 id=592 data-nosnippet>592</a>    }
+<a href=#593 id=593 data-nosnippet>593</a>
+<a href=#594 id=594 data-nosnippet>594</a>    <span class="attr">#[test]
+<a href=#595 id=595 data-nosnippet>595</a>    </span><span class="kw">fn </span>test_thermal_state_monitoring() {
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="kw">let </span><span class="kw-2">mut </span>optimizer = PerformanceOptimizer::new();
+<a href=#597 id=597 data-nosnippet>597</a>        <span class="comment">// Disable auto-tuning for test performance
+<a href=#598 id=598 data-nosnippet>598</a>        </span>optimizer.auto_tuning_enabled = <span class="bool-val">false</span>;
+<a href=#599 id=599 data-nosnippet>599</a>
+<a href=#600 id=600 data-nosnippet>600</a>        <span class="kw">let </span>metrics = PerformanceMetrics {
+<a href=#601 id=601 data-nosnippet>601</a>            operation_type: <span class="string">"test_op"</span>.to_string(),
+<a href=#602 id=602 data-nosnippet>602</a>            execution_time: Duration::from_millis(<span class="number">100</span>),
+<a href=#603 id=603 data-nosnippet>603</a>            memory_usage: <span class="number">1024</span>,
+<a href=#604 id=604 data-nosnippet>604</a>            device_type: DeviceType::Cpu,
+<a href=#605 id=605 data-nosnippet>605</a>            tensor_size: <span class="number">512</span>,
+<a href=#606 id=606 data-nosnippet>606</a>            timestamp: Instant::now(),
+<a href=#607 id=607 data-nosnippet>607</a>            energy_consumption: <span class="number">10.0</span>,
+<a href=#608 id=608 data-nosnippet>608</a>            thermal_state: ThermalState::Elevated,
+<a href=#609 id=609 data-nosnippet>609</a>        };
+<a href=#610 id=610 data-nosnippet>610</a>
+<a href=#611 id=611 data-nosnippet>611</a>        optimizer.record_metrics(metrics).unwrap();
 <a href=#612 id=612 data-nosnippet>612</a>
-<a href=#613 id=613 data-nosnippet>613</a>    <span class="attr">#[test]
-<a href=#614 id=614 data-nosnippet>614</a>    </span><span class="kw">fn </span>test_strategy_update() {
-<a href=#615 id=615 data-nosnippet>615</a>        <span class="kw">let </span>optimizer = PerformanceOptimizer::new();
+<a href=#613 id=613 data-nosnippet>613</a>        <span class="kw">let </span>thermal = optimizer.thermal_monitoring.lock().unwrap();
+<a href=#614 id=614 data-nosnippet>614</a>        <span class="macro">assert_eq!</span>(thermal.get(<span class="kw-2">&amp;</span>DeviceType::Cpu), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>ThermalState::Elevated));
+<a href=#615 id=615 data-nosnippet>615</a>    }
 <a href=#616 id=616 data-nosnippet>616</a>
-<a href=#617 id=617 data-nosnippet>617</a>        <span class="macro">assert!</span>(optimizer
-<a href=#618 id=618 data-nosnippet>618</a>            .set_optimization_strategy(OptimizationStrategy::LatencyOptimized)
-<a href=#619 id=619 data-nosnippet>619</a>            .is_ok());
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="attr">#[test]
+<a href=#618 id=618 data-nosnippet>618</a>    </span><span class="kw">fn </span>test_strategy_update() {
+<a href=#619 id=619 data-nosnippet>619</a>        <span class="kw">let </span>optimizer = PerformanceOptimizer::new();
 <a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a>        <span class="kw">let </span>strategy = optimizer.optimization_strategy.read().unwrap();
-<a href=#622 id=622 data-nosnippet>622</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>strategy, OptimizationStrategy::LatencyOptimized);
-<a href=#623 id=623 data-nosnippet>623</a>    }
-<a href=#624 id=624 data-nosnippet>624</a>}</code></pre></div></section></main></body></html>
+<a href=#621 id=621 data-nosnippet>621</a>        <span class="macro">assert!</span>(optimizer
+<a href=#622 id=622 data-nosnippet>622</a>            .set_optimization_strategy(OptimizationStrategy::LatencyOptimized)
+<a href=#623 id=623 data-nosnippet>623</a>            .is_ok());
+<a href=#624 id=624 data-nosnippet>624</a>
+<a href=#625 id=625 data-nosnippet>625</a>        <span class="kw">let </span>strategy = optimizer.optimization_strategy.read().unwrap();
+<a href=#626 id=626 data-nosnippet>626</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>strategy, OptimizationStrategy::LatencyOptimized);
+<a href=#627 id=627 data-nosnippet>627</a>    }
+<a href=#628 id=628 data-nosnippet>628</a>}</code></pre></div></section></main></body></html>
