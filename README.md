@@ -26,7 +26,7 @@
 **A production-ready deep learning library in Rust with PyTorch-like API, GPU acceleration, and enterprise-grade performance**  
 **本番環境対応のRust製ディープラーニングライブラリ - PyTorchライクなAPI、GPU加速、エンタープライズグレードパフォーマンス**
 
-RusTorch is a fully functional deep learning library that leverages Rust's safety and performance. **Phase 8 COMPLETED** brings advanced tensor utilities with **conditional operations, indexing, and statistical functions**. Features comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL), advanced SIMD optimizations, enterprise-grade memory management, data validation & quality assurance, and comprehensive debug & logging systems.
+RusTorch is a fully functional deep learning library that leverages Rust's safety and performance. **Phase 8 COMPLETED** brings advanced tensor utilities with **conditional operations, indexing, and statistical functions**. Features comprehensive tensor operations, automatic differentiation, neural network layers, transformer architectures, multi-backend GPU acceleration (CUDA/Metal/OpenCL/CoreML), advanced SIMD optimizations, enterprise-grade memory management, data validation & quality assurance, and comprehensive debug & logging systems.
 
 ## ✨ Features
 
@@ -37,7 +37,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🚀 **Dynamic Execution Engine**: JIT compilation and runtime optimization
 - 🏗️ **Neural Network Layers**: Linear, Conv1d/2d/3d, ConvTranspose, RNN/LSTM/GRU, BatchNorm, Dropout, and more
 - ⚡ **Cross-Platform Optimizations**: SIMD (AVX2/SSE/NEON), platform-specific, and hardware-aware optimizations
-- 🎮 **GPU Integration**: CUDA/Metal/OpenCL support with automatic device selection
+- 🎮 **GPU Integration**: CUDA/Metal/OpenCL/CoreML support with automatic device selection
 - 🌐 **WebAssembly Support**: Complete browser ML with Neural Network layers, Computer Vision, and real-time inference
 - 🎮 **WebGPU Integration**: Chrome-optimized GPU acceleration with CPU fallback for cross-browser compatibility
 - 📁 **Model Format Support**: Safetensors, ONNX inference, PyTorch state dict compatibility
@@ -103,8 +103,9 @@ rustorch = "0.6.20"
 default = ["linalg"]
 linalg = ["rustorch/linalg"]           # Linear algebra operations (SVD, QR, eigenvalue)
 cuda = ["rustorch/cuda"]
-metal = ["rustorch/metal"] 
+metal = ["rustorch/metal"]
 opencl = ["rustorch/opencl"]
+coreml = ["rustorch/coreml"]
 safetensors = ["rustorch/safetensors"]
 onnx = ["rustorch/onnx"]
 wasm = ["rustorch/wasm"]                # WebAssembly support for browser ML

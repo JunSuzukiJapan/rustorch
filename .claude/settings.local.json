@@ -192,7 +192,9 @@
       "Bash(timeout 30 cargo check --features metal)",
       "Bash(rm:*)",
       "Bash(mkdir:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(timeout 30 cargo test --no-default-features gpu::performance_optimizer::tests::test_metrics_recording -- --exact --nocapture)",
+      "Bash(timeout 30 cargo test --no-default-features gpu::performance_optimizer::tests::test_thermal_state_monitoring -- --exact --nocapture)"
     ],
     "deny": [],
     "ask": [],

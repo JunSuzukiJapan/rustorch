@@ -570,7 +570,9 @@ mod tests {
 
     #[test]
     fn test_metrics_recording() {
-        let optimizer = PerformanceOptimizer::new();
+        let mut optimizer = PerformanceOptimizer::new();
+        // Disable auto-tuning for test performance
+        optimizer.auto_tuning_enabled = false;
 
         let metrics = PerformanceMetrics {
             operation_type: "test_op".to_string(),
@@ -591,7 +593,9 @@ mod tests {
 
     #[test]
     fn test_thermal_state_monitoring() {
-        let optimizer = PerformanceOptimizer::new();
+        let mut optimizer = PerformanceOptimizer::new();
+        // Disable auto-tuning for test performance
+        optimizer.auto_tuning_enabled = false;
 
         let metrics = PerformanceMetrics {
             operation_type: "test_op".to_string(),
