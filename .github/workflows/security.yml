@@ -35,7 +35,7 @@ jobs:
         run: |
           # Ensure cargo-deny is in PATH
           export PATH="$HOME/.cargo/bin:$PATH"
-          cargo deny check
+          cargo deny check --config config/deny.toml
         shell: bash
 
       - name: Check for known vulnerabilities
@@ -100,7 +100,7 @@ jobs:
           cargo audit
           
           echo "=== Running cargo deny ==="
-          cargo deny check || echo "Cargo deny check completed with warnings"
+          cargo deny check --config config/deny.toml || echo "Cargo deny check completed with warnings"
           
           echo "=== Checking for outdated dependencies ==="
           cargo outdated || echo "Some dependencies are outdated - this is acceptable"
