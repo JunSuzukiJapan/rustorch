@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758452760314,
+  "lastUpdate": 1758537537125,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -617,6 +617,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "46d13be7de5166825d4d73c9a18cf07f64ed56c0",
+          "message": "fix: resolve CI timeout errors and add CoreML support to README\n\n- Fix GPU performance optimizer tests timing out in CI\n  - Disable auto-tuning in test_metrics_recording and test_thermal_state_monitoring\n  - Auto-tuning was causing heavy lock contention and 60s+ execution times\n  - Tests now complete in <1ms instead of timing out\n- Add CoreML feature to README.md documentation\n  - Include CoreML in feature list and GPU integration section\n  - Update project description to mention CoreML support\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-22T19:37:30+09:00",
+          "tree_id": "037b1d83ef6949e573eb199b03b16187c5fb2df0",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/46d13be7de5166825d4d73c9a18cf07f64ed56c0"
+        },
+        "date": 1758537534979,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
