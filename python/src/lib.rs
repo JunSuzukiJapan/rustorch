@@ -8,6 +8,8 @@ use rustorch::nn::loss::{MSELoss as RustMSELoss, Loss};
 use rustorch::nn::activation::{ReLU as RustReLU, sigmoid, tanh};
 use rustorch::nn::BatchNorm1d as RustBatchNorm1d;
 use rustorch::nn::Dropout as RustDropout;
+use rustorch::nn::Conv2d as RustConv2d;
+use rustorch::nn::MaxPool2d as RustMaxPool2d;
 use rustorch::optim::{Adam as RustAdam, Optimizer};
 
 /// Python Tensor wrapper for RusTorch Tensor<f32>
@@ -773,6 +775,173 @@ impl PyDropout {
     }
 }
 
+/// Python Conv2d wrapper for RusTorch Conv2d (Phase 4 - Convolutional layer)
+#[pyclass(name = "Conv2d")]
+pub struct PyConv2d {
+    pub inner: RustConv2d<f32>,
+}
+
+#[pymethods]
+impl PyConv2d {
+    /// Create a new Conv2d layer
+    #[new]
+    fn new(
+        in_channels: usize,
+        out_channels: usize,
+        kernel_size: (usize, usize),
+        stride: Option<(usize, usize)>,
+        padding: Option<(usize, usize)>,
+        bias: Option<bool>,
+    ) -> PyResult<Self> {
+        // Validate parameters
+        if in_channels == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err("in_channels must be > 0"));
+        }
+        if out_channels == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err("out_channels must be > 0"));
+        }
+        if kernel_size.0 == 0 || kernel_size.1 == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err("kernel_size must be > 0"));
+        }
+
+        let conv2d = RustConv2d::new(in_channels, out_channels, kernel_size, stride, padding, bias);
+        Ok(PyConv2d { inner: conv2d })
+    }
+
+    /// Forward pass through Conv2d
+    fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let result = self.inner.forward(&input.inner);
+        Ok(PyVariable { inner: result })
+    }
+
+    /// Call method (makes layer callable)
+    fn __call__(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(input)
+    }
+
+    /// Get weight parameter
+    #[getter]
+    fn weight(&self) -> PyVariable {
+        let params = self.inner.parameters();
+        PyVariable { inner: params[0].clone() }
+    }
+
+    /// Get bias parameter
+    #[getter]
+    fn bias(&self) -> Option<PyVariable> {
+        let params = self.inner.parameters();
+        if params.len() > 1 {
+            Some(PyVariable { inner: params[1].clone() })
+        } else {
+            None
+        }
+    }
+
+    /// Get input channels
+    #[getter]
+    fn in_channels(&self) -> usize {
+        self.inner.in_channels()
+    }
+
+    /// Get output channels
+    #[getter]
+    fn out_channels(&self) -> usize {
+        self.inner.out_channels()
+    }
+
+    /// Get kernel size
+    #[getter]
+    fn kernel_size(&self) -> (usize, usize) {
+        self.inner.kernel_size()
+    }
+
+    /// Get stride
+    #[getter]
+    fn stride(&self) -> (usize, usize) {
+        self.inner.stride()
+    }
+
+    /// Get padding
+    #[getter]
+    fn padding(&self) -> (usize, usize) {
+        self.inner.padding()
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!(
+            "Conv2d({}, {}, kernel_size={:?}, stride={:?}, padding={:?})",
+            self.inner.in_channels(),
+            self.inner.out_channels(),
+            self.inner.kernel_size(),
+            self.inner.stride(),
+            self.inner.padding()
+        )
+    }
+}
+
+/// Python MaxPool2d wrapper for RusTorch MaxPool2d (Phase 4 - Pooling layer)
+#[pyclass(name = "MaxPool2d")]
+pub struct PyMaxPool2d {
+    pub inner: RustMaxPool2d,
+}
+
+#[pymethods]
+impl PyMaxPool2d {
+    /// Create a new MaxPool2d layer
+    #[new]
+    fn new(
+        kernel_size: (usize, usize),
+        stride: Option<(usize, usize)>,
+        padding: Option<(usize, usize)>,
+    ) -> PyResult<Self> {
+        // Validate parameters
+        if kernel_size.0 == 0 || kernel_size.1 == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err("kernel_size must be > 0"));
+        }
+
+        let maxpool2d = RustMaxPool2d::new(kernel_size, stride, padding);
+        Ok(PyMaxPool2d { inner: maxpool2d })
+    }
+
+    /// Forward pass through MaxPool2d
+    fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let result = self.inner.forward(&input.inner);
+        Ok(PyVariable { inner: result })
+    }
+
+    /// Call method (makes layer callable)
+    fn __call__(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(input)
+    }
+
+    /// Get kernel size
+    #[getter]
+    fn kernel_size(&self) -> (usize, usize) {
+        self.inner.kernel_size()
+    }
+
+    /// Get stride
+    #[getter]
+    fn stride(&self) -> (usize, usize) {
+        self.inner.stride()
+    }
+
+    /// Get padding
+    #[getter]
+    fn padding(&self) -> (usize, usize) {
+        self.inner.padding()
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!(
+            "MaxPool2d(kernel_size={:?}, stride={:?}, padding={:?})",
+            self.inner.kernel_size(), self.inner.stride(), self.inner.padding()
+        )
+    }
+}
+
 /// RusTorch Python bindings module
 #[pymodule]
 fn _rustorch_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -787,6 +956,8 @@ fn _rustorch_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyTanh>()?;
     m.add_class::<PyBatchNorm1d>()?;
     m.add_class::<PyDropout>()?;
+    m.add_class::<PyConv2d>()?;
+    m.add_class::<PyMaxPool2d>()?;
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
     m.add_function(wrap_pyfunction!(tensor, m)?)?;

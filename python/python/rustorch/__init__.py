@@ -41,6 +41,8 @@ from rustorch._rustorch_py import (
     Linear,
     BatchNorm1d,
     Dropout,
+    Conv2d,
+    MaxPool2d,
 
     # Optimizers
     SGD,
@@ -81,6 +83,8 @@ __all__ = [
     "Linear",
     "BatchNorm1d",
     "Dropout",
+    "Conv2d",
+    "MaxPool2d",
 
     # Optimizers
     "SGD",
