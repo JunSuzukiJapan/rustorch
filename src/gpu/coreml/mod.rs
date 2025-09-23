@@ -17,6 +17,10 @@ pub mod operations;
 /// CoreMLバックエンド統合
 pub mod backend;
 
+/// CoreML model management and caching
+/// CoreMLモデル管理とキャッシュ
+pub mod model_manager;
+
 /// Hybrid execution integration with other GPU backends
 /// 他のGPUバックエンドとのハイブリッド実行統合
 pub mod integration;
@@ -26,4 +30,5 @@ pub use backend::*;
 pub use common::*;
 pub use device::*;
 pub use integration::*;
+pub use model_manager::*;
 pub use operations::*;

@@ -62,7 +62,7 @@ pub enum CoreMLOpType {
 
 /// CoreML activation function types
 /// CoreML活性化関数タイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CoreMLActivationType {
     ReLU,
     Sigmoid,
