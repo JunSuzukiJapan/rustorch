@@ -123,6 +123,51 @@ impl CoreMLBackend {
         })
     }
 
+    /// Detect Apple Neural Engine capabilities
+    /// Apple Neural Engine機能を検出
+    pub fn detect_neural_engine() -> NeuralEngineInfo {
+        #[cfg(all(feature = "coreml", target_os = "macos"))]
+        {
+            use std::process::Command;
+
+            // Detect Apple Silicon by checking system information
+            let apple_silicon = Command::new("sysctl")
+                .args(&["-n", "machdep.cpu.brand_string"])
+                .output()
+                .map(|output| {
+                    let cpu_info = String::from_utf8_lossy(&output.stdout);
+                    cpu_info.contains("Apple")
+                })
+                .unwrap_or(false);
+
+            // Neural Engine is available on Apple Silicon M1/M2/M3+ chips
+            let available = apple_silicon;
+
+            NeuralEngineInfo {
+                available,
+                apple_silicon,
+                optimal_batch_size: if apple_silicon { 16 } else { 1 },
+                optimal_matrix_size: if apple_silicon { 1024 } else { 256 },
+                supports_float16: apple_silicon,
+                supports_int8: apple_silicon,
+                max_ops_per_second: if apple_silicon { 15_000_000_000_000 } else { 0 }, // ~15 TOPS for M1/M2
+            }
+        }
+
+        #[cfg(not(all(feature = "coreml", target_os = "macos")))]
+        {
+            NeuralEngineInfo {
+                available: false,
+                apple_silicon: false,
+                optimal_batch_size: 1,
+                optimal_matrix_size: 256,
+                supports_float16: false,
+                supports_int8: false,
+                max_ops_per_second: 0,
+            }
+        }
+    }
+
     /// Create new CoreML backend
     /// 新しいCoreMLバックエンドを作成
     pub fn new(config: CoreMLBackendConfig) -> CoreMLResult<Self> {

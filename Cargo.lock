@@ -2522,7 +2522,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.6.20"
+version = "0.6.21"
 dependencies = [
  "anyhow",
  "approx",
