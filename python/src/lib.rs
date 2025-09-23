@@ -87,6 +87,83 @@ impl PyTensor {
         let result = &self.inner / &other.inner;
         Ok(PyTensor { inner: result })
     }
+
+    /// Matrix multiplication
+    fn matmul(&self, other: &PyTensor) -> PyResult<PyTensor> {
+        // Check dimensions for matrix multiplication
+        let self_shape = self.inner.shape();
+        let other_shape = other.inner.shape();
+
+        if self_shape.len() < 2 || other_shape.len() < 2 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Matrix multiplication requires at least 2D tensors"
+            ));
+        }
+
+        let self_rows = self_shape[self_shape.len() - 2];
+        let self_cols = self_shape[self_shape.len() - 1];
+        let other_rows = other_shape[other_shape.len() - 2];
+        let other_cols = other_shape[other_shape.len() - 1];
+
+        if self_cols != other_rows {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                format!("Matrix dimensions don't match: {}x{} @ {}x{}",
+                       self_rows, self_cols, other_rows, other_cols)
+            ));
+        }
+
+        let result = self.inner.matmul(&other.inner)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Matrix multiplication failed: {}", e)))?;
+        Ok(PyTensor { inner: result })
+    }
+
+    /// Transpose tensor (swap last two dimensions)
+    fn transpose(&self) -> PyResult<PyTensor> {
+        let shape = self.inner.shape();
+        if shape.len() < 2 {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Transpose requires at least 2D tensor"
+            ));
+        }
+
+        let result = self.inner.transpose()
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Transpose failed: {}", e)))?;
+        Ok(PyTensor { inner: result })
+    }
+
+    /// Reshape tensor to new shape
+    fn reshape(&self, new_shape: Vec<usize>) -> PyResult<PyTensor> {
+        // Validate new shape
+        let current_numel = self.inner.numel();
+        let new_numel: usize = new_shape.iter().product();
+
+        if current_numel != new_numel {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                format!("Cannot reshape tensor of {} elements to shape {:?} ({} elements)",
+                       current_numel, new_shape, new_numel)
+            ));
+        }
+
+        if new_shape.is_empty() || new_shape.iter().any(|&dim| dim == 0) {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "Invalid shape: dimensions must be positive"
+            ));
+        }
+
+        let result = self.inner.reshape(&new_shape)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Reshape failed: {}", e)))?;
+        Ok(PyTensor { inner: result })
+    }
+
+    /// Get sum of all elements in tensor
+    fn sum(&self) -> PyResult<f32> {
+        Ok(self.inner.sum())
+    }
+
+    /// Get mean of all elements in tensor
+    fn mean(&self) -> PyResult<f32> {
+        Ok(self.inner.mean())
+    }
 }
 
 /// Create a tensor filled with zeros
