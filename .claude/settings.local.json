@@ -194,7 +194,11 @@
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(timeout 30 cargo test --no-default-features gpu::performance_optimizer::tests::test_metrics_recording -- --exact --nocapture)",
-      "Bash(timeout 30 cargo test --no-default-features gpu::performance_optimizer::tests::test_thermal_state_monitoring -- --exact --nocapture)"
+      "Bash(timeout 30 cargo test --no-default-features gpu::performance_optimizer::tests::test_thermal_state_monitoring -- --exact --nocapture)",
+      "Bash(python:*)",
+      "Bash(maturin build:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(PYTHONPATH=/Users/junsuzuki/Program/Rust/RusTorch/rustorch/python/.venv/lib/python3.9/site-packages python test_direct.py)"
     ],
     "deny": [],
     "ask": [],

@@ -1,6 +1,6 @@
 [package]
 name = "rustorch-py"
-version = "0.3.4"
+version = "0.3.3"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Python bindings for RusTorch deep learning library"
@@ -13,6 +13,9 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.24.1", features = ["extension-module"] }
+numpy = "0.24"
+rustorch = { path = "..", features = [] }
+rand = "0.8"
 
 [build-dependencies]
 pyo3-build-config = "0.24.1"

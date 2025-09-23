@@ -5,4 +5,4 @@ rustflags = [
 ]
 
 [env]
-PYO3_PYTHON = "/usr/local/opt/python@3.9/bin/python3.9"
+PYO3_PYTHON = "/Library/Developer/CommandLineTools/usr/bin/python3"

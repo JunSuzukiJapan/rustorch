@@ -39,27 +39,46 @@ __email__ = "jun.suzuki.japan@gmail.com"
 
 # Re-export core classes and functions
 from rustorch._rustorch_py import (
+    # Core tensor classes
     Tensor,
-    Variable, 
+    Variable,
+
+    # Neural network layers
     Linear,
+    ReLU,
+    Sequential,
+    MSELoss,
+
+    # Optimizers
     SGD,
     Adam,
+
+    # Tensor creation functions
     tensor,
     zeros,
     ones,
     randn,
-    from_numpy,
-    matmul,
-    add,
-    sum as tensor_sum,
-    mean as tensor_mean,
-)
 
-# Module imports
+    # Basic functions
+    hello_from_rust,
+    get_version,
+    add_numbers,
+    sum_list,
+    create_simple_tensor,
+
+    # Classes for communication
+    CallbackRegistry,
+    RusTorchError,
+    Result,
+
+    # Communication functions
+    init_callback_system,
+    call_python_from_rust,
+    progress_callback_example,
+    try_catch,
+)
+# Import submodules
 from . import nn
-from . import optim  
-from . import autograd
-from . import utils
 
 # NumPy interoperability
 def from_numpy(array: "numpy.ndarray") -> Tensor:
