@@ -211,7 +211,10 @@
       "Bash(PYTHONPATH=python python3 test_phase4_dropout.py)",
       "Bash(PYTHONPATH=python python3 test_phase4_cnn.py)",
       "Bash(PYTHONPATH=python python3 test_phase4_complete.py)",
-      "Bash(PYTHONPATH=python python3 test_phase4_final.py)"
+      "Bash(PYTHONPATH=python python3 test_phase4_final.py)",
+      "Bash(PYTHONPATH=python python3 test_refactored_structure.py)",
+      "Bash(PYTHONPATH=python python3 test_fixes_simple.py)",
+      "Read(//tmp/**)"
     ],
     "deny": [],
     "ask": [],
