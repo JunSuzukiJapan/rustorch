@@ -215,7 +215,11 @@ launch_rustorch() {
     echo ""
     
     # Use the existing quick launcher
-    if [[ -f "./start_jupyter_quick.sh" ]]; then
+    if [[ -f "./scripts/start_jupyter_quick.sh" ]]; then
+        echo "🚀 Starting Jupyter environment..."
+        echo "🚀 Jupyter環境を開始中..."
+        ./scripts/start_jupyter_quick.sh
+    elif [[ -f "./start_jupyter_quick.sh" ]]; then
         echo "🚀 Starting Jupyter environment..."
         echo "🚀 Jupyter環境を開始中..."
         ./start_jupyter_quick.sh
@@ -334,21 +338,21 @@ main() {
     
     if [[ "$gpu" == "cuda" ]]; then
         gpu_specific_strategy="CUDA GPU acceleration"
-        gpu_specific_command="./start_jupyter.sh"
+        gpu_specific_command="./scripts/start_jupyter.sh"
     elif [[ "$gpu" == "metal" ]]; then
         gpu_specific_strategy="Metal GPU acceleration"
-        gpu_specific_command="./start_jupyter.sh"
+        gpu_specific_command="./scripts/start_jupyter.sh"
     elif [[ "$webgpu_support" == "true" ]]; then
         gpu_specific_strategy="WebGPU browser acceleration"
-        gpu_specific_command="./start_jupyter_webgpu.sh"
+        gpu_specific_command="./scripts/start_jupyter_webgpu.sh"
     else
         gpu_specific_strategy="CPU-optimized with Rust kernel"
-        gpu_specific_command="./quick_start_rust_kernel.sh"
+        gpu_specific_command="./scripts/quick_start_rust_kernel.sh"
     fi
-    
+
     # Default to hybrid
     install_strategy="Hybrid Python + Rust dual-kernel"
-    install_command="./start_jupyter_hybrid.sh"
+    install_command="./scripts/start_jupyter_hybrid.sh"
     
     echo -e "${GREEN}🎯 Default (Recommended): Hybrid Environment${NC}"
     echo -e "${GREEN}🎯 デフォルト（推奨）: ハイブリッド環境${NC}"
@@ -457,9 +461,10 @@ main() {
                 curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/Cargo.toml" -o "Cargo.toml" || echo "Warning: Could not download Cargo.toml"
                 
                 # Download all necessary scripts
+                mkdir -p scripts
                 for script in "start_jupyter_quick.sh" "start_jupyter_hybrid.sh" "download_notebooks.sh"; do
-                    curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/$script" -o "$script" || echo "Warning: Could not download $script"
-                    chmod +x "$script" 2>/dev/null || true
+                    curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/scripts/$script" -o "scripts/$script" || echo "Warning: Could not download $script"
+                    chmod +x "scripts/$script" 2>/dev/null || true
                 done
             fi
             

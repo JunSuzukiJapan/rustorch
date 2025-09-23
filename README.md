@@ -59,7 +59,7 @@ For detailed features, see [Features Documentation](docs/features.md).
 
 - **インストール (Install)**
 ```bash
-curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/install_jupyter.sh | bash
+curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/scripts/install_jupyter.sh | bash
 ```
 
 - **起動 (Launch)**

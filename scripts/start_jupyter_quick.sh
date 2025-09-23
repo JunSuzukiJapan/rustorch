@@ -35,25 +35,25 @@ echo ""
 if check_setup "python"; then
     echo "🐍 [1] Python Demo     - Standard CPU-based ML demos"
 else
-    echo "🐍 [1] Python Demo     - ⚠️  Setup required (run ./start_jupyter.sh first)"
+    echo "🐍 [1] Python Demo     - ⚠️  Setup required (run ./scripts/start_jupyter.sh first)"
 fi
 
 if check_setup "webgpu"; then
     echo "⚡ [2] WebGPU Demo     - Browser GPU acceleration"
 else
-    echo "⚡ [2] WebGPU Demo     - ⚠️  Setup required (run ./start_jupyter_webgpu.sh first)"
+    echo "⚡ [2] WebGPU Demo     - ⚠️  Setup required (run ./scripts/start_jupyter_webgpu.sh first)"
 fi
 
 if check_setup "rust"; then
     echo "🦀 [3] Rust Kernel    - Native Rust in Jupyter"
 else
-    echo "🦀 [3] Rust Kernel    - ⚠️  Setup required (run ./quick_start_rust_kernel.sh first)"
+    echo "🦀 [3] Rust Kernel    - ⚠️  Setup required (run ./scripts/quick_start_rust_kernel.sh first)"
 fi
 
 if check_setup "hybrid"; then
     echo "🦀🐍 [4] Hybrid Demo    - Python + Rust dual-kernel environment"
 else
-    echo "🦀🐍 [4] Hybrid Demo    - ⚠️  Setup required (run ./start_jupyter_hybrid.sh first)"
+    echo "🦀🐍 [4] Hybrid Demo    - ⚠️  Setup required (run ./scripts/start_jupyter_hybrid.sh first)"
 fi
 
 echo ""
@@ -71,7 +71,7 @@ case $choice in
             jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Python environment not found. Run setup first:"
-            echo "   ./start_jupyter.sh"
+            echo "   ./scripts/start_jupyter.sh"
             exit 1
         fi
         ;;
@@ -83,7 +83,7 @@ case $choice in
             jupyter lab --port=8888 --no-browser --allow-root --config=.jupyter/jupyter_lab_config.py notebooks/
         else
             echo "❌ WebGPU setup not found. Run setup first:"
-            echo "   ./start_jupyter_webgpu.sh"
+            echo "   ./scripts/start_jupyter_webgpu.sh"
             exit 1
         fi
         ;;
@@ -93,7 +93,7 @@ case $choice in
             jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Rust kernel not found. Run setup first:"
-            echo "   ./quick_start_rust_kernel.sh"
+            echo "   ./scripts/quick_start_rust_kernel.sh"
             exit 1
         fi
         ;;
@@ -104,7 +104,7 @@ case $choice in
             jupyter lab --port=8888 --no-browser notebooks/
         else
             echo "❌ Hybrid environment not found. Run setup first:"
-            echo "   ./start_jupyter_hybrid.sh"
+            echo "   ./scripts/start_jupyter_hybrid.sh"
             exit 1
         fi
         ;;

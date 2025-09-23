@@ -40,7 +40,13 @@ if [ ! -f "notebooks/rustorch_demo.ipynb" ]; then
         curl -sSL "https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/download_notebooks.sh" -o "download_notebooks.sh"
         chmod +x download_notebooks.sh
     fi
-    ./download_notebooks.sh notebooks
+    if [[ -f "./scripts/download_notebooks.sh" ]]; then
+        ./scripts/download_notebooks.sh notebooks
+    elif [[ -f "./download_notebooks.sh" ]]; then
+        ./download_notebooks.sh notebooks
+    else
+        echo "Warning: download_notebooks.sh not found, continuing with existing notebooks"
+    fi
 fi
 
 # Launch Jupyter Lab with demo notebook

@@ -260,7 +260,13 @@ if [ ! -f "download_notebooks.sh" ]; then
 fi
 
 # Download notebooks using the dedicated script
-./download_notebooks.sh all notebooks
+if [[ -f "./scripts/download_notebooks.sh" ]]; then
+    ./scripts/download_notebooks.sh all notebooks
+elif [[ -f "./download_notebooks.sh" ]]; then
+    ./download_notebooks.sh all notebooks
+else
+    echo "Warning: download_notebooks.sh not found, continuing with existing notebooks"
+fi
 
 # Ensure hybrid directory exists with fallback basic notebooks
 mkdir -p notebooks/hybrid

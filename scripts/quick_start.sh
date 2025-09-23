@@ -4,8 +4,8 @@
 # Auto-detects system language for international users
 # Supports: English, Japanese, Spanish, French, German, Chinese, Korean
 # 
-# Usage: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start.sh | bash
-# 使用法: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/quick_start.sh | bash
+# Usage: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/scripts/quick_start.sh | bash
+# 使用法: curl -sSL https://raw.githubusercontent.com/JunSuzukiJapan/rustorch/main/scripts/quick_start.sh | bash
 
 set -e
 
