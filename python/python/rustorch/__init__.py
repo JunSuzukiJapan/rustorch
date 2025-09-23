@@ -29,7 +29,7 @@ __version__ = "0.3.3"
 __author__ = "Jun Suzuki"
 __email__ = "jun.suzuki.japan@gmail.com"
 
-# Re-export core classes and functions for Phase 2
+# Re-export core classes and functions for Phase 3
 from rustorch._rustorch_py import (
     # Core tensor class
     Tensor,
@@ -39,6 +39,17 @@ from rustorch._rustorch_py import (
 
     # Neural network layers
     Linear,
+
+    # Optimizers
+    SGD,
+
+    # Loss functions
+    MSELoss,
+
+    # Activation functions
+    ReLU,
+    Sigmoid,
+    Tanh,
 
     # Tensor creation functions
     tensor,
@@ -65,6 +76,17 @@ __all__ = [
     "Tensor",
     "Variable",
     "Linear",
+
+    # Optimizers
+    "SGD",
+
+    # Loss functions
+    "MSELoss",
+
+    # Activation functions
+    "ReLU",
+    "Sigmoid",
+    "Tanh",
 
     # Creation functions
     "tensor",
