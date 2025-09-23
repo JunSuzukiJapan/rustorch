@@ -171,11 +171,19 @@ mod tests {
     #[test]
     fn test_benchmark() {
         let (result, duration) = perf_test_utils::benchmark(|| {
-            // Simple computation for testing
-            (0..1000).sum::<i32>()
+            // より重い計算でベンチマーク測定を確実にする（i64使用）
+            let mut sum: i64 = 0;
+            for i in 0i64..100_000 {
+                sum += i * i;
+            }
+            sum
         });
 
-        assert_eq!(result, 499500);
-        assert!(duration.as_nanos() > 0);
+        assert_eq!(result, 333328333350000i64);
+        assert!(
+            duration.as_nanos() > 0,
+            "ベンチマーク実行時間が0です: {:?}",
+            duration
+        );
     }
 }
