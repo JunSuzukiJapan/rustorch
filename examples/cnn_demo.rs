@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create sample input: batch_size=2, channels=1, height=28, width=28
     // サンプル入力を作成: batch_size=2, channels=1, height=28, width=28
     let batch_size = 2;
-    let input_data: Vec<f32> = (0..batch_size * 1 * 28 * 28)
+    let input_data: Vec<f32> = (0..batch_size * 28 * 28)
         .map(|i| (i as f32) / 1000.0) // Normalize to small values
         .collect();
 
@@ -114,10 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let test_sizes = vec![(32, 32), (64, 64), (128, 128)];
 
     for (h, w) in test_sizes {
-        let test_input = Variable::new(
-            Tensor::from_vec(vec![0.0; 1 * 1 * h * w], vec![1, 1, h, w]),
-            false,
-        );
+        let test_input = Variable::new(Tensor::from_vec(vec![0.0; h * w], vec![1, 1, h, w]), false);
 
         let conv_out = conv_test.forward(&test_input);
         let pool_out = pool_test.forward(&conv_out);
@@ -165,7 +162,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let grad_data = param.grad();
         let grad_guard = grad_data.read().unwrap();
         if let Some(ref grad_tensor) = *grad_guard {
-            optimizer.step(&param_tensor, &grad_tensor);
+            optimizer.step(&param_tensor, grad_tensor);
         }
     }
 

@@ -159,7 +159,7 @@ fn test_stream_priority_system() -> RusTorchResult<()> {
     let low_stream = manager.create_stream(0, StreamPriority::Low)?;
 
     // Verify all streams have unique IDs
-    let streams = vec![critical_stream, high_stream, normal_stream, low_stream];
+    let streams = [critical_stream, high_stream, normal_stream, low_stream];
     for (i, &id1) in streams.iter().enumerate() {
         for (j, &id2) in streams.iter().enumerate() {
             if i != j {
@@ -305,7 +305,7 @@ fn run_multi_gpu_basic_validation_suite() {
     let total = test_results.len();
 
     for (test_name, test_fn) in test_results {
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| test_fn())) {
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(test_fn)) {
             Ok(Ok(_)) => {
                 println!("✅ {}: PASS", test_name);
                 passed += 1;

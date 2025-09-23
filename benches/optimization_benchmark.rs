@@ -112,7 +112,7 @@ fn bench_platform_optimizations(c: &mut Criterion) {
         platform_opt.set_optimization_level(*level);
         let thread_count = platform_opt.thread_pool_size();
 
-        group.bench_function(&format!("optimization_level_{:?}", level), |bench| {
+        group.bench_function(format!("optimization_level_{:?}", level), |bench| {
             bench.iter(|| black_box(thread_count));
         });
     }
@@ -129,7 +129,7 @@ fn bench_hardware_optimization(c: &mut Criterion) {
 
     // Test optimal tile size calculation
     for operation in ["matmul", "conv2d"].iter() {
-        group.bench_function(&format!("tile_size_{}", operation), |bench| {
+        group.bench_function(format!("tile_size_{}", operation), |bench| {
             bench.iter(|| hw_optimizer.optimal_tile_size(black_box(operation)));
         });
     }

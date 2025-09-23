@@ -199,14 +199,14 @@ fn implementation_patterns() {
     println!("    norm: BatchNorm2d<f32>,");
     println!("    pool: MaxPool2d,");
     println!("}}");
-    println!("");
+    println!();
     println!("// ResNet-style Skip Connection");
     println!("struct ResidualBlock {{");
     println!("    conv1: Conv2d<f32>,");
     println!("    conv2: Conv2d<f32>,");
     println!("    shortcut: Option<Conv2d<f32>>,");
     println!("}}");
-    println!("");
+    println!();
     println!("// Attention Mechanism");
     println!("struct SelfAttention {{");
     println!("    query: Linear<f32>,");

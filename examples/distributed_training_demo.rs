@@ -126,7 +126,7 @@ fn run_training_simulation(
             let input_var = Variable::new(input, false);
             let output = ddp_model.forward(&input_var)?;
             // Simple shape verification without complex borrowing
-            let expected_shape = vec![batch_size, 10];
+            let expected_shape = [batch_size, 10];
             assert!(output.data().read().unwrap().shape() == &expected_shape[..]);
 
             // Simulate backward pass and gradient synchronization

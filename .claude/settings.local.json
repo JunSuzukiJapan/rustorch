@@ -235,7 +235,12 @@
       "Bash(timeout 30 cargo clippy --no-default-features --all-targets)",
       "Bash(timeout 60 cargo check --no-default-features)",
       "Bash(timeout 60 cargo check --examples)",
-      "Bash(timeout 30 cargo check --examples)"
+      "Bash(timeout 30 cargo check --examples)",
+      "Bash(timeout 60 cargo build --all-targets --no-default-features)",
+      "Bash(timeout 60 cargo test --doc --no-default-features)",
+      "Bash(timeout 60 cargo doc --no-default-features)",
+      "Bash(timeout 60 wasm-pack build:*)",
+      "Bash(docker:*)"
     ],
     "deny": [],
     "ask": [],

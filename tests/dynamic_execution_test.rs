@@ -366,7 +366,7 @@ fn test_activation_functions() {
         })
         .unwrap();
 
-    let expected_relu = vec![0.0, 0.0, 1.0, 2.0];
+    let expected_relu = [0.0, 0.0, 1.0, 2.0];
     if let Some(slice) = relu_result.as_slice() {
         for (actual, expected) in slice.iter().zip(expected_relu.iter()) {
             assert!((actual - expected).abs() < 1e-6);

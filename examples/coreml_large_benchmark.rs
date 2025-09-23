@@ -1,8 +1,8 @@
-use rustorch::gpu::{get_device_manager, GpuActivation};
+use rustorch::autograd::Variable;
 #[cfg(feature = "coreml")]
 use rustorch::gpu::DeviceType;
+use rustorch::gpu::{get_device_manager, GpuActivation};
 use rustorch::nn::{BatchNorm2d, Conv2d, Linear};
-use rustorch::autograd::Variable;
 /// Large-scale CoreML vs CPU performance benchmark
 /// 大規模なCoreML vs CPU パフォーマンスベンチマーク
 ///
@@ -475,7 +475,14 @@ fn benchmark_convolution_heavy(
     println!("   🔧 Creating convolution heavy pipeline...");
 
     // Create multiple convolution layers
-    let conv1 = Conv2d::new(in_channels, 32, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
+    let conv1 = Conv2d::new(
+        in_channels,
+        32,
+        (3, 3),
+        Some((1, 1)),
+        Some((1, 1)),
+        Some(true),
+    );
     let conv2 = Conv2d::new(32, 64, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
     let conv3 = Conv2d::new(64, 128, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
     let conv4 = Conv2d::new(128, 256, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
@@ -714,5 +721,9 @@ fn print_benchmark_results(results: &[BenchmarkResult]) {
     // Report successful benchmarks
     let successful_benchmarks = results.iter().filter(|r| r.success).count();
     println!("\n✅ Large-scale benchmark completed!");
-    println!("   📊 Successful benchmarks: {}/{}", successful_benchmarks, results.len());
+    println!(
+        "   📊 Successful benchmarks: {}/{}",
+        successful_benchmarks,
+        results.len()
+    );
 }

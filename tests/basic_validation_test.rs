@@ -26,7 +26,7 @@ mod basic_validation_tests {
     /// Test anomaly detection concept
     #[test]
     fn test_basic_anomaly_detection() {
-        let data = vec![1.0, 2.0, 3.0, 100.0, 4.0, 5.0]; // Contains outlier
+        let data = [1.0, 2.0, 3.0, 100.0, 4.0, 5.0]; // Contains outlier
 
         // Z-Score anomaly detection
         let mean = data.iter().sum::<f64>() / data.len() as f64;

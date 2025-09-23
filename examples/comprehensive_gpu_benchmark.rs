@@ -515,7 +515,7 @@ fn show_relative_performance(results: &[BenchmarkResult], size: usize) {
 }
 
 fn analyze_and_recommend(results: &[BenchmarkResult], system_info: &SystemInfo) {
-    println!("");
+    println!();
     println!("{}", "=".repeat(70));
     println!("🎯 Final Analysis and Recommendations");
     println!("最終分析と推奨事項");
@@ -572,7 +572,7 @@ fn analyze_and_recommend(results: &[BenchmarkResult], system_info: &SystemInfo) 
             );
 
             // Specific recommendations
-            match backend.as_ref() {
+            match *backend {
                 "Metal" => {
                     if max_gflops > 50.0 {
                         println!(

@@ -88,7 +88,7 @@ mod basic_profiler_tests {
     #[test]
     fn test_basic_performance_analysis() {
         // Simulate performance data points (time, value)
-        let data_points = vec![
+        let data_points = [
             (1.0, 100.0),
             (2.0, 150.0),
             (3.0, 200.0),

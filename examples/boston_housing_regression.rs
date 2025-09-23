@@ -140,11 +140,10 @@ fn calculate_mae(
     let mock_target_data: Vec<f32> = (0..batch_size).map(|i| 20.0 + (i as f32) * 2.0).collect();
     let target_data = &mock_target_data;
 
-    for i in 0..batch_size {
+    for (i, &actual) in target_data.iter().enumerate().take(batch_size) {
         // 実際の予測値の代わりに模擬値を使用
         // Use mock values instead of actual predictions
         let predicted = 20.0 + (i as f32) * 2.0; // 模擬予測値
-        let actual = target_data[i];
         total_error += (predicted - actual).abs();
     }
 
@@ -171,9 +170,8 @@ fn calculate_r2_score(
     let mut ss_tot = 0.0; // 総平方和
     let mut ss_res = 0.0; // 残差平方和
 
-    for i in 0..batch_size {
+    for (i, &actual) in target_data.iter().enumerate().take(batch_size) {
         let predicted = 20.0 + (i as f32) * 2.0; // 模擬予測値
-        let actual = target_data[i];
 
         ss_tot += (actual - mean_target).powi(2);
         ss_res += (actual - predicted).powi(2);

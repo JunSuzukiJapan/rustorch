@@ -136,7 +136,7 @@ fn demo_image_logging() {
             data,
         };
 
-        writer.add_image("Generated_Images", &image, Some(step as usize));
+        writer.add_image("Generated_Images", &image, Some(step));
     }
 
     writer.close();
