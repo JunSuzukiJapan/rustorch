@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758607512698,
+  "lastUpdate": 1758607667805,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -803,6 +803,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "2067a54e56306d669035aafc43d15c89f7f7d844",
+          "message": "fix: update RusTorch version to 0.6.21 and improve Python bindings\n\n- README.md: RusTorchバージョンを0.6.21に更新\n- 全Rust kernelノートブック(8言語): :dep rustorch = \"0.6.21\"に更新\n- Python bindings: 必要な依存関係とモジュール構造を追加\n- CI設定パス修正でライセンスチェック問題を解決\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-23T15:06:24+09:00",
+          "tree_id": "1472ba2cf462cfc0978c069685f800b631c80431",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/2067a54e56306d669035aafc43d15c89f7f7d844"
+        },
+        "date": 1758607665093,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
