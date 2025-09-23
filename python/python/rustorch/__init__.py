@@ -29,10 +29,16 @@ __version__ = "0.3.3"
 __author__ = "Jun Suzuki"
 __email__ = "jun.suzuki.japan@gmail.com"
 
-# Re-export core classes and functions for Phase 1
+# Re-export core classes and functions for Phase 2
 from rustorch._rustorch_py import (
     # Core tensor class
     Tensor,
+
+    # Variable for autograd
+    Variable,
+
+    # Neural network layers
+    Linear,
 
     # Tensor creation functions
     tensor,
@@ -57,6 +63,8 @@ def is_tensor(obj: Any) -> bool:
 __all__ = [
     # Core classes
     "Tensor",
+    "Variable",
+    "Linear",
 
     # Creation functions
     "tensor",

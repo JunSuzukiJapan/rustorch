@@ -666,6 +666,8 @@ dependencies = [
  "num-traits",
  "pyo3",
  "pyo3-build-config",
+ "rand",
+ "rand_distr",
  "rustorch",
 ]
 
