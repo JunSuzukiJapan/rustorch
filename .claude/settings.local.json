@@ -232,7 +232,10 @@
       "Bash(timeout 300 cargo run --example device_performance_comparison --features \"coreml metal\")",
       "Bash(timeout 300 cargo run --example comprehensive_benchmark --features \"coreml metal\")",
       "Bash(timeout 30 cargo test --features \"coreml metal\" --lib -- --test-threads=1)",
-      "Bash(timeout 30 cargo clippy --no-default-features --all-targets)"
+      "Bash(timeout 30 cargo clippy --no-default-features --all-targets)",
+      "Bash(timeout 60 cargo check --no-default-features)",
+      "Bash(timeout 60 cargo check --examples)",
+      "Bash(timeout 30 cargo check --examples)"
     ],
     "deny": [],
     "ask": [],

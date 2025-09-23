@@ -1,5 +1,8 @@
-use rustorch::gpu::{get_device_manager, DeviceType};
+use rustorch::gpu::{get_device_manager, GpuActivation};
+#[cfg(feature = "coreml")]
+use rustorch::gpu::DeviceType;
 use rustorch::nn::{BatchNorm2d, Conv2d, Linear};
+use rustorch::autograd::Variable;
 /// Large-scale CoreML vs CPU performance benchmark
 /// 大規模なCoreML vs CPU パフォーマンスベンチマーク
 ///
@@ -73,7 +76,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Check available devices
     let manager = get_device_manager();
     let devices = manager.available_devices();
+    #[cfg(feature = "coreml")]
     let has_coreml = devices.iter().any(|d| matches!(d, DeviceType::CoreML(_)));
+    #[cfg(not(feature = "coreml"))]
+    let has_coreml = false;
 
     println!("🔍 Available Devices: {:?}", devices);
     println!("   CoreML Available: {}", has_coreml);
@@ -134,7 +140,10 @@ fn benchmark_large_matrix_multiplication(
     );
 
     let mut total_cpu_time = 0.0;
+    #[cfg(feature = "coreml")]
     let mut total_coreml_time = 0.0;
+    #[cfg(not(feature = "coreml"))]
+    let total_coreml_time = 0.0;
     let mut coreml_success = true;
 
     for i in 0..config.iterations {
@@ -222,13 +231,10 @@ fn benchmark_deep_neural_network(
     println!("   🔧 Creating deep neural network...");
 
     // Create deep network layers
-    let layers: Result<Vec<Linear>, _> = config
-        .hidden_layers
-        .windows(2)
-        .map(|window| Linear::new(window[0], window[1]))
-        .collect();
-
-    let mut layers = layers?;
+    let mut layers = Vec::new();
+    for window in config.hidden_layers.windows(2) {
+        layers.push(Linear::new(window[0], window[1]));
+    }
 
     // Add input and output layers
     let input_layer = Linear::new(input_size, config.hidden_layers[0]);
@@ -238,7 +244,10 @@ fn benchmark_deep_neural_network(
     layers.push(output_layer);
 
     let mut total_cpu_time = 0.0;
+    #[cfg(feature = "coreml")]
     let mut total_coreml_time = 0.0;
+    #[cfg(not(feature = "coreml"))]
+    let total_coreml_time = 0.0;
     let mut coreml_success = true;
 
     for i in 0..config.iterations {
@@ -248,15 +257,21 @@ fn benchmark_deep_neural_network(
         let input_data: Vec<f32> = (0..batch_size * input_size)
             .map(|i| (i as f32) * 0.001)
             .collect();
-        let mut input = Tensor::from_vec(input_data, vec![batch_size, input_size]);
+        let input_tensor = Tensor::from_vec(input_data, vec![batch_size, input_size]);
+        let input = Variable::new(input_tensor, false);
 
         // CPU forward pass
         let start = Instant::now();
         let mut cpu_output = input.clone();
         for layer in &layers {
-            cpu_output = layer.forward(&cpu_output)?;
-            // Apply ReLU activation
-            cpu_output = cpu_output.relu()?;
+            cpu_output = layer.forward(&cpu_output);
+            // Apply ReLU activation - need to extract tensor, apply relu, wrap back
+            let output_tensor = {
+                let data_arc = cpu_output.data();
+                let data_guard = data_arc.read().unwrap();
+                data_guard.gpu_relu()?
+            };
+            cpu_output = Variable::new(output_tensor, false);
         }
         let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
         total_cpu_time += cpu_time;
@@ -271,7 +286,7 @@ fn benchmark_deep_neural_network(
                     let mut forward_success = true;
                     for layer in &layers {
                         match layer.forward(&coreml_input) {
-                            Ok(output) => match output.relu() {
+                            Ok(output) => match output.gpu_relu() {
                                 Ok(activated) => {
                                     coreml_input = activated;
                                 }
@@ -292,7 +307,7 @@ fn benchmark_deep_neural_network(
                         let mut cpu_fallback = input.clone();
                         for layer in &layers {
                             cpu_fallback = layer.forward(&cpu_fallback)?;
-                            cpu_fallback = cpu_fallback.relu()?;
+                            cpu_fallback = cpu_fallback.gpu_relu()?;
                         }
                     }
                 }
@@ -301,7 +316,7 @@ fn benchmark_deep_neural_network(
                     let mut cpu_fallback = input.clone();
                     for layer in &layers {
                         cpu_fallback = layer.forward(&cpu_fallback)?;
-                        cpu_fallback = cpu_fallback.relu()?;
+                        cpu_fallback = cpu_fallback.gpu_relu()?;
                     }
                 }
             }
@@ -345,7 +360,10 @@ fn benchmark_image_processing(
     println!("   🔧 Creating image processing pipeline...");
 
     let mut total_cpu_time = 0.0;
+    #[cfg(feature = "coreml")]
     let mut total_coreml_time = 0.0;
+    #[cfg(not(feature = "coreml"))]
+    let total_coreml_time = 0.0;
     let mut coreml_success = true;
 
     for i in 0..config.iterations {
@@ -364,14 +382,15 @@ fn benchmark_image_processing(
         let mut processed = images.clone();
 
         // Normalization
-        let mean = processed.mean(&None)?;
-        processed = processed.sub(&mean)?;
+        let mean = processed.mean();
+        processed = processed.sub_scalar(mean);
 
         // Scaling
-        processed = processed.mul_scalar(0.5)?;
+        processed = processed.mul_scalar(0.5);
 
         // Element-wise operations
-        processed = processed.tanh()?;
+        processed = processed.tanh();
+        let _final_mean = processed.mean(); // Use the final processed result
 
         let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
         total_cpu_time += cpu_time;
@@ -387,7 +406,7 @@ fn benchmark_image_processing(
 
                     // Try CoreML-optimized image processing
                     let result = (|| -> Result<Tensor<f32>, Box<dyn std::error::Error>> {
-                        let mean = coreml_images.mean(&None)?;
+                        let mean = coreml_images.mean()?;
                         let normalized = coreml_images.sub(&mean)?;
                         let scaled = normalized.mul_scalar(0.5)?;
                         let activated = scaled.tanh()?;
@@ -401,7 +420,7 @@ fn benchmark_image_processing(
                     if !processing_success {
                         // Fallback to CPU
                         let mut cpu_fallback = images.clone();
-                        let mean = cpu_fallback.mean(&None)?;
+                        let mean = cpu_fallback.mean()?;
                         cpu_fallback = cpu_fallback.sub(&mean)?;
                         cpu_fallback = cpu_fallback.mul_scalar(0.5)?;
                         cpu_fallback = cpu_fallback.tanh()?;
@@ -410,7 +429,7 @@ fn benchmark_image_processing(
                 Err(_) => {
                     // Fallback to CPU
                     let mut cpu_fallback = images.clone();
-                    let mean = cpu_fallback.mean(&None)?;
+                    let mean = cpu_fallback.mean()?;
                     cpu_fallback = cpu_fallback.sub(&mean)?;
                     cpu_fallback = cpu_fallback.mul_scalar(0.5)?;
                     cpu_fallback = cpu_fallback.tanh()?;
@@ -456,18 +475,21 @@ fn benchmark_convolution_heavy(
     println!("   🔧 Creating convolution heavy pipeline...");
 
     // Create multiple convolution layers
-    let conv1 = Conv2d::new(in_channels, 32, 3, 1, 1)?;
-    let conv2 = Conv2d::new(32, 64, 3, 1, 1)?;
-    let conv3 = Conv2d::new(64, 128, 3, 1, 1)?;
-    let conv4 = Conv2d::new(128, 256, 3, 1, 1)?;
+    let conv1 = Conv2d::new(in_channels, 32, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
+    let conv2 = Conv2d::new(32, 64, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
+    let conv3 = Conv2d::new(64, 128, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
+    let conv4 = Conv2d::new(128, 256, (3, 3), Some((1, 1)), Some((1, 1)), Some(true));
 
-    let bn1 = BatchNorm2d::new(32);
-    let bn2 = BatchNorm2d::new(64);
-    let bn3 = BatchNorm2d::new(128);
-    let bn4 = BatchNorm2d::new(256);
+    let bn1 = BatchNorm2d::new(32, None, None, Some(true));
+    let bn2 = BatchNorm2d::new(64, None, None, Some(true));
+    let bn3 = BatchNorm2d::new(128, None, None, Some(true));
+    let bn4 = BatchNorm2d::new(256, None, None, Some(true));
 
     let mut total_cpu_time = 0.0;
+    #[cfg(feature = "coreml")]
     let mut total_coreml_time = 0.0;
+    #[cfg(not(feature = "coreml"))]
+    let total_coreml_time = 0.0;
     let mut coreml_success = true;
 
     for i in 0..config.iterations {
@@ -482,27 +504,48 @@ fn benchmark_convolution_heavy(
         // CPU convolution pipeline
         let start = Instant::now();
 
-        let mut x = input.clone();
+        let mut x = Variable::new(input.clone(), false);
 
         // Conv block 1
-        x = conv1.forward(&x)?;
-        x = bn1.forward(&x)?;
-        x = x.relu()?;
+        x = conv1.forward(&x);
+        x = bn1.forward(&x);
+        let relu_tensor = {
+            let data_arc = x.data();
+            let data_guard = data_arc.read().unwrap();
+            data_guard.gpu_relu()?
+        };
+        x = Variable::new(relu_tensor, false);
 
         // Conv block 2
-        x = conv2.forward(&x)?;
-        x = bn2.forward(&x)?;
-        x = x.relu()?;
+        x = conv2.forward(&x);
+        x = bn2.forward(&x);
+        let relu_tensor = {
+            let data_arc = x.data();
+            let data_guard = data_arc.read().unwrap();
+            data_guard.gpu_relu()?
+        };
+        x = Variable::new(relu_tensor, false);
 
         // Conv block 3
-        x = conv3.forward(&x)?;
-        x = bn3.forward(&x)?;
-        x = x.relu()?;
+        x = conv3.forward(&x);
+        x = bn3.forward(&x);
+        let relu_tensor = {
+            let data_arc = x.data();
+            let data_guard = data_arc.read().unwrap();
+            data_guard.gpu_relu()?
+        };
+        x = Variable::new(relu_tensor, false);
 
         // Conv block 4
-        x = conv4.forward(&x)?;
-        x = bn4.forward(&x)?;
-        x = x.relu()?;
+        x = conv4.forward(&x);
+        x = bn4.forward(&x);
+        let relu_tensor = {
+            let data_arc = x.data();
+            let data_guard = data_arc.read().unwrap();
+            data_guard.gpu_relu()?
+        };
+        x = Variable::new(relu_tensor, false);
+        let _final_output_shape = x.data().read().unwrap().shape(); // Use the final result
 
         let cpu_time = start.elapsed().as_secs_f64() * 1000.0;
         total_cpu_time += cpu_time;
@@ -520,22 +563,22 @@ fn benchmark_convolution_heavy(
                         // Conv block 1
                         x = conv1.forward(&x)?;
                         x = bn1.forward(&x)?;
-                        x = x.relu()?;
+                        x = x.gpu_relu()?;
 
                         // Conv block 2
                         x = conv2.forward(&x)?;
                         x = bn2.forward(&x)?;
-                        x = x.relu()?;
+                        x = x.gpu_relu()?;
 
                         // Conv block 3
                         x = conv3.forward(&x)?;
                         x = bn3.forward(&x)?;
-                        x = x.relu()?;
+                        x = x.gpu_relu()?;
 
                         // Conv block 4
                         x = conv4.forward(&x)?;
                         x = bn4.forward(&x)?;
-                        x = x.relu()?;
+                        x = x.gpu_relu()?;
 
                         Ok(x)
                     })();
@@ -545,16 +588,16 @@ fn benchmark_convolution_heavy(
                         let mut cpu_x = input.clone();
                         cpu_x = conv1.forward(&cpu_x)?;
                         cpu_x = bn1.forward(&cpu_x)?;
-                        cpu_x = cpu_x.relu()?;
+                        cpu_x = cpu_x.gpu_relu()?;
                         cpu_x = conv2.forward(&cpu_x)?;
                         cpu_x = bn2.forward(&cpu_x)?;
-                        cpu_x = cpu_x.relu()?;
+                        cpu_x = cpu_x.gpu_relu()?;
                         cpu_x = conv3.forward(&cpu_x)?;
                         cpu_x = bn3.forward(&cpu_x)?;
-                        cpu_x = cpu_x.relu()?;
+                        cpu_x = cpu_x.gpu_relu()?;
                         cpu_x = conv4.forward(&cpu_x)?;
                         cpu_x = bn4.forward(&cpu_x)?;
-                        cpu_x = cpu_x.relu()?;
+                        cpu_x = cpu_x.gpu_relu()?;
                     }
                 }
                 Err(_) => {
@@ -562,16 +605,16 @@ fn benchmark_convolution_heavy(
                     let mut cpu_x = input.clone();
                     cpu_x = conv1.forward(&cpu_x)?;
                     cpu_x = bn1.forward(&cpu_x)?;
-                    cpu_x = cpu_x.relu()?;
+                    cpu_x = cpu_x.gpu_relu()?;
                     cpu_x = conv2.forward(&cpu_x)?;
                     cpu_x = bn2.forward(&cpu_x)?;
-                    cpu_x = cpu_x.relu()?;
+                    cpu_x = cpu_x.gpu_relu()?;
                     cpu_x = conv3.forward(&cpu_x)?;
                     cpu_x = bn3.forward(&cpu_x)?;
-                    cpu_x = cpu_x.relu()?;
+                    cpu_x = cpu_x.gpu_relu()?;
                     cpu_x = conv4.forward(&cpu_x)?;
                     cpu_x = bn4.forward(&cpu_x)?;
-                    cpu_x = cpu_x.relu()?;
+                    cpu_x = cpu_x.gpu_relu()?;
                 }
             }
             let coreml_time = start.elapsed().as_secs_f64() * 1000.0;
@@ -668,5 +711,8 @@ fn print_benchmark_results(results: &[BenchmarkResult]) {
         println!("   ❌ CoreML benchmarks could not be executed");
     }
 
+    // Report successful benchmarks
+    let successful_benchmarks = results.iter().filter(|r| r.success).count();
     println!("\n✅ Large-scale benchmark completed!");
+    println!("   📊 Successful benchmarks: {}/{}", successful_benchmarks, results.len());
 }
