@@ -177,7 +177,7 @@ mod phase5_tests {
 
         assert_eq!(sampler.len(), 100);
 
-        let mut counts = vec![0; 4];
+        let mut counts = [0; 4];
         for _ in 0..1000 {
             if let Some(idx) = sampler.sample() {
                 counts[idx] += 1;

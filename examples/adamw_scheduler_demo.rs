@@ -50,7 +50,7 @@ fn main() {
     );
 
     // Simulate training with loss values
-    let losses = vec![1.0, 0.9, 0.85, 0.84, 0.83, 0.82, 0.82, 0.82, 0.82, 0.81];
+    let losses = [1.0, 0.9, 0.85, 0.84, 0.83, 0.82, 0.82, 0.82, 0.82, 0.81];
 
     for (epoch, &loss) in losses.iter().enumerate() {
         println!(

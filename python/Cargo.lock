@@ -390,22 +390,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "numpy"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7cfbf3f0feededcaa4d289fe3079b03659e85c5b5a177f4ba6fb01ab4fb3e39"
-dependencies = [
- "libc",
- "ndarray",
- "num-complex",
- "num-integer",
- "num-traits",
- "pyo3",
- "pyo3-build-config",
- "rustc-hash",
-]
-
-[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -644,12 +628,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "caf4aa5b0f434c91fe5c7f1ecb6a5ece2130b02ad2a590589dda5146df959001"
 
 [[package]]
-name = "rustc-hash"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "357703d41365b4b27c590e3ed91eabb1b663f07c4c084095e60cbed4362dff0d"
-
-[[package]]
 name = "rustorch"
 version = "0.6.21"
 dependencies = [
@@ -684,11 +662,14 @@ dependencies = [
 name = "rustorch-py"
 version = "0.3.3"
 dependencies = [
- "numpy",
+ "ndarray",
+ "num-traits",
  "pyo3",
  "pyo3-build-config",
  "rand",
+ "rand_distr",
  "rustorch",
+ "thiserror",
 ]
 
 [[package]]

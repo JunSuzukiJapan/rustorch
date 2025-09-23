@@ -209,7 +209,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let grad_data = param.grad();
             let grad_guard = grad_data.read().unwrap();
             if let Some(ref grad_tensor) = *grad_guard {
-                optimizer.step(&param_tensor, &grad_tensor);
+                optimizer.step(&param_tensor, grad_tensor);
             }
         }
 

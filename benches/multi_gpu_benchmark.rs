@@ -425,7 +425,7 @@ fn bench_profiler_impact(c: &mut Criterion) {
     // Benchmark with profiling
     group.bench_function("with_profiling", |b| {
         b.iter(|| {
-            let result = profile_multi_gpu_operation("benchmark_test", &[0], || test_operation());
+            let result = profile_multi_gpu_operation("benchmark_test", &[0], test_operation);
             black_box(result)
         });
     });
