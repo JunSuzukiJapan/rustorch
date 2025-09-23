@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758603138103,
+  "lastUpdate": 1758605024370,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -741,6 +741,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "e48abf2b7dc55bac5bf87df589fc9d6f4b3d3a62",
+          "message": "fix: update script paths after directory reorganization to scripts/\n\n- Fix README.md Jupyter installation one-liner URL to use scripts/install_jupyter.sh\n- Update install_jupyter.sh to handle scripts/ directory structure with fallback support\n- Fix all script cross-references in start_jupyter_quick.sh to use scripts/ paths\n- Add backward compatibility for both ./scripts/xxx.sh and ./xxx.sh patterns\n- Update quick_start.sh URL comments to reflect new scripts/ location\n- Ensure download_notebooks.sh references work from both directory structures\n\nResolves 404 error when running Jupyter installation one-liner on Mac mini (M4 PRO)\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-23T14:22:24+09:00",
+          "tree_id": "d88c2634fc1ac416dd70fc5ea1fd1899f3e12f77",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/e48abf2b7dc55bac5bf87df589fc9d6f4b3d3a62"
+        },
+        "date": 1758605021624,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30005,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
