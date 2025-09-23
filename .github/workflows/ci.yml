@@ -198,7 +198,7 @@ jobs:
         shell: bash
       - name: Check licenses
         run: |
-          cargo deny check licenses
+          cargo deny check licenses --config config/deny.toml
           cargo license --json > licenses.json
         shell: bash
       - name: Audit dependencies
