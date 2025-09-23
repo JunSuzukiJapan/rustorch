@@ -69,9 +69,34 @@
 
 ### 5. Autograd API
 
-#### Variable
+#### Variable（自動微分変数）
 - 自動微分をサポートする変数型
-- `Linear`レイヤーで使用
+- テンソルをラップし勾配計算を自動化
+- `requires_grad` フラグで勾配計算の有効/無効を制御
+- 基本機能:
+  - `Variable.new(tensor, requires_grad)` - 変数作成
+  - `Variable.data` - 内部テンソルへのアクセス
+  - `Variable.grad` - 勾配テンソル（計算後）
+  - `Variable.requires_grad` - 勾配計算フラグ
+  - `Variable.backward()` - 逆伝播実行
+  - `Variable.zero_grad()` - 勾配クリア
+
+#### 高度なAutograd操作
+- `Variable.detach()` - 計算グラフから切り離し
+- `Variable.retain_grad()` - 中間変数の勾配保持
+- `no_grad()` コンテキスト - 勾配計算無効化
+- `enable_grad()` コンテキスト - 勾配計算強制有効化
+
+#### 計算グラフ操作
+- 自動微分による計算グラフ構築
+- 複雑な数学関数の勾配自動計算
+- チェーンルールによる合成関数の微分
+- 複数出力に対するヤコビアン計算
+
+#### 高次微分
+- `grad()` 関数による任意階微分
+- Hessian行列計算サポート
+- 勾配の勾配計算
 
 ### 6. Device API
 
@@ -136,11 +161,60 @@ optimizer.zero_grad()
 - `parameters()` 収集
 - `step()`, `zero_grad()` メソッド
 
-### Phase 4: Advanced Features (優先度: 低)
-- GPU サポート
-- より多くの数学関数
-- 複雑なニューラルネットワークレイヤー
-- モデルの保存/読み込み
+### Phase 4: Advanced Features (優先度: 低) - ✅ 完了
+```python
+# 目標: CNN と高度な深層学習機能
+conv = rustorch.Conv2d(3, 16, kernel_size=3)
+pool = rustorch.MaxPool2d(2)
+bn = rustorch.BatchNorm2d(16)
+dropout = rustorch.Dropout(0.5)
+flatten = rustorch.Flatten()
+criterion = rustorch.CrossEntropyLoss()
+```
+
+**実装対象:** ✅ 完了
+- CNN layers: `Conv2d`, `MaxPool2d`
+- 正規化: `BatchNorm1d`, `BatchNorm2d`
+- 正則化: `Dropout`
+- ユーティリティ: `Flatten`
+- 損失関数: `CrossEntropyLoss`
+- Adam optimizer の完全実装
+
+### Phase 5: Advanced Autograd API (優先度: 高)
+```python
+# 目標: 高度な自動微分とグラフ操作
+import rustorch
+
+# 高度なAutograd操作
+with rustorch.no_grad():
+    # 勾配計算無効化
+    y = model(x)
+
+# 計算グラフ操作
+x = rustorch.Variable(tensor, requires_grad=True)
+x.retain_grad()  # 中間変数の勾配保持
+y = x.detach()   # 計算グラフから切り離し
+
+# 高次微分
+grad_outputs = rustorch.grad(outputs, inputs, create_graph=True)
+hessian = rustorch.grad(grad_outputs, inputs)
+
+# 関数型API
+def custom_loss(pred, target):
+    return rustorch.functional.mse_loss(pred, target)
+
+# フック機能
+x.register_hook(lambda grad: grad * 2)
+```
+
+**実装対象:**
+- Context managers: `no_grad()`, `enable_grad()`
+- 高度なVariable操作: `detach()`, `retain_grad()`
+- 関数型勾配計算: `grad()` 関数
+- フック機能: `register_hook()`, `register_backward_hook()`
+- 関数型API: `rustorch.functional` モジュール
+- 高次微分サポート
+- カスタム autograd Function
 
 ## 技術的制約と注意点
 

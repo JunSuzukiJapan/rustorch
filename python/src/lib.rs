@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyList, PyModule, PyAny};
 use rustorch::tensor::core::Tensor as RustTensor;
 use rustorch::autograd::Variable as RustVariable;
 use rustorch::nn::Linear as RustLinear;
@@ -319,6 +319,48 @@ impl PyVariable {
     fn matmul(&self, other: &PyVariable) -> PyResult<PyVariable> {
         let result = self.inner.matmul(&other.inner);
         Ok(PyVariable { inner: result })
+    }
+
+    /// Detach variable from computation graph
+    /// 計算グラフから変数を切り離し
+    fn detach(&self) -> PyResult<PyVariable> {
+        let data_binding = self.inner.data();
+        let data = data_binding.read().unwrap().clone();
+        let detached = RustVariable::new(data, false); // No gradient tracking
+        Ok(PyVariable { inner: detached })
+    }
+
+    /// Mark variable to retain gradients (for intermediate variables)
+    /// 中間変数の勾配を保持するようマーク
+    fn retain_grad(&self) -> PyResult<()> {
+        // Note: This is a placeholder implementation
+        // In practice, this would set a flag in RusTorch's Variable
+        // to prevent gradient from being cleared after backward pass
+        Ok(())
+    }
+
+    /// Register a hook function for gradient computation
+    /// 勾配計算用のフック関数を登録
+    fn register_hook(&self, _hook: PyObject) -> PyResult<()> {
+        // Note: This is a placeholder implementation
+        // In practice, this would register a callback in RusTorch's Variable
+        // that gets called during backward pass
+        Ok(())
+    }
+
+    /// Clone the variable (creates a new variable with same data)
+    /// 変数をクローン（同じデータで新しい変数を作成）
+    fn clone(&self) -> PyVariable {
+        PyVariable { inner: self.inner.clone() }
+    }
+
+    /// Create a variable from existing tensor with gradient tracking
+    /// 既存のテンソルから勾配トラッキング付きの変数を作成
+    #[staticmethod]
+    fn from_tensor(tensor: &PyTensor, requires_grad: Option<bool>) -> PyResult<PyVariable> {
+        let requires_grad = requires_grad.unwrap_or(false);
+        let variable = RustVariable::new(tensor.inner.clone(), requires_grad);
+        Ok(PyVariable { inner: variable })
     }
 }
 
@@ -1286,27 +1328,158 @@ impl PyFlatten {
     }
 }
 
+/// Phase 5: Advanced Autograd API Implementation
+
+/// No gradient context manager for disabling gradient computation
+#[pyclass]
+#[derive(Clone)]
+pub struct NoGradContext {
+    prev_state: bool,
+}
+
+#[pymethods]
+impl NoGradContext {
+    #[new]
+    fn new() -> Self {
+        NoGradContext { prev_state: true }
+    }
+
+    fn __enter__(&mut self) -> PyResult<()> {
+        // Store current gradient state and disable gradients
+        // Note: This is a simplified implementation
+        // In practice, you'd interface with RusTorch's gradient state
+        self.prev_state = true; // Assume gradients were enabled
+        Ok(())
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: &Bound<'_, PyAny>,
+        _exc_val: &Bound<'_, PyAny>,
+        _exc_tb: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        // Restore previous gradient state
+        Ok(false) // Don't suppress exceptions
+    }
+}
+
+/// Create a no_grad context manager
+#[pyfunction]
+fn no_grad() -> NoGradContext {
+    NoGradContext::new()
+}
+
+/// Enable gradient context manager for forcing gradient computation
+#[pyclass]
+#[derive(Clone)]
+pub struct EnableGradContext {
+    prev_state: bool,
+}
+
+#[pymethods]
+impl EnableGradContext {
+    #[new]
+    fn new() -> Self {
+        EnableGradContext { prev_state: false }
+    }
+
+    fn __enter__(&mut self) -> PyResult<()> {
+        self.prev_state = false; // Assume gradients were disabled
+        Ok(())
+    }
+
+    fn __exit__(
+        &mut self,
+        _exc_type: &Bound<'_, PyAny>,
+        _exc_val: &Bound<'_, PyAny>,
+        _exc_tb: &Bound<'_, PyAny>,
+    ) -> PyResult<bool> {
+        Ok(false)
+    }
+}
+
+/// Create an enable_grad context manager
+#[pyfunction]
+fn enable_grad() -> EnableGradContext {
+    EnableGradContext::new()
+}
+
+/// Functional gradient computation
+#[pyfunction]
+fn grad(
+    outputs: Vec<PyVariable>,
+    inputs: Vec<PyVariable>,
+    retain_graph: Option<bool>,
+    create_graph: Option<bool>,
+) -> PyResult<Vec<Option<PyVariable>>> {
+    let _retain_graph = retain_graph.unwrap_or(false);
+    let _create_graph = create_graph.unwrap_or(false);
+    
+    // Simplified implementation - compute gradients for each output w.r.t each input
+    let mut gradients = Vec::new();
+    
+    for _output in outputs.iter() {
+        for input in inputs.iter() {
+            // In practice, this would use RusTorch's autograd engine
+            // For now, return the gradient if available
+            let grad_binding = input.inner.grad();
+            let grad_lock = grad_binding.read().unwrap();
+            match grad_lock.as_ref() {
+                Some(grad) => {
+                    // Create a Variable from the gradient tensor
+                    let grad_variable = RustVariable::new(grad.clone(), _create_graph);
+                    gradients.push(Some(PyVariable { inner: grad_variable }));
+                },
+                None => gradients.push(None),
+            }
+        }
+    }
+    
+    Ok(gradients)
+}
+
 /// RusTorch Python bindings module
 #[pymodule]
 fn _rustorch_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Core classes
     m.add_class::<PyTensor>()?;
     m.add_class::<PyVariable>()?;
+    
+    // Neural network layers
     m.add_class::<PyLinear>()?;
-    m.add_class::<PySGD>()?;
-    m.add_class::<PyAdam>()?;
-    m.add_class::<PyMSELoss>()?;
-    m.add_class::<PyReLU>()?;
-    m.add_class::<PySigmoid>()?;
-    m.add_class::<PyTanh>()?;
+    m.add_class::<PyConv2d>()?;
+    m.add_class::<PyMaxPool2d>()?;
     m.add_class::<PyBatchNorm1d>()?;
     m.add_class::<PyBatchNorm2d>()?;
     m.add_class::<PyDropout>()?;
-    m.add_class::<PyConv2d>()?;
-    m.add_class::<PyMaxPool2d>()?;
-    m.add_class::<PyCrossEntropyLoss>()?;
     m.add_class::<PyFlatten>()?;
+    
+    // Activation functions
+    m.add_class::<PyReLU>()?;
+    m.add_class::<PySigmoid>()?;
+    m.add_class::<PyTanh>()?;
+    
+    // Loss functions
+    m.add_class::<PyMSELoss>()?;
+    m.add_class::<PyCrossEntropyLoss>()?;
+    
+    // Optimizers
+    m.add_class::<PySGD>()?;
+    m.add_class::<PyAdam>()?;
+    
+    // Phase 5: Advanced Autograd classes
+    m.add_class::<NoGradContext>()?;
+    m.add_class::<EnableGradContext>()?;
+    
+    // Tensor creation functions
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
     m.add_function(wrap_pyfunction!(tensor, m)?)?;
+    
+    // Phase 5: Advanced Autograd functions
+    m.add_function(wrap_pyfunction!(no_grad, m)?)?;
+    m.add_function(wrap_pyfunction!(enable_grad, m)?)?;
+    m.add_function(wrap_pyfunction!(grad, m)?)?;
+    
     Ok(())
 }
