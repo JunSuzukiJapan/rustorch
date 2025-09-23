@@ -444,7 +444,7 @@ jobs:
 
       - name: Build and test Docker image
         run: |
-          docker build -t rustorch:test .
+          docker build -t rustorch:test -f docker/Dockerfile .
           docker run --rm rustorch:test echo "Docker build successful"
         shell: bash
 
