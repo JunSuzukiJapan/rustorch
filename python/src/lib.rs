@@ -25,6 +25,19 @@ impl PyTensor {
     /// Create a new tensor from data and shape
     #[new]
     fn new(data: Vec<f32>, shape: Vec<usize>) -> PyResult<Self> {
+        // Validate data length matches shape
+        let expected_len: usize = shape.iter().product();
+        if data.len() != expected_len {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                format!("Data length {} does not match shape {:?} (expected {})",
+                        data.len(), shape, expected_len)
+            ));
+        }
+
+        if shape.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err("Shape cannot be empty"));
+        }
+
         let tensor = RustTensor::from_vec(data, shape);
         Ok(PyTensor { inner: tensor })
     }
@@ -290,9 +303,15 @@ impl PySGD {
     fn new(
         parameters: Vec<PyVariable>,
         lr: f32,
-        _momentum: Option<f32>
+        momentum: Option<f32>,
+        weight_decay: Option<f32>,
+        nesterov: Option<bool>
     ) -> PyResult<Self> {
-        // For now, ignore momentum - can be implemented later
+        // Store parameters for future implementation
+        let _momentum = momentum.unwrap_or(0.0);
+        let _weight_decay = weight_decay.unwrap_or(0.0);
+        let _nesterov = nesterov.unwrap_or(false);
+
         Ok(PySGD {
             parameters,
             lr
@@ -613,6 +632,7 @@ impl PyAdam {
 #[pyclass(name = "BatchNorm1d")]
 pub struct PyBatchNorm1d {
     pub inner: RustBatchNorm1d<f32>,
+    pub num_features: usize,
 }
 
 #[pymethods]
@@ -643,7 +663,10 @@ impl PyBatchNorm1d {
         }
 
         let batchnorm = RustBatchNorm1d::new(num_features, Some(eps), Some(momentum), Some(affine));
-        Ok(PyBatchNorm1d { inner: batchnorm })
+        Ok(PyBatchNorm1d {
+            inner: batchnorm,
+            num_features,
+        })
     }
 
     /// Forward pass through BatchNorm1d
@@ -696,10 +719,7 @@ impl PyBatchNorm1d {
     /// Get number of features
     #[getter]
     fn num_features(&self) -> usize {
-        // For now, we can't directly access num_features from the struct
-        // This would need to be added to RusTorch's BatchNorm1d API
-        // Returning a default value for now
-        0 // TODO: Access actual num_features from inner
+        self.num_features
     }
 
     /// String representation

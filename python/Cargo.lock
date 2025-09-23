@@ -669,6 +669,7 @@ dependencies = [
  "rand",
  "rand_distr",
  "rustorch",
+ "thiserror",
 ]
 
 [[package]]
