@@ -40,9 +40,11 @@ from rustorch._rustorch_py import (
     # Neural network layers
     Linear,
     BatchNorm1d,
+    BatchNorm2d,
     Dropout,
     Conv2d,
     MaxPool2d,
+    Flatten,
 
     # Optimizers
     SGD,
@@ -50,6 +52,7 @@ from rustorch._rustorch_py import (
 
     # Loss functions
     MSELoss,
+    CrossEntropyLoss,
 
     # Activation functions
     ReLU,
@@ -82,9 +85,11 @@ __all__ = [
     "Variable",
     "Linear",
     "BatchNorm1d",
+    "BatchNorm2d",
     "Dropout",
     "Conv2d",
     "MaxPool2d",
+    "Flatten",
 
     # Optimizers
     "SGD",
@@ -92,6 +97,7 @@ __all__ = [
 
     # Loss functions
     "MSELoss",
+    "CrossEntropyLoss",
 
     # Activation functions
     "ReLU",

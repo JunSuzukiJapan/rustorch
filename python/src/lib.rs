@@ -4,9 +4,10 @@ use rustorch::tensor::core::Tensor as RustTensor;
 use rustorch::autograd::Variable as RustVariable;
 use rustorch::nn::Linear as RustLinear;
 use rustorch::nn::Module;
-use rustorch::nn::loss::{MSELoss as RustMSELoss, Loss};
+use rustorch::nn::loss::{MSELoss as RustMSELoss, CrossEntropyLoss as RustCrossEntropyLoss, Loss};
 use rustorch::nn::activation::{ReLU as RustReLU, sigmoid, tanh};
 use rustorch::nn::BatchNorm1d as RustBatchNorm1d;
+use rustorch::nn::BatchNorm2d as RustBatchNorm2d;
 use rustorch::nn::Dropout as RustDropout;
 use rustorch::nn::Conv2d as RustConv2d;
 use rustorch::nn::MaxPool2d as RustMaxPool2d;
@@ -942,6 +943,218 @@ impl PyMaxPool2d {
     }
 }
 
+/// Python BatchNorm2d wrapper for RusTorch BatchNorm2d (Phase 4 - 2D Batch Normalization)
+#[pyclass(name = "BatchNorm2d")]
+pub struct PyBatchNorm2d {
+    pub inner: RustBatchNorm2d<f32>,
+}
+
+#[pymethods]
+impl PyBatchNorm2d {
+    /// Create a new BatchNorm2d layer
+    #[new]
+    fn new(
+        num_features: usize,
+        eps: Option<f32>,
+        momentum: Option<f32>,
+        affine: Option<bool>,
+    ) -> PyResult<Self> {
+        // Validate parameters
+        if num_features == 0 {
+            return Err(pyo3::exceptions::PyValueError::new_err("num_features must be > 0"));
+        }
+
+        let batchnorm2d = RustBatchNorm2d::new(num_features, eps, momentum, affine);
+        Ok(PyBatchNorm2d { inner: batchnorm2d })
+    }
+
+    /// Forward pass through BatchNorm2d
+    fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        let result = self.inner.forward(&input.inner);
+        Ok(PyVariable { inner: result })
+    }
+
+    /// Call method (makes layer callable)
+    fn __call__(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(input)
+    }
+
+    /// Set to training mode
+    fn train(&self) {
+        self.inner.train();
+    }
+
+    /// Set to evaluation mode
+    fn eval(&self) {
+        self.inner.eval();
+    }
+
+    /// Get weight parameter
+    #[getter]
+    fn weight(&self) -> PyVariable {
+        let params = self.inner.parameters();
+        PyVariable { inner: params[0].clone() }
+    }
+
+    /// Get bias parameter
+    #[getter]
+    fn bias(&self) -> PyVariable {
+        let params = self.inner.parameters();
+        PyVariable { inner: params[1].clone() }
+    }
+
+    /// Get number of features
+    #[getter]
+    fn num_features(&self) -> usize {
+        self.inner.num_features()
+    }
+
+    /// Get epsilon value
+    #[getter]
+    fn eps(&self) -> f32 {
+        self.inner.eps()
+    }
+
+    /// Get momentum value
+    #[getter]
+    fn momentum(&self) -> f32 {
+        self.inner.momentum()
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!(
+            "BatchNorm2d(num_features={}, eps={:.1e}, momentum={:.1})",
+            self.inner.num_features(),
+            self.inner.eps(),
+            self.inner.momentum()
+        )
+    }
+}
+
+/// Python CrossEntropyLoss wrapper for RusTorch CrossEntropyLoss (Phase 4 - Classification Loss)
+#[pyclass(name = "CrossEntropyLoss")]
+pub struct PyCrossEntropyLoss {
+    pub inner: RustCrossEntropyLoss<f32>,
+}
+
+#[pymethods]
+impl PyCrossEntropyLoss {
+    /// Create a new CrossEntropyLoss
+    #[new]
+    fn new() -> PyResult<Self> {
+        let loss = RustCrossEntropyLoss::new();
+        Ok(PyCrossEntropyLoss { inner: loss })
+    }
+
+    /// Forward pass of CrossEntropyLoss
+    fn forward(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        let result = self.inner.forward(&predictions.inner, &targets.inner);
+        Ok(PyVariable { inner: result })
+    }
+
+    /// Call method (makes loss function callable)
+    fn __call__(&self, predictions: &PyVariable, targets: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(predictions, targets)
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        "CrossEntropyLoss()".to_string()
+    }
+}
+
+/// Python Flatten wrapper (Phase 4 - Tensor Flattening for CNN->FC transition)
+#[pyclass(name = "Flatten")]
+pub struct PyFlatten {
+    pub start_dim: usize,
+    pub end_dim: isize,
+}
+
+#[pymethods]
+impl PyFlatten {
+    /// Create a new Flatten layer
+    #[new]
+    fn new(start_dim: Option<usize>, end_dim: Option<isize>) -> PyResult<Self> {
+        let start_dim = start_dim.unwrap_or(1); // Default: flatten from dimension 1 (keep batch dimension)
+        let end_dim = end_dim.unwrap_or(-1); // Default: flatten to end
+
+        Ok(PyFlatten { start_dim, end_dim })
+    }
+
+    /// Forward pass through Flatten
+    fn forward(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        // Get input shape
+        let input_shape = input.inner.data().read().unwrap().shape().to_vec();
+
+        if self.start_dim >= input_shape.len() {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                format!("start_dim {} is out of range for tensor with {} dimensions",
+                        self.start_dim, input_shape.len())
+            ));
+        }
+
+        // Calculate the new shape
+        let mut new_shape = Vec::new();
+
+        // Keep dimensions before start_dim
+        for i in 0..self.start_dim {
+            new_shape.push(input_shape[i]);
+        }
+
+        // Calculate flattened dimension size
+        let end_dim = if self.end_dim < 0 {
+            input_shape.len() as isize + self.end_dim + 1
+        } else {
+            self.end_dim + 1
+        } as usize;
+
+        let mut flattened_size = 1;
+        for i in self.start_dim..end_dim.min(input_shape.len()) {
+            flattened_size *= input_shape[i];
+        }
+        new_shape.push(flattened_size);
+
+        // Add dimensions after end_dim
+        for i in end_dim.min(input_shape.len())..input_shape.len() {
+            new_shape.push(input_shape[i]);
+        }
+
+        // Create flattened tensor
+        let input_data = input.inner.data().read().unwrap().clone();
+        let flattened_data = input_data.data.into_shape_with_order(new_shape).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to flatten tensor: {}", e))
+        })?;
+
+        let flattened_tensor = RustTensor::new(flattened_data);
+        let result = RustVariable::new(flattened_tensor, input.inner.requires_grad());
+
+        Ok(PyVariable { inner: result })
+    }
+
+    /// Call method (makes layer callable)
+    fn __call__(&self, input: &PyVariable) -> PyResult<PyVariable> {
+        self.forward(input)
+    }
+
+    /// Get start dimension
+    #[getter]
+    fn start_dim(&self) -> usize {
+        self.start_dim
+    }
+
+    /// Get end dimension
+    #[getter]
+    fn end_dim(&self) -> isize {
+        self.end_dim
+    }
+
+    /// String representation
+    fn __repr__(&self) -> String {
+        format!("Flatten(start_dim={}, end_dim={})", self.start_dim, self.end_dim)
+    }
+}
+
 /// RusTorch Python bindings module
 #[pymodule]
 fn _rustorch_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -955,9 +1168,12 @@ fn _rustorch_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PySigmoid>()?;
     m.add_class::<PyTanh>()?;
     m.add_class::<PyBatchNorm1d>()?;
+    m.add_class::<PyBatchNorm2d>()?;
     m.add_class::<PyDropout>()?;
     m.add_class::<PyConv2d>()?;
     m.add_class::<PyMaxPool2d>()?;
+    m.add_class::<PyCrossEntropyLoss>()?;
+    m.add_class::<PyFlatten>()?;
     m.add_function(wrap_pyfunction!(zeros, m)?)?;
     m.add_function(wrap_pyfunction!(ones, m)?)?;
     m.add_function(wrap_pyfunction!(tensor, m)?)?;
