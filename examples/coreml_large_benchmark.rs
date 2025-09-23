@@ -1,3 +1,5 @@
+use rustorch::gpu::{get_device_manager, DeviceType};
+use rustorch::nn::{BatchNorm2d, Conv2d, Linear};
 /// Large-scale CoreML vs CPU performance benchmark
 /// 大規模なCoreML vs CPU パフォーマンスベンチマーク
 ///
@@ -6,10 +8,7 @@
 /// - Deep neural network inference
 /// - Image processing workloads
 /// - Batch processing operations
-
 use rustorch::tensor::Tensor;
-use rustorch::nn::{Linear, Conv2d, BatchNorm2d};
-use rustorch::gpu::{DeviceType, get_device_manager};
 use std::time::Instant;
 
 #[derive(Debug, Clone)]
@@ -30,11 +29,11 @@ struct BenchmarkConfig {
 impl Default for BenchmarkConfig {
     fn default() -> Self {
         Self {
-            large_matrix_size: 1024,        // 1024x1024 matrices
-            batch_size: 32,                 // Realistic batch size
-            image_batch_size: 16,           // Image batch processing
-            image_channels: 3,              // RGB
-            image_height: 224,              // Standard image size
+            large_matrix_size: 1024, // 1024x1024 matrices
+            batch_size: 32,          // Realistic batch size
+            image_batch_size: 16,    // Image batch processing
+            image_channels: 3,       // RGB
+            image_height: 224,       // Standard image size
             image_width: 224,
             hidden_layers: vec![2048, 1024, 512, 256, 128], // Deep network
             iterations: 5,
@@ -58,9 +57,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let config = BenchmarkConfig::default();
     println!("📋 Benchmark Configuration:");
-    println!("   Matrix Size: {}x{}", config.large_matrix_size, config.large_matrix_size);
+    println!(
+        "   Matrix Size: {}x{}",
+        config.large_matrix_size, config.large_matrix_size
+    );
     println!("   Batch Size: {}", config.batch_size);
-    println!("   Image Size: {}x{}x{}x{}", config.image_batch_size, config.image_channels, config.image_height, config.image_width);
+    println!(
+        "   Image Size: {}x{}x{}x{}",
+        config.image_batch_size, config.image_channels, config.image_height, config.image_width
+    );
     println!("   Deep Network: {:?}", config.hidden_layers);
     println!("   Iterations: {}", config.iterations);
     println!();
@@ -78,8 +83,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 1. Large Matrix Multiplication Benchmark
     println!("📊 1. Large Matrix Multiplication Benchmark");
-    println!("   Testing {}x{} matrices with batch size {}",
-             config.large_matrix_size, config.large_matrix_size, config.batch_size);
+    println!(
+        "   Testing {}x{} matrices with batch size {}",
+        config.large_matrix_size, config.large_matrix_size, config.batch_size
+    );
 
     let matrix_result = benchmark_large_matrix_multiplication(&config)?;
     results.push(matrix_result);
@@ -93,8 +100,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // 3. Image Processing Workload
     println!("\n🖼️  3. Image Processing Workload Benchmark");
-    println!("   Testing {}x{}x{}x{} image batch processing",
-             config.image_batch_size, config.image_channels, config.image_height, config.image_width);
+    println!(
+        "   Testing {}x{}x{}x{} image batch processing",
+        config.image_batch_size, config.image_channels, config.image_height, config.image_width
+    );
 
     let image_result = benchmark_image_processing(&config)?;
     results.push(image_result);
@@ -112,12 +121,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn benchmark_large_matrix_multiplication(config: &BenchmarkConfig) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
+fn benchmark_large_matrix_multiplication(
+    config: &BenchmarkConfig,
+) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
     let size = config.large_matrix_size;
     let batch_size = config.batch_size;
 
     // Create large matrices
-    println!("   🔧 Creating {}x{} matrices for {} batches...", size, size, batch_size);
+    println!(
+        "   🔧 Creating {}x{} matrices for {} batches...",
+        size, size, batch_size
+    );
 
     let mut total_cpu_time = 0.0;
     let mut total_coreml_time = 0.0;
@@ -153,18 +167,18 @@ fn benchmark_large_matrix_multiplication(config: &BenchmarkConfig) -> Result<Ben
                         match b.to_device(DeviceType::CoreML(0)) {
                             Ok(b_coreml) => {
                                 match a_coreml.matmul(&b_coreml) {
-                                    Ok(_result) => {},
+                                    Ok(_result) => {}
                                     Err(_) => {
                                         // Fallback to CPU
                                         let _result = a.matmul(&b)?;
                                     }
                                 }
-                            },
+                            }
                             Err(_) => {
                                 let _result = a.matmul(&b)?;
                             }
                         }
-                    },
+                    }
                     Err(_) => {
                         let _result = a.matmul(&b)?;
                     }
@@ -199,14 +213,18 @@ fn benchmark_large_matrix_multiplication(config: &BenchmarkConfig) -> Result<Ben
     })
 }
 
-fn benchmark_deep_neural_network(config: &BenchmarkConfig) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
+fn benchmark_deep_neural_network(
+    config: &BenchmarkConfig,
+) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
     let batch_size = config.batch_size;
     let input_size = 784; // MNIST-like input
 
     println!("   🔧 Creating deep neural network...");
 
     // Create deep network layers
-    let layers: Result<Vec<Linear>, _> = config.hidden_layers.windows(2)
+    let layers: Result<Vec<Linear>, _> = config
+        .hidden_layers
+        .windows(2)
         .map(|window| Linear::new(window[0], window[1]))
         .collect();
 
@@ -253,15 +271,13 @@ fn benchmark_deep_neural_network(config: &BenchmarkConfig) -> Result<BenchmarkRe
                     let mut forward_success = true;
                     for layer in &layers {
                         match layer.forward(&coreml_input) {
-                            Ok(output) => {
-                                match output.relu() {
-                                    Ok(activated) => {
-                                        coreml_input = activated;
-                                    },
-                                    Err(_) => {
-                                        forward_success = false;
-                                        break;
-                                    }
+                            Ok(output) => match output.relu() {
+                                Ok(activated) => {
+                                    coreml_input = activated;
+                                }
+                                Err(_) => {
+                                    forward_success = false;
+                                    break;
                                 }
                             },
                             Err(_) => {
@@ -279,7 +295,7 @@ fn benchmark_deep_neural_network(config: &BenchmarkConfig) -> Result<BenchmarkRe
                             cpu_fallback = cpu_fallback.relu()?;
                         }
                     }
-                },
+                }
                 Err(_) => {
                     // Fallback to CPU
                     let mut cpu_fallback = input.clone();
@@ -318,7 +334,9 @@ fn benchmark_deep_neural_network(config: &BenchmarkConfig) -> Result<BenchmarkRe
     })
 }
 
-fn benchmark_image_processing(config: &BenchmarkConfig) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
+fn benchmark_image_processing(
+    config: &BenchmarkConfig,
+) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
     let batch_size = config.image_batch_size;
     let channels = config.image_channels;
     let height = config.image_height;
@@ -388,7 +406,7 @@ fn benchmark_image_processing(config: &BenchmarkConfig) -> Result<BenchmarkResul
                         cpu_fallback = cpu_fallback.mul_scalar(0.5)?;
                         cpu_fallback = cpu_fallback.tanh()?;
                     }
-                },
+                }
                 Err(_) => {
                     // Fallback to CPU
                     let mut cpu_fallback = images.clone();
@@ -427,7 +445,9 @@ fn benchmark_image_processing(config: &BenchmarkConfig) -> Result<BenchmarkResul
     })
 }
 
-fn benchmark_convolution_heavy(config: &BenchmarkConfig) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
+fn benchmark_convolution_heavy(
+    config: &BenchmarkConfig,
+) -> Result<BenchmarkResult, Box<dyn std::error::Error>> {
     let batch_size = config.image_batch_size;
     let in_channels = config.image_channels;
     let height = config.image_height;
@@ -536,7 +556,7 @@ fn benchmark_convolution_heavy(config: &BenchmarkConfig) -> Result<BenchmarkResu
                         cpu_x = bn4.forward(&cpu_x)?;
                         cpu_x = cpu_x.relu()?;
                     }
-                },
+                }
                 Err(_) => {
                     // Fallback to CPU
                     let mut cpu_x = input.clone();
@@ -624,14 +644,19 @@ fn print_benchmark_results(results: &[BenchmarkResult]) {
         println!("Total CoreML Time:  {:.2}ms", total_coreml_time);
         let overall_speedup = total_cpu_time / total_coreml_time;
         if overall_speedup > 1.0 {
-            println!("🚀 Overall Speedup: {:.2}x (CoreML faster)", overall_speedup);
+            println!(
+                "🚀 Overall Speedup: {:.2}x (CoreML faster)",
+                overall_speedup
+            );
         } else {
             println!("📉 Overall Result:  {:.2}x (CPU faster)", overall_speedup);
         }
 
         println!("\n🎯 Conclusions:");
         if overall_speedup > 1.2 {
-            println!("   ✅ CoreML provides significant performance benefits for large-scale workloads");
+            println!(
+                "   ✅ CoreML provides significant performance benefits for large-scale workloads"
+            );
         } else if overall_speedup > 1.0 {
             println!("   ✅ CoreML provides modest performance benefits");
         } else {

@@ -109,7 +109,7 @@ impl CoreMLModelManager {
     {
         if shape_a.len() != 2 || shape_b.len() != 2 {
             return Err(error_helpers::unsupported_operation(
-                "Matrix multiplication requires 2D tensors"
+                "Matrix multiplication requires 2D tensors",
             ));
         }
 
@@ -119,7 +119,7 @@ impl CoreMLModelManager {
 
         if shape_a[1] != shape_b[0] {
             return Err(error_helpers::unsupported_operation(
-                "Matrix dimensions don't match for multiplication"
+                "Matrix dimensions don't match for multiplication",
             ));
         }
 
@@ -143,7 +143,7 @@ impl CoreMLModelManager {
     {
         if input_shape.len() != 4 || kernel_shape.len() != 4 {
             return Err(error_helpers::unsupported_operation(
-                "Conv2D requires 4D tensors (NCHW format)"
+                "Conv2D requires 4D tensors (NCHW format)",
             ));
         }
 
@@ -226,22 +226,27 @@ impl CoreMLModelManager {
         {
             // Create CoreML optimization metadata based on operation type
             let ml_model_meta = match &model_type {
-                CoreMLModelType::MatrixMultiplication { m, n, k } => {
-                    Some(format!("matmul_{}x{}x{}_optimized_for_neural_engine", m, n, k))
-                }
+                CoreMLModelType::MatrixMultiplication { m, n, k } => Some(format!(
+                    "matmul_{}x{}x{}_optimized_for_neural_engine",
+                    m, n, k
+                )),
                 CoreMLModelType::Convolution2D {
                     input_channels,
                     output_channels,
                     kernel_size,
                     stride,
-                    padding
-                } => {
-                    Some(format!("conv2d_{}_{}_{}_{}_{}__neural_engine",
-                        input_channels, output_channels, kernel_size, stride, padding))
-                }
-                CoreMLModelType::Activation { activation_type, input_size } => {
-                    Some(format!("{:?}_{}__neural_engine", activation_type, input_size))
-                }
+                    padding,
+                } => Some(format!(
+                    "conv2d_{}_{}_{}_{}_{}__neural_engine",
+                    input_channels, output_channels, kernel_size, stride, padding
+                )),
+                CoreMLModelType::Activation {
+                    activation_type,
+                    input_size,
+                } => Some(format!(
+                    "{:?}_{}__neural_engine",
+                    activation_type, input_size
+                )),
             };
 
             let handle = CoreMLModelHandle {
@@ -302,7 +307,7 @@ impl CoreMLModelManager {
             CoreMLModelType::MatrixMultiplication { .. } => {
                 if inputs.len() != 2 {
                     return Err(error_helpers::unsupported_operation(
-                        "Matrix multiplication requires exactly 2 inputs"
+                        "Matrix multiplication requires exactly 2 inputs",
                     ));
                 }
                 vec![self.execute_matmul_model(inputs[0], inputs[1])?]
@@ -310,15 +315,17 @@ impl CoreMLModelManager {
             CoreMLModelType::Convolution2D { .. } => {
                 if inputs.len() != 2 {
                     return Err(error_helpers::unsupported_operation(
-                        "Convolution requires exactly 2 inputs (input and kernel)"
+                        "Convolution requires exactly 2 inputs (input and kernel)",
                     ));
                 }
                 vec![self.execute_conv2d_model(inputs[0], inputs[1])?]
             }
-            CoreMLModelType::Activation { activation_type, .. } => {
+            CoreMLModelType::Activation {
+                activation_type, ..
+            } => {
                 if inputs.len() != 1 {
                     return Err(error_helpers::unsupported_operation(
-                        "Activation function requires exactly 1 input"
+                        "Activation function requires exactly 1 input",
                     ));
                 }
                 vec![self.execute_activation_model(inputs[0], *activation_type)?]
@@ -341,23 +348,23 @@ impl CoreMLModelManager {
         {
             // Use the proven Metal Performance Shaders approach
             // which provides Neural Engine acceleration through CoreML framework
-            
+
             // This implementation leverages Metal Performance Shaders (MPS) which
             // automatically utilizes Apple Neural Engine when beneficial
-            
+
             // For true CoreML integration, this delegates to our existing Metal implementation
             // that has been proven to provide 19% performance improvement
-            
+
             // In production, this would involve:
             // 1. Creating MLModel programmatically using MLCompute
             // 2. Converting tensors to MLMultiArray format
             // 3. Executing on Apple Neural Engine when available
             // 4. Converting results back to Tensor format
-            
+
             // For now, use the proven Metal implementation with CoreML optimizations
             a.matmul(b)
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback to CPU implementation
@@ -367,7 +374,11 @@ impl CoreMLModelManager {
 
     /// Execute 2D convolution model
     /// 2D畳み込みモデルを実行
-    fn execute_conv2d_model<T>(&self, input: &Tensor<T>, kernel: &Tensor<T>) -> CoreMLResult<Tensor<T>>
+    fn execute_conv2d_model<T>(
+        &self,
+        input: &Tensor<T>,
+        kernel: &Tensor<T>,
+    ) -> CoreMLResult<Tensor<T>>
     where
         T: Float + FromPrimitive + ScalarOperand + 'static,
     {
@@ -420,11 +431,11 @@ impl CoreMLModelManager {
     fn update_model_stats(&self, model_id: &str, execution_time: std::time::Duration) {
         if let Ok(mut models) = self.models.lock() {
             if let Some(handle) = models.get_mut(model_id) {
-                let total_time = handle.average_execution_time.as_nanos() as f64 * (handle.usage_count - 1) as f64;
+                let total_time = handle.average_execution_time.as_nanos() as f64
+                    * (handle.usage_count - 1) as f64;
                 let new_total = total_time + execution_time.as_nanos() as f64;
-                handle.average_execution_time = std::time::Duration::from_nanos(
-                    (new_total / handle.usage_count as f64) as u64
-                );
+                handle.average_execution_time =
+                    std::time::Duration::from_nanos((new_total / handle.usage_count as f64) as u64);
             }
         }
     }
@@ -458,12 +469,12 @@ impl CoreMLModelManager {
         // This is a placeholder for the actual MLMultiArray conversion
         // In a full implementation, this would convert to MLMultiArray format
         // for direct CoreML framework usage
-        
+
         // For now, return the tensor optimized for Metal Performance Shaders
         // which provides the proven 19% performance improvement
         Ok(tensor.clone())
     }
-    
+
     /// Convert CoreML format back to Tensor (placeholder implementation)
     /// CoreML形式をTensorに変換（プレースホルダー実装）
     fn ml_multiarray_to_tensor<T>(&self, tensor: &Tensor<T>) -> CoreMLResult<Tensor<T>>
@@ -473,28 +484,33 @@ impl CoreMLModelManager {
         // This is a placeholder for the actual MLMultiArray to Tensor conversion
         // In a full implementation, this would convert from MLMultiArray format
         // back to our Tensor representation
-        
+
         // For now, return the optimized tensor from Metal Performance Shaders
         Ok(tensor.clone())
     }
-    
+
     /// Create optimized model handle for matrix multiplication
     /// 行列乗算用の最適化されたモデルハンドルを作成
-    fn create_matmul_mlmodel(&self, a_shape: &[usize], b_shape: &[usize]) -> CoreMLResult<CoreMLModelHandle>
-    {
+    fn create_matmul_mlmodel(
+        &self,
+        a_shape: &[usize],
+        b_shape: &[usize],
+    ) -> CoreMLResult<CoreMLModelHandle> {
         // Create a model handle that represents our optimized Metal-CoreML hybrid implementation
         // This provides the CoreML interface while leveraging our proven Metal Performance Shaders backend
-        
-        let model_id = format!("matmul_{}x{}", 
-            a_shape.iter().product::<usize>(), 
-            b_shape.iter().product::<usize>());
-        
+
+        let model_id = format!(
+            "matmul_{}x{}",
+            a_shape.iter().product::<usize>(),
+            b_shape.iter().product::<usize>()
+        );
+
         let model_type = CoreMLModelType::MatrixMultiplication {
             m: a_shape[0],
-            n: b_shape[1], 
+            n: b_shape[1],
             k: a_shape[1],
         };
-        
+
         let handle = CoreMLModelHandle {
             model_id,
             model_type,
@@ -504,32 +520,34 @@ impl CoreMLModelManager {
             usage_count: 1,
             average_execution_time: std::time::Duration::from_millis(1),
         };
-        
+
         Ok(handle)
     }
-    
+
     /// Create optimized CoreML-Metal hybrid execution strategy
     /// 最適化されたCoreML-Metalハイブリッド実行戦略を作成
-    fn create_hybrid_mlmodel_wrapper(&self, a_shape: &[usize], b_shape: &[usize]) -> CoreMLResult<CoreMLModelHandle>
-    {
+    fn create_hybrid_mlmodel_wrapper(
+        &self,
+        a_shape: &[usize],
+        b_shape: &[usize],
+    ) -> CoreMLResult<CoreMLModelHandle> {
         // This creates our proven hybrid approach that provides 19% performance improvement
         // by leveraging Metal Performance Shaders with CoreML optimization hints
-        
+
         self.create_matmul_mlmodel(a_shape, b_shape)
     }
-    
+
     /// Initialize CoreML optimization settings for hybrid execution
     /// ハイブリッド実行用のCoreML最適化設定を初期化
-    fn create_minimal_mlmodel_bundle(&self, _path: &std::path::Path) -> CoreMLResult<()>
-    {
+    fn create_minimal_mlmodel_bundle(&self, _path: &std::path::Path) -> CoreMLResult<()> {
         // This configures our Metal Performance Shaders backend to work optimally
         // with CoreML optimization hints for maximum performance
-        
+
         // The hybrid approach provides:
         // - 19% performance improvement over CPU-only
         // - Automatic Apple Neural Engine utilization when beneficial
         // - Seamless fallback to Metal GPU when ANE is not optimal
-        
+
         Ok(())
     }
 
@@ -541,11 +559,20 @@ impl CoreMLModelManager {
             CoreMLModelType::MatrixMultiplication { m, n, k } => {
                 format!("Neural Engine optimization for {}x{}x{} matrix multiplication using Metal Performance Shaders with CoreML hints", m, n, k)
             }
-            CoreMLModelType::Convolution2D { input_channels, output_channels, kernel_size, stride, padding } => {
+            CoreMLModelType::Convolution2D {
+                input_channels,
+                output_channels,
+                kernel_size,
+                stride,
+                padding,
+            } => {
                 format!("Neural Engine optimization for Conv2D ({}→{}, k={}, s={}, p={}) using optimized Metal kernels",
                     input_channels, output_channels, kernel_size, stride, padding)
             }
-            CoreMLModelType::Activation { activation_type, input_size } => {
+            CoreMLModelType::Activation {
+                activation_type,
+                input_size,
+            } => {
                 format!("Neural Engine optimization for {:?} activation with {} elements using vectorized operations",
                     activation_type, input_size)
             }
