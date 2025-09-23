@@ -11,6 +11,34 @@ use rustorch::nn::BatchNorm2d as RustBatchNorm2d;
 use rustorch::nn::Dropout as RustDropout;
 use rustorch::nn::Conv2d as RustConv2d;
 use rustorch::nn::MaxPool2d as RustMaxPool2d;
+use rustorch::error::RusTorchError;
+
+/// Convert RusTorchError to PyErr for Python bindings
+fn rustorch_error_to_pyerr(err: RusTorchError) -> PyErr {
+    match err {
+        RusTorchError::ShapeMismatch { expected, actual } => {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Shape mismatch: expected {:?}, got {:?}", expected, actual
+            ))
+        },
+        RusTorchError::TensorOp { message, .. } => {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Tensor operation failed: {}", message))
+        },
+        RusTorchError::Device { device, message } => {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("Device error on {}: {}", device, message))
+        },
+        _ => {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("RusTorch error: {}", err))
+        }
+    }
+}
+
+/// Macro to convert RusTorchError results to PyResult
+macro_rules! map_rustorch_err {
+    ($result:expr) => {
+        $result.map_err(rustorch_error_to_pyerr)
+    };
+}
 
 /// Python Tensor wrapper for RusTorch Tensor<f32>
 #[pyclass(name = "Tensor")]
@@ -27,14 +55,18 @@ impl PyTensor {
         // Validate data length matches shape
         let expected_len: usize = shape.iter().product();
         if data.len() != expected_len {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                format!("Data length {} does not match shape {:?} (expected {})",
-                        data.len(), shape, expected_len)
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: format!("Data length {} does not match shape {:?} (expected {})",
+                               data.len(), shape, expected_len),
+                source: None,
+            }));
         }
 
         if shape.is_empty() {
-            return Err(pyo3::exceptions::PyValueError::new_err("Shape cannot be empty"));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: "Shape cannot be empty".to_string(),
+                source: None,
+            }));
         }
 
         let tensor = RustTensor::from_vec(data, shape);
@@ -95,9 +127,10 @@ impl PyTensor {
         let other_shape = other.inner.shape();
 
         if self_shape.len() < 2 || other_shape.len() < 2 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Matrix multiplication requires at least 2D tensors"
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: "Matrix multiplication requires at least 2D tensors".to_string(),
+                source: None,
+            }));
         }
 
         let self_rows = self_shape[self_shape.len() - 2];
@@ -106,14 +139,13 @@ impl PyTensor {
         let other_cols = other_shape[other_shape.len() - 1];
 
         if self_cols != other_rows {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                format!("Matrix dimensions don't match: {}x{} @ {}x{}",
-                       self_rows, self_cols, other_rows, other_cols)
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::ShapeMismatch {
+                expected: vec![self_rows, other_rows],
+                actual: vec![self_rows, self_cols, other_rows, other_cols],
+            }));
         }
 
-        let result = self.inner.matmul(&other.inner)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Matrix multiplication failed: {}", e)))?;
+        let result = map_rustorch_err!(self.inner.matmul(&other.inner))?;
         Ok(PyTensor { inner: result })
     }
 
@@ -121,13 +153,13 @@ impl PyTensor {
     fn transpose(&self) -> PyResult<PyTensor> {
         let shape = self.inner.shape();
         if shape.len() < 2 {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Transpose requires at least 2D tensor"
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: "Transpose requires at least 2D tensor".to_string(),
+                source: None,
+            }));
         }
 
-        let result = self.inner.transpose()
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Transpose failed: {}", e)))?;
+        let result = map_rustorch_err!(self.inner.transpose())?;
         Ok(PyTensor { inner: result })
     }
 
@@ -138,20 +170,21 @@ impl PyTensor {
         let new_numel: usize = new_shape.iter().product();
 
         if current_numel != new_numel {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                format!("Cannot reshape tensor of {} elements to shape {:?} ({} elements)",
-                       current_numel, new_shape, new_numel)
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: format!("Cannot reshape tensor of {} elements to shape {:?} ({} elements)",
+                               current_numel, new_shape, new_numel),
+                source: None,
+            }));
         }
 
         if new_shape.is_empty() || new_shape.iter().any(|&dim| dim == 0) {
-            return Err(pyo3::exceptions::PyValueError::new_err(
-                "Invalid shape: dimensions must be positive"
-            ));
+            return Err(rustorch_error_to_pyerr(RusTorchError::TensorOp {
+                message: "Invalid shape: dimensions must be positive".to_string(),
+                source: None,
+            }));
         }
 
-        let result = self.inner.reshape(&new_shape)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("Reshape failed: {}", e)))?;
+        let result = map_rustorch_err!(self.inner.reshape(&new_shape))?;
         Ok(PyTensor { inner: result })
     }
 
