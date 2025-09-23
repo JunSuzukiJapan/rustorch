@@ -11,7 +11,6 @@ use rustorch::nn::BatchNorm2d as RustBatchNorm2d;
 use rustorch::nn::Dropout as RustDropout;
 use rustorch::nn::Conv2d as RustConv2d;
 use rustorch::nn::MaxPool2d as RustMaxPool2d;
-use rustorch::optim::{Adam as RustAdam, Optimizer};
 
 /// Python Tensor wrapper for RusTorch Tensor<f32>
 #[pyclass(name = "Tensor")]
@@ -494,6 +493,7 @@ pub struct PyAdam {
     pub beta2: f32,
     pub eps: f32,
     pub weight_decay: f32,
+    pub amsgrad: bool,
     pub step_count: usize,
 }
 
@@ -513,7 +513,7 @@ impl PyAdam {
         let (beta1, beta2) = betas.unwrap_or((0.9, 0.999));
         let eps = eps.unwrap_or(1e-8);
         let weight_decay = weight_decay.unwrap_or(0.0);
-        let _amsgrad = amsgrad.unwrap_or(false); // Store for future use
+        let amsgrad = amsgrad.unwrap_or(false);
 
         // Validation
         if lr <= 0.0 {
@@ -536,6 +536,7 @@ impl PyAdam {
             beta2,
             eps,
             weight_decay,
+            amsgrad,
             step_count: 0,
         })
     }
