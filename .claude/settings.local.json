@@ -214,7 +214,9 @@
       "Bash(PYTHONPATH=python python3 test_phase4_final.py)",
       "Bash(PYTHONPATH=python python3 test_refactored_structure.py)",
       "Bash(PYTHONPATH=python python3 test_fixes_simple.py)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(PYTHONPATH=python python3 test_phase5_autograd.py)",
+      "Bash(PYTHONPATH=python python3 tests/test_phase5_autograd.py)"
     ],
     "deny": [],
     "ask": [],
