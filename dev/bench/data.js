@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758605024370,
+  "lastUpdate": 1758607512698,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -772,6 +772,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30005,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "358c6f135cf2b3e80bfdaa876b6c2d5cb074ae88",
+          "message": "fix: add missing config path to cargo deny license check in CI\n\nCIのCode QualityジョブでMIT、Apache-2.0、BSD-2-Clauseライセンスが\n拒否されていた問題を修正。cargo denyコマンドに--config config/deny.toml\nパラメータを追加して、正しいライセンス許可設定を参照するよう修正。\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-23T15:03:59+09:00",
+          "tree_id": "d9633af2b32f3ba7eca911627ef6cc4c9e6dc567",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/358c6f135cf2b3e80bfdaa876b6c2d5cb074ae88"
+        },
+        "date": 1758607510059,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
