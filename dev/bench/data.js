@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758552647573,
+  "lastUpdate": 1758603138103,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -705,6 +705,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/ebd3e8219912b333a0905125d8e3b91031ccf96e"
         },
         "date": 1758552645345,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "05a8ce08aa9d0ab051fda5d65865846de2fc9782",
+          "message": "fix: resolve macOS CI test failures for GPU parallel and benchmark tests\n\n- Fix test_gpu_parallel_context to handle actual device availability instead of assuming Metal\n- Fix test_benchmark integer overflow and ensure measurable execution time\n- Support cross-platform device detection in GPU parallel context tests\n- Increase benchmark computation complexity to prevent zero duration\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-23T13:51:00+09:00",
+          "tree_id": "661e3b8bb2a847990d7fd3e7dd1f2133c6849d50",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/05a8ce08aa9d0ab051fda5d65865846de2fc9782"
+        },
+        "date": 1758603135409,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
