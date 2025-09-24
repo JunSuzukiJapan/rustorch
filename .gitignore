@@ -4,6 +4,8 @@
 # Cargo lock file (uncomment if building a library)
 # Cargo.lock
 
+.claude/settings.local.json
+
 # IDE files
 .vscode/
 .idea/
