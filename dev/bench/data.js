@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758715905203,
+  "lastUpdate": 1758716999891,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -927,6 +927,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "5fdb99c6e8f22738497bac300a3d4b765abfa45c",
+          "message": "refactor: Complete pre-publish code quality improvements for v0.6.22\n\n- Fix all Clippy warnings in example files with proper underscore prefixes\n- Apply comprehensive code formatting with rustfmt across all examples\n- Resolve unused variable warnings in benchmark files\n- Maintain code functionality while improving maintainability\n- Update Cargo.lock to reflect version 0.6.22\n\nValidated through comprehensive testing:\n- 1,139+ unit tests passing\n- 36 doc tests passing\n- Multiple example executions verified\n- WASM build successful\n- Documentation generation completed\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-24T21:28:40+09:00",
+          "tree_id": "8ba0bbed08ef3571d13d8fa2c2df73137d309fb0",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/5fdb99c6e8f22738497bac300a3d4b765abfa45c"
+        },
+        "date": 1758716997415,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
