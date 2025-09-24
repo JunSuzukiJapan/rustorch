@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758631806896,
+  "lastUpdate": 1758715038922,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -865,6 +865,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b57fc456ca77ac53cc6347ea2b2f7dcd40f35cf0",
+          "message": "fix: Remove Clippy warnings and add benchmarks-heavy feature flag (#31)\n\n* feat: Add comprehensive Metal vs CoreML performance benchmark suite\n\nThis commit introduces a complete benchmark framework for comparing Metal GPU acceleration and CoreML Neural Engine performance on Apple Silicon, with both comprehensive heavy benchmarks and statistically optimized quick benchmarks.\n\n## Heavy Benchmark (metal_coreml_heavy_benchmark.rs)\n- **Duration**: ~60 minutes comprehensive testing\n- **Phase 1**: 2048x2048 matrix operations (64 ops in 20 minutes)\n- **Phase 2**: Deep convolution networks (1,155 networks in 20 minutes)\n- **Phase 3**: Transformer attention mechanisms (large-scale dimensions)\n- **Features**: Real-world workload simulation, thermal monitoring, memory tracking\n- **CI Integration**: Automatic skip in CI unless explicitly enabled with RUSTORCH_HEAVY_BENCHMARK=1\n\n## Quick Benchmark (quick_metal_coreml_benchmark.rs)\n- **Duration**: ~15 minutes with statistical optimization (75% time reduction)\n- **Statistical Rigor**: 95% confidence intervals with sufficient sample sizes\n- **Phase 1**: 1024x1024 matrix operations (20 samples)\n- **Phase 2**: 512x512 convolution networks (300 samples)\n- **Phase 3**: 256-dimension transformer operations (30 samples)\n- **Memory Optimization**: Scoped tensor allocation for efficient memory usage\n- **Results**: Metal GPU shows 1.42x-2612x efficiency gains across phases\n\n## Technical Improvements\n- **Transformer Large-Scale Dimension Support**: Fixed 3D tensor matrix multiplication compatibility\n- **CoreML Integration**: Replaced placeholder implementations with actual CoreML simulation\n- **Memory Optimization**: Dynamic memory estimation and scoped tensor management\n- **Miri Test Fix**: Added MIRIFLAGS=\"-Zmiri-permissive-provenance\" for Extended Nightly Tests\n- **Documentation**: Comprehensive README files with usage instructions and statistical justification\n\n## Performance Results\n- **Metal GPU**: 48.2 ops/min (matrix), 2600.8 ops/min (conv), 15,675 ops/min (transformer)\n- **CoreML Neural Engine**: 34.0 ops/min (matrix) with 20% better memory efficiency (231MB vs 288MB)\n- **Statistical Significance**: All results maintain 95% confidence intervals with appropriate sample sizes\n\n## CI/CD Integration\n- Heavy benchmark: Skip by default, enable with RUSTORCH_HEAVY_BENCHMARK=1\n- Quick benchmark: Skip by default, enable with RUSTORCH_QUICK_BENCHMARK=1\n- Miri tests: Fixed crossbeam-epoch borrow stack issues in nightly CI\n\nThis benchmark suite enables efficient performance validation during development while providing comprehensive analysis capabilities for detailed optimization work.\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: Phase 3 Transformer benchmark success rate from 0% to 100%\n\n✅ 修正内容:\n- Matrix multiplication dimension mismatch解決\n- Q, K, V tensor dimensions調整 (K transposed for attention)\n- Error handling強化でfallback実装\n- CoreML実装を完全統合 (placeholder→実際処理)\n\n🎯 成果:\n- Metal Phase 3: 100.0% success rate (1.06s)\n- CoreML Phase 3: 100.0% success rate (7.72s)\n- Metal vs CoreML: 7.31x efficiency in transformers\n\n🔧 技術改善:\n- Proper attention mechanism: Q @ K^T @ V\n- Tensor dimension compatibility確保\n- RusTorch API制約回避 (view method未対応)\n\n🚀 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat: Add CoreML advantage benchmark demonstrating Neural Engine superiority\n\n🎯 CoreMLが得意な分野での圧倒的優位性を実証:\n- 電力効率: 2,391倍優秀 (8.6mW vs 20,555mW)\n- 量子化推論: 8.8倍高速 (INT8専用 vs FP32汎用)\n- ストリーミング: 完璧な安定性 (0%ドロップ vs 3.3%ドロップ)\n\n📱 モバイル・バッテリー・リアルタイム推論の王様\n✅ 実用アプリケーションでのCoreML優位性を完全実証\n⚡ 電源制約環境でのAI推論の新しい基準\n\n🔧 Technical improvements:\n- Power efficiency-focused benchmark design\n- INT8 vs FP32 quantized model comparison\n- Real-time streaming performance validation\n- Mobile-optimized inference pattern simulation\n\n🚀 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* feat: Add comprehensive performance regression detection system\n\n- Implement statistical regression detection with Z-score analysis (99% confidence)\n- Add real-time performance monitoring for Metal GPU and CoreML Neural Engine\n- Create automated CI/CD integration with regression failure detection\n- Generate comprehensive analysis reports (JSON, HTML, CSV formats)\n- Add benchmark visualization and trend analysis tools\n- Detect Metal GPU performance regressions (28.3% average degradation)\n- Confirm CoreML Neural Engine stability (0 regressions detected)\n- Implement battery efficiency analysis showing CoreML 2,391x advantage\n- Create automated alerting system with severity-based notifications\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* chore: Update RusTorch version to 0.6.22 across all documentation and notebooks\n\n- Update README.md version references from 0.6.21 to 0.6.22\n- Update Cargo.toml package version to 0.6.22\n- Update all Rust kernel notebooks across 8 languages:\n  * English (en/rustorch_rust_kernel_demo_en.ipynb)\n  * Japanese (rustorch_rust_kernel_demo_ja.ipynb)\n  * Italian (it/rustorch_rust_kernel_demo_it.ipynb)\n  * Chinese (zh/rustorch_rust_kernel_demo_zh.ipynb)\n  * Korean (ko/rustorch_rust_kernel_demo_ko.ipynb)\n  * French (fr/rustorch_rust_kernel_demo_fr.ipynb)\n  * Spanish (es/rustorch_rust_kernel_demo_es.ipynb)\n  * Main demo (rustorch_rust_kernel_demo.ipynb)\n- Ensures consistent version references across all user-facing documentation\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* fix: Remove Clippy warnings and add benchmarks-heavy feature flag\n\n- Fix all Clippy warnings in examples without using #[allow] directives\n- Remove unused variables by prefixing with underscore\n- Fix redundant pattern matching and string formatting\n- Apply automatic clippy fixes across codebase\n- Add benchmarks-heavy feature flag to prevent CI timeouts\n- Only apply feature requirement to heavy benchmarks (optimization_benchmark, distributed_benchmark)\n- Complete pre-publish quality assurance tasks\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-24T20:56:13+09:00",
+          "tree_id": "a2002fe9856cd909dedf4fe4a1672d1e012760b2",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/b57fc456ca77ac53cc6347ea2b2f7dcd40f35cf0"
+        },
+        "date": 1758715036714,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
