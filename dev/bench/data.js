@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758715038922,
+  "lastUpdate": 1758715905203,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -896,6 +896,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "bc3b430c0064fa4b246bcfb7423421ddccdc5de5",
+          "message": "fix: Restore version 0.6.22 after PR merge conflict\n\n- Cargo.toml: version 0.6.21 → 0.6.22\n- PR #31 accidentally reverted version due to merge conflict\n- Ensures consistency with documentation and notebooks\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-24T21:10:06+09:00",
+          "tree_id": "6b11fcc43411bb65c6a5904f8c00e31a50e61b89",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/bc3b430c0064fa4b246bcfb7423421ddccdc5de5"
+        },
+        "date": 1758715902986,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
