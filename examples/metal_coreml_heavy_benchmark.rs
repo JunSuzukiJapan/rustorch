@@ -23,7 +23,7 @@
 //! - RUSTORCH_SKIP_HEAVY_BENCHMARK=1
 //! - CI=true (without RUSTORCH_HEAVY_BENCHMARK=1)
 
-use rustorch::error::{RusTorchError, RusTorchResult};
+use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::env;
@@ -567,7 +567,7 @@ impl HeavyPerformanceBenchmark {
 
             for _layer in 0..self.config.attention_layers {
                 // Multi-head attention simulation
-                let head_dim = self.config.embedding_dim / self.config.num_heads;
+                let _head_dim = self.config.embedding_dim / self.config.num_heads;
 
                 // Create Q, K, V matrices for all heads
                 let q_weight =
@@ -578,8 +578,8 @@ impl HeavyPerformanceBenchmark {
                     Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
 
                 // Compute Q, K, V (simplified matrix multiplication)
-                let q = current_tensor.matmul(&q_weight)?;
-                let k = current_tensor.matmul(&k_weight)?;
+                let _q = current_tensor.matmul(&q_weight)?;
+                let _k = current_tensor.matmul(&k_weight)?;
                 let v = current_tensor.matmul(&v_weight)?;
 
                 // Attention computation (simplified)
@@ -732,7 +732,7 @@ impl HeavyPerformanceBenchmark {
         );
         println!();
 
-        for (device, result) in &self.results {
+        for result in self.results.values() {
             println!("🏆 {} Results:", result.device_name);
             println!(
                 "   Total Duration:    {:.1} minutes",
@@ -746,7 +746,7 @@ impl HeavyPerformanceBenchmark {
             println!();
 
             // Phase-by-phase results
-            for (phase_name, phase_result) in &result.phase_results {
+            for phase_result in result.phase_results.values() {
                 println!("   📈 {}", phase_result.phase_name);
                 println!(
                     "      Duration:        {:.1} min",
@@ -829,7 +829,7 @@ impl HeavyPerformanceBenchmark {
     fn simulate_convolution(
         &self,
         input: &Tensor<f32>,
-        kernel: &Tensor<f32>,
+        _kernel: &Tensor<f32>,
     ) -> RusTorchResult<Tensor<f32>> {
         // Simple element-wise operation as convolution placeholder
         // In real implementation, this would be proper convolution
@@ -903,7 +903,7 @@ fn main() -> RusTorchResult<()> {
     println!();
 
     let config = HeavyBenchmarkConfig::default();
-    let mut benchmark = HeavyPerformanceBenchmark::new(config);
+    let benchmark = HeavyPerformanceBenchmark::new(config);
 
     // Run Metal benchmark if available
     #[cfg(feature = "metal")]

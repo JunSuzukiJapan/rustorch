@@ -239,10 +239,7 @@ impl PerformanceRegressionDetector {
             metric.device_name, metric.test_name, metric.metric_name
         );
 
-        let history = self
-            .metrics_history
-            .entry(key)
-            .or_insert_with(VecDeque::new);
+        let history = self.metrics_history.entry(key).or_default();
 
         // Maintain sliding window
         if history.len() >= self.config.moving_window_size * 3 {
@@ -323,12 +320,8 @@ impl PerformanceRegressionDetector {
                 });
 
                 // Detect regressions after adding each measurement
-                self.detect_regressions(&format!(
-                    "Metal GPU:Sustained Inference:average_latency_ms"
-                ))?;
-                self.detect_regressions(&format!(
-                    "Metal GPU:Sustained Inference:power_consumption_mw"
-                ))?;
+                self.detect_regressions("Metal GPU:Sustained Inference:average_latency_ms")?;
+                self.detect_regressions("Metal GPU:Sustained Inference:power_consumption_mw")?;
             }
 
             // CoreML remains stable
@@ -341,9 +334,7 @@ impl PerformanceRegressionDetector {
                 baseline_value: Some(4.0),
             });
 
-            self.detect_regressions(&format!(
-                "CoreML Neural Engine:Sustained Inference:average_latency_ms"
-            ))?;
+            self.detect_regressions("CoreML Neural Engine:Sustained Inference:average_latency_ms")?;
         }
 
         println!("   📈 Processed {} recent measurements", 10 * 3);
@@ -542,7 +533,7 @@ impl PerformanceRegressionDetector {
         for alert in &self.alerts_history {
             device_alerts
                 .entry(alert.metric.device_name.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(alert);
 
             let severity_str = format!("{:?}", alert.severity);

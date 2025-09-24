@@ -26,12 +26,11 @@ struct CoreMLAdvantageBenchmark {
     quantization_bits: u8,         // 8-bit quantization
 
     // Real-time streaming
-    stream_fps: u32,              // 30 FPS processing
+    stream_fps: u32, // 30 FPS processing
     stream_duration_seconds: u32, // 5 minutes streaming
 
-    // Mobile-optimized architectures
-    mobile_model_variants: usize, // 5 different mobile models
-    batch_size: usize,            // 1 (mobile inference pattern)
+                     // Mobile-optimized architectures
+                     // Removed unused fields: mobile_model_variants, batch_size
 }
 
 impl Default for CoreMLAdvantageBenchmark {
@@ -41,10 +40,9 @@ impl Default for CoreMLAdvantageBenchmark {
             inference_frequency_hz: 5,      // Reduced frequency for faster completion
             quantized_model_layers: 20,
             quantization_bits: 8,
-            stream_fps: 15,              // Reduced FPS for faster completion
+            stream_fps: 15, // Reduced FPS for faster completion
             stream_duration_seconds: 30, // 30 seconds for demonstration
-            mobile_model_variants: 5,
-            batch_size: 1, // Single inference (mobile pattern)
+                            // Removed unused field assignments
         }
     }
 }
@@ -256,13 +254,10 @@ impl CoreMLAdvantageRunner {
                 _ => unreachable!(),
             };
 
-            match result {
-                Ok(_) => {
-                    let latency = inference_start.elapsed().as_secs_f64() * 1000.0;
-                    total_latency += latency;
-                    completed += 1;
-                }
-                Err(_) => {}
+            if result.is_ok() {
+                let latency = inference_start.elapsed().as_secs_f64() * 1000.0;
+                total_latency += latency;
+                completed += 1;
             }
 
             if i % 200 == 0 {
@@ -406,7 +401,10 @@ impl CoreMLAdvantageRunner {
         Ok(Tensor::<f32>::randn(&[1, 1000]))
     }
 
-    fn simulate_coreml_mobile_inference(&self, input: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_coreml_mobile_inference(
+        &self,
+        _input: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // CoreML Neural Engine: Optimized for mobile inference
         thread::sleep(Duration::from_millis(3)); // Lower base latency for optimized models
 

@@ -223,10 +223,7 @@ impl BenchmarkVisualizer {
 
         for result in &self.results_history {
             let key = format!("{} - {}", result.device_name, result.test_name);
-            device_trends
-                .entry(key)
-                .or_insert_with(Vec::new)
-                .push(result);
+            device_trends.entry(key).or_default().push(result);
         }
 
         // Analyze trends for each device/test combination

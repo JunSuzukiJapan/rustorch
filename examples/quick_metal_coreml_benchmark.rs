@@ -14,65 +14,35 @@ use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::env;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-/// Quick benchmark configuration - Statistically sufficient iterations
-/// 統計的に十分な反復回数によるクイックベンチマーク設定
+/// Quick benchmark configuration - Using hardcoded values for simplicity
+/// クイックベンチマーク設定 - シンプルさのためハードコード値を使用
 #[derive(Debug, Clone)]
 struct QuickBenchmarkConfig {
-    // Phase 1: Matrix operations (reduced from 64 to 20 operations)
-    // フェーズ1: 行列演算（64回から20回に削減）
-    matrix_operations: usize, // 20 operations for 95% confidence interval
-    matrix_size: usize,       // 1024x1024 matrices (reduced from 2048x2048)
-    matrix_batch_size: usize, // Batch size for parallel processing
-    matrix_duration_minutes: f64, // Target 5 minutes
-
-    // Phase 2: Convolution networks (reduced from 1155 to 300)
-    // フェーズ2: 畳み込みネットワーク（1155回から300回に削減）
-    convolution_networks: usize, // 300 networks for stable metrics
-    image_size: usize,           // 512x512 images (reduced from 1024x1024)
-    image_batch_size: usize,     // 4 images per batch (reduced from 8)
-    network_layers: usize,       // 16 layers (reduced from 24)
-    conv_duration_minutes: f64,  // Target 5 minutes
-
-    // Phase 3: Transformer attention (new implementation with fixed dimensions)
-    // フェーズ3: Transformer注意機構（次元を修正した新実装）
-    transformer_operations: usize, // 30 operations for stability confirmation
-    sequence_length: usize,        // 256 tokens (reduced from 1024)
-    embedding_dim: usize,          // 256 dimensions (reduced from 512)
-    attention_heads: usize,        // 8 heads (reduced from 16)
-    transformer_layers: usize,     // 6 layers (reduced from 12)
-    transformer_duration_minutes: f64, // Target 5 minutes
-
-    // Performance measurement settings
-    measurement_interval: Duration, // How often to record metrics
+    matrix_operations: usize,
+    matrix_size: usize,
+    matrix_batch_size: usize,
+    convolution_networks: usize,
+    image_size: usize,
+    network_layers: usize,
+    image_batch_size: usize,
+    sequence_length: usize,
+    embedding_dim: usize,
 }
 
 impl Default for QuickBenchmarkConfig {
     fn default() -> Self {
         QuickBenchmarkConfig {
-            // Phase 1: Matrix operations (5 minutes)
-            matrix_operations: 20, // Statistically sufficient for 95% CI
-            matrix_size: 1024,     // Practical size for testing
-            matrix_batch_size: 2,  // Reduced from 4 for efficiency
-            matrix_duration_minutes: 5.0,
-
-            // Phase 2: Convolution networks (optimized for faster completion)
-            convolution_networks: 100, // Reduced from 300 for faster execution
-            image_size: 512,           // Balanced size for testing
-            image_batch_size: 4,       // Reduced from 8
-            network_layers: 16,        // Reduced from 24
-            conv_duration_minutes: 5.0,
-
-            // Phase 3: Transformer attention (5 minutes)
-            transformer_operations: 30, // New implementation
-            sequence_length: 256,       // Fixed dimensions
-            embedding_dim: 256,         // Compatible size
-            attention_heads: 8,         // Reduced heads
-            transformer_layers: 6,      // Reduced layers
-            transformer_duration_minutes: 5.0,
-
-            measurement_interval: Duration::from_secs(30),
+            matrix_operations: 100,
+            matrix_size: 256,
+            matrix_batch_size: 4,
+            convolution_networks: 3,
+            image_size: 128,
+            network_layers: 8,
+            image_batch_size: 2,
+            sequence_length: 512,
+            embedding_dim: 256,
         }
     }
 }
@@ -222,8 +192,8 @@ impl QuickBenchmarkRunner {
 
             // Memory-optimized: Create tensors in limited scope for early deallocation
             let result = {
-                let a = Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]);
-                let b = Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]);
+                let a = Tensor::<f32>::randn(&[1024, 1024]);
+                let b = Tensor::<f32>::randn(&[1024, 1024]);
                 a.matmul(&b)
             };
 
@@ -310,22 +280,22 @@ impl QuickBenchmarkRunner {
             let op_start = Instant::now();
 
             // Create input tensor
-            let input = Tensor::<f32>::randn(&[
-                self.config.image_batch_size,
-                3, // RGB channels
-                self.config.image_size,
-                self.config.image_size,
+            let _input = Tensor::<f32>::randn(&[
+                4,   // image_batch_size
+                3,   // RGB channels
+                512, // image_size
+                512, // image_size
             ]);
 
             // Simulate simplified network with fewer layers
-            let mut x = input;
             let mut layer_success = true;
 
-            for _layer in 0..self.config.network_layers {
+            for _layer in 0..16 {
+                // network_layers
                 // Simplified convolution simulation - just create a simple tensor operation
-                let temp = Tensor::<f32>::randn(&[self.config.image_batch_size, 64]);
+                let temp = Tensor::<f32>::randn(&[4, 64]); // image_batch_size
                 match temp.matmul(&Tensor::<f32>::randn(&[64, 32])) {
-                    Ok(result) => x = result,
+                    Ok(_result) => {}
                     Err(_) => {
                         layer_success = false;
                         break;
@@ -517,8 +487,8 @@ impl QuickBenchmarkRunner {
         let seq_len = input.size()[1];
 
         // Create weight matrix with correct dimensions: [embed_dim, embed_dim * 2]
-        let w1 = Tensor::<f32>::randn(&[embed_dim, embed_dim * 2]);
-        let w2 = Tensor::<f32>::randn(&[embed_dim * 2, embed_dim]);
+        let _w1 = Tensor::<f32>::randn(&[embed_dim, embed_dim * 2]);
+        let _w2 = Tensor::<f32>::randn(&[embed_dim * 2, embed_dim]);
 
         // Simplified approach: avoid complex reshaping
         // Just perform direct matrix multiplication with fallback
@@ -635,10 +605,8 @@ impl QuickBenchmarkRunner {
 
         // Create input tensor (batch, channels, height, width)
         let input_channels = 3;
-        let mut current_tensor = {
-            let input = Tensor::<f32>::randn(&[batch_size, input_channels, image_size, image_size]);
-            input
-        };
+        let mut current_tensor =
+            { Tensor::<f32>::randn(&[batch_size, input_channels, image_size, image_size]) };
 
         // Process through layers with memory scoping
         for layer in 0..layers.min(8) {
@@ -655,10 +623,9 @@ impl QuickBenchmarkRunner {
                 ]);
 
                 // Simulate convolution operation
-                let conv_result = self.simulate_coreml_conv2d(&current_tensor, &weight)?;
 
                 // Apply activation (simple thresholding instead of relu)
-                conv_result
+                self.simulate_coreml_conv2d(&current_tensor, &weight)?
             };
 
             // Memory optimization: scope intermediate results
@@ -931,8 +898,8 @@ impl QuickBenchmarkRunner {
         let seq_len = input.size()[1];
 
         // Create weight matrices with correct dimensions for CoreML
-        let w1 = Tensor::<f32>::randn(&[embed_dim, embed_dim * 2]);
-        let w2 = Tensor::<f32>::randn(&[embed_dim * 2, embed_dim]);
+        let _w1 = Tensor::<f32>::randn(&[embed_dim, embed_dim * 2]);
+        let _w2 = Tensor::<f32>::randn(&[embed_dim * 2, embed_dim]);
 
         // Simplified approach for CoreML: avoid complex reshaping
         // Just perform direct computation with fallback
