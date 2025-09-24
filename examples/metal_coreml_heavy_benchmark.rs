@@ -26,8 +26,8 @@
 use rustorch::error::{RusTorchError, RusTorchResult};
 use rustorch::tensor::Tensor;
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 use std::env;
+use std::time::{Duration, Instant};
 
 // Conditional imports for available features
 #[cfg(feature = "metal")]
@@ -49,23 +49,23 @@ struct HeavyBenchmarkConfig {
 
     // Phase 2: Deep neural network inference (20 minutes)
     // フェーズ2: 深層ニューラルネットワーク推論（20分）
-    image_size: usize,              // 1024x1024 input images
-    image_batch_size: usize,        // Batch processing
-    conv_layers: usize,             // Number of convolution layers (20+)
-    conv_channels: Vec<usize>,      // Channel progression
-    conv_duration_minutes: f64,     // Target duration for this phase
+    image_size: usize,          // 1024x1024 input images
+    image_batch_size: usize,    // Batch processing
+    conv_layers: usize,         // Number of convolution layers (20+)
+    conv_channels: Vec<usize>,  // Channel progression
+    conv_duration_minutes: f64, // Target duration for this phase
 
     // Phase 3: Transformer-style attention (20 minutes)
     // フェーズ3: Transformer風アテンション（20分）
-    sequence_length: usize,       // Input sequence length
-    embedding_dim: usize,         // Embedding dimensions
-    num_heads: usize,             // Multi-head attention heads
-    attention_layers: usize,      // Number of attention layers
+    sequence_length: usize,          // Input sequence length
+    embedding_dim: usize,            // Embedding dimensions
+    num_heads: usize,                // Multi-head attention heads
+    attention_layers: usize,         // Number of attention layers
     attention_duration_minutes: f64, // Target duration for this phase
 
     // Global settings
     // 全体設定
-    warmup_iterations: usize,     // Warmup before timing
+    warmup_iterations: usize,       // Warmup before timing
     measurement_interval: Duration, // How often to record metrics
 }
 
@@ -177,12 +177,16 @@ impl HeavyPerformanceBenchmark {
     #[cfg(feature = "metal")]
     fn benchmark_heavy_metal_matrices(&mut self) -> RusTorchResult<PhaseResult> {
         println!("🔥 Phase 1: Heavy Metal Matrix Operations (20 minutes)");
-        println!("    Matrix size: {}x{}", self.config.matrix_size, self.config.matrix_size);
+        println!(
+            "    Matrix size: {}x{}",
+            self.config.matrix_size, self.config.matrix_size
+        );
         println!("    Batch size: {}", self.config.matrix_batch_size);
 
         let mut metrics_timeline = Vec::new();
         let phase_start = Instant::now();
-        let target_duration = Duration::from_secs((self.config.matrix_duration_minutes * 60.0) as u64);
+        let target_duration =
+            Duration::from_secs((self.config.matrix_duration_minutes * 60.0) as u64);
 
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
@@ -207,8 +211,14 @@ impl HeavyPerformanceBenchmark {
             let mut matrices_b = Vec::new();
 
             for _ in 0..self.config.matrix_batch_size {
-                matrices_a.push(Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]));
-                matrices_b.push(Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]));
+                matrices_a.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
+                matrices_b.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
             }
 
             // Measure batch operation time
@@ -235,8 +245,11 @@ impl HeavyPerformanceBenchmark {
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
-                println!("      📊 Progress: {:.1}min, {} ops completed",
-                         phase_start.elapsed().as_secs_f64() / 60.0, operations_completed);
+                println!(
+                    "      📊 Progress: {:.1}min, {} ops completed",
+                    phase_start.elapsed().as_secs_f64() / 60.0,
+                    operations_completed
+                );
             }
         }
 
@@ -247,8 +260,11 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!("    ✅ Metal matrix phase completed: {} operations in {:.1}min",
-                 operations_completed, phase_duration.as_secs_f64() / 60.0);
+        println!(
+            "    ✅ Metal matrix phase completed: {} operations in {:.1}min",
+            operations_completed,
+            phase_duration.as_secs_f64() / 60.0
+        );
 
         Ok(PhaseResult {
             phase_name: "Heavy Metal Matrices".to_string(),
@@ -282,12 +298,16 @@ impl HeavyPerformanceBenchmark {
     #[cfg(feature = "coreml")]
     fn benchmark_heavy_coreml_matrices(&mut self) -> RusTorchResult<PhaseResult> {
         println!("🧠 Phase 1: Heavy CoreML Matrix Operations (20 minutes)");
-        println!("    Matrix size: {}x{}", self.config.matrix_size, self.config.matrix_size);
+        println!(
+            "    Matrix size: {}x{}",
+            self.config.matrix_size, self.config.matrix_size
+        );
         println!("    Utilizing Apple Neural Engine...");
 
         let mut metrics_timeline = Vec::new();
         let phase_start = Instant::now();
-        let target_duration = Duration::from_secs((self.config.matrix_duration_minutes * 60.0) as u64);
+        let target_duration =
+            Duration::from_secs((self.config.matrix_duration_minutes * 60.0) as u64);
 
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
@@ -313,8 +333,14 @@ impl HeavyPerformanceBenchmark {
             let mut matrices_b = Vec::new();
 
             for _ in 0..self.config.matrix_batch_size {
-                matrices_a.push(Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]));
-                matrices_b.push(Tensor::<f32>::randn(&[self.config.matrix_size, self.config.matrix_size]));
+                matrices_a.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
+                matrices_b.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
             }
 
             // Measure batch operation time with Neural Engine
@@ -341,8 +367,11 @@ impl HeavyPerformanceBenchmark {
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
-                println!("      📊 Progress: {:.1}min, {} ops completed (Neural Engine)",
-                         phase_start.elapsed().as_secs_f64() / 60.0, operations_completed);
+                println!(
+                    "      📊 Progress: {:.1}min, {} ops completed (Neural Engine)",
+                    phase_start.elapsed().as_secs_f64() / 60.0,
+                    operations_completed
+                );
             }
         }
 
@@ -353,8 +382,11 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!("    ✅ CoreML matrix phase completed: {} operations in {:.1}min",
-                 operations_completed, phase_duration.as_secs_f64() / 60.0);
+        println!(
+            "    ✅ CoreML matrix phase completed: {} operations in {:.1}min",
+            operations_completed,
+            phase_duration.as_secs_f64() / 60.0
+        );
 
         Ok(PhaseResult {
             phase_name: "Heavy CoreML Matrices".to_string(),
@@ -385,13 +417,23 @@ impl HeavyPerformanceBenchmark {
 
     /// Phase 2: Heavy deep convolution network benchmark
     /// フェーズ2: 重い深層畳み込みネットワークベンチマーク
-    fn benchmark_heavy_convolution_network(&mut self, device_name: &str) -> RusTorchResult<PhaseResult> {
-        println!("🌊 Phase 2: Heavy Deep Convolution Network (20 minutes) - {}", device_name);
-        println!("    Input size: {}x{}, batch: {}", self.config.image_size, self.config.image_size, self.config.image_batch_size);
+    fn benchmark_heavy_convolution_network(
+        &mut self,
+        device_name: &str,
+    ) -> RusTorchResult<PhaseResult> {
+        println!(
+            "🌊 Phase 2: Heavy Deep Convolution Network (20 minutes) - {}",
+            device_name
+        );
+        println!(
+            "    Input size: {}x{}, batch: {}",
+            self.config.image_size, self.config.image_size, self.config.image_batch_size
+        );
         println!("    Network depth: {} layers", self.config.conv_layers);
 
         let phase_start = Instant::now();
-        let target_duration = Duration::from_secs((self.config.conv_duration_minutes * 60.0) as u64);
+        let target_duration =
+            Duration::from_secs((self.config.conv_duration_minutes * 60.0) as u64);
 
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
@@ -401,7 +443,7 @@ impl HeavyPerformanceBenchmark {
             self.config.image_batch_size,
             self.config.conv_channels[0],
             self.config.image_size,
-            self.config.image_size
+            self.config.image_size,
         ];
 
         println!("    🔄 Preparing deep convolution network...");
@@ -421,7 +463,8 @@ impl HeavyPerformanceBenchmark {
                 } else {
                     self.config.conv_channels[(layer % (self.config.conv_channels.len() - 1)) + 1]
                 };
-                let out_channels = self.config.conv_channels[(layer % (self.config.conv_channels.len() - 1)) + 1];
+                let out_channels =
+                    self.config.conv_channels[(layer % (self.config.conv_channels.len() - 1)) + 1];
 
                 // Create convolution kernel
                 let kernel = Tensor::<f32>::randn(&[out_channels, in_channels, 3, 3]);
@@ -436,9 +479,8 @@ impl HeavyPerformanceBenchmark {
                 // Simulate batch normalization
                 let mean = current_tensor.data.mean().unwrap_or(0.0);
                 let std = 1.0; // Simplified
-                current_tensor = Tensor::from_ndarray(
-                    current_tensor.data.mapv(|x| (x - mean) / std)
-                );
+                current_tensor =
+                    Tensor::from_ndarray(current_tensor.data.mapv(|x| (x - mean) / std));
             }
 
             let op_duration = op_start.elapsed();
@@ -447,8 +489,11 @@ impl HeavyPerformanceBenchmark {
 
             // Record metrics
             if last_metric_time.elapsed() >= self.config.measurement_interval {
-                println!("      📊 Progress: {:.1}min, {} deep networks processed",
-                         phase_start.elapsed().as_secs_f64() / 60.0, operations_completed);
+                println!(
+                    "      📊 Progress: {:.1}min, {} deep networks processed",
+                    phase_start.elapsed().as_secs_f64() / 60.0,
+                    operations_completed
+                );
                 last_metric_time = Instant::now();
             }
         }
@@ -460,8 +505,11 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!("    ✅ Deep convolution phase completed: {} networks in {:.1}min",
-                 operations_completed, phase_duration.as_secs_f64() / 60.0);
+        println!(
+            "    ✅ Deep convolution phase completed: {} networks in {:.1}min",
+            operations_completed,
+            phase_duration.as_secs_f64() / 60.0
+        );
 
         Ok(PhaseResult {
             phase_name: format!("Heavy Deep Convolution ({})", device_name),
@@ -477,13 +525,26 @@ impl HeavyPerformanceBenchmark {
 
     /// Phase 3: Heavy transformer-style attention benchmark
     /// フェーズ3: 重いTransformer風アテンションベンチマーク
-    fn benchmark_heavy_attention_network(&mut self, device_name: &str) -> RusTorchResult<PhaseResult> {
-        println!("🤖 Phase 3: Heavy Transformer Attention (20 minutes) - {}", device_name);
-        println!("    Sequence length: {}, embedding dim: {}", self.config.sequence_length, self.config.embedding_dim);
-        println!("    Attention heads: {}, layers: {}", self.config.num_heads, self.config.attention_layers);
+    fn benchmark_heavy_attention_network(
+        &mut self,
+        device_name: &str,
+    ) -> RusTorchResult<PhaseResult> {
+        println!(
+            "🤖 Phase 3: Heavy Transformer Attention (20 minutes) - {}",
+            device_name
+        );
+        println!(
+            "    Sequence length: {}, embedding dim: {}",
+            self.config.sequence_length, self.config.embedding_dim
+        );
+        println!(
+            "    Attention heads: {}, layers: {}",
+            self.config.num_heads, self.config.attention_layers
+        );
 
         let phase_start = Instant::now();
-        let target_duration = Duration::from_secs((self.config.attention_duration_minutes * 60.0) as u64);
+        let target_duration =
+            Duration::from_secs((self.config.attention_duration_minutes * 60.0) as u64);
 
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
@@ -509,9 +570,12 @@ impl HeavyPerformanceBenchmark {
                 let head_dim = self.config.embedding_dim / self.config.num_heads;
 
                 // Create Q, K, V matrices for all heads
-                let q_weight = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
-                let k_weight = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
-                let v_weight = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
+                let q_weight =
+                    Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
+                let k_weight =
+                    Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
+                let v_weight =
+                    Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim]);
 
                 // Compute Q, K, V (simplified matrix multiplication)
                 let q = current_tensor.matmul(&q_weight)?;
@@ -520,12 +584,19 @@ impl HeavyPerformanceBenchmark {
 
                 // Attention computation (simplified)
                 // For 2D tensors: [flattened_seq, embed_dim] operations
-                let attention_weight = Tensor::<f32>::randn(&[flattened_seq_dim, flattened_seq_dim]);
+                let attention_weight =
+                    Tensor::<f32>::randn(&[flattened_seq_dim, flattened_seq_dim]);
                 let attention_output = attention_weight.matmul(&v)?;
 
                 // Feed-forward network
-                let ff_weight1 = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.embedding_dim * 4]);
-                let ff_weight2 = Tensor::<f32>::randn(&[self.config.embedding_dim * 4, self.config.embedding_dim]);
+                let ff_weight1 = Tensor::<f32>::randn(&[
+                    self.config.embedding_dim,
+                    self.config.embedding_dim * 4,
+                ]);
+                let ff_weight2 = Tensor::<f32>::randn(&[
+                    self.config.embedding_dim * 4,
+                    self.config.embedding_dim,
+                ]);
 
                 let ff_intermediate = attention_output.matmul(&ff_weight1)?;
                 let ff_activated = Tensor::from_ndarray(ff_intermediate.data.mapv(|x| x.max(0.0))); // ReLU
@@ -538,8 +609,11 @@ impl HeavyPerformanceBenchmark {
 
             // Record metrics
             if last_metric_time.elapsed() >= self.config.measurement_interval {
-                println!("      📊 Progress: {:.1}min, {} transformer networks processed",
-                         phase_start.elapsed().as_secs_f64() / 60.0, operations_completed);
+                println!(
+                    "      📊 Progress: {:.1}min, {} transformer networks processed",
+                    phase_start.elapsed().as_secs_f64() / 60.0,
+                    operations_completed
+                );
                 last_metric_time = Instant::now();
             }
         }
@@ -551,8 +625,11 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!("    ✅ Transformer attention phase completed: {} networks in {:.1}min",
-                 operations_completed, phase_duration.as_secs_f64() / 60.0);
+        println!(
+            "    ✅ Transformer attention phase completed: {} networks in {:.1}min",
+            operations_completed,
+            phase_duration.as_secs_f64() / 60.0
+        );
 
         Ok(PhaseResult {
             phase_name: format!("Heavy Transformer Attention ({})", device_name),
@@ -649,23 +726,44 @@ impl HeavyPerformanceBenchmark {
     fn display_heavy_results(&self) {
         println!("\n📊 Heavy Performance Benchmark Results");
         println!("======================================");
-        println!("Total benchmark duration: {:.1} minutes", self.start_time.elapsed().as_secs_f64() / 60.0);
+        println!(
+            "Total benchmark duration: {:.1} minutes",
+            self.start_time.elapsed().as_secs_f64() / 60.0
+        );
         println!();
 
         for (device, result) in &self.results {
             println!("🏆 {} Results:", result.device_name);
-            println!("   Total Duration:    {:.1} minutes", result.total_duration.as_secs_f64() / 60.0);
+            println!(
+                "   Total Duration:    {:.1} minutes",
+                result.total_duration.as_secs_f64() / 60.0
+            );
             println!("   Total Operations:  {}", result.total_operations);
-            println!("   Peak Memory:       {:.1} MB", result.peak_memory_usage_mb);
+            println!(
+                "   Peak Memory:       {:.1} MB",
+                result.peak_memory_usage_mb
+            );
             println!();
 
             // Phase-by-phase results
             for (phase_name, phase_result) in &result.phase_results {
                 println!("   📈 {}", phase_result.phase_name);
-                println!("      Duration:        {:.1} min", phase_result.duration.as_secs_f64() / 60.0);
-                println!("      Operations:      {}", phase_result.operations_completed);
-                println!("      Throughput:      {:.2} ops/sec", phase_result.throughput_ops_per_sec);
-                println!("      Avg Time:        {:.2} ms/op", phase_result.average_op_time_ms);
+                println!(
+                    "      Duration:        {:.1} min",
+                    phase_result.duration.as_secs_f64() / 60.0
+                );
+                println!(
+                    "      Operations:      {}",
+                    phase_result.operations_completed
+                );
+                println!(
+                    "      Throughput:      {:.2} ops/sec",
+                    phase_result.throughput_ops_per_sec
+                );
+                println!(
+                    "      Avg Time:        {:.2} ms/op",
+                    phase_result.average_op_time_ms
+                );
                 println!("      Success Rate:    {:.1}%", phase_result.success_rate);
                 println!();
             }
@@ -678,20 +776,41 @@ impl HeavyPerformanceBenchmark {
 
             let mut sorted_results: Vec<_> = self.results.values().collect();
             sorted_results.sort_by(|a, b| {
-                let a_throughput: f64 = a.phase_results.values().map(|r| r.throughput_ops_per_sec).sum();
-                let b_throughput: f64 = b.phase_results.values().map(|r| r.throughput_ops_per_sec).sum();
-                b_throughput.partial_cmp(&a_throughput).unwrap_or(std::cmp::Ordering::Equal)
+                let a_throughput: f64 = a
+                    .phase_results
+                    .values()
+                    .map(|r| r.throughput_ops_per_sec)
+                    .sum();
+                let b_throughput: f64 = b
+                    .phase_results
+                    .values()
+                    .map(|r| r.throughput_ops_per_sec)
+                    .sum();
+                b_throughput
+                    .partial_cmp(&a_throughput)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
 
             for (rank, result) in sorted_results.iter().enumerate() {
-                let total_throughput: f64 = result.phase_results.values().map(|r| r.throughput_ops_per_sec).sum();
+                let total_throughput: f64 = result
+                    .phase_results
+                    .values()
+                    .map(|r| r.throughput_ops_per_sec)
+                    .sum();
                 let rank_emoji = if rank == 0 { "🥇" } else { "🥈" };
 
-                println!("{} {} - {:.2} total ops/sec", rank_emoji, result.device_name, total_throughput);
+                println!(
+                    "{} {} - {:.2} total ops/sec",
+                    rank_emoji, result.device_name, total_throughput
+                );
 
                 if let Some(fastest) = sorted_results.first() {
                     if rank > 0 {
-                        let fastest_throughput: f64 = fastest.phase_results.values().map(|r| r.throughput_ops_per_sec).sum();
+                        let fastest_throughput: f64 = fastest
+                            .phase_results
+                            .values()
+                            .map(|r| r.throughput_ops_per_sec)
+                            .sum();
                         let speedup = fastest_throughput / total_throughput;
                         println!("   Performance gap: {:.2}x slower than fastest", speedup);
                     }
@@ -700,12 +819,18 @@ impl HeavyPerformanceBenchmark {
         }
 
         println!("\n✅ Heavy benchmark analysis completed!");
-        println!("💡 Consider thermal management and power efficiency in your deployment decisions.");
+        println!(
+            "💡 Consider thermal management and power efficiency in your deployment decisions."
+        );
     }
 
     /// Helper: Simulate convolution operation
     /// ヘルパー: 畳み込み演算をシミュレート
-    fn simulate_convolution(&self, input: &Tensor<f32>, kernel: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_convolution(
+        &self,
+        input: &Tensor<f32>,
+        kernel: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // Simple element-wise operation as convolution placeholder
         // In real implementation, this would be proper convolution
         let result_data = input.data.mapv(|x| x * 0.5 + 0.1);
@@ -716,9 +841,21 @@ impl HeavyPerformanceBenchmark {
     /// ヘルパー: 現在のメモリ使用量を推定
     fn estimate_memory_usage(&self) -> f64 {
         // Simple estimation based on tensor sizes
-        let matrix_memory = (self.config.matrix_size * self.config.matrix_size * 4 * self.config.matrix_batch_size * 2) as f64 / (1024.0 * 1024.0);
-        let image_memory = (self.config.image_size * self.config.image_size * 4 * self.config.image_batch_size * self.config.conv_channels.len()) as f64 / (1024.0 * 1024.0);
-        let attention_memory = (self.config.sequence_length * self.config.embedding_dim * 4 * 4) as f64 / (1024.0 * 1024.0); // Q, K, V, O
+        let matrix_memory = (self.config.matrix_size
+            * self.config.matrix_size
+            * 4
+            * self.config.matrix_batch_size
+            * 2) as f64
+            / (1024.0 * 1024.0);
+        let image_memory = (self.config.image_size
+            * self.config.image_size
+            * 4
+            * self.config.image_batch_size
+            * self.config.conv_channels.len()) as f64
+            / (1024.0 * 1024.0);
+        let attention_memory = (self.config.sequence_length * self.config.embedding_dim * 4 * 4)
+            as f64
+            / (1024.0 * 1024.0); // Q, K, V, O
 
         matrix_memory + image_memory + attention_memory + 100.0 // Base overhead
     }

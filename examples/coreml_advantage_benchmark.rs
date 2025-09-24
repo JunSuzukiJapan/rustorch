@@ -10,39 +10,39 @@
 
 use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;
-use std::time::{Duration, Instant};
 use std::thread;
+use std::time::{Duration, Instant};
 extern crate rand;
 
 // Benchmark configuration optimized for CoreML advantages
 #[derive(Debug, Clone)]
 struct CoreMLAdvantageBenchmark {
     // Power efficiency test
-    sustained_inference_minutes: u32,     // 30 minutes sustained inference
-    inference_frequency_hz: u32,          // 10Hz inference rate
+    sustained_inference_minutes: u32, // 30 minutes sustained inference
+    inference_frequency_hz: u32,      // 10Hz inference rate
 
     // Quantized model simulation
-    quantized_model_layers: usize,        // 20 layers optimized for Neural Engine
-    quantization_bits: u8,                // 8-bit quantization
+    quantized_model_layers: usize, // 20 layers optimized for Neural Engine
+    quantization_bits: u8,         // 8-bit quantization
 
     // Real-time streaming
-    stream_fps: u32,                      // 30 FPS processing
-    stream_duration_seconds: u32,         // 5 minutes streaming
+    stream_fps: u32,              // 30 FPS processing
+    stream_duration_seconds: u32, // 5 minutes streaming
 
     // Mobile-optimized architectures
-    mobile_model_variants: usize,         // 5 different mobile models
-    batch_size: usize,                    // 1 (mobile inference pattern)
+    mobile_model_variants: usize, // 5 different mobile models
+    batch_size: usize,            // 1 (mobile inference pattern)
 }
 
 impl Default for CoreMLAdvantageBenchmark {
     fn default() -> Self {
         Self {
-            sustained_inference_minutes: 2,   // 2 minutes for reliable completion within timeout
-            inference_frequency_hz: 5,        // Reduced frequency for faster completion
+            sustained_inference_minutes: 2, // 2 minutes for reliable completion within timeout
+            inference_frequency_hz: 5,      // Reduced frequency for faster completion
             quantized_model_layers: 20,
             quantization_bits: 8,
-            stream_fps: 15,                    // Reduced FPS for faster completion
-            stream_duration_seconds: 30,      // 30 seconds for demonstration
+            stream_fps: 15,              // Reduced FPS for faster completion
+            stream_duration_seconds: 30, // 30 seconds for demonstration
             mobile_model_variants: 5,
             batch_size: 1, // Single inference (mobile pattern)
         }
@@ -81,7 +81,9 @@ impl CoreMLAdvantageRunner {
 
     pub fn run_complete_benchmark(&self) -> RusTorchResult<()> {
         println!("🚀 Starting CoreML Advantage Benchmark Suite...");
-        println!("⏱️  Estimated time: ~7 minutes (comprehensive demonstration of CoreML strengths)");
+        println!(
+            "⏱️  Estimated time: ~7 minutes (comprehensive demonstration of CoreML strengths)"
+        );
         println!();
 
         // Skip CI execution check - this is research benchmark
@@ -103,22 +105,33 @@ impl CoreMLAdvantageRunner {
         let coreml_streaming = self.run_streaming_benchmark("CoreML Neural Engine")?;
 
         // Results comparison
-        self.print_advantage_analysis(&metal_power, &coreml_power,
-                                    &metal_quantized, &coreml_quantized,
-                                    &metal_streaming, &coreml_streaming);
+        self.print_advantage_analysis(
+            &metal_power,
+            &coreml_power,
+            &metal_quantized,
+            &coreml_quantized,
+            &metal_streaming,
+            &coreml_streaming,
+        );
 
         Ok(())
     }
 
-    fn run_sustained_inference_benchmark(&self, device: &str) -> RusTorchResult<PowerEfficiencyMetrics> {
+    fn run_sustained_inference_benchmark(
+        &self,
+        device: &str,
+    ) -> RusTorchResult<PowerEfficiencyMetrics> {
         println!("⚡ Test 1: Sustained Inference Power Efficiency");
         println!("   Device: {}", device);
-        println!("   Duration: {} minutes at {}Hz",
-                 self.config.sustained_inference_minutes,
-                 self.config.inference_frequency_hz);
+        println!(
+            "   Duration: {} minutes at {}Hz",
+            self.config.sustained_inference_minutes, self.config.inference_frequency_hz
+        );
 
-        let total_inferences = self.config.sustained_inference_minutes * 60 * self.config.inference_frequency_hz;
-        let inference_interval = Duration::from_millis(1000 / self.config.inference_frequency_hz as u64);
+        let total_inferences =
+            self.config.sustained_inference_minutes * 60 * self.config.inference_frequency_hz;
+        let inference_interval =
+            Duration::from_millis(1000 / self.config.inference_frequency_hz as u64);
 
         let start_time = Instant::now();
         let mut completed_inferences = 0;
@@ -160,9 +173,12 @@ impl CoreMLAdvantageRunner {
                     // Progress reporting
                     if i % (5 * 60 * self.config.inference_frequency_hz) == 0 && i > 0 {
                         let progress = (i as f64 / total_inferences as f64) * 100.0;
-                        println!("     📊 Progress: {:.1}% ({} inferences completed)", progress, i);
+                        println!(
+                            "     📊 Progress: {:.1}% ({} inferences completed)",
+                            progress, i
+                        );
                     }
-                },
+                }
                 Err(_) => {
                     // Count failures but continue
                 }
@@ -173,7 +189,11 @@ impl CoreMLAdvantageRunner {
         }
 
         let total_time = start_time.elapsed().as_secs_f64();
-        let avg_latency = if completed_inferences > 0 { total_latency / completed_inferences as f64 } else { 0.0 };
+        let avg_latency = if completed_inferences > 0 {
+            total_latency / completed_inferences as f64
+        } else {
+            0.0
+        };
 
         // Calculate power consumption estimate
         let power_consumption = match device {
@@ -187,7 +207,10 @@ impl CoreMLAdvantageRunner {
         let final_perf = performance_samples.last().copied().unwrap_or(avg_latency);
         let sustained_ratio = initial_perf / final_perf.max(1.0);
 
-        println!("   ✅ Completed: {} inferences in {:.1}s", completed_inferences, total_time);
+        println!(
+            "   ✅ Completed: {} inferences in {:.1}s",
+            completed_inferences, total_time
+        );
         println!("      Avg latency: {:.2}ms", avg_latency);
         println!("      Est. power: {:.1}mW", power_consumption);
         println!("      Thermal incidents: {}", thermal_incidents);
@@ -204,12 +227,16 @@ impl CoreMLAdvantageRunner {
         })
     }
 
-    fn run_quantized_model_benchmark(&self, device: &str) -> RusTorchResult<PowerEfficiencyMetrics> {
+    fn run_quantized_model_benchmark(
+        &self,
+        device: &str,
+    ) -> RusTorchResult<PowerEfficiencyMetrics> {
         println!("🔢 Test 2: Quantized Model Performance");
         println!("   Device: {}", device);
-        println!("   Model: {} layers with {}-bit quantization",
-                 self.config.quantized_model_layers,
-                 self.config.quantization_bits);
+        println!(
+            "   Model: {} layers with {}-bit quantization",
+            self.config.quantized_model_layers, self.config.quantization_bits
+        );
 
         let test_inferences = 1000;
         let mut completed = 0;
@@ -234,7 +261,7 @@ impl CoreMLAdvantageRunner {
                     let latency = inference_start.elapsed().as_secs_f64() * 1000.0;
                     total_latency += latency;
                     completed += 1;
-                },
+                }
                 Err(_) => {}
             }
 
@@ -244,7 +271,11 @@ impl CoreMLAdvantageRunner {
         }
 
         let total_time = start.elapsed().as_secs_f64();
-        let avg_latency = if completed > 0 { total_latency / completed as f64 } else { 0.0 };
+        let avg_latency = if completed > 0 {
+            total_latency / completed as f64
+        } else {
+            0.0
+        };
 
         // Quantized models have different power characteristics
         let power_consumption = match device {
@@ -272,9 +303,10 @@ impl CoreMLAdvantageRunner {
     fn run_streaming_benchmark(&self, device: &str) -> RusTorchResult<PowerEfficiencyMetrics> {
         println!("📱 Test 3: Real-time Streaming Inference");
         println!("   Device: {}", device);
-        println!("   Stream: {}fps for {} seconds",
-                 self.config.stream_fps,
-                 self.config.stream_duration_seconds);
+        println!(
+            "   Stream: {}fps for {} seconds",
+            self.config.stream_fps, self.config.stream_duration_seconds
+        );
 
         let total_frames = self.config.stream_fps * self.config.stream_duration_seconds;
         let frame_interval = Duration::from_millis(1000 / self.config.stream_fps as u64);
@@ -307,7 +339,7 @@ impl CoreMLAdvantageRunner {
                     } else {
                         frame_drops += 1; // Frame couldn't be processed in time
                     }
-                },
+                }
                 Err(_) => {
                     frame_drops += 1;
                 }
@@ -317,15 +349,21 @@ impl CoreMLAdvantageRunner {
             thread::sleep(frame_interval.saturating_sub(processing_time));
 
             if i % (5 * self.config.stream_fps) == 0 {
-                println!("     📊 Streaming: {}/{}fps ({} drops)",
-                        i / self.config.stream_fps,
-                        self.config.stream_duration_seconds,
-                        frame_drops);
+                println!(
+                    "     📊 Streaming: {}/{}fps ({} drops)",
+                    i / self.config.stream_fps,
+                    self.config.stream_duration_seconds,
+                    frame_drops
+                );
             }
         }
 
         let total_time = start.elapsed().as_secs_f64();
-        let avg_latency = if processed_frames > 0 { total_latency / processed_frames as f64 } else { 0.0 };
+        let avg_latency = if processed_frames > 0 {
+            total_latency / processed_frames as f64
+        } else {
+            0.0
+        };
         let frame_drop_rate = (frame_drops as f64 / total_frames as f64) * 100.0;
 
         let power_consumption = match device {
@@ -376,19 +414,28 @@ impl CoreMLAdvantageRunner {
         Ok(Tensor::<f32>::randn(&[1, 1000]))
     }
 
-    fn simulate_metal_quantized_inference(&self, _input: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_metal_quantized_inference(
+        &self,
+        _input: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // Metal: FP32 precision (NOT optimized for quantized models)
         thread::sleep(Duration::from_millis(20)); // Much slower due to FP32 overhead
         Ok(Tensor::<f32>::randn(&[1, 256]))
     }
 
-    fn simulate_coreml_quantized_inference(&self, _input: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_coreml_quantized_inference(
+        &self,
+        _input: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // CoreML: Native INT8 support on Neural Engine - MAJOR ADVANTAGE
         thread::sleep(Duration::from_millis(2)); // Massive advantage for quantized models
         Ok(Tensor::<f32>::randn(&[1, 256]))
     }
 
-    fn simulate_metal_streaming_inference(&self, _input: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_metal_streaming_inference(
+        &self,
+        _input: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // Metal: Power consumption increases over time, occasional frame drops
         let base_latency = Duration::from_millis(25); // Higher latency for sustained streaming
         thread::sleep(base_latency);
@@ -401,7 +448,10 @@ impl CoreMLAdvantageRunner {
         Ok(Tensor::<f32>::randn(&[1, 100]))
     }
 
-    fn simulate_coreml_streaming_inference(&self, _input: &Tensor<f32>) -> RusTorchResult<Tensor<f32>> {
+    fn simulate_coreml_streaming_inference(
+        &self,
+        _input: &Tensor<f32>,
+    ) -> RusTorchResult<Tensor<f32>> {
         // CoreML: Consistent low power consumption for streaming - SPECIALIZED FOR THIS
         let base_latency = Duration::from_millis(6); // Optimized for mobile streaming
         thread::sleep(base_latency);
@@ -410,14 +460,15 @@ impl CoreMLAdvantageRunner {
         Ok(Tensor::<f32>::randn(&[1, 100]))
     }
 
-    fn print_advantage_analysis(&self,
-                               metal_sustained: &PowerEfficiencyMetrics,
-                               coreml_sustained: &PowerEfficiencyMetrics,
-                               metal_quantized: &PowerEfficiencyMetrics,
-                               coreml_quantized: &PowerEfficiencyMetrics,
-                               metal_streaming: &PowerEfficiencyMetrics,
-                               coreml_streaming: &PowerEfficiencyMetrics) {
-
+    fn print_advantage_analysis(
+        &self,
+        metal_sustained: &PowerEfficiencyMetrics,
+        coreml_sustained: &PowerEfficiencyMetrics,
+        metal_quantized: &PowerEfficiencyMetrics,
+        coreml_quantized: &PowerEfficiencyMetrics,
+        metal_streaming: &PowerEfficiencyMetrics,
+        coreml_streaming: &PowerEfficiencyMetrics,
+    ) {
         println!("🏆 CoreML Advantage Analysis Results");
         println!("=====================================");
         println!();
@@ -425,41 +476,89 @@ impl CoreMLAdvantageRunner {
         // Test 1: Sustained Inference
         println!("⚡ Test 1: Sustained Inference Power Efficiency");
         println!("   Metal GPU:");
-        println!("     Avg Latency: {:.2}ms", metal_sustained.average_latency_ms);
-        println!("     Est. Power: {:.1}mW", metal_sustained.estimated_power_consumption_mw);
-        println!("     Thermal Issues: {}", metal_sustained.thermal_throttling_incidents);
+        println!(
+            "     Avg Latency: {:.2}ms",
+            metal_sustained.average_latency_ms
+        );
+        println!(
+            "     Est. Power: {:.1}mW",
+            metal_sustained.estimated_power_consumption_mw
+        );
+        println!(
+            "     Thermal Issues: {}",
+            metal_sustained.thermal_throttling_incidents
+        );
         println!("   CoreML Neural Engine:");
-        println!("     Avg Latency: {:.2}ms", coreml_sustained.average_latency_ms);
-        println!("     Est. Power: {:.1}mW", coreml_sustained.estimated_power_consumption_mw);
-        println!("     Thermal Issues: {}", coreml_sustained.thermal_throttling_incidents);
+        println!(
+            "     Avg Latency: {:.2}ms",
+            coreml_sustained.average_latency_ms
+        );
+        println!(
+            "     Est. Power: {:.1}mW",
+            coreml_sustained.estimated_power_consumption_mw
+        );
+        println!(
+            "     Thermal Issues: {}",
+            coreml_sustained.thermal_throttling_incidents
+        );
 
-        let power_efficiency_ratio = metal_sustained.estimated_power_consumption_mw / coreml_sustained.estimated_power_consumption_mw.max(1.0);
-        println!("   🎯 CoreML Power Advantage: {:.1}x more efficient", power_efficiency_ratio);
+        let power_efficiency_ratio = metal_sustained.estimated_power_consumption_mw
+            / coreml_sustained.estimated_power_consumption_mw.max(1.0);
+        println!(
+            "   🎯 CoreML Power Advantage: {:.1}x more efficient",
+            power_efficiency_ratio
+        );
         println!();
 
         // Test 2: Quantized Models
         println!("🔢 Test 2: Quantized Model Performance");
-        println!("   Metal GPU (FP32): {:.2}ms avg", metal_quantized.average_latency_ms);
-        println!("   CoreML (INT8): {:.2}ms avg", coreml_quantized.average_latency_ms);
+        println!(
+            "   Metal GPU (FP32): {:.2}ms avg",
+            metal_quantized.average_latency_ms
+        );
+        println!(
+            "   CoreML (INT8): {:.2}ms avg",
+            coreml_quantized.average_latency_ms
+        );
 
-        let quantized_speedup = metal_quantized.average_latency_ms / coreml_quantized.average_latency_ms.max(1.0);
-        println!("   🎯 CoreML INT8 Advantage: {:.1}x faster", quantized_speedup);
+        let quantized_speedup =
+            metal_quantized.average_latency_ms / coreml_quantized.average_latency_ms.max(1.0);
+        println!(
+            "   🎯 CoreML INT8 Advantage: {:.1}x faster",
+            quantized_speedup
+        );
         println!();
 
         // Test 3: Streaming
         println!("📱 Test 3: Real-time Streaming");
-        println!("   Metal GPU: {:.1}% sustained performance", metal_streaming.sustained_performance_ratio * 100.0);
-        println!("   CoreML: {:.1}% sustained performance", coreml_streaming.sustained_performance_ratio * 100.0);
+        println!(
+            "   Metal GPU: {:.1}% sustained performance",
+            metal_streaming.sustained_performance_ratio * 100.0
+        );
+        println!(
+            "   CoreML: {:.1}% sustained performance",
+            coreml_streaming.sustained_performance_ratio * 100.0
+        );
 
-        let streaming_advantage = coreml_streaming.sustained_performance_ratio / metal_streaming.sustained_performance_ratio.max(0.1);
-        println!("   🎯 CoreML Streaming Advantage: {:.1}x better consistency", streaming_advantage);
+        let streaming_advantage = coreml_streaming.sustained_performance_ratio
+            / metal_streaming.sustained_performance_ratio.max(0.1);
+        println!(
+            "   🎯 CoreML Streaming Advantage: {:.1}x better consistency",
+            streaming_advantage
+        );
         println!();
 
         // Overall conclusion
         println!("🧠 Conclusion: CoreML Neural Engine Advantages");
-        println!("   ✅ Power Efficiency: {:.1}x better", power_efficiency_ratio);
+        println!(
+            "   ✅ Power Efficiency: {:.1}x better",
+            power_efficiency_ratio
+        );
         println!("   ✅ Quantized Models: {:.1}x faster", quantized_speedup);
-        println!("   ✅ Streaming Consistency: {:.1}x more reliable", streaming_advantage);
+        println!(
+            "   ✅ Streaming Consistency: {:.1}x more reliable",
+            streaming_advantage
+        );
         println!("   ✅ Thermal Management: Superior (fewer throttling incidents)");
         println!();
         println!("🎯 CoreML excels in mobile-optimized AI workloads!");

@@ -1,0 +1,5 @@
+Device,Test,Latency_ms,Power_mW,Success_Rate,Memory_MB
+Metal GPU,Sustained Inference,1027.75,20555.0,100.0,354.0
+CoreML Neural Engine,Sustained Inference,4.30,8.6,100.0,123.0
+Metal GPU,Quantized Models,25.73,386.0,98.5,256.0
+CoreML Neural Engine,Quantized Models,2.92,2.9,100.0,128.0

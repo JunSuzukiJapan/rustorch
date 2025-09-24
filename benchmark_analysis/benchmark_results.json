@@ -1,0 +1,11 @@
+{
+  "benchmark_analysis": {
+    "timestamp": 1758709907,
+    "total_records": 62,
+    "key_insights": {
+      "coreml_power_advantage": 2391.8,
+      "coreml_quantized_advantage": 8.8,
+      "coreml_reliability": 100.0
+    }
+  }
+}

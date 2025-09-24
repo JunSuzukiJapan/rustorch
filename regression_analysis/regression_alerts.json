@@ -1,0 +1,14 @@
+{
+  "analysis_timestamp": 1758710224,
+  "total_alerts": 10,
+  "severity_summary": {
+    "critical": 3,
+    "warning": 2,
+    "emergency": 5
+  },
+  "recommendations": [
+    "Monitor Metal GPU performance closely",
+    "CoreML Neural Engine showing excellent stability",
+    "Consider thermal management improvements"
+  ]
+}
