@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758716999891,
+  "lastUpdate": 1758717286473,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -953,6 +953,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/5fdb99c6e8f22738497bac300a3d4b765abfa45c"
         },
         "date": 1758716997415,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "271d3a0c9e03f916157c3519a81c03216e05cdcb",
+          "message": "Remove .claude/settings.local.json from git tracking\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-24T21:33:30+09:00",
+          "tree_id": "1da7e0ca67408dcc0e4cb799b8a30cc581608cbc",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/271d3a0c9e03f916157c3519a81c03216e05cdcb"
+        },
+        "date": 1758717283655,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
