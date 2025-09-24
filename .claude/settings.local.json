@@ -240,7 +240,12 @@
       "Bash(timeout 60 cargo test --doc --no-default-features)",
       "Bash(timeout 60 cargo doc --no-default-features)",
       "Bash(timeout 60 wasm-pack build:*)",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(git remote:*)",
+      "Bash(rustup toolchain:*)",
+      "Bash(MIRIFLAGS=\"-Zmiri-permissive-provenance\" cargo +nightly miri setup)",
+      "Bash(timeout 300 cargo run --example metal_coreml_heavy_benchmark --features \"metal coreml\" --release)",
+      "Bash(timeout 4800 cargo run --example metal_coreml_heavy_benchmark --features \"metal coreml\" --release)"
     ],
     "deny": [],
     "ask": [],

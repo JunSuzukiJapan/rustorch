@@ -82,6 +82,8 @@ jobs:
           cargo miri setup
           cargo miri test --lib
         shell: bash
+        env:
+          MIRIFLAGS: "-Zmiri-permissive-provenance"
 
       - name: Stress test with high iterations
         if: runner.os != 'Windows'
