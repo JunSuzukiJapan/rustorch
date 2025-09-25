@@ -14,7 +14,7 @@ use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;
 use std::collections::HashMap;
 use std::env;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Quick benchmark configuration - Statistically sufficient iterations
 /// 統計的に十分な反復回数によるクイックベンチマーク設定
