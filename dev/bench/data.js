@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758717286473,
+  "lastUpdate": 1758775328724,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -984,6 +984,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/271d3a0c9e03f916157c3519a81c03216e05cdcb"
         },
         "date": 1758717283655,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "07d758233138ca8a9d2f760da936838f982435f8",
+          "message": "fix: Add missing Instant import to quick_metal_coreml_benchmark.rs and update pre-publish checklist\n\n- Fix compilation error in examples/quick_metal_coreml_benchmark.rs by importing std::time::Instant\n- Add comprehensive feature testing commands to .claude/commands/pre_publish.md\n- Include example build checks for all feature combinations to prevent CI failures\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-25T13:40:55+09:00",
+          "tree_id": "164a5e097778538de6958be7c56ca2ea77728ae9",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/07d758233138ca8a9d2f760da936838f982435f8"
+        },
+        "date": 1758775326498,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
