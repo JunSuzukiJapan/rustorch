@@ -182,6 +182,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          components: rustfmt, clippy
 
       - name: Check formatting
         run: cargo fmt --all -- --check
