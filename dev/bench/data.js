@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758775328724,
+  "lastUpdate": 1758779514577,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1020,6 +1020,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "140a0078fd1f66010ff66955d7e479c3dfe53e5c",
+          "message": "fix: Add missing rustfmt component to CI quality job\n\n- Fix CI failure where rustfmt was not installed in quality job\n- Add 'components: rustfmt, clippy' to Rust toolchain installation\n- Ensures cargo fmt --all -- --check can run successfully\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-25T14:50:26+09:00",
+          "tree_id": "aded6e4b2bb5de57dd6eaedd185b74c649033d1e",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/140a0078fd1f66010ff66955d7e479c3dfe53e5c"
+        },
+        "date": 1758779510948,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30006,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
