@@ -34,7 +34,7 @@ use std::time::{Duration, Instant};
 use rustorch::gpu::metal_kernels::MetalKernelExecutor;
 
 #[cfg(feature = "coreml")]
-use rustorch::gpu::{DeviceType, GpuActivation, GpuConvolution};
+use rustorch::gpu::DeviceType;
 
 /// Heavy benchmark configuration for 1-hour runtime
 /// 1時間実行用の重いベンチマーク設定
@@ -103,12 +103,17 @@ impl Default for HeavyBenchmarkConfig {
 /// ベンチマーク中に収集される性能メトリクス
 #[derive(Debug, Clone)]
 struct PerformanceMetrics {
+    #[cfg(feature = "metal")]
     timestamp: Duration,
     operation_time_ms: f64,
     memory_usage_mb: f64,
+    #[cfg(feature = "metal")]
     temperature_celsius: Option<f32>,
+    #[cfg(feature = "coreml")]
     cpu_usage_percent: f32,
+    #[cfg(feature = "metal")]
     gpu_usage_percent: f32,
+    #[cfg(feature = "metal")]
     power_usage_watts: Option<f32>,
 }
 
@@ -191,8 +196,8 @@ impl HeavyPerformanceBenchmark {
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        // Initialize Metal executor
-        let executor = MetalKernelExecutor::new()?;
+        // Initialize Metal executor (unused in Metal benchmark)
+        let _executor = MetalKernelExecutor::new()?;
 
         // Warmup
         println!("    🔄 Warming up Metal GPU...");
@@ -224,24 +229,57 @@ impl HeavyPerformanceBenchmark {
             // Measure batch operation time
             let op_start = Instant::now();
             for i in 0..self.config.matrix_batch_size {
-                let _result = matrices_a[i].matmul(&matrices_b[i])?;
+                for _ in 0..self.config.matrix_iterations {
+                    let _result = matrices_a[i].matmul(&matrices_b[i])?;
+                }
             }
             let op_duration = op_start.elapsed();
 
-            operations_completed += self.config.matrix_batch_size;
+            operations_completed += self.config.matrix_batch_size * self.config.matrix_iterations;
             total_operation_time += op_duration;
 
             // Record metrics periodically
             if last_metric_time.elapsed() >= self.config.measurement_interval {
                 let metrics = PerformanceMetrics {
+                    #[cfg(feature = "metal")]
                     timestamp: phase_start.elapsed(),
                     operation_time_ms: op_duration.as_secs_f64() * 1000.0,
                     memory_usage_mb: self.estimate_memory_usage(),
+                    #[cfg(feature = "metal")]
                     temperature_celsius: None, // TODO: Implement if possible
+                    #[cfg(feature = "coreml")]
                     cpu_usage_percent: 0.0,    // TODO: Implement if possible
+                    #[cfg(feature = "metal")]
                     gpu_usage_percent: 0.0,    // TODO: Implement if possible
+                    #[cfg(feature = "metal")]
                     power_usage_watts: None,   // TODO: Implement if possible
                 };
+
+                // Use the metrics in debug output (Metal-specific)
+                #[cfg(feature = "metal")]
+                {
+                    println!(
+                        "      📊 Metal Metrics - Time: {:.2}ms, Memory: {:.1}MB, Temp: {:?}°C, GPU: {:.1}%",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb,
+                        metrics.temperature_celsius,
+                        metrics.gpu_usage_percent
+                    );
+                    println!(
+                        "      ⏱️  Timestamp: {:.1}s, Power: {:?}W",
+                        metrics.timestamp.as_secs_f64(),
+                        metrics.power_usage_watts
+                    );
+                }
+                #[cfg(not(feature = "metal"))]
+                {
+                    println!(
+                        "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb
+                    );
+                }
+
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
@@ -260,13 +298,7 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!(
-            "    ✅ Metal matrix phase completed: {} operations in {:.1}min",
-            operations_completed,
-            phase_duration.as_secs_f64() / 60.0
-        );
-
-        Ok(PhaseResult {
+        let phase_result = PhaseResult {
             phase_name: "Heavy Metal Matrices".to_string(),
             duration: phase_duration,
             operations_completed,
@@ -275,23 +307,30 @@ impl HeavyPerformanceBenchmark {
             memory_peak_mb: self.estimate_memory_usage(),
             success_rate: 100.0,
             thermal_events: 0, // TODO: Detect thermal throttling
-        })
+        };
+
+        // Display detailed phase results
+        println!(
+            "    ✅ {} completed: {} operations in {:.1}min",
+            phase_result.phase_name,
+            phase_result.operations_completed,
+            phase_result.duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "    📊 Performance: {:.2}ms avg, {:.1} ops/sec, {:.1}MB peak, {:.1}% success",
+            phase_result.average_op_time_ms,
+            phase_result.throughput_ops_per_sec,
+            phase_result.memory_peak_mb,
+            phase_result.success_rate
+        );
+        println!(
+            "    🌡️  Thermal events: {}",
+            phase_result.thermal_events
+        );
+
+        Ok(phase_result)
     }
 
-    #[cfg(not(feature = "metal"))]
-    fn benchmark_heavy_metal_matrices(&mut self) -> RusTorchResult<PhaseResult> {
-        println!("🔥 Phase 1: Metal not available, skipping heavy matrix operations");
-        Ok(PhaseResult {
-            phase_name: "Heavy Metal Matrices (unavailable)".to_string(),
-            duration: Duration::ZERO,
-            operations_completed: 0,
-            average_op_time_ms: 0.0,
-            throughput_ops_per_sec: 0.0,
-            memory_peak_mb: 0.0,
-            success_rate: 0.0,
-            thermal_events: 0,
-        })
-    }
 
     /// Phase 1: Heavy CoreML matrix operations
     /// フェーズ1: 重いCoreML行列演算
@@ -346,24 +385,51 @@ impl HeavyPerformanceBenchmark {
             // Measure batch operation time with Neural Engine
             let op_start = Instant::now();
             for i in 0..self.config.matrix_batch_size {
-                let _result = executor.coreml_matmul(&matrices_a[i], &matrices_b[i])?;
+                for _ in 0..self.config.matrix_iterations {
+                    let _result = executor.coreml_matmul(&matrices_a[i], &matrices_b[i])?;
+                }
             }
             let op_duration = op_start.elapsed();
 
-            operations_completed += self.config.matrix_batch_size;
+            operations_completed += self.config.matrix_batch_size * self.config.matrix_iterations;
             total_operation_time += op_duration;
 
             // Record metrics periodically
             if last_metric_time.elapsed() >= self.config.measurement_interval {
                 let metrics = PerformanceMetrics {
-                    timestamp: phase_start.elapsed(),
+                    #[cfg(feature = "metal")]
+                    timestamp: Duration::ZERO,
                     operation_time_ms: op_duration.as_secs_f64() * 1000.0,
                     memory_usage_mb: self.estimate_memory_usage(),
+                    #[cfg(feature = "metal")]
                     temperature_celsius: None,
+                    #[cfg(feature = "coreml")]
                     cpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
                     gpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
                     power_usage_watts: None,
                 };
+
+                // Use the metrics in debug output (CoreML-specific)
+                #[cfg(feature = "coreml")]
+                {
+                    println!(
+                        "      📊 CoreML Metrics - Time: {:.2}ms, Memory: {:.1}MB, CPU: {:.1}%",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb,
+                        metrics.cpu_usage_percent
+                    );
+                }
+                #[cfg(not(feature = "coreml"))]
+                {
+                    println!(
+                        "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb
+                    );
+                }
+
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
@@ -382,13 +448,7 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!(
-            "    ✅ CoreML matrix phase completed: {} operations in {:.1}min",
-            operations_completed,
-            phase_duration.as_secs_f64() / 60.0
-        );
-
-        Ok(PhaseResult {
+        let phase_result = PhaseResult {
             phase_name: "Heavy CoreML Matrices".to_string(),
             duration: phase_duration,
             operations_completed,
@@ -397,23 +457,30 @@ impl HeavyPerformanceBenchmark {
             memory_peak_mb: self.estimate_memory_usage(),
             success_rate: 100.0,
             thermal_events: 0,
-        })
+        };
+
+        // Display detailed phase results
+        println!(
+            "    ✅ {} completed: {} operations in {:.1}min",
+            phase_result.phase_name,
+            phase_result.operations_completed,
+            phase_result.duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "    📊 Performance: {:.2}ms avg, {:.1} ops/sec, {:.1}MB peak, {:.1}% success",
+            phase_result.average_op_time_ms,
+            phase_result.throughput_ops_per_sec,
+            phase_result.memory_peak_mb,
+            phase_result.success_rate
+        );
+        println!(
+            "    🌡️  Thermal events: {}",
+            phase_result.thermal_events
+        );
+
+        Ok(phase_result)
     }
 
-    #[cfg(not(feature = "coreml"))]
-    fn benchmark_heavy_coreml_matrices(&mut self) -> RusTorchResult<PhaseResult> {
-        println!("🧠 Phase 1: CoreML not available, skipping heavy matrix operations");
-        Ok(PhaseResult {
-            phase_name: "Heavy CoreML Matrices (unavailable)".to_string(),
-            duration: Duration::ZERO,
-            operations_completed: 0,
-            average_op_time_ms: 0.0,
-            throughput_ops_per_sec: 0.0,
-            memory_peak_mb: 0.0,
-            success_rate: 0.0,
-            thermal_events: 0,
-        })
-    }
 
     /// Phase 2: Heavy deep convolution network benchmark
     /// フェーズ2: 重い深層畳み込みネットワークベンチマーク
@@ -645,6 +712,7 @@ impl HeavyPerformanceBenchmark {
 
     /// Run complete heavy benchmark for Metal
     /// Metal用の完全重いベンチマークを実行
+    #[cfg(feature = "metal")]
     fn run_heavy_metal_benchmark(&mut self) -> RusTorchResult<()> {
         println!("🚀 Starting Heavy Metal Benchmark (≈60 minutes total)");
         println!("=================================================");
@@ -678,12 +746,39 @@ impl HeavyPerformanceBenchmark {
             metrics_timeline: Vec::new(), // TODO: Aggregate from phases
         };
 
+        // Display comprehensive benchmark results
+        println!("\n🎯 {} Benchmark Summary:", result.device_name);
+        println!(
+            "   📊 Total: {} operations in {:.1} minutes",
+            result.total_operations,
+            result.total_duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
+            result.average_memory_usage_mb,
+            result.peak_memory_usage_mb
+        );
+        println!(
+            "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
+            result.thermal_throttling_detected,
+            result.power_efficiency_score
+        );
+        println!("   📈 Metrics collected: {} data points", result.metrics_timeline.len());
+
+        for (phase_name, phase_result) in &result.phase_results {
+            println!(
+                "   • {}: {:.1} ops/sec, {:.1}% success",
+                phase_name, phase_result.throughput_ops_per_sec, phase_result.success_rate
+            );
+        }
+
         self.results.insert("Metal".to_string(), result);
         Ok(())
     }
 
     /// Run complete heavy benchmark for CoreML
     /// CoreML用の完全重いベンチマークを実行
+    #[cfg(feature = "coreml")]
     fn run_heavy_coreml_benchmark(&mut self) -> RusTorchResult<()> {
         println!("🧠 Starting Heavy CoreML Benchmark (≈60 minutes total)");
         println!("===================================================");
@@ -716,6 +811,32 @@ impl HeavyPerformanceBenchmark {
             power_efficiency_score: None,
             metrics_timeline: Vec::new(),
         };
+
+        // Display comprehensive benchmark results
+        println!("\n🎯 {} Benchmark Summary:", result.device_name);
+        println!(
+            "   📊 Total: {} operations in {:.1} minutes",
+            result.total_operations,
+            result.total_duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
+            result.average_memory_usage_mb,
+            result.peak_memory_usage_mb
+        );
+        println!(
+            "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
+            result.thermal_throttling_detected,
+            result.power_efficiency_score
+        );
+        println!("   📈 Metrics collected: {} data points", result.metrics_timeline.len());
+
+        for (phase_name, phase_result) in &result.phase_results {
+            println!(
+                "   • {}: {:.1} ops/sec, {:.1}% success",
+                phase_name, phase_result.throughput_ops_per_sec, phase_result.success_rate
+            );
+        }
 
         self.results.insert("CoreML".to_string(), result);
         Ok(())
@@ -903,7 +1024,7 @@ fn main() -> RusTorchResult<()> {
     println!();
 
     let config = HeavyBenchmarkConfig::default();
-    let benchmark = HeavyPerformanceBenchmark::new(config);
+    let mut benchmark = HeavyPerformanceBenchmark::new(config);
 
     // Run Metal benchmark if available
     #[cfg(feature = "metal")]
