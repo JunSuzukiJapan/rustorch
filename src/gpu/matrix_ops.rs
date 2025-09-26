@@ -388,8 +388,9 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                                 };
                                 return Ok(tensor);
                             }
-                            Err(_) => {
-                                // CUDA failed, fallback to CPU
+                            Err(e) => {
+                                // CUDA failed, return error instead of CPU fallback
+                                return Err(RusTorchError::gpu(format!("CUDA matrix multiplication failed: {}", e)));
                             }
                         }
                     }
@@ -397,8 +398,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
             }
         }
 
-        // CUDA not available or failed - CPU fallback
-        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+        // CUDA not available or failed - return error instead of CPU fallback
+        Err(RusTorchError::DeviceNotAvailable(
+            "CUDA not available or failed to execute matrix multiplication".to_string()
+        ))
     }
 
     fn metal_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
@@ -442,17 +445,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                             };
                             return Ok(tensor);
                         }
-                        Err(_) => {
-                            // Metal failed, fallback to CPU
-                            return a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()));
+                        Err(e) => {
+                            // Metal failed - return error instead of CPU fallback
+                            return Err(RusTorchError::gpu(format!("Metal matrix multiplication failed: {}", e)));
                         }
                     }
                 }
             }
         }
 
-        // No Metal support or Metal failed - CPU fallback
-        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+        // No Metal support - return error instead of CPU fallback
+        Err(RusTorchError::DeviceNotAvailable(
+            "Metal not available or failed to execute batch matrix multiplication".to_string()
+        ))
     }
 
     fn opencl_batch_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
@@ -496,8 +501,9 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                                 };
                                 return Ok(tensor);
                             }
-                            Err(_) => {
-                                // OpenCL failed, fallback to CPU
+                            Err(e) => {
+                                // OpenCL failed - return error instead of CPU fallback
+                                return Err(RusTorchError::gpu(format!("OpenCL matrix multiplication failed: {}", e)));
                             }
                         }
                     }
@@ -505,8 +511,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
             }
         }
 
-        // OpenCL not available or failed - CPU fallback
-        a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+        // OpenCL not available - return error instead of CPU fallback
+        Err(RusTorchError::DeviceNotAvailable(
+            "OpenCL not available or failed to execute batch matrix multiplication".to_string()
+        ))
     }
 }
 

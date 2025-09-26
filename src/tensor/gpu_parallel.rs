@@ -692,10 +692,32 @@ where
     }
 
     fn gpu_batch_attention(&self, key: &Tensor<T>, value: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // Without CUDA, fall back to CPU
-        let scores = self.matmul(key)?;
-        let attention_weights = self.apply_softmax(&scores)?;
-        attention_weights.matmul(value)
+        // Use available hardware acceleration for attention mechanism
+        #[cfg(feature = "mac-hybrid")]
+        {
+            let scores = self.matmul_hybrid(key)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_hybrid(value);
+        }
+        #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
+        {
+            let scores = self.matmul_metal(key, 0)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_metal(value, 0);
+        }
+        #[cfg(all(feature = "coreml", not(any(feature = "metal", feature = "mac-hybrid"))))]
+        {
+            let scores = self.matmul_coreml(key, 0)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_coreml(value, 0);
+        }
+        #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
+        {
+            // Only use CPU if no hardware acceleration available
+            let scores = self.matmul(key)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            attention_weights.matmul(value)
+        }
     }
 }
 

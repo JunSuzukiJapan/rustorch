@@ -383,7 +383,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         ))
     }
 
-    fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+    pub fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
         // Use actual Metal GPU hardware acceleration
         use crate::gpu::metal_kernels::metal_matmul_f32;
         

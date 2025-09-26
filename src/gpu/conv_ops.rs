@@ -95,8 +95,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.conv2d_metal(kernel, params)
                     }
                     super::DeviceType::OpenCL(_) => {
-                        // Use OpenCL convolution implementation - fallback to CPU
-                        self.conv2d_fallback(kernel, params)
+                        // OpenCL convolution not implemented - return error instead of CPU fallback
+                        Err(RusTorchError::UnsupportedOperation(
+                            "OpenCL convolution not yet implemented".to_string()
+                        ))
                     }
                     super::DeviceType::Cpu => {
                         // CPU fallback implementation
