@@ -354,7 +354,9 @@ impl DeviceType {
             return DeviceType::Metal(0);
         }
         if !coreml_available && !metal_available {
-            return DeviceType::Cpu;
+            // mac-hybrid feature should not fall back to CPU!
+            // This is a configuration error - user enabled mac-hybrid but no hardware available
+            panic!("mac-hybrid feature enabled but neither CoreML nor Metal available. Check system configuration.");
         }
 
         // Both available: intelligent selection based on operation type

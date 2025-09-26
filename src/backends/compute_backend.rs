@@ -394,6 +394,18 @@ impl DeviceManager {
     pub fn is_metal_available() -> bool {
         false
     }
+
+    /// Check if CUDA is available on this system
+    #[cfg(feature = "cuda")]
+    pub fn is_cuda_available() -> bool {
+        // CUDA is available on Linux and Windows, not macOS
+        !cfg!(target_os = "macos")
+    }
+
+    #[cfg(not(feature = "cuda"))]
+    pub fn is_cuda_available() -> bool {
+        false
+    }
 }
 
 impl Default for DeviceManager {

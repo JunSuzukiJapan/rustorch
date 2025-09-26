@@ -455,6 +455,153 @@ impl CudaKernelExecutor {
 
         Ok(partial_results.iter().sum())
     }
+
+    /// Execute 2D convolution using CUDA
+    /// CUDAを使用して2D畳み込みを実行
+    pub fn conv2d_f32(
+        &self,
+        input: &[f32],
+        kernel: &[f32],
+        output: &mut [f32],
+        input_height: usize,
+        input_width: usize,
+        input_channels: usize,
+        output_channels: usize,
+        kernel_height: usize,
+        kernel_width: usize,
+        stride_h: usize,
+        stride_w: usize,
+        pad_h: usize,
+        pad_w: usize,
+    ) -> RusTorchResult<()> {
+        let output_height = (input_height + 2 * pad_h - kernel_height) / stride_h + 1;
+        let output_width = (input_width + 2 * pad_w - kernel_width) / stride_w + 1;
+        let expected_output_size = output_channels * output_height * output_width;
+
+        if output.len() != expected_output_size {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "conv2d_f32".to_string(),
+                message: format!(
+                    "Output size mismatch: expected {}, got {}",
+                    expected_output_size,
+                    output.len()
+                ),
+            });
+        }
+
+        // CUDA convolution kernel using im2col approach
+        let kernel_src = r#"
+        extern "C" __global__ void conv2d_f32(
+            const float* input,
+            const float* kernel,
+            float* output,
+            int input_height,
+            int input_width,
+            int input_channels,
+            int output_channels,
+            int kernel_height,
+            int kernel_width,
+            int stride_h,
+            int stride_w,
+            int pad_h,
+            int pad_w,
+            int output_height,
+            int output_width
+        ) {
+            int tid = blockIdx.x * blockDim.x + threadIdx.x;
+            int output_size = output_channels * output_height * output_width;
+
+            if (tid >= output_size) return;
+
+            int oc = tid / (output_height * output_width);
+            int oh = (tid % (output_height * output_width)) / output_width;
+            int ow = (tid % (output_height * output_width)) % output_width;
+
+            float sum = 0.0f;
+
+            for (int ic = 0; ic < input_channels; ic++) {
+                for (int kh = 0; kh < kernel_height; kh++) {
+                    for (int kw = 0; kw < kernel_width; kw++) {
+                        int ih = oh * stride_h - pad_h + kh;
+                        int iw = ow * stride_w - pad_w + kw;
+
+                        if (ih >= 0 && ih < input_height && iw >= 0 && iw < input_width) {
+                            int input_idx = ic * input_height * input_width + ih * input_width + iw;
+                            int kernel_idx = oc * input_channels * kernel_height * kernel_width +
+                                           ic * kernel_height * kernel_width + kh * kernel_width + kw;
+                            sum += input[input_idx] * kernel[kernel_idx];
+                        }
+                    }
+                }
+            }
+
+            output[tid] = sum;
+        }
+        "#;
+
+        // Compile kernel
+        let ptx = compile_ptx(kernel_src).map_err(|e| {
+            RusTorchError::kernel_compilation(format!("Failed to compile CUDA conv2d kernel: {}", e))
+        })?;
+
+        self.device
+            .load_ptx(ptx, "conv2d", &["conv2d_f32"])
+            .map_err(|e| RusTorchError::kernel_compilation(format!("Failed to load conv2d PTX: {}", e)))?;
+
+        // Allocate device memory
+        let input_gpu = self
+            .device
+            .htod_copy(input.to_vec())
+            .map_err(|e| RusTorchError::gpu(format!("Failed to copy input to device: {}", e)))?;
+
+        let kernel_gpu = self
+            .device
+            .htod_copy(kernel.to_vec())
+            .map_err(|e| RusTorchError::gpu(format!("Failed to copy kernel to device: {}", e)))?;
+
+        let mut output_gpu = self
+            .device
+            .alloc_zeros::<f32>(expected_output_size)
+            .map_err(|e| RusTorchError::gpu(format!("Failed to allocate output: {}", e)))?;
+
+        // Launch kernel
+        let func = self
+            .device
+            .get_func("conv2d", "conv2d_f32")
+            .ok_or_else(|| {
+                RusTorchError::kernel_compilation(
+                    "Failed to get conv2d function: function not found".to_string(),
+                )
+            })?;
+
+        let block_size = 256;
+        let grid_size = expected_output_size.div_ceil(block_size);
+
+        let config = LaunchConfig {
+            grid_dim: (grid_size as u32, 1, 1),
+            block_dim: (block_size as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            let params = (
+                &input_gpu, &kernel_gpu, &mut output_gpu,
+                input_height as i32, input_width as i32, input_channels as i32,
+                output_channels as i32, kernel_height as i32, kernel_width as i32,
+                stride_h as i32, stride_w as i32, pad_h as i32, pad_w as i32,
+                output_height as i32, output_width as i32
+            );
+            func.launch(config, params)
+                .map_err(|e| RusTorchError::gpu(format!("Conv2d kernel launch failed: {}", e)))?;
+        }
+
+        // Copy result back to host
+        self.device.dtoh_sync_copy_into(&output_gpu, output).map_err(|e| {
+            RusTorchError::tensor_op(format!("Failed to copy conv2d result to host: {}", e))
+        })?;
+
+        Ok(())
+    }
 }
 
 /// Non-CUDA fallback executor for compatibility
@@ -510,6 +657,29 @@ impl CudaKernelExecutor {
             "CUDA not available".to_string(),
         ))
     }
+
+    /// Perform 2D convolution using CUDA
+    /// CUDAを使用して2D畳み込みを実行
+    pub fn conv2d_f32(
+        &self,
+        _input: &[f32],
+        _kernel: &[f32],
+        _output: &mut [f32],
+        _input_height: usize,
+        _input_width: usize,
+        _input_channels: usize,
+        _output_channels: usize,
+        _kernel_height: usize,
+        _kernel_width: usize,
+        _stride_h: usize,
+        _stride_w: usize,
+        _pad_h: usize,
+        _pad_w: usize,
+    ) -> RusTorchResult<()> {
+        Err(RusTorchError::UnsupportedDevice(
+            "CUDA not available".to_string(),
+        ))
+    }
 }
 
 /// Public interface functions for CUDA operations
@@ -561,6 +731,50 @@ pub fn cuda_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     {
         let executor = CudaKernelExecutor::new(0)?;
         executor.reduce_sum_f32(_input)
+    }
+    #[cfg(not(feature = "cuda"))]
+    {
+        Err(RusTorchError::UnsupportedDevice(
+            "CUDA not available".to_string(),
+        ))
+    }
+}
+
+/// Execute CUDA 2D convolution
+/// CUDA 2D畳み込みを実行
+pub fn cuda_conv2d_f32(
+    _input: &[f32],
+    _kernel: &[f32],
+    _output: &mut [f32],
+    _input_height: usize,
+    _input_width: usize,
+    _input_channels: usize,
+    _output_channels: usize,
+    _kernel_height: usize,
+    _kernel_width: usize,
+    _stride_h: usize,
+    _stride_w: usize,
+    _pad_h: usize,
+    _pad_w: usize,
+) -> RusTorchResult<()> {
+    #[cfg(feature = "cuda")]
+    {
+        let executor = CudaKernelExecutor::new(0)?;
+        executor.conv2d_f32(
+            _input,
+            _kernel,
+            _output,
+            _input_height,
+            _input_width,
+            _input_channels,
+            _output_channels,
+            _kernel_height,
+            _kernel_width,
+            _stride_h,
+            _stride_w,
+            _pad_h,
+            _pad_w,
+        )
     }
     #[cfg(not(feature = "cuda"))]
     {

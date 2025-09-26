@@ -24,12 +24,15 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         // Select optimal device based on operation type and size
         let device = DeviceType::select_best_for_operation(&OpType::LinearAlgebra, Some(tensor_size));
 
-        // Route to appropriate backend
+        // Route to appropriate backend - prefer hardware acceleration
         match device {
             #[cfg(feature = "coreml")]
             DeviceType::CoreML(id) => self.matmul_coreml(other, id),
             DeviceType::Metal(id) => self.matmul_metal(other, id),
-            _ => self.matmul(other), // Fallback to CPU implementation
+            _ => {
+                // mac-hybrid should never reach this case due to panic in select_best_for_operation
+                unreachable!("mac-hybrid device selection should always return Metal or CoreML")
+            }
         }
     }
 

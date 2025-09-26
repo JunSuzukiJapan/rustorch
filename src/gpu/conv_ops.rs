@@ -87,12 +87,12 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.coreml_conv2d(kernel, stride, padding)
                     }
                     super::DeviceType::Cuda(_) => {
-                        // Use CUDA convolution implementation - fallback to CPU
-                        self.conv2d_fallback(kernel, params)
+                        // Use CUDA convolution implementation
+                        self.conv2d_cuda(kernel, params)
                     }
                     super::DeviceType::Metal(_) => {
-                        // Use Metal convolution implementation - fallback to CPU
-                        self.conv2d_fallback(kernel, params)
+                        // Use actual Metal GPU convolution implementation
+                        self.conv2d_metal(kernel, params)
                     }
                     super::DeviceType::OpenCL(_) => {
                         // Use OpenCL convolution implementation - fallback to CPU
@@ -146,8 +146,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.conv_transpose2d_fallback(kernel, params)
                     }
                     super::DeviceType::Metal(_) => {
-                        // Use Metal transpose convolution implementation - fallback to CPU
-                        self.conv_transpose2d_fallback(kernel, params)
+                        // Metal transpose convolution not yet implemented
+                        Err(RusTorchError::UnsupportedOperation(
+                            "Metal transpose convolution not yet implemented".to_string(),
+                        ))
                     }
                     super::DeviceType::OpenCL(_) => {
                         // Use OpenCL transpose convolution implementation - fallback to CPU
@@ -201,8 +203,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.depthwise_conv2d_fallback(kernel, params)
                     }
                     super::DeviceType::Metal(_) => {
-                        // Use Metal depthwise convolution implementation - fallback to CPU
-                        self.depthwise_conv2d_fallback(kernel, params)
+                        // Metal depthwise convolution not yet implemented
+                        Err(RusTorchError::UnsupportedOperation(
+                            "Metal depthwise convolution not yet implemented".to_string(),
+                        ))
                     }
                     super::DeviceType::OpenCL(_) => {
                         // Use OpenCL depthwise convolution implementation - fallback to CPU
@@ -257,8 +261,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.grouped_conv2d_fallback(kernel, params, groups)
                     }
                     super::DeviceType::Metal(_) => {
-                        // Use Metal grouped convolution implementation - fallback to CPU
-                        self.grouped_conv2d_fallback(kernel, params, groups)
+                        // Metal grouped convolution not yet implemented
+                        Err(RusTorchError::UnsupportedOperation(
+                            "Metal grouped convolution not yet implemented".to_string(),
+                        ))
                     }
                     super::DeviceType::OpenCL(_) => {
                         // Use OpenCL grouped convolution implementation - fallback to CPU
@@ -308,8 +314,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                         self.conv3d_fallback(kernel, params)
                     }
                     super::DeviceType::Metal(_) => {
-                        // Use Metal 3D convolution implementation - fallback to CPU
-                        self.conv3d_fallback(kernel, params)
+                        // Metal 3D convolution not yet implemented
+                        Err(RusTorchError::UnsupportedOperation(
+                            "Metal 3D convolution not yet implemented".to_string(),
+                        ))
                     }
                     super::DeviceType::OpenCL(_) => {
                         // Use OpenCL 3D convolution implementation - fallback to CPU
@@ -491,6 +499,91 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     fn conv2d_metal(&self, _kernel: &Self, _params: &ConvolutionParams) -> RusTorchResult<Self> {
         Err(RusTorchError::UnsupportedDevice(
             "Metal not available".to_string(),
+        ))
+    }
+
+    /// CUDA GPU convolution implementation
+    /// CUDA GPU畳み込み実装
+    #[cfg(feature = "cuda")]
+    fn conv2d_cuda(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Self> {
+        use crate::gpu::cuda_kernels::cuda_conv2d_f32;
+
+        // Convert tensors to f32 for CUDA kernel
+        let input_data = self.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let kernel_data = kernel.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+
+        // Get tensor dimensions
+        let input_shape = self.data.shape();
+        let kernel_shape = kernel.data.shape();
+
+        if input_shape.len() != 4 || kernel_shape.len() != 4 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "conv2d_cuda".to_string(),
+                message: "Input and kernel must be 4D tensors [N, C, H, W]".to_string(),
+            });
+        }
+
+        let batch_size = input_shape[0];
+        let input_channels = input_shape[1];
+        let input_height = input_shape[2];
+        let input_width = input_shape[3];
+
+        let output_channels = kernel_shape[0];
+        let kernel_height = kernel_shape[2];
+        let kernel_width = kernel_shape[3];
+
+        // Calculate output dimensions
+        let output_height = (input_height + 2 * params.padding[0] - kernel_height) / params.stride[0] + 1;
+        let output_width = (input_width + 2 * params.padding[1] - kernel_width) / params.stride[1] + 1;
+
+        let output_size = batch_size * output_channels * output_height * output_width;
+        let mut output_data = vec![0.0f32; output_size];
+
+        // Process each batch
+        for b in 0..batch_size {
+            let batch_input_start = b * input_channels * input_height * input_width;
+            let batch_input_end = batch_input_start + input_channels * input_height * input_width;
+            let batch_input = &input_data[batch_input_start..batch_input_end];
+
+            let batch_output_start = b * output_channels * output_height * output_width;
+            let batch_output_end = batch_output_start + output_channels * output_height * output_width;
+            let batch_output = &mut output_data[batch_output_start..batch_output_end];
+
+            // Call CUDA convolution for this batch
+            cuda_conv2d_f32(
+                batch_input,
+                &kernel_data,
+                batch_output,
+                input_height,
+                input_width,
+                input_channels,
+                output_channels,
+                kernel_height,
+                kernel_width,
+                params.stride[0],
+                params.stride[1],
+                params.padding[0],
+                params.padding[1],
+            ).map_err(|e| RusTorchError::InvalidOperation {
+                operation: "conv2d_cuda".to_string(),
+                message: format!("CUDA convolution failed: {}", e),
+            })?;
+        }
+
+        // Convert result back to tensor
+        let result_data: Vec<T> = output_data.into_iter()
+            .map(|x| T::from_f32(x).unwrap())
+            .collect();
+
+        let output_shape = vec![batch_size, output_channels, output_height, output_width];
+
+        Ok(Tensor::from_vec(result_data, output_shape))
+    }
+
+    #[cfg(not(feature = "cuda"))]
+    fn conv2d_cuda(&self, _kernel: &Self, _params: &ConvolutionParams) -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedDevice(
+            "CUDA not available".to_string(),
         ))
     }
 
