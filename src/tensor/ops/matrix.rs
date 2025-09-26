@@ -12,6 +12,26 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     // Core methods (matmul, transpose) are defined in core.rs to avoid duplication
     // コアメソッド (matmul, transpose) は重複を避けるため core.rs で定義
 
+    /// Matrix multiplication with intelligent device selection (mac-hybrid feature)
+    /// インテリジェント・デバイス選択による行列乗算（mac-hybridフィーチャー）
+    #[cfg(feature = "mac-hybrid")]
+    pub fn matmul_hybrid(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+        use crate::gpu::{DeviceType, OpType};
+
+        // Calculate tensor size for device selection
+        let tensor_size = self.data.len() + other.data.len();
+
+        // Select optimal device based on operation type and size
+        let device = DeviceType::select_best_for_operation(&OpType::LinearAlgebra, Some(tensor_size));
+
+        // Route to appropriate backend
+        match device {
+            DeviceType::CoreML(id) => self.matmul_coreml(other, id),
+            DeviceType::Metal(id) => self.matmul_metal(other, id),
+            _ => self.matmul(other), // Fallback to CPU implementation
+        }
+    }
+
     /// Matrix multiplication
     /// 行列乗算
     pub fn matmul(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
@@ -336,5 +356,25 @@ mod tests {
 
         // Expected: 1 + 4 = 5
         assert_eq!(trace, 5.0);
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
+    /// CoreML-specific matrix multiplication helper
+    /// CoreML専用行列乗算ヘルパー
+    #[cfg(all(feature = "mac-hybrid", feature = "coreml"))]
+    fn matmul_coreml(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        // Use existing CoreML implementation or fallback
+        // TODO: Implement CoreML-specific matrix multiplication
+        self.matmul(other) // Temporary fallback
+    }
+
+    /// Metal-specific matrix multiplication helper
+    /// Metal専用行列乗算ヘルパー
+    #[cfg(all(feature = "mac-hybrid", feature = "metal"))]
+    fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        // Use existing Metal implementation or fallback
+        // TODO: Implement Metal-specific matrix multiplication
+        self.matmul(other) // Temporary fallback
     }
 }

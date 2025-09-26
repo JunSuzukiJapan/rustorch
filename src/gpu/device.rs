@@ -682,6 +682,11 @@ impl DeviceInfo {
                 // Default block size for auto device
                 (128, 1, 1)
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid uses best-available block size
+                (256, 1, 1)
+            }
         }
     }
 
@@ -805,6 +810,8 @@ impl DeviceRegistry {
                 #[cfg(feature = "coreml")]
                 DeviceType::CoreML(_) => 12.0, // High score for CoreML on Apple Silicon
                 DeviceType::Auto => 0.5, // Low score for auto device selection
+                #[cfg(feature = "mac-hybrid")]
+                DeviceType::MacHybrid => 15.0, // Highest score for intelligent hybrid selection
             };
 
             // Adjust score based on data size

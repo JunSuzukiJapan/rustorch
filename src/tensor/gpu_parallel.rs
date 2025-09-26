@@ -1000,6 +1000,11 @@ pub mod gpu_parallel_utils {
                 // CoreML用バッチサイズ
                 std::cmp::min(3072, total_size)
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid用バッチサイズ - automatically optimized
+                std::cmp::min(4096, total_size)
+            }
             DeviceType::Auto => {
                 // Auto用バッチサイズ
                 std::cmp::min(3072, total_size)

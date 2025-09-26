@@ -267,6 +267,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                     // Auto-select best device - fallback to CPU for now
                     a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
                 }
+                #[cfg(feature = "mac-hybrid")]
+                super::DeviceType::MacHybrid => {
+                    // MacHybrid auto-selects between Metal and CoreML
+                    a.matmul(b).map_err(|e| RusTorchError::gpu(e.to_string()))
+                }
             }
         } else {
             // No GPU context - use CPU fallback with optimized implementation

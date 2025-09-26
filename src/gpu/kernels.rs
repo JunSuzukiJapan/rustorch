@@ -197,6 +197,13 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                     "Auto not implemented for this kernel".to_string(),
                 ));
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU implementation for now
+                for i in 0..a.len() {
+                    c[i] = a[i] + b[i];
+                }
+            }
         }
 
         Ok(())
@@ -241,7 +248,10 @@ impl<T: Float> GpuKernel<T> for AddKernel {
                 feature = "coreml-fallback"
             ))]
             DeviceType::CoreML(_) => KernelParams::default(),
+
             DeviceType::Auto => KernelParams::default(),
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => KernelParams::default(),
         }
     }
 }
@@ -383,6 +393,19 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
                     "Auto not implemented for this kernel".to_string(),
                 ));
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU implementation for now
+                for i in 0..n {
+                    for j in 0..n {
+                        let mut sum = T::zero();
+                        for k in 0..n {
+                            sum = sum + a[i * n + k] * b[k * n + j];
+                        }
+                        c[i * n + j] = sum;
+                    }
+                }
+            }
         }
 
         Ok(())
@@ -432,6 +455,8 @@ impl<T: Float> GpuKernel<T> for MatMulKernel {
             ))]
             DeviceType::CoreML(_) => KernelParams::default(),
             DeviceType::Auto => KernelParams::default(),
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => KernelParams::default(),
         }
     }
 }
@@ -516,6 +541,11 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
                     "Auto not implemented for this kernel".to_string(),
                 ));
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU implementation for now
+                self.execute_cpu_conv(inputs[0], inputs[1], outputs[0])?;
+            }
         }
 
         Ok(())
@@ -542,6 +572,8 @@ impl<T: Float> GpuKernel<T> for ConvKernel {
             ))]
             DeviceType::CoreML(_) => KernelParams::default(),
             DeviceType::Auto => KernelParams::default(),
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => KernelParams::default(),
         }
     }
 }

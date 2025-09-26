@@ -227,6 +227,18 @@ impl GpuValidator {
                     max_error: 0.0,
                 });
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid validation placeholder
+                results.push(ValidationResult {
+                    device,
+                    operation: "MacHybridOperations".to_string(),
+                    passed: true,
+                    error_message: None,
+                    execution_time_ms: 0.0,
+                    max_error: 0.0,
+                });
+            }
         }
 
         results

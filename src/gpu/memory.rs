@@ -96,6 +96,13 @@ impl GpuMemoryPool {
                     "Auto memory allocation not supported".to_string(),
                 ));
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU allocation for MacHybrid
+                let buffer = vec![0u8; size].into_boxed_slice();
+                let ptr = buffer.as_ptr() as usize;
+                (Some(buffer), ptr)
+            }
         };
 
         if base_ptr == 0 && !matches!(device, DeviceType::Cpu) {
@@ -307,6 +314,11 @@ impl GpuMemoryPool {
                 // Default alignment for Auto
                 Self::align_to(size, 128)
             }
+            #[cfg(feature = "mac-hybrid")]
+            &DeviceType::MacHybrid => {
+                // Default alignment for MacHybrid
+                Self::align_to(size, 128)
+            }
         };
 
         // Ensure minimum alignment for the platform
@@ -402,6 +414,11 @@ impl Drop for GpuMemoryPool {
             }
             DeviceType::Auto => {
                 // No manual deallocation needed for Auto
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Memory is automatically freed when memory_buffer goes out of scope
+                // No manual deallocation needed - Box handles it safely
             }
         }
     }
@@ -561,6 +578,14 @@ impl DataTransfer {
                     "Auto data transfer not supported".to_string(),
                 ));
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU implementation for MacHybrid
+                unsafe {
+                    let dst_ptr = dst_allocation.ptr as *mut T;
+                    std::ptr::copy_nonoverlapping(src.as_ptr(), dst_ptr, src.len());
+                }
+            }
         }
 
         Ok(())
@@ -630,6 +655,14 @@ impl DataTransfer {
                 return Err(RusTorchError::UnsupportedDevice(
                     "Auto data transfer not supported".to_string(),
                 ));
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // Use CPU implementation for MacHybrid
+                unsafe {
+                    let src_ptr = src_allocation.ptr as *const T;
+                    std::ptr::copy_nonoverlapping(src_ptr, dst.as_mut_ptr(), dst.len());
+                }
             }
         }
 

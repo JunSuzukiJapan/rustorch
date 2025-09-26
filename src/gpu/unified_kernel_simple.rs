@@ -214,6 +214,13 @@ impl UnifiedKernelExecutor {
                 self.metrics.occupancy = 90.0;
                 self.metrics.flops = 1200.0;
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid auto-selects between Metal and CoreML
+                self.metrics.memory_bandwidth = 350.0;
+                self.metrics.occupancy = 85.0;
+                self.metrics.flops = 1000.0;
+            }
         }
 
         result
@@ -316,6 +323,13 @@ impl UnifiedKernelExecutor {
                 self.metrics.memory_bandwidth = 400.0;
                 self.metrics.occupancy = 90.0;
                 self.metrics.flops = 1200.0;
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid auto-selects between Metal and CoreML  
+                self.metrics.memory_bandwidth = 350.0;
+                self.metrics.occupancy = 85.0;
+                self.metrics.flops = 1000.0;
             }
         }
 

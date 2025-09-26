@@ -251,6 +251,10 @@ pub enum DeviceType {
     /// Auto-select best available device
     /// 利用可能な最高性能デバイスを自動選択
     Auto,
+    /// Mac hybrid: Intelligent Metal/CoreML selection (mac-hybrid feature only)
+    /// Mac ハイブリッド: Metal/CoreML インテリジェント選択（mac-hybrid フィーチャーのみ）
+    #[cfg(feature = "mac-hybrid")]
+    MacHybrid,
 }
 
 /// GPU device types for fallback
@@ -330,6 +334,49 @@ impl DeviceCapability {
     }
 }
 
+#[cfg(feature = "mac-hybrid")]
+impl DeviceType {
+    /// Intelligent device selection for Mac hybrid feature
+    /// Mac ハイブリッドフィーチャー用インテリジェント・デバイス選択
+    pub fn select_best_for_operation(op_type: &OpType, tensor_size: Option<usize>) -> DeviceType {
+        use crate::backends::DeviceManager;
+        use crate::gpu::metal_kernels::MetalKernelExecutor;
+
+        // Check if both backends are available
+        let coreml_available = DeviceManager::is_coreml_available();
+        let metal_available = MetalKernelExecutor::new().is_ok();
+
+        // If only one backend is available, use it
+        if coreml_available && !metal_available {
+            return DeviceType::CoreML(0);
+        }
+        if !coreml_available && metal_available {
+            return DeviceType::Metal(0);
+        }
+        if !coreml_available && !metal_available {
+            return DeviceType::Cpu;
+        }
+
+        // Both available: intelligent selection based on operation type
+        match op_type {
+            // CoreML preferred for optimized ML operations
+            OpType::Convolution | OpType::Activation if tensor_size.unwrap_or(0) > 1000 => {
+                DeviceType::CoreML(0)
+            },
+            // Metal preferred for custom computations and large matrices
+            OpType::LinearAlgebra if tensor_size.unwrap_or(0) > 10000 => {
+                DeviceType::Metal(0)
+            },
+            // CoreML unsupported operations → Metal
+            OpType::ComplexMath | OpType::Distribution | OpType::CustomKernel | OpType::DistributedOps => {
+                DeviceType::Metal(0)
+            },
+            // Default: prefer CoreML for power efficiency
+            _ => DeviceType::CoreML(0),
+        }
+    }
+}
+
 impl Default for DeviceType {
     fn default() -> Self {
         // Auto-select best available device
@@ -371,6 +418,8 @@ impl fmt::Display for DeviceType {
             } => {
                 write!(f, "coreml_hybrid:{}:{:?}", coreml_id, fallback_gpu)
             }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => write!(f, "mac_hybrid"),
             DeviceType::Auto => write!(f, "auto"),
         }
     }
@@ -423,6 +472,14 @@ impl DeviceType {
                         GpuDevice::Metal(id) => DeviceType::Metal(id).is_available(),
                         GpuDevice::OpenCL(id) => DeviceType::OpenCL(id).is_available(),
                     })
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid is available if either Metal or CoreML is available
+                cfg!(target_os = "macos") && (
+                    DeviceType::Metal(0).is_available() ||
+                    DeviceType::CoreML(0).is_available()
+                )
             }
             DeviceType::Auto => true, // Auto always "available" - selects best device
         }
@@ -524,6 +581,14 @@ impl GpuContext {
                     device,
                     memory_pool_size: 1024 * 1024 * 1024, // 1GB default
                     stream_count: 2,
+                })
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                Ok(GpuContext {
+                    device,
+                    memory_pool_size: 1024 * 1024 * 1024, // 1GB default for hybrid
+                    stream_count: 4, // Support multiple streams for hybrid operations
                 })
             }
             DeviceType::Auto => {
