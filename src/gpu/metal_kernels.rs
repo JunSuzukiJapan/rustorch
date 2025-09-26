@@ -627,6 +627,96 @@ impl MetalKernelExecutor {
         Ok(result)
     }
 
+    /// Execute 2D convolution using Metal GPU
+    /// Metal GPUを使用して2D畳み込みを実行
+    pub fn conv2d_f32(
+        &self,
+        input: &[f32],
+        kernel: &[f32],
+        output: &mut [f32],
+        input_height: usize,
+        input_width: usize,
+        input_channels: usize,
+        output_channels: usize,
+        kernel_height: usize,
+        kernel_width: usize,
+        stride_h: usize,
+        stride_w: usize,
+        pad_h: usize,
+        pad_w: usize,
+    ) -> RusTorchResult<()> {
+        // Calculate output dimensions
+        let output_height = (input_height + 2 * pad_h - kernel_height) / stride_h + 1;
+        let output_width = (input_width + 2 * pad_w - kernel_width) / stride_w + 1;
+        
+        // For now, implement as optimized matrix multiplication (im2col + GEMM approach)
+        // This is a common approach in high-performance convolution implementations
+        
+        // Convert convolution to matrix multiplication using im2col
+        let patch_size = kernel_height * kernel_width * input_channels;
+        let num_patches = output_height * output_width;
+        
+        // Create im2col matrix: [patch_size, num_patches]  
+        let mut im2col_matrix = vec![0.0f32; patch_size * num_patches];
+        
+        // Extract patches (im2col operation)
+        for out_h in 0..output_height {
+            for out_w in 0..output_width {
+                let patch_idx = out_h * output_width + out_w;
+                let start_h = out_h * stride_h;
+                let start_w = out_w * stride_w;
+                
+                for kh in 0..kernel_height {
+                    for kw in 0..kernel_width {
+                        for ch in 0..input_channels {
+                            let in_h = start_h + kh;
+                            let in_w = start_w + kw;
+                            
+                            let im2col_row = ch * kernel_height * kernel_width + kh * kernel_width + kw;
+                            let im2col_idx = im2col_row * num_patches + patch_idx;
+                            
+                            if in_h >= pad_h && in_h < input_height + pad_h &&
+                               in_w >= pad_w && in_w < input_width + pad_w {
+                                let actual_in_h = in_h - pad_h;
+                                let actual_in_w = in_w - pad_w;
+                                let input_idx = ch * input_height * input_width + 
+                                               actual_in_h * input_width + actual_in_w;
+                                im2col_matrix[im2col_idx] = input[input_idx];
+                            } else {
+                                im2col_matrix[im2col_idx] = 0.0; // Padding
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Use Metal matrix multiplication: kernel [output_channels, patch_size] * im2col [patch_size, num_patches]
+        let mut result_matrix = vec![0.0f32; output_channels * num_patches];
+        self.matmul_f32(
+            kernel,
+            &im2col_matrix,
+            &mut result_matrix,
+            output_channels,
+            num_patches,
+            patch_size,
+        )?;
+        
+        // Copy result to output with proper layout
+        for out_ch in 0..output_channels {
+            for out_h in 0..output_height {
+                for out_w in 0..output_width {
+                    let result_idx = out_ch * num_patches + out_h * output_width + out_w;
+                    let output_idx = out_ch * output_height * output_width + 
+                                   out_h * output_width + out_w;
+                    output[output_idx] = result_matrix[result_idx];
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
     /// Execute reduction operation (sum) using Metal
     /// Metalを使用してリダクション演算（合計）を実行
     pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
@@ -789,6 +879,41 @@ pub fn metal_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     {
         let executor = MetalKernelExecutor::new()?;
         executor.reduce_sum_f32(_input)
+    }
+    #[cfg(not(feature = "metal"))]
+    {
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
+    }
+}
+
+/// Execute Metal 2D convolution
+/// Metal 2D畳み込みを実行
+pub fn metal_conv2d_f32(
+    input: &[f32],
+    kernel: &[f32],
+    output: &mut [f32],
+    input_height: usize,
+    input_width: usize,
+    input_channels: usize,
+    output_channels: usize,
+    kernel_height: usize,
+    kernel_width: usize,
+    stride_h: usize,
+    stride_w: usize,
+    pad_h: usize,
+    pad_w: usize,
+) -> RusTorchResult<()> {
+    #[cfg(feature = "metal")]
+    {
+        let executor = MetalKernelExecutor::new()?;
+        executor.conv2d_f32(
+            input, kernel, output,
+            input_height, input_width, input_channels,
+            output_channels, kernel_height, kernel_width,
+            stride_h, stride_w, pad_h, pad_w
+        )
     }
     #[cfg(not(feature = "metal"))]
     {

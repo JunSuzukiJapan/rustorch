@@ -26,6 +26,7 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
 
         // Route to appropriate backend
         match device {
+            #[cfg(feature = "coreml")]
             DeviceType::CoreML(id) => self.matmul_coreml(other, id),
             DeviceType::Metal(id) => self.matmul_metal(other, id),
             _ => self.matmul(other), // Fallback to CPU implementation
@@ -360,21 +361,76 @@ mod tests {
 }
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
-    /// CoreML-specific matrix multiplication helper
-    /// CoreML専用行列乗算ヘルパー
-    #[cfg(all(feature = "mac-hybrid", feature = "coreml"))]
+    #[cfg(feature = "coreml")]
     fn matmul_coreml(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
-        // Use existing CoreML implementation or fallback
-        // TODO: Implement CoreML-specific matrix multiplication
-        self.matmul(other) // Temporary fallback
+        // Use actual CoreML Neural Engine hardware acceleration
+        use crate::gpu::coreml::operations::linear_algebra::CoreMLLinearAlgebra;
+
+        self.coreml_matmul(other)
+            .map_err(|e| RusTorchError::InvalidOperation {
+                operation: "matmul_coreml".to_string(),
+                message: format!("CoreML matmul failed: {}", e),
+            })
     }
 
-    /// Metal-specific matrix multiplication helper
-    /// Metal専用行列乗算ヘルパー
-    #[cfg(all(feature = "mac-hybrid", feature = "metal"))]
+    #[cfg(not(feature = "coreml"))]
+    fn matmul_coreml(&self, _other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedOperation(
+            "CoreML feature not enabled".to_string(),
+        ))
+    }
+
     fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
-        // Use existing Metal implementation or fallback
-        // TODO: Implement Metal-specific matrix multiplication
-        self.matmul(other) // Temporary fallback
+        // Use actual Metal GPU hardware acceleration
+        use crate::gpu::metal_kernels::metal_matmul_f32;
+        
+        // Convert to f32 for Metal kernel
+        let a_data = self.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let b_data = other.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let a_shape = self.data.shape();
+        let b_shape = other.data.shape();
+        
+        if a_shape.len() != 2 || b_shape.len() != 2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: "Only 2D matrix multiplication supported".to_string(),
+            });
+        }
+        
+        let (m, k) = (a_shape[0], a_shape[1]);
+        let (k2, n) = (b_shape[0], b_shape[1]);
+        
+        if k != k2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: "Matrix dimensions don't match for multiplication".to_string(),
+            });
+        }
+        
+        let mut c_data = vec![0.0f32; m * n];
+        
+        // Call actual Metal GPU implementation
+        metal_matmul_f32(&a_data, &b_data, &mut c_data, m, n, k)
+            .map_err(|e| RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: format!("Metal matmul failed: {}", e),
+            })?;
+        
+        // Convert result back to tensor
+        let result_data: Vec<T> = c_data.into_iter()
+            .map(|x| T::from_f32(x).unwrap())
+            .collect();
+        
+        let result_array = ndarray::Array::from_shape_vec((m, n), result_data)
+            .map_err(|e| RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: format!("Failed to create result array: {}", e),
+            })?;
+        
+        Ok(Tensor {
+            data: result_array.into_dyn(),
+            device: self.device.clone(),
+            requires_grad: self.requires_grad || other.requires_grad,
+        })
     }
 }
