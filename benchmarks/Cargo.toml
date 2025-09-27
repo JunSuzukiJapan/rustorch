@@ -1,0 +1,82 @@
+[package]
+name = "rustorch-benchmarks"
+version = "0.6.22"
+edition = "2021"
+authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
+description = "Performance benchmarks for RusTorch"
+
+[dependencies]
+# RusTorch library
+rustorch = { path = "..", features = ["metal", "coreml", "cuda", "webgpu"] }
+
+# Additional dependencies for benchmarks
+tokio = { version = "1.0", features = ["full"] }
+clap = { version = "4.0", features = ["derive"] }
+sysinfo = "0.30"
+
+# Benchmark utilities
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bin]]
+name = "simple_performance_demo"
+path = "src/simple_performance_demo.rs"
+
+[[bin]]
+name = "device_performance_comparison"
+path = "src/device_performance_comparison.rs"
+
+[[bin]]
+name = "metal_coreml_heavy_benchmark"
+path = "src/metal_coreml_heavy_benchmark.rs"
+
+[[bin]]
+name = "quick_metal_coreml_benchmark"
+path = "src/quick_metal_coreml_benchmark.rs"
+
+[[bin]]
+name = "comprehensive_benchmark"
+path = "src/comprehensive_benchmark.rs"
+
+[[bin]]
+name = "comprehensive_gpu_benchmark"
+path = "src/comprehensive_gpu_benchmark.rs"
+
+[[bin]]
+name = "coreml_advantage_benchmark"
+path = "src/coreml_advantage_benchmark.rs"
+
+[[bin]]
+name = "coreml_large_benchmark"
+path = "src/coreml_large_benchmark.rs"
+
+[[bin]]
+name = "cuda_performance_demo"
+path = "src/cuda_performance_demo.rs"
+
+[[bin]]
+name = "distribution_performance_test"
+path = "src/distribution_performance_test.rs"
+
+[[bin]]
+name = "gpu_benchmark"
+path = "src/gpu_benchmark.rs"
+
+[[bin]]
+name = "gpu_performance_demo"
+path = "src/gpu_performance_demo.rs"
+
+[[bin]]
+name = "metal_performance_demo"
+path = "src/metal_performance_demo.rs"
+
+[[bin]]
+name = "performance_test"
+path = "src/performance_test.rs"
+
+[features]
+default = []
+metal = ["rustorch/metal"]
+coreml = ["rustorch/coreml"]
+cuda = ["rustorch/cuda"]
+webgpu = ["rustorch/webgpu"]
+mac-hybrid = ["rustorch/mac-hybrid"]
