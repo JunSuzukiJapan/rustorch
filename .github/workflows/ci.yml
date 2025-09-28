@@ -5,6 +5,9 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+    # Allow CI from all feature branches for comprehensive testing
+  pull_request_target:
+    branches: [ main, develop ]
   release:
     types: [ published ]
   workflow_dispatch:
