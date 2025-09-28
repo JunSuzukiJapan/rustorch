@@ -3408,6 +3408,1408 @@ impl F32Tensor {
         Ok(mse)
     }
 
+    // =========================================================================
+    // フェーズ4B: 条件操作・フィルタリング / Phase 4B: Conditional Operations & Filtering
+    // =========================================================================
+
+    // ===== 条件演算 / Conditional Operations (15 methods) =====
+
+    /// 条件に基づく要素選択（f32専用）
+    /// Element-wise selection based on condition (f32-specific)
+    pub fn where_condition(&self, condition: &F32Tensor, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != condition.shape || self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::where_condition".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?} vs {:?}", self.shape, condition.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let condition_data = condition.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(condition_data.iter())
+            .zip(other_data.iter())
+            .map(|((&self_val, &cond), &other_val)| {
+                if cond != 0.0 { self_val } else { other_val }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// マスクに基づく要素選択（f32専用）
+    /// Masked element selection (f32-specific)
+    pub fn masked_select(&self, mask: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != mask.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::masked_select".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, mask.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let mask_data = mask.data.as_slice().unwrap();
+
+        let selected_data: Vec<f32> = self_data.iter()
+            .zip(mask_data.iter())
+            .filter_map(|(&val, &mask_val)| if mask_val != 0.0 { Some(val) } else { None })
+            .collect();
+
+        let len = selected_data.len();
+        F32Tensor::new(selected_data, vec![len])
+    }
+
+    /// マスクに基づく要素埋め込み（f32専用）
+    /// Masked element filling (f32-specific)
+    pub fn masked_fill(&self, mask: &F32Tensor, value: f32) -> RusTorchResult<F32Tensor> {
+        if self.shape != mask.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::masked_fill".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, mask.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let mask_data = mask.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(mask_data.iter())
+            .map(|(&self_val, &mask_val)| {
+                if mask_val != 0.0 { value } else { self_val }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// マスクに基づく要素散布（f32専用）
+    /// Masked element scattering (f32-specific)
+    pub fn masked_scatter(&self, mask: &F32Tensor, source: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != mask.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::masked_scatter".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, mask.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let mask_data = mask.data.as_slice().unwrap();
+        let source_data = source.data.as_slice().unwrap();
+
+        let mut result_data = self_data.to_vec();
+        let mut source_idx = 0;
+
+        for (i, &mask_val) in mask_data.iter().enumerate() {
+            if mask_val != 0.0 && source_idx < source_data.len() {
+                result_data[i] = source_data[source_idx];
+                source_idx += 1;
+            }
+        }
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 値のクランプ（制限）（f32専用）
+    /// Value clamping (f32-specific)
+    pub fn clamp(&self, min_val: Option<f32>, max_val: Option<f32>) -> RusTorchResult<F32Tensor> {
+        if min_val.is_none() && max_val.is_none() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::clamp".to_string(),
+                message: "At least one of min_val or max_val must be specified".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let clamped_data: Vec<f32> = data.iter()
+            .map(|&x| {
+                let mut result = x;
+                if let Some(min) = min_val {
+                    result = result.max(min);
+                }
+                if let Some(max) = max_val {
+                    result = result.min(max);
+                }
+                result
+            })
+            .collect();
+
+        F32Tensor::new(clamped_data, self.shape.clone())
+    }
+
+    /// 最小値クランプ（f32専用）
+    /// Minimum value clamping (f32-specific)
+    pub fn clamp_min(&self, min_val: f32) -> RusTorchResult<F32Tensor> {
+        self.clamp(Some(min_val), None)
+    }
+
+    /// 最大値クランプ（f32専用）
+    /// Maximum value clamping (f32-specific)
+    pub fn clamp_max(&self, max_val: f32) -> RusTorchResult<F32Tensor> {
+        self.clamp(None, Some(max_val))
+    }
+
+    /// 値クリップ（clampのエイリアス）（f32専用）
+    /// Value clipping (alias for clamp) (f32-specific)
+    pub fn clip(&self, min_val: Option<f32>, max_val: Option<f32>) -> RusTorchResult<F32Tensor> {
+        self.clamp(min_val, max_val)
+    }
+
+    /// 論理積（AND）（f32専用）
+    /// Logical AND (f32-specific)
+    pub fn logical_and(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::logical_and".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| if a != 0.0 && b != 0.0 { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 論理和（OR）（f32専用）
+    /// Logical OR (f32-specific)
+    pub fn logical_or(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::logical_or".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| if a != 0.0 || b != 0.0 { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 論理否定（NOT）（f32専用）
+    /// Logical NOT (f32-specific)
+    pub fn logical_not(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x == 0.0 { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 論理排他的OR（XOR）（f32専用）
+    /// Logical XOR (f32-specific)
+    pub fn logical_xor(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::logical_xor".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| {
+                let a_bool = a != 0.0;
+                let b_bool = b != 0.0;
+                if a_bool ^ b_bool { 1.0 } else { 0.0 }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// より大きい比較（f32専用）
+    /// Greater than comparison (f32-specific)
+    pub fn greater(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::greater".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| if a > b { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// より小さい比較（f32専用）
+    /// Less than comparison (f32-specific)
+    pub fn less(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::less".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| if a < b { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 等しい比較（f32専用）
+    /// Equal comparison (f32-specific)
+    pub fn equal(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::equal".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let self_data = self.data.as_slice().unwrap();
+        let other_data = other.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = self_data.iter()
+            .zip(other_data.iter())
+            .map(|(&a, &b)| if (a - b).abs() < f32::EPSILON { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    // ===== フィルタリング・マスク操作 / Filtering & Masking Operations (15 methods) =====
+
+    /// 条件に基づくフィルタリング（f32専用）
+    /// Condition-based filtering (f32-specific)
+    pub fn filter(&self, predicate: impl Fn(f32) -> bool) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let filtered_data: Vec<f32> = data.iter()
+            .filter(|&&x| predicate(x))
+            .cloned()
+            .collect();
+
+        let len = filtered_data.len();
+        F32Tensor::new(filtered_data, vec![len])
+    }
+
+    /// 非ゼロ要素の取得（f32専用）
+    /// Non-zero elements (f32-specific)
+    pub fn nonzero(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let nonzero_data: Vec<f32> = data.iter()
+            .filter(|&&x| x != 0.0)
+            .cloned()
+            .collect();
+
+        let len = nonzero_data.len();
+        F32Tensor::new(nonzero_data, vec![len])
+    }
+
+    /// 非ゼロ要素のインデックス（f32専用）
+    /// Non-zero element indices (f32-specific)
+    pub fn nonzero_indices(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let indices: Vec<f32> = data.iter()
+            .enumerate()
+            .filter_map(|(i, &x)| if x != 0.0 { Some(i as f32) } else { None })
+            .collect();
+
+        let len = indices.len();
+        F32Tensor::new(indices, vec![len])
+    }
+
+    /// ゼロ要素のインデックス（f32専用）
+    /// Zero element indices (f32-specific)
+    pub fn zero_indices(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let indices: Vec<f32> = data.iter()
+            .enumerate()
+            .filter_map(|(i, &x)| if x == 0.0 { Some(i as f32) } else { None })
+            .collect();
+
+        let len = indices.len();
+        F32Tensor::new(indices, vec![len])
+    }
+
+    /// NaN判定（f32専用）
+    /// NaN detection (f32-specific)
+    pub fn isnan(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x.is_nan() { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 無限大判定（f32専用）
+    /// Infinity detection (f32-specific)
+    pub fn isinf(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x.is_infinite() { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 有限判定（f32専用）
+    /// Finite detection (f32-specific)
+    pub fn isfinite(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x.is_finite() { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 負の無限大判定（f32専用）
+    /// Negative infinity detection (f32-specific)
+    pub fn isneginf(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x == f32::NEG_INFINITY { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 正の無限大判定（f32専用）
+    /// Positive infinity detection (f32-specific)
+    pub fn isposinf(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x == f32::INFINITY { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// NaN・無限大を数値に変換（f32専用）
+    /// Convert NaN/infinity to numbers (f32-specific)
+    pub fn nan_to_num(&self, nan: Option<f32>, posinf: Option<f32>, neginf: Option<f32>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let nan_val = nan.unwrap_or(0.0);
+        let posinf_val = posinf.unwrap_or(f32::MAX);
+        let neginf_val = neginf.unwrap_or(f32::MIN);
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| {
+                if x.is_nan() {
+                    nan_val
+                } else if x == f32::INFINITY {
+                    posinf_val
+                } else if x == f32::NEG_INFINITY {
+                    neginf_val
+                } else {
+                    x
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// NaN置換（f32専用）
+    /// NaN replacement (f32-specific)
+    pub fn replace_nan(&self, value: f32) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x.is_nan() { value } else { x })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// NaN要素削除（f32専用）
+    /// Drop NaN elements (f32-specific)
+    pub fn drop_nan(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let clean_data: Vec<f32> = data.iter()
+            .filter(|&&x| !x.is_nan())
+            .cloned()
+            .collect();
+
+        let len = clean_data.len();
+        F32Tensor::new(clean_data, vec![len])
+    }
+
+    /// NaN埋め込み（前方/後方補間）（f32専用）
+    /// NaN filling with forward/backward interpolation (f32-specific)
+    pub fn fill_nan(&self, method: &str) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let mut result_data = data.to_vec();
+
+        match method {
+            "forward" | "ffill" => {
+                let mut last_valid = 0.0;
+                for i in 0..result_data.len() {
+                    if !result_data[i].is_nan() {
+                        last_valid = result_data[i];
+                    } else {
+                        result_data[i] = last_valid;
+                    }
+                }
+            },
+            "backward" | "bfill" => {
+                let mut last_valid = 0.0;
+                for i in (0..result_data.len()).rev() {
+                    if !result_data[i].is_nan() {
+                        last_valid = result_data[i];
+                    } else {
+                        result_data[i] = last_valid;
+                    }
+                }
+            },
+            "interpolate" => {
+                // 線形補間
+                for i in 0..result_data.len() {
+                    if result_data[i].is_nan() {
+                        // 前の有効値を探す
+                        let mut prev_idx = None;
+                        for j in (0..i).rev() {
+                            if !result_data[j].is_nan() {
+                                prev_idx = Some(j);
+                                break;
+                            }
+                        }
+                        // 次の有効値を探す
+                        let mut next_idx = None;
+                        for j in (i + 1)..result_data.len() {
+                            if !result_data[j].is_nan() {
+                                next_idx = Some(j);
+                                break;
+                            }
+                        }
+
+                        if let (Some(prev), Some(next)) = (prev_idx, next_idx) {
+                            let weight = (i - prev) as f32 / (next - prev) as f32;
+                            result_data[i] = result_data[prev] * (1.0 - weight) + result_data[next] * weight;
+                        }
+                    }
+                }
+            },
+            _ => {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::fill_nan".to_string(),
+                    message: format!("Unknown method: {}. Use 'forward', 'backward', or 'interpolate'", method),
+                });
+            }
+        }
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 閾値処理（f32専用）
+    /// Threshold processing (f32-specific)
+    pub fn threshold(&self, threshold: f32, value: f32) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x > threshold { x } else { value })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// ReLUマスク（f32専用）
+    /// ReLU mask (f32-specific)
+    pub fn relu_mask(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let result_data: Vec<f32> = data.iter()
+            .map(|&x| if x > 0.0 { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// ドロップアウトマスク（f32専用）
+    /// Dropout mask (f32-specific)
+    pub fn dropout_mask(&self, dropout_rate: f32) -> RusTorchResult<F32Tensor> {
+        if dropout_rate < 0.0 || dropout_rate >= 1.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::dropout_mask".to_string(),
+                message: format!("Dropout rate must be between 0.0 and 1.0, got {}", dropout_rate),
+            });
+        }
+
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let data = self.data.as_slice().unwrap();
+        let scale = 1.0 / (1.0 - dropout_rate);
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&_| {
+                if rng.gen::<f32>() < dropout_rate {
+                    0.0
+                } else {
+                    scale
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    // ===== 検索・インデックス操作 / Search & Indexing Operations =====
+
+    /// 最大値のインデックス（f32専用）
+    /// Index of maximum value (f32-specific)
+    pub fn argmax(&self, dim: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        match dim {
+            None => {
+                // 全体での最大値インデックス
+                let (max_idx, _) = data.iter()
+                    .enumerate()
+                    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::argmax".to_string(),
+                        message: "Empty tensor".to_string(),
+                    })?;
+                F32Tensor::new(vec![max_idx as f32], vec![])
+            },
+            Some(axis) => {
+                if axis >= self.shape.len() {
+                    return Err(crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::argmax".to_string(),
+                        message: format!("Axis {} out of bounds for tensor with {} dimensions", axis, self.shape.len()),
+                    });
+                }
+                // 指定軸での最大値インデックス（簡略実装）
+                let axis_size = self.shape[axis];
+                let stride = self.shape[axis..].iter().product::<usize>() / axis_size;
+                let mut result_data = Vec::new();
+
+                for chunk in data.chunks(stride * axis_size) {
+                    let mut max_idx = 0;
+                    let mut max_val = f32::NEG_INFINITY;
+
+                    for (i, &val) in chunk.iter().step_by(stride).enumerate() {
+                        if val > max_val {
+                            max_val = val;
+                            max_idx = i;
+                        }
+                    }
+                    result_data.push(max_idx as f32);
+                }
+
+                let mut result_shape = self.shape.clone();
+                result_shape.remove(axis);
+                F32Tensor::new(result_data, result_shape)
+            }
+        }
+    }
+
+    /// 最小値のインデックス（f32専用）
+    /// Index of minimum value (f32-specific)
+    pub fn argmin(&self, dim: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        match dim {
+            None => {
+                // 全体での最小値インデックス
+                let (min_idx, _) = data.iter()
+                    .enumerate()
+                    .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                    .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::argmin".to_string(),
+                        message: "Empty tensor".to_string(),
+                    })?;
+                F32Tensor::new(vec![min_idx as f32], vec![])
+            },
+            Some(axis) => {
+                if axis >= self.shape.len() {
+                    return Err(crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::argmin".to_string(),
+                        message: format!("Axis {} out of bounds for tensor with {} dimensions", axis, self.shape.len()),
+                    });
+                }
+                // 指定軸での最小値インデックス（簡略実装）
+                let axis_size = self.shape[axis];
+                let stride = self.shape[axis..].iter().product::<usize>() / axis_size;
+                let mut result_data = Vec::new();
+
+                for chunk in data.chunks(stride * axis_size) {
+                    let mut min_idx = 0;
+                    let mut min_val = f32::INFINITY;
+
+                    for (i, &val) in chunk.iter().step_by(stride).enumerate() {
+                        if val < min_val {
+                            min_val = val;
+                            min_idx = i;
+                        }
+                    }
+                    result_data.push(min_idx as f32);
+                }
+
+                let mut result_shape = self.shape.clone();
+                result_shape.remove(axis);
+                F32Tensor::new(result_data, result_shape)
+            }
+        }
+    }
+
+    /// 条件を満たす要素のインデックス（f32専用）
+    /// Indices where condition is True (f32-specific)
+    pub fn argwhere(&self, condition: impl Fn(f32) -> bool) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let indices: Vec<f32> = data.iter()
+            .enumerate()
+            .filter_map(|(idx, &val)| {
+                if condition(val) {
+                    Some(idx as f32)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let len = indices.len();
+        F32Tensor::new(indices, vec![len])
+    }
+
+    /// ソート済み配列での挿入位置（f32専用）
+    /// Insertion indices for searchsorted (f32-specific)
+    pub fn searchsorted(&self, values: &F32Tensor, side: &str) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let search_data = values.data.as_slice().unwrap();
+
+        let mut result_data = Vec::new();
+
+        for &search_val in search_data {
+            let idx = match side {
+                "left" => {
+                    data.binary_search_by(|&x| x.partial_cmp(&search_val).unwrap())
+                        .unwrap_or_else(|i| i)
+                },
+                "right" => {
+                    match data.binary_search_by(|&x| x.partial_cmp(&search_val).unwrap()) {
+                        Ok(i) => {
+                            // 同じ値がある場合、右端を探す
+                            let mut right_idx = i;
+                            while right_idx < data.len() && data[right_idx] == search_val {
+                                right_idx += 1;
+                            }
+                            right_idx
+                        },
+                        Err(i) => i,
+                    }
+                },
+                _ => return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::searchsorted".to_string(),
+                    message: format!("Invalid side parameter: {}", side),
+                }),
+            };
+            result_data.push(idx as f32);
+        }
+
+        F32Tensor::new(result_data, values.shape.clone())
+    }
+
+    /// 値を区間に分類（f32専用）
+    /// Bucketize values into bins (f32-specific)
+    pub fn bucketize(&self, boundaries: &F32Tensor, right: bool) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let bounds = boundaries.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&val| {
+                let bucket = if right {
+                    bounds.iter().position(|&b| val <= b).unwrap_or(bounds.len())
+                } else {
+                    bounds.iter().position(|&b| val < b).unwrap_or(bounds.len())
+                };
+                bucket as f32
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// ヒストグラム計算（f32専用）
+    /// Histogram computation (f32-specific)
+    pub fn histogram(&self, bins: usize, range: Option<(f32, f32)>) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        let data = self.data.as_slice().unwrap();
+
+        let (min_val, max_val) = match range {
+            Some((min, max)) => (min, max),
+            None => {
+                let min = data.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+                let max = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+                (min, max)
+            }
+        };
+
+        let bin_width = (max_val - min_val) / bins as f32;
+        let mut hist = vec![0.0f32; bins];
+
+        for &val in data {
+            if val >= min_val && val < max_val {
+                let bin_idx = ((val - min_val) / bin_width).floor() as usize;
+                let bin_idx = bin_idx.min(bins - 1);
+                hist[bin_idx] += 1.0;
+            } else if val == max_val {
+                hist[bins - 1] += 1.0;
+            }
+        }
+
+        // ビンエッジ作成
+        let mut bin_edges = Vec::new();
+        for i in 0..=bins {
+            bin_edges.push(min_val + i as f32 * bin_width);
+        }
+
+        Ok((
+            F32Tensor::new(hist, vec![bins])?,
+            F32Tensor::new(bin_edges, vec![bins + 1])?
+        ))
+    }
+
+    /// 値の出現回数カウント（f32専用）
+    /// Count occurrences of values (f32-specific)
+    pub fn bincount(&self, weights: Option<&F32Tensor>, minlength: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        // 最大値を取得
+        let max_val = data.iter().fold(0.0f32, |a, &b| a.max(b)) as usize;
+        let length = minlength.unwrap_or(max_val + 1).max(max_val + 1);
+
+        let mut counts = vec![0.0f32; length];
+
+        match weights {
+            Some(w) => {
+                let weight_data = w.data.as_slice().unwrap();
+                for (&val, &weight) in data.iter().zip(weight_data.iter()) {
+                    let idx = val as usize;
+                    if idx < length {
+                        counts[idx] += weight;
+                    }
+                }
+            },
+            None => {
+                for &val in data {
+                    let idx = val as usize;
+                    if idx < length {
+                        counts[idx] += 1.0;
+                    }
+                }
+            }
+        }
+
+        F32Tensor::new(counts, vec![length])
+    }
+
+    /// 値をビンにデジタル化（f32専用）
+    /// Digitize values into bins (f32-specific)
+    pub fn digitize(&self, bins: &F32Tensor, right: bool) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let bin_data = bins.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&val| {
+                let bin_idx = if right {
+                    bin_data.iter().position(|&b| val <= b).unwrap_or(bin_data.len())
+                } else {
+                    bin_data.iter().position(|&b| val < b).unwrap_or(bin_data.len())
+                };
+                bin_idx as f32
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 指定値のインデックスを検索（f32専用）
+    /// Find indices of specified value (f32-specific)
+    pub fn find_indices(&self, value: f32, tolerance: Option<f32>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let tol = tolerance.unwrap_or(f32::EPSILON);
+
+        let indices: Vec<f32> = data.iter()
+            .enumerate()
+            .filter_map(|(idx, &val)| {
+                if (val - value).abs() <= tol {
+                    Some(idx as f32)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let len = indices.len();
+        F32Tensor::new(indices, vec![len])
+    }
+
+    /// 最初の出現位置（f32専用）
+    /// First occurrence index (f32-specific)
+    pub fn first_occurrence(&self, value: f32, tolerance: Option<f32>) -> RusTorchResult<Option<usize>> {
+        let data = self.data.as_slice().unwrap();
+        let tol = tolerance.unwrap_or(f32::EPSILON);
+
+        for (idx, &val) in data.iter().enumerate() {
+            if (val - value).abs() <= tol {
+                return Ok(Some(idx));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// 最後の出現位置（f32専用）
+    /// Last occurrence index (f32-specific)
+    pub fn last_occurrence(&self, value: f32, tolerance: Option<f32>) -> RusTorchResult<Option<usize>> {
+        let data = self.data.as_slice().unwrap();
+        let tol = tolerance.unwrap_or(f32::EPSILON);
+
+        for (idx, &val) in data.iter().enumerate().rev() {
+            if (val - value).abs() <= tol {
+                return Ok(Some(idx));
+            }
+        }
+
+        Ok(None)
+    }
+
+    /// 最も近い値のインデックス（f32専用）
+    /// Index of closest value (f32-specific)
+    pub fn closest_value(&self, target: f32) -> RusTorchResult<usize> {
+        let data = self.data.as_slice().unwrap();
+
+        let (closest_idx, _) = data.iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, &b)| {
+                (a - target).abs().partial_cmp(&(b - target).abs()).unwrap()
+            })
+            .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::closest_value".to_string(),
+                message: "Empty tensor".to_string(),
+            })?;
+
+        Ok(closest_idx)
+    }
+
+    /// ピーク検出（f32専用）
+    /// Peak detection (f32-specific)
+    pub fn find_peaks(&self, height: Option<f32>, distance: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let min_height = height.unwrap_or(f32::NEG_INFINITY);
+        let min_distance = distance.unwrap_or(1);
+
+        let mut peaks = Vec::new();
+
+        for i in 1..data.len() - 1 {
+            if data[i] > data[i - 1] && data[i] > data[i + 1] && data[i] >= min_height {
+                // 距離制約チェック
+                if peaks.is_empty() || i - peaks.last().unwrap() >= min_distance {
+                    peaks.push(i);
+                }
+            }
+        }
+
+        let peak_indices: Vec<f32> = peaks.into_iter().map(|i| i as f32).collect();
+        let len = peak_indices.len();
+        F32Tensor::new(peak_indices, vec![len])
+    }
+
+    /// 谷検出（f32専用）
+    /// Valley detection (f32-specific)
+    pub fn find_valleys(&self, height: Option<f32>, distance: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let max_height = height.unwrap_or(f32::INFINITY);
+        let min_distance = distance.unwrap_or(1);
+
+        let mut valleys = Vec::new();
+
+        for i in 1..data.len() - 1 {
+            if data[i] < data[i - 1] && data[i] < data[i + 1] && data[i] <= max_height {
+                // 距離制約チェック
+                if valleys.is_empty() || i - valleys.last().unwrap() >= min_distance {
+                    valleys.push(i);
+                }
+            }
+        }
+
+        let valley_indices: Vec<f32> = valleys.into_iter().map(|i| i as f32).collect();
+        let len = valley_indices.len();
+        F32Tensor::new(valley_indices, vec![len])
+    }
+
+    /// ゼロ交差点検出（f32専用）
+    /// Zero crossing detection (f32-specific)
+    pub fn find_zeros(&self, tolerance: Option<f32>) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let tol = tolerance.unwrap_or(f32::EPSILON);
+
+        let mut zero_crossings = Vec::new();
+
+        // 厳密なゼロ
+        for (i, &val) in data.iter().enumerate() {
+            if val.abs() <= tol {
+                zero_crossings.push(i as f32);
+            }
+        }
+
+        // 符号変化によるゼロ交差
+        for i in 0..data.len() - 1 {
+            if data[i] * data[i + 1] < 0.0 {
+                // 線形補間でゼロ交差点を推定
+                let t = -data[i] / (data[i + 1] - data[i]);
+                let zero_pos = i as f32 + t;
+                zero_crossings.push(zero_pos);
+            }
+        }
+
+        // ソートして重複削除
+        zero_crossings.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        zero_crossings.dedup_by(|a, b| (*a - *b).abs() <= tol);
+
+        let len = zero_crossings.len();
+        F32Tensor::new(zero_crossings, vec![len])
+    }
+
+    // ===== 選択・置換操作 / Selection & Replacement Operations =====
+
+    /// インデックスによる要素選択（f32専用）
+    /// Element selection by indices (f32-specific)
+    pub fn take(&self, indices: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let idx_data = indices.data.as_slice().unwrap();
+
+        let selected_data: Vec<f32> = idx_data.iter()
+            .map(|&idx| {
+                let i = idx as usize;
+                if i < data.len() {
+                    data[i]
+                } else {
+                    0.0 // デフォルト値
+                }
+            })
+            .collect();
+
+        F32Tensor::new(selected_data, indices.shape.clone())
+    }
+
+    /// 軸に沿った要素選択（f32専用）
+    /// Element selection along axis (f32-specific)
+    pub fn take_along_axis(&self, indices: &F32Tensor, axis: usize) -> RusTorchResult<F32Tensor> {
+        if axis >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::take_along_axis".to_string(),
+                message: format!("Axis {} out of bounds", axis),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let idx_data = indices.data.as_slice().unwrap();
+
+        // 簡略実装：1次元テンソルの場合
+        if self.shape.len() == 1 {
+            return self.take(indices);
+        }
+
+        // 多次元の場合の基本実装
+        let axis_size = self.shape[axis];
+        let stride = self.shape[axis..].iter().product::<usize>() / axis_size;
+        let mut result_data = Vec::new();
+
+        for (&idx, i) in idx_data.iter().zip(0..) {
+            let axis_idx = (idx as usize).min(axis_size - 1);
+            let base_idx = (i / stride) * (stride * axis_size) + (i % stride);
+            let selected_idx = base_idx + axis_idx * stride;
+
+            if selected_idx < data.len() {
+                result_data.push(data[selected_idx]);
+            } else {
+                result_data.push(0.0);
+            }
+        }
+
+        F32Tensor::new(result_data, indices.shape.clone())
+    }
+
+    /// 条件による要素置換（f32専用）
+    /// Element replacement by condition (f32-specific)
+    pub fn where_replace(&self, condition: impl Fn(f32) -> bool, replacement: f32) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&val| {
+                if condition(val) {
+                    replacement
+                } else {
+                    val
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// インデックスによる要素置換（f32専用）
+    /// Element replacement by indices (f32-specific)
+    pub fn put(&mut self, indices: &F32Tensor, values: &F32Tensor) -> RusTorchResult<()> {
+        let idx_data = indices.data.as_slice().unwrap();
+        let val_data = values.data.as_slice().unwrap();
+
+        if let Some(mut data) = self.data.as_slice_mut() {
+            for (&idx, &val) in idx_data.iter().zip(val_data.iter()) {
+                let i = idx as usize;
+                if i < data.len() {
+                    data[i] = val;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// 軸に沿った要素置換（f32専用）
+    /// Element replacement along axis (f32-specific)
+    pub fn put_along_axis(&mut self, indices: &F32Tensor, values: &F32Tensor, axis: usize) -> RusTorchResult<()> {
+        if axis >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::put_along_axis".to_string(),
+                message: format!("Axis {} out of bounds", axis),
+            });
+        }
+
+        let idx_data = indices.data.as_slice().unwrap();
+        let val_data = values.data.as_slice().unwrap();
+
+        if let Some(mut data) = self.data.as_slice_mut() {
+            // 簡略実装：1次元の場合
+            if self.shape.len() == 1 {
+                for (&idx, &val) in idx_data.iter().zip(val_data.iter()) {
+                    let i = idx as usize;
+                    if i < data.len() {
+                        data[i] = val;
+                    }
+                }
+                return Ok(());
+            }
+
+            // 多次元の場合の基本実装
+            let axis_size = self.shape[axis];
+            let stride = self.shape[axis..].iter().product::<usize>() / axis_size;
+
+            for ((&idx, &val), i) in idx_data.iter().zip(val_data.iter()).zip(0..) {
+                let axis_idx = (idx as usize).min(axis_size - 1);
+                let base_idx = (i / stride) * (stride * axis_size) + (i % stride);
+                let target_idx = base_idx + axis_idx * stride;
+
+                if target_idx < data.len() {
+                    data[target_idx] = val;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// テンソルの選択的スライス（f32専用）
+    /// Selective tensor slicing (f32-specific)
+    pub fn select(&self, dim: usize, index: usize) -> RusTorchResult<F32Tensor> {
+        if dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::select".to_string(),
+                message: format!("Dimension {} out of bounds", dim),
+            });
+        }
+
+        if index >= self.shape[dim] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::select".to_string(),
+                message: format!("Index {} out of bounds for dimension {}", index, dim),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut result_data = Vec::new();
+
+        let before_stride: usize = self.shape[..dim].iter().product();
+        let after_stride: usize = self.shape[dim + 1..].iter().product();
+        let dim_stride = self.shape[dim];
+
+        for i in 0..before_stride {
+            for j in 0..after_stride {
+                let data_idx = i * (dim_stride * after_stride) + index * after_stride + j;
+                if data_idx < data.len() {
+                    result_data.push(data[data_idx]);
+                }
+            }
+        }
+
+        let mut result_shape = self.shape.clone();
+        result_shape.remove(dim);
+        F32Tensor::new(result_data, result_shape)
+    }
+
+    /// 範囲による要素選択（f32専用）
+    /// Element selection by range (f32-specific)
+    pub fn slice(&self, dim: usize, start: usize, end: usize, step: usize) -> RusTorchResult<F32Tensor> {
+        if dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::slice".to_string(),
+                message: format!("Dimension {} out of bounds", dim),
+            });
+        }
+
+        if start >= self.shape[dim] || end > self.shape[dim] || start >= end || step == 0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::slice".to_string(),
+                message: "Invalid slice parameters".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut result_data = Vec::new();
+
+        let before_stride: usize = self.shape[..dim].iter().product();
+        let after_stride: usize = self.shape[dim + 1..].iter().product();
+        let dim_stride = self.shape[dim];
+
+        for i in 0..before_stride {
+            for idx in (start..end).step_by(step) {
+                for j in 0..after_stride {
+                    let data_idx = i * (dim_stride * after_stride) + idx * after_stride + j;
+                    if data_idx < data.len() {
+                        result_data.push(data[data_idx]);
+                    }
+                }
+            }
+        }
+
+        let mut result_shape = self.shape.clone();
+        result_shape[dim] = (end - start + step - 1) / step;
+        F32Tensor::new(result_data, result_shape)
+    }
+
+    /// 複数インデックスによる選択（f32専用）
+    /// Multi-index selection (f32-specific)
+    pub fn index_select(&self, dim: usize, indices: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::index_select".to_string(),
+                message: format!("Dimension {} out of bounds", dim),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let idx_data = indices.data.as_slice().unwrap();
+        let mut result_data = Vec::new();
+
+        let before_stride: usize = self.shape[..dim].iter().product();
+        let after_stride: usize = self.shape[dim + 1..].iter().product();
+        let dim_stride = self.shape[dim];
+
+        for i in 0..before_stride {
+            for &idx in idx_data {
+                let index = (idx as usize).min(self.shape[dim] - 1);
+                for j in 0..after_stride {
+                    let data_idx = i * (dim_stride * after_stride) + index * after_stride + j;
+                    if data_idx < data.len() {
+                        result_data.push(data[data_idx]);
+                    }
+                }
+            }
+        }
+
+        let mut result_shape = self.shape.clone();
+        result_shape[dim] = idx_data.len();
+        F32Tensor::new(result_data, result_shape)
+    }
+
+    /// 条件付きインデックス選択（f32専用）
+    /// Conditional index selection (f32-specific)
+    pub fn conditional_select(&self, condition: &F32Tensor, true_indices: &F32Tensor, false_indices: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != condition.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::conditional_select".to_string(),
+                message: "Shape mismatch between tensor and condition".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let cond_data = condition.data.as_slice().unwrap();
+        let true_idx_data = true_indices.data.as_slice().unwrap();
+        let false_idx_data = false_indices.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = cond_data.iter()
+            .zip(true_idx_data.iter())
+            .zip(false_idx_data.iter())
+            .map(|((&cond, &true_idx), &false_idx)| {
+                let idx = if cond != 0.0 { true_idx } else { false_idx } as usize;
+                if idx < data.len() {
+                    data[idx]
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 高度なマスク選択（f32専用）
+    /// Advanced mask selection (f32-specific)
+    pub fn advanced_mask_select(&self, mask: &F32Tensor, default_value: f32) -> RusTorchResult<F32Tensor> {
+        if self.shape != mask.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::advanced_mask_select".to_string(),
+                message: "Shape mismatch between tensor and mask".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mask_data = mask.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .zip(mask_data.iter())
+            .map(|(&val, &mask_val)| {
+                if mask_val != 0.0 {
+                    val
+                } else {
+                    default_value
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 重複除去選択（f32専用）
+    /// Unique selection (f32-specific)
+    pub fn unique_select(&self, return_indices: bool) -> RusTorchResult<(F32Tensor, Option<F32Tensor>)> {
+        let data = self.data.as_slice().unwrap();
+        let mut unique_vals = Vec::new();
+        let mut indices = Vec::new();
+
+        for (i, &val) in data.iter().enumerate() {
+            if !unique_vals.contains(&val) {
+                unique_vals.push(val);
+                if return_indices {
+                    indices.push(i as f32);
+                }
+            }
+        }
+
+        let unique_len = unique_vals.len();
+        let unique_tensor = F32Tensor::new(unique_vals, vec![unique_len])?;
+        let indices_tensor = if return_indices {
+            let indices_len = indices.len();
+            Some(F32Tensor::new(indices, vec![indices_len])?)
+        } else {
+            None
+        };
+
+        Ok((unique_tensor, indices_tensor))
+    }
+
+    /// 範囲内値の選択的置換（f32専用）
+    /// Selective replacement of values in range (f32-specific)
+    pub fn replace_range(&self, min_val: f32, max_val: f32, replacement: f32) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&val| {
+                if val >= min_val && val <= max_val {
+                    replacement
+                } else {
+                    val
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// パターンマッチング置換（f32専用）
+    /// Pattern matching replacement (f32-specific)
+    pub fn pattern_replace(&self, pattern: &[f32], replacement: &[f32], tolerance: Option<f32>) -> RusTorchResult<F32Tensor> {
+        if pattern.is_empty() || replacement.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::pattern_replace".to_string(),
+                message: "Pattern and replacement cannot be empty".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let tol = tolerance.unwrap_or(f32::EPSILON);
+        let mut result_data = data.to_vec();
+
+        // 簡単なパターンマッチング実装
+        let mut i = 0;
+        while i + pattern.len() <= result_data.len() {
+            let mut matches = true;
+            for (j, &pattern_val) in pattern.iter().enumerate() {
+                if (result_data[i + j] - pattern_val).abs() > tol {
+                    matches = false;
+                    break;
+                }
+            }
+
+            if matches {
+                // パターンを置換
+                for (j, &repl_val) in replacement.iter().enumerate() {
+                    if i + j < result_data.len() {
+                        result_data[i + j] = repl_val;
+                    }
+                }
+                i += pattern.len().max(replacement.len());
+            } else {
+                i += 1;
+            }
+        }
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 条件付き値交換（f32専用）
+    /// Conditional value swapping (f32-specific)
+    pub fn conditional_swap(&self, condition: impl Fn(f32) -> bool, swap_val1: f32, swap_val2: f32) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+
+        let result_data: Vec<f32> = data.iter()
+            .map(|&val| {
+                if condition(val) {
+                    if val == swap_val1 {
+                        swap_val2
+                    } else if val == swap_val2 {
+                        swap_val1
+                    } else {
+                        val
+                    }
+                } else {
+                    val
+                }
+            })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
     // ===== 補助メソッド / Helper Methods =====
 
     /// ランク変換（f32専用）
