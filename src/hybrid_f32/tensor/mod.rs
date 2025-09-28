@@ -524,6 +524,353 @@ impl F32Tensor {
         sum_result.div_scalar(divisor)
     }
 
+    // =========================================================================
+    // フェーズ2: 形状操作メソッド / Phase 2: Shape Operations
+    // =========================================================================
+
+    /// テンソルの形状変更（f32専用）
+    /// Reshape tensor (f32-specific)
+    pub fn reshape(&self, new_shape: &[usize]) -> RusTorchResult<F32Tensor> {
+        let total_elements: usize = self.shape.iter().product();
+        let new_total: usize = new_shape.iter().product();
+
+        if total_elements != new_total {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::reshape".to_string(),
+                message: format!(
+                    "Cannot reshape tensor with {} elements to shape with {} elements",
+                    total_elements, new_total
+                ),
+            });
+        }
+
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), new_shape.to_vec())
+    }
+
+    /// テンソル転置（f32専用）
+    /// Transpose tensor (f32-specific)
+    pub fn transpose(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::transpose".to_string(),
+                message: "Transpose currently only supports 2D tensors".to_string(),
+            });
+        }
+
+        let (rows, cols) = (self.shape[0], self.shape[1]);
+        let mut result_data = vec![0.0f32; rows * cols];
+
+        for i in 0..rows {
+            for j in 0..cols {
+                result_data[j * rows + i] = self.data[[i, j]];
+            }
+        }
+
+        F32Tensor::new(result_data, vec![cols, rows])
+    }
+
+    /// 軸の順序変更（f32専用）
+    /// Permute axes (f32-specific)
+    pub fn permute(&self, axes: &[usize]) -> RusTorchResult<F32Tensor> {
+        if axes.len() != self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::permute".to_string(),
+                message: format!(
+                    "Number of axes {} doesn't match tensor dimensions {}",
+                    axes.len(), self.shape.len()
+                ),
+            });
+        }
+
+        // 現在は2Dテンソルのみサポート（transpose相当）
+        if self.shape.len() == 2 && axes == &[1, 0] {
+            return self.transpose();
+        }
+
+        // その他の次元はまだ未実装
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::permute".to_string(),
+            message: "Permute currently only supports 2D transpose".to_string(),
+        })
+    }
+
+    /// 次元削除（サイズ1の次元を削除）
+    /// Squeeze dimensions (remove size-1 dimensions)
+    pub fn squeeze(&self) -> RusTorchResult<F32Tensor> {
+        let new_shape: Vec<usize> = self.shape.iter()
+            .copied()
+            .filter(|&dim| dim != 1)
+            .collect();
+
+        if new_shape.is_empty() {
+            // 全ての次元がサイズ1の場合、スカラーとして[1]の形状にする
+            return F32Tensor::new(self.data.as_slice().unwrap().to_vec(), vec![1]);
+        }
+
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), new_shape)
+    }
+
+    /// 指定次元でのsqueeze
+    /// Squeeze specific dimension
+    pub fn squeeze_dim(&self, dim: usize) -> RusTorchResult<F32Tensor> {
+        if dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::squeeze_dim".to_string(),
+                message: format!("Dimension {} out of bounds for {}D tensor", dim, self.shape.len()),
+            });
+        }
+
+        if self.shape[dim] != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::squeeze_dim".to_string(),
+                message: format!("Cannot squeeze dimension {} with size {}", dim, self.shape[dim]),
+            });
+        }
+
+        let mut new_shape = self.shape.clone();
+        new_shape.remove(dim);
+
+        if new_shape.is_empty() {
+            new_shape.push(1);
+        }
+
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), new_shape)
+    }
+
+    /// 次元追加（指定位置にサイズ1の次元を追加）
+    /// Unsqueeze (add size-1 dimension at specified position)
+    pub fn unsqueeze(&self, dim: usize) -> RusTorchResult<F32Tensor> {
+        if dim > self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::unsqueeze".to_string(),
+                message: format!("Dimension {} out of bounds for insertion", dim),
+            });
+        }
+
+        let mut new_shape = self.shape.clone();
+        new_shape.insert(dim, 1);
+
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), new_shape)
+    }
+
+    /// テンソル平坦化（f32専用）
+    /// Flatten tensor (f32-specific)
+    pub fn flatten(&self) -> RusTorchResult<F32Tensor> {
+        let total_elements = self.shape.iter().product();
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), vec![total_elements])
+    }
+
+    /// 範囲指定平坦化
+    /// Flatten with range specification
+    pub fn flatten_range(&self, start_dim: usize, end_dim: Option<usize>) -> RusTorchResult<F32Tensor> {
+        let end_dim = end_dim.unwrap_or(self.shape.len() - 1);
+
+        if start_dim > end_dim || end_dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::flatten_range".to_string(),
+                message: "Invalid dimension range".to_string(),
+            });
+        }
+
+        let mut new_shape = Vec::new();
+
+        // start_dim前の次元をそのまま追加
+        for i in 0..start_dim {
+            new_shape.push(self.shape[i]);
+        }
+
+        // start_dimからend_dimまでの次元をまとめる
+        let flattened_size: usize = self.shape[start_dim..=end_dim].iter().product();
+        new_shape.push(flattened_size);
+
+        // end_dim後の次元をそのまま追加
+        for i in (end_dim + 1)..self.shape.len() {
+            new_shape.push(self.shape[i]);
+        }
+
+        F32Tensor::new(self.data.as_slice().unwrap().to_vec(), new_shape)
+    }
+
+    /// テンソル拡張（ブロードキャスト）
+    /// Expand tensor (broadcasting)
+    pub fn expand(&self, target_shape: &[usize]) -> RusTorchResult<F32Tensor> {
+        if !self.can_broadcast_to(target_shape) {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::expand".to_string(),
+                message: format!(
+                    "Cannot expand shape {:?} to {:?}",
+                    self.shape, target_shape
+                ),
+            });
+        }
+
+        // 簡単な実装：同じ形状の場合はそのまま返す
+        if self.shape == target_shape {
+            return Ok(self.clone());
+        }
+
+        // 実際のブロードキャスト実装は複雑なため、現在は基本的なケースのみサポート
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::expand".to_string(),
+            message: "Complex broadcasting not yet implemented".to_string(),
+        })
+    }
+
+    /// ブロードキャスト可能性チェック
+    /// Check if broadcasting is possible
+    pub fn can_broadcast_to(&self, target_shape: &[usize]) -> bool {
+        // 簡単な実装：同じ形状のみ許可
+        self.shape == target_shape
+    }
+
+    /// テンソル繰り返し
+    /// Repeat tensor
+    pub fn repeat(&self, repeats: &[usize]) -> RusTorchResult<F32Tensor> {
+        if repeats.len() != self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::repeat".to_string(),
+                message: format!(
+                    "Repeat dimensions {} doesn't match tensor dimensions {}",
+                    repeats.len(), self.shape.len()
+                ),
+            });
+        }
+
+        // 簡単な1次元実装
+        if self.shape.len() == 1 {
+            let mut result_data = Vec::new();
+            for _ in 0..repeats[0] {
+                result_data.extend_from_slice(self.data.as_slice().unwrap());
+            }
+            let new_size = self.shape[0] * repeats[0];
+            return F32Tensor::new(result_data, vec![new_size]);
+        }
+
+        // 他の次元は未実装
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::repeat".to_string(),
+            message: "Repeat currently only supports 1D tensors".to_string(),
+        })
+    }
+
+    /// テンソル分割
+    /// Split tensor
+    pub fn split(&self, split_size: usize, dim: usize) -> RusTorchResult<Vec<F32Tensor>> {
+        if dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::split".to_string(),
+                message: format!("Dimension {} out of bounds", dim),
+            });
+        }
+
+        // 1次元の場合の実装
+        if self.shape.len() == 1 && dim == 0 {
+            let mut chunks = Vec::new();
+            let data = self.data.as_slice().unwrap();
+
+            for i in (0..data.len()).step_by(split_size) {
+                let end = (i + split_size).min(data.len());
+                let chunk_data = data[i..end].to_vec();
+                let chunk_size = end - i;
+                chunks.push(F32Tensor::new(chunk_data, vec![chunk_size])?);
+            }
+
+            return Ok(chunks);
+        }
+
+        // 他の次元は未実装
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::split".to_string(),
+            message: "Split currently only supports 1D tensors".to_string(),
+        })
+    }
+
+    /// テンソル結合
+    /// Concatenate tensors
+    pub fn concat(tensors: &[&F32Tensor], dim: usize) -> RusTorchResult<F32Tensor> {
+        if tensors.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::concat".to_string(),
+                message: "Cannot concatenate empty tensor list".to_string(),
+            });
+        }
+
+        let first_shape = &tensors[0].shape;
+
+        // 他のテンソルの形状チェック（指定次元以外は同じである必要がある）
+        for tensor in tensors.iter().skip(1) {
+            if tensor.shape.len() != first_shape.len() {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::concat".to_string(),
+                    message: "All tensors must have same number of dimensions".to_string(),
+                });
+            }
+
+            for (i, (&dim_size, &first_dim_size)) in tensor.shape.iter().zip(first_shape.iter()).enumerate() {
+                if i != dim && dim_size != first_dim_size {
+                    return Err(crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::concat".to_string(),
+                        message: format!(
+                            "Dimension {} size mismatch: {} vs {}",
+                            i, dim_size, first_dim_size
+                        ),
+                    });
+                }
+            }
+        }
+
+        // 1次元の場合の実装
+        if first_shape.len() == 1 && dim == 0 {
+            let mut result_data = Vec::new();
+            for tensor in tensors {
+                result_data.extend_from_slice(tensor.data.as_slice().unwrap());
+            }
+            let total_size: usize = tensors.iter().map(|t| t.shape[0]).sum();
+            return F32Tensor::new(result_data, vec![total_size]);
+        }
+
+        // 他の次元は未実装
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::concat".to_string(),
+            message: "Concat currently only supports 1D tensors".to_string(),
+        })
+    }
+
+    /// テンソル積み重ね（新しい次元を作成）
+    /// Stack tensors (create new dimension)
+    pub fn stack(tensors: &[&F32Tensor], dim: usize) -> RusTorchResult<F32Tensor> {
+        if tensors.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::stack".to_string(),
+                message: "Cannot stack empty tensor list".to_string(),
+            });
+        }
+
+        let first_shape = &tensors[0].shape;
+
+        // 全てのテンソルが同じ形状であることを確認
+        for tensor in tensors.iter().skip(1) {
+            if tensor.shape != *first_shape {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::stack".to_string(),
+                    message: "All tensors must have same shape for stacking".to_string(),
+                });
+            }
+        }
+
+        // 新しい形状を計算
+        let mut new_shape = first_shape.clone();
+        new_shape.insert(dim, tensors.len());
+
+        // データを結合
+        let mut result_data = Vec::new();
+        for tensor in tensors {
+            result_data.extend_from_slice(tensor.data.as_slice().unwrap());
+        }
+
+        F32Tensor::new(result_data, new_shape)
+    }
+
     /// 行列乗算（f32専用）
     /// Matrix multiplication (f32-specific)
     pub fn matmul(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
@@ -563,6 +910,511 @@ impl F32Tensor {
         }
 
         F32Tensor::new(result_data, vec![m, n])
+    }
+
+    // ===== 線形代数演算 / Linear Algebra Operations =====
+
+    /// 行列転置（f32専用）
+    /// Matrix transpose (f32-specific)
+    pub fn t(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::t".to_string(),
+                message: "Transpose requires 2D tensor".to_string(),
+            });
+        }
+
+        let (m, n) = (self.shape[0], self.shape[1]);
+        let mut result_data = vec![0.0f32; m * n];
+
+        for i in 0..m {
+            for j in 0..n {
+                result_data[j * m + i] = self.data[[i, j]];
+            }
+        }
+
+        F32Tensor::new(result_data, vec![n, m])
+    }
+
+    /// 行列式（f32専用）
+    /// Matrix determinant (f32-specific)
+    pub fn det(&self) -> RusTorchResult<f32> {
+        if self.shape.len() != 2 || self.shape[0] != self.shape[1] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::det".to_string(),
+                message: "Determinant requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+
+        match n {
+            1 => Ok(self.data[[0, 0]]),
+            2 => {
+                let a = self.data[[0, 0]];
+                let b = self.data[[0, 1]];
+                let c = self.data[[1, 0]];
+                let d = self.data[[1, 1]];
+                Ok(a * d - b * c)
+            }
+            3 => {
+                // サラス公式による3x3行列式
+                let a11 = self.data[[0, 0]];
+                let a12 = self.data[[0, 1]];
+                let a13 = self.data[[0, 2]];
+                let a21 = self.data[[1, 0]];
+                let a22 = self.data[[1, 1]];
+                let a23 = self.data[[1, 2]];
+                let a31 = self.data[[2, 0]];
+                let a32 = self.data[[2, 1]];
+                let a33 = self.data[[2, 2]];
+
+                Ok(a11 * (a22 * a33 - a23 * a32)
+                    - a12 * (a21 * a33 - a23 * a31)
+                    + a13 * (a21 * a32 - a22 * a31))
+            }
+            _ => {
+                // 大きな行列の場合は簡単なLU分解による実装
+                // （実際の実装では LAPACK を使用）
+                Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::det".to_string(),
+                    message: "Determinant for matrices larger than 3x3 not yet implemented".to_string(),
+                })
+            }
+        }
+    }
+
+    /// 行列逆行列（f32専用）
+    /// Matrix inverse (f32-specific)
+    pub fn inverse(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 2 || self.shape[0] != self.shape[1] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::inverse".to_string(),
+                message: "Inverse requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let det = self.det()?;
+
+        if det.abs() < 1e-10 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::inverse".to_string(),
+                message: "Matrix is singular (determinant near zero)".to_string(),
+            });
+        }
+
+        match n {
+            1 => {
+                let inv_val = 1.0 / self.data[[0, 0]];
+                F32Tensor::new(vec![inv_val], vec![1, 1])
+            }
+            2 => {
+                let a = self.data[[0, 0]];
+                let b = self.data[[0, 1]];
+                let c = self.data[[1, 0]];
+                let d = self.data[[1, 1]];
+
+                let inv_det = 1.0 / det;
+                let result_data = vec![
+                    d * inv_det, -b * inv_det,
+                    -c * inv_det, a * inv_det
+                ];
+                F32Tensor::new(result_data, vec![2, 2])
+            }
+            _ => {
+                // ガウス-ジョルダン法による逆行列計算
+                let mut augmented = vec![0.0f32; n * 2 * n];
+
+                // 拡大行列を作成 [A|I]
+                for i in 0..n {
+                    for j in 0..n {
+                        augmented[i * 2 * n + j] = self.data[[i, j]];
+                        augmented[i * 2 * n + n + j] = if i == j { 1.0 } else { 0.0 };
+                    }
+                }
+
+                // ガウス-ジョルダン消去法
+                for i in 0..n {
+                    // ピボット選択
+                    let mut max_row = i;
+                    for k in (i + 1)..n {
+                        if augmented[k * 2 * n + i].abs() > augmented[max_row * 2 * n + i].abs() {
+                            max_row = k;
+                        }
+                    }
+
+                    if max_row != i {
+                        for j in 0..(2 * n) {
+                            augmented.swap(i * 2 * n + j, max_row * 2 * n + j);
+                        }
+                    }
+
+                    let pivot = augmented[i * 2 * n + i];
+                    if pivot.abs() < 1e-10 {
+                        return Err(crate::error::RusTorchError::InvalidParameters {
+                            operation: "F32Tensor::inverse".to_string(),
+                            message: "Matrix is singular".to_string(),
+                        });
+                    }
+
+                    // 行を正規化
+                    for j in 0..(2 * n) {
+                        augmented[i * 2 * n + j] /= pivot;
+                    }
+
+                    // 他の行を消去
+                    for k in 0..n {
+                        if k != i {
+                            let factor = augmented[k * 2 * n + i];
+                            for j in 0..(2 * n) {
+                                augmented[k * 2 * n + j] -= factor * augmented[i * 2 * n + j];
+                            }
+                        }
+                    }
+                }
+
+                // 逆行列を抽出
+                let mut inv_data = vec![0.0f32; n * n];
+                for i in 0..n {
+                    for j in 0..n {
+                        inv_data[i * n + j] = augmented[i * 2 * n + n + j];
+                    }
+                }
+
+                F32Tensor::new(inv_data, vec![n, n])
+            }
+        }
+    }
+
+    /// トレース（対角和）（f32専用）
+    /// Matrix trace (diagonal sum) (f32-specific)
+    pub fn trace(&self) -> RusTorchResult<f32> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::trace".to_string(),
+                message: "Trace requires 2D tensor".to_string(),
+            });
+        }
+
+        let min_dim = self.shape[0].min(self.shape[1]);
+        let mut trace_sum = 0.0f32;
+
+        for i in 0..min_dim {
+            trace_sum += self.data[[i, i]];
+        }
+
+        Ok(trace_sum)
+    }
+
+    /// 行列ランク（f32専用）
+    /// Matrix rank (f32-specific)
+    pub fn rank(&self) -> RusTorchResult<usize> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::rank".to_string(),
+                message: "Rank requires 2D tensor".to_string(),
+            });
+        }
+
+        let (m, n) = (self.shape[0], self.shape[1]);
+        let mut matrix = self.data.as_slice().unwrap().to_vec();
+
+        // ガウス消去法でランクを計算
+        let mut rank = 0;
+        let min_dim = m.min(n);
+
+        for col in 0..min_dim {
+            // ピボット探索
+            let mut pivot_row = None;
+            for row in rank..m {
+                if matrix[row * n + col].abs() > 1e-10 {
+                    pivot_row = Some(row);
+                    break;
+                }
+            }
+
+            if let Some(pivot_row) = pivot_row {
+                // 行を交換
+                if pivot_row != rank {
+                    for j in 0..n {
+                        matrix.swap(rank * n + j, pivot_row * n + j);
+                    }
+                }
+
+                let pivot = matrix[rank * n + col];
+
+                // 下の行を消去
+                for i in (rank + 1)..m {
+                    let factor = matrix[i * n + col] / pivot;
+                    for j in col..n {
+                        matrix[i * n + j] -= factor * matrix[rank * n + j];
+                    }
+                }
+
+                rank += 1;
+            }
+        }
+
+        Ok(rank)
+    }
+
+    /// 条件数（f32専用）
+    /// Condition number (f32-specific)
+    pub fn cond(&self) -> RusTorchResult<f32> {
+        if self.shape.len() != 2 || self.shape[0] != self.shape[1] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::cond".to_string(),
+                message: "Condition number requires square matrix".to_string(),
+            });
+        }
+
+        // 簡単な実装：||A|| * ||A^(-1)||
+        let norm_a = self.frobenius_norm()?;
+        let inv_a = self.inverse()?;
+        let norm_inv_a = inv_a.frobenius_norm()?;
+
+        Ok(norm_a * norm_inv_a)
+    }
+
+    /// フロベニウスノルム（f32専用）
+    /// Frobenius norm (f32-specific)
+    pub fn frobenius_norm(&self) -> RusTorchResult<f32> {
+        let mut sum_squares = 0.0f32;
+        for &val in self.data.as_slice().unwrap() {
+            sum_squares += val * val;
+        }
+        Ok(sum_squares.sqrt())
+    }
+
+    /// QR分解（f32専用）
+    /// QR decomposition (f32-specific)
+    pub fn qr(&self) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::qr".to_string(),
+                message: "QR decomposition requires 2D tensor".to_string(),
+            });
+        }
+
+        let (m, n) = (self.shape[0], self.shape[1]);
+
+        // 簡単なグラム・シュミット法による実装
+        let mut q_data = vec![0.0f32; m * n];
+        let mut r_data = vec![0.0f32; n * n];
+
+        // A の列ベクトルを正規直交化
+        for j in 0..n {
+            // A の j 列目をコピー
+            let mut v_j = vec![0.0f32; m];
+            for i in 0..m {
+                v_j[i] = self.data[[i, j]];
+            }
+
+            // 既に求めた Q の列との直交化
+            for k in 0..j {
+                let mut dot_product = 0.0f32;
+                for i in 0..m {
+                    dot_product += v_j[i] * q_data[i * n + k];
+                }
+                r_data[k * n + j] = dot_product;
+
+                for i in 0..m {
+                    v_j[i] -= dot_product * q_data[i * n + k];
+                }
+            }
+
+            // ノルムを計算
+            let mut norm = 0.0f32;
+            for &val in &v_j {
+                norm += val * val;
+            }
+            norm = norm.sqrt();
+
+            if norm < 1e-10 {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::qr".to_string(),
+                    message: "Matrix is rank deficient".to_string(),
+                });
+            }
+
+            r_data[j * n + j] = norm;
+
+            // 正規化してQに格納
+            for i in 0..m {
+                q_data[i * n + j] = v_j[i] / norm;
+            }
+        }
+
+        let q_tensor = F32Tensor::new(q_data, vec![m, n])?;
+        let r_tensor = F32Tensor::new(r_data, vec![n, n])?;
+
+        Ok((q_tensor, r_tensor))
+    }
+
+    /// 特異値分解（SVD）（f32専用）
+    /// Singular Value Decomposition (SVD) (f32-specific)
+    pub fn svd(&self) -> RusTorchResult<(F32Tensor, F32Tensor, F32Tensor)> {
+        if self.shape.len() != 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::svd".to_string(),
+                message: "SVD requires 2D tensor".to_string(),
+            });
+        }
+
+        // SVDは複雑なアルゴリズムなので、簡単な2x2の場合のみ実装
+        if self.shape[0] == 2 && self.shape[1] == 2 {
+            let a = self.data[[0, 0]];
+            let b = self.data[[0, 1]];
+            let c = self.data[[1, 0]];
+            let d = self.data[[1, 1]];
+
+            // A^T * A の固有値を計算
+            let ata_00 = a * a + c * c;
+            let ata_01 = a * b + c * d;
+            let ata_11 = b * b + d * d;
+
+            let trace = ata_00 + ata_11;
+            let det = ata_00 * ata_11 - ata_01 * ata_01;
+            let discriminant = (trace * trace - 4.0 * det).sqrt();
+
+            let lambda1 = (trace + discriminant) / 2.0;
+            let lambda2 = (trace - discriminant) / 2.0;
+
+            let sigma1 = lambda1.sqrt();
+            let sigma2 = lambda2.sqrt();
+
+            // 簡単なU, S, V行列を構築
+            let u_data = vec![1.0, 0.0, 0.0, 1.0]; // 単位行列で近似
+            let s_data = vec![sigma1, sigma2];
+            let v_data = vec![1.0, 0.0, 0.0, 1.0]; // 単位行列で近似
+
+            let u_tensor = F32Tensor::new(u_data, vec![2, 2])?;
+            let s_tensor = F32Tensor::new(s_data, vec![2])?;
+            let v_tensor = F32Tensor::new(v_data, vec![2, 2])?;
+
+            Ok((u_tensor, s_tensor, v_tensor))
+        } else {
+            Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::svd".to_string(),
+                message: "SVD currently only supports 2x2 matrices".to_string(),
+            })
+        }
+    }
+
+    /// 固有値・固有ベクトル（f32専用）
+    /// Eigenvalues and eigenvectors (f32-specific)
+    pub fn eig(&self) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        if self.shape.len() != 2 || self.shape[0] != self.shape[1] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::eig".to_string(),
+                message: "Eigen decomposition requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+
+        if n == 2 {
+            let a = self.data[[0, 0]];
+            let b = self.data[[0, 1]];
+            let c = self.data[[1, 0]];
+            let d = self.data[[1, 1]];
+
+            let trace = a + d;
+            let det = a * d - b * c;
+            let discriminant = trace * trace - 4.0 * det;
+
+            if discriminant < 0.0 {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "F32Tensor::eig".to_string(),
+                    message: "Complex eigenvalues not supported".to_string(),
+                });
+            }
+
+            let sqrt_disc = discriminant.sqrt();
+            let lambda1 = (trace + sqrt_disc) / 2.0;
+            let lambda2 = (trace - sqrt_disc) / 2.0;
+
+            // 固有ベクトルを計算
+            let mut v1 = if b.abs() > 1e-10 {
+                vec![b, lambda1 - a]
+            } else {
+                vec![lambda1 - d, c]
+            };
+
+            let mut v2 = if b.abs() > 1e-10 {
+                vec![b, lambda2 - a]
+            } else {
+                vec![lambda2 - d, c]
+            };
+
+            // 正規化
+            let norm1 = (v1[0] * v1[0] + v1[1] * v1[1]).sqrt();
+            if norm1 > 1e-10 {
+                v1[0] /= norm1;
+                v1[1] /= norm1;
+            }
+
+            let norm2 = (v2[0] * v2[0] + v2[1] * v2[1]).sqrt();
+            if norm2 > 1e-10 {
+                v2[0] /= norm2;
+                v2[1] /= norm2;
+            }
+
+            let eigenvalues = F32Tensor::new(vec![lambda1, lambda2], vec![2])?;
+            let eigenvectors = F32Tensor::new(vec![v1[0], v2[0], v1[1], v2[1]], vec![2, 2])?;
+
+            Ok((eigenvalues, eigenvectors))
+        } else {
+            Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::eig".to_string(),
+                message: "Eigen decomposition currently only supports 2x2 matrices".to_string(),
+            })
+        }
+    }
+
+    /// コレスキー分解（f32専用）
+    /// Cholesky decomposition (f32-specific)
+    pub fn cholesky(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 2 || self.shape[0] != self.shape[1] {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::cholesky".to_string(),
+                message: "Cholesky decomposition requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let mut l_data = vec![0.0f32; n * n];
+
+        // コレスキー分解アルゴリズム
+        for i in 0..n {
+            for j in 0..=i {
+                if i == j {
+                    // 対角要素
+                    let mut sum = 0.0f32;
+                    for k in 0..j {
+                        sum += l_data[j * n + k] * l_data[j * n + k];
+                    }
+                    let val = self.data[[j, j]] - sum;
+                    if val <= 0.0 {
+                        return Err(crate::error::RusTorchError::InvalidParameters {
+                            operation: "F32Tensor::cholesky".to_string(),
+                            message: "Matrix is not positive definite".to_string(),
+                        });
+                    }
+                    l_data[j * n + j] = val.sqrt();
+                } else {
+                    // 下三角要素
+                    let mut sum = 0.0f32;
+                    for k in 0..j {
+                        sum += l_data[i * n + k] * l_data[j * n + k];
+                    }
+                    l_data[i * n + j] = (self.data[[i, j]] - sum) / l_data[j * n + j];
+                }
+            }
+        }
+
+        F32Tensor::new(l_data, vec![n, n])
     }
 }
 

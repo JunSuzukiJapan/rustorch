@@ -9,7 +9,6 @@
   - ビルド確認 wasm
   - ビルド確認 docker
   - clippy 警告もゼロに
-  - フォーマット
 
   # すべてのfeatureの組み合わせをテスト
   cargo test --no-default-features
@@ -20,6 +19,10 @@
   # exampleのビルドチェック
   cargo build --examples --no-default-features
   cargo build --examples --features "metal coreml" 
+
+  # formatチェック
+  # **フォーマットは必ず他のタスクがすべて終わってから実行すること**
+  cargo fmt --all --check
 
 <!-- ## 1.ビルドとテスト
 ```bash
