@@ -22,6 +22,7 @@ pub use tensor::F32Tensor;
 pub use unified::F32HybridExecutor;
 
 #[cfg(feature = "hybrid-f32")]
+#[cfg(target_os = "macos")]
 pub use gpu::{F32CoreMLExecutor, F32MetalExecutor};
 
 /// 実験的機能の警告マクロ

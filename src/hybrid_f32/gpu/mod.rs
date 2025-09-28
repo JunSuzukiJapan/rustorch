@@ -4,10 +4,14 @@
 use super::tensor::F32Tensor;
 use crate::error::RusTorchResult;
 
+#[cfg(target_os = "macos")]
 pub mod coreml;
+#[cfg(target_os = "macos")]
 pub mod metal;
 
+#[cfg(target_os = "macos")]
 pub use coreml::F32CoreMLExecutor;
+#[cfg(target_os = "macos")]
 pub use metal::F32MetalExecutor;
 
 /// f32統一GPU実行トレイト
@@ -99,7 +103,9 @@ impl DevicePerformanceInfo {
 /// Unified GPU execution context
 #[derive(Debug)]
 pub struct F32UnifiedGPUContext {
+    #[cfg(target_os = "macos")]
     metal_executor: Option<F32MetalExecutor>,
+    #[cfg(target_os = "macos")]
     coreml_executor: Option<F32CoreMLExecutor>,
     current_device: GPUDevice,
 }
@@ -107,14 +113,18 @@ pub struct F32UnifiedGPUContext {
 #[derive(Debug, Clone)]
 pub enum GPUDevice {
     CPU,
+    #[cfg(target_os = "macos")]
     Metal(usize),
+    #[cfg(target_os = "macos")]
     CoreML(usize),
 }
 
 impl F32UnifiedGPUContext {
     pub fn new() -> Self {
         Self {
+            #[cfg(target_os = "macos")]
             metal_executor: None,
+            #[cfg(target_os = "macos")]
             coreml_executor: None,
             current_device: GPUDevice::CPU,
         }
@@ -158,12 +168,14 @@ impl F32UnifiedGPUContext {
     /// Initialize device
     pub fn initialize_device(&mut self, device: GPUDevice) -> RusTorchResult<()> {
         match device {
+            #[cfg(target_os = "macos")]
             GPUDevice::Metal(device_id) => {
                 let mut executor = F32MetalExecutor::new();
                 executor.initialize(device_id)?;
                 self.metal_executor = Some(executor);
                 self.current_device = device;
             }
+            #[cfg(target_os = "macos")]
             GPUDevice::CoreML(device_id) => {
                 let mut executor = F32CoreMLExecutor::new();
                 executor.initialize(device_id)?;
@@ -184,6 +196,7 @@ impl F32UnifiedGPUContext {
         crate::hybrid_f32_experimental!();
 
         match &self.current_device {
+            #[cfg(target_os = "macos")]
             GPUDevice::Metal(_) => {
                 if let Some(executor) = &self.metal_executor {
                     executor.matmul_f32(a, b)
@@ -193,6 +206,7 @@ impl F32UnifiedGPUContext {
                     })
                 }
             }
+            #[cfg(target_os = "macos")]
             GPUDevice::CoreML(_) => {
                 if let Some(executor) = &self.coreml_executor {
                     executor.matmul_f32(a, b)

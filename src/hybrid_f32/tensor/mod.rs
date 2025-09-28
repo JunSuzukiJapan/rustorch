@@ -4684,7 +4684,7 @@ impl F32Tensor {
         let idx_data = indices.data.as_slice().unwrap();
         let val_data = values.data.as_slice().unwrap();
 
-        if let Some(mut data) = self.data.as_slice_mut() {
+        if let Some(data) = self.data.as_slice_mut() {
             for (&idx, &val) in idx_data.iter().zip(val_data.iter()) {
                 let i = idx as usize;
                 if i < data.len() {
@@ -4714,7 +4714,7 @@ impl F32Tensor {
         let idx_data = indices.data.as_slice().unwrap();
         let val_data = values.data.as_slice().unwrap();
 
-        if let Some(mut data) = self.data.as_slice_mut() {
+        if let Some(data) = self.data.as_slice_mut() {
             // 簡略実装：1次元の場合
             if self.shape.len() == 1 {
                 for (&idx, &val) in idx_data.iter().zip(val_data.iter()) {
@@ -5088,7 +5088,7 @@ impl F32Tensor {
             });
         }
 
-        if let Some(mut self_data) = self.data.as_slice_mut() {
+        if let Some(self_data) = self.data.as_slice_mut() {
             let src_data = src.data.as_slice().unwrap();
             self_data.copy_from_slice(src_data);
         }
