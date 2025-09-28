@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MetalKernelType"],"fn":["metal_elementwise_add_f32","metal_matmul_f32","metal_reduce_sum_f32"],"struct":["MetalBuffer","MetalKernelExecutor","MetalKernelParams"]};
+window.SIDEBAR_ITEMS = {"enum":["MetalKernelType"],"fn":["metal_conv2d_f32","metal_elementwise_add_f32","metal_elu_f32","metal_gelu_f32","metal_leaky_relu_f32","metal_matmul_f32","metal_reduce_sum_f32","metal_relu_f32","metal_sigmoid_f32","metal_swish_f32","metal_tanh_f32"],"struct":["MetalBuffer","MetalKernelExecutor","MetalKernelParams"]};
