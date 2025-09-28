@@ -15,8 +15,10 @@
 //! - Generate significant heat (thermal throttling may occur)
 //! - Consume significant battery power
 //!
-//! Run with: cargo run --example metal_coreml_heavy_benchmark --features "metal coreml" --release
-//! 実行方法: cargo run --example metal_coreml_heavy_benchmark --features "metal coreml" --release
+//! Run with: cd benchmarks && cargo run --bin metal_coreml_heavy_benchmark --features "metal coreml" --release
+//! Or for intelligent backend selection: cd benchmarks && cargo run --bin metal_coreml_heavy_benchmark --features "mac-hybrid" --release
+//! 実行方法: cd benchmarks && cargo run --bin metal_coreml_heavy_benchmark --features "metal coreml" --release
+//! または、インテリジェント・バックエンド選択用: cd benchmarks && cargo run --bin metal_coreml_heavy_benchmark --features "mac-hybrid" --release
 //!
 //! To skip this benchmark in CI, the following environment variables disable it:
 //! CIでこのベンチマークをスキップするには、以下の環境変数で無効化できます:
@@ -30,11 +32,8 @@ use std::env;
 use std::time::{Duration, Instant};
 
 // Conditional imports for available features
-#[cfg(feature = "metal")]
-use rustorch::gpu::metal_kernels::MetalKernelExecutor;
 
-#[cfg(feature = "coreml")]
-use rustorch::gpu::{DeviceType, GpuActivation, GpuConvolution};
+// Removed DeviceType import - using fully qualified name instead
 
 /// Heavy benchmark configuration for 1-hour runtime
 /// 1時間実行用の重いベンチマーク設定
@@ -103,12 +102,17 @@ impl Default for HeavyBenchmarkConfig {
 /// ベンチマーク中に収集される性能メトリクス
 #[derive(Debug, Clone)]
 struct PerformanceMetrics {
+    #[cfg(feature = "metal")]
     timestamp: Duration,
     operation_time_ms: f64,
     memory_usage_mb: f64,
+    #[cfg(feature = "metal")]
     temperature_celsius: Option<f32>,
+    #[cfg(feature = "coreml")]
     cpu_usage_percent: f32,
+    #[cfg(feature = "metal")]
     gpu_usage_percent: f32,
+    #[cfg(feature = "metal")]
     power_usage_watts: Option<f32>,
 }
 
@@ -174,7 +178,7 @@ impl HeavyPerformanceBenchmark {
 
     /// Phase 1: Heavy matrix multiplication benchmark
     /// フェーズ1: 重い行列乗算ベンチマーク
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
     fn benchmark_heavy_metal_matrices(&mut self) -> RusTorchResult<PhaseResult> {
         println!("🔥 Phase 1: Heavy Metal Matrix Operations (20 minutes)");
         println!(
@@ -191,15 +195,16 @@ impl HeavyPerformanceBenchmark {
         let mut operations_completed = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        // Initialize Metal executor
-        let executor = MetalKernelExecutor::new()?;
+        // Initialize Metal executor for GPU matrix operations
+        use rustorch::gpu::matrix_ops::GpuMatrixExecutor;
+        let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::Metal(0))?;
 
         // Warmup
         println!("    🔄 Warming up Metal GPU...");
         for _ in 0..self.config.warmup_iterations {
             let a = Tensor::<f32>::ones(&[self.config.matrix_size, self.config.matrix_size]);
             let b = Tensor::<f32>::ones(&[self.config.matrix_size, self.config.matrix_size]);
-            let _result = a.matmul(&b)?;
+            let _result = executor.metal_matmul(&a, &b)?;
         }
 
         println!("    ⚡ Starting heavy matrix computations...");
@@ -224,24 +229,56 @@ impl HeavyPerformanceBenchmark {
             // Measure batch operation time
             let op_start = Instant::now();
             for i in 0..self.config.matrix_batch_size {
-                let _result = matrices_a[i].matmul(&matrices_b[i])?;
+                for _ in 0..self.config.matrix_iterations {
+                    let _result = executor.metal_matmul(&matrices_a[i], &matrices_b[i])?;
+                }
             }
             let op_duration = op_start.elapsed();
 
-            operations_completed += self.config.matrix_batch_size;
+            operations_completed += self.config.matrix_batch_size * self.config.matrix_iterations;
             total_operation_time += op_duration;
 
             // Record metrics periodically
             if last_metric_time.elapsed() >= self.config.measurement_interval {
                 let metrics = PerformanceMetrics {
+                    #[cfg(feature = "metal")]
                     timestamp: phase_start.elapsed(),
                     operation_time_ms: op_duration.as_secs_f64() * 1000.0,
                     memory_usage_mb: self.estimate_memory_usage(),
+                    #[cfg(feature = "metal")]
                     temperature_celsius: None, // TODO: Implement if possible
-                    cpu_usage_percent: 0.0,    // TODO: Implement if possible
-                    gpu_usage_percent: 0.0,    // TODO: Implement if possible
-                    power_usage_watts: None,   // TODO: Implement if possible
+                    #[cfg(feature = "coreml")]
+                    cpu_usage_percent: 0.0, // TODO: Implement if possible
+                    #[cfg(feature = "metal")]
+                    gpu_usage_percent: 0.0, // TODO: Implement if possible
+                    #[cfg(feature = "metal")]
+                    power_usage_watts: None, // TODO: Implement if possible
                 };
+
+                // Use the metrics in debug output (Metal-specific)
+                #[cfg(feature = "metal")]
+                {
+                    println!(
+                        "      📊 Metal Metrics - Time: {:.2}ms, Memory: {:.1}MB, Temp: {:?}°C, GPU: {:.1}%",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb,
+                        metrics.temperature_celsius,
+                        metrics.gpu_usage_percent
+                    );
+                    println!(
+                        "      ⏱️  Timestamp: {:.1}s, Power: {:?}W",
+                        metrics.timestamp.as_secs_f64(),
+                        metrics.power_usage_watts
+                    );
+                }
+                #[cfg(not(feature = "metal"))]
+                {
+                    println!(
+                        "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
+                        metrics.operation_time_ms, metrics.memory_usage_mb
+                    );
+                }
+
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
@@ -260,13 +297,7 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!(
-            "    ✅ Metal matrix phase completed: {} operations in {:.1}min",
-            operations_completed,
-            phase_duration.as_secs_f64() / 60.0
-        );
-
-        Ok(PhaseResult {
+        let phase_result = PhaseResult {
             phase_name: "Heavy Metal Matrices".to_string(),
             duration: phase_duration,
             operations_completed,
@@ -275,27 +306,178 @@ impl HeavyPerformanceBenchmark {
             memory_peak_mb: self.estimate_memory_usage(),
             success_rate: 100.0,
             thermal_events: 0, // TODO: Detect thermal throttling
-        })
+        };
+
+        // Display detailed phase results
+        println!(
+            "    ✅ {} completed: {} operations in {:.1}min",
+            phase_result.phase_name,
+            phase_result.operations_completed,
+            phase_result.duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "    📊 Performance: {:.2}ms avg, {:.1} ops/sec, {:.1}MB peak, {:.1}% success",
+            phase_result.average_op_time_ms,
+            phase_result.throughput_ops_per_sec,
+            phase_result.memory_peak_mb,
+            phase_result.success_rate
+        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
+
+        Ok(phase_result)
     }
 
-    #[cfg(not(feature = "metal"))]
-    fn benchmark_heavy_metal_matrices(&mut self) -> RusTorchResult<PhaseResult> {
-        println!("🔥 Phase 1: Metal not available, skipping heavy matrix operations");
-        Ok(PhaseResult {
-            phase_name: "Heavy Metal Matrices (unavailable)".to_string(),
-            duration: Duration::ZERO,
-            operations_completed: 0,
-            average_op_time_ms: 0.0,
-            throughput_ops_per_sec: 0.0,
-            memory_peak_mb: 0.0,
-            success_rate: 0.0,
+    /// Phase 1: Heavy Mac-Hybrid matrix operations
+    /// フェーズ1: 重いMac-Hybrid行列演算
+    #[cfg(feature = "mac-hybrid")]
+    fn benchmark_heavy_mac_hybrid_matrices(&mut self) -> RusTorchResult<PhaseResult> {
+        println!("🔀 Phase 1: Heavy Mac-Hybrid Matrix Operations (20 minutes)");
+        println!(
+            "    Matrix size: {}x{}",
+            self.config.matrix_size, self.config.matrix_size
+        );
+        println!("    Utilizing intelligent Metal/CoreML selection...");
+
+        let mut metrics_timeline = Vec::new();
+        let phase_start = Instant::now();
+        let target_duration =
+            Duration::from_secs((self.config.matrix_duration_minutes * 60.0) as u64);
+
+        let mut operations_completed = 0;
+        let mut total_operation_time = Duration::ZERO;
+
+        // Warmup hybrid system
+        println!("    🔄 Warming up Mac-Hybrid system...");
+        for _ in 0..self.config.warmup_iterations {
+            let a = Tensor::<f32>::ones(&[self.config.matrix_size, self.config.matrix_size]);
+            let b = Tensor::<f32>::ones(&[self.config.matrix_size, self.config.matrix_size]);
+            // Use hybrid method which automatically selects best backend
+            let _result = a.matmul_hybrid(&b)?;
+        }
+
+        println!("    ⚡ Starting heavy hybrid computations...");
+        let mut last_metric_time = Instant::now();
+
+        while phase_start.elapsed() < target_duration {
+            // Create large batch of matrices
+            let mut matrices_a = Vec::new();
+            let mut matrices_b = Vec::new();
+
+            for _ in 0..self.config.matrix_batch_size {
+                matrices_a.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
+                matrices_b.push(Tensor::<f32>::randn(&[
+                    self.config.matrix_size,
+                    self.config.matrix_size,
+                ]));
+            }
+
+            // Measure batch operation time with hybrid selection
+            let op_start = Instant::now();
+            for i in 0..self.config.matrix_batch_size {
+                for _ in 0..self.config.matrix_iterations {
+                    // Let mac-hybrid automatically choose Metal or CoreML
+                    let _result = matrices_a[i].matmul_hybrid(&matrices_b[i])?;
+                }
+            }
+            let op_duration = op_start.elapsed();
+
+            operations_completed += self.config.matrix_batch_size * self.config.matrix_iterations;
+            total_operation_time += op_duration;
+
+            // Record metrics periodically
+            if last_metric_time.elapsed() >= self.config.measurement_interval {
+                let metrics = PerformanceMetrics {
+                    #[cfg(feature = "metal")]
+                    timestamp: phase_start.elapsed(),
+                    operation_time_ms: op_duration.as_secs_f64() * 1000.0,
+                    memory_usage_mb: self.estimate_memory_usage(),
+                    #[cfg(feature = "metal")]
+                    temperature_celsius: None,
+                    #[cfg(feature = "coreml")]
+                    cpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
+                    gpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
+                    power_usage_watts: None,
+                };
+
+                // Use the metrics in debug output (Mac-Hybrid-specific)
+                #[cfg(feature = "mac-hybrid")]
+                {
+                    println!(
+                        "      📊 Mac-Hybrid Metrics - Time: {:.2}ms, Memory: {:.1}MB",
+                        metrics.operation_time_ms, metrics.memory_usage_mb
+                    );
+                    #[cfg(feature = "metal")]
+                    {
+                        println!(
+                            "      ⏱️  Timestamp: {:.1}s, Temp: {:?}°C, GPU: {:.1}%, Power: {:?}W",
+                            metrics.timestamp.as_secs_f64(),
+                            metrics.temperature_celsius,
+                            metrics.gpu_usage_percent,
+                            metrics.power_usage_watts
+                        );
+                    }
+                    #[cfg(feature = "coreml")]
+                    {
+                        println!("      💻 CPU: {:.1}%", metrics.cpu_usage_percent);
+                    }
+                }
+
+                metrics_timeline.push(metrics);
+                last_metric_time = Instant::now();
+
+                println!(
+                    "      📊 Progress: {:.1}min, {} ops completed (Hybrid selection)",
+                    phase_start.elapsed().as_secs_f64() / 60.0,
+                    operations_completed
+                );
+            }
+        }
+
+        let phase_duration = phase_start.elapsed();
+        let average_op_time = if operations_completed > 0 {
+            total_operation_time.as_secs_f64() * 1000.0 / operations_completed as f64
+        } else {
+            0.0
+        };
+
+        let phase_result = PhaseResult {
+            phase_name: "Heavy Mac-Hybrid Matrices".to_string(),
+            duration: phase_duration,
+            operations_completed,
+            average_op_time_ms: average_op_time,
+            throughput_ops_per_sec: operations_completed as f64 / phase_duration.as_secs_f64(),
+            memory_peak_mb: self.estimate_memory_usage(),
+            success_rate: 100.0,
             thermal_events: 0,
-        })
+        };
+
+        // Display detailed phase results
+        println!(
+            "    ✅ {} completed: {} operations in {:.1}min",
+            phase_result.phase_name,
+            phase_result.operations_completed,
+            phase_result.duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "    📊 Performance: {:.2}ms avg, {:.1} ops/sec, {:.1}MB peak, {:.1}% success",
+            phase_result.average_op_time_ms,
+            phase_result.throughput_ops_per_sec,
+            phase_result.memory_peak_mb,
+            phase_result.success_rate
+        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
+
+        Ok(phase_result)
     }
 
     /// Phase 1: Heavy CoreML matrix operations
     /// フェーズ1: 重いCoreML行列演算
-    #[cfg(feature = "coreml")]
+    #[cfg(all(feature = "coreml", not(feature = "mac-hybrid")))]
     fn benchmark_heavy_coreml_matrices(&mut self) -> RusTorchResult<PhaseResult> {
         println!("🧠 Phase 1: Heavy CoreML Matrix Operations (20 minutes)");
         println!(
@@ -314,7 +496,7 @@ impl HeavyPerformanceBenchmark {
 
         // Initialize CoreML backend
         use rustorch::gpu::matrix_ops::GpuMatrixExecutor;
-        let executor = GpuMatrixExecutor::new(DeviceType::CoreML(0))?;
+        let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::CoreML(0))?;
 
         // Warmup Neural Engine
         println!("    🔄 Warming up Apple Neural Engine...");
@@ -346,24 +528,50 @@ impl HeavyPerformanceBenchmark {
             // Measure batch operation time with Neural Engine
             let op_start = Instant::now();
             for i in 0..self.config.matrix_batch_size {
-                let _result = executor.coreml_matmul(&matrices_a[i], &matrices_b[i])?;
+                for _ in 0..self.config.matrix_iterations {
+                    let _result = executor.coreml_matmul(&matrices_a[i], &matrices_b[i])?;
+                }
             }
             let op_duration = op_start.elapsed();
 
-            operations_completed += self.config.matrix_batch_size;
+            operations_completed += self.config.matrix_batch_size * self.config.matrix_iterations;
             total_operation_time += op_duration;
 
             // Record metrics periodically
             if last_metric_time.elapsed() >= self.config.measurement_interval {
                 let metrics = PerformanceMetrics {
-                    timestamp: phase_start.elapsed(),
+                    #[cfg(feature = "metal")]
+                    timestamp: Duration::ZERO,
                     operation_time_ms: op_duration.as_secs_f64() * 1000.0,
                     memory_usage_mb: self.estimate_memory_usage(),
+                    #[cfg(feature = "metal")]
                     temperature_celsius: None,
+                    #[cfg(feature = "coreml")]
                     cpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
                     gpu_usage_percent: 0.0,
+                    #[cfg(feature = "metal")]
                     power_usage_watts: None,
                 };
+
+                // Use the metrics in debug output (CoreML-specific)
+                #[cfg(feature = "coreml")]
+                {
+                    println!(
+                        "      📊 CoreML Metrics - Time: {:.2}ms, Memory: {:.1}MB, CPU: {:.1}%",
+                        metrics.operation_time_ms,
+                        metrics.memory_usage_mb,
+                        metrics.cpu_usage_percent
+                    );
+                }
+                #[cfg(not(feature = "coreml"))]
+                {
+                    println!(
+                        "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
+                        metrics.operation_time_ms, metrics.memory_usage_mb
+                    );
+                }
+
                 metrics_timeline.push(metrics);
                 last_metric_time = Instant::now();
 
@@ -382,13 +590,7 @@ impl HeavyPerformanceBenchmark {
             0.0
         };
 
-        println!(
-            "    ✅ CoreML matrix phase completed: {} operations in {:.1}min",
-            operations_completed,
-            phase_duration.as_secs_f64() / 60.0
-        );
-
-        Ok(PhaseResult {
+        let phase_result = PhaseResult {
             phase_name: "Heavy CoreML Matrices".to_string(),
             duration: phase_duration,
             operations_completed,
@@ -397,22 +599,25 @@ impl HeavyPerformanceBenchmark {
             memory_peak_mb: self.estimate_memory_usage(),
             success_rate: 100.0,
             thermal_events: 0,
-        })
-    }
+        };
 
-    #[cfg(not(feature = "coreml"))]
-    fn benchmark_heavy_coreml_matrices(&mut self) -> RusTorchResult<PhaseResult> {
-        println!("🧠 Phase 1: CoreML not available, skipping heavy matrix operations");
-        Ok(PhaseResult {
-            phase_name: "Heavy CoreML Matrices (unavailable)".to_string(),
-            duration: Duration::ZERO,
-            operations_completed: 0,
-            average_op_time_ms: 0.0,
-            throughput_ops_per_sec: 0.0,
-            memory_peak_mb: 0.0,
-            success_rate: 0.0,
-            thermal_events: 0,
-        })
+        // Display detailed phase results
+        println!(
+            "    ✅ {} completed: {} operations in {:.1}min",
+            phase_result.phase_name,
+            phase_result.operations_completed,
+            phase_result.duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "    📊 Performance: {:.2}ms avg, {:.1} ops/sec, {:.1}MB peak, {:.1}% success",
+            phase_result.average_op_time_ms,
+            phase_result.throughput_ops_per_sec,
+            phase_result.memory_peak_mb,
+            phase_result.success_rate
+        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
+
+        Ok(phase_result)
     }
 
     /// Phase 2: Heavy deep convolution network benchmark
@@ -645,6 +850,7 @@ impl HeavyPerformanceBenchmark {
 
     /// Run complete heavy benchmark for Metal
     /// Metal用の完全重いベンチマークを実行
+    #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
     fn run_heavy_metal_benchmark(&mut self) -> RusTorchResult<()> {
         println!("🚀 Starting Heavy Metal Benchmark (≈60 minutes total)");
         println!("=================================================");
@@ -678,12 +884,108 @@ impl HeavyPerformanceBenchmark {
             metrics_timeline: Vec::new(), // TODO: Aggregate from phases
         };
 
+        // Display comprehensive benchmark results
+        println!("\n🎯 {} Benchmark Summary:", result.device_name);
+        println!(
+            "   📊 Total: {} operations in {:.1} minutes",
+            result.total_operations,
+            result.total_duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
+        );
+        println!(
+            "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
+            result.thermal_throttling_detected, result.power_efficiency_score
+        );
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
+
+        for (phase_name, phase_result) in &result.phase_results {
+            println!(
+                "   • {}: {:.1} ops/sec, {:.1}% success",
+                phase_name, phase_result.throughput_ops_per_sec, phase_result.success_rate
+            );
+        }
+
         self.results.insert("Metal".to_string(), result);
+        Ok(())
+    }
+
+    /// Run complete heavy benchmark for Mac-Hybrid
+    /// Mac-Hybrid用の完全重いベンチマークを実行
+    #[cfg(feature = "mac-hybrid")]
+    fn run_heavy_mac_hybrid_benchmark(&mut self) -> RusTorchResult<()> {
+        println!("🔀 Starting Heavy Mac-Hybrid Benchmark (≈60 minutes total)");
+        println!("======================================================");
+
+        let mut phase_results = HashMap::new();
+
+        // Phase 1: Heavy matrix operations with intelligent selection
+        let matrix_result = self.benchmark_heavy_mac_hybrid_matrices()?;
+        phase_results.insert("Phase1_Matrices".to_string(), matrix_result);
+
+        // Phase 2: Deep convolution network with hybrid optimization
+        let conv_result = self.benchmark_heavy_convolution_network("Mac-Hybrid")?;
+        phase_results.insert("Phase2_Convolution".to_string(), conv_result);
+
+        // Phase 3: Transformer attention with hybrid optimization
+        let attention_result = self.benchmark_heavy_attention_network("Mac-Hybrid")?;
+        phase_results.insert("Phase3_Attention".to_string(), attention_result);
+
+        let total_duration = self.start_time.elapsed();
+        let total_operations: usize = phase_results.values().map(|r| r.operations_completed).sum();
+
+        let result = HeavyBenchmarkResult {
+            device_name: "Mac-Hybrid (Metal/CoreML Auto-Selection)".to_string(),
+            phase_results,
+            total_duration,
+            total_operations,
+            thermal_throttling_detected: false,
+            average_memory_usage_mb: self.estimate_memory_usage(),
+            peak_memory_usage_mb: self.estimate_memory_usage(),
+            power_efficiency_score: None,
+            metrics_timeline: Vec::new(),
+        };
+
+        // Display comprehensive benchmark results
+        println!("\\n🎯 {} Benchmark Summary:", result.device_name);
+        println!(
+            "   📊 Total: {} operations in {:.1} minutes",
+            result.total_operations,
+            result.total_duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
+        );
+        println!(
+            "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
+            result.thermal_throttling_detected, result.power_efficiency_score
+        );
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
+        println!("   🔀 Hybrid Selection: Automatically chose optimal Metal/CoreML backends");
+
+        for (phase_name, phase_result) in &result.phase_results {
+            println!(
+                "   • {}: {:.1} ops/sec, {:.1}% success",
+                phase_name, phase_result.throughput_ops_per_sec, phase_result.success_rate
+            );
+        }
+
+        self.results.insert("Mac-Hybrid".to_string(), result);
         Ok(())
     }
 
     /// Run complete heavy benchmark for CoreML
     /// CoreML用の完全重いベンチマークを実行
+    #[cfg(all(feature = "coreml", not(feature = "mac-hybrid")))]
     fn run_heavy_coreml_benchmark(&mut self) -> RusTorchResult<()> {
         println!("🧠 Starting Heavy CoreML Benchmark (≈60 minutes total)");
         println!("===================================================");
@@ -716,6 +1018,33 @@ impl HeavyPerformanceBenchmark {
             power_efficiency_score: None,
             metrics_timeline: Vec::new(),
         };
+
+        // Display comprehensive benchmark results
+        println!("\n🎯 {} Benchmark Summary:", result.device_name);
+        println!(
+            "   📊 Total: {} operations in {:.1} minutes",
+            result.total_operations,
+            result.total_duration.as_secs_f64() / 60.0
+        );
+        println!(
+            "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
+        );
+        println!(
+            "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
+            result.thermal_throttling_detected, result.power_efficiency_score
+        );
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
+
+        for (phase_name, phase_result) in &result.phase_results {
+            println!(
+                "   • {}: {:.1} ops/sec, {:.1}% success",
+                phase_name, phase_result.throughput_ops_per_sec, phase_result.success_rate
+            );
+        }
 
         self.results.insert("CoreML".to_string(), result);
         Ok(())
@@ -874,7 +1203,7 @@ fn main() -> RusTorchResult<()> {
     if HeavyPerformanceBenchmark::should_skip_benchmark() {
         println!("⏩ Heavy benchmark skipped (CI environment or explicitly disabled)");
         println!("   To run this benchmark:");
-        println!("   - Local: cargo run --example metal_coreml_heavy_benchmark --features \"metal coreml\" --release");
+        println!("   - Local: cd benchmarks && cargo run --bin metal_coreml_heavy_benchmark --features \"metal coreml\" --release");
         println!("   - CI: Set RUSTORCH_HEAVY_BENCHMARK=1 environment variable");
         return Ok(());
     }
@@ -900,38 +1229,58 @@ fn main() -> RusTorchResult<()> {
     #[cfg(not(feature = "coreml"))]
     println!("   ❌ CoreML Neural Engine");
 
+    #[cfg(feature = "mac-hybrid")]
+    println!("   ✅ Mac-Hybrid (Intelligent Metal/CoreML selection)");
+    #[cfg(not(feature = "mac-hybrid"))]
+    println!("   ❌ Mac-Hybrid (Intelligent Metal/CoreML selection)");
+
     println!();
 
     let config = HeavyBenchmarkConfig::default();
-    let benchmark = HeavyPerformanceBenchmark::new(config);
+    let mut benchmark = HeavyPerformanceBenchmark::new(config);
 
-    // Run Metal benchmark if available
-    #[cfg(feature = "metal")]
+    // Priority-based execution: Mac-Hybrid takes precedence over individual backends
+    #[cfg(feature = "mac-hybrid")]
     {
-        match benchmark.run_heavy_metal_benchmark() {
-            Ok(_) => println!("✅ Metal benchmark completed successfully"),
-            Err(e) => println!("❌ Metal benchmark failed: {}", e),
+        // When mac-hybrid is enabled, run ONLY the hybrid benchmark
+        match benchmark.run_heavy_mac_hybrid_benchmark() {
+            Ok(_) => println!("✅ Mac-Hybrid benchmark completed successfully"),
+            Err(e) => println!("❌ Mac-Hybrid benchmark failed: {}", e),
         }
         println!();
     }
 
-    // Run CoreML benchmark if available
-    #[cfg(feature = "coreml")]
+    #[cfg(not(feature = "mac-hybrid"))]
     {
-        match benchmark.run_heavy_coreml_benchmark() {
-            Ok(_) => println!("✅ CoreML benchmark completed successfully"),
-            Err(e) => println!("❌ CoreML benchmark failed: {}", e),
+        // Run Metal benchmark if available and Mac-Hybrid is NOT enabled
+        #[cfg(feature = "metal")]
+        {
+            match benchmark.run_heavy_metal_benchmark() {
+                Ok(_) => println!("✅ Metal benchmark completed successfully"),
+                Err(e) => println!("❌ Metal benchmark failed: {}", e),
+            }
+            println!();
         }
-        println!();
+
+        // Run CoreML benchmark if available and Mac-Hybrid is NOT enabled
+        #[cfg(feature = "coreml")]
+        {
+            match benchmark.run_heavy_coreml_benchmark() {
+                Ok(_) => println!("✅ CoreML benchmark completed successfully"),
+                Err(e) => println!("❌ CoreML benchmark failed: {}", e),
+            }
+            println!();
+        }
     }
 
     // Display results
     benchmark.display_heavy_results();
 
-    #[cfg(not(any(feature = "metal", feature = "coreml")))]
+    #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
     {
         println!("⚠️  No GPU acceleration features enabled!");
         println!("   Recompile with --features \"metal coreml\" to enable hardware acceleration");
+        println!("   Or use --features \"mac-hybrid\" for intelligent backend selection");
     }
 
     Ok(())

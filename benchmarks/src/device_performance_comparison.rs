@@ -9,8 +9,8 @@
 //! 3. CoreML + CPU fallback (CoreML + CPUフォールバック)
 //! 4. CoreML + GPU fallback (CoreML + GPUフォールバック)
 //!
-//! Run with: cargo run --example device_performance_comparison --features coreml
-//! 実行方法: cargo run --example device_performance_comparison --features coreml
+//! Run with: cd benchmarks && cargo run --bin device_performance_comparison --features coreml
+//! 実行方法: cd benchmarks && cargo run --bin device_performance_comparison --features coreml
 
 use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;

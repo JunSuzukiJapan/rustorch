@@ -7,8 +7,8 @@
 //! このベンチマークは統計的に十分なサンプルサイズと信頼区間を維持しながら
 //! 約15分で実行できるよう最適化されています。
 //!
-//! Run with: cargo run --example quick_metal_coreml_benchmark --features "metal coreml" --release
-//! 実行方法: cargo run --example quick_metal_coreml_benchmark --features "metal coreml" --release
+//! Run with: cd benchmarks && cargo run --bin quick_metal_coreml_benchmark --features "metal coreml" --release
+//! 実行方法: cd benchmarks && cargo run --bin quick_metal_coreml_benchmark --features "metal coreml" --release
 
 use rustorch::error::RusTorchResult;
 use rustorch::tensor::Tensor;

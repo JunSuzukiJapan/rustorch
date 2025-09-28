@@ -194,6 +194,12 @@ impl DeviceCache {
                 // Check if CoreML or fallback GPU is available
                 cfg!(target_os = "macos")
             }
+
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid is available if either Metal or CoreML is available
+                cfg!(target_os = "macos")
+            }
         }
     }
 

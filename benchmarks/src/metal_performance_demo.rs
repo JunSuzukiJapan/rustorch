@@ -33,7 +33,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "metal"))]
     {
         println!("❌ Metal feature not enabled");
-        println!("Run with: cargo run --example metal_performance_demo --features metal");
+        println!(
+            "Run with: cd benchmarks && cargo run --bin metal_performance_demo --features metal"
+        );
     }
 
     Ok(())

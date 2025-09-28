@@ -267,11 +267,11 @@ impl MetalKernelExecutor {
             uint grid_size [[threadgroups_per_grid]]
         ) {
             uint index = bid * block_size + tid;
-            
+
             // Load data into shared memory
             shared_data[tid] = (index < grid_size * block_size) ? input[index] : 0.0;
             threadgroup_barrier(mem_flags::mem_threadgroup);
-            
+
             // Reduction in shared memory
             for (uint s = block_size / 2; s > 0; s >>= 1) {
                 if (tid < s) {
@@ -279,11 +279,129 @@ impl MetalKernelExecutor {
                 }
                 threadgroup_barrier(mem_flags::mem_threadgroup);
             }
-            
+
             // Write result for this block
             if (tid == 0) {
                 output[bid] = shared_data[0];
             }
+        }
+
+        // Activation functions optimized for Vega 56 architecture
+
+        // ReLU activation: max(0, x)
+        kernel void relu_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            output[index] = fmax(0.0f, input[index]);
+        }
+
+        // Sigmoid activation: 1 / (1 + exp(-x))
+        kernel void sigmoid_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            output[index] = 1.0f / (1.0f + exp(-input[index]));
+        }
+
+        // Tanh activation: (exp(x) - exp(-x)) / (exp(x) + exp(-x))
+        kernel void tanh_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            output[index] = tanh(input[index]);
+        }
+
+        // GELU activation: x * 0.5 * (1 + erf(x / sqrt(2))) - using Abramowitz and Stegun approximation
+        kernel void gelu_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            float x = input[index];
+            float sqrt_2_inv = 0.70710678118f; // 1 / sqrt(2)
+            float t = x * sqrt_2_inv;
+
+            // Abramowitz and Stegun approximation for erf function
+            float a1 =  0.254829592f;
+            float a2 = -0.284496736f;
+            float a3 =  1.421413741f;
+            float a4 = -1.453152027f;
+            float a5 =  1.061405429f;
+            float p  =  0.3275911f;
+
+            float sign = (t >= 0.0f) ? 1.0f : -1.0f;
+            t = fabs(t);
+
+            float t_p = 1.0f / (1.0f + p * t);
+            float erf_approx = 1.0f - (((((a5 * t_p + a4) * t_p) + a3) * t_p + a2) * t_p + a1) * t_p * exp(-t * t);
+            erf_approx *= sign;
+
+            output[index] = x * 0.5f * (1.0f + erf_approx);
+        }
+
+        // Softmax activation (per element, requires separate reduction for proper implementation)
+        kernel void softmax_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            constant float& max_val [[buffer(3)]],
+            constant float& sum_exp [[buffer(4)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            float exp_val = exp(input[index] - max_val);
+            output[index] = exp_val / sum_exp;
+        }
+
+        // Leaky ReLU activation: max(alpha * x, x)
+        kernel void leaky_relu_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            constant float& alpha [[buffer(3)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            float x = input[index];
+            output[index] = (x > 0.0f) ? x : alpha * x;
+        }
+
+        // ELU activation: x if x > 0, alpha * (exp(x) - 1) if x <= 0
+        kernel void elu_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            constant float& alpha [[buffer(3)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            float x = input[index];
+            output[index] = (x > 0.0f) ? x : alpha * (exp(x) - 1.0f);
+        }
+
+        // Swish activation: x * sigmoid(x)
+        kernel void swish_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            constant uint& n [[buffer(2)]],
+            uint index [[thread_position_in_grid]]
+        ) {
+            if (index >= n) return;
+            float x = input[index];
+            float sigmoid_x = 1.0f / (1.0f + exp(-x));
+            output[index] = x * sigmoid_x;
         }
         "#;
 
@@ -627,6 +745,101 @@ impl MetalKernelExecutor {
         Ok(result)
     }
 
+    /// Execute 2D convolution using Metal GPU
+    /// Metal GPUを使用して2D畳み込みを実行
+    pub fn conv2d_f32(
+        &self,
+        input: &[f32],
+        kernel: &[f32],
+        output: &mut [f32],
+        input_height: usize,
+        input_width: usize,
+        input_channels: usize,
+        output_channels: usize,
+        kernel_height: usize,
+        kernel_width: usize,
+        stride_h: usize,
+        stride_w: usize,
+        pad_h: usize,
+        pad_w: usize,
+    ) -> RusTorchResult<()> {
+        // Calculate output dimensions
+        let output_height = (input_height + 2 * pad_h - kernel_height) / stride_h + 1;
+        let output_width = (input_width + 2 * pad_w - kernel_width) / stride_w + 1;
+
+        // For now, implement as optimized matrix multiplication (im2col + GEMM approach)
+        // This is a common approach in high-performance convolution implementations
+
+        // Convert convolution to matrix multiplication using im2col
+        let patch_size = kernel_height * kernel_width * input_channels;
+        let num_patches = output_height * output_width;
+
+        // Create im2col matrix: [patch_size, num_patches]
+        let mut im2col_matrix = vec![0.0f32; patch_size * num_patches];
+
+        // Extract patches (im2col operation)
+        for out_h in 0..output_height {
+            for out_w in 0..output_width {
+                let patch_idx = out_h * output_width + out_w;
+                let start_h = out_h * stride_h;
+                let start_w = out_w * stride_w;
+
+                for kh in 0..kernel_height {
+                    for kw in 0..kernel_width {
+                        for ch in 0..input_channels {
+                            let in_h = start_h + kh;
+                            let in_w = start_w + kw;
+
+                            let im2col_row =
+                                ch * kernel_height * kernel_width + kh * kernel_width + kw;
+                            let im2col_idx = im2col_row * num_patches + patch_idx;
+
+                            if in_h >= pad_h
+                                && in_h < input_height + pad_h
+                                && in_w >= pad_w
+                                && in_w < input_width + pad_w
+                            {
+                                let actual_in_h = in_h - pad_h;
+                                let actual_in_w = in_w - pad_w;
+                                let input_idx = ch * input_height * input_width
+                                    + actual_in_h * input_width
+                                    + actual_in_w;
+                                im2col_matrix[im2col_idx] = input[input_idx];
+                            } else {
+                                im2col_matrix[im2col_idx] = 0.0; // Padding
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Use Metal matrix multiplication: kernel [output_channels, patch_size] * im2col [patch_size, num_patches]
+        let mut result_matrix = vec![0.0f32; output_channels * num_patches];
+        self.matmul_f32(
+            kernel,
+            &im2col_matrix,
+            &mut result_matrix,
+            output_channels,
+            num_patches,
+            patch_size,
+        )?;
+
+        // Copy result to output with proper layout
+        for out_ch in 0..output_channels {
+            for out_h in 0..output_height {
+                for out_w in 0..output_width {
+                    let result_idx = out_ch * num_patches + out_h * output_width + out_w;
+                    let output_idx =
+                        out_ch * output_height * output_width + out_h * output_width + out_w;
+                    output[output_idx] = result_matrix[result_idx];
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     /// Execute reduction operation (sum) using Metal
     /// Metalを使用してリダクション演算（合計）を実行
     pub fn reduce_sum_f32(&self, input: &[f32]) -> RusTorchResult<f32> {
@@ -684,6 +897,489 @@ impl MetalKernelExecutor {
         }
 
         Ok(partial_results.iter().sum())
+    }
+
+    /// Execute ReLU activation using Metal GPU
+    /// Metal GPUを使用してReLU活性化を実行
+    pub fn relu_f32(&self, input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for ReLU
+        let function = self
+            .library
+            .get_function("relu_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get ReLU function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create ReLU pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute Sigmoid activation using Metal GPU
+    /// Metal GPUを使用してSigmoid活性化を実行
+    pub fn sigmoid_f32(&self, input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for Sigmoid
+        let function = self
+            .library
+            .get_function("sigmoid_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get Sigmoid function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to create Sigmoid pipeline: {}", e))
+            })?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute Tanh activation using Metal GPU
+    /// Metal GPUを使用してTanh活性化を実行
+    pub fn tanh_f32(&self, input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for Tanh
+        let function = self
+            .library
+            .get_function("tanh_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get Tanh function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create Tanh pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute GELU activation using Metal GPU
+    /// Metal GPUを使用してGELU活性化を実行
+    pub fn gelu_f32(&self, input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for GELU
+        let function = self
+            .library
+            .get_function("gelu_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get GELU function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create GELU pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute Leaky ReLU activation using Metal GPU
+    /// Metal GPUを使用してLeaky ReLU活性化を実行
+    pub fn leaky_relu_f32(
+        &self,
+        input: &[f32],
+        output: &mut [f32],
+        alpha: f32,
+    ) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for Leaky ReLU
+        let function = self
+            .library
+            .get_function("leaky_relu_f32", None)
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to get Leaky ReLU function: {}", e))
+            })?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| {
+                RusTorchError::gpu(&format!("Failed to create Leaky ReLU pipeline: {}", e))
+            })?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            3,
+            std::mem::size_of::<f32>() as u64,
+            &alpha as *const f32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute ELU activation using Metal GPU
+    /// Metal GPUを使用してELU活性化を実行
+    pub fn elu_f32(&self, input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for ELU
+        let function = self
+            .library
+            .get_function("elu_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get ELU function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create ELU pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            3,
+            std::mem::size_of::<f32>() as u64,
+            &alpha as *const f32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
+    }
+
+    /// Execute Swish activation using Metal GPU
+    /// Metal GPUを使用してSwish活性化を実行
+    pub fn swish_f32(&self, input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+        if input.len() != output.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Input and output lengths must match".to_string(),
+            ));
+        }
+
+        let n = input.len();
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (n * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for Swish
+        let function = self
+            .library
+            .get_function("swish_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get Swish function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create Swish pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(n as u32) as *const u32 as *const c_void,
+        );
+
+        // Dispatch threads
+        let threads_per_threadgroup = metal::MTLSize::new(256, 1, 1);
+        let threadgroups = metal::MTLSize::new(((n + 255) / 256).try_into().unwrap(), 1, 1);
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), n);
+        }
+
+        Ok(())
     }
 }
 
@@ -796,6 +1492,159 @@ pub fn metal_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
             "Metal not available".to_string(),
         ))
     }
+}
+
+/// Execute Metal 2D convolution
+/// Metal 2D畳み込みを実行
+pub fn metal_conv2d_f32(
+    input: &[f32],
+    kernel: &[f32],
+    output: &mut [f32],
+    input_height: usize,
+    input_width: usize,
+    input_channels: usize,
+    output_channels: usize,
+    kernel_height: usize,
+    kernel_width: usize,
+    stride_h: usize,
+    stride_w: usize,
+    pad_h: usize,
+    pad_w: usize,
+) -> RusTorchResult<()> {
+    #[cfg(feature = "metal")]
+    {
+        let executor = MetalKernelExecutor::new()?;
+        executor.conv2d_f32(
+            input,
+            kernel,
+            output,
+            input_height,
+            input_width,
+            input_channels,
+            output_channels,
+            kernel_height,
+            kernel_width,
+            stride_h,
+            stride_w,
+            pad_h,
+            pad_w,
+        )
+    }
+    #[cfg(not(feature = "metal"))]
+    {
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
+    }
+}
+
+/// Execute ReLU activation using Metal GPU
+/// Metal GPUを使用してReLU活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_relu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.relu_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_relu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute Sigmoid activation using Metal GPU
+/// Metal GPUを使用してSigmoid活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_sigmoid_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.sigmoid_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_sigmoid_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute Tanh activation using Metal GPU
+/// Metal GPUを使用してTanh活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_tanh_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.tanh_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_tanh_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute GELU activation using Metal GPU
+/// Metal GPUを使用してGELU活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_gelu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.gelu_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_gelu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute Leaky ReLU activation using Metal GPU
+/// Metal GPUを使用してLeaky ReLU活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_leaky_relu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.leaky_relu_f32(input, output, alpha)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_leaky_relu_f32(
+    _input: &[f32],
+    _output: &mut [f32],
+    _alpha: f32,
+) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute ELU activation using Metal GPU
+/// Metal GPUを使用してELU活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_elu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.elu_f32(input, output, alpha)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_elu_f32(_input: &[f32], _output: &mut [f32], _alpha: f32) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute Swish activation using Metal GPU
+/// Metal GPUを使用してSwish活性化を実行
+#[cfg(feature = "metal")]
+pub fn metal_swish_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.swish_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_swish_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
 }
 
 #[cfg(test)]

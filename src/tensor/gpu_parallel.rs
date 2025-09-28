@@ -592,8 +592,27 @@ where
     }
 
     fn gpu_matmul(&self, other: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // Without CUDA, fall back to CPU
-        self.matmul(other).map_err(|e| e.into())
+        // Use hardware acceleration when available
+        #[cfg(feature = "mac-hybrid")]
+        {
+            return self.matmul_hybrid(other).map_err(|e| e.into());
+        }
+        #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
+        {
+            return self.matmul_metal(other, 0).map_err(|e| e.into());
+        }
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
+        {
+            return self.matmul_coreml(other, 0).map_err(|e| e.into());
+        }
+        #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
+        {
+            // Only fall back to CPU if no hardware acceleration available
+            self.matmul(other).map_err(|e| e.into())
+        }
     }
 
     fn gpu_reduce<F, R>(&self, dim: usize, init: R, op: F) -> ParallelResult<Tensor<T>>
@@ -642,18 +661,74 @@ where
         stride: usize,
         padding: usize,
     ) -> ParallelResult<Tensor<T>> {
-        // Without CUDA, use CPU fallback
-        Err(crate::error::RusTorchError::tensor_op(
-            "GPU conv2d not available without CUDA".to_string(),
-        )
-        .into())
+        // Use available hardware acceleration
+        use crate::backends::ConvolutionParams;
+        let params = ConvolutionParams {
+            kernel_size: vec![kernel.shape()[2], kernel.shape()[3]],
+            stride: vec![stride, stride],
+            padding: vec![padding, padding],
+            dilation: vec![1, 1],
+            groups: 1,
+        };
+
+        #[cfg(feature = "mac-hybrid")]
+        {
+            use crate::gpu::{DeviceType, GpuConvolution, OpType};
+            return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
+        }
+        #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
+        {
+            use crate::gpu::GpuConvolution;
+            return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
+        }
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
+        {
+            use crate::gpu::GpuConvolution;
+            return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
+        }
+        #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
+        {
+            Err(crate::error::RusTorchError::tensor_op(
+                "No GPU acceleration available (enable metal, coreml, or mac-hybrid features)"
+                    .to_string(),
+            )
+            .into())
+        }
     }
 
     fn gpu_batch_attention(&self, key: &Tensor<T>, value: &Tensor<T>) -> ParallelResult<Tensor<T>> {
-        // Without CUDA, fall back to CPU
-        let scores = self.matmul(key)?;
-        let attention_weights = self.apply_softmax(&scores)?;
-        attention_weights.matmul(value)
+        // Use available hardware acceleration for attention mechanism
+        #[cfg(feature = "mac-hybrid")]
+        {
+            let scores = self.matmul_hybrid(key)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_hybrid(value);
+        }
+        #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
+        {
+            let scores = self.matmul_metal(key, 0)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_metal(value, 0);
+        }
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
+        {
+            let scores = self.matmul_coreml(key, 0)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            return attention_weights.matmul_coreml(value, 0);
+        }
+        #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
+        {
+            // Only use CPU if no hardware acceleration available
+            let scores = self.matmul(key)?;
+            let attention_weights = self.apply_softmax(&scores)?;
+            attention_weights.matmul(value)
+        }
     }
 }
 
@@ -999,6 +1074,11 @@ pub mod gpu_parallel_utils {
             DeviceType::CoreML(_) => {
                 // CoreML用バッチサイズ
                 std::cmp::min(3072, total_size)
+            }
+            #[cfg(feature = "mac-hybrid")]
+            DeviceType::MacHybrid => {
+                // MacHybrid用バッチサイズ - automatically optimized
+                std::cmp::min(4096, total_size)
             }
             DeviceType::Auto => {
                 // Auto用バッチサイズ

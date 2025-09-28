@@ -12,6 +12,31 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
     // Core methods (matmul, transpose) are defined in core.rs to avoid duplication
     // コアメソッド (matmul, transpose) は重複を避けるため core.rs で定義
 
+    /// Matrix multiplication with intelligent device selection (mac-hybrid feature)
+    /// インテリジェント・デバイス選択による行列乗算（mac-hybridフィーチャー）
+    #[cfg(feature = "mac-hybrid")]
+    pub fn matmul_hybrid(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
+        use crate::gpu::{DeviceType, OpType};
+
+        // Calculate tensor size for device selection
+        let tensor_size = self.data.len() + other.data.len();
+
+        // Select optimal device based on operation type and size
+        let device =
+            DeviceType::select_best_for_operation(&OpType::LinearAlgebra, Some(tensor_size));
+
+        // Route to appropriate backend - prefer hardware acceleration
+        match device {
+            #[cfg(feature = "coreml")]
+            DeviceType::CoreML(id) => self.matmul_coreml(other, id),
+            DeviceType::Metal(id) => self.matmul_metal(other, id),
+            _ => {
+                // mac-hybrid should never reach this case due to panic in select_best_for_operation
+                unreachable!("mac-hybrid device selection should always return Metal or CoreML")
+            }
+        }
+    }
+
     /// Matrix multiplication
     /// 行列乗算
     pub fn matmul(&self, other: &Tensor<T>) -> RusTorchResult<Self> {
@@ -336,5 +361,92 @@ mod tests {
 
         // Expected: 1 + 4 = 5
         assert_eq!(trace, 5.0);
+    }
+}
+
+impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
+    #[cfg(feature = "coreml")]
+    pub fn matmul_coreml(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        // Use actual CoreML Neural Engine hardware acceleration
+        use crate::gpu::coreml::operations::linear_algebra::CoreMLLinearAlgebra;
+
+        self.coreml_matmul(other)
+            .map_err(|e| RusTorchError::InvalidOperation {
+                operation: "matmul_coreml".to_string(),
+                message: format!("CoreML matmul failed: {}", e),
+            })
+    }
+
+    #[cfg(not(feature = "coreml"))]
+    fn matmul_coreml(&self, _other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        Err(RusTorchError::UnsupportedOperation(
+            "CoreML feature not enabled".to_string(),
+        ))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+        // Use actual Metal GPU hardware acceleration
+        use crate::gpu::metal_kernels::metal_matmul_f32;
+
+        // Convert to f32 for Metal kernel
+        let a_data = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let b_data = other
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let a_shape = self.data.shape();
+        let b_shape = other.data.shape();
+
+        if a_shape.len() != 2 || b_shape.len() != 2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: "Only 2D matrix multiplication supported".to_string(),
+            });
+        }
+
+        let (m, k) = (a_shape[0], a_shape[1]);
+        let (k2, n) = (b_shape[0], b_shape[1]);
+
+        if k != k2 {
+            return Err(RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: "Matrix dimensions don't match for multiplication".to_string(),
+            });
+        }
+
+        let mut c_data = vec![0.0f32; m * n];
+
+        // Call actual Metal GPU implementation
+        metal_matmul_f32(&a_data, &b_data, &mut c_data, m, n, k).map_err(|e| {
+            RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: format!("Metal matmul failed: {}", e),
+            }
+        })?;
+
+        // Convert result back to tensor
+        let result_data: Vec<T> = c_data
+            .into_iter()
+            .map(|x| T::from_f32(x).unwrap())
+            .collect();
+
+        let result_array = ndarray::Array::from_shape_vec((m, n), result_data).map_err(|e| {
+            RusTorchError::InvalidOperation {
+                operation: "matmul_metal".to_string(),
+                message: format!("Failed to create result array: {}", e),
+            }
+        })?;
+
+        Ok(Tensor {
+            data: result_array.into_dyn(),
+            device: self.device.clone(),
+            requires_grad: self.requires_grad || other.requires_grad,
+        })
     }
 }

@@ -23,6 +23,9 @@ rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
 # 開発時の依存関係の最適化
 cargo.all_features = true
 
+[workspace]
+members = ["benchmarks"]
+
 [workspace.metadata]
 # ワークスペースのメタデータ
 maintainer = "Jun Suzuki <jun.suzuki.japan@gmail.com>"
@@ -167,6 +170,8 @@ nccl = ["dep:nccl"]
 coreml = ["dep:objc2-core-ml", "dep:objc2-foundation", "dep:metal"]
 coreml-hybrid = ["coreml", "metal", "cuda"]  # CoreML + GPU hybrid execution
 coreml-fallback = ["coreml-hybrid"]          # Automatic fallback system
+# Mac-hybrid: Intelligent backend selection for macOS (Metal/CoreML)
+mac-hybrid = ["metal", "coreml"]             # Automatic Metal/CoreML selection
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 webgpu = ["wasm", "dep:wgpu", "dep:wgpu-hal", "dep:wgpu-core", "dep:wgpu-types", "dep:bytemuck"]
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
@@ -221,25 +226,25 @@ name = "matrix_decomposition_demo"
 path = "examples/matrix_decomposition_demo.rs"
 required-features = ["linalg"]
 
-[[example]]
-name = "metal_performance_demo"
-path = "examples/metal_performance_demo.rs"
-required-features = ["metal"]
+# [[example]]
+# name = "metal_performance_demo"
+# path = "examples/metal_performance_demo.rs"
+# required-features = ["metal"]
 
-[[example]]
-name = "cuda_performance_demo"
-path = "examples/cuda_performance_demo.rs"
-required-features = ["cuda"]
+# [[example]]
+# name = "cuda_performance_demo"
+# path = "examples/cuda_performance_demo.rs"
+# required-features = ["cuda"]
 
 # [[example]]
 # name = "opencl_performance_demo"
 # path = "examples/opencl_performance_demo.rs"
 # required-features = ["opencl"]
 
-[[example]]
-name = "comprehensive_gpu_benchmark"
-path = "examples/comprehensive_gpu_benchmark.rs"
-required-features = []  # Runs with any available features
+# [[example]]
+# name = "comprehensive_gpu_benchmark"
+# path = "examples/comprehensive_gpu_benchmark.rs"
+# required-features = []  # Runs with any available features
 
 [[bench]]
 name = "quick_benchmark"
