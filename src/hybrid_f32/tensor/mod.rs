@@ -136,6 +136,88 @@ impl F32Tensor {
         Self::new(data, shape.to_vec()).expect("Failed to create random tensor")
     }
 
+    /// 1埋めテンソルを作成
+    /// Create ones tensor
+    pub fn ones(shape: &[usize]) -> Self {
+        let total_elements: usize = shape.iter().product();
+        let data = vec![1.0f32; total_elements];
+
+        Self::new(data, shape.to_vec()).expect("Failed to create ones tensor")
+    }
+
+    /// 一様分布[0,1)からランダムテンソルを作成
+    /// Create random tensor from uniform distribution [0,1)
+    pub fn rand(shape: &[usize]) -> Self {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let total_elements: usize = shape.iter().product();
+        let data: Vec<f32> = (0..total_elements)
+            .map(|_| rng.gen::<f32>())
+            .collect();
+
+        Self::new(data, shape.to_vec()).expect("Failed to create random tensor")
+    }
+
+    /// 一様分布[low,high)からランダムテンソルを作成
+    /// Create random tensor from uniform distribution [low,high)
+    pub fn uniform(shape: &[usize], low: f32, high: f32) -> Self {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let total_elements: usize = shape.iter().product();
+        let data: Vec<f32> = (0..total_elements)
+            .map(|_| rng.gen_range(low..high))
+            .collect();
+
+        Self::new(data, shape.to_vec()).expect("Failed to create uniform tensor")
+    }
+
+    /// 連続値テンソルを作成
+    /// Create arange tensor
+    pub fn arange(start: f32, end: f32, step: f32) -> Self {
+        let mut data = Vec::new();
+        let mut current = start;
+
+        while current < end {
+            data.push(current);
+            current += step;
+        }
+
+        let len = data.len();
+        Self::new(data, vec![len]).expect("Failed to create arange tensor")
+    }
+
+    /// 等間隔値テンソルを作成
+    /// Create linspace tensor
+    pub fn linspace(start: f32, end: f32, steps: usize) -> Self {
+        if steps <= 1 {
+            return Self::new(vec![start], vec![1]).expect("Failed to create linspace tensor");
+        }
+
+        let step_size = (end - start) / (steps - 1) as f32;
+        let data: Vec<f32> = (0..steps)
+            .map(|i| start + i as f32 * step_size)
+            .collect();
+
+        Self::new(data, vec![steps]).expect("Failed to create linspace tensor")
+    }
+
+    /// 単位行列を作成
+    /// Create identity matrix
+    pub fn eye(n: usize) -> Self {
+        let mut data = vec![0.0f32; n * n];
+        for i in 0..n {
+            data[i * n + i] = 1.0f32;
+        }
+
+        Self::new(data, vec![n, n]).expect("Failed to create identity matrix")
+    }
+
+    /// ベクターからテンソルを作成
+    /// Create tensor from vector
+    pub fn from_vec(data: Vec<f32>, shape: Vec<usize>) -> RusTorchResult<Self> {
+        Self::new(data, shape)
+    }
+
     /// テンソル形状を取得
     /// Get tensor shape
     pub fn shape(&self) -> &[usize] {
@@ -170,10 +252,276 @@ impl F32Tensor {
         F32Tensor::new(result_data, self.shape.clone())
     }
 
+    /// テンソル減算（f32専用）
+    /// Tensor subtraction (f32-specific)
+    pub fn sub(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::sub".to_string(),
+                message: format!(
+                    "Shape mismatch: {:?} vs {:?}",
+                    self.shape, other.shape
+                ),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a - b)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// テンソル乗算（f32専用）
+    /// Tensor multiplication (f32-specific)
+    pub fn mul(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::mul".to_string(),
+                message: format!(
+                    "Shape mismatch: {:?} vs {:?}",
+                    self.shape, other.shape
+                ),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a * b)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// テンソル除算（f32専用）
+    /// Tensor division (f32-specific)
+    pub fn div(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::div".to_string(),
+                message: format!(
+                    "Shape mismatch: {:?} vs {:?}",
+                    self.shape, other.shape
+                ),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| a / b)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// スカラー加算（f32専用）
+    /// Scalar addition (f32-specific)
+    pub fn add_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a + scalar)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// スカラー減算（f32専用）
+    /// Scalar subtraction (f32-specific)
+    pub fn sub_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a - scalar)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// スカラー乗算（f32専用）
+    /// Scalar multiplication (f32-specific)
+    pub fn mul_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a * scalar)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// スカラー除算（f32専用）
+    /// Scalar division (f32-specific)
+    pub fn div_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a / scalar)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 符号反転（f32専用）
+    /// Negation (f32-specific)
+    pub fn neg(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| -a)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 絶対値（f32専用）
+    /// Absolute value (f32-specific)
+    pub fn abs(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a.abs())
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// べき乗（f32専用）
+    /// Power (f32-specific)
+    pub fn pow(&self, exponent: f32) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a.powf(exponent))
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 平方根（f32専用）
+    /// Square root (f32-specific)
+    pub fn sqrt(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&a| a.sqrt())
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
     /// テンソル合計（f32専用）
     /// Tensor sum (f32-specific)
     pub fn sum(&self) -> RusTorchResult<f32> {
         Ok(self.data.iter().sum::<f32>())
+    }
+
+    /// テンソル平均（f32専用）
+    /// Tensor mean (f32-specific)
+    pub fn mean(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::mean".to_string(),
+                message: "Cannot compute mean of empty tensor".to_string(),
+            });
+        }
+        Ok(self.data.iter().sum::<f32>() / self.data.len() as f32)
+    }
+
+    /// テンソル最大値（f32専用）
+    /// Tensor maximum (f32-specific)
+    pub fn max(&self) -> RusTorchResult<f32> {
+        self.data.iter().max_by(|a, b| a.partial_cmp(b).unwrap())
+            .copied()
+            .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::max".to_string(),
+                message: "Cannot compute max of empty tensor".to_string(),
+            })
+    }
+
+    /// テンソル最小値（f32専用）
+    /// Tensor minimum (f32-specific)
+    pub fn min(&self) -> RusTorchResult<f32> {
+        self.data.iter().min_by(|a, b| a.partial_cmp(b).unwrap())
+            .copied()
+            .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::min".to_string(),
+                message: "Cannot compute min of empty tensor".to_string(),
+            })
+    }
+
+    /// テンソル標準偏差（f32専用）
+    /// Tensor standard deviation (f32-specific)
+    pub fn std(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::std".to_string(),
+                message: "Cannot compute std of empty tensor".to_string(),
+            });
+        }
+
+        let mean = self.mean()?;
+        let variance = self.data.iter()
+            .map(|&x| (x - mean).powi(2))
+            .sum::<f32>() / self.data.len() as f32;
+
+        Ok(variance.sqrt())
+    }
+
+    /// テンソル分散（f32専用）
+    /// Tensor variance (f32-specific)
+    pub fn var(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::var".to_string(),
+                message: "Cannot compute var of empty tensor".to_string(),
+            });
+        }
+
+        let mean = self.mean()?;
+        let variance = self.data.iter()
+            .map(|&x| (x - mean).powi(2))
+            .sum::<f32>() / self.data.len() as f32;
+
+        Ok(variance)
+    }
+
+    /// 軸指定合計（f32専用）
+    /// Axis-specific sum (f32-specific)
+    pub fn sum_axis(&self, axis: usize) -> RusTorchResult<F32Tensor> {
+        if axis >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::sum_axis".to_string(),
+                message: format!("Axis {} out of bounds for {}D tensor", axis, self.shape.len()),
+            });
+        }
+
+        // 簡単な実装: 2次元テンソルの場合のみ対応
+        if self.shape.len() == 2 {
+            let (rows, cols) = (self.shape[0], self.shape[1]);
+            if axis == 0 {
+                // 行方向に合計（結果は1xCols）
+                let mut result_data = vec![0.0f32; cols];
+                for j in 0..cols {
+                    for i in 0..rows {
+                        result_data[j] += self.data[[i, j]];
+                    }
+                }
+                return F32Tensor::new(result_data, vec![cols]);
+            } else if axis == 1 {
+                // 列方向に合計（結果はRowsx1）
+                let mut result_data = vec![0.0f32; rows];
+                for i in 0..rows {
+                    for j in 0..cols {
+                        result_data[i] += self.data[[i, j]];
+                    }
+                }
+                return F32Tensor::new(result_data, vec![rows]);
+            }
+        }
+
+        // 他の次元はまだ未実装
+        Err(crate::error::RusTorchError::InvalidParameters {
+            operation: "F32Tensor::sum_axis".to_string(),
+            message: "Only 2D tensors supported for axis operations".to_string(),
+        })
+    }
+
+    /// 軸指定平均（f32専用）
+    /// Axis-specific mean (f32-specific)
+    pub fn mean_axis(&self, axis: usize) -> RusTorchResult<F32Tensor> {
+        let sum_result = self.sum_axis(axis)?;
+        let divisor = if axis < self.shape.len() {
+            self.shape[axis] as f32
+        } else {
+            1.0
+        };
+        sum_result.div_scalar(divisor)
     }
 
     /// 行列乗算（f32専用）
