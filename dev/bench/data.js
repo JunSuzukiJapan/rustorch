@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759032293188,
+  "lastUpdate": 1759032902640,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1082,6 +1082,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "54551533324ac959a5e3c3d2e56ef3945cbda1ba",
+          "message": "chore: Bump version to 0.6.23\n\n- Update Cargo.toml version to 0.6.23\n- Update all notebook version references to 0.6.23\n- Update README.md installation instructions to 0.6.23\n- Includes Metal GPU convolution implementation\n- Complete WASM compatibility and license compliance\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T13:13:34+09:00",
+          "tree_id": "1075699e40b8dcd5727b35e4dc19ecdeb26bbf69",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/54551533324ac959a5e3c3d2e56ef3945cbda1ba"
+        },
+        "date": 1759032899844,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
