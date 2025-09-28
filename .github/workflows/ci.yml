@@ -5,6 +5,8 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  pull_request_target:
+    branches: [ main, develop ]
   release:
     types: [ published ]
   workflow_dispatch:
@@ -21,6 +23,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Default RUSTFLAGS - will be overridden per-job for Windows compatibility
   RUSTFLAGS: "-C target-cpu=native"
   # Environment variables for better LAPACK/BLAS linking on Linux
   PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig"
@@ -67,6 +70,11 @@ jobs:
             ~/.cargo/git
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set Windows-specific environment
+        if: matrix.os == 'windows-latest'
+        run: echo "RUSTFLAGS=-C target-feature=+crt-static" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Install system dependencies (macOS)
         if: matrix.os == 'macos-latest'

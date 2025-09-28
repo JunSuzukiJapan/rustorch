@@ -377,6 +377,11 @@ pub mod wasm;
 // 基本操作のためのシンプルなWebAssemblyサポート
 // Removed redundant wasm_simple module - functionality integrated into wasm module
 
+/// f32統一ハイブリッドシステム（実験的）
+/// f32 Unified Hybrid System (Experimental)
+#[cfg(feature = "hybrid-f32")]
+pub mod hybrid_f32;
+
 /// Re-exports of commonly used items
 pub mod prelude {
     pub use crate::autograd::Variable;
