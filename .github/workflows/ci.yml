@@ -21,7 +21,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: "-C target-cpu=native"
+  # Windows compatibility: avoid target-cpu=native to prevent illegal instruction errors
+  RUSTFLAGS: ${{ matrix.os == 'windows-latest' && '-C target-feature=+crt-static' || '-C target-cpu=native' }}
   # Environment variables for better LAPACK/BLAS linking on Linux
   PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig"
   LD_LIBRARY_PATH: "/usr/lib:/usr/lib/x86_64-linux-gnu:/usr/local/lib"
