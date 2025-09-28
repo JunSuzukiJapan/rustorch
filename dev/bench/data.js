@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759036915245,
+  "lastUpdate": 1759038009589,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1139,6 +1139,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/6fba0eca9d7484d54efd2630cdc32f6891ba9fa1"
         },
         "date": 1759036912764,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "b8fc933137e05d66efc826ae322bd02927e662e6",
+          "message": "chore: Update version numbers to 0.6.24 for release\n\n- Updated README.md Cargo.toml examples to version 0.6.24\n- Updated all notebook dependencies in notebooks/ and jupyter/ directories\n- Prepared for v0.6.24 release to crates.io and GitHub\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T14:38:45+09:00",
+          "tree_id": "f1b1d14d547d9ff27eb8d3b7c466d209236b573f",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/b8fc933137e05d66efc826ae322bd02927e662e6"
+        },
+        "date": 1759038006481,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
