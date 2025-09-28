@@ -365,7 +365,7 @@ mod tests {
 
 impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Tensor<T> {
     #[cfg(feature = "coreml")]
-    fn matmul_coreml(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
+    pub fn matmul_coreml(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
         // Use actual CoreML Neural Engine hardware acceleration
         use crate::gpu::coreml::operations::linear_algebra::CoreMLLinearAlgebra;
 

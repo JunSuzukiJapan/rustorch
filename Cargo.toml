@@ -23,6 +23,9 @@ rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
 # 開発時の依存関係の最適化
 cargo.all_features = true
 
+[workspace]
+members = ["benchmarks"]
+
 [workspace.metadata]
 # ワークスペースのメタデータ
 maintainer = "Jun Suzuki <jun.suzuki.japan@gmail.com>"

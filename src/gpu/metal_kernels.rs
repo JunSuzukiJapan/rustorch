@@ -321,7 +321,7 @@ impl MetalKernelExecutor {
             output[index] = tanh(input[index]);
         }
 
-        // GELU activation: x * 0.5 * (1 + erf(x / sqrt(2)))
+        // GELU activation: x * 0.5 * (1 + erf(x / sqrt(2))) - using Abramowitz and Stegun approximation
         kernel void gelu_f32(
             device const float* input [[buffer(0)]],
             device float* output [[buffer(1)]],
@@ -331,7 +331,24 @@ impl MetalKernelExecutor {
             if (index >= n) return;
             float x = input[index];
             float sqrt_2_inv = 0.70710678118f; // 1 / sqrt(2)
-            output[index] = x * 0.5f * (1.0f + erf(x * sqrt_2_inv));
+            float t = x * sqrt_2_inv;
+
+            // Abramowitz and Stegun approximation for erf function
+            float a1 =  0.254829592f;
+            float a2 = -0.284496736f;
+            float a3 =  1.421413741f;
+            float a4 = -1.453152027f;
+            float a5 =  1.061405429f;
+            float p  =  0.3275911f;
+
+            float sign = (t >= 0.0f) ? 1.0f : -1.0f;
+            t = fabs(t);
+
+            float t_p = 1.0f / (1.0f + p * t);
+            float erf_approx = 1.0f - (((((a5 * t_p + a4) * t_p) + a3) * t_p + a2) * t_p + a1) * t_p * exp(-t * t);
+            erf_approx *= sign;
+
+            output[index] = x * 0.5f * (1.0f + erf_approx);
         }
 
         // Softmax activation (per element, requires separate reduction for proper implementation)
@@ -1441,51 +1458,93 @@ pub fn metal_conv2d_f32(
 
 /// Execute ReLU activation using Metal GPU
 /// Metal GPUを使用してReLU活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_relu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.relu_f32(input, output)
 }
 
-/// Execute Sigmoid activation using Metal GPU  
+#[cfg(not(feature = "metal"))]
+pub fn metal_relu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
+/// Execute Sigmoid activation using Metal GPU
 /// Metal GPUを使用してSigmoid活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_sigmoid_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.sigmoid_f32(input, output)
 }
 
+#[cfg(not(feature = "metal"))]
+pub fn metal_sigmoid_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
 /// Execute Tanh activation using Metal GPU
 /// Metal GPUを使用してTanh活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_tanh_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.tanh_f32(input, output)
 }
 
+#[cfg(not(feature = "metal"))]
+pub fn metal_tanh_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
 /// Execute GELU activation using Metal GPU
 /// Metal GPUを使用してGELU活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_gelu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.gelu_f32(input, output)
 }
 
+#[cfg(not(feature = "metal"))]
+pub fn metal_gelu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
 /// Execute Leaky ReLU activation using Metal GPU
 /// Metal GPUを使用してLeaky ReLU活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_leaky_relu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.leaky_relu_f32(input, output, alpha)
 }
 
+#[cfg(not(feature = "metal"))]
+pub fn metal_leaky_relu_f32(_input: &[f32], _output: &mut [f32], _alpha: f32) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
 /// Execute ELU activation using Metal GPU
 /// Metal GPUを使用してELU活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_elu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.elu_f32(input, output, alpha)
 }
 
+#[cfg(not(feature = "metal"))]
+pub fn metal_elu_f32(_input: &[f32], _output: &mut [f32], _alpha: f32) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+}
+
 /// Execute Swish activation using Metal GPU
 /// Metal GPUを使用してSwish活性化を実行
+#[cfg(feature = "metal")]
 pub fn metal_swish_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
     let executor = MetalKernelExecutor::new()?;
     executor.swish_f32(input, output)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_swish_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
 }
 
 #[cfg(test)]
