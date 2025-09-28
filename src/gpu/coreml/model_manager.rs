@@ -350,10 +350,10 @@ impl CoreMLModelManager {
             // Convert tensors to MLMultiArray format for Neural Engine processing
             let _ml_a = self.tensor_to_ml_multiarray(a)?;
             let _ml_b = self.tensor_to_ml_multiarray(b)?;
-            
+
             // Create or get cached matmul model optimized for Neural Engine
             let model_handle = self.get_or_create_matmul_model::<T>(a.shape(), b.shape())?;
-            
+
             // Configure for Neural Engine execution with precision optimization
             // In a complete implementation, this would:
             // 1. Create MLModelConfiguration for Neural Engine
@@ -362,20 +362,20 @@ impl CoreMLModelManager {
             // 4. Create prediction options for matrix operations
             // 5. Execute prediction on Neural Engine
             // 6. Extract output MLMultiArray and convert back to Tensor
-            
+
             // Execute on Apple Neural Engine
             // This replaces the previous Metal fallback with true CoreML execution path
             let result_shape = [a.shape()[0], b.shape()[1]];
-            
+
             // Create result tensor with Neural Engine optimized layout
             let result = self.ml_multiarray_to_tensor::<T>("matmul_output", &result_shape)?;
-            
+
             // Update model execution statistics
             self.update_model_stats(&model_handle.model_id, std::time::Duration::from_millis(1));
-            
+
             Ok(result)
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback to CPU implementation for non-macOS platforms
@@ -398,51 +398,55 @@ impl CoreMLModelManager {
             // Convert tensors to MLMultiArray format for Neural Engine
             let _ml_input = self.tensor_to_ml_multiarray(input)?;
             let _ml_kernel = self.tensor_to_ml_multiarray(kernel)?;
-            
+
             // Get input and kernel dimensions
             let input_shape = input.shape();
             let kernel_shape = kernel.shape();
-            
+
             // Validate input dimensions (NCHW format expected)
             if input_shape.len() != 4 || kernel_shape.len() != 4 {
                 return Err(CoreMLError::InvalidInput(
-                    "Conv2D requires 4D tensors in NCHW format".to_string()
-                ).into());
+                    "Conv2D requires 4D tensors in NCHW format".to_string(),
+                )
+                .into());
             }
-            
+
             let batch_size = input_shape[0];
             let input_channels = input_shape[1];
             let input_height = input_shape[2];
             let input_width = input_shape[3];
-            
+
             let output_channels = kernel_shape[0];
             let kernel_channels = kernel_shape[1];
             let kernel_height = kernel_shape[2];
             let kernel_width = kernel_shape[3];
-            
+
             // Validate channel compatibility
             if input_channels != kernel_channels {
-                return Err(CoreMLError::InvalidInput(
-                    format!("Input channels ({}) must match kernel channels ({})",
-                           input_channels, kernel_channels)
-                ).into());
+                return Err(CoreMLError::InvalidInput(format!(
+                    "Input channels ({}) must match kernel channels ({})",
+                    input_channels, kernel_channels
+                ))
+                .into());
             }
-            
+
             // Calculate output dimensions (assuming stride=1, padding=0)
             let output_height = input_height.saturating_sub(kernel_height) + 1;
             let output_width = input_width.saturating_sub(kernel_width) + 1;
-            
+
             if output_height == 0 || output_width == 0 {
                 return Err(CoreMLError::InvalidInput(
-                    "Kernel size larger than input - invalid convolution".to_string()
-                ).into());
+                    "Kernel size larger than input - invalid convolution".to_string(),
+                )
+                .into());
             }
-            
+
             let output_shape = vec![batch_size, output_channels, output_height, output_width];
-            
+
             // Create or get cached Conv2D model optimized for Neural Engine
-            let model_handle = self.get_or_create_conv2d_model::<T>(input_shape, kernel_shape, 1, 0)?;
-            
+            let model_handle =
+                self.get_or_create_conv2d_model::<T>(input_shape, kernel_shape, 1, 0)?;
+
             // Configure Neural Engine execution for convolution operations
             // In a complete implementation, this would:
             // 1. Create MLModelConfiguration for Neural Engine convolution
@@ -452,34 +456,34 @@ impl CoreMLModelManager {
             // 5. Set weights from kernel tensor to model parameters
             // 6. Execute prediction with input MLMultiArray on Neural Engine
             // 7. Extract convolution result from output MLMultiArray
-            
+
             // Execute convolution on Apple Neural Engine
             // This replaces the placeholder zeros implementation with actual computation path
             let result = self.ml_multiarray_to_tensor::<T>("conv2d_output", &output_shape)?;
-            
+
             // Update model execution statistics
             self.update_model_stats(&model_handle.model_id, std::time::Duration::from_millis(2));
-            
+
             Ok(result)
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback: Basic CPU convolution implementation for non-macOS
             let input_shape = input.shape();
             let kernel_shape = kernel.shape();
-            
+
             if input_shape.len() != 4 || kernel_shape.len() != 4 {
-                return Err(CoreMLError::InvalidInput(
-                    "Conv2D requires 4D tensors".to_string()
-                ).into());
+                return Err(
+                    CoreMLError::InvalidInput("Conv2D requires 4D tensors".to_string()).into(),
+                );
             }
-            
+
             let batch_size = input_shape[0];
             let output_channels = kernel_shape[0];
             let output_height = input_shape[2].saturating_sub(kernel_shape[2]) + 1;
             let output_width = input_shape[3].saturating_sub(kernel_shape[3]) + 1;
-            
+
             let output_shape = vec![batch_size, output_channels, output_height, output_width];
             Ok(Tensor::zeros(&output_shape))
         }
@@ -499,10 +503,11 @@ impl CoreMLModelManager {
         {
             // Convert tensor to MLMultiArray for Neural Engine processing
             let _ml_input = self.tensor_to_ml_multiarray(input)?;
-            
+
             // Create or get cached activation model optimized for Neural Engine
-            let model_handle = self.get_or_create_activation_model::<T>(activation_type, input.shape())?;
-            
+            let model_handle =
+                self.get_or_create_activation_model::<T>(activation_type, input.shape())?;
+
             // Configure Neural Engine for activation functions
             // In a complete implementation, this would:
             // 1. Create MLModelConfiguration for Neural Engine
@@ -511,11 +516,11 @@ impl CoreMLModelManager {
             // 4. Create MLModel with activation layers programmatically
             // 5. Execute prediction with input MLMultiArray on Neural Engine
             // 6. Extract activation result from output MLMultiArray
-            
+
             // Neural Engine excels at activation functions, especially in batch operations
             let element_count = input.data.len();
             let _use_float16_optimization = element_count >= 1024;
-            
+
             // Execute activation on Apple Neural Engine
             // This provides hardware acceleration for activation functions
             let result = match activation_type {
@@ -524,38 +529,39 @@ impl CoreMLModelManager {
                     let result = self.ml_multiarray_to_tensor::<T>("relu_output", input.shape())?;
                     // In complete implementation: execute CoreML ReLU model
                     Ok(result)
-                },
+                }
                 CoreMLActivationType::Sigmoid => {
                     // Neural Engine optimized Sigmoid with high precision
-                    let result = self.ml_multiarray_to_tensor::<T>("sigmoid_output", input.shape())?;
+                    let result =
+                        self.ml_multiarray_to_tensor::<T>("sigmoid_output", input.shape())?;
                     // In complete implementation: execute CoreML Sigmoid model
                     Ok(result)
-                },
+                }
                 CoreMLActivationType::Tanh => {
                     // Neural Engine optimized Tanh
                     let result = self.ml_multiarray_to_tensor::<T>("tanh_output", input.shape())?;
                     // In complete implementation: execute CoreML Tanh model
                     Ok(result)
-                },
+                }
                 _ => {
                     // Fallback to CPU for unsupported activations
                     self.execute_activation_cpu(input, activation_type)
                 }
             }?;
-            
+
             // Update model execution statistics
             self.update_model_stats(&model_handle.model_id, std::time::Duration::from_millis(1));
-            
+
             Ok(result)
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback to CPU implementation for non-macOS platforms
             self.execute_activation_cpu(input, activation_type)
         }
     }
-    
+
     /// CPU fallback for activation functions
     /// 活性化関数のCPUフォールバック
     fn execute_activation_cpu<T>(
@@ -634,12 +640,12 @@ impl CoreMLModelManager {
             // 1. Convert tensor data to MLMultiArray format using CoreML APIs
             // 2. Optimize memory layout for Neural Engine
             // 3. Set appropriate precision flags
-            
+
             // For now, return tensor with Neural Engine ready annotation
             // The tensor maintains compatibility while being optimized for CoreML
             Ok(tensor.clone())
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback: return original tensor for non-macOS platforms
@@ -649,7 +655,11 @@ impl CoreMLModelManager {
 
     /// Convert CoreML MLMultiArray back to Tensor format
     /// CoreML MLMultiArrayからTensor形式に変換
-    fn ml_multiarray_to_tensor<T>(&self, _ml_array: &str, shape: &[usize]) -> CoreMLResult<Tensor<T>>
+    fn ml_multiarray_to_tensor<T>(
+        &self,
+        _ml_array: &str,
+        shape: &[usize],
+    ) -> CoreMLResult<Tensor<T>>
     where
         T: Float + FromPrimitive + ScalarOperand + 'static,
     {
@@ -659,19 +669,17 @@ impl CoreMLModelManager {
             // 1. Take an actual MLMultiArray reference instead of string
             // 2. Extract data from MLMultiArray using CoreML APIs
             // 3. Create Tensor with the extracted data and given shape
-            
+
             // For now, create a properly shaped tensor with Neural Engine optimized layout
             let element_count = shape.iter().product::<usize>();
-            
+
             // Create tensor with Neural Engine friendly memory layout
             // This ensures optimal performance when data flows back from CoreML
-            let data: Vec<T> = (0..element_count)
-                .map(|_| T::zero())
-                .collect();
-                
+            let data: Vec<T> = (0..element_count).map(|_| T::zero()).collect();
+
             Ok(Tensor::from_vec(data, shape.to_vec()))
         }
-        
+
         #[cfg(not(all(feature = "coreml", target_os = "macos")))]
         {
             // Fallback: create zero tensor with given shape

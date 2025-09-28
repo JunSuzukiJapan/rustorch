@@ -57,17 +57,13 @@ impl From<CoreMLError> for crate::error::RusTorchError {
                 device: "CoreML".to_string(),
                 message,
             },
-            CoreMLError::InvalidInput(message) => {
-                crate::error::RusTorchError::InvalidParameters {
-                    operation: "CoreML".to_string(),
-                    message,
-                }
+            CoreMLError::InvalidInput(message) => crate::error::RusTorchError::InvalidParameters {
+                operation: "CoreML".to_string(),
+                message,
             },
-            CoreMLError::ConversionError(message) => {
-                crate::error::RusTorchError::TensorOp {
-                    message,
-                    source: None,
-                }
+            CoreMLError::ConversionError(message) => crate::error::RusTorchError::TensorOp {
+                message,
+                source: None,
             },
         }
     }
