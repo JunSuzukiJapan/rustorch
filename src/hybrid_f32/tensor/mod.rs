@@ -1416,6 +1416,759 @@ impl F32Tensor {
 
         F32Tensor::new(l_data, vec![n, n])
     }
+
+    // =========================================================================
+    // フェーズ3: 数学関数 / Phase 3: Mathematical Functions
+    // =========================================================================
+
+    /// 三角関数: sin（f32専用）
+    /// Trigonometric function: sin (f32-specific)
+    pub fn sin(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.sin())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 三角関数: cos（f32専用）
+    /// Trigonometric function: cos (f32-specific)
+    pub fn cos(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.cos())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 三角関数: tan（f32専用）
+    /// Trigonometric function: tan (f32-specific)
+    pub fn tan(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.tan())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆三角関数: asin（f32専用）
+    /// Inverse trigonometric function: asin (f32-specific)
+    pub fn asin(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x >= -1.0 && x <= 1.0 {
+                    x.asin()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆三角関数: acos（f32専用）
+    /// Inverse trigonometric function: acos (f32-specific)
+    pub fn acos(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x >= -1.0 && x <= 1.0 {
+                    x.acos()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆三角関数: atan（f32専用）
+    /// Inverse trigonometric function: atan (f32-specific)
+    pub fn atan(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.atan())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 2引数逆正接: atan2（f32専用）
+    /// Two-argument inverse tangent: atan2 (f32-specific)
+    pub fn atan2(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::atan2".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .zip(other.data.as_slice().unwrap().iter())
+            .map(|(&y, &x)| y.atan2(x))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 双曲線関数: sinh（f32専用）
+    /// Hyperbolic function: sinh (f32-specific)
+    pub fn sinh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.sinh())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 双曲線関数: cosh（f32専用）
+    /// Hyperbolic function: cosh (f32-specific)
+    pub fn cosh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.cosh())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 双曲線関数: tanh（f32専用）
+    /// Hyperbolic function: tanh (f32-specific)
+    pub fn tanh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.tanh())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆双曲線関数: asinh（f32専用）
+    /// Inverse hyperbolic function: asinh (f32-specific)
+    pub fn asinh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.asinh())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆双曲線関数: acosh（f32専用）
+    /// Inverse hyperbolic function: acosh (f32-specific)
+    pub fn acosh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x >= 1.0 {
+                    x.acosh()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆双曲線関数: atanh（f32専用）
+    /// Inverse hyperbolic function: atanh (f32-specific)
+    pub fn atanh(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > -1.0 && x < 1.0 {
+                    x.atanh()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 指数関数: exp（f32専用）
+    /// Exponential function: exp (f32-specific)
+    pub fn exp(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.exp())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 指数関数: exp2（2^x）（f32専用）
+    /// Exponential function: exp2 (2^x) (f32-specific)
+    pub fn exp2(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.exp2())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 指数関数: expm1（exp(x) - 1）（f32専用）
+    /// Exponential function: expm1 (exp(x) - 1) (f32-specific)
+    pub fn expm1(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.exp_m1())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 自然対数: ln（f32専用）
+    /// Natural logarithm: ln (f32-specific)
+    pub fn ln(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > 0.0 {
+                    x.ln()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 常用対数: log10（f32専用）
+    /// Common logarithm: log10 (f32-specific)
+    pub fn log10(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > 0.0 {
+                    x.log10()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 2進対数: log2（f32専用）
+    /// Binary logarithm: log2 (f32-specific)
+    pub fn log2(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > 0.0 {
+                    x.log2()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 対数: log1p（ln(1 + x)）（f32専用）
+    /// Logarithm: log1p (ln(1 + x)) (f32-specific)
+    pub fn log1p(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > -1.0 {
+                    x.ln_1p()
+                } else {
+                    f32::NAN
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 天井関数: ceil（f32専用）
+    /// Ceiling function: ceil (f32-specific)
+    pub fn ceil(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.ceil())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 床関数: floor（f32専用）
+    /// Floor function: floor (f32-specific)
+    pub fn floor(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.floor())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 四捨五入: round（f32専用）
+    /// Rounding: round (f32-specific)
+    pub fn round(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.round())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 切り捨て: trunc（f32専用）
+    /// Truncation: trunc (f32-specific)
+    pub fn trunc(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.trunc())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 小数部: fract（f32専用）
+    /// Fractional part: fract (f32-specific)
+    pub fn fract(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.fract())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 符号関数: sign（f32専用）
+    /// Sign function: sign (f32-specific)
+    pub fn sign(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x > 0.0 {
+                    1.0
+                } else if x < 0.0 {
+                    -1.0
+                } else {
+                    0.0
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆数: reciprocal（f32専用）
+    /// Reciprocal: reciprocal (f32-specific)
+    pub fn reciprocal(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| {
+                if x != 0.0 {
+                    1.0 / x
+                } else {
+                    f32::INFINITY
+                }
+            })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 2乗: square（f32専用）
+    /// Square: square (f32-specific)
+    pub fn square(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x * x)
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 立方根: cbrt（f32専用）
+    /// Cube root: cbrt (f32-specific)
+    pub fn cbrt(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| x.cbrt())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// ガンマ関数（f32専用）
+    /// Gamma function (f32-specific)
+    pub fn gamma(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| Self::gamma_f32(x))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 対数ガンマ関数（f32専用）
+    /// Log gamma function (f32-specific)
+    pub fn lgamma(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| Self::lgamma_f32(x))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 誤差関数: erf（f32専用）
+    /// Error function: erf (f32-specific)
+    pub fn erf(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| Self::erf_f32(x))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 相補誤差関数: erfc（f32専用）
+    /// Complementary error function: erfc (f32-specific)
+    pub fn erfc(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+            .iter()
+            .map(|&x| Self::erfc_f32(x))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    // ===== 数学関数の補助実装 / Mathematical Function Helpers =====
+
+    /// ガンマ関数の近似実装（Lanczos近似）
+    /// Gamma function approximation (Lanczos approximation)
+    fn gamma_f32(x: f32) -> f32 {
+        // Lanczos係数（g=7, n=9）
+        const G: f32 = 7.0;
+        const COEFF: [f32; 9] = [
+            0.99999999999980993,
+            676.5203681218851,
+            -1259.1392167224028,
+            771.32342877765313,
+            -176.61502916214059,
+            12.507343278686905,
+            -0.13857109526572012,
+            9.9843695780195716e-6,
+            1.5056327351493116e-7,
+        ];
+
+        if x < 0.5 {
+            // リフレクション公式
+            std::f32::consts::PI / ((std::f32::consts::PI * x).sin() * Self::gamma_f32(1.0 - x))
+        } else {
+            let z = x - 1.0;
+            let mut x = COEFF[0];
+            for i in 1..9 {
+                x += COEFF[i] / (z + i as f32);
+            }
+            let t = z + G + 0.5;
+            (2.0 * std::f32::consts::PI).sqrt() * t.powf(z + 0.5) * (-t).exp() * x
+        }
+    }
+
+    /// 対数ガンマ関数の実装
+    /// Log gamma function implementation
+    fn lgamma_f32(x: f32) -> f32 {
+        if x > 0.0 {
+            Self::gamma_f32(x).ln()
+        } else {
+            f32::NAN
+        }
+    }
+
+    /// 誤差関数の近似実装（Abramowitz and Stegun近似）
+    /// Error function approximation (Abramowitz and Stegun approximation)
+    fn erf_f32(x: f32) -> f32 {
+        // 係数
+        const A1: f32 = 0.254829592;
+        const A2: f32 = -0.284496736;
+        const A3: f32 = 1.421413741;
+        const A4: f32 = -1.453152027;
+        const A5: f32 = 1.061405429;
+        const P: f32 = 0.3275911;
+
+        let sign = if x >= 0.0 { 1.0 } else { -1.0 };
+        let x = x.abs();
+
+        let t = 1.0 / (1.0 + P * x);
+        let y = 1.0 - (((((A5 * t + A4) * t) + A3) * t + A2) * t + A1) * t * (-x * x).exp();
+
+        sign * y
+    }
+
+    /// 相補誤差関数の実装
+    /// Complementary error function implementation
+    fn erfc_f32(x: f32) -> f32 {
+        1.0 - Self::erf_f32(x)
+    }
+
+    // =========================================================================
+    // フェーズ3: 信号処理 / Phase 3: Signal Processing
+    // =========================================================================
+
+    /// 高速フーリエ変換（FFT）（f32専用）
+    /// Fast Fourier Transform (FFT) (f32-specific)
+    pub fn fft(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::fft".to_string(),
+                message: "FFT currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        if !n.is_power_of_two() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::fft".to_string(),
+                message: "FFT requires power-of-two length".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut complex_data: Vec<(f32, f32)> = data.iter().map(|&x| (x, 0.0)).collect();
+
+        Self::fft_recursive(&mut complex_data);
+
+        // 複素数結果を実部と虚部に分けて返す（実部のみ）
+        let result_data: Vec<f32> = complex_data.iter().map(|&(real, _imag)| real).collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆高速フーリエ変換（IFFT）（f32専用）
+    /// Inverse Fast Fourier Transform (IFFT) (f32-specific)
+    pub fn ifft(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::ifft".to_string(),
+                message: "IFFT currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        if !n.is_power_of_two() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::ifft".to_string(),
+                message: "IFFT requires power-of-two length".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut complex_data: Vec<(f32, f32)> = data.iter().map(|&x| (x, 0.0)).collect();
+
+        Self::ifft_recursive(&mut complex_data);
+
+        // 正規化
+        let scale = 1.0 / (n as f32);
+        let result_data: Vec<f32> = complex_data.iter()
+            .map(|&(real, _imag)| real * scale)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 実数FFT（RFFT）（f32専用）
+    /// Real FFT (RFFT) (f32-specific)
+    pub fn rfft(&self) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::rfft".to_string(),
+                message: "RFFT currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        if !n.is_power_of_two() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::rfft".to_string(),
+                message: "RFFT requires power-of-two length".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut complex_data: Vec<(f32, f32)> = data.iter().map(|&x| (x, 0.0)).collect();
+
+        Self::fft_recursive(&mut complex_data);
+
+        // 実部と虚部を分離
+        let output_size = n / 2 + 1; // 対称性を利用
+        let real_parts: Vec<f32> = complex_data[0..output_size].iter().map(|&(real, _)| real).collect();
+        let imag_parts: Vec<f32> = complex_data[0..output_size].iter().map(|&(_, imag)| imag).collect();
+
+        let real_tensor = F32Tensor::new(real_parts, vec![output_size])?;
+        let imag_tensor = F32Tensor::new(imag_parts, vec![output_size])?;
+
+        Ok((real_tensor, imag_tensor))
+    }
+
+    /// FFTシフト（f32専用）
+    /// FFT shift (f32-specific)
+    pub fn fftshift(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::fftshift".to_string(),
+                message: "FFTshift currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let data = self.data.as_slice().unwrap();
+        let mut result_data = vec![0.0f32; n];
+
+        let mid = n / 2;
+
+        // 前半と後半を入れ替え
+        for i in 0..n {
+            let shifted_idx = (i + mid) % n;
+            result_data[i] = data[shifted_idx];
+        }
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 逆FFTシフト（f32専用）
+    /// Inverse FFT shift (f32-specific)
+    pub fn ifftshift(&self) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::ifftshift".to_string(),
+                message: "IFFTshift currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let data = self.data.as_slice().unwrap();
+        let mut result_data = vec![0.0f32; n];
+
+        let mid = (n + 1) / 2; // 奇数長に対応
+
+        // 前半と後半を入れ替え（逆方向）
+        for i in 0..n {
+            let shifted_idx = (i + mid) % n;
+            result_data[i] = data[shifted_idx];
+        }
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// 窓関数適用（f32専用）
+    /// Apply window function (f32-specific)
+    pub fn apply_window(&self, window_type: WindowType) -> RusTorchResult<F32Tensor> {
+        if self.shape.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::apply_window".to_string(),
+                message: "Window function currently only supports 1D tensors".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let data = self.data.as_slice().unwrap();
+        let window = Self::generate_window(window_type, n)?;
+
+        let result_data: Vec<f32> = data.iter()
+            .zip(window.iter())
+            .map(|(&x, &w)| x * w)
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    // ===== 信号処理の補助実装 / Signal Processing Helpers =====
+
+    /// 再帰的FFT実装
+    /// Recursive FFT implementation
+    fn fft_recursive(data: &mut [(f32, f32)]) {
+        let n = data.len();
+        if n <= 1 {
+            return;
+        }
+
+        // 偶数と奇数のインデックスに分割
+        let mut even: Vec<(f32, f32)> = data.iter().step_by(2).copied().collect();
+        let mut odd: Vec<(f32, f32)> = data.iter().skip(1).step_by(2).copied().collect();
+
+        // 再帰的にFFTを適用
+        Self::fft_recursive(&mut even);
+        Self::fft_recursive(&mut odd);
+
+        // 結果を結合
+        for i in 0..n/2 {
+            let angle = -2.0 * std::f32::consts::PI * (i as f32) / (n as f32);
+            let (cos_val, sin_val) = (angle.cos(), angle.sin());
+
+            let (odd_real, odd_imag) = odd[i];
+            let w_real = cos_val * odd_real - sin_val * odd_imag;
+            let w_imag = cos_val * odd_imag + sin_val * odd_real;
+
+            let (even_real, even_imag) = even[i];
+
+            data[i] = (even_real + w_real, even_imag + w_imag);
+            data[i + n/2] = (even_real - w_real, even_imag - w_imag);
+        }
+    }
+
+    /// 再帰的IFFT実装
+    /// Recursive IFFT implementation
+    fn ifft_recursive(data: &mut [(f32, f32)]) {
+        let n = data.len();
+        if n <= 1 {
+            return;
+        }
+
+        // 偶数と奇数のインデックスに分割
+        let mut even: Vec<(f32, f32)> = data.iter().step_by(2).copied().collect();
+        let mut odd: Vec<(f32, f32)> = data.iter().skip(1).step_by(2).copied().collect();
+
+        // 再帰的にIFFTを適用
+        Self::ifft_recursive(&mut even);
+        Self::ifft_recursive(&mut odd);
+
+        // 結果を結合（FFTと逆符号）
+        for i in 0..n/2 {
+            let angle = 2.0 * std::f32::consts::PI * (i as f32) / (n as f32);
+            let (cos_val, sin_val) = (angle.cos(), angle.sin());
+
+            let (odd_real, odd_imag) = odd[i];
+            let w_real = cos_val * odd_real - sin_val * odd_imag;
+            let w_imag = cos_val * odd_imag + sin_val * odd_real;
+
+            let (even_real, even_imag) = even[i];
+
+            data[i] = (even_real + w_real, even_imag + w_imag);
+            data[i + n/2] = (even_real - w_real, even_imag - w_imag);
+        }
+    }
+
+    /// 窓関数生成
+    /// Generate window function
+    fn generate_window(window_type: WindowType, n: usize) -> RusTorchResult<Vec<f32>> {
+        let mut window = vec![0.0f32; n];
+
+        match window_type {
+            WindowType::Rectangular => {
+                // 矩形窓（全て1）
+                window.fill(1.0);
+            }
+            WindowType::Hanning => {
+                // ハニング窓
+                for i in 0..n {
+                    window[i] = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos());
+                }
+            }
+            WindowType::Hamming => {
+                // ハミング窓
+                for i in 0..n {
+                    window[i] = 0.54 - 0.46 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
+                }
+            }
+            WindowType::Blackman => {
+                // ブラックマン窓
+                for i in 0..n {
+                    let angle = 2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32;
+                    window[i] = 0.42 - 0.5 * angle.cos() + 0.08 * (2.0 * angle).cos();
+                }
+            }
+        }
+
+        Ok(window)
+    }
+}
+
+/// 窓関数の種類
+/// Window function types
+#[derive(Debug, Clone, Copy)]
+pub enum WindowType {
+    Rectangular,
+    Hanning,
+    Hamming,
+    Blackman,
 }
 
 /// Cloneトレイトの実装
