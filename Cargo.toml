@@ -415,6 +415,21 @@ name = "hybrid_f32_phase4c_test"
 path = "examples/hybrid_f32/phase4c_test.rs"
 required-features = ["hybrid-f32"]
 
+[[example]]
+name = "hybrid_f32_phase5_test"
+path = "examples/hybrid_f32/phase5_test.rs"
+required-features = ["hybrid-f32"]
+
+[[example]]
+name = "gpu_neural_engine_benchmark"
+path = "examples/hybrid_f32/gpu_neural_engine_benchmark.rs"
+required-features = ["hybrid-f32"]
+
+[[example]]
+name = "comprehensive_performance_comparison"
+path = "examples/comprehensive_performance_comparison.rs"
+required-features = ["hybrid-f32"]
+
 [lints.clippy]
 # Allow common warnings in examples, tests, and benches
 approx_constant = "allow"

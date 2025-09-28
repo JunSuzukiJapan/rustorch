@@ -8,8 +8,10 @@
 //! aimed at reducing conversion costs. Planned for integration into main system
 //! after production validation.
 
+pub mod autograd;  // Phase 5 - 高度自動微分機能
 pub mod benchmarks;
 pub mod gpu;
+pub mod nn;        // Phase 5 - ニューラルネットワーク機能
 pub mod tensor;
 pub mod unified;
 
@@ -20,6 +22,12 @@ pub use tensor::F32Tensor;
 
 #[cfg(feature = "hybrid-f32")]
 pub use unified::F32HybridExecutor;
+
+#[cfg(feature = "hybrid-f32")]
+pub use nn::{F32Layer, F32Linear, F32Activation, F32Loss, F32MLP, F32Optimizer};
+
+#[cfg(feature = "hybrid-f32")]
+pub use autograd::{F32Variable, F32AutogradEngine};
 
 #[cfg(feature = "hybrid-f32")]
 #[cfg(target_os = "macos")]

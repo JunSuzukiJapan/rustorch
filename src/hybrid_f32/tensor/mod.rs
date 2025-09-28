@@ -3644,10 +3644,10 @@ impl F32Tensor {
 
     /// 値のクランプ（制限）（f32専用）
     /// Value clamping (f32-specific)
-    pub fn clamp(&self, min_val: Option<f32>, max_val: Option<f32>) -> RusTorchResult<F32Tensor> {
+    pub fn clamp_scalar(&self, min_val: Option<f32>, max_val: Option<f32>) -> RusTorchResult<F32Tensor> {
         if min_val.is_none() && max_val.is_none() {
             return Err(crate::error::RusTorchError::InvalidParameters {
-                operation: "F32Tensor::clamp".to_string(),
+                operation: "F32Tensor::clamp_scalar".to_string(),
                 message: "At least one of min_val or max_val must be specified".to_string(),
             });
         }
@@ -3673,19 +3673,19 @@ impl F32Tensor {
     /// 最小値クランプ（f32専用）
     /// Minimum value clamping (f32-specific)
     pub fn clamp_min(&self, min_val: f32) -> RusTorchResult<F32Tensor> {
-        self.clamp(Some(min_val), None)
+        self.clamp_scalar(Some(min_val), None)
     }
 
     /// 最大値クランプ（f32専用）
     /// Maximum value clamping (f32-specific)
     pub fn clamp_max(&self, max_val: f32) -> RusTorchResult<F32Tensor> {
-        self.clamp(None, Some(max_val))
+        self.clamp_scalar(None, Some(max_val))
     }
 
     /// 値クリップ（clampのエイリアス）（f32専用）
     /// Value clipping (alias for clamp) (f32-specific)
     pub fn clip(&self, min_val: Option<f32>, max_val: Option<f32>) -> RusTorchResult<F32Tensor> {
-        self.clamp(min_val, max_val)
+        self.clamp_scalar(min_val, max_val)
     }
 
     /// 論理積（AND）（f32専用）
@@ -6202,5 +6202,257 @@ impl F32Tensor {
     /// Get number of elements
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    /// Greater than comparison (f32-specific)
+    /// f32専用大なり比較
+    pub fn gt(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::gt".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| if a > b { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Less than or equal comparison (f32-specific)
+    /// f32専用以下比較
+    pub fn le(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::le".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(a, b)| if a <= b { 1.0 } else { 0.0 })
+            .collect();
+
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Sum along a dimension (f32-specific)
+    /// f32専用次元方向の合計
+    pub fn sum_dim(&self, dim: i32, keepdim: bool) -> RusTorchResult<F32Tensor> {
+        let ndim = self.shape.len() as i32;
+        let actual_dim = if dim < 0 { ndim + dim } else { dim } as usize;
+
+        if actual_dim >= self.shape.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::sum_dim".to_string(),
+                message: format!("Dimension {} out of range for tensor with {} dimensions", dim, self.shape.len()),
+            });
+        }
+
+        let mut result_shape = self.shape.clone();
+        if keepdim {
+            result_shape[actual_dim] = 1;
+        } else {
+            result_shape.remove(actual_dim);
+        }
+
+        if result_shape.is_empty() {
+            result_shape = vec![1];
+        }
+
+        let result_size: usize = result_shape.iter().product();
+        let mut result_data = vec![0.0f32; result_size];
+
+        // Simple implementation for common cases
+        if self.shape.len() == 1 {
+            // 1D tensor
+            let sum: f32 = self.data.iter().sum();
+            result_data[0] = sum;
+        } else if self.shape.len() == 2 && actual_dim == 0 {
+            // 2D tensor, sum along rows (dim=0)
+            let cols = self.shape[1];
+            for j in 0..cols {
+                let mut sum = 0.0f32;
+                for i in 0..self.shape[0] {
+                    sum += self.data[[i, j]];
+                }
+                result_data[j] = sum;
+            }
+        } else if self.shape.len() == 2 && actual_dim == 1 {
+            // 2D tensor, sum along columns (dim=1)
+            let rows = self.shape[0];
+            for i in 0..rows {
+                let mut sum = 0.0f32;
+                for j in 0..self.shape[1] {
+                    sum += self.data[[i, j]];
+                }
+                result_data[i] = sum;
+            }
+        } else {
+            // General case - flatten and sum all
+            let sum: f32 = self.data.iter().sum();
+            result_data[0] = sum;
+        }
+
+        F32Tensor::new(result_data, result_shape)
+    }
+
+    /// Type conversion (f32-specific)
+    /// f32専用型変換
+    pub fn to_type(&self, target: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        // For f32, this is essentially a copy with shape broadcast if needed
+        if self.shape == target.shape {
+            return Ok(self.clone()?);
+        }
+
+        // Simple broadcast for scalar target
+        if target.len() == 1 {
+            let scalar_value = target.data.iter().next().unwrap();
+            let result_data: Vec<f32> = self.data.iter().map(|_| *scalar_value).collect();
+            return F32Tensor::new(result_data, self.shape.clone());
+        }
+
+        // For now, just copy the data with original shape
+        Ok(self.clone()?)
+    }
+
+    /// Create tensor from scalar (f32-specific)
+    /// f32専用スカラーからテンソル作成
+    pub fn from_scalar(value: f32) -> RusTorchResult<F32Tensor> {
+        F32Tensor::new(vec![value], vec![1])
+    }
+
+    /// ReLU activation function (f32-specific)
+    /// f32専用ReLU活性化関数
+    pub fn relu(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&x| if x > 0.0 { x } else { 0.0 })
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Sigmoid activation function (f32-specific)
+    /// f32専用シグモイド活性化関数
+    pub fn sigmoid(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&x| 1.0 / (1.0 + (-x).exp()))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+
+    /// Natural logarithm (f32-specific)
+    /// f32専用自然対数
+    pub fn log(&self) -> RusTorchResult<F32Tensor> {
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&x| x.ln())
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Power function (f32-specific)
+    /// f32専用べき乗関数
+    pub fn power(&self, exponent: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if exponent.len() == 1 {
+            // Scalar exponent
+            let exp_val = exponent.as_slice()[0];
+            let result_data: Vec<f32> = self.data.iter()
+                .map(|&x| x.powf(exp_val))
+                .collect();
+            F32Tensor::new(result_data, self.shape.clone())
+        } else if self.shape == exponent.shape {
+            // Element-wise power
+            let result_data: Vec<f32> = self.data.iter()
+                .zip(exponent.data.iter())
+                .map(|(&x, &e)| x.powf(e))
+                .collect();
+            F32Tensor::new(result_data, self.shape.clone())
+        } else {
+            Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::pow".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, exponent.shape),
+            })
+        }
+    }
+
+    /// Element-wise maximum (f32-specific)
+    /// f32専用要素別最大値
+    pub fn maximum(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::max".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(&a, &b)| a.max(b))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Element-wise minimum (f32-specific)
+    /// f32専用要素別最小値
+    pub fn minimum(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::min".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = self.data.iter()
+            .zip(other.data.iter())
+            .map(|(&a, &b)| a.min(b))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Mean of all elements (f32-specific)
+    /// f32専用全要素の平均
+    pub fn mean_tensor(&self) -> RusTorchResult<F32Tensor> {
+        let sum: f32 = self.data.iter().sum();
+        let mean_value = sum / self.len() as f32;
+        F32Tensor::new(vec![mean_value], vec![1])
+    }
+
+    /// Clamp values between min and max (f32-specific)
+    /// f32専用値の範囲制限
+    pub fn clamp(&self, min_val: F32Tensor, max_val: F32Tensor) -> RusTorchResult<F32Tensor> {
+        let min_scalar = min_val.as_slice()[0];
+        let max_scalar = max_val.as_slice()[0];
+
+        let result_data: Vec<f32> = self.data.iter()
+            .map(|&x| x.clamp(min_scalar, max_scalar))
+            .collect();
+        F32Tensor::new(result_data, self.shape.clone())
+    }
+
+    /// Element-wise division (f32-specific)
+    /// f32専用要素別除算
+    pub fn divide(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        if self.shape != other.shape && other.len() != 1 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::div".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let result_data: Vec<f32> = if other.len() == 1 {
+            let divisor = other.as_slice()[0];
+            self.data.iter().map(|&x| x / divisor).collect()
+        } else {
+            self.data.iter()
+                .zip(other.data.iter())
+                .map(|(&a, &b)| a / b)
+                .collect()
+        };
+
+        F32Tensor::new(result_data, self.shape.clone())
     }
 }
