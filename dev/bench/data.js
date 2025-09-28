@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759038009589,
+  "lastUpdate": 1759038023067,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1175,6 +1175,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "fd250c914cd309db49e8557473edd3cc42660698",
+          "message": "chore: Bump version to 0.6.24 in Cargo.toml\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T14:39:13+09:00",
+          "tree_id": "7354a1e9d8478f6872c8398da4cc04fc38960903",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/fd250c914cd309db49e8557473edd3cc42660698"
+        },
+        "date": 1759038020144,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30005,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
