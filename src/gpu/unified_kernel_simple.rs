@@ -326,7 +326,7 @@ impl UnifiedKernelExecutor {
             }
             #[cfg(feature = "mac-hybrid")]
             DeviceType::MacHybrid => {
-                // MacHybrid auto-selects between Metal and CoreML  
+                // MacHybrid auto-selects between Metal and CoreML
                 self.metrics.memory_bandwidth = 350.0;
                 self.metrics.occupancy = 85.0;
                 self.metrics.flops = 1000.0;

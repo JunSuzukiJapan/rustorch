@@ -176,7 +176,8 @@ impl CustomKernelManager {
             )),
             #[cfg(feature = "mac-hybrid")]
             DeviceType::MacHybrid => Err(RusTorchError::UnsupportedOperation(
-                "Custom kernels not supported on MacHybrid - use Metal or CoreML directly".to_string(),
+                "Custom kernels not supported on MacHybrid - use Metal or CoreML directly"
+                    .to_string(),
             )),
         }
     }

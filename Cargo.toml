@@ -226,25 +226,25 @@ name = "matrix_decomposition_demo"
 path = "examples/matrix_decomposition_demo.rs"
 required-features = ["linalg"]
 
-[[example]]
-name = "metal_performance_demo"
-path = "examples/metal_performance_demo.rs"
-required-features = ["metal"]
+# [[example]]
+# name = "metal_performance_demo"
+# path = "examples/metal_performance_demo.rs"
+# required-features = ["metal"]
 
-[[example]]
-name = "cuda_performance_demo"
-path = "examples/cuda_performance_demo.rs"
-required-features = ["cuda"]
+# [[example]]
+# name = "cuda_performance_demo"
+# path = "examples/cuda_performance_demo.rs"
+# required-features = ["cuda"]
 
 # [[example]]
 # name = "opencl_performance_demo"
 # path = "examples/opencl_performance_demo.rs"
 # required-features = ["opencl"]
 
-[[example]]
-name = "comprehensive_gpu_benchmark"
-path = "examples/comprehensive_gpu_benchmark.rs"
-required-features = []  # Runs with any available features
+# [[example]]
+# name = "comprehensive_gpu_benchmark"
+# path = "examples/comprehensive_gpu_benchmark.rs"
+# required-features = []  # Runs with any available features
 
 [[bench]]
 name = "quick_benchmark"

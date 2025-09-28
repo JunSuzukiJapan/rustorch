@@ -22,7 +22,8 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         let tensor_size = self.data.len() + other.data.len();
 
         // Select optimal device based on operation type and size
-        let device = DeviceType::select_best_for_operation(&OpType::LinearAlgebra, Some(tensor_size));
+        let device =
+            DeviceType::select_best_for_operation(&OpType::LinearAlgebra, Some(tensor_size));
 
         // Route to appropriate backend - prefer hardware acceleration
         match device {
@@ -383,53 +384,65 @@ impl<T: Float + 'static + ndarray::ScalarOperand + num_traits::FromPrimitive> Te
         ))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn matmul_metal(&self, other: &Tensor<T>, _device_id: usize) -> RusTorchResult<Self> {
         // Use actual Metal GPU hardware acceleration
         use crate::gpu::metal_kernels::metal_matmul_f32;
-        
+
         // Convert to f32 for Metal kernel
-        let a_data = self.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
-        let b_data = other.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let a_data = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let b_data = other
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
         let a_shape = self.data.shape();
         let b_shape = other.data.shape();
-        
+
         if a_shape.len() != 2 || b_shape.len() != 2 {
             return Err(RusTorchError::InvalidOperation {
                 operation: "matmul_metal".to_string(),
                 message: "Only 2D matrix multiplication supported".to_string(),
             });
         }
-        
+
         let (m, k) = (a_shape[0], a_shape[1]);
         let (k2, n) = (b_shape[0], b_shape[1]);
-        
+
         if k != k2 {
             return Err(RusTorchError::InvalidOperation {
                 operation: "matmul_metal".to_string(),
                 message: "Matrix dimensions don't match for multiplication".to_string(),
             });
         }
-        
+
         let mut c_data = vec![0.0f32; m * n];
-        
+
         // Call actual Metal GPU implementation
-        metal_matmul_f32(&a_data, &b_data, &mut c_data, m, n, k)
-            .map_err(|e| RusTorchError::InvalidOperation {
+        metal_matmul_f32(&a_data, &b_data, &mut c_data, m, n, k).map_err(|e| {
+            RusTorchError::InvalidOperation {
                 operation: "matmul_metal".to_string(),
                 message: format!("Metal matmul failed: {}", e),
-            })?;
-        
+            }
+        })?;
+
         // Convert result back to tensor
-        let result_data: Vec<T> = c_data.into_iter()
+        let result_data: Vec<T> = c_data
+            .into_iter()
             .map(|x| T::from_f32(x).unwrap())
             .collect();
-        
-        let result_array = ndarray::Array::from_shape_vec((m, n), result_data)
-            .map_err(|e| RusTorchError::InvalidOperation {
+
+        let result_array = ndarray::Array::from_shape_vec((m, n), result_data).map_err(|e| {
+            RusTorchError::InvalidOperation {
                 operation: "matmul_metal".to_string(),
                 message: format!("Failed to create result array: {}", e),
-            })?;
-        
+            }
+        })?;
+
         Ok(Tensor {
             data: result_array.into_dyn(),
             device: self.device.clone(),

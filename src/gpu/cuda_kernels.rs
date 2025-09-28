@@ -541,12 +541,17 @@ impl CudaKernelExecutor {
 
         // Compile kernel
         let ptx = compile_ptx(kernel_src).map_err(|e| {
-            RusTorchError::kernel_compilation(format!("Failed to compile CUDA conv2d kernel: {}", e))
+            RusTorchError::kernel_compilation(format!(
+                "Failed to compile CUDA conv2d kernel: {}",
+                e
+            ))
         })?;
 
         self.device
             .load_ptx(ptx, "conv2d", &["conv2d_f32"])
-            .map_err(|e| RusTorchError::kernel_compilation(format!("Failed to load conv2d PTX: {}", e)))?;
+            .map_err(|e| {
+                RusTorchError::kernel_compilation(format!("Failed to load conv2d PTX: {}", e))
+            })?;
 
         // Allocate device memory
         let input_gpu = self
@@ -585,20 +590,32 @@ impl CudaKernelExecutor {
 
         unsafe {
             let params = (
-                &input_gpu, &kernel_gpu, &mut output_gpu,
-                input_height as i32, input_width as i32, input_channels as i32,
-                output_channels as i32, kernel_height as i32, kernel_width as i32,
-                stride_h as i32, stride_w as i32, pad_h as i32, pad_w as i32,
-                output_height as i32, output_width as i32
+                &input_gpu,
+                &kernel_gpu,
+                &mut output_gpu,
+                input_height as i32,
+                input_width as i32,
+                input_channels as i32,
+                output_channels as i32,
+                kernel_height as i32,
+                kernel_width as i32,
+                stride_h as i32,
+                stride_w as i32,
+                pad_h as i32,
+                pad_w as i32,
+                output_height as i32,
+                output_width as i32,
             );
             func.launch(config, params)
                 .map_err(|e| RusTorchError::gpu(format!("Conv2d kernel launch failed: {}", e)))?;
         }
 
         // Copy result back to host
-        self.device.dtoh_sync_copy_into(&output_gpu, output).map_err(|e| {
-            RusTorchError::tensor_op(format!("Failed to copy conv2d result to host: {}", e))
-        })?;
+        self.device
+            .dtoh_sync_copy_into(&output_gpu, output)
+            .map_err(|e| {
+                RusTorchError::tensor_op(format!("Failed to copy conv2d result to host: {}", e))
+            })?;
 
         Ok(())
     }

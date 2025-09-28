@@ -248,11 +248,11 @@ impl HeavyPerformanceBenchmark {
                     #[cfg(feature = "metal")]
                     temperature_celsius: None, // TODO: Implement if possible
                     #[cfg(feature = "coreml")]
-                    cpu_usage_percent: 0.0,    // TODO: Implement if possible
+                    cpu_usage_percent: 0.0, // TODO: Implement if possible
                     #[cfg(feature = "metal")]
-                    gpu_usage_percent: 0.0,    // TODO: Implement if possible
+                    gpu_usage_percent: 0.0, // TODO: Implement if possible
                     #[cfg(feature = "metal")]
-                    power_usage_watts: None,   // TODO: Implement if possible
+                    power_usage_watts: None, // TODO: Implement if possible
                 };
 
                 // Use the metrics in debug output (Metal-specific)
@@ -275,8 +275,7 @@ impl HeavyPerformanceBenchmark {
                 {
                     println!(
                         "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
-                        metrics.operation_time_ms,
-                        metrics.memory_usage_mb
+                        metrics.operation_time_ms, metrics.memory_usage_mb
                     );
                 }
 
@@ -323,14 +322,10 @@ impl HeavyPerformanceBenchmark {
             phase_result.memory_peak_mb,
             phase_result.success_rate
         );
-        println!(
-            "    🌡️  Thermal events: {}",
-            phase_result.thermal_events
-        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
 
         Ok(phase_result)
     }
-
 
     /// Phase 1: Heavy Mac-Hybrid matrix operations
     /// フェーズ1: 重いMac-Hybrid行列演算
@@ -414,8 +409,7 @@ impl HeavyPerformanceBenchmark {
                 {
                     println!(
                         "      📊 Mac-Hybrid Metrics - Time: {:.2}ms, Memory: {:.1}MB",
-                        metrics.operation_time_ms,
-                        metrics.memory_usage_mb
+                        metrics.operation_time_ms, metrics.memory_usage_mb
                     );
                     #[cfg(feature = "metal")]
                     {
@@ -429,10 +423,7 @@ impl HeavyPerformanceBenchmark {
                     }
                     #[cfg(feature = "coreml")]
                     {
-                        println!(
-                            "      💻 CPU: {:.1}%",
-                            metrics.cpu_usage_percent
-                        );
+                        println!("      💻 CPU: {:.1}%", metrics.cpu_usage_percent);
                     }
                 }
 
@@ -479,10 +470,7 @@ impl HeavyPerformanceBenchmark {
             phase_result.memory_peak_mb,
             phase_result.success_rate
         );
-        println!(
-            "    🌡️  Thermal events: {}",
-            phase_result.thermal_events
-        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
 
         Ok(phase_result)
     }
@@ -580,8 +568,7 @@ impl HeavyPerformanceBenchmark {
                 {
                     println!(
                         "      📊 Metrics - Time: {:.2}ms, Memory: {:.1}MB",
-                        metrics.operation_time_ms,
-                        metrics.memory_usage_mb
+                        metrics.operation_time_ms, metrics.memory_usage_mb
                     );
                 }
 
@@ -628,14 +615,10 @@ impl HeavyPerformanceBenchmark {
             phase_result.memory_peak_mb,
             phase_result.success_rate
         );
-        println!(
-            "    🌡️  Thermal events: {}",
-            phase_result.thermal_events
-        );
+        println!("    🌡️  Thermal events: {}", phase_result.thermal_events);
 
         Ok(phase_result)
     }
-
 
     /// Phase 2: Heavy deep convolution network benchmark
     /// フェーズ2: 重い深層畳み込みネットワークベンチマーク
@@ -910,15 +893,16 @@ impl HeavyPerformanceBenchmark {
         );
         println!(
             "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
-            result.average_memory_usage_mb,
-            result.peak_memory_usage_mb
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
         );
         println!(
             "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
-            result.thermal_throttling_detected,
-            result.power_efficiency_score
+            result.thermal_throttling_detected, result.power_efficiency_score
         );
-        println!("   📈 Metrics collected: {} data points", result.metrics_timeline.len());
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
 
         for (phase_name, phase_result) in &result.phase_results {
             println!(
@@ -976,15 +960,16 @@ impl HeavyPerformanceBenchmark {
         );
         println!(
             "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
-            result.average_memory_usage_mb,
-            result.peak_memory_usage_mb
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
         );
         println!(
             "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
-            result.thermal_throttling_detected,
-            result.power_efficiency_score
+            result.thermal_throttling_detected, result.power_efficiency_score
         );
-        println!("   📈 Metrics collected: {} data points", result.metrics_timeline.len());
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
         println!("   🔀 Hybrid Selection: Automatically chose optimal Metal/CoreML backends");
 
         for (phase_name, phase_result) in &result.phase_results {
@@ -1043,15 +1028,16 @@ impl HeavyPerformanceBenchmark {
         );
         println!(
             "   💾 Memory: Avg {:.1}MB, Peak {:.1}MB",
-            result.average_memory_usage_mb,
-            result.peak_memory_usage_mb
+            result.average_memory_usage_mb, result.peak_memory_usage_mb
         );
         println!(
             "   🌡️  Thermal throttling: {}, Power efficiency: {:?}",
-            result.thermal_throttling_detected,
-            result.power_efficiency_score
+            result.thermal_throttling_detected, result.power_efficiency_score
         );
-        println!("   📈 Metrics collected: {} data points", result.metrics_timeline.len());
+        println!(
+            "   📈 Metrics collected: {} data points",
+            result.metrics_timeline.len()
+        );
 
         for (phase_name, phase_result) in &result.phase_results {
             println!(

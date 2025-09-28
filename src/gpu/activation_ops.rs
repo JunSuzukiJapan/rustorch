@@ -81,7 +81,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA ReLU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA ReLU not yet implemented".to_string()
+                            "CUDA ReLU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -91,7 +91,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL ReLU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL ReLU not yet implemented".to_string()
+                            "OpenCL ReLU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -136,7 +136,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA Sigmoid not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA Sigmoid not yet implemented".to_string()
+                            "CUDA Sigmoid not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -146,7 +146,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL Sigmoid not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL Sigmoid not yet implemented".to_string()
+                            "OpenCL Sigmoid not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -191,7 +191,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA Tanh not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA Tanh not yet implemented".to_string()
+                            "CUDA Tanh not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -201,7 +201,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL Tanh not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL Tanh not yet implemented".to_string()
+                            "OpenCL Tanh not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -246,19 +246,19 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA Softmax not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA Softmax not yet implemented".to_string()
+                            "CUDA Softmax not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
                         // Metal Softmax not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "Metal Softmax not yet implemented".to_string()
+                            "Metal Softmax not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL Softmax not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL Softmax not yet implemented".to_string()
+                            "OpenCL Softmax not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -303,7 +303,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA GELU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA GELU not yet implemented".to_string()
+                            "CUDA GELU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -313,7 +313,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL GELU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL GELU not yet implemented".to_string()
+                            "OpenCL GELU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -358,7 +358,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA Leaky ReLU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA Leaky ReLU not yet implemented".to_string()
+                            "CUDA Leaky ReLU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -368,7 +368,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL Leaky ReLU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL Leaky ReLU not yet implemented".to_string()
+                            "OpenCL Leaky ReLU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -413,7 +413,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA ELU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA ELU not yet implemented".to_string()
+                            "CUDA ELU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -423,7 +423,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL ELU not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL ELU not yet implemented".to_string()
+                            "OpenCL ELU not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -468,7 +468,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::Cuda(_) => {
                         // CUDA Swish not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "CUDA Swish not yet implemented".to_string()
+                            "CUDA Swish not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Metal(_) => {
@@ -478,7 +478,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuActiva
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL Swish not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL Swish not yet implemented".to_string()
+                            "OpenCL Swish not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -623,7 +623,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn relu_metal(&self) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_relu_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_relu_f32(&input_data, &mut output_data)?;
@@ -638,7 +642,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn sigmoid_metal(&self) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_sigmoid_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_sigmoid_f32(&input_data, &mut output_data)?;
@@ -653,7 +661,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn tanh_metal(&self) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_tanh_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_tanh_f32(&input_data, &mut output_data)?;
@@ -668,7 +680,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn gelu_metal(&self) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_gelu_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_gelu_f32(&input_data, &mut output_data)?;
@@ -683,7 +699,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn leaky_relu_metal(&self, negative_slope: f64) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_leaky_relu_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_leaky_relu_f32(&input_data, &mut output_data, negative_slope as f32)?;
@@ -698,7 +718,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn elu_metal(&self, alpha: f64) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_elu_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_elu_f32(&input_data, &mut output_data, alpha as f32)?;
@@ -713,7 +737,11 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     pub fn swish_metal(&self) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_swish_f32;
 
-        let input_data: Vec<f32> = self.data.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
+        let input_data: Vec<f32> = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap_or(0.0))
+            .collect();
         let mut output_data = vec![0.0f32; input_data.len()];
 
         metal_swish_f32(&input_data, &mut output_data)?;
@@ -725,37 +753,51 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     // Non-Metal fallback implementations for missing Metal methods
     #[cfg(not(feature = "metal"))]
     pub fn relu_metal(&self) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn sigmoid_metal(&self) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn tanh_metal(&self) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn gelu_metal(&self) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn leaky_relu_metal(&self, _negative_slope: f64) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn elu_metal(&self, _alpha: f64) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 
     #[cfg(not(feature = "metal"))]
     pub fn swish_metal(&self) -> RusTorchResult<Tensor<T>> {
-        Err(RusTorchError::UnsupportedDevice("Metal not available".to_string()))
+        Err(RusTorchError::UnsupportedDevice(
+            "Metal not available".to_string(),
+        ))
     }
 }
 

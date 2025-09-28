@@ -364,15 +364,14 @@ impl DeviceType {
             // CoreML preferred for optimized ML operations
             OpType::Convolution | OpType::Activation if tensor_size.unwrap_or(0) > 1000 => {
                 DeviceType::CoreML(0)
-            },
+            }
             // Metal preferred for custom computations and large matrices
-            OpType::LinearAlgebra if tensor_size.unwrap_or(0) > 10000 => {
-                DeviceType::Metal(0)
-            },
+            OpType::LinearAlgebra if tensor_size.unwrap_or(0) > 10000 => DeviceType::Metal(0),
             // CoreML unsupported operations → Metal
-            OpType::ComplexMath | OpType::Distribution | OpType::CustomKernel | OpType::DistributedOps => {
-                DeviceType::Metal(0)
-            },
+            OpType::ComplexMath
+            | OpType::Distribution
+            | OpType::CustomKernel
+            | OpType::DistributedOps => DeviceType::Metal(0),
             // Default: prefer CoreML for power efficiency
             _ => DeviceType::CoreML(0),
         }
@@ -478,10 +477,8 @@ impl DeviceType {
             #[cfg(feature = "mac-hybrid")]
             DeviceType::MacHybrid => {
                 // MacHybrid is available if either Metal or CoreML is available
-                cfg!(target_os = "macos") && (
-                    DeviceType::Metal(0).is_available() ||
-                    DeviceType::CoreML(0).is_available()
-                )
+                cfg!(target_os = "macos")
+                    && (DeviceType::Metal(0).is_available() || DeviceType::CoreML(0).is_available())
             }
             DeviceType::Auto => true, // Auto always "available" - selects best device
         }

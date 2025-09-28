@@ -601,7 +601,10 @@ where
         {
             return self.matmul_metal(other, 0).map_err(|e| e.into());
         }
-        #[cfg(all(feature = "coreml", not(any(feature = "metal", feature = "mac-hybrid"))))]
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
         {
             return self.matmul_coreml(other, 0).map_err(|e| e.into());
         }
@@ -670,7 +673,7 @@ where
 
         #[cfg(feature = "mac-hybrid")]
         {
-            use crate::gpu::{GpuConvolution, DeviceType, OpType};
+            use crate::gpu::{DeviceType, GpuConvolution, OpType};
             return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
         }
         #[cfg(all(feature = "metal", not(feature = "mac-hybrid")))]
@@ -678,7 +681,10 @@ where
             use crate::gpu::GpuConvolution;
             return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
         }
-        #[cfg(all(feature = "coreml", not(any(feature = "metal", feature = "mac-hybrid"))))]
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
         {
             use crate::gpu::GpuConvolution;
             return self.gpu_conv2d(kernel, &params).map_err(|e| e.into());
@@ -686,8 +692,10 @@ where
         #[cfg(not(any(feature = "metal", feature = "coreml", feature = "mac-hybrid")))]
         {
             Err(crate::error::RusTorchError::tensor_op(
-                "No GPU acceleration available (enable metal, coreml, or mac-hybrid features)".to_string(),
-            ).into())
+                "No GPU acceleration available (enable metal, coreml, or mac-hybrid features)"
+                    .to_string(),
+            )
+            .into())
         }
     }
 
@@ -705,7 +713,10 @@ where
             let attention_weights = self.apply_softmax(&scores)?;
             return attention_weights.matmul_metal(value, 0);
         }
-        #[cfg(all(feature = "coreml", not(any(feature = "metal", feature = "mac-hybrid"))))]
+        #[cfg(all(
+            feature = "coreml",
+            not(any(feature = "metal", feature = "mac-hybrid"))
+        ))]
         {
             let scores = self.matmul_coreml(key, 0)?;
             let attention_weights = self.apply_softmax(&scores)?;

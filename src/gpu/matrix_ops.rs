@@ -75,38 +75,51 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
     #[cfg(feature = "metal")]
     fn execute_metal_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::metal_kernels::metal_matmul_f32;
-        
+
         // Convert tensors to the format expected by Metal kernels
-        let a_data = a.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
-        let b_data = b.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let a_data = a
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let b_data = b
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
         let a_shape = a.data.shape();
         let b_shape = b.data.shape();
-        
+
         if a_shape.len() != 2 || b_shape.len() != 2 {
-            return Err(RusTorchError::gpu("Only 2D matrix multiplication supported"));
+            return Err(RusTorchError::gpu(
+                "Only 2D matrix multiplication supported",
+            ));
         }
-        
+
         let (m, k) = (a_shape[0], a_shape[1]);
         let (k2, n) = (b_shape[0], b_shape[1]);
-        
+
         if k != k2 {
-            return Err(RusTorchError::gpu("Matrix dimensions don't match for multiplication"));
+            return Err(RusTorchError::gpu(
+                "Matrix dimensions don't match for multiplication",
+            ));
         }
-        
+
         let mut c_data = vec![0.0f32; m * n];
-        
+
         // Call actual Metal GPU implementation
         metal_matmul_f32(&a_data, &b_data, &mut c_data, m, n, k)?;
-        
+
         // Convert result back to tensor
-        let result_data: Vec<T> = c_data.into_iter()
+        let result_data: Vec<T> = c_data
+            .into_iter()
             .map(|x| T::from_f32(x).unwrap())
             .collect();
-        
+
         // Create result tensor using the correct API
         let result_array = ndarray::Array::from_shape_vec((m, n), result_data)
             .map_err(|e| RusTorchError::gpu(&format!("Failed to create result array: {}", e)))?;
-        
+
         Ok(Tensor {
             data: result_array.into_dyn(),
             device: a.device.clone(),
@@ -115,10 +128,14 @@ impl<T: Float + FromPrimitive + ScalarOperand + 'static> GpuMatrixExecutor<T> {
     }
 
     /// Execute CoreML matrix multiplication using actual Neural Engine hardware
-    #[cfg(any(feature = "coreml", feature = "coreml-hybrid", feature = "coreml-fallback"))]
+    #[cfg(any(
+        feature = "coreml",
+        feature = "coreml-hybrid",
+        feature = "coreml-fallback"
+    ))]
     fn execute_coreml_matmul(&self, a: &Tensor<T>, b: &Tensor<T>) -> RusTorchResult<Tensor<T>> {
         use crate::gpu::coreml::operations::linear_algebra::CoreMLLinearAlgebra;
-        
+
         // Use CoreML's actual Neural Engine implementation
         a.coreml_matmul(b)
             .map_err(|e| RusTorchError::gpu(&format!("CoreML matmul failed: {}", e)))
@@ -390,7 +407,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                             }
                             Err(e) => {
                                 // CUDA failed, return error instead of CPU fallback
-                                return Err(RusTorchError::gpu(format!("CUDA matrix multiplication failed: {}", e)));
+                                return Err(RusTorchError::gpu(format!(
+                                    "CUDA matrix multiplication failed: {}",
+                                    e
+                                )));
                             }
                         }
                     }
@@ -400,7 +420,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
 
         // CUDA not available or failed - return error instead of CPU fallback
         Err(RusTorchError::DeviceNotAvailable(
-            "CUDA not available or failed to execute matrix multiplication".to_string()
+            "CUDA not available or failed to execute matrix multiplication".to_string(),
         ))
     }
 
@@ -447,7 +467,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                         }
                         Err(e) => {
                             // Metal failed - return error instead of CPU fallback
-                            return Err(RusTorchError::gpu(format!("Metal matrix multiplication failed: {}", e)));
+                            return Err(RusTorchError::gpu(format!(
+                                "Metal matrix multiplication failed: {}",
+                                e
+                            )));
                         }
                     }
                 }
@@ -456,7 +479,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
 
         // No Metal support - return error instead of CPU fallback
         Err(RusTorchError::DeviceNotAvailable(
-            "Metal not available or failed to execute batch matrix multiplication".to_string()
+            "Metal not available or failed to execute batch matrix multiplication".to_string(),
         ))
     }
 
@@ -503,7 +526,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                             }
                             Err(e) => {
                                 // OpenCL failed - return error instead of CPU fallback
-                                return Err(RusTorchError::gpu(format!("OpenCL matrix multiplication failed: {}", e)));
+                                return Err(RusTorchError::gpu(format!(
+                                    "OpenCL matrix multiplication failed: {}",
+                                    e
+                                )));
                             }
                         }
                     }
@@ -513,7 +539,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
 
         // OpenCL not available - return error instead of CPU fallback
         Err(RusTorchError::DeviceNotAvailable(
-            "OpenCL not available or failed to execute batch matrix multiplication".to_string()
+            "OpenCL not available or failed to execute batch matrix multiplication".to_string(),
         ))
     }
 }

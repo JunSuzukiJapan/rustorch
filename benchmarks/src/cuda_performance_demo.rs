@@ -43,7 +43,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "cuda"))]
     {
         println!("❌ CUDA feature not enabled");
-        println!("Run with: cd benchmarks && cargo run --bin cuda_performance_demo --features cuda");
+        println!(
+            "Run with: cd benchmarks && cargo run --bin cuda_performance_demo --features cuda"
+        );
     }
 
     Ok(())

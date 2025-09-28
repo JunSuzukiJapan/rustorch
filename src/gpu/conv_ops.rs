@@ -97,7 +97,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuConvol
                     super::DeviceType::OpenCL(_) => {
                         // OpenCL convolution not implemented - return error instead of CPU fallback
                         Err(RusTorchError::UnsupportedOperation(
-                            "OpenCL convolution not yet implemented".to_string()
+                            "OpenCL convolution not yet implemented".to_string(),
                         ))
                     }
                     super::DeviceType::Cpu => {
@@ -405,15 +405,24 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
         #[cfg(not(feature = "metal"))]
         {
             // CPU fallback implementation
-            let output_height = (self.shape()[2] + 2 * params.padding[0] - kernel.shape()[2]) / params.stride[0] + 1;
-            let output_width = (self.shape()[3] + 2 * params.padding[1] - kernel.shape()[3]) / params.stride[1] + 1;
+            let output_height = (self.shape()[2] + 2 * params.padding[0] - kernel.shape()[2])
+                / params.stride[0]
+                + 1;
+            let output_width = (self.shape()[3] + 2 * params.padding[1] - kernel.shape()[3])
+                / params.stride[1]
+                + 1;
 
             // Simple placeholder implementation
             let output_size = self.shape()[0] * kernel.shape()[0] * output_height * output_width;
             let output_data = vec![T::zero(); output_size];
 
             // Create output tensor shape: [batch, output_channels, output_height, output_width]
-            let output_shape = vec![self.shape()[0], kernel.shape()[0], output_height, output_width];
+            let output_shape = vec![
+                self.shape()[0],
+                kernel.shape()[0],
+                output_height,
+                output_width,
+            ];
 
             Ok(Tensor::from_vec(output_data, output_shape))
         }
@@ -424,48 +433,59 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
     #[cfg(feature = "metal")]
     fn conv2d_metal(&self, kernel: &Self, params: &ConvolutionParams) -> RusTorchResult<Self> {
         use crate::gpu::metal_kernels::metal_conv2d_f32;
-        
+
         // Convert tensors to f32 for Metal kernel
-        let input_data = self.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
-        let kernel_data = kernel.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
-        
+        let input_data = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let kernel_data = kernel
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+
         // Get tensor dimensions
         let input_shape = self.data.shape();
         let kernel_shape = kernel.data.shape();
-        
+
         if input_shape.len() != 4 || kernel_shape.len() != 4 {
             return Err(RusTorchError::InvalidOperation {
                 operation: "conv2d_metal".to_string(),
                 message: "Input and kernel must be 4D tensors [N, C, H, W]".to_string(),
             });
         }
-        
+
         let batch_size = input_shape[0];
         let input_channels = input_shape[1];
         let input_height = input_shape[2];
         let input_width = input_shape[3];
-        
+
         let output_channels = kernel_shape[0];
         let kernel_height = kernel_shape[2];
         let kernel_width = kernel_shape[3];
-        
+
         // Calculate output dimensions
-        let output_height = (input_height + 2 * params.padding[0] - kernel_height) / params.stride[0] + 1;
-        let output_width = (input_width + 2 * params.padding[1] - kernel_width) / params.stride[1] + 1;
-        
+        let output_height =
+            (input_height + 2 * params.padding[0] - kernel_height) / params.stride[0] + 1;
+        let output_width =
+            (input_width + 2 * params.padding[1] - kernel_width) / params.stride[1] + 1;
+
         let output_size = batch_size * output_channels * output_height * output_width;
         let mut output_data = vec![0.0f32; output_size];
-        
+
         // Process each batch
         for batch in 0..batch_size {
             let input_batch_start = batch * input_channels * input_height * input_width;
             let input_batch_end = input_batch_start + input_channels * input_height * input_width;
             let input_batch = &input_data[input_batch_start..input_batch_end];
-            
+
             let output_batch_start = batch * output_channels * output_height * output_width;
-            let output_batch_end = output_batch_start + output_channels * output_height * output_width;
+            let output_batch_end =
+                output_batch_start + output_channels * output_height * output_width;
             let output_batch = &mut output_data[output_batch_start..output_batch_end];
-            
+
             // Call Metal convolution
             metal_conv2d_f32(
                 input_batch,
@@ -481,22 +501,24 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
                 params.stride[1],
                 params.padding[0],
                 params.padding[1],
-            ).map_err(|e| RusTorchError::InvalidOperation {
+            )
+            .map_err(|e| RusTorchError::InvalidOperation {
                 operation: "conv2d_metal".to_string(),
                 message: format!("Metal convolution failed: {}", e),
             })?;
         }
-        
+
         // Convert result back to tensor
-        let result_data: Vec<T> = output_data.into_iter()
+        let result_data: Vec<T> = output_data
+            .into_iter()
             .map(|x| T::from_f32(x).unwrap())
             .collect();
-        
+
         let output_shape = vec![batch_size, output_channels, output_height, output_width];
-        
+
         Ok(Tensor::from_vec(result_data, output_shape))
     }
-    
+
     #[cfg(not(feature = "metal"))]
     fn conv2d_metal(&self, _kernel: &Self, _params: &ConvolutionParams) -> RusTorchResult<Self> {
         Err(RusTorchError::UnsupportedDevice(
@@ -511,8 +533,16 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
         use crate::gpu::cuda_kernels::cuda_conv2d_f32;
 
         // Convert tensors to f32 for CUDA kernel
-        let input_data = self.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
-        let kernel_data = kernel.data.iter().map(|&x| x.to_f32().unwrap()).collect::<Vec<f32>>();
+        let input_data = self
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
+        let kernel_data = kernel
+            .data
+            .iter()
+            .map(|&x| x.to_f32().unwrap())
+            .collect::<Vec<f32>>();
 
         // Get tensor dimensions
         let input_shape = self.data.shape();
@@ -535,8 +565,10 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
         let kernel_width = kernel_shape[3];
 
         // Calculate output dimensions
-        let output_height = (input_height + 2 * params.padding[0] - kernel_height) / params.stride[0] + 1;
-        let output_width = (input_width + 2 * params.padding[1] - kernel_width) / params.stride[1] + 1;
+        let output_height =
+            (input_height + 2 * params.padding[0] - kernel_height) / params.stride[0] + 1;
+        let output_width =
+            (input_width + 2 * params.padding[1] - kernel_width) / params.stride[1] + 1;
 
         let output_size = batch_size * output_channels * output_height * output_width;
         let mut output_data = vec![0.0f32; output_size];
@@ -548,7 +580,8 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
             let batch_input = &input_data[batch_input_start..batch_input_end];
 
             let batch_output_start = b * output_channels * output_height * output_width;
-            let batch_output_end = batch_output_start + output_channels * output_height * output_width;
+            let batch_output_end =
+                batch_output_start + output_channels * output_height * output_width;
             let batch_output = &mut output_data[batch_output_start..batch_output_end];
 
             // Call CUDA convolution for this batch
@@ -566,14 +599,16 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
                 params.stride[1],
                 params.padding[0],
                 params.padding[1],
-            ).map_err(|e| RusTorchError::InvalidOperation {
+            )
+            .map_err(|e| RusTorchError::InvalidOperation {
                 operation: "conv2d_cuda".to_string(),
                 message: format!("CUDA convolution failed: {}", e),
             })?;
         }
 
         // Convert result back to tensor
-        let result_data: Vec<T> = output_data.into_iter()
+        let result_data: Vec<T> = output_data
+            .into_iter()
             .map(|x| T::from_f32(x).unwrap())
             .collect();
 

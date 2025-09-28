@@ -106,11 +106,17 @@ impl SimpleDemo {
         match self.benchmark_type.as_str() {
             "matrix" => {
                 println!("Operations: {}", self.config.operations);
-                println!("Matrix size: {}x{}", self.config.matrix_size, self.config.matrix_size);
+                println!(
+                    "Matrix size: {}x{}",
+                    self.config.matrix_size, self.config.matrix_size
+                );
             }
             "convolution" => {
                 println!("Networks: {}", self.config.convolution_networks);
-                println!("Image size: {}x{}", self.config.image_size, self.config.image_size);
+                println!(
+                    "Image size: {}x{}",
+                    self.config.image_size, self.config.image_size
+                );
                 println!("Layers: {}", self.config.network_layers);
             }
             "transformer" => {
@@ -134,7 +140,10 @@ impl SimpleDemo {
             ("cpu", "convolution") => self.run_cpu_convolution_demo(),
             ("cpu", "transformer") => self.run_cpu_transformer_demo(),
             _ => {
-                println!("❌ Unknown backend/benchmark combination: {}/{}", self.backend, self.benchmark_type);
+                println!(
+                    "❌ Unknown backend/benchmark combination: {}/{}",
+                    self.backend, self.benchmark_type
+                );
                 println!("Available backends: cpu, metal, coreml");
                 println!("Available benchmarks: matrix, convolution, transformer, all");
                 return Ok(());
@@ -194,13 +203,14 @@ impl SimpleDemo {
         println!("═══════════════════════════════════════════════");
 
         for result in results {
-            let benchmark_name = if result.backend_name.contains("Matrix") || result.backend_name == "CPU" {
-                "Matrix"
-            } else if result.backend_name.contains("Convolution") {
-                "Convolution"
-            } else {
-                "Transformer"
-            };
+            let benchmark_name =
+                if result.backend_name.contains("Matrix") || result.backend_name == "CPU" {
+                    "Matrix"
+                } else if result.backend_name.contains("Convolution") {
+                    "Convolution"
+                } else {
+                    "Transformer"
+                };
 
             println!(
                 "{:<12} | {:>8.2} ops/sec | {:>8.2}ms avg | {:>6.1}% success",
@@ -212,9 +222,14 @@ impl SimpleDemo {
         }
 
         println!("═══════════════════════════════════════════════");
-        println!("🏆 Best performer: {}",
-            results.iter()
-                .max_by(|a, b| a.operations_per_second.partial_cmp(&b.operations_per_second).unwrap())
+        println!(
+            "🏆 Best performer: {}",
+            results
+                .iter()
+                .max_by(|a, b| a
+                    .operations_per_second
+                    .partial_cmp(&b.operations_per_second)
+                    .unwrap())
                 .map(|r| {
                     if r.backend_name.contains("Matrix") || r.backend_name == "CPU" {
                         "Matrix"
@@ -434,7 +449,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  ⚡ Starting {} Metal GPU matrix operations...", self.config.operations);
+        println!(
+            "  ⚡ Starting {} Metal GPU matrix operations...",
+            self.config.operations
+        );
 
         // Initialize Metal GPU executor
         let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::Metal(0))?;
@@ -508,7 +526,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  🧠 Starting {} CoreML Neural Engine matrix operations...", self.config.operations);
+        println!(
+            "  🧠 Starting {} CoreML Neural Engine matrix operations...",
+            self.config.operations
+        );
 
         // Initialize CoreML Neural Engine executor
         let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::CoreML(0))?;
@@ -582,7 +603,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  ⚡ Starting {} Metal GPU convolution networks...", self.config.convolution_networks);
+        println!(
+            "  ⚡ Starting {} Metal GPU convolution networks...",
+            self.config.convolution_networks
+        );
 
         let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::Metal(0))?;
 
@@ -655,7 +679,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  ⚡ Starting {} Metal GPU transformer operations...", self.config.transformer_operations);
+        println!(
+            "  ⚡ Starting {} Metal GPU transformer operations...",
+            self.config.transformer_operations
+        );
 
         let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::Metal(0))?;
 
@@ -664,8 +691,10 @@ impl SimpleDemo {
 
             // Simulate Metal transformer with simple 2D matrix operations
             let result = {
-                let q = Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
-                let k = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.sequence_length]);
+                let q =
+                    Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
+                let k =
+                    Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.sequence_length]);
 
                 executor.metal_matmul(&q, &k)
             };
@@ -800,7 +829,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  🧠 Starting {} CoreML Neural Engine transformer operations...", self.config.transformer_operations);
+        println!(
+            "  🧠 Starting {} CoreML Neural Engine transformer operations...",
+            self.config.transformer_operations
+        );
 
         let executor = GpuMatrixExecutor::new(rustorch::gpu::DeviceType::CoreML(0))?;
 
@@ -809,8 +841,10 @@ impl SimpleDemo {
 
             // Use CoreML directly for transformer operations (supported)
             let result = {
-                let q = Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
-                let k = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.sequence_length]);
+                let q =
+                    Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
+                let k =
+                    Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.sequence_length]);
                 executor.coreml_matmul(&q, &k)
             };
 
@@ -871,7 +905,10 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  🖥️ Starting {} CPU convolution networks...", self.config.convolution_networks);
+        println!(
+            "  🖥️ Starting {} CPU convolution networks...",
+            self.config.convolution_networks
+        );
 
         for i in 0..self.config.convolution_networks {
             let op_start = Instant::now();
@@ -955,27 +992,38 @@ impl SimpleDemo {
         let mut successful_operations = 0;
         let mut total_operation_time = Duration::ZERO;
 
-        println!("  🖥️ Starting {} CPU transformer operations...", self.config.transformer_operations);
+        println!(
+            "  🖥️ Starting {} CPU transformer operations...",
+            self.config.transformer_operations
+        );
 
         for i in 0..self.config.transformer_operations {
             let op_start = Instant::now();
 
             // Simulate transformer with simple CPU 2D matrix operations
             let result: RusTorchResult<Tensor<f32>> = {
-                let mut current = Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
+                let mut current =
+                    Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
                 for _layer in 0..self.config.transformer_layers {
                     // Simulate attention with 2D matrix operations
-                    let q = Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
-                    let k = Tensor::<f32>::randn(&[self.config.embedding_dim, self.config.sequence_length]);
-                    let v = Tensor::<f32>::randn(&[self.config.sequence_length, self.config.embedding_dim]);
+                    let q = Tensor::<f32>::randn(&[
+                        self.config.sequence_length,
+                        self.config.embedding_dim,
+                    ]);
+                    let k = Tensor::<f32>::randn(&[
+                        self.config.embedding_dim,
+                        self.config.sequence_length,
+                    ]);
+                    let v = Tensor::<f32>::randn(&[
+                        self.config.sequence_length,
+                        self.config.embedding_dim,
+                    ]);
 
                     match q.matmul(&k) {
-                        Ok(attention_scores) => {
-                            match attention_scores.matmul(&v) {
-                                Ok(attention_output) => current = attention_output,
-                                Err(e) => return Err(e),
-                            }
-                        }
+                        Ok(attention_scores) => match attention_scores.matmul(&v) {
+                            Ok(attention_output) => current = attention_output,
+                            Err(e) => return Err(e),
+                        },
                         Err(e) => return Err(e),
                     }
                 }
