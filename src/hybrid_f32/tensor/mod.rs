@@ -2171,6 +2171,1265 @@ pub enum WindowType {
     Blackman,
 }
 
+impl F32Tensor {
+    // =========================================================================
+    // フェーズ4A: 高度統計操作 / Phase 4A: Advanced Statistical Operations
+    // =========================================================================
+
+    // ===== 分位数・順序統計 / Quantile & Order Statistics =====
+
+    /// 分位数計算（f32専用）
+    /// Quantile calculation (f32-specific)
+    pub fn quantile(&self, q: f32) -> RusTorchResult<f32> {
+        if q < 0.0 || q > 1.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::quantile".to_string(),
+                message: format!("Quantile must be between 0 and 1, got {}", q),
+            });
+        }
+
+        let mut sorted_data = self.data.as_slice().unwrap().to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let n = sorted_data.len();
+        if n == 0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::quantile".to_string(),
+                message: "Cannot compute quantile of empty tensor".to_string(),
+            });
+        }
+
+        let index = q * (n - 1) as f32;
+        let lower = index.floor() as usize;
+        let upper = index.ceil() as usize;
+
+        if lower == upper {
+            Ok(sorted_data[lower])
+        } else {
+            let weight = index - lower as f32;
+            Ok(sorted_data[lower] * (1.0 - weight) + sorted_data[upper] * weight)
+        }
+    }
+
+    /// 中央値計算（f32専用）
+    /// Median calculation (f32-specific)
+    pub fn median(&self) -> RusTorchResult<f32> {
+        self.quantile(0.5)
+    }
+
+    /// パーセンタイル計算（f32専用）
+    /// Percentile calculation (f32-specific)
+    pub fn percentile(&self, p: f32) -> RusTorchResult<f32> {
+        if p < 0.0 || p > 100.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::percentile".to_string(),
+                message: format!("Percentile must be between 0 and 100, got {}", p),
+            });
+        }
+        self.quantile(p / 100.0)
+    }
+
+    /// 四分位数計算（f32専用）
+    /// Quartiles calculation (f32-specific)
+    pub fn quartiles(&self) -> RusTorchResult<(f32, f32, f32)> {
+        let q1 = self.quantile(0.25)?;
+        let q2 = self.quantile(0.5)?;
+        let q3 = self.quantile(0.75)?;
+        Ok((q1, q2, q3))
+    }
+
+    /// 最頻値（モード）計算（f32専用）
+    /// Mode calculation (f32-specific)
+    pub fn mode(&self) -> RusTorchResult<f32> {
+        use std::collections::HashMap;
+
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::mode".to_string(),
+                message: "Cannot compute mode of empty tensor".to_string(),
+            });
+        }
+
+        let mut counts = HashMap::new();
+        for &value in data {
+            // f32の比較のため、小数点以下を丸めてi64に変換
+            let rounded_key = (value * 1000000.0).round() as i64;
+            *counts.entry(rounded_key).or_insert(0) += 1;
+        }
+
+        let mode = counts.iter()
+            .max_by_key(|(_, &count)| count)
+            .map(|(&key, _)| key as f32 / 1000000.0)
+            .unwrap();
+
+        Ok(mode)
+    }
+
+    /// ユニーク値取得（f32専用）
+    /// Unique values (f32-specific)
+    pub fn unique(&self) -> RusTorchResult<F32Tensor> {
+        use std::collections::HashSet;
+
+        let data = self.data.as_slice().unwrap();
+        let mut unique_values = HashSet::new();
+
+        for &value in data {
+            let rounded_key = (value * 1000000.0).round() as i64;
+            unique_values.insert(rounded_key);
+        }
+
+        let mut unique_vec: Vec<f32> = unique_values.into_iter().map(|k| k as f32 / 1000000.0).collect();
+        unique_vec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        F32Tensor::new(unique_vec.clone(), vec![unique_vec.len()])
+    }
+
+    /// ユニーク値とその出現回数（f32専用）
+    /// Unique values with counts (f32-specific)
+    pub fn unique_counts(&self) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        use std::collections::HashMap;
+
+        let data = self.data.as_slice().unwrap();
+        let mut counts = HashMap::new();
+
+        for &value in data {
+            let rounded_key = (value * 1000000.0).round() as i64;
+            *counts.entry(rounded_key).or_insert(0) += 1;
+        }
+
+        let mut items: Vec<(f32, i32)> = counts.into_iter().map(|(k, c)| (k as f32 / 1000000.0, c)).collect();
+        items.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let values: Vec<f32> = items.iter().map(|(v, _)| *v).collect();
+        let counts: Vec<f32> = items.iter().map(|(_, c)| *c as f32).collect();
+
+        let values_tensor = F32Tensor::new(values, vec![items.len()])?;
+        let counts_tensor = F32Tensor::new(counts, vec![items.len()])?;
+
+        Ok((values_tensor, counts_tensor))
+    }
+
+    /// 上位k個の値とインデックス（f32専用）
+    /// Top k values and indices (f32-specific)
+    pub fn topk(&self, k: usize) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+        let data = self.data.as_slice().unwrap();
+        if k > data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::topk".to_string(),
+                message: format!("k ({}) cannot be larger than tensor size ({})", k, data.len()),
+            });
+        }
+
+        let mut indexed_data: Vec<(f32, usize)> = data.iter()
+            .enumerate()
+            .map(|(i, &v)| (v, i))
+            .collect();
+
+        indexed_data.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let values: Vec<f32> = indexed_data[..k].iter().map(|(v, _)| *v).collect();
+        let indices: Vec<f32> = indexed_data[..k].iter().map(|(_, i)| *i as f32).collect();
+
+        let values_tensor = F32Tensor::new(values, vec![k])?;
+        let indices_tensor = F32Tensor::new(indices, vec![k])?;
+
+        Ok((values_tensor, indices_tensor))
+    }
+
+    /// k番目の値取得（f32専用）
+    /// kth value (f32-specific)
+    pub fn kthvalue(&self, k: usize) -> RusTorchResult<f32> {
+        let mut sorted_data = self.data.as_slice().unwrap().to_vec();
+        if k == 0 || k > sorted_data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::kthvalue".to_string(),
+                message: format!("k must be between 1 and {}, got {}", sorted_data.len(), k),
+            });
+        }
+
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        Ok(sorted_data[k - 1])
+    }
+
+    /// 引数ソート（f32専用）
+    /// Argument sort (f32-specific)
+    pub fn argsort(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let mut indexed_data: Vec<(f32, usize)> = data.iter()
+            .enumerate()
+            .map(|(i, &v)| (v, i))
+            .collect();
+
+        indexed_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let indices: Vec<f32> = indexed_data.iter().map(|(_, i)| *i as f32).collect();
+        F32Tensor::new(indices, vec![data.len()])
+    }
+
+    /// ソート（f32専用）
+    /// Sort (f32-specific)
+    pub fn sort(&self) -> RusTorchResult<F32Tensor> {
+        let mut sorted_data = self.data.as_slice().unwrap().to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        F32Tensor::new(sorted_data, self.shape.clone())
+    }
+
+    /// マージソート（安定ソート）（f32専用）
+    /// Merge sort (stable sort) (f32-specific)
+    pub fn msort(&self) -> RusTorchResult<F32Tensor> {
+        // Rustのsort_by_は安定ソートなので、sortと同じ実装
+        self.sort()
+    }
+
+    /// NaN対応分位数（f32専用）
+    /// NaN-aware quantile (f32-specific)
+    pub fn nanquantile(&self, q: f32) -> RusTorchResult<f32> {
+        if q < 0.0 || q > 1.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::nanquantile".to_string(),
+                message: format!("Quantile must be between 0 and 1, got {}", q),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let mut filtered_data: Vec<f32> = data.iter()
+            .filter(|&&x| !x.is_nan())
+            .cloned()
+            .collect();
+
+        if filtered_data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        filtered_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let n = filtered_data.len();
+        let index = q * (n - 1) as f32;
+        let lower = index.floor() as usize;
+        let upper = index.ceil() as usize;
+
+        if lower == upper {
+            Ok(filtered_data[lower])
+        } else {
+            let weight = index - lower as f32;
+            Ok(filtered_data[lower] * (1.0 - weight) + filtered_data[upper] * weight)
+        }
+    }
+
+    /// NaN対応中央値（f32専用）
+    /// NaN-aware median (f32-specific)
+    pub fn nanmedian(&self) -> RusTorchResult<f32> {
+        self.nanquantile(0.5)
+    }
+
+    /// NaN対応パーセンタイル（f32専用）
+    /// NaN-aware percentile (f32-specific)
+    pub fn nanpercentile(&self, p: f32) -> RusTorchResult<f32> {
+        if p < 0.0 || p > 100.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::nanpercentile".to_string(),
+                message: format!("Percentile must be between 0 and 100, got {}", p),
+            });
+        }
+        self.nanquantile(p / 100.0)
+    }
+
+    // ===== 累積統計 / Cumulative Statistics =====
+
+    /// 累積和（f32専用）
+    /// Cumulative sum (f32-specific)
+    pub fn cumsum(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let mut cumsum_data = Vec::with_capacity(data.len());
+        let mut sum = 0.0;
+
+        for &value in data {
+            sum += value;
+            cumsum_data.push(sum);
+        }
+
+        F32Tensor::new(cumsum_data, self.shape.clone())
+    }
+
+    /// 累積積（f32専用）
+    /// Cumulative product (f32-specific)
+    pub fn cumprod(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let mut cumprod_data = Vec::with_capacity(data.len());
+        let mut prod = 1.0;
+
+        for &value in data {
+            prod *= value;
+            cumprod_data.push(prod);
+        }
+
+        F32Tensor::new(cumprod_data, self.shape.clone())
+    }
+
+    /// 累積最大値（f32専用）
+    /// Cumulative maximum (f32-specific)
+    pub fn cummax(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return F32Tensor::new(vec![], self.shape.clone());
+        }
+
+        let mut cummax_data = Vec::with_capacity(data.len());
+        let mut max_val = data[0];
+        cummax_data.push(max_val);
+
+        for &value in &data[1..] {
+            if value > max_val || max_val.is_nan() {
+                max_val = value;
+            }
+            cummax_data.push(max_val);
+        }
+
+        F32Tensor::new(cummax_data, self.shape.clone())
+    }
+
+    /// 累積最小値（f32専用）
+    /// Cumulative minimum (f32-specific)
+    pub fn cummin(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return F32Tensor::new(vec![], self.shape.clone());
+        }
+
+        let mut cummin_data = Vec::with_capacity(data.len());
+        let mut min_val = data[0];
+        cummin_data.push(min_val);
+
+        for &value in &data[1..] {
+            if value < min_val || min_val.is_nan() {
+                min_val = value;
+            }
+            cummin_data.push(min_val);
+        }
+
+        F32Tensor::new(cummin_data, self.shape.clone())
+    }
+
+    /// 差分計算（f32専用）
+    /// Difference calculation (f32-specific)
+    pub fn diff(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if data.len() < 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::diff".to_string(),
+                message: "Tensor must have at least 2 elements for diff".to_string(),
+            });
+        }
+
+        let mut diff_data = Vec::with_capacity(data.len() - 1);
+        for i in 1..data.len() {
+            diff_data.push(data[i] - data[i - 1]);
+        }
+
+        F32Tensor::new(diff_data, vec![data.len() - 1])
+    }
+
+    /// 勾配計算（f32専用）
+    /// Gradient calculation (f32-specific)
+    pub fn gradient(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if data.len() < 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::gradient".to_string(),
+                message: "Tensor must have at least 2 elements for gradient".to_string(),
+            });
+        }
+
+        let mut grad_data = Vec::with_capacity(data.len());
+
+        // 最初の要素: 前方差分
+        grad_data.push(data[1] - data[0]);
+
+        // 中央の要素: 中央差分
+        for i in 1..data.len() - 1 {
+            grad_data.push((data[i + 1] - data[i - 1]) / 2.0);
+        }
+
+        // 最後の要素: 後方差分
+        grad_data.push(data[data.len() - 1] - data[data.len() - 2]);
+
+        F32Tensor::new(grad_data, self.shape.clone())
+    }
+
+    /// 移動平均（f32専用）
+    /// Moving average (f32-specific)
+    pub fn moving_average(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if window == 0 || window > data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::moving_average".to_string(),
+                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+            });
+        }
+
+        let mut ma_data = Vec::with_capacity(data.len() - window + 1);
+        for i in 0..=data.len() - window {
+            let sum: f32 = data[i..i + window].iter().sum();
+            ma_data.push(sum / window as f32);
+        }
+
+        let len = ma_data.len();
+        F32Tensor::new(ma_data, vec![len])
+    }
+
+    /// 移動標準偏差（f32専用）
+    /// Moving standard deviation (f32-specific)
+    pub fn moving_std(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if window == 0 || window > data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::moving_std".to_string(),
+                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+            });
+        }
+
+        let mut ms_data = Vec::with_capacity(data.len() - window + 1);
+        for i in 0..=data.len() - window {
+            let window_data = &data[i..i + window];
+            let mean: f32 = window_data.iter().sum::<f32>() / window as f32;
+            let variance: f32 = window_data.iter()
+                .map(|&x| (x - mean).powi(2))
+                .sum::<f32>() / window as f32;
+            ms_data.push(variance.sqrt());
+        }
+
+        let len = ms_data.len();
+        F32Tensor::new(ms_data, vec![len])
+    }
+
+    /// ローリング平均（alias for moving_average）
+    /// Rolling mean (alias for moving_average)
+    pub fn rolling_mean(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        self.moving_average(window)
+    }
+
+    /// ローリング標準偏差（alias for moving_std）
+    /// Rolling standard deviation (alias for moving_std)
+    pub fn rolling_std(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        self.moving_std(window)
+    }
+
+    /// ローリング最大値（f32専用）
+    /// Rolling maximum (f32-specific)
+    pub fn rolling_max(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if window == 0 || window > data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::rolling_max".to_string(),
+                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+            });
+        }
+
+        let mut rmax_data = Vec::with_capacity(data.len() - window + 1);
+        for i in 0..=data.len() - window {
+            let max_val = data[i..i + window].iter()
+                .fold(f32::NEG_INFINITY, |acc, &x| if x > acc || acc.is_nan() { x } else { acc });
+            rmax_data.push(max_val);
+        }
+
+        let len = rmax_data.len();
+        F32Tensor::new(rmax_data, vec![len])
+    }
+
+    /// ローリング最小値（f32専用）
+    /// Rolling minimum (f32-specific)
+    pub fn rolling_min(&self, window: usize) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        if window == 0 || window > data.len() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::rolling_min".to_string(),
+                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+            });
+        }
+
+        let mut rmin_data = Vec::with_capacity(data.len() - window + 1);
+        for i in 0..=data.len() - window {
+            let min_val = data[i..i + window].iter()
+                .fold(f32::INFINITY, |acc, &x| if x < acc || acc.is_nan() { x } else { acc });
+            rmin_data.push(min_val);
+        }
+
+        let len = rmin_data.len();
+        F32Tensor::new(rmin_data, vec![len])
+    }
+
+    /// 指数移動平均（f32専用）
+    /// Exponential moving average (f32-specific)
+    pub fn exponential_moving_average(&self, alpha: f32) -> RusTorchResult<F32Tensor> {
+        if alpha <= 0.0 || alpha > 1.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::exponential_moving_average".to_string(),
+                message: format!("Alpha must be between 0 and 1, got {}", alpha),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return F32Tensor::new(vec![], self.shape.clone());
+        }
+
+        let mut ema_data = Vec::with_capacity(data.len());
+        let mut ema = data[0];
+        ema_data.push(ema);
+
+        for &value in &data[1..] {
+            ema = alpha * value + (1.0 - alpha) * ema;
+            ema_data.push(ema);
+        }
+
+        F32Tensor::new(ema_data, self.shape.clone())
+    }
+
+    /// 重み付き平均（f32専用）
+    /// Weighted average (f32-specific)
+    pub fn weighted_average(&self, weights: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != weights.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::weighted_average".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, weights.shape),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let weight_data = weights.data.as_slice().unwrap();
+
+        let weighted_sum: f32 = data.iter()
+            .zip(weight_data.iter())
+            .map(|(&value, &weight)| value * weight)
+            .sum();
+
+        let total_weight: f32 = weight_data.iter().sum();
+
+        if total_weight == 0.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::weighted_average".to_string(),
+                message: "Total weight cannot be zero".to_string(),
+            });
+        }
+
+        Ok(weighted_sum / total_weight)
+    }
+
+    /// ランニング統計情報（平均、分散、標準偏差）（f32専用）
+    /// Running statistics (mean, variance, std) (f32-specific)
+    pub fn running_statistics(&self) -> RusTorchResult<(F32Tensor, F32Tensor, F32Tensor)> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            let empty = F32Tensor::new(vec![], self.shape.clone())?;
+            return Ok((empty.clone(), empty.clone(), empty));
+        }
+
+        let mut means = Vec::with_capacity(data.len());
+        let mut variances = Vec::with_capacity(data.len());
+        let mut stds = Vec::with_capacity(data.len());
+
+        let mut running_sum = 0.0;
+        let mut running_sum_sq = 0.0;
+
+        for (i, &value) in data.iter().enumerate() {
+            running_sum += value;
+            running_sum_sq += value * value;
+
+            let n = (i + 1) as f32;
+            let mean = running_sum / n;
+            let variance = (running_sum_sq / n) - (mean * mean);
+            let std = variance.max(0.0).sqrt(); // 数値誤差を防ぐため
+
+            means.push(mean);
+            variances.push(variance);
+            stds.push(std);
+        }
+
+        let means_tensor = F32Tensor::new(means, self.shape.clone())?;
+        let variances_tensor = F32Tensor::new(variances, self.shape.clone())?;
+        let stds_tensor = F32Tensor::new(stds, self.shape.clone())?;
+
+        Ok((means_tensor, variances_tensor, stds_tensor))
+    }
+
+    // ===== 相関・共分散 / Correlation & Covariance =====
+
+    /// 相関係数行列（f32専用）
+    /// Correlation coefficient matrix (f32-specific)
+    pub fn corrcoef(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::corrcoef".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let data_x = self.data.as_slice().unwrap();
+        let data_y = other.data.as_slice().unwrap();
+
+        if data_x.len() < 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::corrcoef".to_string(),
+                message: "Need at least 2 data points for correlation".to_string(),
+            });
+        }
+
+        let n = data_x.len() as f32;
+        let mean_x: f32 = data_x.iter().sum::<f32>() / n;
+        let mean_y: f32 = data_y.iter().sum::<f32>() / n;
+
+        let mut sum_xy = 0.0;
+        let mut sum_x2 = 0.0;
+        let mut sum_y2 = 0.0;
+
+        for (&x, &y) in data_x.iter().zip(data_y.iter()) {
+            let dx = x - mean_x;
+            let dy = y - mean_y;
+            sum_xy += dx * dy;
+            sum_x2 += dx * dx;
+            sum_y2 += dy * dy;
+        }
+
+        let denom = (sum_x2 * sum_y2).sqrt();
+        if denom == 0.0 {
+            Ok(f32::NAN)
+        } else {
+            Ok(sum_xy / denom)
+        }
+    }
+
+    /// 共分散計算（f32専用）
+    /// Covariance calculation (f32-specific)
+    pub fn cov(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::cov".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let data_x = self.data.as_slice().unwrap();
+        let data_y = other.data.as_slice().unwrap();
+
+        if data_x.len() < 2 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::cov".to_string(),
+                message: "Need at least 2 data points for covariance".to_string(),
+            });
+        }
+
+        let n = data_x.len() as f32;
+        let mean_x: f32 = data_x.iter().sum::<f32>() / n;
+        let mean_y: f32 = data_y.iter().sum::<f32>() / n;
+
+        let covariance: f32 = data_x.iter()
+            .zip(data_y.iter())
+            .map(|(&x, &y)| (x - mean_x) * (y - mean_y))
+            .sum::<f32>() / (n - 1.0); // サンプル共分散
+
+        Ok(covariance)
+    }
+
+    /// 相互相関（f32専用）
+    /// Cross correlation (f32-specific)
+    pub fn cross_correlation(&self, other: &F32Tensor, lag: i32) -> RusTorchResult<f32> {
+        let data_x = self.data.as_slice().unwrap();
+        let data_y = other.data.as_slice().unwrap();
+
+        let n_x = data_x.len() as i32;
+        let n_y = data_y.len() as i32;
+
+        if lag.abs() >= n_x.min(n_y) {
+            return Ok(0.0);
+        }
+
+        let (start_x, start_y, length) = if lag >= 0 {
+            (lag as usize, 0, ((n_x - lag).min(n_y)) as usize)
+        } else {
+            (0, (-lag) as usize, (n_x.min(n_y + lag)) as usize)
+        };
+
+        if length == 0 {
+            return Ok(0.0);
+        }
+
+        let sum_product: f32 = data_x[start_x..start_x + length].iter()
+            .zip(data_y[start_y..start_y + length].iter())
+            .map(|(&x, &y)| x * y)
+            .sum();
+
+        Ok(sum_product / length as f32)
+    }
+
+    /// 自己相関（f32専用）
+    /// Autocorrelation (f32-specific)
+    pub fn autocorrelation(&self, lag: i32) -> RusTorchResult<f32> {
+        self.cross_correlation(self, lag)
+    }
+
+    /// 偏相関（簡略版）（f32専用）
+    /// Partial correlation (simplified) (f32-specific)
+    pub fn partial_correlation(&self, y: &F32Tensor, z: &F32Tensor) -> RusTorchResult<f32> {
+        // r_xy.z = (r_xy - r_xz * r_yz) / sqrt((1 - r_xz^2) * (1 - r_yz^2))
+        let r_xy = self.corrcoef(y)?;
+        let r_xz = self.corrcoef(z)?;
+        let r_yz = y.corrcoef(z)?;
+
+        let numerator = r_xy - r_xz * r_yz;
+        let denominator = ((1.0 - r_xz * r_xz) * (1.0 - r_yz * r_yz)).sqrt();
+
+        if denominator == 0.0 {
+            Ok(f32::NAN)
+        } else {
+            Ok(numerator / denominator)
+        }
+    }
+
+    /// スピアマン順位相関（f32専用）
+    /// Spearman rank correlation (f32-specific)
+    pub fn spearman_correlation(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::spearman_correlation".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        // ランクに変換してピアソン相関を計算
+        let ranks_x = self.rank_transform()?;
+        let ranks_y = other.rank_transform()?;
+
+        ranks_x.corrcoef(&ranks_y)
+    }
+
+    /// ケンドールのタウ（簡略版）（f32専用）
+    /// Kendall's tau (simplified) (f32-specific)
+    pub fn kendall_tau(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::kendall_tau".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let data_x = self.data.as_slice().unwrap();
+        let data_y = other.data.as_slice().unwrap();
+        let n = data_x.len();
+
+        if n < 2 {
+            return Ok(f32::NAN);
+        }
+
+        let mut concordant = 0;
+        let mut discordant = 0;
+
+        for i in 0..n {
+            for j in i + 1..n {
+                let sign_x = if data_x[i] < data_x[j] { 1 } else if data_x[i] > data_x[j] { -1 } else { 0 };
+                let sign_y = if data_y[i] < data_y[j] { 1 } else if data_y[i] > data_y[j] { -1 } else { 0 };
+
+                if sign_x * sign_y > 0 {
+                    concordant += 1;
+                } else if sign_x * sign_y < 0 {
+                    discordant += 1;
+                }
+            }
+        }
+
+        let total_pairs = n * (n - 1) / 2;
+        if total_pairs == 0 {
+            Ok(0.0)
+        } else {
+            Ok((concordant - discordant) as f32 / total_pairs as f32)
+        }
+    }
+
+    /// 相互情報量（簡略版）（f32専用）
+    /// Mutual information (simplified) (f32-specific)
+    pub fn mutual_information(&self, other: &F32Tensor, bins: usize) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::mutual_information".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        // 簡略化されたヒストグラムベースの相互情報量計算
+        let data_x = self.data.as_slice().unwrap();
+        let data_y = other.data.as_slice().unwrap();
+
+        if data_x.is_empty() || bins == 0 {
+            return Ok(0.0);
+        }
+
+        // ビンの境界を計算
+        let (min_x, max_x) = data_x.iter().fold((f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), &x| (min.min(x), max.max(x)));
+        let (min_y, max_y) = data_y.iter().fold((f32::INFINITY, f32::NEG_INFINITY),
+            |(min, max), &y| (min.min(y), max.max(y)));
+
+        if max_x == min_x || max_y == min_y {
+            return Ok(0.0);
+        }
+
+        // 簡略化: 情報量の近似値を返す
+        let correlation = self.corrcoef(other)?;
+        Ok(-0.5 * (1.0 - correlation * correlation).ln().max(0.0))
+    }
+
+    /// 共分散行列（2つのテンソルの場合）（f32専用）
+    /// Covariance matrix (for two tensors) (f32-specific)
+    pub fn covariance_matrix(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        let var_x = self.var()?;
+        let var_y = other.var()?;
+        let cov_xy = self.cov(other)?;
+
+        let matrix_data = vec![var_x, cov_xy, cov_xy, var_y];
+        F32Tensor::new(matrix_data, vec![2, 2])
+    }
+
+    /// 相関行列（2つのテンソルの場合）（f32専用）
+    /// Correlation matrix (for two tensors) (f32-specific)
+    pub fn correlation_matrix(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        let corr_xy = self.corrcoef(other)?;
+        let matrix_data = vec![1.0, corr_xy, corr_xy, 1.0];
+        F32Tensor::new(matrix_data, vec![2, 2])
+    }
+
+    /// 距離相関（簡略版）（f32専用）
+    /// Distance correlation (simplified) (f32-specific)
+    pub fn distance_correlation(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        // 簡略化: ピアソン相関の絶対値で近似
+        let corr = self.corrcoef(other)?;
+        Ok(corr.abs())
+    }
+
+    /// 正準相関（簡略版）（f32専用）
+    /// Canonical correlation (simplified) (f32-specific)
+    pub fn canonical_correlation(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        // 1次元の場合は通常の相関係数
+        self.corrcoef(other)
+    }
+
+    // ===== 高度な分布統計 / Advanced Distribution Statistics (18 methods) =====
+
+    /// 歪度（f32専用）
+    /// Skewness (f32-specific)
+    pub fn skewness(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.len() < 2 {
+            return Ok(f32::NAN);
+        }
+
+        let n = data.len() as f32;
+        let mean = data.iter().sum::<f32>() / n;
+
+        let sum2 = data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>();
+        let sum3 = data.iter().map(|&x| (x - mean).powi(3)).sum::<f32>();
+
+        let variance = sum2 / (n - 1.0);
+        if variance == 0.0 {
+            return Ok(f32::NAN);
+        }
+
+        let std_dev = variance.sqrt();
+        let skew = (sum3 / n) / std_dev.powi(3);
+        Ok(skew)
+    }
+
+    /// 尖度（f32専用）
+    /// Kurtosis (f32-specific)
+    pub fn kurtosis(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.len() < 2 {
+            return Ok(f32::NAN);
+        }
+
+        let n = data.len() as f32;
+        let mean = data.iter().sum::<f32>() / n;
+
+        let sum2 = data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>();
+        let sum4 = data.iter().map(|&x| (x - mean).powi(4)).sum::<f32>();
+
+        let variance = sum2 / (n - 1.0);
+        if variance == 0.0 {
+            return Ok(f32::NAN);
+        }
+
+        let kurt = (sum4 / n) / variance.powi(2) - 3.0; // excess kurtosis
+        Ok(kurt)
+    }
+
+    /// 正規性検定統計量（Jarque-Bera）（f32専用）
+    /// Normality test statistic (Jarque-Bera) (f32-specific)
+    pub fn jarque_bera(&self) -> RusTorchResult<f32> {
+        let skew = self.skewness()?;
+        let kurt = self.kurtosis()?;
+        let n = self.data.as_slice().unwrap().len() as f32;
+
+        if skew.is_nan() || kurt.is_nan() {
+            return Ok(f32::NAN);
+        }
+
+        let jb = (n / 6.0) * (skew.powi(2) + (kurt.powi(2) / 4.0));
+        Ok(jb)
+    }
+
+    /// 変動係数（f32専用）
+    /// Coefficient of variation (f32-specific)
+    pub fn coefficient_of_variation(&self) -> RusTorchResult<f32> {
+        let std_dev = self.std()?;
+        let mean = self.mean()?;
+
+        if mean == 0.0 {
+            Ok(f32::INFINITY)
+        } else {
+            Ok(std_dev / mean.abs())
+        }
+    }
+
+    /// 範囲（最大値 - 最小値）（f32専用）
+    /// Range (max - min) (f32-specific)
+    pub fn range(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        let min_val = data.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max_val = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        Ok(max_val - min_val)
+    }
+
+    /// 四分位数範囲（IQR）（f32専用）
+    /// Interquartile range (IQR) (f32-specific)
+    pub fn iqr(&self) -> RusTorchResult<f32> {
+        let q75 = self.quantile(0.75)?;
+        let q25 = self.quantile(0.25)?;
+        Ok(q75 - q25)
+    }
+
+    /// 中央絶対偏差（MAD）（f32専用）
+    /// Median absolute deviation (MAD) (f32-specific)
+    pub fn mad(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        let median = self.median()?;
+        let deviations: Vec<f32> = data.iter()
+            .map(|&x| (x - median).abs())
+            .collect();
+
+        let dev_tensor = F32Tensor::from_vec(deviations, vec![data.len()])?;
+        dev_tensor.median()
+    }
+
+    /// 平均絶対偏差（f32専用）
+    /// Mean absolute deviation (f32-specific)
+    pub fn mean_absolute_deviation(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        let mean = self.mean()?;
+        let mad = data.iter()
+            .map(|&x| (x - mean).abs())
+            .sum::<f32>() / data.len() as f32;
+        Ok(mad)
+    }
+
+    /// エントロピー（f32専用）
+    /// Entropy (f32-specific)
+    pub fn entropy(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        // 値の頻度カウント
+        let mut freq_map = std::collections::HashMap::new();
+        for &value in data {
+            let key = (value * 1000000.0).round() as i64; // f32精度対応
+            *freq_map.entry(key).or_insert(0) += 1;
+        }
+
+        let n = data.len() as f32;
+        let mut entropy = 0.0;
+
+        for count in freq_map.values() {
+            let p = *count as f32 / n;
+            if p > 0.0 {
+                entropy -= p * p.ln();
+            }
+        }
+
+        Ok(entropy)
+    }
+
+    /// ジニ係数（f32専用）
+    /// Gini coefficient (f32-specific)
+    pub fn gini_coefficient(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        let mut sorted_data = data.to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let n = data.len() as f32;
+        let mean = sorted_data.iter().sum::<f32>() / n;
+
+        if mean == 0.0 {
+            return Ok(0.0);
+        }
+
+        let mut gini_sum = 0.0;
+        for (i, &value) in sorted_data.iter().enumerate() {
+            gini_sum += (2.0 * (i as f32 + 1.0) - n - 1.0) * value;
+        }
+
+        let gini = gini_sum / (n * n * mean);
+        Ok(gini)
+    }
+
+    /// 異常値検出（IQR法）（f32専用）
+    /// Outlier detection (IQR method) (f32-specific)
+    pub fn outliers_iqr(&self, factor: f32) -> RusTorchResult<Vec<usize>> {
+        let q25 = self.quantile(0.25)?;
+        let q75 = self.quantile(0.75)?;
+        let iqr = q75 - q25;
+
+        let lower_bound = q25 - factor * iqr;
+        let upper_bound = q75 + factor * iqr;
+
+        let data = self.data.as_slice().unwrap();
+        let outliers: Vec<usize> = data.iter()
+            .enumerate()
+            .filter_map(|(i, &x)| {
+                if x < lower_bound || x > upper_bound {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        Ok(outliers)
+    }
+
+    /// Z-score（標準化）（f32専用）
+    /// Z-score (standardization) (f32-specific)
+    pub fn zscore(&self) -> RusTorchResult<F32Tensor> {
+        let mean = self.mean()?;
+        let std_dev = self.std()?;
+
+        if std_dev == 0.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::zscore".to_string(),
+                message: "Cannot compute z-score with zero standard deviation".to_string(),
+            });
+        }
+
+        let data = self.data.as_slice().unwrap();
+        let zscore_data: Vec<f32> = data.iter()
+            .map(|&x| (x - mean) / std_dev)
+            .collect();
+
+        F32Tensor::from_vec(zscore_data, self.shape.clone())
+    }
+
+    /// 分散の分散（Fourth central moment）（f32専用）
+    /// Variance of variance (Fourth central moment) (f32-specific)
+    pub fn fourth_moment(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.len() < 2 {
+            return Ok(f32::NAN);
+        }
+
+        let n = data.len() as f32;
+        let mean = data.iter().sum::<f32>() / n;
+
+        let fourth_moment = data.iter()
+            .map(|&x| (x - mean).powi(4))
+            .sum::<f32>() / n;
+
+        Ok(fourth_moment)
+    }
+
+    /// 高次モーメント（f32専用）
+    /// Higher-order moment (f32-specific)
+    pub fn moment(&self, order: i32) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        if data.is_empty() {
+            return Ok(f32::NAN);
+        }
+
+        if order == 0 {
+            return Ok(1.0);
+        }
+
+        let n = data.len() as f32;
+        let mean = data.iter().sum::<f32>() / n;
+
+        let moment = data.iter()
+            .map(|&x| (x - mean).powi(order))
+            .sum::<f32>() / n;
+
+        Ok(moment)
+    }
+
+    /// シャピロ・ウィルク検定統計量（簡略版）（f32専用）
+    /// Shapiro-Wilk test statistic (simplified) (f32-specific)
+    pub fn shapiro_wilk(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        let n = data.len();
+
+        if n < 3 || n > 5000 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::shapiro_wilk".to_string(),
+                message: format!("Sample size must be between 3 and 5000, got {}", n),
+            });
+        }
+
+        let mut sorted_data = data.to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        // 簡略版の計算（実際のSW統計量は複雑な係数を使用）
+        let mean = sorted_data.iter().sum::<f32>() / n as f32;
+        let ss = sorted_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>();
+
+        // 簡略版のW統計量近似
+        let range = sorted_data[n-1] - sorted_data[0];
+        let w = if ss > 0.0 {
+            (range / ss.sqrt()).min(1.0)
+        } else {
+            1.0
+        };
+
+        Ok(w)
+    }
+
+    /// アンダーソン・ダーリング検定統計量（簡略版）（f32専用）
+    /// Anderson-Darling test statistic (simplified) (f32-specific)
+    pub fn anderson_darling(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        let n = data.len();
+
+        if n < 2 {
+            return Ok(f32::NAN);
+        }
+
+        let mut sorted_data = data.to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mean = sorted_data.iter().sum::<f32>() / n as f32;
+        let variance = sorted_data.iter()
+            .map(|&x| (x - mean).powi(2))
+            .sum::<f32>() / (n - 1) as f32;
+        let std_dev = variance.sqrt();
+
+        // 標準化
+        let standardized: Vec<f32> = sorted_data.iter()
+            .map(|&x| (x - mean) / std_dev)
+            .collect();
+
+        // 簡略版のAD統計量計算
+        let mut ad_stat = 0.0;
+        for (i, &z) in standardized.iter().enumerate() {
+            let phi_z = 0.5 * (1.0 + (z / std::f32::consts::SQRT_2).tanh()); // 近似CDF
+            let phi_neg_z = 1.0 - phi_z;
+
+            if phi_z > 0.0 && phi_neg_z > 0.0 {
+                ad_stat += (2 * i + 1) as f32 * (phi_z.ln() + phi_neg_z.ln());
+            }
+        }
+
+        ad_stat = -(n as f32) - ad_stat / n as f32;
+        Ok(ad_stat)
+    }
+
+    /// コルモゴロフ・スミルノフ検定統計量（単一標本）（f32専用）
+    /// Kolmogorov-Smirnov test statistic (one-sample) (f32-specific)
+    pub fn kolmogorov_smirnov(&self) -> RusTorchResult<f32> {
+        let data = self.data.as_slice().unwrap();
+        let n = data.len();
+
+        if n == 0 {
+            return Ok(f32::NAN);
+        }
+
+        let mut sorted_data = data.to_vec();
+        sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mean = sorted_data.iter().sum::<f32>() / n as f32;
+        let variance = sorted_data.iter()
+            .map(|&x| (x - mean).powi(2))
+            .sum::<f32>() / (n - 1) as f32;
+        let std_dev = variance.sqrt();
+
+        let mut max_diff: f32 = 0.0;
+
+        for (i, &x) in sorted_data.iter().enumerate() {
+            let empirical_cdf = (i + 1) as f32 / n as f32;
+
+            // 標準正規分布のCDF近似
+            let z = (x - mean) / std_dev;
+            let theoretical_cdf = 0.5 * (1.0 + (z / std::f32::consts::SQRT_2).tanh());
+
+            let diff = (empirical_cdf - theoretical_cdf).abs();
+            max_diff = max_diff.max(diff);
+        }
+
+        Ok(max_diff)
+    }
+
+    /// 平均二乗誤差（MSE）（f32専用）
+    /// Mean squared error (MSE) (f32-specific)
+    pub fn mse(&self, other: &F32Tensor) -> RusTorchResult<f32> {
+        if self.shape != other.shape {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "F32Tensor::mse".to_string(),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
+            });
+        }
+
+        let data1 = self.data.as_slice().unwrap();
+        let data2 = other.data.as_slice().unwrap();
+
+        let mse = data1.iter().zip(data2.iter())
+            .map(|(&x1, &x2)| (x1 - x2).powi(2))
+            .sum::<f32>() / data1.len() as f32;
+
+        Ok(mse)
+    }
+
+    // ===== 補助メソッド / Helper Methods =====
+
+    /// ランク変換（f32専用）
+    /// Rank transformation (f32-specific)
+    fn rank_transform(&self) -> RusTorchResult<F32Tensor> {
+        let data = self.data.as_slice().unwrap();
+        let mut indexed_data: Vec<(f32, usize)> = data.iter()
+            .enumerate()
+            .map(|(i, &v)| (v, i))
+            .collect();
+
+        indexed_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut ranks = vec![0.0; data.len()];
+        for (rank, (_, original_index)) in indexed_data.iter().enumerate() {
+            ranks[*original_index] = (rank + 1) as f32;
+        }
+
+        F32Tensor::new(ranks, self.shape.clone())
+    }
+}
+
 /// Cloneトレイトの実装
 /// Clone trait implementation
 impl Clone for F32Tensor {

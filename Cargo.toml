@@ -400,6 +400,11 @@ name = "hybrid_f32_phase3_test"
 path = "examples/hybrid_f32/phase3_test.rs"
 required-features = ["hybrid-f32"]
 
+[[example]]
+name = "hybrid_f32_phase4a_test"
+path = "examples/hybrid_f32/phase4a_test.rs"
+required-features = ["hybrid-f32"]
+
 [lints.clippy]
 # Allow common warnings in examples, tests, and benches
 approx_constant = "allow"
