@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759054216037,
+  "lastUpdate": 1759054553541,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1268,6 +1268,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "dae2c5658801f39cc3cae801bf4cad0f46208087",
+          "message": "feat: Release v0.6.25 with Phase 4C utility operations\n\nComplete Phase 4C implementation with 60 utility & system operations:\n- Memory & storage operations (15 methods)\n- Type conversion & casting operations (15 methods)\n- Debug & information operations (15 methods)\n- System & hardware operations (15 methods)\n\nTotal hybrid_f32 methods: 278 (Phase 1: 38 + Phase 2: 40 + Phase 3: 20 + Phase 4A-C: 180)\n\n🚀 Features:\n- Zero-conversion-cost f32 unified hybrid system\n- Comprehensive memory management and device control\n- High-precision type conversion and casting\n- Detailed debugging and profiling capabilities\n- System optimization and performance monitoring\n- Hardware capability detection and utilization\n- PyTorch-compatible API design\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T19:14:23+09:00",
+          "tree_id": "38faabd101489b956692630993519b5f830696d0",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/dae2c5658801f39cc3cae801bf4cad0f46208087"
+        },
+        "date": 1759054550479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
