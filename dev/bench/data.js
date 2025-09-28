@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759038023067,
+  "lastUpdate": 1759038157234,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1206,6 +1206,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30005,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "84875ba68cf6fa710c643f928993de046831804a",
+          "message": "chore: Update Cargo.lock for v0.6.24\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T14:39:22+09:00",
+          "tree_id": "33f766be51e79afa04deec4b348b76f6e5110fc2",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/84875ba68cf6fa710c643f928993de046831804a"
+        },
+        "date": 1759038154031,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
