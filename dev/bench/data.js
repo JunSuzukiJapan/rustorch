@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759038157234,
+  "lastUpdate": 1759054216037,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1237,6 +1237,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29890ca6515f79438c61eb058ddf51ec9fe6c7ee",
+          "message": "feat: Complete hybrid_f32 Phase 4C & prepare v0.6.25 release\n\n🚀 **hybrid_f32 Phase 4C Complete + v0.6.25 Release Ready**\n\n## ✅ **Phase 4C Implementation Complete (60 Methods)**\n- **Memory & Storage Operations**: 15 methods with f32 optimization\n- **Type Conversion & Casting**: 15 methods for seamless type handling  \n- **Debug & Information Operations**: 15 methods for comprehensive monitoring\n- **System & Hardware Operations**: 15 methods for performance optimization\n\n## 🔧 **Version 0.6.25 Updates**\n- Updated all version references across documentation (8 languages)\n- Synchronized Jupyter package and benchmark versions\n- Applied consistent code formatting across codebase\n\n## ✅ **Comprehensive Validation Complete**\n- **1,139-1,176 tests** passing across all feature combinations\n- **Full build validation** (examples, library, WASM, documentation)\n- **Quality assurance** (benchmarks, clippy, formatting) - all perfect\n- **Windows compatibility** resolved (ILLEGAL_INSTRUCTION fixed)\n- **Cross-platform testing** successful (Ubuntu/macOS/Windows)\n\n## 🎯 **hybrid_f32 System Status**\n- **Total Methods**: 278 (Phase 1-3: 218 + Phase 4A-C: 180)\n- **Zero-conversion-cost** f32 operations with PyTorch compatibility\n- **Production-ready** with comprehensive test coverage\n- **Cross-platform** device support (CPU/CUDA/Metal/CoreML)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T19:09:05+09:00",
+          "tree_id": "c04cf69d9a324afd981708a67ebbd720c98d5ea3",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/29890ca6515f79438c61eb058ddf51ec9fe6c7ee"
+        },
+        "date": 1759054212777,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
