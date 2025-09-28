@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759032902640,
+  "lastUpdate": 1759036915245,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1108,6 +1108,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/54551533324ac959a5e3c3d2e56ef3945cbda1ba"
         },
         "date": 1759032899844,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "6fba0eca9d7484d54efd2630cdc32f6891ba9fa1",
+          "message": "feat: Replace Neural Engine placeholders with true CoreML implementation\n\n## Major Neural Engine Improvements\n\n### 🎯 Core Changes\n- **Matrix Multiplication**: Replaced Metal fallback with direct CoreML Neural Engine execution\n- **Conv2D Operations**: Replaced placeholder zeros with true convolution computation\n- **Activation Functions**: Enhanced from basic CPU ops to Neural Engine optimized execution\n- **MLMultiArray Conversion**: Implemented bidirectional tensor conversion system\n\n### 🔧 Technical Implementation\n- Added proper MLMultiArray conversion methods for Neural Engine compatibility\n- Implemented comprehensive input validation for 4D tensors (NCHW format)\n- Added channel compatibility checks and dimension calculation\n- Enhanced error handling with proper CoreMLError to RusTorchError conversion\n- Fixed all compilation issues and type mismatches\n\n### ✅ Quality Assurance\n- All platforms compile successfully (Windows, macOS, Ubuntu, WebAssembly)\n- Comprehensive error handling with existing RusTorchError variants\n- Maintains backward compatibility with CPU fallbacks\n- Performance statistics tracking and model caching integrated\n\n### 🚀 Impact\n- Transforms \"🚧 Neural Engine: プレースホルダー実装\" → \"✅ Neural Engine: 真のCoreML実行\"\n- Enables genuine Apple Neural Engine acceleration for matrix ops, convolutions, and activations\n- Provides foundation for Float16 optimization and advanced Neural Engine features\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T14:20:44+09:00",
+          "tree_id": "43bb3deb5ac3ad5279f503e345781823fcdbdbce",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/6fba0eca9d7484d54efd2630cdc32f6891ba9fa1"
+        },
+        "date": 1759036912764,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
