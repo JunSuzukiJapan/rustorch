@@ -7,9 +7,9 @@
 //! This module runs benchmarks equivalent to the existing simple_performance_test
 //! using the hybrid_f32 system, enabling direct performance comparisons.
 
-use crate::error::RusTorchResult;
 use super::super::tensor::F32Tensor;
 use super::super::unified::F32HybridExecutor;
+use crate::error::RusTorchResult;
 use std::time::Instant;
 
 /// パフォーマンステスト設定
@@ -37,11 +37,11 @@ impl Default for PerformanceTestConfig {
 /// Performance test results
 #[derive(Debug, Clone)]
 pub struct PerformanceTestResults {
-    pub tensor_addition: f64,           // ms
-    pub tensor_sum: f64,                // ms
-    pub tensor_creation: f64,           // ms
-    pub tensor_clone: f64,              // ms
-    pub matrix_multiplication: f64,     // ms
+    pub tensor_addition: f64,       // ms
+    pub tensor_sum: f64,            // ms
+    pub tensor_creation: f64,       // ms
+    pub tensor_clone: f64,          // ms
+    pub matrix_multiplication: f64, // ms
     pub device_used: String,
 }
 
@@ -65,10 +65,7 @@ impl F32PerformanceTest {
         println!("  Iterations: {}", config.iterations);
         println!("  Warmup: {}", config.warmup_iterations);
 
-        Ok(Self {
-            config,
-            executor,
-        })
+        Ok(Self { config, executor })
     }
 
     /// 完全なパフォーマンステストスイートを実行
@@ -115,14 +112,8 @@ impl F32PerformanceTest {
     /// Tensor addition benchmark
     fn bench_tensor_addition(&mut self) -> RusTorchResult<f64> {
         let size = 10000;
-        let tensor_a = F32Tensor::new(
-            (0..size).map(|i| i as f32).collect(),
-            vec![size]
-        )?;
-        let tensor_b = F32Tensor::new(
-            (0..size).map(|i| (i + 1) as f32).collect(),
-            vec![size]
-        )?;
+        let tensor_a = F32Tensor::new((0..size).map(|i| i as f32).collect(), vec![size])?;
+        let tensor_b = F32Tensor::new((0..size).map(|i| (i + 1) as f32).collect(), vec![size])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -146,10 +137,7 @@ impl F32PerformanceTest {
     /// Tensor sum benchmark
     fn bench_tensor_sum(&mut self) -> RusTorchResult<f64> {
         let size = 10000;
-        let tensor = F32Tensor::new(
-            (0..size).map(|i| i as f32).collect(),
-            vec![size]
-        )?;
+        let tensor = F32Tensor::new((0..size).map(|i| i as f32).collect(), vec![size])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -195,10 +183,7 @@ impl F32PerformanceTest {
     /// テンソル複製ベンチマーク
     /// Tensor clone benchmark
     fn bench_tensor_clone(&mut self) -> RusTorchResult<f64> {
-        let tensor = F32Tensor::new(
-            (0..1000).map(|i| i as f32).collect(),
-            vec![1000]
-        )?;
+        let tensor = F32Tensor::new((0..1000).map(|i| i as f32).collect(), vec![1000])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -224,11 +209,11 @@ impl F32PerformanceTest {
         let size = 128;
         let mat_a = F32Tensor::new(
             (0..size * size).map(|i| (i as f32) * 0.01).collect(),
-            vec![size, size]
+            vec![size, size],
         )?;
         let mat_b = F32Tensor::new(
             (0..size * size).map(|i| (i as f32) * 0.01).collect(),
-            vec![size, size]
+            vec![size, size],
         )?;
 
         // ウォームアップ
@@ -264,7 +249,10 @@ impl F32PerformanceTest {
         println!("  Tensor sum:            {:.6} ms", results.tensor_sum);
         println!("  Tensor creation:       {:.6} ms", results.tensor_creation);
         println!("  Tensor clone:          {:.6} ms", results.tensor_clone);
-        println!("  Matrix multiplication: {:.6} ms", results.matrix_multiplication);
+        println!(
+            "  Matrix multiplication: {:.6} ms",
+            results.matrix_multiplication
+        );
     }
 }
 

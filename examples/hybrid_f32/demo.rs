@@ -14,9 +14,7 @@
 
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::{
-    tensor::F32Tensor,
-    unified::F32HybridExecutor,
-    benchmarks::run_quick_benchmark,
+    benchmarks::run_quick_benchmark, tensor::F32Tensor, unified::F32HybridExecutor,
 };
 
 #[cfg(feature = "hybrid-f32")]
@@ -111,9 +109,9 @@ fn demo_unified_hybrid_execution() -> Result<(), Box<dyn std::error::Error>> {
 
     // 異なるサイズの行列で最適デバイス選択をテスト
     let test_sizes = vec![
-        (50, 50),    // 小規模 → CPU
-        (200, 200),  // 中規模 → Neural Engine
-        (800, 800),  // 大規模 → Metal GPU
+        (50, 50),   // 小規模 → CPU
+        (200, 200), // 中規模 → Neural Engine
+        (800, 800), // 大規模 → Metal GPU
     ];
 
     for (size_m, size_n) in test_sizes {
@@ -128,7 +126,10 @@ fn demo_unified_hybrid_execution() -> Result<(), Box<dyn std::error::Error>> {
 
         println!("     結果形状: {:?}", result.shape());
         println!("     実行時間: {:?}", execution_time);
-        println!("     変換コスト削減: {:.1}%", experiment_results.conversion_cost_reduction);
+        println!(
+            "     変換コスト削減: {:.1}%",
+            experiment_results.conversion_cost_reduction
+        );
     }
 
     // パフォーマンス統計を表示
@@ -136,7 +137,10 @@ fn demo_unified_hybrid_execution() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n  📊 実行統計:");
     println!("     総実行回数: {}", stats.total_operations);
     println!("     平均実行時間: {:?}", stats.average_execution_time);
-    println!("     変換コスト削減時間: {:?}", stats.conversion_cost_savings);
+    println!(
+        "     変換コスト削減時間: {:?}",
+        stats.conversion_cost_savings
+    );
     println!("     デバイス使用状況:");
     for (device, count) in stats.device_usage {
         println!("       {}: {} 回", device, count);

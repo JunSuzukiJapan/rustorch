@@ -15,9 +15,9 @@
 
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::{
+    benchmarks::{BenchmarkConfig, F32HybridBenchmark},
     tensor::F32Tensor,
     unified::F32HybridExecutor,
-    benchmarks::{BenchmarkConfig, F32HybridBenchmark},
 };
 
 #[cfg(feature = "hybrid-f32")]
@@ -36,9 +36,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 比較用設定（短時間実行）
     let quick_config = BenchmarkConfig {
         matrix_sizes: vec![
-            (64, 64, 64),     // 超小規模
-            (128, 128, 128),  // 小規模
-            (256, 256, 256),  // 中規模
+            (64, 64, 64),    // 超小規模
+            (128, 128, 128), // 小規模
+            (256, 256, 256), // 中規模
         ],
         iterations: 5,
         warmup_iterations: 2,
@@ -46,9 +46,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("📊 ベンチマーク設定 / Benchmark Configuration:");
-    println!("  行列サイズ / Matrix sizes: {:?}", quick_config.matrix_sizes);
+    println!(
+        "  行列サイズ / Matrix sizes: {:?}",
+        quick_config.matrix_sizes
+    );
     println!("  反復回数 / Iterations: {}", quick_config.iterations);
-    println!("  ウォームアップ / Warmup: {}", quick_config.warmup_iterations);
+    println!(
+        "  ウォームアップ / Warmup: {}",
+        quick_config.warmup_iterations
+    );
     println!();
 
     // 1. f32統一ハイブリッドシステムベンチマーク
@@ -101,15 +107,17 @@ struct LegacyBenchmarkResult {
 }
 
 #[cfg(feature = "hybrid-f32")]
-fn run_legacy_system_benchmark(config: &BenchmarkConfig) -> Result<Vec<LegacyBenchmarkResult>, Box<dyn std::error::Error>> {
+fn run_legacy_system_benchmark(
+    config: &BenchmarkConfig,
+) -> Result<Vec<LegacyBenchmarkResult>, Box<dyn std::error::Error>> {
     let mut results = Vec::new();
 
     for &(m, n, k) in &config.matrix_sizes {
         println!("  📏 測定中: {}x{}x{}", m, n, k);
 
         // f64データ準備（従来システム）
-        let a_data: Vec<f64> = (0..m*k).map(|_| rand::random::<f64>()).collect();
-        let b_data: Vec<f64> = (0..k*n).map(|_| rand::random::<f64>()).collect();
+        let a_data: Vec<f64> = (0..m * k).map(|_| rand::random::<f64>()).collect();
+        let b_data: Vec<f64> = (0..k * n).map(|_| rand::random::<f64>()).collect();
 
         let mut total_execution = std::time::Duration::from_secs(0);
         let mut total_conversion = std::time::Duration::from_secs(0);
@@ -155,8 +163,10 @@ fn run_legacy_system_benchmark(config: &BenchmarkConfig) -> Result<Vec<LegacyBen
             tflops,
         };
 
-        println!("    実行時間: {:?}, 変換時間: {:?}, 合計: {:?}",
-                avg_execution, avg_conversion, avg_total);
+        println!(
+            "    実行時間: {:?}, 変換時間: {:?}, 合計: {:?}",
+            avg_execution, avg_conversion, avg_total
+        );
 
         results.push(result);
     }
@@ -167,9 +177,8 @@ fn run_legacy_system_benchmark(config: &BenchmarkConfig) -> Result<Vec<LegacyBen
 #[cfg(feature = "hybrid-f32")]
 fn perform_detailed_comparison(
     hybrid_results: &[rustorch::hybrid_f32::benchmarks::MatrixBenchmarkResult],
-    legacy_results: &[LegacyBenchmarkResult]
+    legacy_results: &[LegacyBenchmarkResult],
 ) -> Result<(), Box<dyn std::error::Error>> {
-
     println!("| サイズ | f32ハイブリッド | 従来システム | 性能向上 | 変換コスト削減 |");
     println!("|--------|----------------|--------------|----------|----------------|");
 
@@ -180,8 +189,11 @@ fn perform_detailed_comparison(
         let speedup = legacy.total_time.as_secs_f64() / hybrid.execution_time.as_secs_f64();
         let conversion_savings = legacy.conversion_time.as_secs_f64();
 
-        println!("| {}x{}x{} | {:?} | {:?} | {:.2}x | {:?} |",
-            hybrid.size.0, hybrid.size.1, hybrid.size.2,
+        println!(
+            "| {}x{}x{} | {:?} | {:?} | {:.2}x | {:?} |",
+            hybrid.size.0,
+            hybrid.size.1,
+            hybrid.size.2,
             hybrid.execution_time,
             legacy.total_time,
             speedup,
@@ -196,7 +208,10 @@ fn perform_detailed_comparison(
     let avg_conversion_savings = total_conversion_savings / hybrid_results.len() as f64;
 
     println!("\n📊 平均性能向上: {:.2}x", avg_speedup);
-    println!("⚡ 平均変換コスト削減: {:.2}ms", avg_conversion_savings * 1000.0);
+    println!(
+        "⚡ 平均変換コスト削減: {:.2}ms",
+        avg_conversion_savings * 1000.0
+    );
 
     Ok(())
 }
@@ -210,8 +225,8 @@ fn measure_conversion_costs(config: &BenchmarkConfig) -> Result<(), Box<dyn std:
 
     // 従来システムの変換コスト測定
     let conversion_start = Instant::now();
-    let a_data: Vec<f64> = (0..m*k).map(|_| rand::random::<f64>()).collect();
-    let b_data: Vec<f64> = (0..k*n).map(|_| rand::random::<f64>()).collect();
+    let a_data: Vec<f64> = (0..m * k).map(|_| rand::random::<f64>()).collect();
+    let b_data: Vec<f64> = (0..k * n).map(|_| rand::random::<f64>()).collect();
     let _a = Tensor::from_vec(a_data, vec![m, k]);
     let _b = Tensor::from_vec(b_data, vec![k, n]);
     let conversion_time = conversion_start.elapsed();
@@ -224,8 +239,12 @@ fn measure_conversion_costs(config: &BenchmarkConfig) -> Result<(), Box<dyn std:
 
     println!("  従来システム変換コスト: {:?}", conversion_time);
     println!("  f32ハイブリッド変換コスト: {:?} (ほぼゼロ)", f32_time);
-    println!("  変換コスト削減率: {:.1}%",
-        ((conversion_time.as_nanos() - f32_time.as_nanos()) as f64 / conversion_time.as_nanos() as f64) * 100.0);
+    println!(
+        "  変換コスト削減率: {:.1}%",
+        ((conversion_time.as_nanos() - f32_time.as_nanos()) as f64
+            / conversion_time.as_nanos() as f64)
+            * 100.0
+    );
 
     Ok(())
 }

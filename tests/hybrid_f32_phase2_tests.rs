@@ -58,10 +58,9 @@ mod tests {
         assert_eq!(permuted.shape(), &[3, 2]);
 
         // エラーケース：現在は2D転置のみサポート
-        let tensor_3d = F32Tensor::from_vec(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            vec![2, 2, 2]
-        ).unwrap();
+        let tensor_3d =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])
+                .unwrap();
         assert!(tensor_3d.permute(&[2, 0, 1]).is_err());
 
         // エラーケース：無効な次元指定
@@ -108,13 +107,15 @@ mod tests {
         rustorch::hybrid_f32_experimental!();
 
         // 多次元テンソルを1次元に平坦化
-        let tensor = F32Tensor::from_vec(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            vec![2, 2, 2]
-        ).unwrap();
+        let tensor =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], vec![2, 2, 2])
+                .unwrap();
         let flattened = tensor.flatten().unwrap();
         assert_eq!(flattened.shape(), &[8]);
-        assert_eq!(flattened.as_slice(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+        assert_eq!(
+            flattened.as_slice(),
+            &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+        );
 
         // 基本的な平坦化のみサポート
         let tensor_2d = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
@@ -194,13 +195,15 @@ mod tests {
         // 3x3行列
         let matrix_3x3 = F32Tensor::from_vec(
             vec![1.0, 2.0, 3.0, 0.0, 1.0, 4.0, 5.0, 6.0, 0.0],
-            vec![3, 3]
-        ).unwrap();
+            vec![3, 3],
+        )
+        .unwrap();
         let det_3x3 = matrix_3x3.det().unwrap();
         assert!((det_3x3 - 1.0).abs() < 1e-6); // 期待値：1
 
         // エラーケース：非正方行列
-        let non_square = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        let non_square =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
         assert!(non_square.det().is_err());
     }
 
@@ -222,7 +225,11 @@ mod tests {
         // 3x3単位行列の逆行列
         let identity_3x3 = F32Tensor::eye(3);
         let inv_identity = identity_3x3.inverse().unwrap();
-        for (actual, expected) in inv_identity.as_slice().iter().zip(identity_3x3.as_slice().iter()) {
+        for (actual, expected) in inv_identity
+            .as_slice()
+            .iter()
+            .zip(identity_3x3.as_slice().iter())
+        {
             assert!((actual - expected).abs() < 1e-6);
         }
 
@@ -240,7 +247,8 @@ mod tests {
         assert_eq!(matrix.trace().unwrap(), 5.0); // 1 + 4 = 5
 
         // 非正方行列のトレース（最小次元まで）
-        let rect_matrix = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        let rect_matrix =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
         assert_eq!(rect_matrix.trace().unwrap(), 6.0); // 1 + 5 = 6
 
         // エラーケース：1次元テンソル
@@ -271,7 +279,7 @@ mod tests {
 
         let matrix = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
         let norm = matrix.frobenius_norm().unwrap();
-        let expected = (1.0*1.0 + 2.0*2.0 + 3.0*3.0 + 4.0*4.0_f32).sqrt();
+        let expected = (1.0 * 1.0 + 2.0 * 2.0 + 3.0 * 3.0 + 4.0 * 4.0_f32).sqrt();
         assert!((norm - expected).abs() < 1e-6);
     }
 
@@ -304,7 +312,11 @@ mod tests {
 
         // Q * R = A を確認
         let reconstructed = q.matmul(&r).unwrap();
-        for (actual, expected) in reconstructed.as_slice().iter().zip(matrix.as_slice().iter()) {
+        for (actual, expected) in reconstructed
+            .as_slice()
+            .iter()
+            .zip(matrix.as_slice().iter())
+        {
             assert!((actual - expected).abs() < 1e-6);
         }
 
@@ -366,7 +378,11 @@ mod tests {
         // L * L^T = A を確認
         let l_t = l.t().unwrap();
         let reconstructed = l.matmul(&l_t).unwrap();
-        for (actual, expected) in reconstructed.as_slice().iter().zip(matrix.as_slice().iter()) {
+        for (actual, expected) in reconstructed
+            .as_slice()
+            .iter()
+            .zip(matrix.as_slice().iter())
+        {
             assert!((actual - expected).abs() < 1e-6);
         }
 
@@ -390,7 +406,11 @@ mod tests {
         let b_t = b.t().unwrap();
         let sum_t_expected = a_t.add(&b_t).unwrap();
 
-        for (actual, expected) in sum_t.as_slice().iter().zip(sum_t_expected.as_slice().iter()) {
+        for (actual, expected) in sum_t
+            .as_slice()
+            .iter()
+            .zip(sum_t_expected.as_slice().iter())
+        {
             assert!((actual - expected).abs() < 1e-6);
         }
 
@@ -408,7 +428,8 @@ mod tests {
         rustorch::hybrid_f32_experimental!();
 
         // 非正方行列での正方行列専用操作
-        let non_square = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        let non_square =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
         assert!(non_square.det().is_err());
         assert!(non_square.inverse().is_err());
         assert!(non_square.eig().is_err());
@@ -426,7 +447,8 @@ mod tests {
         assert!(rank_deficient.qr().is_err());
 
         // 非正定値行列でのコレスキー分解
-        let negative_definite = F32Tensor::from_vec(vec![-1.0, 0.0, 0.0, -1.0], vec![2, 2]).unwrap();
+        let negative_definite =
+            F32Tensor::from_vec(vec![-1.0, 0.0, 0.0, -1.0], vec![2, 2]).unwrap();
         assert!(negative_definite.cholesky().is_err());
     }
 }

@@ -55,12 +55,18 @@ mod tests {
         let randn_tensor = F32Tensor::randn(&[5, 5]);
         assert_eq!(randn_tensor.shape(), &[5, 5]);
         // randn は -1.0 から 1.0 の範囲
-        assert!(randn_tensor.as_slice().iter().all(|&x| x >= -1.0 && x <= 1.0));
+        assert!(randn_tensor
+            .as_slice()
+            .iter()
+            .all(|&x| x >= -1.0 && x <= 1.0));
 
         // uniform
         let uniform_tensor = F32Tensor::uniform(&[3, 3], 5.0, 15.0);
         assert_eq!(uniform_tensor.shape(), &[3, 3]);
-        assert!(uniform_tensor.as_slice().iter().all(|&x| x >= 5.0 && x < 15.0));
+        assert!(uniform_tensor
+            .as_slice()
+            .iter()
+            .all(|&x| x >= 5.0 && x < 15.0));
     }
 
     #[test]
@@ -84,7 +90,7 @@ mod tests {
 
         // div
         let div_result = b.div(&a).unwrap();
-        assert_eq!(div_result.as_slice(), &[2.0, 1.5, 4.0/3.0, 1.25]);
+        assert_eq!(div_result.as_slice(), &[2.0, 1.5, 4.0 / 3.0, 1.25]);
     }
 
     #[test]

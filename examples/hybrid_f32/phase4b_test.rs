@@ -60,8 +60,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("-------------------------------------------------------");
 
     let test_data = F32Tensor::from_vec(
-        vec![1.0, 0.0, 3.0, f32::NAN, 5.0, f32::INFINITY, -2.0, f32::NEG_INFINITY],
-        vec![8]
+        vec![
+            1.0,
+            0.0,
+            3.0,
+            f32::NAN,
+            5.0,
+            f32::INFINITY,
+            -2.0,
+            f32::NEG_INFINITY,
+        ],
+        vec![8],
     )?;
     println!("  Test data: {:?}", test_data.as_slice());
 
@@ -114,19 +123,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("  Searchsorted: {:?}", search_result.as_slice());
 
     // ヒストグラム
-    let hist_data = F32Tensor::from_vec(
-        vec![1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 5.0],
-        vec![9]
-    )?;
+    let hist_data =
+        F32Tensor::from_vec(vec![1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 5.0], vec![9])?;
     let (hist, bins) = hist_data.histogram(5, None)?;
     println!("  Histogram: {:?}", hist.as_slice());
     println!("  Bin edges: {:?}", bins.as_slice());
 
     // ピーク・谷検出
-    let signal = F32Tensor::from_vec(
-        vec![1.0, 3.0, 1.5, 4.0, 2.0, 5.0, 1.0, 2.5, 0.5],
-        vec![9]
-    )?;
+    let signal = F32Tensor::from_vec(vec![1.0, 3.0, 1.5, 4.0, 2.0, 5.0, 1.0, 2.5, 0.5], vec![9])?;
     let peaks = signal.find_peaks(Some(2.5), Some(2))?;
     let valleys = signal.find_valleys(Some(2.0), Some(2))?;
     println!("  Signal: {:?}", signal.as_slice());
@@ -160,7 +164,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 条件付き交換
     let swap_data = F32Tensor::from_vec(vec![1.0, 2.0, 1.0, 3.0, 2.0], vec![5])?;
     let swapped = swap_data.conditional_swap(|x| x <= 2.0, 1.0, 2.0)?;
-    println!("  Swap 1↔2: {:?} → {:?}", swap_data.as_slice(), swapped.as_slice());
+    println!(
+        "  Swap 1↔2: {:?} → {:?}",
+        swap_data.as_slice(),
+        swapped.as_slice()
+    );
 
     // 重複除去
     let dup_data = F32Tensor::from_vec(vec![1.0, 2.0, 1.0, 3.0, 2.0, 4.0], vec![6])?;
@@ -177,8 +185,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let large_data: Vec<f32> = (0..1000).map(|i| (i % 100) as f32).collect();
     let large_tensor = F32Tensor::from_vec(large_data, vec![1000])?;
     let large_condition = F32Tensor::from_vec(
-        (0..1000).map(|i| if i % 2 == 0 { 1.0 } else { 0.0 }).collect(),
-        vec![1000]
+        (0..1000)
+            .map(|i| if i % 2 == 0 { 1.0 } else { 0.0 })
+            .collect(),
+        vec![1000],
     )?;
 
     let start = Instant::now();

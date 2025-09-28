@@ -1,8 +1,8 @@
 //! Metal GPU f32直接実行エンジン
 //! Metal GPU f32 direct execution engine
 
+use super::{DevicePerformanceInfo, F32GPUExecutor};
 use crate::error::RusTorchResult;
-use super::{F32GPUExecutor, DevicePerformanceInfo};
 use crate::hybrid_f32::tensor::F32Tensor;
 
 /// f32専用Metal実行器
@@ -82,8 +82,14 @@ impl F32GPUExecutor for F32MetalExecutor {
             self.device_id = Some(device_id);
             self.is_initialized = true;
 
-            println!("🚀 Metal GPU {} initialized for f32 unified execution", device_id);
-            println!("  Performance: {:.1} TFLOPS (f32)", self.performance_info.estimated_tflops_f32);
+            println!(
+                "🚀 Metal GPU {} initialized for f32 unified execution",
+                device_id
+            );
+            println!(
+                "  Performance: {:.1} TFLOPS (f32)",
+                self.performance_info.estimated_tflops_f32
+            );
 
             Ok(())
         }

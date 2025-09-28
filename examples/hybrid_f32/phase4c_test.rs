@@ -53,7 +53,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let u8_data = test_data.to_u8()?;
     let bool_data = test_data.bool()?;
 
-    println!("  To f64: {:?}", f64_data.iter().map(|x| format!("{:.1}", x)).collect::<Vec<_>>());
+    println!(
+        "  To f64: {:?}",
+        f64_data
+            .iter()
+            .map(|x| format!("{:.1}", x))
+            .collect::<Vec<_>>()
+    );
     println!("  To i32: {:?}", i32_data);
     println!("  To u8: {:?}", u8_data);
     println!("  To bool: {:?}", bool_data);
@@ -62,7 +68,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let float_tensor = test_data.float()?;
     let double_data = test_data.double()?;
     println!("  Float tensor: {:?}", float_tensor.as_slice());
-    println!("  Double data: {:?}", double_data.iter().map(|x| format!("{:.1}", x)).collect::<Vec<_>>());
+    println!(
+        "  Double data: {:?}",
+        double_data
+            .iter()
+            .map(|x| format!("{:.1}", x))
+            .collect::<Vec<_>>()
+    );
 
     // データ型情報
     println!("  Data type: {}", test_data.dtype());
@@ -71,10 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🔍 3. デバッグ・情報取得操作デモ / Debug & Information Operations Demo");
     println!("-------------------------------------------------------------");
 
-    let debug_data = F32Tensor::from_vec(
-        vec![1.0, 2.5, f32::NAN, 4.0, f32::INFINITY, -2.0],
-        vec![6]
-    )?;
+    let debug_data =
+        F32Tensor::from_vec(vec![1.0, 2.5, f32::NAN, 4.0, f32::INFINITY, -2.0], vec![6])?;
     println!("  Debug tensor: {:?}", debug_data.as_slice());
 
     // 基本情報
@@ -132,7 +142,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n⚡ 5. パフォーマンス測定デモ / Performance Measurement Demo");
     println!("-------------------------------------------------------");
 
-    let bench_data = F32Tensor::from_vec((0..5000).map(|i| (i as f32).sin()).collect(), vec![5000])?;
+    let bench_data =
+        F32Tensor::from_vec((0..5000).map(|i| (i as f32).sin()).collect(), vec![5000])?;
 
     // CPU使用率
     println!("  CPU Usage:");
@@ -191,7 +202,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🏁 7. パフォーマンステスト / Performance Test");
     println!("-------------------------------------------");
 
-    let large_data = F32Tensor::from_vec((0..10000).map(|i| (i as f32) * 0.001).collect(), vec![10000])?;
+    let large_data = F32Tensor::from_vec(
+        (0..10000).map(|i| (i as f32) * 0.001).collect(),
+        vec![10000],
+    )?;
 
     let start = Instant::now();
     let _info = large_data.info();
@@ -227,11 +241,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("     * to_f64, to_f32, to_i64, to_i32, to_u8, half");
     println!("     * float, double, long, int, bool, byte, char");
     println!("     * type_as, dtype");
-    println!("   - デバッグ・情報取得操作: 15メソッド (Debug & information operations: 15 methods)");
+    println!(
+        "   - デバッグ・情報取得操作: 15メソッド (Debug & information operations: 15 methods)"
+    );
     println!("     * info, check_state, memory_usage, numel, ndim");
     println!("     * is_empty, is_scalar, data_hash, debug_info, perf_stats");
     println!("     * summary, sanity_check, trace_info, backtrace, profile");
-    println!("   - システム・ハードウェア操作: 15メソッド (System & hardware operations: 15 methods)");
+    println!(
+        "   - システム・ハードウェア操作: 15メソッド (System & hardware operations: 15 methods)"
+    );
     println!("     * system_info, device_info, optimize_performance, cpu_usage, memory_bandwidth");
     println!("     * parallel_config, cache_optimize, simd_info, power_efficiency, thermal_status");
     println!("     * resource_usage, hardware_caps, optimization_hints, benchmark");

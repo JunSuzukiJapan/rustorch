@@ -34,7 +34,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Squeeze and unsqueeze
     let with_singleton = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![1, 2, 2])?;
-    println!("\n  With singleton dimension (1x2x2): shape {:?}", with_singleton.shape());
+    println!(
+        "\n  With singleton dimension (1x2x2): shape {:?}",
+        with_singleton.shape()
+    );
 
     let squeezed = with_singleton.squeeze()?;
     println!("  Squeezed: shape {:?}", squeezed.shape());
@@ -50,7 +53,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n  Concatenated: {:?}", concatenated.as_slice());
 
     let stacked = F32Tensor::stack(&[&a, &b], 0)?;
-    println!("  Stacked: {:?} with shape {:?}", stacked.as_slice(), stacked.shape());
+    println!(
+        "  Stacked: {:?} with shape {:?}",
+        stacked.as_slice(),
+        stacked.shape()
+    );
 
     // ===== 線形代数テスト / Linear Algebra Tests =====
     println!("\n🔢 2. 線形代数テスト / Linear Algebra Tests");
@@ -93,7 +100,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Matrix inverse (for well-conditioned matrix)
     let well_conditioned = F32Tensor::from_vec(vec![2.0, 1.0, 1.0, 2.0], vec![2, 2])?;
-    println!("  Well-conditioned matrix: {:?}", well_conditioned.as_slice());
+    println!(
+        "  Well-conditioned matrix: {:?}",
+        well_conditioned.as_slice()
+    );
 
     let inverse = well_conditioned.inverse()?;
     println!("  Inverse: {:?}", inverse.as_slice());
@@ -120,7 +130,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Eigenvalue decomposition (for symmetric 2x2)
     let symmetric = F32Tensor::from_vec(vec![3.0, 1.0, 1.0, 3.0], vec![2, 2])?;
-    println!("\n  Eigenvalue decomposition of: {:?}", symmetric.as_slice());
+    println!(
+        "\n  Eigenvalue decomposition of: {:?}",
+        symmetric.as_slice()
+    );
 
     let (eigenvals, eigenvecs) = symmetric.eig()?;
     println!("  Eigenvalues: {:?}", eigenvals.as_slice());

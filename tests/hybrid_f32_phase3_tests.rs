@@ -4,14 +4,15 @@
 #[cfg(feature = "hybrid-f32")]
 mod phase3_tests {
     use rustorch::hybrid_f32::tensor::{F32Tensor, WindowType};
-    use std::f32::consts::{PI, E};
+    use std::f32::consts::{E, PI};
 
     #[test]
     fn test_trigonometric_functions() -> Result<(), Box<dyn std::error::Error>> {
         println!("🧪 Testing trigonometric functions...");
 
         // sin, cos, tan テスト
-        let angles = F32Tensor::from_vec(vec![0.0, PI/6.0, PI/4.0, PI/3.0, PI/2.0], vec![5])?;
+        let angles =
+            F32Tensor::from_vec(vec![0.0, PI / 6.0, PI / 4.0, PI / 3.0, PI / 2.0], vec![5])?;
 
         let sin_result = angles.sin()?;
         let cos_result = angles.cos()?;
@@ -21,12 +22,34 @@ mod phase3_tests {
         let sin_expected = vec![0.0, 0.5, 0.7071068, 0.8660254, 1.0];
         let cos_expected = vec![1.0, 0.8660254, 0.7071068, 0.5, 0.0];
 
-        for (i, (&actual, &expected)) in sin_result.as_slice().iter().zip(sin_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "sin[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in sin_result
+            .as_slice()
+            .iter()
+            .zip(sin_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "sin[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
-        for (i, (&actual, &expected)) in cos_result.as_slice().iter().zip(cos_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "cos[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in cos_result
+            .as_slice()
+            .iter()
+            .zip(cos_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "cos[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // 逆三角関数テスト
@@ -112,14 +135,36 @@ mod phase3_tests {
 
         // ceil テスト
         let ceil_expected = vec![-2.0, -1.0, 0.0, 1.0, 2.0, 3.0];
-        for (i, (&actual, &expected)) in ceil_result.as_slice().iter().zip(ceil_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "ceil[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in ceil_result
+            .as_slice()
+            .iter()
+            .zip(ceil_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "ceil[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // floor テスト
         let floor_expected = vec![-3.0, -2.0, -1.0, 0.0, 1.0, 2.0];
-        for (i, (&actual, &expected)) in floor_result.as_slice().iter().zip(floor_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "floor[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in floor_result
+            .as_slice()
+            .iter()
+            .zip(floor_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "floor[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         println!("  ✅ Rounding functions passed");
@@ -135,16 +180,38 @@ mod phase3_tests {
         // sign関数テスト
         let sign_result = values.sign()?;
         let sign_expected = vec![-1.0, -1.0, 0.0, 1.0, 1.0];
-        for (i, (&actual, &expected)) in sign_result.as_slice().iter().zip(sign_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "sign[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in sign_result
+            .as_slice()
+            .iter()
+            .zip(sign_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "sign[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // reciprocal関数テスト（0は除く）
         let nonzero_values = F32Tensor::from_vec(vec![1.0, 2.0, 4.0, 0.5], vec![4])?;
         let reciprocal_result = nonzero_values.reciprocal()?;
         let reciprocal_expected = vec![1.0, 0.5, 0.25, 2.0];
-        for (i, (&actual, &expected)) in reciprocal_result.as_slice().iter().zip(reciprocal_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "reciprocal[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in reciprocal_result
+            .as_slice()
+            .iter()
+            .zip(reciprocal_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "reciprocal[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // square, cbrt テスト
@@ -153,8 +220,19 @@ mod phase3_tests {
         let _cbrt_result = F32Tensor::from_vec(vec![1.0, 8.0, 27.0, 64.0], vec![4])?.cbrt()?;
 
         let square_expected = vec![1.0, 4.0, 9.0, 16.0];
-        for (i, (&actual, &expected)) in square_result.as_slice().iter().zip(square_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.001, "square[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in square_result
+            .as_slice()
+            .iter()
+            .zip(square_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.001,
+                "square[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // gamma関数テスト（整数値）
@@ -162,8 +240,19 @@ mod phase3_tests {
         let gamma_result = gamma_values.gamma()?;
         // gamma(1) = 1, gamma(2) = 1, gamma(3) = 2, gamma(4) = 6
         let gamma_expected = vec![1.0, 1.0, 2.0, 6.0];
-        for (i, (&actual, &expected)) in gamma_result.as_slice().iter().zip(gamma_expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 0.01, "gamma[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in gamma_result
+            .as_slice()
+            .iter()
+            .zip(gamma_expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 0.01,
+                "gamma[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         // erf関数テスト
@@ -237,12 +326,21 @@ mod phase3_tests {
         let original_data = signal.as_slice();
         let rect_data = rectangular.as_slice();
         for (i, (&original, &windowed)) in original_data.iter().zip(rect_data.iter()).enumerate() {
-            assert!((original - windowed).abs() < 0.001, "Rectangular[{}]: expected {}, got {}", i, original, windowed);
+            assert!(
+                (original - windowed).abs() < 0.001,
+                "Rectangular[{}]: expected {}, got {}",
+                i,
+                original,
+                windowed
+            );
         }
 
         // Hanning窓は端が0に近いはず
         let hann_data = hanning.as_slice();
-        assert!(hann_data[0].abs() < 0.1, "Hanning window should start near 0");
+        assert!(
+            hann_data[0].abs() < 0.1,
+            "Hanning window should start near 0"
+        );
         assert!(hann_data[3].abs() < 0.1, "Hanning window should end near 0");
 
         println!("  ✅ Window functions passed");
@@ -257,10 +355,16 @@ mod phase3_tests {
         let non_power_of_two = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3])?;
 
         let fft_result = non_power_of_two.fft();
-        assert!(fft_result.is_err(), "FFT should fail for non-power-of-two length");
+        assert!(
+            fft_result.is_err(),
+            "FFT should fail for non-power-of-two length"
+        );
 
         let ifft_result = non_power_of_two.ifft();
-        assert!(ifft_result.is_err(), "IFFT should fail for non-power-of-two length");
+        assert!(
+            ifft_result.is_err(),
+            "IFFT should fail for non-power-of-two length"
+        );
 
         println!("  ✅ FFT power-of-two requirement passed");
         Ok(())
@@ -273,8 +377,10 @@ mod phase3_tests {
         // asin, acos のドメイン制限テスト [-1, 1]
         let invalid_asin = F32Tensor::from_vec(vec![2.0], vec![1])?;
         let asin_result = invalid_asin.asin();
-        assert!(asin_result.is_err() || asin_result.unwrap().as_slice()[0].is_nan(),
-               "asin should handle out-of-domain values");
+        assert!(
+            asin_result.is_err() || asin_result.unwrap().as_slice()[0].is_nan(),
+            "asin should handle out-of-domain values"
+        );
 
         // atanh のドメイン制限テスト (-1, 1)
         let boundary_atanh = F32Tensor::from_vec(vec![1.0], vec![1])?;
@@ -282,8 +388,11 @@ mod phase3_tests {
         // atanh(1) should either error or return infinity/NaN
         if let Ok(result) = atanh_result {
             let val = result.as_slice()[0];
-            assert!(val.is_infinite() || val.is_nan(),
-                   "atanh(1) should be infinity or NaN, got {}", val);
+            assert!(
+                val.is_infinite() || val.is_nan(),
+                "atanh(1) should be infinity or NaN, got {}",
+                val
+            );
         }
         // Test with value > 1 which should definitely be invalid
         let invalid_atanh = F32Tensor::from_vec(vec![2.0], vec![1])?;
@@ -296,14 +405,18 @@ mod phase3_tests {
         // ln の負数ドメインテスト
         let negative_ln = F32Tensor::from_vec(vec![-1.0], vec![1])?;
         let ln_result = negative_ln.ln();
-        assert!(ln_result.is_err() || ln_result.unwrap().as_slice()[0].is_nan(),
-               "ln should handle negative values");
+        assert!(
+            ln_result.is_err() || ln_result.unwrap().as_slice()[0].is_nan(),
+            "ln should handle negative values"
+        );
 
         // reciprocal の0除算テスト
         let zero_reciprocal = F32Tensor::from_vec(vec![0.0], vec![1])?;
         let reciprocal_result = zero_reciprocal.reciprocal();
-        assert!(reciprocal_result.is_err() || reciprocal_result.unwrap().as_slice()[0].is_infinite(),
-               "reciprocal should handle division by zero");
+        assert!(
+            reciprocal_result.is_err() || reciprocal_result.unwrap().as_slice()[0].is_infinite(),
+            "reciprocal should handle division by zero"
+        );
 
         println!("  ✅ Domain restrictions passed");
         Ok(())
@@ -314,7 +427,7 @@ mod phase3_tests {
         println!("🧪 Running comprehensive Phase 3 test...");
 
         // 複合演算テスト：sin(x) + cos(x)
-        let x = F32Tensor::from_vec(vec![0.0, PI/4.0, PI/2.0], vec![3])?;
+        let x = F32Tensor::from_vec(vec![0.0, PI / 4.0, PI / 2.0], vec![3])?;
         let sin_x = x.sin()?;
         let cos_x = x.cos()?;
         let combined = sin_x.add(&cos_x)?;
@@ -333,8 +446,16 @@ mod phase3_tests {
 
         let original_data = positive_x.as_slice();
         let recovered_data = exp_ln_x.as_slice();
-        for (i, (&original, &recovered)) in original_data.iter().zip(recovered_data.iter()).enumerate() {
-            assert!((original - recovered).abs() < 0.001, "exp(ln(x))[{}]: expected {}, got {}", i, original, recovered);
+        for (i, (&original, &recovered)) in
+            original_data.iter().zip(recovered_data.iter()).enumerate()
+        {
+            assert!(
+                (original - recovered).abs() < 0.001,
+                "exp(ln(x))[{}]: expected {}, got {}",
+                i,
+                original,
+                recovered
+            );
         }
 
         // FFT + 窓関数の複合テスト

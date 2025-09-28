@@ -1,10 +1,10 @@
 //! f32統一ハイブリッド実行システム
 //! f32 Unified Hybrid Execution System
 
-use crate::error::RusTorchResult;
+use super::gpu::{F32CoreMLExecutor, F32MetalExecutor, F32UnifiedGPUContext, GPUDevice};
 use super::tensor::F32Tensor;
-use super::gpu::{F32UnifiedGPUContext, GPUDevice, F32MetalExecutor, F32CoreMLExecutor};
 use super::ExperimentResults;
+use crate::error::RusTorchResult;
 use std::time::Instant;
 
 /// f32統一ハイブリッド実行エンジン
@@ -43,10 +43,14 @@ impl F32HybridExecutor {
 
         println!("📊 Available devices:");
         for (device, info) in &available_devices {
-            println!("  {:?}: {} ({:.1} TFLOPS f32)", device, info.device_name, info.estimated_tflops_f32);
+            println!(
+                "  {:?}: {} ({:.1} TFLOPS f32)",
+                device, info.device_name, info.estimated_tflops_f32
+            );
         }
 
-        self.device_selector.update_device_capabilities(available_devices);
+        self.device_selector
+            .update_device_capabilities(available_devices);
 
         println!("✅ F32 Hybrid system initialized successfully");
         Ok(())
@@ -54,7 +58,11 @@ impl F32HybridExecutor {
 
     /// 統一実行（変換コストなし）
     /// Unified execution (no conversion cost)
-    pub fn execute_matmul(&mut self, a: &F32Tensor, b: &F32Tensor) -> RusTorchResult<(F32Tensor, ExperimentResults)> {
+    pub fn execute_matmul(
+        &mut self,
+        a: &F32Tensor,
+        b: &F32Tensor,
+    ) -> RusTorchResult<(F32Tensor, ExperimentResults)> {
         crate::hybrid_f32_experimental!();
 
         let start_time = Instant::now();
@@ -94,7 +102,8 @@ impl F32HybridExecutor {
         experiment_results.total_execution_time = execution_time;
         experiment_results.conversion_cost_reduction = 100.0; // 変換コスト完全削除
 
-        self.performance_monitor.record_execution(&operation, execution_time, &optimal_device);
+        self.performance_monitor
+            .record_execution(&operation, execution_time, &optimal_device);
 
         println!("✅ Execution completed in {:?}", execution_time);
         println!("📊 Conversion cost reduction: 100% (zero conversion overhead)");
@@ -150,7 +159,10 @@ impl F32DeviceSelector {
         }
     }
 
-    pub fn update_device_capabilities(&mut self, capabilities: Vec<(GPUDevice, super::gpu::DevicePerformanceInfo)>) {
+    pub fn update_device_capabilities(
+        &mut self,
+        capabilities: Vec<(GPUDevice, super::gpu::DevicePerformanceInfo)>,
+    ) {
         self.device_capabilities = capabilities;
     }
 
@@ -159,7 +171,8 @@ impl F32DeviceSelector {
     pub fn select_optimal_device(&self, operation: &F32Operation) -> RusTorchResult<GPUDevice> {
         match operation {
             F32Operation::MatMul { size_a, size_b } => {
-                let total_elements = size_a.iter().product::<usize>() + size_b.iter().product::<usize>();
+                let total_elements =
+                    size_a.iter().product::<usize>() + size_b.iter().product::<usize>();
 
                 match total_elements {
                     // 大規模線形代数 → Metal GPU
@@ -188,14 +201,14 @@ impl F32DeviceSelector {
 pub enum F32Operation {
     MatMul {
         size_a: Vec<usize>,
-        size_b: Vec<usize>
+        size_b: Vec<usize>,
     },
     Conv2D {
         input_shape: Vec<usize>,
-        kernel_shape: Vec<usize>
+        kernel_shape: Vec<usize>,
     },
     Activation {
-        input_shape: Vec<usize>
+        input_shape: Vec<usize>,
     },
 }
 
@@ -233,7 +246,12 @@ impl PerformanceMonitor {
         }
     }
 
-    pub fn record_execution(&mut self, operation: &F32Operation, execution_time: std::time::Duration, device: &GPUDevice) {
+    pub fn record_execution(
+        &mut self,
+        operation: &F32Operation,
+        execution_time: std::time::Duration,
+        device: &GPUDevice,
+    ) {
         let operation_name = match operation {
             F32Operation::MatMul { .. } => "matmul",
             F32Operation::Conv2D { .. } => "conv2d",
@@ -257,7 +275,8 @@ impl PerformanceMonitor {
 
     pub fn get_stats(&self) -> PerformanceStats {
         let mut device_usage = std::collections::HashMap::new();
-        let total_time: std::time::Duration = self.execution_history
+        let total_time: std::time::Duration = self
+            .execution_history
             .iter()
             .map(|record| {
                 let device_name = match &record.device {

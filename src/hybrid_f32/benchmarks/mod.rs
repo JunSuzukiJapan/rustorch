@@ -3,10 +3,10 @@
 
 pub mod performance_test;
 
-use crate::error::RusTorchResult;
 use super::tensor::F32Tensor;
 use super::unified::F32HybridExecutor;
 use super::ExperimentResults;
+use crate::error::RusTorchResult;
 use crate::tensor::Tensor;
 use std::time::Instant;
 
@@ -24,8 +24,8 @@ impl Default for BenchmarkConfig {
     fn default() -> Self {
         Self {
             matrix_sizes: vec![
-                (128, 128, 128),   // 小規模
-                (512, 512, 512),   // 中規模
+                (128, 128, 128),    // 小規模
+                (512, 512, 512),    // 中規模
                 (1024, 1024, 1024), // 大規模
                 (2048, 2048, 2048), // 超大規模
             ],
@@ -57,9 +57,9 @@ pub struct MatrixBenchmarkResult {
 
 #[derive(Debug, Clone)]
 pub struct ComparisonResults {
-    pub performance_improvement: Vec<f64>, // パーセンテージ
+    pub performance_improvement: Vec<f64>,   // パーセンテージ
     pub conversion_cost_reduction: Vec<f64>, // パーセンテージ
-    pub memory_efficiency_gain: Vec<f64>, // パーセンテージ
+    pub memory_efficiency_gain: Vec<f64>,    // パーセンテージ
     pub overall_improvement: f64,
 }
 
@@ -133,7 +133,12 @@ impl F32HybridBenchmark {
 
     /// f32ハイブリッドシステムベンチマーク
     /// f32 hybrid system benchmark
-    fn benchmark_hybrid_f32(&mut self, m: usize, n: usize, k: usize) -> RusTorchResult<MatrixBenchmarkResult> {
+    fn benchmark_hybrid_f32(
+        &mut self,
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<MatrixBenchmarkResult> {
         // テンソル作成（変換コストなし）
         let a = F32Tensor::randn(&[m, k]);
         let b = F32Tensor::randn(&[k, n]);
@@ -184,10 +189,15 @@ impl F32HybridBenchmark {
 
     /// ベースライン（従来システム）ベンチマーク
     /// Baseline (conventional system) benchmark
-    fn benchmark_baseline(&self, m: usize, n: usize, k: usize) -> RusTorchResult<MatrixBenchmarkResult> {
+    fn benchmark_baseline(
+        &self,
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<MatrixBenchmarkResult> {
         // 従来のTensor（f64 → f32変換コストあり）
-        let a_data: Vec<f64> = (0..m*k).map(|_| rand::random::<f64>()).collect();
-        let b_data: Vec<f64> = (0..k*n).map(|_| rand::random::<f64>()).collect();
+        let a_data: Vec<f64> = (0..m * k).map(|_| rand::random::<f64>()).collect();
+        let b_data: Vec<f64> = (0..k * n).map(|_| rand::random::<f64>()).collect();
 
         let a = Tensor::from_vec(a_data, vec![m, k]);
         let b = Tensor::from_vec(b_data, vec![k, n]);
@@ -229,7 +239,11 @@ impl F32HybridBenchmark {
 
     /// 結果分析
     /// Analyze results
-    fn analyze_results(&self, hybrid_results: &[MatrixBenchmarkResult], baseline_results: &[MatrixBenchmarkResult]) -> ComparisonResults {
+    fn analyze_results(
+        &self,
+        hybrid_results: &[MatrixBenchmarkResult],
+        baseline_results: &[MatrixBenchmarkResult],
+    ) -> ComparisonResults {
         let mut performance_improvement = Vec::new();
         let mut conversion_cost_reduction = Vec::new();
         let mut memory_efficiency_gain = Vec::new();
@@ -257,7 +271,8 @@ impl F32HybridBenchmark {
             memory_efficiency_gain.push(25.0); // 推定値
         }
 
-        let overall_improvement = performance_improvement.iter().sum::<f64>() / performance_improvement.len() as f64;
+        let overall_improvement =
+            performance_improvement.iter().sum::<f64>() / performance_improvement.len() as f64;
 
         ComparisonResults {
             performance_improvement,
@@ -280,7 +295,10 @@ impl F32HybridBenchmark {
                 None
             };
 
-            println!("\n🔍 Matrix Size: {}x{}x{}", hybrid.size.0, hybrid.size.1, hybrid.size.2);
+            println!(
+                "\n🔍 Matrix Size: {}x{}x{}",
+                hybrid.size.0, hybrid.size.1, hybrid.size.2
+            );
             println!("  F32 Hybrid:");
             println!("    Execution Time: {:?}", hybrid.execution_time);
             println!("    Performance: {:.2} TFLOPS", hybrid.tflops);
@@ -295,14 +313,23 @@ impl F32HybridBenchmark {
                 println!("    Conversion Cost: {:?}", baseline.conversion_cost);
 
                 if i < results.comparison.performance_improvement.len() {
-                    println!("  📈 Improvement: {:.1}%", results.comparison.performance_improvement[i]);
-                    println!("  🚀 Conversion Cost Reduction: {:.1}%", results.comparison.conversion_cost_reduction[i]);
+                    println!(
+                        "  📈 Improvement: {:.1}%",
+                        results.comparison.performance_improvement[i]
+                    );
+                    println!(
+                        "  🚀 Conversion Cost Reduction: {:.1}%",
+                        results.comparison.conversion_cost_reduction[i]
+                    );
                 }
             }
         }
 
         println!("\n🎯 Overall Results:");
-        println!("  Average Performance Improvement: {:.1}%", results.comparison.overall_improvement);
+        println!(
+            "  Average Performance Improvement: {:.1}%",
+            results.comparison.overall_improvement
+        );
         println!("  Conversion Cost Reduction: 100% (Complete elimination)");
         println!("  Memory Efficiency Gain: ~25% (estimated)");
     }

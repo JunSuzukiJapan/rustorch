@@ -98,11 +98,12 @@ impl F32Tensor {
             });
         }
 
-        let ndarray_data = Array::from_shape_vec(IxDyn(&shape), data)
-            .map_err(|e| crate::error::RusTorchError::TensorOp {
+        let ndarray_data = Array::from_shape_vec(IxDyn(&shape), data).map_err(|e| {
+            crate::error::RusTorchError::TensorOp {
                 message: format!("Failed to create ndarray: {}", e),
                 source: None,
-            })?;
+            }
+        })?;
 
         Ok(Self {
             data: ndarray_data,
@@ -151,9 +152,7 @@ impl F32Tensor {
         use rand::Rng;
         let mut rng = rand::thread_rng();
         let total_elements: usize = shape.iter().product();
-        let data: Vec<f32> = (0..total_elements)
-            .map(|_| rng.gen::<f32>())
-            .collect();
+        let data: Vec<f32> = (0..total_elements).map(|_| rng.gen::<f32>()).collect();
 
         Self::new(data, shape.to_vec()).expect("Failed to create random tensor")
     }
@@ -194,9 +193,7 @@ impl F32Tensor {
         }
 
         let step_size = (end - start) / (steps - 1) as f32;
-        let data: Vec<f32> = (0..steps)
-            .map(|i| start + i as f32 * step_size)
-            .collect();
+        let data: Vec<f32> = (0..steps).map(|i| start + i as f32 * step_size).collect();
 
         Self::new(data, vec![steps]).expect("Failed to create linspace tensor")
     }
@@ -230,21 +227,19 @@ impl F32Tensor {
         &self.device_state
     }
 
-
     /// テンソル加算（f32専用）
     /// Tensor addition (f32-specific)
     pub fn add(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
         if self.shape != other.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::add".to_string(),
-                message: format!(
-                    "Shape mismatch: {:?} vs {:?}",
-                    self.shape, other.shape
-                ),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
             });
         }
 
-        let result_data: Vec<f32> = self.data.iter()
+        let result_data: Vec<f32> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(a, b)| a + b)
             .collect();
@@ -258,14 +253,13 @@ impl F32Tensor {
         if self.shape != other.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::sub".to_string(),
-                message: format!(
-                    "Shape mismatch: {:?} vs {:?}",
-                    self.shape, other.shape
-                ),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
             });
         }
 
-        let result_data: Vec<f32> = self.data.iter()
+        let result_data: Vec<f32> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(a, b)| a - b)
             .collect();
@@ -279,14 +273,13 @@ impl F32Tensor {
         if self.shape != other.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::mul".to_string(),
-                message: format!(
-                    "Shape mismatch: {:?} vs {:?}",
-                    self.shape, other.shape
-                ),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
             });
         }
 
-        let result_data: Vec<f32> = self.data.iter()
+        let result_data: Vec<f32> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(a, b)| a * b)
             .collect();
@@ -300,14 +293,13 @@ impl F32Tensor {
         if self.shape != other.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::div".to_string(),
-                message: format!(
-                    "Shape mismatch: {:?} vs {:?}",
-                    self.shape, other.shape
-                ),
+                message: format!("Shape mismatch: {:?} vs {:?}", self.shape, other.shape),
             });
         }
 
-        let result_data: Vec<f32> = self.data.iter()
+        let result_data: Vec<f32> = self
+            .data
+            .iter()
             .zip(other.data.iter())
             .map(|(a, b)| a / b)
             .collect();
@@ -318,9 +310,7 @@ impl F32Tensor {
     /// スカラー加算（f32専用）
     /// Scalar addition (f32-specific)
     pub fn add_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a + scalar)
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a + scalar).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -328,9 +318,7 @@ impl F32Tensor {
     /// スカラー減算（f32専用）
     /// Scalar subtraction (f32-specific)
     pub fn sub_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a - scalar)
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a - scalar).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -338,9 +326,7 @@ impl F32Tensor {
     /// スカラー乗算（f32専用）
     /// Scalar multiplication (f32-specific)
     pub fn mul_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a * scalar)
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a * scalar).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -348,9 +334,7 @@ impl F32Tensor {
     /// スカラー除算（f32専用）
     /// Scalar division (f32-specific)
     pub fn div_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a / scalar)
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a / scalar).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -358,9 +342,7 @@ impl F32Tensor {
     /// 符号反転（f32専用）
     /// Negation (f32-specific)
     pub fn neg(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| -a)
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| -a).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -368,9 +350,7 @@ impl F32Tensor {
     /// 絶対値（f32専用）
     /// Absolute value (f32-specific)
     pub fn abs(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a.abs())
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a.abs()).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -378,9 +358,7 @@ impl F32Tensor {
     /// べき乗（f32専用）
     /// Power (f32-specific)
     pub fn pow(&self, exponent: f32) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a.powf(exponent))
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a.powf(exponent)).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -388,9 +366,7 @@ impl F32Tensor {
     /// 平方根（f32専用）
     /// Square root (f32-specific)
     pub fn sqrt(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.iter()
-            .map(|&a| a.sqrt())
-            .collect();
+        let result_data: Vec<f32> = self.data.iter().map(|&a| a.sqrt()).collect();
 
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -416,7 +392,8 @@ impl F32Tensor {
     /// テンソル最大値（f32専用）
     /// Tensor maximum (f32-specific)
     pub fn max(&self) -> RusTorchResult<f32> {
-        self.data.iter()
+        self.data
+            .iter()
             .filter(|&&x| !x.is_nan())
             .max_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
@@ -429,7 +406,8 @@ impl F32Tensor {
     /// テンソル最小値（f32専用）
     /// Tensor minimum (f32-specific)
     pub fn min(&self) -> RusTorchResult<f32> {
-        self.data.iter()
+        self.data
+            .iter()
             .filter(|&&x| !x.is_nan())
             .min_by(|a, b| a.partial_cmp(b).unwrap())
             .copied()
@@ -450,9 +428,8 @@ impl F32Tensor {
         }
 
         let mean = self.mean()?;
-        let variance = self.data.iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f32>() / self.data.len() as f32;
+        let variance =
+            self.data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / self.data.len() as f32;
 
         Ok(variance.sqrt())
     }
@@ -468,9 +445,8 @@ impl F32Tensor {
         }
 
         let mean = self.mean()?;
-        let variance = self.data.iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f32>() / self.data.len() as f32;
+        let variance =
+            self.data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / self.data.len() as f32;
 
         Ok(variance)
     }
@@ -481,7 +457,11 @@ impl F32Tensor {
         if axis >= self.shape.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::sum_axis".to_string(),
-                message: format!("Axis {} out of bounds for {}D tensor", axis, self.shape.len()),
+                message: format!(
+                    "Axis {} out of bounds for {}D tensor",
+                    axis,
+                    self.shape.len()
+                ),
             });
         }
 
@@ -581,7 +561,8 @@ impl F32Tensor {
                 operation: "F32Tensor::permute".to_string(),
                 message: format!(
                     "Number of axes {} doesn't match tensor dimensions {}",
-                    axes.len(), self.shape.len()
+                    axes.len(),
+                    self.shape.len()
                 ),
             });
         }
@@ -601,10 +582,7 @@ impl F32Tensor {
     /// 次元削除（サイズ1の次元を削除）
     /// Squeeze dimensions (remove size-1 dimensions)
     pub fn squeeze(&self) -> RusTorchResult<F32Tensor> {
-        let new_shape: Vec<usize> = self.shape.iter()
-            .copied()
-            .filter(|&dim| dim != 1)
-            .collect();
+        let new_shape: Vec<usize> = self.shape.iter().copied().filter(|&dim| dim != 1).collect();
 
         if new_shape.is_empty() {
             // 全ての次元がサイズ1の場合、スカラーとして[1]の形状にする
@@ -620,14 +598,21 @@ impl F32Tensor {
         if dim >= self.shape.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::squeeze_dim".to_string(),
-                message: format!("Dimension {} out of bounds for {}D tensor", dim, self.shape.len()),
+                message: format!(
+                    "Dimension {} out of bounds for {}D tensor",
+                    dim,
+                    self.shape.len()
+                ),
             });
         }
 
         if self.shape[dim] != 1 {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::squeeze_dim".to_string(),
-                message: format!("Cannot squeeze dimension {} with size {}", dim, self.shape[dim]),
+                message: format!(
+                    "Cannot squeeze dimension {} with size {}",
+                    dim, self.shape[dim]
+                ),
             });
         }
 
@@ -666,7 +651,11 @@ impl F32Tensor {
 
     /// 範囲指定平坦化
     /// Flatten with range specification
-    pub fn flatten_range(&self, start_dim: usize, end_dim: Option<usize>) -> RusTorchResult<F32Tensor> {
+    pub fn flatten_range(
+        &self,
+        start_dim: usize,
+        end_dim: Option<usize>,
+    ) -> RusTorchResult<F32Tensor> {
         let end_dim = end_dim.unwrap_or(self.shape.len() - 1);
 
         if start_dim > end_dim || end_dim >= self.shape.len() {
@@ -701,10 +690,7 @@ impl F32Tensor {
         if !self.can_broadcast_to(target_shape) {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::expand".to_string(),
-                message: format!(
-                    "Cannot expand shape {:?} to {:?}",
-                    self.shape, target_shape
-                ),
+                message: format!("Cannot expand shape {:?} to {:?}", self.shape, target_shape),
             });
         }
 
@@ -735,7 +721,8 @@ impl F32Tensor {
                 operation: "F32Tensor::repeat".to_string(),
                 message: format!(
                     "Repeat dimensions {} doesn't match tensor dimensions {}",
-                    repeats.len(), self.shape.len()
+                    repeats.len(),
+                    self.shape.len()
                 ),
             });
         }
@@ -810,7 +797,9 @@ impl F32Tensor {
                 });
             }
 
-            for (i, (&dim_size, &first_dim_size)) in tensor.shape.iter().zip(first_shape.iter()).enumerate() {
+            for (i, (&dim_size, &first_dim_size)) in
+                tensor.shape.iter().zip(first_shape.iter()).enumerate()
+            {
                 if i != dim && dim_size != first_dim_size {
                     return Err(crate::error::RusTorchError::InvalidParameters {
                         operation: "F32Tensor::concat".to_string(),
@@ -891,10 +880,7 @@ impl F32Tensor {
         if k1 != k2 {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::matmul".to_string(),
-                message: format!(
-                    "Matrix dimension mismatch: {}x{} × {}x{}",
-                    m, k1, k2, n
-                ),
+                message: format!("Matrix dimension mismatch: {}x{} × {}x{}", m, k1, k2, n),
             });
         }
 
@@ -973,16 +959,18 @@ impl F32Tensor {
                 let a32 = self.data[[2, 1]];
                 let a33 = self.data[[2, 2]];
 
-                Ok(a11 * (a22 * a33 - a23 * a32)
-                    - a12 * (a21 * a33 - a23 * a31)
-                    + a13 * (a21 * a32 - a22 * a31))
+                Ok(
+                    a11 * (a22 * a33 - a23 * a32) - a12 * (a21 * a33 - a23 * a31)
+                        + a13 * (a21 * a32 - a22 * a31),
+                )
             }
             _ => {
                 // 大きな行列の場合は簡単なLU分解による実装
                 // （実際の実装では LAPACK を使用）
                 Err(crate::error::RusTorchError::InvalidParameters {
                     operation: "F32Tensor::det".to_string(),
-                    message: "Determinant for matrices larger than 3x3 not yet implemented".to_string(),
+                    message: "Determinant for matrices larger than 3x3 not yet implemented"
+                        .to_string(),
                 })
             }
         }
@@ -1020,10 +1008,7 @@ impl F32Tensor {
                 let d = self.data[[1, 1]];
 
                 let inv_det = 1.0 / det;
-                let result_data = vec![
-                    d * inv_det, -b * inv_det,
-                    -c * inv_det, a * inv_det
-                ];
+                let result_data = vec![d * inv_det, -b * inv_det, -c * inv_det, a * inv_det];
                 F32Tensor::new(result_data, vec![2, 2])
             }
             _ => {
@@ -1428,7 +1413,10 @@ impl F32Tensor {
     /// 三角関数: sin（f32専用）
     /// Trigonometric function: sin (f32-specific)
     pub fn sin(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.sin())
             .collect();
@@ -1438,7 +1426,10 @@ impl F32Tensor {
     /// 三角関数: cos（f32専用）
     /// Trigonometric function: cos (f32-specific)
     pub fn cos(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.cos())
             .collect();
@@ -1448,7 +1439,10 @@ impl F32Tensor {
     /// 三角関数: tan（f32専用）
     /// Trigonometric function: tan (f32-specific)
     pub fn tan(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.tan())
             .collect();
@@ -1458,7 +1452,10 @@ impl F32Tensor {
     /// 逆三角関数: asin（f32専用）
     /// Inverse trigonometric function: asin (f32-specific)
     pub fn asin(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| {
                 if x >= -1.0 && x <= 1.0 {
@@ -1474,7 +1471,10 @@ impl F32Tensor {
     /// 逆三角関数: acos（f32専用）
     /// Inverse trigonometric function: acos (f32-specific)
     pub fn acos(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| {
                 if x >= -1.0 && x <= 1.0 {
@@ -1490,7 +1490,10 @@ impl F32Tensor {
     /// 逆三角関数: atan（f32専用）
     /// Inverse trigonometric function: atan (f32-specific)
     pub fn atan(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.atan())
             .collect();
@@ -1507,7 +1510,10 @@ impl F32Tensor {
             });
         }
 
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .zip(other.data.as_slice().unwrap().iter())
             .map(|(&y, &x)| y.atan2(x))
@@ -1518,7 +1524,10 @@ impl F32Tensor {
     /// 双曲線関数: sinh（f32専用）
     /// Hyperbolic function: sinh (f32-specific)
     pub fn sinh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.sinh())
             .collect();
@@ -1528,7 +1537,10 @@ impl F32Tensor {
     /// 双曲線関数: cosh（f32専用）
     /// Hyperbolic function: cosh (f32-specific)
     pub fn cosh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.cosh())
             .collect();
@@ -1538,7 +1550,10 @@ impl F32Tensor {
     /// 双曲線関数: tanh（f32専用）
     /// Hyperbolic function: tanh (f32-specific)
     pub fn tanh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.tanh())
             .collect();
@@ -1548,7 +1563,10 @@ impl F32Tensor {
     /// 逆双曲線関数: asinh（f32専用）
     /// Inverse hyperbolic function: asinh (f32-specific)
     pub fn asinh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.asinh())
             .collect();
@@ -1558,15 +1576,12 @@ impl F32Tensor {
     /// 逆双曲線関数: acosh（f32専用）
     /// Inverse hyperbolic function: acosh (f32-specific)
     pub fn acosh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x >= 1.0 {
-                    x.acosh()
-                } else {
-                    f32::NAN
-                }
-            })
+            .map(|&x| if x >= 1.0 { x.acosh() } else { f32::NAN })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1574,7 +1589,10 @@ impl F32Tensor {
     /// 逆双曲線関数: atanh（f32専用）
     /// Inverse hyperbolic function: atanh (f32-specific)
     pub fn atanh(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| {
                 if x > -1.0 && x < 1.0 {
@@ -1590,7 +1608,10 @@ impl F32Tensor {
     /// 指数関数: exp（f32専用）
     /// Exponential function: exp (f32-specific)
     pub fn exp(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.exp())
             .collect();
@@ -1600,7 +1621,10 @@ impl F32Tensor {
     /// 指数関数: exp2（2^x）（f32専用）
     /// Exponential function: exp2 (2^x) (f32-specific)
     pub fn exp2(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.exp2())
             .collect();
@@ -1610,7 +1634,10 @@ impl F32Tensor {
     /// 指数関数: expm1（exp(x) - 1）（f32専用）
     /// Exponential function: expm1 (exp(x) - 1) (f32-specific)
     pub fn expm1(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.exp_m1())
             .collect();
@@ -1620,15 +1647,12 @@ impl F32Tensor {
     /// 自然対数: ln（f32専用）
     /// Natural logarithm: ln (f32-specific)
     pub fn ln(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x > 0.0 {
-                    x.ln()
-                } else {
-                    f32::NAN
-                }
-            })
+            .map(|&x| if x > 0.0 { x.ln() } else { f32::NAN })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1636,15 +1660,12 @@ impl F32Tensor {
     /// 常用対数: log10（f32専用）
     /// Common logarithm: log10 (f32-specific)
     pub fn log10(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x > 0.0 {
-                    x.log10()
-                } else {
-                    f32::NAN
-                }
-            })
+            .map(|&x| if x > 0.0 { x.log10() } else { f32::NAN })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1652,15 +1673,12 @@ impl F32Tensor {
     /// 2進対数: log2（f32専用）
     /// Binary logarithm: log2 (f32-specific)
     pub fn log2(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x > 0.0 {
-                    x.log2()
-                } else {
-                    f32::NAN
-                }
-            })
+            .map(|&x| if x > 0.0 { x.log2() } else { f32::NAN })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1668,15 +1686,12 @@ impl F32Tensor {
     /// 対数: log1p（ln(1 + x)）（f32専用）
     /// Logarithm: log1p (ln(1 + x)) (f32-specific)
     pub fn log1p(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x > -1.0 {
-                    x.ln_1p()
-                } else {
-                    f32::NAN
-                }
-            })
+            .map(|&x| if x > -1.0 { x.ln_1p() } else { f32::NAN })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1684,7 +1699,10 @@ impl F32Tensor {
     /// 天井関数: ceil（f32専用）
     /// Ceiling function: ceil (f32-specific)
     pub fn ceil(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.ceil())
             .collect();
@@ -1694,7 +1712,10 @@ impl F32Tensor {
     /// 床関数: floor（f32専用）
     /// Floor function: floor (f32-specific)
     pub fn floor(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.floor())
             .collect();
@@ -1704,7 +1725,10 @@ impl F32Tensor {
     /// 四捨五入: round（f32専用）
     /// Rounding: round (f32-specific)
     pub fn round(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.round())
             .collect();
@@ -1714,7 +1738,10 @@ impl F32Tensor {
     /// 切り捨て: trunc（f32専用）
     /// Truncation: trunc (f32-specific)
     pub fn trunc(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.trunc())
             .collect();
@@ -1724,7 +1751,10 @@ impl F32Tensor {
     /// 小数部: fract（f32専用）
     /// Fractional part: fract (f32-specific)
     pub fn fract(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.fract())
             .collect();
@@ -1734,7 +1764,10 @@ impl F32Tensor {
     /// 符号関数: sign（f32専用）
     /// Sign function: sign (f32-specific)
     pub fn sign(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| {
                 if x > 0.0 {
@@ -1752,15 +1785,12 @@ impl F32Tensor {
     /// 逆数: reciprocal（f32専用）
     /// Reciprocal: reciprocal (f32-specific)
     pub fn reciprocal(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
-            .map(|&x| {
-                if x != 0.0 {
-                    1.0 / x
-                } else {
-                    f32::INFINITY
-                }
-            })
+            .map(|&x| if x != 0.0 { 1.0 / x } else { f32::INFINITY })
             .collect();
         F32Tensor::new(result_data, self.shape.clone())
     }
@@ -1768,7 +1798,10 @@ impl F32Tensor {
     /// 2乗: square（f32専用）
     /// Square: square (f32-specific)
     pub fn square(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x * x)
             .collect();
@@ -1778,7 +1811,10 @@ impl F32Tensor {
     /// 立方根: cbrt（f32専用）
     /// Cube root: cbrt (f32-specific)
     pub fn cbrt(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| x.cbrt())
             .collect();
@@ -1788,7 +1824,10 @@ impl F32Tensor {
     /// ガンマ関数（f32専用）
     /// Gamma function (f32-specific)
     pub fn gamma(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| Self::gamma_f32(x))
             .collect();
@@ -1798,7 +1837,10 @@ impl F32Tensor {
     /// 対数ガンマ関数（f32専用）
     /// Log gamma function (f32-specific)
     pub fn lgamma(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| Self::lgamma_f32(x))
             .collect();
@@ -1808,7 +1850,10 @@ impl F32Tensor {
     /// 誤差関数: erf（f32専用）
     /// Error function: erf (f32-specific)
     pub fn erf(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| Self::erf_f32(x))
             .collect();
@@ -1818,7 +1863,10 @@ impl F32Tensor {
     /// 相補誤差関数: erfc（f32専用）
     /// Complementary error function: erfc (f32-specific)
     pub fn erfc(&self) -> RusTorchResult<F32Tensor> {
-        let result_data: Vec<f32> = self.data.as_slice().unwrap()
+        let result_data: Vec<f32> = self
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .map(|&x| Self::erfc_f32(x))
             .collect();
@@ -1951,7 +1999,8 @@ impl F32Tensor {
 
         // 正規化
         let scale = 1.0 / (n as f32);
-        let result_data: Vec<f32> = complex_data.iter()
+        let result_data: Vec<f32> = complex_data
+            .iter()
             .map(|&(real, _imag)| real * scale)
             .collect();
 
@@ -1983,8 +2032,14 @@ impl F32Tensor {
 
         // 実部と虚部を分離
         let output_size = n / 2 + 1; // 対称性を利用
-        let real_parts: Vec<f32> = complex_data[0..output_size].iter().map(|&(real, _)| real).collect();
-        let imag_parts: Vec<f32> = complex_data[0..output_size].iter().map(|&(_, imag)| imag).collect();
+        let real_parts: Vec<f32> = complex_data[0..output_size]
+            .iter()
+            .map(|&(real, _)| real)
+            .collect();
+        let imag_parts: Vec<f32> = complex_data[0..output_size]
+            .iter()
+            .map(|&(_, imag)| imag)
+            .collect();
 
         let real_tensor = F32Tensor::new(real_parts, vec![output_size])?;
         let imag_tensor = F32Tensor::new(imag_parts, vec![output_size])?;
@@ -2056,7 +2111,8 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let window = Self::generate_window(window_type, n)?;
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .zip(window.iter())
             .map(|(&x, &w)| x * w)
             .collect();
@@ -2083,7 +2139,7 @@ impl F32Tensor {
         Self::fft_recursive(&mut odd);
 
         // 結果を結合
-        for i in 0..n/2 {
+        for i in 0..n / 2 {
             let angle = -2.0 * std::f32::consts::PI * (i as f32) / (n as f32);
             let (cos_val, sin_val) = (angle.cos(), angle.sin());
 
@@ -2094,7 +2150,7 @@ impl F32Tensor {
             let (even_real, even_imag) = even[i];
 
             data[i] = (even_real + w_real, even_imag + w_imag);
-            data[i + n/2] = (even_real - w_real, even_imag - w_imag);
+            data[i + n / 2] = (even_real - w_real, even_imag - w_imag);
         }
     }
 
@@ -2115,7 +2171,7 @@ impl F32Tensor {
         Self::ifft_recursive(&mut odd);
 
         // 結果を結合（FFTと逆符号）
-        for i in 0..n/2 {
+        for i in 0..n / 2 {
             let angle = 2.0 * std::f32::consts::PI * (i as f32) / (n as f32);
             let (cos_val, sin_val) = (angle.cos(), angle.sin());
 
@@ -2126,7 +2182,7 @@ impl F32Tensor {
             let (even_real, even_imag) = even[i];
 
             data[i] = (even_real + w_real, even_imag + w_imag);
-            data[i + n/2] = (even_real - w_real, even_imag - w_imag);
+            data[i + n / 2] = (even_real - w_real, even_imag - w_imag);
         }
     }
 
@@ -2143,13 +2199,15 @@ impl F32Tensor {
             WindowType::Hanning => {
                 // ハニング窓
                 for i in 0..n {
-                    window[i] = 0.5 * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos());
+                    window[i] = 0.5
+                        * (1.0 - (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos());
                 }
             }
             WindowType::Hamming => {
                 // ハミング窓
                 for i in 0..n {
-                    window[i] = 0.54 - 0.46 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
+                    window[i] = 0.54
+                        - 0.46 * (2.0 * std::f32::consts::PI * i as f32 / (n - 1) as f32).cos();
                 }
             }
             WindowType::Blackman => {
@@ -2262,7 +2320,8 @@ impl F32Tensor {
             *counts.entry(rounded_key).or_insert(0) += 1;
         }
 
-        let mode = counts.iter()
+        let mode = counts
+            .iter()
             .max_by_key(|(_, &count)| count)
             .map(|(&key, _)| key as f32 / 1000000.0)
             .unwrap();
@@ -2283,7 +2342,10 @@ impl F32Tensor {
             unique_values.insert(rounded_key);
         }
 
-        let mut unique_vec: Vec<f32> = unique_values.into_iter().map(|k| k as f32 / 1000000.0).collect();
+        let mut unique_vec: Vec<f32> = unique_values
+            .into_iter()
+            .map(|k| k as f32 / 1000000.0)
+            .collect();
         unique_vec.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         F32Tensor::new(unique_vec.clone(), vec![unique_vec.len()])
@@ -2302,7 +2364,10 @@ impl F32Tensor {
             *counts.entry(rounded_key).or_insert(0) += 1;
         }
 
-        let mut items: Vec<(f32, i32)> = counts.into_iter().map(|(k, c)| (k as f32 / 1000000.0, c)).collect();
+        let mut items: Vec<(f32, i32)> = counts
+            .into_iter()
+            .map(|(k, c)| (k as f32 / 1000000.0, c))
+            .collect();
         items.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
         let values: Vec<f32> = items.iter().map(|(v, _)| *v).collect();
@@ -2321,14 +2386,16 @@ impl F32Tensor {
         if k > data.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::topk".to_string(),
-                message: format!("k ({}) cannot be larger than tensor size ({})", k, data.len()),
+                message: format!(
+                    "k ({}) cannot be larger than tensor size ({})",
+                    k,
+                    data.len()
+                ),
             });
         }
 
-        let mut indexed_data: Vec<(f32, usize)> = data.iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i))
-            .collect();
+        let mut indexed_data: Vec<(f32, usize)> =
+            data.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
         indexed_data.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -2360,10 +2427,8 @@ impl F32Tensor {
     /// Argument sort (f32-specific)
     pub fn argsort(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let mut indexed_data: Vec<(f32, usize)> = data.iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i))
-            .collect();
+        let mut indexed_data: Vec<(f32, usize)> =
+            data.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
         indexed_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -2397,10 +2462,7 @@ impl F32Tensor {
         }
 
         let data = self.data.as_slice().unwrap();
-        let mut filtered_data: Vec<f32> = data.iter()
-            .filter(|&&x| !x.is_nan())
-            .cloned()
-            .collect();
+        let mut filtered_data: Vec<f32> = data.iter().filter(|&&x| !x.is_nan()).cloned().collect();
 
         if filtered_data.is_empty() {
             return Ok(f32::NAN);
@@ -2568,7 +2630,11 @@ impl F32Tensor {
         if window == 0 || window > data.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::moving_average".to_string(),
-                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+                message: format!(
+                    "Window size must be between 1 and {}, got {}",
+                    data.len(),
+                    window
+                ),
             });
         }
 
@@ -2589,7 +2655,11 @@ impl F32Tensor {
         if window == 0 || window > data.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::moving_std".to_string(),
-                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+                message: format!(
+                    "Window size must be between 1 and {}, got {}",
+                    data.len(),
+                    window
+                ),
             });
         }
 
@@ -2597,9 +2667,8 @@ impl F32Tensor {
         for i in 0..=data.len() - window {
             let window_data = &data[i..i + window];
             let mean: f32 = window_data.iter().sum::<f32>() / window as f32;
-            let variance: f32 = window_data.iter()
-                .map(|&x| (x - mean).powi(2))
-                .sum::<f32>() / window as f32;
+            let variance: f32 =
+                window_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / window as f32;
             ms_data.push(variance.sqrt());
         }
 
@@ -2626,14 +2695,25 @@ impl F32Tensor {
         if window == 0 || window > data.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::rolling_max".to_string(),
-                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+                message: format!(
+                    "Window size must be between 1 and {}, got {}",
+                    data.len(),
+                    window
+                ),
             });
         }
 
         let mut rmax_data = Vec::with_capacity(data.len() - window + 1);
         for i in 0..=data.len() - window {
-            let max_val = data[i..i + window].iter()
-                .fold(f32::NEG_INFINITY, |acc, &x| if x > acc || acc.is_nan() { x } else { acc });
+            let max_val = data[i..i + window]
+                .iter()
+                .fold(f32::NEG_INFINITY, |acc, &x| {
+                    if x > acc || acc.is_nan() {
+                        x
+                    } else {
+                        acc
+                    }
+                });
             rmax_data.push(max_val);
         }
 
@@ -2648,14 +2728,23 @@ impl F32Tensor {
         if window == 0 || window > data.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::rolling_min".to_string(),
-                message: format!("Window size must be between 1 and {}, got {}", data.len(), window),
+                message: format!(
+                    "Window size must be between 1 and {}, got {}",
+                    data.len(),
+                    window
+                ),
             });
         }
 
         let mut rmin_data = Vec::with_capacity(data.len() - window + 1);
         for i in 0..=data.len() - window {
-            let min_val = data[i..i + window].iter()
-                .fold(f32::INFINITY, |acc, &x| if x < acc || acc.is_nan() { x } else { acc });
+            let min_val = data[i..i + window].iter().fold(f32::INFINITY, |acc, &x| {
+                if x < acc || acc.is_nan() {
+                    x
+                } else {
+                    acc
+                }
+            });
             rmin_data.push(min_val);
         }
 
@@ -2703,7 +2792,8 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let weight_data = weights.data.as_slice().unwrap();
 
-        let weighted_sum: f32 = data.iter()
+        let weighted_sum: f32 = data
+            .iter()
             .zip(weight_data.iter())
             .map(|(&value, &weight)| value * weight)
             .sum();
@@ -2827,10 +2917,12 @@ impl F32Tensor {
         let mean_x: f32 = data_x.iter().sum::<f32>() / n;
         let mean_y: f32 = data_y.iter().sum::<f32>() / n;
 
-        let covariance: f32 = data_x.iter()
+        let covariance: f32 = data_x
+            .iter()
             .zip(data_y.iter())
             .map(|(&x, &y)| (x - mean_x) * (y - mean_y))
-            .sum::<f32>() / (n - 1.0); // サンプル共分散
+            .sum::<f32>()
+            / (n - 1.0); // サンプル共分散
 
         Ok(covariance)
     }
@@ -2858,7 +2950,8 @@ impl F32Tensor {
             return Ok(0.0);
         }
 
-        let sum_product: f32 = data_x[start_x..start_x + length].iter()
+        let sum_product: f32 = data_x[start_x..start_x + length]
+            .iter()
             .zip(data_y[start_y..start_y + length].iter())
             .map(|(&x, &y)| x * y)
             .sum();
@@ -2930,8 +3023,20 @@ impl F32Tensor {
 
         for i in 0..n {
             for j in i + 1..n {
-                let sign_x = if data_x[i] < data_x[j] { 1 } else if data_x[i] > data_x[j] { -1 } else { 0 };
-                let sign_y = if data_y[i] < data_y[j] { 1 } else if data_y[i] > data_y[j] { -1 } else { 0 };
+                let sign_x = if data_x[i] < data_x[j] {
+                    1
+                } else if data_x[i] > data_x[j] {
+                    -1
+                } else {
+                    0
+                };
+                let sign_y = if data_y[i] < data_y[j] {
+                    1
+                } else if data_y[i] > data_y[j] {
+                    -1
+                } else {
+                    0
+                };
 
                 if sign_x * sign_y > 0 {
                     concordant += 1;
@@ -2968,10 +3073,16 @@ impl F32Tensor {
         }
 
         // ビンの境界を計算
-        let (min_x, max_x) = data_x.iter().fold((f32::INFINITY, f32::NEG_INFINITY),
-            |(min, max), &x| (min.min(x), max.max(x)));
-        let (min_y, max_y) = data_y.iter().fold((f32::INFINITY, f32::NEG_INFINITY),
-            |(min, max), &y| (min.min(y), max.max(y)));
+        let (min_x, max_x) = data_x
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), &x| {
+                (min.min(x), max.max(x))
+            });
+        let (min_y, max_y) = data_y
+            .iter()
+            .fold((f32::INFINITY, f32::NEG_INFINITY), |(min, max), &y| {
+                (min.min(y), max.max(y))
+            });
 
         if max_x == min_x || max_y == min_y {
             return Ok(0.0);
@@ -3123,9 +3234,7 @@ impl F32Tensor {
         }
 
         let median = self.median()?;
-        let deviations: Vec<f32> = data.iter()
-            .map(|&x| (x - median).abs())
-            .collect();
+        let deviations: Vec<f32> = data.iter().map(|&x| (x - median).abs()).collect();
 
         let dev_tensor = F32Tensor::from_vec(deviations, vec![data.len()])?;
         dev_tensor.median()
@@ -3140,9 +3249,7 @@ impl F32Tensor {
         }
 
         let mean = self.mean()?;
-        let mad = data.iter()
-            .map(|&x| (x - mean).abs())
-            .sum::<f32>() / data.len() as f32;
+        let mad = data.iter().map(|&x| (x - mean).abs()).sum::<f32>() / data.len() as f32;
         Ok(mad)
     }
 
@@ -3212,7 +3319,8 @@ impl F32Tensor {
         let upper_bound = q75 + factor * iqr;
 
         let data = self.data.as_slice().unwrap();
-        let outliers: Vec<usize> = data.iter()
+        let outliers: Vec<usize> = data
+            .iter()
             .enumerate()
             .filter_map(|(i, &x)| {
                 if x < lower_bound || x > upper_bound {
@@ -3240,9 +3348,7 @@ impl F32Tensor {
         }
 
         let data = self.data.as_slice().unwrap();
-        let zscore_data: Vec<f32> = data.iter()
-            .map(|&x| (x - mean) / std_dev)
-            .collect();
+        let zscore_data: Vec<f32> = data.iter().map(|&x| (x - mean) / std_dev).collect();
 
         F32Tensor::from_vec(zscore_data, self.shape.clone())
     }
@@ -3258,9 +3364,7 @@ impl F32Tensor {
         let n = data.len() as f32;
         let mean = data.iter().sum::<f32>() / n;
 
-        let fourth_moment = data.iter()
-            .map(|&x| (x - mean).powi(4))
-            .sum::<f32>() / n;
+        let fourth_moment = data.iter().map(|&x| (x - mean).powi(4)).sum::<f32>() / n;
 
         Ok(fourth_moment)
     }
@@ -3280,9 +3384,7 @@ impl F32Tensor {
         let n = data.len() as f32;
         let mean = data.iter().sum::<f32>() / n;
 
-        let moment = data.iter()
-            .map(|&x| (x - mean).powi(order))
-            .sum::<f32>() / n;
+        let moment = data.iter().map(|&x| (x - mean).powi(order)).sum::<f32>() / n;
 
         Ok(moment)
     }
@@ -3308,7 +3410,7 @@ impl F32Tensor {
         let ss = sorted_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>();
 
         // 簡略版のW統計量近似
-        let range = sorted_data[n-1] - sorted_data[0];
+        let range = sorted_data[n - 1] - sorted_data[0];
         let w = if ss > 0.0 {
             (range / ss.sqrt()).min(1.0)
         } else {
@@ -3332,15 +3434,12 @@ impl F32Tensor {
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mean = sorted_data.iter().sum::<f32>() / n as f32;
-        let variance = sorted_data.iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f32>() / (n - 1) as f32;
+        let variance =
+            sorted_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / (n - 1) as f32;
         let std_dev = variance.sqrt();
 
         // 標準化
-        let standardized: Vec<f32> = sorted_data.iter()
-            .map(|&x| (x - mean) / std_dev)
-            .collect();
+        let standardized: Vec<f32> = sorted_data.iter().map(|&x| (x - mean) / std_dev).collect();
 
         // 簡略版のAD統計量計算
         let mut ad_stat = 0.0;
@@ -3371,9 +3470,8 @@ impl F32Tensor {
         sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
         let mean = sorted_data.iter().sum::<f32>() / n as f32;
-        let variance = sorted_data.iter()
-            .map(|&x| (x - mean).powi(2))
-            .sum::<f32>() / (n - 1) as f32;
+        let variance =
+            sorted_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / (n - 1) as f32;
         let std_dev = variance.sqrt();
 
         let mut max_diff: f32 = 0.0;
@@ -3405,9 +3503,12 @@ impl F32Tensor {
         let data1 = self.data.as_slice().unwrap();
         let data2 = other.data.as_slice().unwrap();
 
-        let mse = data1.iter().zip(data2.iter())
+        let mse = data1
+            .iter()
+            .zip(data2.iter())
             .map(|(&x1, &x2)| (x1 - x2).powi(2))
-            .sum::<f32>() / data1.len() as f32;
+            .sum::<f32>()
+            / data1.len() as f32;
 
         Ok(mse)
     }
@@ -3420,11 +3521,18 @@ impl F32Tensor {
 
     /// 条件に基づく要素選択（f32専用）
     /// Element-wise selection based on condition (f32-specific)
-    pub fn where_condition(&self, condition: &F32Tensor, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn where_condition(
+        &self,
+        condition: &F32Tensor,
+        other: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         if self.shape != condition.shape || self.shape != other.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::where_condition".to_string(),
-                message: format!("Shape mismatch: {:?} vs {:?} vs {:?}", self.shape, condition.shape, other.shape),
+                message: format!(
+                    "Shape mismatch: {:?} vs {:?} vs {:?}",
+                    self.shape, condition.shape, other.shape
+                ),
             });
         }
 
@@ -3432,12 +3540,19 @@ impl F32Tensor {
         let condition_data = condition.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(condition_data.iter())
             .zip(other_data.iter())
-            .map(|((&self_val, &cond), &other_val)| {
-                if cond != 0.0 { self_val } else { other_val }
-            })
+            .map(
+                |((&self_val, &cond), &other_val)| {
+                    if cond != 0.0 {
+                        self_val
+                    } else {
+                        other_val
+                    }
+                },
+            )
             .collect();
 
         F32Tensor::new(result_data, self.shape.clone())
@@ -3456,7 +3571,8 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let mask_data = mask.data.as_slice().unwrap();
 
-        let selected_data: Vec<f32> = self_data.iter()
+        let selected_data: Vec<f32> = self_data
+            .iter()
             .zip(mask_data.iter())
             .filter_map(|(&val, &mask_val)| if mask_val != 0.0 { Some(val) } else { None })
             .collect();
@@ -3478,11 +3594,18 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let mask_data = mask.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(mask_data.iter())
-            .map(|(&self_val, &mask_val)| {
-                if mask_val != 0.0 { value } else { self_val }
-            })
+            .map(
+                |(&self_val, &mask_val)| {
+                    if mask_val != 0.0 {
+                        value
+                    } else {
+                        self_val
+                    }
+                },
+            )
             .collect();
 
         F32Tensor::new(result_data, self.shape.clone())
@@ -3490,7 +3613,11 @@ impl F32Tensor {
 
     /// マスクに基づく要素散布（f32専用）
     /// Masked element scattering (f32-specific)
-    pub fn masked_scatter(&self, mask: &F32Tensor, source: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn masked_scatter(
+        &self,
+        mask: &F32Tensor,
+        source: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         if self.shape != mask.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::masked_scatter".to_string(),
@@ -3526,7 +3653,8 @@ impl F32Tensor {
         }
 
         let data = self.data.as_slice().unwrap();
-        let clamped_data: Vec<f32> = data.iter()
+        let clamped_data: Vec<f32> = data
+            .iter()
             .map(|&x| {
                 let mut result = x;
                 if let Some(min) = min_val {
@@ -3573,7 +3701,8 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| if a != 0.0 && b != 0.0 { 1.0 } else { 0.0 })
             .collect();
@@ -3594,7 +3723,8 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| if a != 0.0 || b != 0.0 { 1.0 } else { 0.0 })
             .collect();
@@ -3606,7 +3736,8 @@ impl F32Tensor {
     /// Logical NOT (f32-specific)
     pub fn logical_not(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x == 0.0 { 1.0 } else { 0.0 })
             .collect();
 
@@ -3626,12 +3757,17 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| {
                 let a_bool = a != 0.0;
                 let b_bool = b != 0.0;
-                if a_bool ^ b_bool { 1.0 } else { 0.0 }
+                if a_bool ^ b_bool {
+                    1.0
+                } else {
+                    0.0
+                }
             })
             .collect();
 
@@ -3651,7 +3787,8 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| if a > b { 1.0 } else { 0.0 })
             .collect();
@@ -3672,7 +3809,8 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
             .map(|(&a, &b)| if a < b { 1.0 } else { 0.0 })
             .collect();
@@ -3693,9 +3831,16 @@ impl F32Tensor {
         let self_data = self.data.as_slice().unwrap();
         let other_data = other.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = self_data.iter()
+        let result_data: Vec<f32> = self_data
+            .iter()
             .zip(other_data.iter())
-            .map(|(&a, &b)| if (a - b).abs() < f32::EPSILON { 1.0 } else { 0.0 })
+            .map(|(&a, &b)| {
+                if (a - b).abs() < f32::EPSILON {
+                    1.0
+                } else {
+                    0.0
+                }
+            })
             .collect();
 
         F32Tensor::new(result_data, self.shape.clone())
@@ -3707,10 +3852,7 @@ impl F32Tensor {
     /// Condition-based filtering (f32-specific)
     pub fn filter(&self, predicate: impl Fn(f32) -> bool) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let filtered_data: Vec<f32> = data.iter()
-            .filter(|&&x| predicate(x))
-            .cloned()
-            .collect();
+        let filtered_data: Vec<f32> = data.iter().filter(|&&x| predicate(x)).cloned().collect();
 
         let len = filtered_data.len();
         F32Tensor::new(filtered_data, vec![len])
@@ -3720,10 +3862,7 @@ impl F32Tensor {
     /// Non-zero elements (f32-specific)
     pub fn nonzero(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let nonzero_data: Vec<f32> = data.iter()
-            .filter(|&&x| x != 0.0)
-            .cloned()
-            .collect();
+        let nonzero_data: Vec<f32> = data.iter().filter(|&&x| x != 0.0).cloned().collect();
 
         let len = nonzero_data.len();
         F32Tensor::new(nonzero_data, vec![len])
@@ -3733,7 +3872,8 @@ impl F32Tensor {
     /// Non-zero element indices (f32-specific)
     pub fn nonzero_indices(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let indices: Vec<f32> = data.iter()
+        let indices: Vec<f32> = data
+            .iter()
             .enumerate()
             .filter_map(|(i, &x)| if x != 0.0 { Some(i as f32) } else { None })
             .collect();
@@ -3746,7 +3886,8 @@ impl F32Tensor {
     /// Zero element indices (f32-specific)
     pub fn zero_indices(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let indices: Vec<f32> = data.iter()
+        let indices: Vec<f32> = data
+            .iter()
             .enumerate()
             .filter_map(|(i, &x)| if x == 0.0 { Some(i as f32) } else { None })
             .collect();
@@ -3759,7 +3900,8 @@ impl F32Tensor {
     /// NaN detection (f32-specific)
     pub fn isnan(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x.is_nan() { 1.0 } else { 0.0 })
             .collect();
 
@@ -3770,7 +3912,8 @@ impl F32Tensor {
     /// Infinity detection (f32-specific)
     pub fn isinf(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x.is_infinite() { 1.0 } else { 0.0 })
             .collect();
 
@@ -3781,7 +3924,8 @@ impl F32Tensor {
     /// Finite detection (f32-specific)
     pub fn isfinite(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x.is_finite() { 1.0 } else { 0.0 })
             .collect();
 
@@ -3792,7 +3936,8 @@ impl F32Tensor {
     /// Negative infinity detection (f32-specific)
     pub fn isneginf(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x == f32::NEG_INFINITY { 1.0 } else { 0.0 })
             .collect();
 
@@ -3803,7 +3948,8 @@ impl F32Tensor {
     /// Positive infinity detection (f32-specific)
     pub fn isposinf(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x == f32::INFINITY { 1.0 } else { 0.0 })
             .collect();
 
@@ -3812,13 +3958,19 @@ impl F32Tensor {
 
     /// NaN・無限大を数値に変換（f32専用）
     /// Convert NaN/infinity to numbers (f32-specific)
-    pub fn nan_to_num(&self, nan: Option<f32>, posinf: Option<f32>, neginf: Option<f32>) -> RusTorchResult<F32Tensor> {
+    pub fn nan_to_num(
+        &self,
+        nan: Option<f32>,
+        posinf: Option<f32>,
+        neginf: Option<f32>,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
         let nan_val = nan.unwrap_or(0.0);
         let posinf_val = posinf.unwrap_or(f32::MAX);
         let neginf_val = neginf.unwrap_or(f32::MIN);
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| {
                 if x.is_nan() {
                     nan_val
@@ -3839,7 +3991,8 @@ impl F32Tensor {
     /// NaN replacement (f32-specific)
     pub fn replace_nan(&self, value: f32) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x.is_nan() { value } else { x })
             .collect();
 
@@ -3850,10 +4003,7 @@ impl F32Tensor {
     /// Drop NaN elements (f32-specific)
     pub fn drop_nan(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let clean_data: Vec<f32> = data.iter()
-            .filter(|&&x| !x.is_nan())
-            .cloned()
-            .collect();
+        let clean_data: Vec<f32> = data.iter().filter(|&&x| !x.is_nan()).cloned().collect();
 
         let len = clean_data.len();
         F32Tensor::new(clean_data, vec![len])
@@ -3875,7 +4025,7 @@ impl F32Tensor {
                         result_data[i] = last_valid;
                     }
                 }
-            },
+            }
             "backward" | "bfill" => {
                 let mut last_valid = 0.0;
                 for i in (0..result_data.len()).rev() {
@@ -3885,7 +4035,7 @@ impl F32Tensor {
                         result_data[i] = last_valid;
                     }
                 }
-            },
+            }
             "interpolate" => {
                 // 線形補間
                 for i in 0..result_data.len() {
@@ -3909,15 +4059,19 @@ impl F32Tensor {
 
                         if let (Some(prev), Some(next)) = (prev_idx, next_idx) {
                             let weight = (i - prev) as f32 / (next - prev) as f32;
-                            result_data[i] = result_data[prev] * (1.0 - weight) + result_data[next] * weight;
+                            result_data[i] =
+                                result_data[prev] * (1.0 - weight) + result_data[next] * weight;
                         }
                     }
                 }
-            },
+            }
             _ => {
                 return Err(crate::error::RusTorchError::InvalidParameters {
                     operation: "F32Tensor::fill_nan".to_string(),
-                    message: format!("Unknown method: {}. Use 'forward', 'backward', or 'interpolate'", method),
+                    message: format!(
+                        "Unknown method: {}. Use 'forward', 'backward', or 'interpolate'",
+                        method
+                    ),
                 });
             }
         }
@@ -3929,7 +4083,8 @@ impl F32Tensor {
     /// Threshold processing (f32-specific)
     pub fn threshold(&self, threshold: f32, value: f32) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x > threshold { x } else { value })
             .collect();
 
@@ -3940,7 +4095,8 @@ impl F32Tensor {
     /// ReLU mask (f32-specific)
     pub fn relu_mask(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&x| if x > 0.0 { 1.0 } else { 0.0 })
             .collect();
 
@@ -3953,7 +4109,10 @@ impl F32Tensor {
         if dropout_rate < 0.0 || dropout_rate >= 1.0 {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::dropout_mask".to_string(),
-                message: format!("Dropout rate must be between 0.0 and 1.0, got {}", dropout_rate),
+                message: format!(
+                    "Dropout rate must be between 0.0 and 1.0, got {}",
+                    dropout_rate
+                ),
             });
         }
 
@@ -3962,7 +4121,8 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let scale = 1.0 / (1.0 - dropout_rate);
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&_| {
                 if rng.gen::<f32>() < dropout_rate {
                     0.0
@@ -3985,7 +4145,8 @@ impl F32Tensor {
         match dim {
             None => {
                 // 全体での最大値インデックス
-                let (max_idx, _) = data.iter()
+                let (max_idx, _) = data
+                    .iter()
                     .enumerate()
                     .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                     .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
@@ -3993,12 +4154,16 @@ impl F32Tensor {
                         message: "Empty tensor".to_string(),
                     })?;
                 F32Tensor::new(vec![max_idx as f32], vec![])
-            },
+            }
             Some(axis) => {
                 if axis >= self.shape.len() {
                     return Err(crate::error::RusTorchError::InvalidParameters {
                         operation: "F32Tensor::argmax".to_string(),
-                        message: format!("Axis {} out of bounds for tensor with {} dimensions", axis, self.shape.len()),
+                        message: format!(
+                            "Axis {} out of bounds for tensor with {} dimensions",
+                            axis,
+                            self.shape.len()
+                        ),
                     });
                 }
                 // 指定軸での最大値インデックス（簡略実装）
@@ -4034,7 +4199,8 @@ impl F32Tensor {
         match dim {
             None => {
                 // 全体での最小値インデックス
-                let (min_idx, _) = data.iter()
+                let (min_idx, _) = data
+                    .iter()
                     .enumerate()
                     .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                     .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
@@ -4042,12 +4208,16 @@ impl F32Tensor {
                         message: "Empty tensor".to_string(),
                     })?;
                 F32Tensor::new(vec![min_idx as f32], vec![])
-            },
+            }
             Some(axis) => {
                 if axis >= self.shape.len() {
                     return Err(crate::error::RusTorchError::InvalidParameters {
                         operation: "F32Tensor::argmin".to_string(),
-                        message: format!("Axis {} out of bounds for tensor with {} dimensions", axis, self.shape.len()),
+                        message: format!(
+                            "Axis {} out of bounds for tensor with {} dimensions",
+                            axis,
+                            self.shape.len()
+                        ),
                     });
                 }
                 // 指定軸での最小値インデックス（簡略実装）
@@ -4079,7 +4249,8 @@ impl F32Tensor {
     /// Indices where condition is True (f32-specific)
     pub fn argwhere(&self, condition: impl Fn(f32) -> bool) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let indices: Vec<f32> = data.iter()
+        let indices: Vec<f32> = data
+            .iter()
             .enumerate()
             .filter_map(|(idx, &val)| {
                 if condition(val) {
@@ -4104,10 +4275,9 @@ impl F32Tensor {
 
         for &search_val in search_data {
             let idx = match side {
-                "left" => {
-                    data.binary_search_by(|&x| x.partial_cmp(&search_val).unwrap())
-                        .unwrap_or_else(|i| i)
-                },
+                "left" => data
+                    .binary_search_by(|&x| x.partial_cmp(&search_val).unwrap())
+                    .unwrap_or_else(|i| i),
                 "right" => {
                     match data.binary_search_by(|&x| x.partial_cmp(&search_val).unwrap()) {
                         Ok(i) => {
@@ -4117,14 +4287,16 @@ impl F32Tensor {
                                 right_idx += 1;
                             }
                             right_idx
-                        },
+                        }
                         Err(i) => i,
                     }
-                },
-                _ => return Err(crate::error::RusTorchError::InvalidParameters {
-                    operation: "F32Tensor::searchsorted".to_string(),
-                    message: format!("Invalid side parameter: {}", side),
-                }),
+                }
+                _ => {
+                    return Err(crate::error::RusTorchError::InvalidParameters {
+                        operation: "F32Tensor::searchsorted".to_string(),
+                        message: format!("Invalid side parameter: {}", side),
+                    })
+                }
             };
             result_data.push(idx as f32);
         }
@@ -4138,10 +4310,14 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let bounds = boundaries.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&val| {
                 let bucket = if right {
-                    bounds.iter().position(|&b| val <= b).unwrap_or(bounds.len())
+                    bounds
+                        .iter()
+                        .position(|&b| val <= b)
+                        .unwrap_or(bounds.len())
                 } else {
                     bounds.iter().position(|&b| val < b).unwrap_or(bounds.len())
                 };
@@ -4154,7 +4330,11 @@ impl F32Tensor {
 
     /// ヒストグラム計算（f32専用）
     /// Histogram computation (f32-specific)
-    pub fn histogram(&self, bins: usize, range: Option<(f32, f32)>) -> RusTorchResult<(F32Tensor, F32Tensor)> {
+    pub fn histogram(
+        &self,
+        bins: usize,
+        range: Option<(f32, f32)>,
+    ) -> RusTorchResult<(F32Tensor, F32Tensor)> {
         let data = self.data.as_slice().unwrap();
 
         let (min_val, max_val) = match range {
@@ -4187,13 +4367,17 @@ impl F32Tensor {
 
         Ok((
             F32Tensor::new(hist, vec![bins])?,
-            F32Tensor::new(bin_edges, vec![bins + 1])?
+            F32Tensor::new(bin_edges, vec![bins + 1])?,
         ))
     }
 
     /// 値の出現回数カウント（f32専用）
     /// Count occurrences of values (f32-specific)
-    pub fn bincount(&self, weights: Option<&F32Tensor>, minlength: Option<usize>) -> RusTorchResult<F32Tensor> {
+    pub fn bincount(
+        &self,
+        weights: Option<&F32Tensor>,
+        minlength: Option<usize>,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
 
         // 最大値を取得
@@ -4211,7 +4395,7 @@ impl F32Tensor {
                         counts[idx] += weight;
                     }
                 }
-            },
+            }
             None => {
                 for &val in data {
                     let idx = val as usize;
@@ -4231,12 +4415,19 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let bin_data = bins.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&val| {
                 let bin_idx = if right {
-                    bin_data.iter().position(|&b| val <= b).unwrap_or(bin_data.len())
+                    bin_data
+                        .iter()
+                        .position(|&b| val <= b)
+                        .unwrap_or(bin_data.len())
                 } else {
-                    bin_data.iter().position(|&b| val < b).unwrap_or(bin_data.len())
+                    bin_data
+                        .iter()
+                        .position(|&b| val < b)
+                        .unwrap_or(bin_data.len())
                 };
                 bin_idx as f32
             })
@@ -4251,7 +4442,8 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let tol = tolerance.unwrap_or(f32::EPSILON);
 
-        let indices: Vec<f32> = data.iter()
+        let indices: Vec<f32> = data
+            .iter()
             .enumerate()
             .filter_map(|(idx, &val)| {
                 if (val - value).abs() <= tol {
@@ -4268,7 +4460,11 @@ impl F32Tensor {
 
     /// 最初の出現位置（f32専用）
     /// First occurrence index (f32-specific)
-    pub fn first_occurrence(&self, value: f32, tolerance: Option<f32>) -> RusTorchResult<Option<usize>> {
+    pub fn first_occurrence(
+        &self,
+        value: f32,
+        tolerance: Option<f32>,
+    ) -> RusTorchResult<Option<usize>> {
         let data = self.data.as_slice().unwrap();
         let tol = tolerance.unwrap_or(f32::EPSILON);
 
@@ -4283,7 +4479,11 @@ impl F32Tensor {
 
     /// 最後の出現位置（f32専用）
     /// Last occurrence index (f32-specific)
-    pub fn last_occurrence(&self, value: f32, tolerance: Option<f32>) -> RusTorchResult<Option<usize>> {
+    pub fn last_occurrence(
+        &self,
+        value: f32,
+        tolerance: Option<f32>,
+    ) -> RusTorchResult<Option<usize>> {
         let data = self.data.as_slice().unwrap();
         let tol = tolerance.unwrap_or(f32::EPSILON);
 
@@ -4301,11 +4501,10 @@ impl F32Tensor {
     pub fn closest_value(&self, target: f32) -> RusTorchResult<usize> {
         let data = self.data.as_slice().unwrap();
 
-        let (closest_idx, _) = data.iter()
+        let (closest_idx, _) = data
+            .iter()
             .enumerate()
-            .min_by(|(_, &a), (_, &b)| {
-                (a - target).abs().partial_cmp(&(b - target).abs()).unwrap()
-            })
+            .min_by(|(_, &a), (_, &b)| (a - target).abs().partial_cmp(&(b - target).abs()).unwrap())
             .ok_or_else(|| crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::closest_value".to_string(),
                 message: "Empty tensor".to_string(),
@@ -4316,7 +4515,11 @@ impl F32Tensor {
 
     /// ピーク検出（f32専用）
     /// Peak detection (f32-specific)
-    pub fn find_peaks(&self, height: Option<f32>, distance: Option<usize>) -> RusTorchResult<F32Tensor> {
+    pub fn find_peaks(
+        &self,
+        height: Option<f32>,
+        distance: Option<usize>,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
         let min_height = height.unwrap_or(f32::NEG_INFINITY);
         let min_distance = distance.unwrap_or(1);
@@ -4339,7 +4542,11 @@ impl F32Tensor {
 
     /// 谷検出（f32専用）
     /// Valley detection (f32-specific)
-    pub fn find_valleys(&self, height: Option<f32>, distance: Option<usize>) -> RusTorchResult<F32Tensor> {
+    pub fn find_valleys(
+        &self,
+        height: Option<f32>,
+        distance: Option<usize>,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
         let max_height = height.unwrap_or(f32::INFINITY);
         let min_distance = distance.unwrap_or(1);
@@ -4401,7 +4608,8 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let idx_data = indices.data.as_slice().unwrap();
 
-        let selected_data: Vec<f32> = idx_data.iter()
+        let selected_data: Vec<f32> = idx_data
+            .iter()
             .map(|&idx| {
                 let i = idx as usize;
                 if i < data.len() {
@@ -4455,17 +4663,16 @@ impl F32Tensor {
 
     /// 条件による要素置換（f32専用）
     /// Element replacement by condition (f32-specific)
-    pub fn where_replace(&self, condition: impl Fn(f32) -> bool, replacement: f32) -> RusTorchResult<F32Tensor> {
+    pub fn where_replace(
+        &self,
+        condition: impl Fn(f32) -> bool,
+        replacement: f32,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
-            .map(|&val| {
-                if condition(val) {
-                    replacement
-                } else {
-                    val
-                }
-            })
+        let result_data: Vec<f32> = data
+            .iter()
+            .map(|&val| if condition(val) { replacement } else { val })
             .collect();
 
         F32Tensor::new(result_data, self.shape.clone())
@@ -4491,7 +4698,12 @@ impl F32Tensor {
 
     /// 軸に沿った要素置換（f32専用）
     /// Element replacement along axis (f32-specific)
-    pub fn put_along_axis(&mut self, indices: &F32Tensor, values: &F32Tensor, axis: usize) -> RusTorchResult<()> {
+    pub fn put_along_axis(
+        &mut self,
+        indices: &F32Tensor,
+        values: &F32Tensor,
+        axis: usize,
+    ) -> RusTorchResult<()> {
         if axis >= self.shape.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::put_along_axis".to_string(),
@@ -4572,7 +4784,13 @@ impl F32Tensor {
 
     /// 範囲による要素選択（f32専用）
     /// Element selection by range (f32-specific)
-    pub fn slice(&self, dim: usize, start: usize, end: usize, step: usize) -> RusTorchResult<F32Tensor> {
+    pub fn slice(
+        &self,
+        dim: usize,
+        start: usize,
+        end: usize,
+        step: usize,
+    ) -> RusTorchResult<F32Tensor> {
         if dim >= self.shape.len() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::slice".to_string(),
@@ -4647,7 +4865,12 @@ impl F32Tensor {
 
     /// 条件付きインデックス選択（f32専用）
     /// Conditional index selection (f32-specific)
-    pub fn conditional_select(&self, condition: &F32Tensor, true_indices: &F32Tensor, false_indices: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn conditional_select(
+        &self,
+        condition: &F32Tensor,
+        true_indices: &F32Tensor,
+        false_indices: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         if self.shape != condition.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::conditional_select".to_string(),
@@ -4660,7 +4883,8 @@ impl F32Tensor {
         let true_idx_data = true_indices.data.as_slice().unwrap();
         let false_idx_data = false_indices.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = cond_data.iter()
+        let result_data: Vec<f32> = cond_data
+            .iter()
             .zip(true_idx_data.iter())
             .zip(false_idx_data.iter())
             .map(|((&cond, &true_idx), &false_idx)| {
@@ -4678,7 +4902,11 @@ impl F32Tensor {
 
     /// 高度なマスク選択（f32専用）
     /// Advanced mask selection (f32-specific)
-    pub fn advanced_mask_select(&self, mask: &F32Tensor, default_value: f32) -> RusTorchResult<F32Tensor> {
+    pub fn advanced_mask_select(
+        &self,
+        mask: &F32Tensor,
+        default_value: f32,
+    ) -> RusTorchResult<F32Tensor> {
         if self.shape != mask.shape {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::advanced_mask_select".to_string(),
@@ -4689,15 +4917,18 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
         let mask_data = mask.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .zip(mask_data.iter())
-            .map(|(&val, &mask_val)| {
-                if mask_val != 0.0 {
-                    val
-                } else {
-                    default_value
-                }
-            })
+            .map(
+                |(&val, &mask_val)| {
+                    if mask_val != 0.0 {
+                        val
+                    } else {
+                        default_value
+                    }
+                },
+            )
             .collect();
 
         F32Tensor::new(result_data, self.shape.clone())
@@ -4705,7 +4936,10 @@ impl F32Tensor {
 
     /// 重複除去選択（f32専用）
     /// Unique selection (f32-specific)
-    pub fn unique_select(&self, return_indices: bool) -> RusTorchResult<(F32Tensor, Option<F32Tensor>)> {
+    pub fn unique_select(
+        &self,
+        return_indices: bool,
+    ) -> RusTorchResult<(F32Tensor, Option<F32Tensor>)> {
         let data = self.data.as_slice().unwrap();
         let mut unique_vals = Vec::new();
         let mut indices = Vec::new();
@@ -4733,10 +4967,16 @@ impl F32Tensor {
 
     /// 範囲内値の選択的置換（f32専用）
     /// Selective replacement of values in range (f32-specific)
-    pub fn replace_range(&self, min_val: f32, max_val: f32, replacement: f32) -> RusTorchResult<F32Tensor> {
+    pub fn replace_range(
+        &self,
+        min_val: f32,
+        max_val: f32,
+        replacement: f32,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&val| {
                 if val >= min_val && val <= max_val {
                     replacement
@@ -4751,7 +4991,12 @@ impl F32Tensor {
 
     /// パターンマッチング置換（f32専用）
     /// Pattern matching replacement (f32-specific)
-    pub fn pattern_replace(&self, pattern: &[f32], replacement: &[f32], tolerance: Option<f32>) -> RusTorchResult<F32Tensor> {
+    pub fn pattern_replace(
+        &self,
+        pattern: &[f32],
+        replacement: &[f32],
+        tolerance: Option<f32>,
+    ) -> RusTorchResult<F32Tensor> {
         if pattern.is_empty() || replacement.is_empty() {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::pattern_replace".to_string(),
@@ -4792,10 +5037,16 @@ impl F32Tensor {
 
     /// 条件付き値交換（f32専用）
     /// Conditional value swapping (f32-specific)
-    pub fn conditional_swap(&self, condition: impl Fn(f32) -> bool, swap_val1: f32, swap_val2: f32) -> RusTorchResult<F32Tensor> {
+    pub fn conditional_swap(
+        &self,
+        condition: impl Fn(f32) -> bool,
+        swap_val1: f32,
+        swap_val2: f32,
+    ) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
 
-        let result_data: Vec<f32> = data.iter()
+        let result_data: Vec<f32> = data
+            .iter()
             .map(|&val| {
                 if condition(val) {
                     if val == swap_val1 {
@@ -4952,7 +5203,7 @@ impl F32Tensor {
             "metal" => {
                 // Metal実装は別途必要（将来拡張用）
                 self.clone()
-            },
+            }
             _ => Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::to_device".to_string(),
                 message: format!("Unsupported device: {}", device),
@@ -4968,7 +5219,7 @@ impl F32Tensor {
             "channels_last" => {
                 // チャンネル最後形式は将来実装
                 self.clone()
-            },
+            }
             _ => Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "F32Tensor::memory_format".to_string(),
                 message: format!("Unsupported memory format: {}", format),
@@ -5009,7 +5260,10 @@ impl F32Tensor {
     /// Convert to u8 (f32-specific)
     pub fn to_u8(&self) -> RusTorchResult<Vec<u8>> {
         let data = self.data.as_slice().unwrap();
-        Ok(data.iter().map(|&x| (x.max(0.0).min(255.0)) as u8).collect())
+        Ok(data
+            .iter()
+            .map(|&x| (x.max(0.0).min(255.0)) as u8)
+            .collect())
     }
 
     /// 半精度浮動小数点数への変換（f32専用）
@@ -5060,10 +5314,13 @@ impl F32Tensor {
     /// Convert to char (f32-specific)
     pub fn char(&self) -> RusTorchResult<Vec<char>> {
         let data = self.data.as_slice().unwrap();
-        Ok(data.iter().map(|&x| {
-            let val = (x.max(0.0).min(127.0)) as u8;
-            val as char
-        }).collect())
+        Ok(data
+            .iter()
+            .map(|&x| {
+                let val = (x.max(0.0).min(127.0)) as u8;
+                val as char
+            })
+            .collect())
     }
 
     /// 指定されたテンソルと同じ型にキャスト（f32専用）
@@ -5122,7 +5379,10 @@ impl F32Tensor {
         if issues.is_empty() {
             Ok("Tensor state: OK".to_string())
         } else {
-            Ok(format!("Tensor state: Issues found - {}", issues.join(", ")))
+            Ok(format!(
+                "Tensor state: Issues found - {}",
+                issues.join(", ")
+            ))
         }
     }
 
@@ -5275,11 +5535,11 @@ impl F32Tensor {
         let data = self.data.as_slice().unwrap();
 
         // 基本的な健全性チェック
-        if self.shape.iter().any(|&dim| dim == 0 && self.numel()> 0) {
+        if self.shape.iter().any(|&dim| dim == 0 && self.numel() > 0) {
             return Ok(false);
         }
 
-        if self.shape.iter().product::<usize>() != self.numel(){
+        if self.shape.iter().product::<usize>() != self.numel() {
             return Ok(false);
         }
 
@@ -5326,9 +5586,9 @@ impl F32Tensor {
             - Memory efficiency: {:.2}%\n\
             - Cache efficiency: {:.2}%\n\
             - Data locality: {:.2}%",
-            100.0, // メモリ効率（f32専用なので最大）
-            if self.is_contiguous() { 100.0 } else { 75.0 }, // キャッシュ効率
-            if self.shape.len() <= 2 { 100.0 } else { 85.0 } // データ局所性
+            100.0,                                            // メモリ効率（f32専用なので最大）
+            if self.is_contiguous() { 100.0 } else { 75.0 },  // キャッシュ効率
+            if self.shape.len() <= 2 { 100.0 } else { 85.0 }  // データ局所性
         )
     }
 
@@ -5350,9 +5610,13 @@ impl F32Tensor {
             - Parallel processing: enabled",
             num_cpus,
             available_memory,
-            if cfg!(target_feature = "avx2") { "AVX2" }
-            else if cfg!(target_feature = "sse4.1") { "SSE4.1" }
-            else { "basic" }
+            if cfg!(target_feature = "avx2") {
+                "AVX2"
+            } else if cfg!(target_feature = "sse4.1") {
+                "SSE4.1"
+            } else {
+                "basic"
+            }
         )
     }
 
@@ -5375,8 +5639,7 @@ impl F32Tensor {
             - {}\n\
             - {}\n\
             - Memory layout: contiguous",
-            cuda_info,
-            metal_info
+            cuda_info, metal_info
         )
     }
 
@@ -5392,7 +5655,8 @@ impl F32Tensor {
         let data = self.data.as_slice_mut().unwrap();
 
         // CPUキャッシュライン最適化のためのデータプリフェッチ
-        for chunk in data.chunks_mut(64) { // 64要素ずつ処理
+        for chunk in data.chunks_mut(64) {
+            // 64要素ずつ処理
             chunk[0]; // プリフェッチ効果
         }
 
@@ -5411,7 +5675,7 @@ impl F32Tensor {
         let _sum: f32 = data.iter().sum();
         let elapsed = start.elapsed();
 
-        let elements_per_sec = self.numel()as f64 / elapsed.as_secs_f64();
+        let elements_per_sec = self.numel() as f64 / elapsed.as_secs_f64();
 
         format!(
             "CPU Performance:\n\
@@ -5460,7 +5724,7 @@ impl F32Tensor {
     /// Parallel processing configuration (f32-specific)
     pub fn parallel_config(&self) -> String {
         let num_threads = rayon::current_num_threads();
-        let chunk_size = (self.numel()/ num_threads).max(1);
+        let chunk_size = (self.numel() / num_threads).max(1);
 
         format!(
             "Parallel Configuration:\n\
@@ -5470,7 +5734,7 @@ impl F32Tensor {
             - NUMA awareness: enabled",
             num_threads,
             chunk_size,
-            if self.numel()> 1000 { "yes" } else { "no" }
+            if self.numel() > 1000 { "yes" } else { "no" }
         )
     }
 
@@ -5498,7 +5762,11 @@ impl F32Tensor {
             - Data locality: {}\n\
             - Cache misses: estimated {:.1}%",
             alignment,
-            if self.is_contiguous() { "optimal" } else { "suboptimal" },
+            if self.is_contiguous() {
+                "optimal"
+            } else {
+                "suboptimal"
+            },
             if alignment == 0 { 5.0 } else { 15.0 }
         ))
     }
@@ -5514,7 +5782,7 @@ impl F32Tensor {
             "No SIMD"
         };
 
-        let vectorizable = self.numel()>= 8 && self.is_contiguous();
+        let vectorizable = self.numel() >= 8 && self.is_contiguous();
 
         format!(
             "SIMD Information:\n\
@@ -5524,10 +5792,18 @@ impl F32Tensor {
             - Performance gain: {}x",
             simd_support,
             if vectorizable { "yes" } else { "no" },
-            if vectorizable { "enabled" } else { "scalar fallback" },
-            if vectorizable && cfg!(target_feature = "avx2") { 4.0 }
-            else if vectorizable && cfg!(target_feature = "sse4.1") { 2.0 }
-            else { 1.0 }
+            if vectorizable {
+                "enabled"
+            } else {
+                "scalar fallback"
+            },
+            if vectorizable && cfg!(target_feature = "avx2") {
+                4.0
+            } else if vectorizable && cfg!(target_feature = "sse4.1") {
+                2.0
+            } else {
+                1.0
+            }
         )
     }
 
@@ -5543,7 +5819,7 @@ impl F32Tensor {
         let _result: f32 = data.iter().map(|x| x * x + x.sin()).sum();
         let elapsed = start.elapsed();
 
-        let ops_per_watt = (self.numel()as f64 * 2.0) / (elapsed.as_secs_f64() * 15.0); // 15W仮定
+        let ops_per_watt = (self.numel() as f64 * 2.0) / (elapsed.as_secs_f64() * 15.0); // 15W仮定
 
         format!(
             "Power Efficiency:\n\
@@ -5582,7 +5858,11 @@ impl F32Tensor {
             load_time,
             thermal_load,
             25.0 + thermal_load * 0.3, // 基準温度 + 負荷による上昇
-            if thermal_load > 80.0 { "risk" } else { "normal" }
+            if thermal_load > 80.0 {
+                "risk"
+            } else {
+                "normal"
+            }
         )
     }
 
@@ -5601,7 +5881,7 @@ impl F32Tensor {
             memory_mb,
             cpu_threads,
             100.0, // f32専用なので最大効率
-            if self.numel()> 10000 { 85.0 } else { 60.0 }
+            if self.numel() > 10000 { 85.0 } else { 60.0 }
         )
     }
 
@@ -5633,9 +5913,23 @@ impl F32Tensor {
             - Memory alignment: 64-byte\n\
             - Atomic operations: supported\n\
             - Vector width: {} elements",
-            if capabilities.is_empty() { "basic".to_string() } else { capabilities.join(", ") },
-            if cfg!(any(feature = "cuda", feature = "metal")) { "available" } else { "CPU only" },
-            if cfg!(target_feature = "avx2") { 8 } else if cfg!(target_feature = "sse4.1") { 4 } else { 1 }
+            if capabilities.is_empty() {
+                "basic".to_string()
+            } else {
+                capabilities.join(", ")
+            },
+            if cfg!(any(feature = "cuda", feature = "metal")) {
+                "available"
+            } else {
+                "CPU only"
+            },
+            if cfg!(target_feature = "avx2") {
+                8
+            } else if cfg!(target_feature = "sse4.1") {
+                4
+            } else {
+                1
+            }
         )
     }
 
@@ -5648,7 +5942,7 @@ impl F32Tensor {
             hints.push("• Use contiguous() for better cache performance");
         }
 
-        if self.numel()< 1000 {
+        if self.numel() < 1000 {
             hints.push("• Small tensors may not benefit from parallelization");
         } else {
             hints.push("• Large tensor: consider parallel operations");
@@ -5662,10 +5956,7 @@ impl F32Tensor {
             hints.push("• Tensor is well-optimized for current hardware");
         }
 
-        format!(
-            "Optimization Recommendations:\n{}",
-            hints.join("\n")
-        )
+        format!("Optimization Recommendations:\n{}", hints.join("\n"))
     }
 
     /// ベンチマーク実行（f32専用）
@@ -5695,8 +5986,11 @@ impl F32Tensor {
 
         let mut result_str = String::from("Benchmark Results:\n");
         for (name, time) in results {
-            let throughput = self.numel()as f64 / time.as_secs_f64() / 1e6; // Million elements/sec
-            result_str.push_str(&format!("- {}: {:?} ({:.1} M elem/s)\n", name, time, throughput));
+            let throughput = self.numel() as f64 / time.as_secs_f64() / 1e6; // Million elements/sec
+            result_str.push_str(&format!(
+                "- {}: {:?} ({:.1} M elem/s)\n",
+                name, time, throughput
+            ));
         }
 
         result_str
@@ -5708,10 +6002,8 @@ impl F32Tensor {
     /// Rank transformation (f32-specific)
     fn rank_transform(&self) -> RusTorchResult<F32Tensor> {
         let data = self.data.as_slice().unwrap();
-        let mut indexed_data: Vec<(f32, usize)> = data.iter()
-            .enumerate()
-            .map(|(i, &v)| (v, i))
-            .collect();
+        let mut indexed_data: Vec<(f32, usize)> =
+            data.iter().enumerate().map(|(i, &v)| (v, i)).collect();
 
         indexed_data.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -5763,7 +6055,10 @@ impl F32Tensor {
         self.coreml_buffer = Some(Arc::new(CoreMLBuffer::new(device_id, self.shape.clone())));
         self.device_state = DeviceState::CoreML { device_id };
 
-        println!("🧠 F32Tensor moved to Neural Engine {} (zero-copy)", device_id);
+        println!(
+            "🧠 F32Tensor moved to Neural Engine {} (zero-copy)",
+            device_id
+        );
         Ok(())
     }
 
@@ -5800,11 +6095,17 @@ impl F32Tensor {
 
         match optimal_device {
             DeviceState::Metal { device_id } => {
-                println!("⚡ Executing matmul on Metal GPU {} (f32 direct)", device_id);
+                println!(
+                    "⚡ Executing matmul on Metal GPU {} (f32 direct)",
+                    device_id
+                );
                 self.execute_metal_matmul_f32(other)
             }
             DeviceState::CoreML { device_id } => {
-                println!("🧠 Executing matmul on Neural Engine {} (f32 direct)", device_id);
+                println!(
+                    "🧠 Executing matmul on Neural Engine {} (f32 direct)",
+                    device_id
+                );
                 self.execute_coreml_matmul_f32(other)
             }
             DeviceState::CPU => {
@@ -5826,7 +6127,7 @@ impl F32Tensor {
         match matrix_size {
             size if size > 50000 => DeviceState::Metal { device_id: 0 }, // 大規模 → Metal
             size if size > 1000 => DeviceState::CoreML { device_id: 0 }, // 中規模 → Neural Engine
-            _ => DeviceState::CPU, // 小規模 → CPU
+            _ => DeviceState::CPU,                                       // 小規模 → CPU
         }
     }
 
@@ -5856,7 +6157,8 @@ impl F32Tensor {
         if a_shape.len() != 2 || b_shape.len() != 2 {
             return Err(crate::error::RusTorchError::InvalidParameters {
                 operation: "matmul".to_string(),
-                message: "Only 2D matrices supported in this experimental implementation".to_string(),
+                message: "Only 2D matrices supported in this experimental implementation"
+                    .to_string(),
             });
         }
 
@@ -5901,5 +6203,4 @@ impl F32Tensor {
     pub fn len(&self) -> usize {
         self.data.len()
     }
-
 }

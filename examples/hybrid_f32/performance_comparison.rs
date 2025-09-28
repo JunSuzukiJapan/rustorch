@@ -18,7 +18,7 @@
 
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::benchmarks::performance_test::{
-    F32PerformanceTest, PerformanceTestConfig, PerformanceTestResults
+    F32PerformanceTest, PerformanceTestConfig, PerformanceTestResults,
 };
 
 #[cfg(feature = "hybrid-f32")]
@@ -84,22 +84,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(feature = "hybrid-f32")]
 #[derive(Debug, Clone)]
 struct LegacyBenchmarkResults {
-    tensor_addition: f64,           // ms
-    tensor_sum: f64,                // ms
-    tensor_creation: f64,           // ms
-    tensor_clone: f64,              // ms
-    matrix_multiplication: f64,     // ms
+    tensor_addition: f64,       // ms
+    tensor_sum: f64,            // ms
+    tensor_creation: f64,       // ms
+    tensor_clone: f64,          // ms
+    matrix_multiplication: f64, // ms
 }
 
 #[cfg(feature = "hybrid-f32")]
-fn run_legacy_benchmark(config: &PerformanceTestConfig) -> Result<LegacyBenchmarkResults, Box<dyn std::error::Error>> {
+fn run_legacy_benchmark(
+    config: &PerformanceTestConfig,
+) -> Result<LegacyBenchmarkResults, Box<dyn std::error::Error>> {
     println!("  実行中... / Running...");
 
     // テンソル加算ベンチマーク
     let tensor_addition = {
         let size = 10000;
         let tensor_a = Tensor::<f64>::from_vec((0..size).map(|i| i as f64).collect(), vec![size]);
-        let tensor_b = Tensor::<f64>::from_vec((0..size).map(|i| (i + 1) as f64).collect(), vec![size]);
+        let tensor_b =
+            Tensor::<f64>::from_vec((0..size).map(|i| (i + 1) as f64).collect(), vec![size]);
 
         // ウォームアップ
         for _ in 0..config.warmup_iterations {
@@ -175,11 +178,11 @@ fn run_legacy_benchmark(config: &PerformanceTestConfig) -> Result<LegacyBenchmar
         let size = 128;
         let mat_a = Tensor::<f64>::from_vec(
             (0..size * size).map(|i| (i as f64) * 0.01).collect(),
-            vec![size, size]
+            vec![size, size],
         );
         let mat_b = Tensor::<f64>::from_vec(
             (0..size * size).map(|i| (i as f64) * 0.01).collect(),
-            vec![size, size]
+            vec![size, size],
         );
 
         // ウォームアップ
@@ -205,11 +208,20 @@ fn run_legacy_benchmark(config: &PerformanceTestConfig) -> Result<LegacyBenchmar
     };
 
     println!("  従来システム結果:");
-    println!("    Tensor addition:       {:.6} ms", results.tensor_addition);
+    println!(
+        "    Tensor addition:       {:.6} ms",
+        results.tensor_addition
+    );
     println!("    Tensor sum:            {:.6} ms", results.tensor_sum);
-    println!("    Tensor creation:       {:.6} ms", results.tensor_creation);
+    println!(
+        "    Tensor creation:       {:.6} ms",
+        results.tensor_creation
+    );
     println!("    Tensor clone:          {:.6} ms", results.tensor_clone);
-    println!("    Matrix multiplication: {:.6} ms", results.matrix_multiplication);
+    println!(
+        "    Matrix multiplication: {:.6} ms",
+        results.matrix_multiplication
+    );
 
     Ok(results)
 }
@@ -220,11 +232,23 @@ fn perform_detailed_analysis(legacy: &LegacyBenchmarkResults, f32_hybrid: &Perfo
     println!("|------|-------------|----------------|--------|--------|");
 
     let operations = [
-        ("テンソル加算", legacy.tensor_addition, f32_hybrid.tensor_addition),
+        (
+            "テンソル加算",
+            legacy.tensor_addition,
+            f32_hybrid.tensor_addition,
+        ),
         ("テンソル合計", legacy.tensor_sum, f32_hybrid.tensor_sum),
-        ("テンソル作成", legacy.tensor_creation, f32_hybrid.tensor_creation),
+        (
+            "テンソル作成",
+            legacy.tensor_creation,
+            f32_hybrid.tensor_creation,
+        ),
         ("テンソル複製", legacy.tensor_clone, f32_hybrid.tensor_clone),
-        ("行列乗算", legacy.matrix_multiplication, f32_hybrid.matrix_multiplication),
+        (
+            "行列乗算",
+            legacy.matrix_multiplication,
+            f32_hybrid.matrix_multiplication,
+        ),
     ];
 
     let mut total_speedup = 0.0;
@@ -234,8 +258,10 @@ fn perform_detailed_analysis(legacy: &LegacyBenchmarkResults, f32_hybrid: &Perfo
         let speedup = legacy_time / f32_time;
         let improvement = (1.0 - f32_time / legacy_time) * 100.0;
 
-        println!("| {} | {:.6} ms | {:.6} ms | {:.2}x | {:.1}% |",
-            op_name, legacy_time, f32_time, speedup, improvement);
+        println!(
+            "| {} | {:.6} ms | {:.6} ms | {:.2}x | {:.1}% |",
+            op_name, legacy_time, f32_time, speedup, improvement
+        );
 
         total_speedup += speedup;
         count += 1;
@@ -247,7 +273,10 @@ fn perform_detailed_analysis(legacy: &LegacyBenchmarkResults, f32_hybrid: &Perfo
 }
 
 #[cfg(feature = "hybrid-f32")]
-fn summarize_optimization_effects(legacy: &LegacyBenchmarkResults, f32_hybrid: &PerformanceTestResults) {
+fn summarize_optimization_effects(
+    legacy: &LegacyBenchmarkResults,
+    f32_hybrid: &PerformanceTestResults,
+) {
     println!("🎯 主要な最適化効果:");
     println!();
 

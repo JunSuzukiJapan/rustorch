@@ -1,14 +1,14 @@
 //! GPU実行エンジン - f32統一バックエンド
 //! GPU execution engines - f32 unified backends
 
-use crate::error::RusTorchResult;
 use super::tensor::F32Tensor;
+use crate::error::RusTorchResult;
 
-pub mod metal;
 pub mod coreml;
+pub mod metal;
 
-pub use metal::F32MetalExecutor;
 pub use coreml::F32CoreMLExecutor;
+pub use metal::F32MetalExecutor;
 
 /// f32統一GPU実行トレイト
 /// f32 unified GPU execution trait
@@ -49,7 +49,7 @@ pub trait F32GPUExecutor {
 #[derive(Debug, Clone)]
 pub struct DevicePerformanceInfo {
     pub device_name: String,
-    pub memory_bandwidth: f64,  // GB/s
+    pub memory_bandwidth: f64, // GB/s
     pub compute_units: usize,
     pub supports_f32: bool,
     pub supports_float16: bool,
@@ -89,8 +89,8 @@ impl DevicePerformanceInfo {
             compute_units: 16,
             supports_f32: true,
             supports_float16: true,
-            estimated_tflops_f32: 7.0,   // 推定値
-            estimated_tflops_f16: 15.8,  // 公式値
+            estimated_tflops_f32: 7.0,  // 推定値
+            estimated_tflops_f16: 15.8, // 公式値
         }
     }
 }
@@ -134,7 +134,10 @@ impl F32UnifiedGPUContext {
         // Neural Engine検出
         #[cfg(all(target_os = "macos", feature = "coreml"))]
         {
-            devices.push((GPUDevice::CoreML(0), DevicePerformanceInfo::neural_engine_m1()));
+            devices.push((
+                GPUDevice::CoreML(0),
+                DevicePerformanceInfo::neural_engine_m1(),
+            ));
         }
 
         devices

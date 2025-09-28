@@ -4,7 +4,7 @@
 #[cfg(feature = "hybrid-f32")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use rustorch::hybrid_f32::tensor::{F32Tensor, WindowType};
-    use std::f32::consts::{PI, E};
+    use std::f32::consts::{E, PI};
 
     rustorch::hybrid_f32_experimental!();
 
@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📐 1. 三角関数・逆三角関数デモ / Trigonometric Functions Demo");
     println!("-------------------------------------------------------");
 
-    let angles = F32Tensor::from_vec(vec![0.0, PI/6.0, PI/4.0, PI/3.0, PI/2.0], vec![5])?;
+    let angles = F32Tensor::from_vec(vec![0.0, PI / 6.0, PI / 4.0, PI / 3.0, PI / 2.0], vec![5])?;
     println!("  Angles (radians): {:?}", angles.as_slice());
 
     let sin_vals = angles.sin()?;
@@ -128,9 +128,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let windowed_hamming = signal.apply_window(WindowType::Hamming)?;
     let windowed_blackman = signal.apply_window(WindowType::Blackman)?;
 
-    println!("  Hanning window applied: {:?}", windowed_hanning.as_slice());
-    println!("  Hamming window applied: {:?}", windowed_hamming.as_slice());
-    println!("  Blackman window applied: {:?}", windowed_blackman.as_slice());
+    println!(
+        "  Hanning window applied: {:?}",
+        windowed_hanning.as_slice()
+    );
+    println!(
+        "  Hamming window applied: {:?}",
+        windowed_hamming.as_slice()
+    );
+    println!(
+        "  Blackman window applied: {:?}",
+        windowed_blackman.as_slice()
+    );
 
     // FFT変換
     println!("\n  FFT Analysis:");
@@ -163,14 +172,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("    sin(π) = {} (should be ≈ 0)", sin_pi.as_slice()[0]);
 
     // 恒等式: sin²(x) + cos²(x) = 1
-    let test_angle = F32Tensor::from_vec(vec![PI/3.0], vec![1])?;
+    let test_angle = F32Tensor::from_vec(vec![PI / 3.0], vec![1])?;
     let sin_val = test_angle.sin()?;
     let cos_val = test_angle.cos()?;
     let sin_squared = sin_val.square()?;
     let cos_squared = cos_val.square()?;
     let identity_sum = sin_squared.add(&cos_squared)?;
     println!("  Pythagorean identity:");
-    println!("    sin²(π/3) + cos²(π/3) = {} (should be ≈ 1)", identity_sum.as_slice()[0]);
+    println!(
+        "    sin²(π/3) + cos²(π/3) = {} (should be ≈ 1)",
+        identity_sum.as_slice()[0]
+    );
 
     // 指数・対数の逆関数性: exp(ln(x)) = x
     let test_vals = F32Tensor::from_vec(vec![1.0, 5.0, 10.0], vec![3])?;
@@ -233,7 +245,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✓ 完全f32専用実装（変換コスト0）");
     println!("   ✓ Complete f32-specific implementation (zero conversion cost)");
     println!("   ✓ 高精度数学関数（Lanczos近似、Abramowitz-Stegun近似）");
-    println!("   ✓ High-precision mathematical functions (Lanczos, Abramowitz-Stegun approximations)");
+    println!(
+        "   ✓ High-precision mathematical functions (Lanczos, Abramowitz-Stegun approximations)"
+    );
     println!("   ✓ 効率的FFT実装（Cooley-Tukey アルゴリズム）");
     println!("   ✓ Efficient FFT implementation (Cooley-Tukey algorithm)");
     println!("   ✓ 複数窓関数サポート（信号解析用）");

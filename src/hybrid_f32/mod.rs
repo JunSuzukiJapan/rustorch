@@ -8,10 +8,10 @@
 //! aimed at reducing conversion costs. Planned for integration into main system
 //! after production validation.
 
-pub mod tensor;
-pub mod gpu;
-pub mod unified;
 pub mod benchmarks;
+pub mod gpu;
+pub mod tensor;
+pub mod unified;
 
 // 実験フラグ - この機能は実験的です
 // Experimental flag - this feature is experimental
@@ -22,7 +22,7 @@ pub use tensor::F32Tensor;
 pub use unified::F32HybridExecutor;
 
 #[cfg(feature = "hybrid-f32")]
-pub use gpu::{F32MetalExecutor, F32CoreMLExecutor};
+pub use gpu::{F32CoreMLExecutor, F32MetalExecutor};
 
 /// 実験的機能の警告マクロ
 /// Warning macro for experimental features
@@ -40,9 +40,9 @@ macro_rules! hybrid_f32_experimental {
 /// Structure for recording experimental results
 #[derive(Debug, Clone)]
 pub struct ExperimentResults {
-    pub conversion_cost_reduction: f64,  // パーセンテージ
-    pub memory_efficiency_gain: f64,     // パーセンテージ
-    pub neural_engine_performance: f64,  // Float16比の性能
+    pub conversion_cost_reduction: f64, // パーセンテージ
+    pub memory_efficiency_gain: f64,    // パーセンテージ
+    pub neural_engine_performance: f64, // Float16比の性能
     pub total_execution_time: std::time::Duration,
     pub baseline_execution_time: std::time::Duration,
 }

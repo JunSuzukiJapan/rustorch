@@ -1,8 +1,8 @@
 //! CoreML Neural Engine f32直接実行エンジン
 //! CoreML Neural Engine f32 direct execution engine
 
+use super::{DevicePerformanceInfo, F32GPUExecutor};
 use crate::error::RusTorchResult;
-use super::{F32GPUExecutor, DevicePerformanceInfo};
 use crate::hybrid_f32::tensor::F32Tensor;
 
 /// f32専用CoreML実行器
@@ -91,9 +91,15 @@ impl F32GPUExecutor for F32CoreMLExecutor {
 
             let f32_performance = self.measure_f32_performance();
 
-            println!("🧠 Neural Engine {} initialized for f32 unified execution", device_id);
+            println!(
+                "🧠 Neural Engine {} initialized for f32 unified execution",
+                device_id
+            );
             println!("  Performance: {:.1} TFLOPS (f32)", f32_performance);
-            println!("  Max Performance: {:.1} TFLOPS (Float16)", self.performance_info.estimated_tflops_f16);
+            println!(
+                "  Max Performance: {:.1} TFLOPS (Float16)",
+                self.performance_info.estimated_tflops_f16
+            );
 
             Ok(())
         }
