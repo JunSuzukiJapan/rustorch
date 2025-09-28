@@ -24,7 +24,7 @@ pub use tensor::F32Tensor;
 pub use unified::F32HybridExecutor;
 
 #[cfg(feature = "hybrid-f32")]
-pub use nn::{F32Layer, F32Linear, F32Activation, F32Loss, F32MLP, F32Optimizer};
+pub use nn::{F32Layer, F32Linear, F32Activation, F32Loss, F32MLP, F32Optimizer, F32Trainer, F32Dataset, F32MemoryDataset, F32DataLoader, F32LRScheduler, F32LRSchedulerType, F32Conv2d, F32BatchNorm2d, F32SimpleCNN, F32PretrainedLoader, F32PretrainedModelInfo, F32ImagePreprocessor};
 
 #[cfg(feature = "hybrid-f32")]
 pub use autograd::{F32Variable, F32AutogradEngine};
