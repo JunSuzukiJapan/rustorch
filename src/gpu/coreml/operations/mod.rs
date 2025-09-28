@@ -31,6 +31,14 @@ pub enum CoreMLError {
         /// バックエンドエラーメッセージ
         message: String,
     },
+    /// Invalid input for CoreML operation
+    /// CoreML操作の無効な入力
+    #[error("Invalid input for CoreML operation: {0}")]
+    InvalidInput(String),
+    /// Error during tensor conversion
+    /// テンソル変換中のエラー
+    #[error("Conversion error: {0}")]
+    ConversionError(String),
 }
 
 impl From<CoreMLError> for crate::error::RusTorchError {
@@ -48,6 +56,18 @@ impl From<CoreMLError> for crate::error::RusTorchError {
             CoreMLError::Backend { message } => crate::error::RusTorchError::Device {
                 device: "CoreML".to_string(),
                 message,
+            },
+            CoreMLError::InvalidInput(message) => {
+                crate::error::RusTorchError::InvalidParameters {
+                    operation: "CoreML".to_string(),
+                    message,
+                }
+            },
+            CoreMLError::ConversionError(message) => {
+                crate::error::RusTorchError::TensorOp {
+                    message,
+                    source: None,
+                }
             },
         }
     }
