@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1758779514577,
+  "lastUpdate": 1759032293188,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1051,6 +1051,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30006,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d90c835d03d5dcdbf870e42f6c0130f6eca51e25",
+          "message": "feat: Metal GPU convolution implementation with hardware acceleration\n\nImplements high-performance Metal GPU convolution with hardware acceleration using im2col + GEMM approach.\n\n## Key Features\n- Hardware-accelerated GPU convolution operations\n- Intelligent device selection with mac-hybrid feature\n- WebAssembly compatibility with conditional compilation\n- Enhanced benchmark organization with dedicated workspace\n- Complete license compliance with CC0-1.0 support\n\n## Technical Implementation\n- im2col + GEMM convolution algorithm for optimal GPU utilization\n- Metal kernel integration with f32/f64 precision support\n- Automatic fallback for WebAssembly targets\n- Consolidated benchmarks in dedicated workspace structure\n\n## Validation\n- 1139+ tests passing across all platforms\n- Full WASM compatibility verified\n- License compliance validated\n- Performance benchmarks integrated\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-28T13:03:37+09:00",
+          "tree_id": "fa9361506ad5b9781b9c931793f1963ccebae1bc",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/d90c835d03d5dcdbf870e42f6c0130f6eca51e25"
+        },
+        "date": 1759032290790,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
