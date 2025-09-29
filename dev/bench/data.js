@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759154668367,
+  "lastUpdate": 1759155779536,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1469,6 +1469,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "e2fdc5c3a4fa535fef60c0584c68f1fefe0de311",
+          "message": "fix: mainブランチでもDocker buildをpull_request_targetで実行しないよう条件を修正\n\n- pull_request_targetではgithub.ref='refs/heads/main'になるため\n- Docker buildは実際のpushとreleaseイベントでのみ実行するよう修正\n- PR-mainブランチ間の不整合によるCI失敗を防止\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-29T23:21:39+09:00",
+          "tree_id": "89e18152f622e0fa5e3e49b9eebf278eab1aee7b",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/e2fdc5c3a4fa535fef60c0584c68f1fefe0de311"
+        },
+        "date": 1759155776752,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
