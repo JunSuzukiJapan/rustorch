@@ -2,7 +2,7 @@
 // Advanced garbage collection functionality
 
 use std::time::{Duration, Instant};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, OnceLock};
 use std::collections::HashMap;
 use std::thread;
 use crate::common::RusTorchResult;
@@ -148,7 +148,7 @@ impl GCStats {
 
 /// GC可能オブジェクトのトレイト
 /// Trait for garbage collectable objects
-pub trait GCObject: Send + Sync {
+pub trait GCObject: Send + Sync + std::fmt::Debug {
     /// オブジェクトのサイズ（バイト単位）
     /// Object size in bytes
     fn size(&self) -> usize;
@@ -530,26 +530,23 @@ impl Drop for GarbageCollector {
 
 /// グローバルガベージコレクタ
 /// Global garbage collector
-static mut GLOBAL_GC: Option<Arc<Mutex<GarbageCollector>>> = None;
-static GLOBAL_GC_INIT: std::sync::Once = std::sync::Once::new();
+static GLOBAL_GC: OnceLock<Arc<Mutex<GarbageCollector>>> = OnceLock::new();
 
 /// グローバルGCを初期化
 /// Initialize global GC
 pub fn init_global_gc(config: GCConfig) -> RusTorchResult<()> {
-    unsafe {
-        GLOBAL_GC_INIT.call_once(|| {
-            let mut gc = GarbageCollector::new(config);
-            let _ = gc.start_auto_gc();
-            GLOBAL_GC = Some(Arc::new(Mutex::new(gc)));
-        });
-    }
+    let mut gc = GarbageCollector::new(config);
+    let _ = gc.start_auto_gc();
+    let gc_arc = Arc::new(Mutex::new(gc));
+
+    let _ = GLOBAL_GC.set(gc_arc);
     Ok(())
 }
 
 /// グローバルGCを取得
 /// Get global GC
 pub fn get_global_gc() -> Option<Arc<Mutex<GarbageCollector>>> {
-    unsafe { GLOBAL_GC.clone() }
+    GLOBAL_GC.get().cloned()
 }
 
 /// オブジェクトを登録
@@ -561,10 +558,12 @@ pub fn gc_register(object: Box<dyn GCObject>) -> Option<u64> {
 /// オブジェクトの登録を解除
 /// Unregister object from global GC
 pub fn gc_unregister(id: u64) -> bool {
-    get_global_gc()
-        .and_then(|gc| gc.lock().ok())
-        .map(|gc| gc.unregister_object(id))
-        .unwrap_or(false)
+    if let Some(gc_arc) = get_global_gc() {
+        if let Ok(gc) = gc_arc.lock() {
+            return gc.unregister_object(id);
+        }
+    }
+    false
 }
 
 /// 手動GCを実行
@@ -581,5 +580,10 @@ pub fn gc_collect() -> RusTorchResult<()> {
 /// GC統計を取得
 /// Get GC statistics
 pub fn gc_stats() -> Option<GCStats> {
-    get_global_gc()?.lock().ok()?.get_stats().into()
+    if let Some(gc_arc) = get_global_gc() {
+        if let Ok(gc) = gc_arc.lock() {
+            return Some(gc.get_stats());
+        }
+    }
+    None
 }

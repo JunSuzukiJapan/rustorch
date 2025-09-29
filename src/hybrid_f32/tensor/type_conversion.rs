@@ -372,6 +372,7 @@ impl PrecisionInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hybrid_f32::tensor::generic_tensor::TensorOps;
 
     #[test]
     fn test_f32_to_f64_conversion() {

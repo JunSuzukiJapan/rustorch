@@ -215,12 +215,12 @@ mod tests {
     #[test]
     fn test_error_handling() {
         // 無効な形状でのテンソル作成
-        let result = F32Tensor::new(vec![1.0, 2.0], vec![3, 3]); // データ不足
+        let result = F32Tensor::new(vec![1.0, 2.0], &[3, 3]); // データ不足
         assert!(result.is_err());
 
         // 不正な行列乗算
-        let a = F32Tensor::new(vec![1.0, 2.0], vec![1, 2]).unwrap();
-        let b = F32Tensor::new(vec![1.0, 2.0, 3.0], vec![1, 3]).unwrap();
+        let a = F32Tensor::new(vec![1.0, 2.0], &[1, 2]).unwrap();
+        let b = F32Tensor::new(vec![1.0, 2.0, 3.0], &[1, 3]).unwrap();
         let result = a.matmul(&b);
         assert!(result.is_err());
     }

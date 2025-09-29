@@ -472,6 +472,26 @@ impl F32Tensor {
     /// 要素ごと加算
     /// Element-wise addition
     pub fn add(&self, other: &Self) -> RusTorchResult<Self> {
+        // スカラーブロードキャスティングのサポート
+        if other.shape == [1] {
+            // スカラーとの演算
+            let scalar_value = other.data.iter().next().unwrap();
+            let result_data = self.data.mapv(|x| x + scalar_value);
+            return Ok(Self {
+                data: result_data,
+                metal_buffer: None,
+                coreml_buffer: None,
+                device_state: DeviceState::CPU,
+                requires_grad: self.requires_grad || other.requires_grad,
+                shape: self.shape.clone(),
+            });
+        }
+        
+        // 形状の互換性チェック（通常のテンソル演算）
+        if self.shape != other.shape {
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
+        }
+        
         let result_data = &self.data + &other.data;
         Ok(Self {
             data: result_data,
@@ -812,6 +832,36 @@ impl F32Tensor {
     /// 除算
     /// Division
     pub fn divide(&self, other: &Self) -> RusTorchResult<Self> {
+        // スカラーブロードキャスティングのサポート
+        if other.shape == [1] {
+            // スカラーとの演算
+            let scalar_value = other.data.iter().next().unwrap();
+            if *scalar_value == 0.0 {
+                return Err(RusTorchError::tensor_op("Division by zero"));
+            }
+            let result_data = self.data.mapv(|x| x / scalar_value);
+            return Ok(Self {
+                data: result_data,
+                metal_buffer: None,
+                coreml_buffer: None,
+                device_state: DeviceState::CPU,
+                requires_grad: self.requires_grad || other.requires_grad,
+                shape: self.shape.clone(),
+            });
+        }
+        
+        // 形状の互換性チェック（通常のテンソル演算）
+        if self.shape != other.shape {
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
+        }
+        
+        // ゼロ除算チェック
+        for &value in other.data.iter() {
+            if value == 0.0 {
+                return Err(RusTorchError::tensor_op("Division by zero"));
+            }
+        }
+        
         let result_data = &self.data / &other.data;
         Ok(Self {
             data: result_data,
@@ -836,6 +886,8 @@ impl F32Tensor {
         let sum_val = self.data.sum();
         Self::from_scalar(sum_val)
     }
+
+    
 
     /// データからテンソル作成
     /// Create tensor from vector data
@@ -1301,6 +1353,474 @@ impl F32Tensor {
         
         // Divide by sum
         exp_data.divide(&sum_tensor)
+    }
+
+    // ========================================
+    // 高度数学機能 - Advanced Mathematical Functions
+    // ========================================
+
+    /// QR分解 (Householder方法)
+    /// QR decomposition (Householder method)
+    pub fn qr_decomposition(&self) -> RusTorchResult<(Self, Self)> {
+        if self.ndim() != 2 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "qr_decomposition".to_string(),
+                message: "QR decomposition requires 2D tensor".to_string(),
+            });
+        }
+
+        let (m, n) = (self.shape[0], self.shape[1]);
+        let min_dim = m.min(n);
+        
+        // Q行列の初期化（単位行列）
+        let mut q_data = vec![0.0f32; m * m];
+        for i in 0..m {
+            q_data[i * m + i] = 1.0;
+        }
+        
+        // R行列の初期化（Aのコピー）
+        let mut r_data = self.data.as_slice().unwrap().to_vec();
+        
+        // Householder変換によるQR分解
+        for k in 0..min_dim {
+            // k列目の対角要素以下のベクトル抽出
+            let mut v = vec![0.0f32; m - k];
+            for i in k..m {
+                v[i - k] = r_data[i * n + k];
+            }
+            
+            // Householder反射ベクトル計算
+            let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm == 0.0 { continue; }
+            
+            v[0] += if v[0] >= 0.0 { norm } else { -norm };
+            let v_norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if v_norm == 0.0 { continue; }
+            
+            for i in 0..v.len() {
+                v[i] /= v_norm;
+            }
+            
+            // Householder変換をR行列に適用
+            for j in k..n {
+                let mut dot_product = 0.0;
+                for i in k..m {
+                    dot_product += v[i - k] * r_data[i * n + j];
+                }
+                
+                for i in k..m {
+                    r_data[i * n + j] -= 2.0 * v[i - k] * dot_product;
+                }
+            }
+            
+            // Householder変換をQ行列に適用
+            for j in 0..m {
+                let mut dot_product = 0.0;
+                for i in k..m {
+                    dot_product += v[i - k] * q_data[i * m + j];
+                }
+                
+                for i in k..m {
+                    q_data[i * m + j] -= 2.0 * v[i - k] * dot_product;
+                }
+            }
+        }
+        
+        let q = F32Tensor::from_vec(q_data, &[m, m])?;
+        let r = F32Tensor::from_vec(r_data, &[m, n])?;
+        
+        Ok((q, r))
+    }
+
+    /// Cholesky分解 (対称正定値行列用)
+    /// Cholesky decomposition (for symmetric positive definite matrices)
+    pub fn cholesky_decomposition(&self) -> RusTorchResult<Self> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "cholesky_decomposition".to_string(),
+                message: "Cholesky decomposition requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let mut l_data = vec![0.0f32; n * n];
+        let a_data = self.data.as_slice().unwrap();
+        
+        for i in 0..n {
+            for j in 0..=i {
+                if i == j {
+                    // 対角要素の計算
+                    let mut sum = 0.0;
+                    for k in 0..j {
+                        sum += l_data[j * n + k] * l_data[j * n + k];
+                    }
+                    let val = a_data[j * n + j] - sum;
+                    if val <= 0.0 {
+                        return Err(RusTorchError::InvalidParameters {
+                            operation: "cholesky_decomposition".to_string(),
+                            message: "Matrix is not positive definite".to_string(),
+                        });
+                    }
+                    l_data[j * n + j] = val.sqrt();
+                } else {
+                    // 下三角要素の計算
+                    let mut sum = 0.0;
+                    for k in 0..j {
+                        sum += l_data[i * n + k] * l_data[j * n + k];
+                    }
+                    l_data[i * n + j] = (a_data[i * n + j] - sum) / l_data[j * n + j];
+                }
+            }
+        }
+        
+        F32Tensor::from_vec(l_data, &[n, n])
+    }
+
+    /// 特異値分解 (SVD) - 基本版
+    /// Singular Value Decomposition (SVD) - Basic version  
+    pub fn svd(&self) -> RusTorchResult<(Self, Self, Self)> {
+        if self.ndim() != 2 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "svd".to_string(),
+                message: "SVD requires 2D tensor".to_string(),
+            });
+        }
+
+        let (m, n) = (self.shape[0], self.shape[1]);
+        
+        // 簡易版SVD（反復法）
+        // A^T * A の固有値分解によりV, Σを求める
+        let at = self.transpose()?;
+        let ata = at.matmul(self)?;
+        
+        // 最大固有値とその固有ベクトルを求める（Power method）
+        let mut v = F32Tensor::randn(&[n, 1])?;
+        
+        for _ in 0..100 { // 最大100回反復
+            let av = ata.matmul(&v)?;
+            let norm = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm == 0.0 { break; }
+            
+            v = av.mul_scalar(1.0 / norm)?;
+        }
+        
+        // σ = ||Av||
+        let av = self.matmul(&v)?;
+        let sigma = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
+        
+        // u = Av / σ
+        let u = if sigma > 1e-10 {
+            av.mul_scalar(1.0 / sigma)?
+        } else {
+            F32Tensor::zeros(&[m, 1])?
+        };
+        
+        // 簡易版では単一の特異値のみ返す
+        let s = F32Tensor::from_scalar(sigma)?;
+        
+        Ok((u, s, v))
+    }
+
+    /// 固有値分解 (対称行列用, Power method)
+    /// Eigenvalue decomposition (for symmetric matrices, Power method)
+    pub fn eigen_decomposition(&self) -> RusTorchResult<(Self, Self)> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "eigen_decomposition".to_string(),
+                message: "Eigenvalue decomposition requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        
+        // Power methodで最大固有値と固有ベクトルを求める
+        let mut v = F32Tensor::randn(&[n, 1])?;
+        let mut eigenvalue = 0.0;
+        
+        for _ in 0..100 { // 最大100回反復
+            let av = self.matmul(&v)?;
+            
+            // Rayleigh商で固有値を近似
+            let vt_av = v.transpose()?.matmul(&av)?;
+            let vt_v = v.transpose()?.matmul(&v)?;
+            
+            eigenvalue = vt_av.unwrap()? / vt_v.unwrap()?;
+            
+            // 正規化
+            let norm = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if norm < 1e-10 { break; }
+            
+            v = av.mul_scalar(1.0 / norm)?;
+        }
+        
+        let eigenvalues = F32Tensor::from_scalar(eigenvalue)?;
+        let eigenvectors = v;
+        
+        Ok((eigenvalues, eigenvectors))
+    }
+
+    /// LU分解 (部分ピボット付き)
+    /// LU decomposition (with partial pivoting)
+    pub fn lu_decomposition(&self) -> RusTorchResult<(Self, Self, Self)> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "lu_decomposition".to_string(),
+                message: "LU decomposition requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let mut a_data = self.data.as_slice().unwrap().to_vec();
+        let mut l_data = vec![0.0f32; n * n];
+        let mut p_data = vec![0.0f32; n * n];
+        
+        // 置換行列を単位行列で初期化
+        for i in 0..n {
+            p_data[i * n + i] = 1.0;
+        }
+        
+        // L行列を単位行列で初期化  
+        for i in 0..n {
+            l_data[i * n + i] = 1.0;
+        }
+        
+        // Gaussian elimination with partial pivoting
+        for k in 0..n {
+            // ピボット選択
+            let mut max_row = k;
+            let mut max_val = a_data[k * n + k].abs();
+            
+            for i in (k + 1)..n {
+                if a_data[i * n + k].abs() > max_val {
+                    max_val = a_data[i * n + k].abs();
+                    max_row = i;
+                }
+            }
+            
+            // 行の交換
+            if max_row != k {
+                for j in 0..n {
+                    a_data.swap(k * n + j, max_row * n + j);
+                    p_data.swap(k * n + j, max_row * n + j);
+                }
+            }
+            
+            // L行列の計算
+            for i in (k + 1)..n {
+                if a_data[k * n + k].abs() < 1e-10 {
+                    return Err(RusTorchError::InvalidParameters {
+                        operation: "lu_decomposition".to_string(),
+                        message: "Matrix is singular".to_string(),
+                    });
+                }
+                
+                let factor = a_data[i * n + k] / a_data[k * n + k];
+                l_data[i * n + k] = factor;
+                
+                for j in k..n {
+                    a_data[i * n + j] -= factor * a_data[k * n + j];
+                }
+            }
+        }
+        
+        let p = F32Tensor::from_vec(p_data, &[n, n])?;
+        let l = F32Tensor::from_vec(l_data, &[n, n])?;
+        let u = F32Tensor::from_vec(a_data, &[n, n])?;
+        
+        Ok((p, l, u))
+    }
+
+    /// 行列式の計算 (LU分解を利用)
+    /// Determinant calculation (using LU decomposition)
+    pub fn determinant(&self) -> RusTorchResult<f32> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "determinant".to_string(),
+                message: "Determinant requires square matrix".to_string(),
+            });
+        }
+
+        let (p, _l, u) = self.lu_decomposition()?;
+        
+        // U行列の対角要素の積
+        let n = self.shape[0];
+        let u_data = u.data.as_slice().unwrap();
+        let mut det = 1.0;
+        
+        for i in 0..n {
+            det *= u_data[i * n + i];
+        }
+        
+        // 置換行列による符号の修正
+        let p_data = p.data.as_slice().unwrap();
+        let mut sign = 1.0;
+        for i in 0..n {
+            for j in 0..n {
+                if i != j && p_data[i * n + j] == 1.0 {
+                    sign *= -1.0;
+                    break;
+                }
+            }
+        }
+        
+        Ok(det * sign)
+    }
+
+    /// 逆行列の計算 (Gauss-Jordan法)
+    /// Matrix inverse calculation (Gauss-Jordan method)
+    pub fn inverse(&self) -> RusTorchResult<Self> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "inverse".to_string(),
+                message: "Matrix inverse requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let mut augmented = vec![0.0f32; n * (2 * n)];
+        let a_data = self.data.as_slice().unwrap();
+        
+        // 拡大行列 [A|I] を構築
+        for i in 0..n {
+            for j in 0..n {
+                augmented[i * (2 * n) + j] = a_data[i * n + j];
+                augmented[i * (2 * n) + (n + j)] = if i == j { 1.0 } else { 0.0 };
+            }
+        }
+        
+        // Gauss-Jordan elimination
+        for i in 0..n {
+            // ピボット選択
+            let mut max_row = i;
+            let mut max_val = augmented[i * (2 * n) + i].abs();
+            
+            for k in (i + 1)..n {
+                if augmented[k * (2 * n) + i].abs() > max_val {
+                    max_val = augmented[k * (2 * n) + i].abs();
+                    max_row = k;
+                }
+            }
+            
+            // 行の交換
+            if max_row != i {
+                for j in 0..(2 * n) {
+                    augmented.swap(i * (2 * n) + j, max_row * (2 * n) + j);
+                }
+            }
+            
+            // 対角要素で正規化
+            let pivot = augmented[i * (2 * n) + i];
+            if pivot.abs() < 1e-10 {
+                return Err(RusTorchError::InvalidParameters {
+                    operation: "inverse".to_string(),
+                    message: "Matrix is singular".to_string(),
+                });
+            }
+            
+            for j in 0..(2 * n) {
+                augmented[i * (2 * n) + j] /= pivot;
+            }
+            
+            // 他の行を処理
+            for k in 0..n {
+                if k != i {
+                    let factor = augmented[k * (2 * n) + i];
+                    for j in 0..(2 * n) {
+                        augmented[k * (2 * n) + j] -= factor * augmented[i * (2 * n) + j];
+                    }
+                }
+            }
+        }
+        
+        // 逆行列部分を抽出
+        let mut inverse_data = vec![0.0f32; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                inverse_data[i * n + j] = augmented[i * (2 * n) + (n + j)];
+            }
+        }
+        
+        F32Tensor::from_vec(inverse_data, &[n, n])
+    }
+
+    /// 行列のランクを計算 (SVDを利用)
+    /// Calculate matrix rank (using SVD)
+    pub fn rank(&self) -> RusTorchResult<usize> {
+        if self.ndim() != 2 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "rank".to_string(),
+                message: "Rank calculation requires 2D tensor".to_string(),
+            });
+        }
+
+        // 簡易版：ゼロでない特異値の数をカウント
+        let (_u, s, _v) = self.svd()?;
+        let tolerance = 1e-6;
+        
+        let rank = s.data.iter()
+            .filter(|&&x| x.abs() > tolerance)
+            .count();
+        
+        Ok(rank)
+    }
+
+    /// 条件数の計算 (2ノルム)
+    /// Condition number calculation (2-norm)
+    pub fn condition_number(&self) -> RusTorchResult<f32> {
+        if self.ndim() != 2 {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "condition_number".to_string(),
+                message: "Condition number requires 2D tensor".to_string(),
+            });
+        }
+
+        let (_u, s, _v) = self.svd()?;
+        let s_data = s.data.as_slice().unwrap();
+        
+        if s_data.is_empty() {
+            return Ok(f32::INFINITY);
+        }
+        
+        let max_singular = s_data.iter().fold(0.0f32, |a, &b| a.max(b));
+        let min_singular = s_data.iter()
+            .filter(|&&x| x > 1e-10)
+            .fold(f32::INFINITY, |a, &b| a.min(b));
+        
+        if min_singular == f32::INFINITY || min_singular == 0.0 {
+            Ok(f32::INFINITY)
+        } else {
+            Ok(max_singular / min_singular)
+        }
+    }
+
+    /// Frobenius ノルム
+    /// Frobenius norm
+    pub fn frobenius_norm(&self) -> RusTorchResult<f32> {
+        let sum_of_squares = self.data.iter()
+            .map(|&x| x * x)
+            .sum::<f32>();
+        Ok(sum_of_squares.sqrt())
+    }
+
+    /// トレース（対角和）
+    /// Trace (sum of diagonal elements)
+    pub fn trace(&self) -> RusTorchResult<f32> {
+        if self.ndim() != 2 || self.shape[0] != self.shape[1] {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "trace".to_string(),
+                message: "Trace requires square matrix".to_string(),
+            });
+        }
+
+        let n = self.shape[0];
+        let data = self.data.as_slice().unwrap();
+        let mut trace = 0.0;
+        
+        for i in 0..n {
+            trace += data[i * n + i];
+        }
+        
+        Ok(trace)
     }
 }
 

@@ -3,7 +3,8 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::{F32Tensor, Index2D, Index3D};
+    use rustorch::hybrid_f32::tensor::F32Tensor;
+    use rustorch::hybrid_f32::tensor::core::{Index2D, Index3D};
     use rustorch::error::RusTorchResult;
 
     #[test]

@@ -438,8 +438,7 @@ pub struct PoolHealthReport {
     pub recommendations: Vec<String>,
 }
 
-/// グローバルテンソルプール
-/// Global tensor pool
+// グローバルテンソルプール / Global tensor pool
 lazy_static::lazy_static! {
     static ref GLOBAL_POOL: TensorPool = TensorPool::with_default_config();
 }
