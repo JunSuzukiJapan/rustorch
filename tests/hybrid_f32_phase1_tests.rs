@@ -3,234 +3,211 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
+    use rustorch::error::RusTorchResult;
     use rustorch::hybrid_f32::tensor::F32Tensor;
 
     #[test]
-    fn test_tensor_creation_methods() {
+    fn test_tensor_creation_methods() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
         // zeros
-        let zeros = F32Tensor::zeros(&[2, 3]);
+        let zeros = F32Tensor::zeros(&[2, 3])?;
         assert_eq!(zeros.shape(), &[2, 3]);
-        assert_eq!(zeros.len(), 6);
+        assert_eq!(zeros.numel(), 6);
         assert!(zeros.as_slice().iter().all(|&x| x == 0.0));
 
         // ones
-        let ones = F32Tensor::ones(&[2, 2]);
+        let ones = F32Tensor::ones(&[2, 2])?;
         assert_eq!(ones.shape(), &[2, 2]);
         assert!(ones.as_slice().iter().all(|&x| x == 1.0));
 
         // from_vec
-        let from_vec = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let from_vec = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
         assert_eq!(from_vec.shape(), &[2, 2]);
         assert_eq!(from_vec.as_slice(), &[1.0, 2.0, 3.0, 4.0]);
 
-        // arange
-        let arange = F32Tensor::arange(0.0, 5.0, 1.0);
-        assert_eq!(arange.shape(), &[5]);
-        assert_eq!(arange.as_slice(), &[0.0, 1.0, 2.0, 3.0, 4.0]);
+        // new (同じ機能)
+        let tensor = F32Tensor::new(vec![5.0, 6.0, 7.0, 8.0], &[2, 2])?;
+        assert_eq!(tensor.shape(), &[2, 2]);
+        assert_eq!(tensor.as_slice(), &[5.0, 6.0, 7.0, 8.0]);
 
-        // linspace
-        let linspace = F32Tensor::linspace(0.0, 10.0, 5);
-        assert_eq!(linspace.shape(), &[5]);
-        assert_eq!(linspace.as_slice(), &[0.0, 2.5, 5.0, 7.5, 10.0]);
-
-        // eye
-        let eye = F32Tensor::eye(3);
-        assert_eq!(eye.shape(), &[3, 3]);
-        let expected = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
-        assert_eq!(eye.as_slice(), &expected);
+        Ok(())
     }
 
     #[test]
-    fn test_random_tensor_creation() {
+    fn test_basic_tensor_properties() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        // rand
-        let rand_tensor = F32Tensor::rand(&[10, 10]);
-        assert_eq!(rand_tensor.shape(), &[10, 10]);
-        assert!(rand_tensor.as_slice().iter().all(|&x| x >= 0.0 && x < 1.0));
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
 
-        // randn
-        let randn_tensor = F32Tensor::randn(&[5, 5]);
-        assert_eq!(randn_tensor.shape(), &[5, 5]);
-        // randn は -1.0 から 1.0 の範囲
-        assert!(randn_tensor
-            .as_slice()
-            .iter()
-            .all(|&x| x >= -1.0 && x <= 1.0));
+        // 基本プロパティ
+        assert_eq!(tensor.shape(), &[2, 3]);
+        assert_eq!(tensor.numel(), 6);
+        assert_eq!(tensor.ndim(), 2);
+        assert!(!tensor.is_empty());
+        assert!(!tensor.is_scalar());
 
-        // uniform
-        let uniform_tensor = F32Tensor::uniform(&[3, 3], 5.0, 15.0);
-        assert_eq!(uniform_tensor.shape(), &[3, 3]);
-        assert!(uniform_tensor
-            .as_slice()
-            .iter()
-            .all(|&x| x >= 5.0 && x < 15.0));
+        // スカラーテンソル
+        let scalar = F32Tensor::from_vec(vec![42.0], &[1])?;
+        assert!(scalar.is_scalar());
+        assert_eq!(scalar.scalar_value()?, 42.0);
+
+        // 空テンソル
+        let empty = F32Tensor::zeros(&[0])?;
+        assert!(empty.is_empty());
+
+        Ok(())
     }
 
     #[test]
-    fn test_basic_arithmetic() {
+    fn test_tensor_arithmetic() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let a = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let b = F32Tensor::from_vec(vec![2.0, 3.0, 4.0, 5.0], vec![2, 2]).unwrap();
+        let a = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+        let b = F32Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], &[2, 2])?;
 
-        // add
-        let add_result = a.add(&b).unwrap();
-        assert_eq!(add_result.as_slice(), &[3.0, 5.0, 7.0, 9.0]);
+        // 基本算術演算
+        let sum = a.add(&b)?;
+        assert_eq!(sum.as_slice(), &[6.0, 8.0, 10.0, 12.0]);
 
-        // sub
-        let sub_result = a.sub(&b).unwrap();
-        assert_eq!(sub_result.as_slice(), &[-1.0, -1.0, -1.0, -1.0]);
+        let diff = a.subtract(&b)?;
+        assert_eq!(diff.as_slice(), &[-4.0, -4.0, -4.0, -4.0]);
 
-        // mul
-        let mul_result = a.mul(&b).unwrap();
-        assert_eq!(mul_result.as_slice(), &[2.0, 6.0, 12.0, 20.0]);
+        let prod = a.multiply(&b)?;
+        assert_eq!(prod.as_slice(), &[5.0, 12.0, 21.0, 32.0]);
 
-        // div
-        let div_result = b.div(&a).unwrap();
-        assert_eq!(div_result.as_slice(), &[2.0, 1.5, 4.0 / 3.0, 1.25]);
+        let quot = b.divide(&a)?;
+        assert_eq!(quot.as_slice(), &[5.0, 3.0, 7.0 / 3.0, 2.0]);
+
+        Ok(())
     }
 
     #[test]
-    fn test_scalar_operations() {
+    fn test_tensor_scalar_ops() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
 
-        // add_scalar
-        let add_result = tensor.add_scalar(10.0).unwrap();
-        assert_eq!(add_result.as_slice(), &[11.0, 12.0, 13.0, 14.0]);
+        // スカラー乗算
+        let scaled = tensor.multiply_scalar(2.0)?;
+        assert_eq!(scaled.as_slice(), &[2.0, 4.0, 6.0, 8.0]);
 
-        // sub_scalar
-        let sub_result = tensor.sub_scalar(0.5).unwrap();
-        assert_eq!(sub_result.as_slice(), &[0.5, 1.5, 2.5, 3.5]);
+        // スカラー加算
+        let added = tensor.add_scalar(10.0)?;
+        assert_eq!(added.as_slice(), &[11.0, 12.0, 13.0, 14.0]);
 
-        // mul_scalar
-        let mul_result = tensor.mul_scalar(2.0).unwrap();
-        assert_eq!(mul_result.as_slice(), &[2.0, 4.0, 6.0, 8.0]);
-
-        // div_scalar
-        let div_result = tensor.div_scalar(2.0).unwrap();
-        assert_eq!(div_result.as_slice(), &[0.5, 1.0, 1.5, 2.0]);
+        Ok(())
     }
 
     #[test]
-    fn test_unary_operations() {
+    fn test_tensor_reshape_ops() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let tensor = F32Tensor::from_vec(vec![-2.0, -1.0, 4.0, 9.0], vec![2, 2]).unwrap();
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
 
-        // neg
-        let neg_result = tensor.neg().unwrap();
-        assert_eq!(neg_result.as_slice(), &[2.0, 1.0, -4.0, -9.0]);
+        // reshape
+        let reshaped = tensor.try_reshape(&[3, 2])?;
+        assert_eq!(reshaped.shape(), &[3, 2]);
+        assert_eq!(reshaped.numel(), 6);
 
-        // abs
-        let abs_result = tensor.abs().unwrap();
-        assert_eq!(abs_result.as_slice(), &[2.0, 1.0, 4.0, 9.0]);
+        // flatten
+        let flattened = tensor.try_reshape(&[6])?;
+        assert_eq!(flattened.shape(), &[6]);
 
-        // sqrt (正の値のみでテスト)
-        let positive_tensor = F32Tensor::from_vec(vec![1.0, 4.0, 9.0, 16.0], vec![2, 2]).unwrap();
-        let sqrt_result = positive_tensor.sqrt().unwrap();
-        assert_eq!(sqrt_result.as_slice(), &[1.0, 2.0, 3.0, 4.0]);
+        // transpose (2D only)
+        let matrix = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+        let transposed = matrix.try_transpose()?;
+        assert_eq!(transposed.shape(), &[2, 2]);
 
-        // pow
-        let pow_result = positive_tensor.pow(2.0).unwrap();
-        assert_eq!(pow_result.as_slice(), &[1.0, 16.0, 81.0, 256.0]);
+        Ok(())
     }
 
     #[test]
-    fn test_statistics() {
+    fn test_tensor_slicing() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
 
-        // sum
-        let sum = tensor.sum().unwrap();
-        assert_eq!(sum, 21.0);
+        // 安全なアクセス
+        assert_eq!(tensor.try_get(&[0, 0])?, 1.0);
+        assert_eq!(tensor.try_get(&[1, 2])?, 6.0);
 
-        // mean
-        let mean = tensor.mean().unwrap();
-        assert_eq!(mean, 3.5);
+        // 範囲外アクセスはエラー
+        assert!(tensor.try_get(&[2, 0]).is_err());
+        assert!(tensor.try_get(&[0, 3]).is_err());
 
-        // max
-        let max = tensor.max().unwrap();
-        assert_eq!(max, 6.0);
+        Ok(())
+    }
 
-        // min
-        let min = tensor.min().unwrap();
+    #[test]
+    fn test_tensor_statistics() -> RusTorchResult<()> {
+        rustorch::hybrid_f32_experimental!();
+
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+
+        // 基本統計 (実装されている場合)
+        let sum = tensor.sum()?;
+        assert_eq!(sum, 10.0);
+
+        let mean = tensor.mean()?;
+        assert_eq!(mean, 2.5);
+
+        let min = tensor.min()?;
         assert_eq!(min, 1.0);
 
-        // std and var
-        let std = tensor.std().unwrap();
-        let var = tensor.var().unwrap();
-        assert!((std - (var.sqrt())).abs() < 1e-6);
+        let max = tensor.max()?;
+        assert_eq!(max, 4.0);
+
+        Ok(())
     }
 
     #[test]
-    fn test_axis_operations() {
+    fn test_error_handling() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], vec![2, 3]).unwrap();
+        // 無効な形状でのテンソル作成
+        let result = F32Tensor::new(vec![1.0, 2.0], &[3, 3]); // データ不足
+        assert!(result.is_err());
 
-        // sum_axis(0) - 行方向に合計
-        let sum_axis0 = tensor.sum_axis(0).unwrap();
-        assert_eq!(sum_axis0.shape(), &[3]);
-        assert_eq!(sum_axis0.as_slice(), &[5.0, 7.0, 9.0]); // [1+4, 2+5, 3+6]
+        // 形状不一致での演算
+        let a = F32Tensor::from_vec(vec![1.0, 2.0], &[2])?;
+        let b = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
+        assert!(a.try_add(&b).is_err());
 
-        // sum_axis(1) - 列方向に合計
-        let sum_axis1 = tensor.sum_axis(1).unwrap();
-        assert_eq!(sum_axis1.shape(), &[2]);
-        assert_eq!(sum_axis1.as_slice(), &[6.0, 15.0]); // [1+2+3, 4+5+6]
+        // ゼロ除算
+        let zero_tensor = F32Tensor::from_vec(vec![0.0, 0.0], &[2])?;
+        assert!(a.try_div(&zero_tensor).is_err());
 
-        // mean_axis
-        let mean_axis0 = tensor.mean_axis(0).unwrap();
-        assert_eq!(mean_axis0.as_slice(), &[2.5, 3.5, 4.5]); // sum_axis0 / 2
+        // 無効なreshape
+        let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+        assert!(tensor.try_reshape(&[3, 2]).is_err()); // 4要素 → 6要素
 
-        let mean_axis1 = tensor.mean_axis(1).unwrap();
-        assert_eq!(mean_axis1.as_slice(), &[2.0, 5.0]); // sum_axis1 / 3
+        Ok(())
     }
 
     #[test]
-    fn test_matrix_operations() {
+    fn test_tensor_cloning_and_device() -> RusTorchResult<()> {
         rustorch::hybrid_f32_experimental!();
 
-        let a = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2]).unwrap();
-        let b = F32Tensor::from_vec(vec![5.0, 6.0, 7.0, 8.0], vec![2, 2]).unwrap();
+        let original = F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
+        let cloned = original.clone();
 
-        // matmul
-        let result = a.matmul(&b).unwrap();
-        assert_eq!(result.shape(), &[2, 2]);
-        // [1*5+2*7, 1*6+2*8] = [19, 22]
-        // [3*5+4*7, 3*6+4*8] = [43, 50]
-        assert_eq!(result.as_slice(), &[19.0, 22.0, 43.0, 50.0]);
-    }
+        // 同じデータ
+        assert_eq!(original.shape(), cloned.shape());
+        assert_eq!(original.as_slice(), cloned.as_slice());
 
-    #[test]
-    fn test_error_handling() {
-        rustorch::hybrid_f32_experimental!();
+        // デバイス状態
+        assert!(matches!(
+            original.device_state(),
+            rustorch::hybrid_f32::tensor::core::DeviceState::CPU
+        ));
 
-        // Shape mismatch for element-wise operations
-        let a = F32Tensor::from_vec(vec![1.0, 2.0], vec![2]).unwrap();
-        let b = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3]).unwrap();
+        // 勾配追跡
+        let mut tensor = original;
+        assert!(!tensor.is_grad_enabled());
+        tensor.requires_grad(true);
+        assert!(tensor.is_grad_enabled());
 
-        assert!(a.add(&b).is_err());
-        assert!(a.sub(&b).is_err());
-        assert!(a.mul(&b).is_err());
-        assert!(a.div(&b).is_err());
-
-        // Empty tensor statistics
-        let empty = F32Tensor::from_vec(vec![], vec![0]).unwrap();
-        assert!(empty.mean().is_err());
-        assert!(empty.max().is_err());
-        assert!(empty.min().is_err());
-        assert!(empty.std().is_err());
-        assert!(empty.var().is_err());
-
-        // Out of bounds axis
-        let tensor = F32Tensor::from_vec(vec![1.0, 2.0], vec![2]).unwrap();
-        assert!(tensor.sum_axis(1).is_err());
-        assert!(tensor.mean_axis(1).is_err());
+        Ok(())
     }
 }

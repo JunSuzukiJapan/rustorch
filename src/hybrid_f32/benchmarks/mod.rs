@@ -3,10 +3,10 @@
 
 pub mod performance_test;
 
-use super::tensor::F32Tensor;
-use super::unified::F32HybridExecutor;
-use super::ExperimentResults;
 use crate::error::RusTorchResult;
+use crate::hybrid_f32::tensor::core::F32Tensor;
+use crate::hybrid_f32::unified::F32HybridExecutor;
+use crate::hybrid_f32::ExperimentResults;
 use crate::tensor::Tensor;
 use std::time::Instant;
 
@@ -140,8 +140,8 @@ impl F32HybridBenchmark {
         k: usize,
     ) -> RusTorchResult<MatrixBenchmarkResult> {
         // テンソル作成（変換コストなし）
-        let a = F32Tensor::randn(&[m, k]);
-        let b = F32Tensor::randn(&[k, n]);
+        let a = F32Tensor::randn(&[m, k])?;
+        let b = F32Tensor::randn(&[k, n])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {

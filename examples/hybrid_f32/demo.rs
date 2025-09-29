@@ -51,7 +51,7 @@ fn demo_basic_f32_tensor() -> Result<(), Box<dyn std::error::Error>> {
     println!("--------------------------------");
 
     // テンソル作成（変換コストなし）
-    let a = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0], vec![2, 2])?;
+    let a = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0], &[2, 2])?;
     let b = F32Tensor::zeros(&[2, 2]);
     let c = F32Tensor::randn(&[2, 2]);
 

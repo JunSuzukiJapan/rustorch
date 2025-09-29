@@ -382,6 +382,18 @@ pub mod wasm;
 #[cfg(feature = "hybrid-f32")]
 pub mod hybrid_f32;
 
+// hybrid_f32実験マクロをクレートルートレベルで定義
+// Define hybrid_f32 experimental macros at crate root level
+#[cfg(feature = "hybrid-f32")]
+#[macro_export]
+macro_rules! hybrid_f32_experimental {
+    () => {
+        #[cfg(feature = "hybrid-f32")]
+        #[cfg(debug_assertions)]
+        eprintln!("[HYBRID_F32_EXPERIMENTAL] {}", std::module_path!());
+    };
+}
+
 /// Re-exports of commonly used items
 pub mod prelude {
     pub use crate::autograd::Variable;

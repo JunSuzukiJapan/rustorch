@@ -1,8 +1,8 @@
 //! GPU実行エンジン - f32統一バックエンド
 //! GPU execution engines - f32 unified backends
 
-use super::tensor::F32Tensor;
 use crate::error::RusTorchResult;
+use crate::hybrid_f32::tensor::core::F32Tensor;
 
 #[cfg(target_os = "macos")]
 pub mod coreml;
@@ -46,6 +46,18 @@ pub trait F32GPUExecutor {
     /// デバイス性能情報を取得
     /// Get device performance information
     fn get_performance_info(&self) -> DevicePerformanceInfo;
+
+    /// f32並列リダクション直接実行
+    /// Direct f32 parallel reduction execution
+    fn parallel_reduction_f32(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32>;
+
+    /// f32統計処理直接実行
+    /// Direct f32 statistical processing execution
+    fn statistical_processing_f32(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32>;
 }
 
 /// デバイス性能情報
@@ -219,6 +231,114 @@ impl F32UnifiedGPUContext {
             GPUDevice::CPU => {
                 // CPU実行（フォールバック）
                 a.matmul(b)
+            }
+        }
+    }
+
+    /// 統一並列リダクション実行
+    /// Unified parallel reduction execution
+    pub fn execute_parallel_reduction(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
+        crate::hybrid_f32_experimental!();
+
+        match &self.current_device {
+            #[cfg(target_os = "macos")]
+            GPUDevice::Metal(_) => {
+                if let Some(executor) = &self.metal_executor {
+                    executor.parallel_reduction_f32(tensor, operation)
+                } else {
+                    Err(crate::error::RusTorchError::BackendUnavailable {
+                        backend: "Metal".to_string(),
+                    })
+                }
+            }
+            #[cfg(target_os = "macos")]
+            GPUDevice::CoreML(_) => {
+                if let Some(executor) = &self.coreml_executor {
+                    executor.parallel_reduction_f32(tensor, operation)
+                } else {
+                    Err(crate::error::RusTorchError::BackendUnavailable {
+                        backend: "CoreML".to_string(),
+                    })
+                }
+            }
+            GPUDevice::CPU => {
+                // CPU実行（フォールバック）
+                match operation {
+                    "sum" => tensor.sum(),
+                    "mean" => tensor.mean(),
+                    "min" => tensor.min(),
+                    "max" => tensor.max(),
+                    _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                        "Unsupported reduction operation: {}",
+                        operation
+                    ))),
+                }
+            }
+        }
+    }
+
+    /// 統一統計処理実行
+    /// Unified statistical processing execution
+    pub fn execute_statistical_processing(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
+        crate::hybrid_f32_experimental!();
+
+        match &self.current_device {
+            #[cfg(target_os = "macos")]
+            GPUDevice::Metal(_) => {
+                if let Some(executor) = &self.metal_executor {
+                    executor.statistical_processing_f32(tensor, operation)
+                } else {
+                    Err(crate::error::RusTorchError::BackendUnavailable {
+                        backend: "Metal".to_string(),
+                    })
+                }
+            }
+            #[cfg(target_os = "macos")]
+            GPUDevice::CoreML(_) => {
+                if let Some(executor) = &self.coreml_executor {
+                    executor.statistical_processing_f32(tensor, operation)
+                } else {
+                    Err(crate::error::RusTorchError::BackendUnavailable {
+                        backend: "CoreML".to_string(),
+                    })
+                }
+            }
+            GPUDevice::CPU => {
+                // CPU実行（フォールバック）
+                match operation {
+                    "std" => {
+                        let mean_val = tensor.mean()?;
+                        let variance = tensor
+                            .data
+                            .iter()
+                            .map(|&x| (x - mean_val).powi(2))
+                            .sum::<f32>()
+                            / (tensor.data.len() as f32);
+                        Ok(variance.sqrt())
+                    }
+                    "variance" => {
+                        let mean_val = tensor.mean()?;
+                        let variance = tensor
+                            .data
+                            .iter()
+                            .map(|&x| (x - mean_val).powi(2))
+                            .sum::<f32>()
+                            / (tensor.data.len() as f32);
+                        Ok(variance)
+                    }
+                    _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                        "Unsupported statistics operation: {}",
+                        operation
+                    ))),
+                }
             }
         }
     }

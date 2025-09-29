@@ -1,6 +1,6 @@
 [package]
 name = "rustorch"
-version = "0.6.25"
+version = "0.6.26"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Production-ready PyTorch-compatible deep learning library in Rust with special mathematical functions (gamma, Bessel, error functions), statistical distributions, Fourier transforms (FFT/RFFT), matrix decomposition (SVD/QR/LU/eigenvalue), automatic differentiation, neural networks, computer vision transforms, complete GPU acceleration (CUDA/Metal/OpenCL), SIMD optimizations, parallel processing, WebAssembly browser support, comprehensive distributed learning support, and performance validation"
@@ -413,6 +413,21 @@ required-features = ["hybrid-f32"]
 [[example]]
 name = "hybrid_f32_phase4c_test"
 path = "examples/hybrid_f32/phase4c_test.rs"
+required-features = ["hybrid-f32"]
+
+[[example]]
+name = "hybrid_f32_phase5_test"
+path = "examples/hybrid_f32/phase5_test.rs"
+required-features = ["hybrid-f32"]
+
+[[example]]
+name = "gpu_neural_engine_benchmark"
+path = "examples/hybrid_f32/gpu_neural_engine_benchmark.rs"
+required-features = ["hybrid-f32"]
+
+[[example]]
+name = "comprehensive_performance_comparison"
+path = "examples/comprehensive_performance_comparison.rs"
 required-features = ["hybrid-f32"]
 
 [lints.clippy]

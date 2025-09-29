@@ -2,13 +2,15 @@
 //! f32 Unified Hybrid Execution System
 
 #[cfg(target_os = "macos")]
-use super::gpu::{F32CoreMLExecutor, F32MetalExecutor, F32UnifiedGPUContext, GPUDevice};
+use crate::hybrid_f32::gpu::{
+    F32CoreMLExecutor, F32MetalExecutor, F32UnifiedGPUContext, GPUDevice,
+};
 
-#[cfg(not(target_os = "macos"))]
-use super::gpu::{F32UnifiedGPUContext, GPUDevice};
-use super::tensor::F32Tensor;
-use super::ExperimentResults;
 use crate::error::RusTorchResult;
+#[cfg(not(target_os = "macos"))]
+use crate::hybrid_f32::gpu::{F32UnifiedGPUContext, GPUDevice};
+use crate::hybrid_f32::tensor::core::F32Tensor;
+use crate::hybrid_f32::ExperimentResults;
 use std::time::Instant;
 
 /// f32統一ハイブリッド実行エンジン

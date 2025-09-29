@@ -7,9 +7,9 @@
 //! This module runs benchmarks equivalent to the existing simple_performance_test
 //! using the hybrid_f32 system, enabling direct performance comparisons.
 
-use super::super::tensor::F32Tensor;
-use super::super::unified::F32HybridExecutor;
 use crate::error::RusTorchResult;
+use crate::hybrid_f32::tensor::core::F32Tensor;
+use crate::hybrid_f32::unified::F32HybridExecutor;
 use std::time::Instant;
 
 /// パフォーマンステスト設定
@@ -112,8 +112,8 @@ impl F32PerformanceTest {
     /// Tensor addition benchmark
     fn bench_tensor_addition(&mut self) -> RusTorchResult<f64> {
         let size = 10000;
-        let tensor_a = F32Tensor::new((0..size).map(|i| i as f32).collect(), vec![size])?;
-        let tensor_b = F32Tensor::new((0..size).map(|i| (i + 1) as f32).collect(), vec![size])?;
+        let tensor_a = F32Tensor::new((0..size).map(|i| i as f32).collect(), &[size])?;
+        let tensor_b = F32Tensor::new((0..size).map(|i| (i + 1) as f32).collect(), &[size])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -137,7 +137,7 @@ impl F32PerformanceTest {
     /// Tensor sum benchmark
     fn bench_tensor_sum(&mut self) -> RusTorchResult<f64> {
         let size = 10000;
-        let tensor = F32Tensor::new((0..size).map(|i| i as f32).collect(), vec![size])?;
+        let tensor = F32Tensor::new((0..size).map(|i| i as f32).collect(), &[size])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -183,7 +183,7 @@ impl F32PerformanceTest {
     /// テンソル複製ベンチマーク
     /// Tensor clone benchmark
     fn bench_tensor_clone(&mut self) -> RusTorchResult<f64> {
-        let tensor = F32Tensor::new((0..1000).map(|i| i as f32).collect(), vec![1000])?;
+        let tensor = F32Tensor::new((0..1000).map(|i| i as f32).collect(), &[1000])?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -209,11 +209,11 @@ impl F32PerformanceTest {
         let size = 128;
         let mat_a = F32Tensor::new(
             (0..size * size).map(|i| (i as f32) * 0.01).collect(),
-            vec![size, size],
+            &[size, size],
         )?;
         let mat_b = F32Tensor::new(
             (0..size * size).map(|i| (i as f32) * 0.01).collect(),
-            vec![size, size],
+            &[size, size],
         )?;
 
         // ウォームアップ
