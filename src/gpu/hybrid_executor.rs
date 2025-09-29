@@ -541,13 +541,21 @@ impl HybridExecutor {
 
     /// Get fallback device chain for a given device
     /// 指定デバイスのフォールバックチェーンを取得
+    /// MacOS環境用: Metal → CoreML → CPU (CUDA不使用)
     fn get_fallback_chain(&self, device: DeviceType) -> Vec<DeviceType> {
         match device {
             DeviceType::CoreML(_) => {
-                vec![DeviceType::Metal(0), DeviceType::Cuda(0), DeviceType::Cpu]
+                // Neural Engine -> GPU -> CPU fallback
+                vec![DeviceType::Metal(0), DeviceType::Cpu]
             }
-            DeviceType::Metal(_) => vec![DeviceType::Cuda(0), DeviceType::Cpu],
-            DeviceType::Cuda(_) => vec![DeviceType::Metal(0), DeviceType::Cpu],
+            DeviceType::Metal(_) => {
+                // GPU -> Neural Engine -> CPU fallback
+                vec![DeviceType::CoreML(0), DeviceType::Cpu]
+            }
+            DeviceType::Cuda(_) => {
+                // CUDA not common on Mac, fallback to Metal then CPU
+                vec![DeviceType::Metal(0), DeviceType::CoreML(0), DeviceType::Cpu]
+            }
             DeviceType::OpenCL(_) => vec![DeviceType::Cpu],
             _ => vec![DeviceType::Cpu],
         }
