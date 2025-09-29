@@ -31,6 +31,7 @@ RUN cargo build --release && rm -rf src
 COPY src ./src
 COPY examples ./examples
 COPY benches ./benches
+COPY benchmarks ./benchmarks
 
 # Build the library only (excluding problematic binaries)
 RUN cargo build --release --lib
