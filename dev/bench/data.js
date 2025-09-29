@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759152852615,
+  "lastUpdate": 1759154292727,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1411,6 +1411,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30011,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "59e1a8f59f7199bb0df4f4f6c255a564899b28b9",
+          "message": "fix: Docker build - copy benchmarks workspace member to main branch\n\nAdd missing COPY benchmarks ./benchmarks to main branch Dockerfile\nto resolve pull_request_target workflow Docker build failures.\n\nThis ensures benchmarks workspace member is available during\nDocker container builds from main branch.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-29T22:56:48+09:00",
+          "tree_id": "da4db3c960d9f6d6ef290a38d21409e34cadad6c",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/59e1a8f59f7199bb0df4f4f6c255a564899b28b9"
+        },
+        "date": 1759154290007,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
