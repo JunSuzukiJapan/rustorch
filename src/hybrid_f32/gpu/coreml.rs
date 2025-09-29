@@ -192,7 +192,11 @@ impl F32GPUExecutor for F32CoreMLExecutor {
         self.execute_neural_engine_reduction(tensor, operation)
     }
 
-    fn statistical_processing_f32(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32> {
+    fn statistical_processing_f32(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
         if !self.is_initialized {
             return Err(crate::error::RusTorchError::BackendUnavailable {
                 backend: "CoreML (not initialized)".to_string(),
@@ -206,10 +210,18 @@ impl F32GPUExecutor for F32CoreMLExecutor {
 impl F32CoreMLExecutor {
     /// Neural Engine並列リダクション実行
     /// Execute Neural Engine parallel reduction
-    fn execute_neural_engine_reduction(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32> {
+    fn execute_neural_engine_reduction(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
         crate::hybrid_f32_experimental!();
 
-        println!("🧠 Neural Engine f32 parallel reduction: {} (size={})", operation, tensor.numel());
+        println!(
+            "🧠 Neural Engine f32 parallel reduction: {} (size={})",
+            operation,
+            tensor.numel()
+        );
 
         // 実際の実装では:
         // 1. MLModel でリダクション演算の動的作成
@@ -237,16 +249,27 @@ impl F32CoreMLExecutor {
                 println!("  ✓ Neural Engine parallel max executed");
                 tensor.max()
             }
-            _ => Err(crate::error::RusTorchError::tensor_op(&format!("Unsupported Neural Engine reduction: {}", operation)))
+            _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                "Unsupported Neural Engine reduction: {}",
+                operation
+            ))),
         }
     }
 
     /// Neural Engine統計処理実行
     /// Execute Neural Engine statistical processing
-    fn execute_neural_engine_statistics(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32> {
+    fn execute_neural_engine_statistics(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
         crate::hybrid_f32_experimental!();
 
-        println!("🧠 Neural Engine f32 statistical processing: {} (size={})", operation, tensor.numel());
+        println!(
+            "🧠 Neural Engine f32 statistical processing: {} (size={})",
+            operation,
+            tensor.numel()
+        );
 
         // 実際の実装では:
         // 1. CoreML での高度統計計算モデル
@@ -260,20 +283,29 @@ impl F32CoreMLExecutor {
             "std" => {
                 println!("  ✓ Neural Engine parallel std executed");
                 let mean_val = tensor.mean()?;
-                let variance = tensor.data.iter()
+                let variance = tensor
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (tensor.data.len() as f32);
+                    .sum::<f32>()
+                    / (tensor.data.len() as f32);
                 Ok(variance.sqrt())
             }
             "variance" => {
                 println!("  ✓ Neural Engine parallel variance executed");
                 let mean_val = tensor.mean()?;
-                let variance = tensor.data.iter()
+                let variance = tensor
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (tensor.data.len() as f32);
+                    .sum::<f32>()
+                    / (tensor.data.len() as f32);
                 Ok(variance)
             }
-            _ => Err(crate::error::RusTorchError::tensor_op(&format!("Unsupported Neural Engine statistics: {}", operation)))
+            _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                "Unsupported Neural Engine statistics: {}",
+                operation
+            ))),
         }
     }
 }

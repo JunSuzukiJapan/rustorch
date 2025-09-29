@@ -1,10 +1,10 @@
 // メモリ圧縮・最適化エンジン
 // Memory compression and optimization engine
 
-use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
 use crate::common::RusTorchResult;
 use crate::hybrid_f32::tensor::core::F32Tensor;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// 圧縮形式
 /// Compression format
@@ -247,7 +247,8 @@ impl QuantizedTensor {
         let scale = (max_val - min_val) / 255.0;
         let zero_point = (-min_val / scale).round() as u8;
 
-        let quantized_data: Vec<u8> = data.iter()
+        let quantized_data: Vec<u8> = data
+            .iter()
             .map(|&value| {
                 let quantized = (value / scale + zero_point as f32).round();
                 quantized.max(0.0).min(255.0) as u8
@@ -266,7 +267,9 @@ impl QuantizedTensor {
     /// 量子化テンソルをF32Tensorに復元
     /// Dequantize to F32Tensor
     pub fn dequantize(&self) -> RusTorchResult<F32Tensor> {
-        let dequantized_data: Vec<f32> = self.quantized_data.iter()
+        let dequantized_data: Vec<f32> = self
+            .quantized_data
+            .iter()
             .map(|&q| (q as f32 - self.zero_point as f32) * self.scale)
             .collect();
 
@@ -364,7 +367,8 @@ impl CompressionEngine {
         *stats.format_usage.entry(format).or_insert(0) += 1;
 
         // 平均圧縮率を更新
-        let total_ratio = stats.avg_compression_ratio * (stats.compressions - 1) as f32 + compressed.compression_ratio;
+        let total_ratio = stats.avg_compression_ratio * (stats.compressions - 1) as f32
+            + compressed.compression_ratio;
         stats.avg_compression_ratio = total_ratio / stats.compressions as f32;
 
         Ok(compressed)
@@ -379,7 +383,7 @@ impl CompressionEngine {
                 // Temporary: Convert sparse back to dense
                 let sparse = self.decompress_sparse(compressed)?;
                 self.sparse_to_dense(&sparse)?
-            },
+            }
             CompressionFormat::Quantized8 => self.decompress_quantized_8(compressed)?,
             CompressionFormat::Quantized16 => self.decompress_quantized_16(compressed)?,
             CompressionFormat::RLE => self.decompress_rle(compressed)?,
@@ -406,12 +410,14 @@ impl CompressionEngine {
         }
 
         // 小さなテンソルは量子化
-        if size < 1024 * 1024 { // 1MB未満
+        if size < 1024 * 1024 {
+            // 1MB未満
             return CompressionFormat::Quantized8;
         }
 
         // 大きなテンソルはLZ4
-        if size > 10 * 1024 * 1024 { // 10MB以上
+        if size > 10 * 1024 * 1024 {
+            // 10MB以上
             return CompressionFormat::LZ4;
         }
 
@@ -423,9 +429,7 @@ impl CompressionEngine {
     /// Calculate sparsity
     fn calculate_sparsity(&self, tensor: &F32Tensor) -> f32 {
         let threshold = 1e-6;
-        let zero_count = tensor.data.iter()
-            .filter(|&&x| x.abs() < threshold)
-            .count();
+        let zero_count = tensor.data.iter().filter(|&&x| x.abs() < threshold).count();
 
         zero_count as f32 / tensor.numel() as f32
     }
@@ -433,7 +437,10 @@ impl CompressionEngine {
     /// 無圧縮（そのまま）
     /// No compression (as-is)
     fn compress_none(&self, tensor: &F32Tensor) -> RusTorchResult<CompressedTensor> {
-        let data = tensor.data.as_slice().unwrap()
+        let data = tensor
+            .data
+            .as_slice()
+            .unwrap()
             .iter()
             .flat_map(|&f| f.to_le_bytes())
             .collect();
@@ -448,7 +455,8 @@ impl CompressionEngine {
     }
 
     fn decompress_none(&self, compressed: &CompressedTensor) -> RusTorchResult<F32Tensor> {
-        let float_data: Vec<f32> = compressed.data
+        let float_data: Vec<f32> = compressed
+            .data
             .chunks_exact(4)
             .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
             .collect();
@@ -537,17 +545,22 @@ impl CompressionEngine {
 
     fn decompress_quantized_8(&self, compressed: &CompressedTensor) -> RusTorchResult<F32Tensor> {
         if compressed.data.len() < 5 {
-            return Err(crate::error::RusTorchError::tensor_op("Invalid quantized data"));
+            return Err(crate::error::RusTorchError::tensor_op(
+                "Invalid quantized data",
+            ));
         }
 
         let scale = f32::from_le_bytes([
-            compressed.data[0], compressed.data[1],
-            compressed.data[2], compressed.data[3]
+            compressed.data[0],
+            compressed.data[1],
+            compressed.data[2],
+            compressed.data[3],
         ]);
         let zero_point = compressed.data[4];
         let quantized_data = &compressed.data[5..];
 
-        let dequantized_data: Vec<f32> = quantized_data.iter()
+        let dequantized_data: Vec<f32> = quantized_data
+            .iter()
             .map(|&q| (q as f32 - zero_point as f32) * scale)
             .collect();
 

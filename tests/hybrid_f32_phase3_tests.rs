@@ -3,8 +3,8 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod phase3_tests {
-    use rustorch::hybrid_f32::tensor::F32Tensor;
     use rustorch::error::RusTorchResult;
+    use rustorch::hybrid_f32::tensor::F32Tensor;
 
     #[test]
     fn test_matrix_operations() -> RusTorchResult<()> {
@@ -19,8 +19,19 @@ mod phase3_tests {
 
         // 結果の検証 (1*5+2*7, 1*6+2*8, 3*5+4*7, 3*6+4*8)
         let expected = vec![19.0, 22.0, 43.0, 50.0];
-        for (i, (&actual, &expected)) in matmul_result.as_slice().iter().zip(expected.iter()).enumerate() {
-            assert!((actual - expected).abs() < 1e-5, "matmul[{}]: expected {}, got {}", i, expected, actual);
+        for (i, (&actual, &expected)) in matmul_result
+            .as_slice()
+            .iter()
+            .zip(expected.iter())
+            .enumerate()
+        {
+            assert!(
+                (actual - expected).abs() < 1e-5,
+                "matmul[{}]: expected {}, got {}",
+                i,
+                expected,
+                actual
+            );
         }
 
         Ok(())
@@ -99,7 +110,8 @@ mod phase3_tests {
         let matrix = F32Tensor::from_vec(vec![4.0, 7.0, 2.0, 6.0], &[2, 2])?;
         let det = matrix.determinant()?;
 
-        if det.abs() > 1e-6 { // 可逆な場合のみテスト
+        if det.abs() > 1e-6 {
+            // 可逆な場合のみテスト
             let inv = matrix.inverse()?;
             assert_eq!(inv.shape(), &[2, 2]);
 
@@ -107,8 +119,19 @@ mod phase3_tests {
             let identity_approx = matrix.matmul(&inv)?;
             let identity_expected = F32Tensor::from_vec(vec![1.0, 0.0, 0.0, 1.0], &[2, 2])?;
 
-            for (i, (&actual, &expected)) in identity_approx.as_slice().iter().zip(identity_expected.as_slice().iter()).enumerate() {
-                assert!((actual - expected).abs() < 1e-3, "identity[{}]: expected {}, got {}", i, expected, actual);
+            for (i, (&actual, &expected)) in identity_approx
+                .as_slice()
+                .iter()
+                .zip(identity_expected.as_slice().iter())
+                .enumerate()
+            {
+                assert!(
+                    (actual - expected).abs() < 1e-3,
+                    "identity[{}]: expected {}, got {}",
+                    i,
+                    expected,
+                    actual
+                );
             }
         }
 
@@ -178,10 +201,8 @@ mod phase3_tests {
         rustorch::hybrid_f32_experimental!();
 
         // より大きな行列での演算
-        let large_matrix = F32Tensor::from_vec(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],
-            &[3, 3]
-        )?;
+        let large_matrix =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0], &[3, 3])?;
 
         // 3x3行列の演算
         let det = large_matrix.determinant()?;
@@ -226,10 +247,8 @@ mod phase3_tests {
         rustorch::hybrid_f32_experimental!();
 
         // 精度テスト
-        let high_precision = F32Tensor::from_vec(
-            vec![1.0000001, 1.0000002, 1.0000003, 1.0000004],
-            &[2, 2]
-        )?;
+        let high_precision =
+            F32Tensor::from_vec(vec![1.0000001, 1.0000002, 1.0000003, 1.0000004], &[2, 2])?;
 
         let result = high_precision.multiply_scalar(1000000.0)?;
         assert!(result.sum()? > 4000000.0);

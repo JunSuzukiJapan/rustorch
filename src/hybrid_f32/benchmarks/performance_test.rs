@@ -7,9 +7,9 @@
 //! This module runs benchmarks equivalent to the existing simple_performance_test
 //! using the hybrid_f32 system, enabling direct performance comparisons.
 
+use crate::error::RusTorchResult;
 use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::hybrid_f32::unified::F32HybridExecutor;
-use crate::error::RusTorchResult;
 use std::time::Instant;
 
 /// パフォーマンステスト設定

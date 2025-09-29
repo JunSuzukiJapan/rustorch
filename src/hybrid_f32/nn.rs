@@ -7,8 +7,8 @@
 //! このモジュールは、f32精度で最適化されたニューラルネットワーク機能を提供します。
 //! Neural Engine、Metal GPU、CPUでの統一実行をサポートし、変換コストゼロを実現します。
 
-use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::error::{RusTorchError, RusTorchResult};
+use crate::hybrid_f32::tensor::core::F32Tensor;
 use std::collections::HashMap;
 
 /// f32統一ニューラルネットワーク層の基底トレイト
@@ -81,8 +81,11 @@ impl F32Linear {
         if weight.shape() != &[self.output_features, self.input_features] {
             return Err(format!(
                 "Weight shape mismatch: expected [{}, {}], got {:?}",
-                self.output_features, self.input_features, weight.shape()
-            ).into());
+                self.output_features,
+                self.input_features,
+                weight.shape()
+            )
+            .into());
         }
         self.weight = weight;
         Ok(())
@@ -94,8 +97,10 @@ impl F32Linear {
         if bias.shape() != &[self.output_features] {
             return Err(format!(
                 "Bias shape mismatch: expected [{}], got {:?}",
-                self.output_features, bias.shape()
-            ).into());
+                self.output_features,
+                bias.shape()
+            )
+            .into());
         }
         self.bias = Some(bias);
         Ok(())
@@ -188,9 +193,11 @@ impl F32Activation {
             F32Activation::LeakyReLU(slope) => {
                 let zero = F32Tensor::zeros(input.shape())?;
                 let positive = input.maximum(&zero)?;
-                let negative = input.minimum(&zero)?.mul(&F32Tensor::from_scalar(*slope)?)?;
+                let negative = input
+                    .minimum(&zero)?
+                    .mul(&F32Tensor::from_scalar(*slope)?)?;
                 positive.add(&negative)
-            },
+            }
             F32Activation::GELU => {
                 // GELU(x) = 0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
                 let sqrt_2_pi = F32Tensor::from_scalar(0.7978845608f32)?; // sqrt(2/π)
@@ -205,32 +212,36 @@ impl F32Activation {
                 let one_plus_tanh = one.add(&tanh_val)?;
 
                 input.mul(&half)?.mul(&one_plus_tanh)
-            },
-            F32Activation::Softmax => input.softmax(None)
+            }
+            F32Activation::Softmax => input.softmax(None),
         }
     }
 
     /// 活性化関数の導関数
     /// Derivative of activation function
-    pub fn backward(&self, input: &F32Tensor, grad_output: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn backward(
+        &self,
+        input: &F32Tensor,
+        grad_output: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         let derivative = match self {
             F32Activation::ReLU => {
                 let zero = F32Tensor::zeros(input.shape())?;
                 let one = F32Tensor::ones(input.shape())?;
                 input.gt(&zero)?
-            },
+            }
             F32Activation::Sigmoid => {
                 let sigmoid_out = input.sigmoid()?;
                 let one = F32Tensor::from_scalar(1.0f32)?;
                 let one_minus_sigmoid = one.sub(&sigmoid_out)?;
                 sigmoid_out.mul(&one_minus_sigmoid)?
-            },
+            }
             F32Activation::Tanh => {
                 let tanh_out = input.tanh()?;
                 let one = F32Tensor::from_scalar(1.0f32)?;
                 let tanh_squared = tanh_out.power(2.0f32)?;
                 one.sub(&tanh_squared)?
-            },
+            }
             F32Activation::LeakyReLU(slope) => {
                 let zero = F32Tensor::zeros(input.shape())?;
                 let one = F32Tensor::ones(input.shape())?;
@@ -238,7 +249,7 @@ impl F32Activation {
                 let positive_mask = input.gt(&zero)?;
                 let negative_mask = input.le(&zero)?;
                 positive_mask.add(&negative_mask)?
-            },
+            }
             F32Activation::GELU => {
                 // Approximate GELU derivative
                 let sqrt_2_pi = F32Tensor::from_scalar(0.7978845608f32)?;
@@ -255,7 +266,7 @@ impl F32Activation {
                 // Simplified approximation
                 let sigmoid_approx = input.mul(&F32Tensor::from_scalar(1.702f32)?)?.sigmoid()?;
                 sigmoid_approx
-            },
+            }
             F32Activation::Softmax => {
                 // For softmax, the derivative is more complex and depends on the specific use case
                 // For now, return identity (this is a simplification)
@@ -279,22 +290,28 @@ pub enum F32Loss {
 impl F32Loss {
     /// 損失の計算
     /// Compute loss
-    pub fn forward(&self, predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn forward(
+        &self,
+        predictions: &F32Tensor,
+        targets: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         match self {
             F32Loss::MeanSquaredError => {
                 let diff = predictions.sub(targets)?;
                 let squared = diff.power(2.0f32)?;
                 squared.mean_tensor()
-            },
+            }
             F32Loss::CrossEntropy => {
                 // Softmax + Cross-entropy
                 let exp_preds = predictions.exp()?;
                 let sum_exp = exp_preds.sum_dim(predictions.shape().len() - 1)?;
                 let log_softmax = predictions.sub(&sum_exp.log()?)?;
-                let nll = log_softmax.mul(targets)?.sum_dim(predictions.shape().len() - 1)?;
+                let nll = log_softmax
+                    .mul(targets)?
+                    .sum_dim(predictions.shape().len() - 1)?;
                 let neg_nll = nll.mul(&F32Tensor::from_scalar(-1.0f32)?)?;
                 neg_nll.mean_tensor()
-            },
+            }
             F32Loss::BinaryCrossEntropy => {
                 let eps = F32Tensor::from_scalar(1e-7f32)?;
                 let one = F32Tensor::from_scalar(1.0f32)?;
@@ -314,20 +331,28 @@ impl F32Loss {
 
     /// 損失計算（compute_lossエイリアス）
     /// Compute loss (alias for forward)
-    pub fn compute_loss(&self, predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn compute_loss(
+        &self,
+        predictions: &F32Tensor,
+        targets: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         self.forward(predictions, targets)
     }
 
     /// 損失の勾配
     /// Loss gradient
-    pub fn backward(&self, predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<F32Tensor> {
+    pub fn backward(
+        &self,
+        predictions: &F32Tensor,
+        targets: &F32Tensor,
+    ) -> RusTorchResult<F32Tensor> {
         match self {
             F32Loss::MeanSquaredError => {
                 let diff = predictions.sub(targets)?;
                 let batch_size = predictions.shape()[0] as f32;
                 let scale = F32Tensor::from_scalar(2.0f32 / batch_size)?;
                 diff.mul(&scale)
-            },
+            }
             F32Loss::CrossEntropy => {
                 // Softmax gradient
                 let exp_preds = predictions.exp()?;
@@ -336,7 +361,7 @@ impl F32Loss {
                 let batch_size = predictions.shape()[0] as f32;
                 let scale = F32Tensor::from_scalar(1.0f32 / batch_size)?;
                 softmax.sub(targets)?.mul(&scale)
-            },
+            }
             F32Loss::BinaryCrossEntropy => {
                 let eps = F32Tensor::from_scalar(1e-7f32)?;
                 let one = F32Tensor::from_scalar(1.0f32)?;
@@ -408,17 +433,23 @@ impl F32MLP {
     /// パラメータ数を取得
     /// Get parameter count
     pub fn parameter_count(&self) -> usize {
-        self.layers.iter().map(|layer| {
-            let weight_params = layer.weight.numel();
-            let bias_params = layer.bias.as_ref().map_or(0, |b| b.numel());
-            weight_params + bias_params
-        }).sum()
+        self.layers
+            .iter()
+            .map(|layer| {
+                let weight_params = layer.weight.numel();
+                let bias_params = layer.bias.as_ref().map_or(0, |b| b.numel());
+                weight_params + bias_params
+            })
+            .sum()
     }
 
     /// 全パラメータを取得
     /// Get all parameters
     pub fn parameters(&self) -> Vec<&F32Tensor> {
-        self.layers.iter().flat_map(|layer| layer.parameters()).collect()
+        self.layers
+            .iter()
+            .flat_map(|layer| layer.parameters())
+            .collect()
     }
 }
 
@@ -477,7 +508,13 @@ impl F32Optimizer {
 
     /// Adam最適化器を作成
     /// Create Adam optimizer
-    pub fn adam(learning_rate: f32, beta1: f32, beta2: f32, epsilon: f32, weight_decay: f32) -> Self {
+    pub fn adam(
+        learning_rate: f32,
+        beta1: f32,
+        beta2: f32,
+        epsilon: f32,
+        weight_decay: f32,
+    ) -> Self {
         Self::Adam {
             learning_rate,
             beta1,
@@ -492,7 +529,13 @@ impl F32Optimizer {
 
     /// AdamW最適化器を作成
     /// Create AdamW optimizer
-    pub fn adamw(learning_rate: f32, beta1: f32, beta2: f32, epsilon: f32, weight_decay: f32) -> Self {
+    pub fn adamw(
+        learning_rate: f32,
+        beta1: f32,
+        beta2: f32,
+        epsilon: f32,
+        weight_decay: f32,
+    ) -> Self {
         Self::AdamW {
             learning_rate,
             beta1,
@@ -507,7 +550,13 @@ impl F32Optimizer {
 
     /// RMSprop最適化器を作成
     /// Create RMSprop optimizer
-    pub fn rmsprop(learning_rate: f32, alpha: f32, epsilon: f32, weight_decay: f32, momentum: f32) -> Self {
+    pub fn rmsprop(
+        learning_rate: f32,
+        alpha: f32,
+        epsilon: f32,
+        weight_decay: f32,
+        momentum: f32,
+    ) -> Self {
         Self::RMSprop {
             learning_rate,
             alpha,
@@ -523,7 +572,12 @@ impl F32Optimizer {
     /// Update parameters
     pub fn step(&mut self, model: &mut F32MLP) -> RusTorchResult<()> {
         match self {
-            Self::SGD { learning_rate, momentum, weight_decay, velocity } => {
+            Self::SGD {
+                learning_rate,
+                momentum,
+                weight_decay,
+                velocity,
+            } => {
                 for (layer_idx, layer) in model.layers.iter_mut().enumerate() {
                     // 重みの更新（SGD with momentum）
                     if let Some(ref weight_grad) = layer.weight_grad {
@@ -532,17 +586,21 @@ impl F32Optimizer {
                         // Weight decay (L2 regularization)
                         let mut grad_with_decay = weight_grad.clone();
                         if *weight_decay > 0.0 {
-                            let weight_decay_term = layer.weight.mul(&F32Tensor::from_scalar(*weight_decay)?)?;
+                            let weight_decay_term =
+                                layer.weight.mul(&F32Tensor::from_scalar(*weight_decay)?)?;
                             grad_with_decay = grad_with_decay.add(&weight_decay_term)?;
                         }
 
                         // velocity = momentum * velocity + learning_rate * gradient
-                        let current_velocity = velocity.get(&weight_key)
+                        let current_velocity = velocity
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(grad_with_decay.shape()).unwrap());
 
-                        let momentum_term = current_velocity.mul(&F32Tensor::from_scalar(*momentum)?)?;
-                        let lr_grad = grad_with_decay.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
+                        let momentum_term =
+                            current_velocity.mul(&F32Tensor::from_scalar(*momentum)?)?;
+                        let lr_grad =
+                            grad_with_decay.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
                         let new_velocity = momentum_term.add(&lr_grad)?;
 
                         // weight = weight - velocity
@@ -551,14 +609,18 @@ impl F32Optimizer {
                     }
 
                     // バイアスの更新
-                    if let (Some(ref mut bias), Some(ref bias_grad)) = (&mut layer.bias, &layer.bias_grad) {
+                    if let (Some(ref mut bias), Some(ref bias_grad)) =
+                        (&mut layer.bias, &layer.bias_grad)
+                    {
                         let bias_key = format!("layer_{}_bias", layer_idx);
 
-                        let current_velocity = velocity.get(&bias_key)
+                        let current_velocity = velocity
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
-                        let momentum_term = current_velocity.mul(&F32Tensor::from_scalar(*momentum)?)?;
+                        let momentum_term =
+                            current_velocity.mul(&F32Tensor::from_scalar(*momentum)?)?;
                         let lr_grad = bias_grad.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
                         let new_velocity = momentum_term.add(&lr_grad)?;
 
@@ -570,8 +632,17 @@ impl F32Optimizer {
                     layer.weight_grad = None;
                     layer.bias_grad = None;
                 }
-            },
-            Self::Adam { learning_rate, beta1, beta2, epsilon, weight_decay, moment1, moment2, step } => {
+            }
+            Self::Adam {
+                learning_rate,
+                beta1,
+                beta2,
+                epsilon,
+                weight_decay,
+                moment1,
+                moment2,
+                step,
+            } => {
                 *step += 1;
                 let step_f32 = *step as f32;
 
@@ -585,7 +656,8 @@ impl F32Optimizer {
                         let weight_key = format!("layer_{}_weight", layer_idx);
 
                         // moment1 = beta1 * moment1 + (1 - beta1) * gradient
-                        let current_m1 = moment1.get(&weight_key)
+                        let current_m1 = moment1
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(weight_grad.shape()).unwrap());
 
@@ -596,7 +668,8 @@ impl F32Optimizer {
                         let new_m1 = m1_term.add(&grad_term)?;
 
                         // moment2 = beta2 * moment2 + (1 - beta2) * gradient^2
-                        let current_m2 = moment2.get(&weight_key)
+                        let current_m2 = moment2
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(weight_grad.shape()).unwrap());
 
@@ -623,10 +696,13 @@ impl F32Optimizer {
                     }
 
                     // バイアスの更新
-                    if let (Some(ref mut bias), Some(ref bias_grad)) = (&mut layer.bias, &layer.bias_grad) {
+                    if let (Some(ref mut bias), Some(ref bias_grad)) =
+                        (&mut layer.bias, &layer.bias_grad)
+                    {
                         let bias_key = format!("layer_{}_bias", layer_idx);
 
-                        let current_m1 = moment1.get(&bias_key)
+                        let current_m1 = moment1
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
@@ -636,7 +712,8 @@ impl F32Optimizer {
                         let grad_term = bias_grad.mul(&one_minus_beta1)?;
                         let new_m1 = m1_term.add(&grad_term)?;
 
-                        let current_m2 = moment2.get(&bias_key)
+                        let current_m2 = moment2
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
@@ -664,8 +741,17 @@ impl F32Optimizer {
                     layer.weight_grad = None;
                     layer.bias_grad = None;
                 }
-            },
-            Self::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay, moment1, moment2, step } => {
+            }
+            Self::AdamW {
+                learning_rate,
+                beta1,
+                beta2,
+                epsilon,
+                weight_decay,
+                moment1,
+                moment2,
+                step,
+            } => {
                 *step += 1;
                 let step_f32 = *step as f32;
 
@@ -679,7 +765,8 @@ impl F32Optimizer {
                         let weight_key = format!("layer_{}_weight", layer_idx);
 
                         // moment1 = beta1 * moment1 + (1 - beta1) * gradient
-                        let current_m1 = moment1.get(&weight_key)
+                        let current_m1 = moment1
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(weight_grad.shape()).unwrap());
 
@@ -690,7 +777,8 @@ impl F32Optimizer {
                         let new_m1 = m1_term.add(&grad_term)?;
 
                         // moment2 = beta2 * moment2 + (1 - beta2) * gradient^2
-                        let current_m2 = moment2.get(&weight_key)
+                        let current_m2 = moment2
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(weight_grad.shape()).unwrap());
 
@@ -709,21 +797,30 @@ impl F32Optimizer {
                         let sqrt_m2_hat = m2_hat.power(0.5f32)?;
                         let denominator = sqrt_m2_hat.add(&F32Tensor::from_scalar(*epsilon)?)?;
                         let grad_update = m1_hat.divide(&denominator)?;
-                        let lr_grad_update = grad_update.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
+                        let lr_grad_update =
+                            grad_update.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
 
                         // Decoupled weight decay
-                        let weight_decay_update = layer.weight.mul(&F32Tensor::from_scalar(*learning_rate * *weight_decay)?)?;
+                        let weight_decay_update = layer
+                            .weight
+                            .mul(&F32Tensor::from_scalar(*learning_rate * *weight_decay)?)?;
 
-                        layer.weight = layer.weight.sub(&lr_grad_update)?.sub(&weight_decay_update)?;
+                        layer.weight = layer
+                            .weight
+                            .sub(&lr_grad_update)?
+                            .sub(&weight_decay_update)?;
                         moment1.insert(weight_key.clone(), new_m1);
                         moment2.insert(weight_key, new_m2);
                     }
 
                     // バイアスの更新（weight decay適用しない）
-                    if let (Some(ref mut bias), Some(ref bias_grad)) = (&mut layer.bias, &layer.bias_grad) {
+                    if let (Some(ref mut bias), Some(ref bias_grad)) =
+                        (&mut layer.bias, &layer.bias_grad)
+                    {
                         let bias_key = format!("layer_{}_bias", layer_idx);
 
-                        let current_m1 = moment1.get(&bias_key)
+                        let current_m1 = moment1
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
@@ -733,7 +830,8 @@ impl F32Optimizer {
                         let grad_term = bias_grad.mul(&one_minus_beta1)?;
                         let new_m1 = m1_term.add(&grad_term)?;
 
-                        let current_m2 = moment2.get(&bias_key)
+                        let current_m2 = moment2
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
@@ -761,8 +859,16 @@ impl F32Optimizer {
                     layer.weight_grad = None;
                     layer.bias_grad = None;
                 }
-            },
-            Self::RMSprop { learning_rate, alpha, epsilon, weight_decay, momentum, squared_avg, momentum_buffer } => {
+            }
+            Self::RMSprop {
+                learning_rate,
+                alpha,
+                epsilon,
+                weight_decay,
+                momentum,
+                squared_avg,
+                momentum_buffer,
+            } => {
                 for (layer_idx, layer) in model.layers.iter_mut().enumerate() {
                     // 重みの更新（RMSprop）
                     if let Some(ref weight_grad) = layer.weight_grad {
@@ -771,12 +877,14 @@ impl F32Optimizer {
                         // Weight decay
                         let mut grad_with_decay = weight_grad.clone();
                         if *weight_decay > 0.0 {
-                            let weight_decay_term = layer.weight.mul(&F32Tensor::from_scalar(*weight_decay)?)?;
+                            let weight_decay_term =
+                                layer.weight.mul(&F32Tensor::from_scalar(*weight_decay)?)?;
                             grad_with_decay = grad_with_decay.add(&weight_decay_term)?;
                         }
 
                         // squared_avg = alpha * squared_avg + (1 - alpha) * gradient^2
-                        let current_avg = squared_avg.get(&weight_key)
+                        let current_avg = squared_avg
+                            .get(&weight_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(grad_with_decay.shape()).unwrap());
 
@@ -790,19 +898,24 @@ impl F32Optimizer {
                         if *momentum > 0.0 {
                             // With momentum
                             let buf_key = format!("layer_{}_weight_buf", layer_idx);
-                            let current_buf = momentum_buffer.get(&buf_key)
+                            let current_buf = momentum_buffer
+                                .get(&buf_key)
                                 .map(|v| v.clone())
-                                .unwrap_or_else(|| F32Tensor::zeros(grad_with_decay.shape()).unwrap());
+                                .unwrap_or_else(|| {
+                                    F32Tensor::zeros(grad_with_decay.shape()).unwrap()
+                                });
 
                             let sqrt_avg = new_avg.power(0.5f32)?;
                             let denominator = sqrt_avg.add(&F32Tensor::from_scalar(*epsilon)?)?;
                             let grad_normalized = grad_with_decay.divide(&denominator)?;
 
                             // buf = momentum * buf + grad_normalized
-                            let momentum_term = current_buf.mul(&F32Tensor::from_scalar(*momentum)?)?;
+                            let momentum_term =
+                                current_buf.mul(&F32Tensor::from_scalar(*momentum)?)?;
                             let new_buf = momentum_term.add(&grad_normalized)?;
 
-                            let lr_update = new_buf.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
+                            let lr_update =
+                                new_buf.mul(&F32Tensor::from_scalar(*learning_rate)?)?;
                             layer.weight = layer.weight.sub(&lr_update)?;
                             momentum_buffer.insert(buf_key, new_buf);
                         } else {
@@ -819,10 +932,13 @@ impl F32Optimizer {
                     }
 
                     // バイアスの更新（同様のロジック）
-                    if let (Some(ref mut bias), Some(ref bias_grad)) = (&mut layer.bias, &layer.bias_grad) {
+                    if let (Some(ref mut bias), Some(ref bias_grad)) =
+                        (&mut layer.bias, &layer.bias_grad)
+                    {
                         let bias_key = format!("layer_{}_bias", layer_idx);
 
-                        let current_avg = squared_avg.get(&bias_key)
+                        let current_avg = squared_avg
+                            .get(&bias_key)
                             .map(|v| v.clone())
                             .unwrap_or_else(|| F32Tensor::zeros(bias_grad.shape()).unwrap());
 
@@ -982,7 +1098,10 @@ pub struct F32MemoryDataset {
 }
 
 impl F32MemoryDataset {
-    pub fn new(data: Vec<F32Tensor>, targets: Vec<F32Tensor>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        data: Vec<F32Tensor>,
+        targets: Vec<F32Tensor>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         if data.len() != targets.len() {
             return Err("Invalid input".into());
         }
@@ -1037,10 +1156,13 @@ impl<T: F32Dataset> F32DataLoader<T> {
         self.len() == 0
     }
 
-    pub fn get_batch(&self, batch_idx: usize) -> Result<(Vec<F32Tensor>, Vec<F32Tensor>), Box<dyn std::error::Error>> {
+    pub fn get_batch(
+        &self,
+        batch_idx: usize,
+    ) -> Result<(Vec<F32Tensor>, Vec<F32Tensor>), Box<dyn std::error::Error>> {
         let start_idx = batch_idx * self.batch_size;
         let end_idx = std::cmp::min(start_idx + self.batch_size, self.dataset.len());
-        
+
         if start_idx >= self.dataset.len() {
             return Err("Invalid input".into());
         }
@@ -1314,9 +1436,12 @@ impl F32Trainer {
         let early_stopping_config = EarlyStoppingConfig::val_loss(10, 0.001);
         let mut early_stopping_state = EarlyStoppingState::new(early_stopping_config);
         let mut best_weights: Option<Vec<F32Tensor>> = None;
-        let mut best_metric = if self.early_stopping_config
-            .as_ref()
-            .map(|c| c.mode.as_str()) == Some("min") { f32::INFINITY } else { -f32::INFINITY };
+        let mut best_metric =
+            if self.early_stopping_config.as_ref().map(|c| c.mode.as_str()) == Some("min") {
+                f32::INFINITY
+            } else {
+                -f32::INFINITY
+            };
 
         for epoch in 0..epochs {
             let start_time = std::time::Instant::now();
@@ -1337,7 +1462,7 @@ impl F32Trainer {
             // 早期停止チェック
             if let Some(early_config) = &self.early_stopping_config {
                 let current_metric = self.get_monitored_metric(&train_epoch, &early_config.monitor);
-                
+
                 let should_stop = early_stopping_state.should_stop(
                     current_metric,
                     None, // current_weights parameter
@@ -1371,7 +1496,8 @@ impl F32Trainer {
 
                 // ベストモデル保存
                 if checkpoint_config.save_best_only {
-                    let current_metric = self.get_monitored_metric(&train_epoch, &checkpoint_config.monitor);
+                    let current_metric =
+                        self.get_monitored_metric(&train_epoch, &checkpoint_config.monitor);
                     if self.is_better_metric(current_metric, best_metric, &checkpoint_config.mode) {
                         best_metric = current_metric;
                         let best_path = "best_model"; // 簡略化されたパス
@@ -1387,8 +1513,14 @@ impl F32Trainer {
                 epochs,
                 train_epoch.train_loss,
                 train_epoch.train_accuracy,
-                train_epoch.val_loss.map(|l| format!(", val_loss={:.4}", l)).unwrap_or_default(),
-                train_epoch.val_accuracy.map(|a| format!(", val_acc={:.4}", a)).unwrap_or_default()
+                train_epoch
+                    .val_loss
+                    .map(|l| format!(", val_loss={:.4}", l))
+                    .unwrap_or_default(),
+                train_epoch
+                    .val_accuracy
+                    .map(|a| format!(", val_acc={:.4}", a))
+                    .unwrap_or_default()
             );
         }
 
@@ -1421,7 +1553,10 @@ impl F32Trainer {
 
     /// 逆伝播と最適化
     /// Backward pass and optimization
-    fn backward_and_optimize(&mut self, loss: &F32Tensor) -> Result<(), Box<dyn std::error::Error>> {
+    fn backward_and_optimize(
+        &mut self,
+        loss: &F32Tensor,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // 勾配計算（簡素化）
         // ここでは実際の自動微分の代わりに概念的な実装
         self.optimizer.step(&mut self.model)?;
@@ -1465,11 +1600,11 @@ impl F32Trainer {
             // 最後のエポックから詳細メトリクスを生成
             let mut classification_report = HashMap::new();
             let mut class_metrics = HashMap::new();
-            
+
             class_metrics.insert("precision".to_string(), last_epoch.train_accuracy);
             class_metrics.insert("recall".to_string(), last_epoch.train_accuracy);
             class_metrics.insert("f1-score".to_string(), last_epoch.train_accuracy);
-            
+
             classification_report.insert("class_0".to_string(), class_metrics);
 
             Ok(DetailedMetrics {
@@ -1512,9 +1647,9 @@ pub struct TrainingHistory {
 #[derive(Debug, Clone)]
 pub struct AdvancedTrainingResults {
     pub history: Vec<F32TrainingEpoch>,
-    pub early_stopped: Option<usize>,  // 早期停止したエポック
-    pub best_checkpoint: Option<Vec<u8>>,  // 最良チェックポイント（バイト配列）
-    pub final_metrics: Option<DetailedMetrics>,  // 最終評価メトリクス
+    pub early_stopped: Option<usize>,     // 早期停止したエポック
+    pub best_checkpoint: Option<Vec<u8>>, // 最良チェックポイント（バイト配列）
+    pub final_metrics: Option<DetailedMetrics>, // 最終評価メトリクス
 }
 
 /// 拡張メトリクス計算機
@@ -1545,20 +1680,23 @@ impl F32Metrics {
 
         Ok(correct as f32 / pred_data.len() as f32)
     }
-    
+
     /// 分類精度計算（argmax版）
-    pub fn classification_accuracy(predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<f32> {
+    pub fn classification_accuracy(
+        predictions: &F32Tensor,
+        targets: &F32Tensor,
+    ) -> RusTorchResult<f32> {
         let pred_data = predictions.as_slice();
         let target_data = targets.as_slice();
-        
+
         if pred_data.len() != target_data.len() {
             return Err("Invalid input".into());
         }
-        
+
         let mut correct = 0;
         let batch_size = predictions.shape()[0];
         let num_classes = pred_data.len() / batch_size;
-        
+
         for i in 0..batch_size {
             let pred_start = i * num_classes;
             let pred_end = pred_start + num_classes;
@@ -1568,36 +1706,36 @@ impl F32Metrics {
                 .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
+
             let target_class = target_data[i] as usize;
             if pred_class == target_class {
                 correct += 1;
             }
         }
-        
+
         Ok(correct as f32 / batch_size as f32)
     }
-    
+
     /// F1スコア計算
     pub fn f1_score(predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<f32> {
         let precision = Self::precision(predictions, targets)?;
         let recall = Self::recall(predictions, targets)?;
-        
+
         if precision + recall == 0.0 {
             Ok(0.0)
         } else {
             Ok(2.0 * precision * recall / (precision + recall))
         }
     }
-    
+
     /// 精密度計算
     pub fn precision(predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<f32> {
         let pred_data = predictions.as_slice();
         let target_data = targets.as_slice();
-        
+
         let mut true_positives = 0.0;
         let mut false_positives = 0.0;
-        
+
         for (pred, target) in pred_data.iter().zip(target_data.iter()) {
             let pred_class = if *pred > 0.5 { 1.0 } else { 0.0 };
             if pred_class == 1.0 && *target == 1.0 {
@@ -1606,22 +1744,22 @@ impl F32Metrics {
                 false_positives += 1.0;
             }
         }
-        
+
         if true_positives + false_positives == 0.0 {
             Ok(0.0)
         } else {
             Ok(true_positives / (true_positives + false_positives))
         }
     }
-    
+
     /// 再現率計算
     pub fn recall(predictions: &F32Tensor, targets: &F32Tensor) -> RusTorchResult<f32> {
         let pred_data = predictions.as_slice();
         let target_data = targets.as_slice();
-        
+
         let mut true_positives = 0.0;
         let mut false_negatives = 0.0;
-        
+
         for (pred, target) in pred_data.iter().zip(target_data.iter()) {
             let pred_class = if *pred > 0.5 { 1.0 } else { 0.0 };
             if pred_class == 1.0 && *target == 1.0 {
@@ -1630,7 +1768,7 @@ impl F32Metrics {
                 false_negatives += 1.0;
             }
         }
-        
+
         if true_positives + false_negatives == 0.0 {
             Ok(0.0)
         } else {
@@ -1679,11 +1817,11 @@ pub struct EarlyStoppingState {
 /// Model checkpoint configuration
 #[derive(Debug, Clone)]
 pub struct CheckpointConfig {
-    pub save_freq: usize,         // エポック毎の保存頻度
-    pub save_best_only: bool,     // 最良のモデルのみ保存
-    pub monitor: String,          // "val_loss", "val_accuracy"
-    pub mode: String,             // "min", "max"
-    pub save_weights_only: bool,  // 重みのみ保存
+    pub save_freq: usize,        // エポック毎の保存頻度
+    pub save_best_only: bool,    // 最良のモデルのみ保存
+    pub monitor: String,         // "val_loss", "val_accuracy"
+    pub mode: String,            // "min", "max"
+    pub save_weights_only: bool, // 重みのみ保存
 }
 
 /// Mixed Precision設定
@@ -1798,7 +1936,7 @@ impl MixedPrecisionState {
     /// Update step
     pub fn step(&mut self, has_overflow: bool) {
         self.current_step += 1;
-        
+
         if has_overflow {
             self.overflow_count += 1;
             self.stable_count = 0;
@@ -1870,7 +2008,11 @@ impl EarlyStoppingState {
     /// 新しい早期停止状態を作成
     /// Create new early stopping state
     pub fn new(config: EarlyStoppingConfig) -> Self {
-        let best_value = if config.mode == "min" { f32::INFINITY } else { f32::NEG_INFINITY };
+        let best_value = if config.mode == "min" {
+            f32::INFINITY
+        } else {
+            f32::NEG_INFINITY
+        };
 
         Self {
             config,
@@ -1980,7 +2122,11 @@ impl CheckpointState {
     /// 新しいチェックポイント状態を作成
     /// Create new checkpoint state
     pub fn new(config: CheckpointConfig) -> Self {
-        let best_value = if config.mode == "min" { f32::INFINITY } else { f32::NEG_INFINITY };
+        let best_value = if config.mode == "min" {
+            f32::INFINITY
+        } else {
+            f32::NEG_INFINITY
+        };
 
         Self {
             config,
@@ -2032,7 +2178,6 @@ impl CheckpointState {
     }
 }
 
-
 /// Model save/load functionality
 impl F32Trainer {
     /// モデル状態を取得
@@ -2072,8 +2217,9 @@ impl F32Trainer {
         let serialized = serde_json::to_string_pretty(&Vec::<String>::new())
             .map_err(|e| RusTorchError::tensor_op(format!("Failed to serialize history: {}", e)))?;
 
-        std::fs::write(path, serialized)
-            .map_err(|e| RusTorchError::tensor_op(format!("Failed to write history file: {}", e)))?;
+        std::fs::write(path, serialized).map_err(|e| {
+            RusTorchError::tensor_op(format!("Failed to write history file: {}", e))
+        })?;
 
         Ok(())
     }
@@ -2085,8 +2231,9 @@ impl F32Trainer {
             .map_err(|e| RusTorchError::tensor_op(format!("Failed to read history file: {}", e)))?;
 
         // 履歴をロード（簡略化）
-        let _history: Vec<String> = serde_json::from_str(&contents)
-            .map_err(|e| RusTorchError::tensor_op(format!("Failed to deserialize history: {}", e)))?;
+        let _history: Vec<String> = serde_json::from_str(&contents).map_err(|e| {
+            RusTorchError::tensor_op(format!("Failed to deserialize history: {}", e))
+        })?;
 
         Ok(())
     }
@@ -2137,25 +2284,27 @@ impl F32MLP {
     /// MLPモデルを保存
     /// Save MLP model
     pub fn save(&self, path: &str) -> RusTorchResult<()> {
-        let layers_data: Vec<LayerState> = self.layers.iter()
-                .map(|layer| {
-                    let weight_data = layer.weight.as_slice();
-                    let weight_shape = layer.weight.shape();
+        let layers_data: Vec<LayerState> = self
+            .layers
+            .iter()
+            .map(|layer| {
+                let weight_data = layer.weight.as_slice();
+                let weight_shape = layer.weight.shape();
 
-                    let (bias_data, bias_shape) = if let Some(ref bias_tensor) = layer.bias {
-                        (Some(bias_tensor.as_slice()), Some(bias_tensor.shape()))
-                    } else {
-                        (None, None)
-                    };
+                let (bias_data, bias_shape) = if let Some(ref bias_tensor) = layer.bias {
+                    (Some(bias_tensor.as_slice()), Some(bias_tensor.shape()))
+                } else {
+                    (None, None)
+                };
 
-                    Ok(LayerState {
-                        weight_data: weight_data.to_vec(),
-                        weight_shape: weight_shape.to_vec(),
-                        bias_data: bias_data.map(|data| data.iter().cloned().collect()),
-                        bias_shape: bias_shape.map(|shape| shape.to_vec()),
-                    })
+                Ok(LayerState {
+                    weight_data: weight_data.to_vec(),
+                    weight_shape: weight_shape.to_vec(),
+                    bias_data: bias_data.map(|data| data.iter().cloned().collect()),
+                    bias_shape: bias_shape.map(|shape| shape.to_vec()),
                 })
-                .collect::<RusTorchResult<Vec<_>>>()?;
+            })
+            .collect::<RusTorchResult<Vec<_>>>()?;
 
         let serialized = serde_json::to_string_pretty(&layers_data)
             .map_err(|e| RusTorchError::tensor_op(format!("Failed to serialize model: {}", e)))?;
@@ -2180,14 +2329,12 @@ impl F32MLP {
         let mut layers = Vec::new();
         for layer_state in saved_weights {
             // 重みテンソルを復元
-            let weight = F32Tensor::from_vec(
-                layer_state.weight_data,
-&layer_state.weight_shape
-            )?;
+            let weight = F32Tensor::from_vec(layer_state.weight_data, &layer_state.weight_shape)?;
 
             // バイアステンソルを復元
             let bias = if let (Some(bias_data), Some(bias_shape)) =
-                (layer_state.bias_data, layer_state.bias_shape) {
+                (layer_state.bias_data, layer_state.bias_shape)
+            {
                 Some(F32Tensor::from_vec(bias_data, &bias_shape)?)
             } else {
                 None
@@ -2267,8 +2414,10 @@ impl F32MLP {
         println!("Total parameters: {}", self.parameter_count());
 
         for (i, layer) in self.layers.iter().enumerate() {
-            println!("Layer {}: Linear({} -> {})",
-                i, layer.input_features, layer.output_features);
+            println!(
+                "Layer {}: Linear({} -> {})",
+                i, layer.input_features, layer.output_features
+            );
 
             if i < self.activations.len() {
                 println!("Activation {}: {:?}", i, self.activations[i]);
@@ -2279,7 +2428,11 @@ impl F32MLP {
 
     /// Mixed Precision対応の順伝播
     /// Mixed Precision compatible forward pass
-    pub fn forward_with_amp(&mut self, input: &F32Tensor, amp_scale: f32) -> RusTorchResult<F32Tensor> {
+    pub fn forward_with_amp(
+        &mut self,
+        input: &F32Tensor,
+        amp_scale: f32,
+    ) -> RusTorchResult<F32Tensor> {
         self.layer_outputs.clear();
         let mut current = input.clone();
 
@@ -2369,9 +2522,16 @@ pub enum F32LRSchedulerType {
     /// Cosine Annealing
     CosineLR { t_max: usize, eta_min: f32 },
     /// Reduce on Plateau
-    ReduceOnPlateau { factor: f32, patience: usize, threshold: f32 },
+    ReduceOnPlateau {
+        factor: f32,
+        patience: usize,
+        threshold: f32,
+    },
     /// Linear Warm-up + Cosine Decay
-    WarmupCosine { warmup_steps: usize, total_steps: usize },
+    WarmupCosine {
+        warmup_steps: usize,
+        total_steps: usize,
+    },
 }
 
 /// f32学習率スケジューラー
@@ -2408,9 +2568,7 @@ impl F32LRScheduler {
         self.current_step += 1;
 
         let new_lr = match &self.scheduler_type {
-            F32LRSchedulerType::Constant => {
-                self.initial_lr
-            }
+            F32LRSchedulerType::Constant => self.initial_lr,
 
             F32LRSchedulerType::StepLR { step_size, gamma } => {
                 if self.current_step % step_size == 0 {
@@ -2430,7 +2588,11 @@ impl F32LRScheduler {
                 eta_min + (self.initial_lr - eta_min) * cosine_factor
             }
 
-            F32LRSchedulerType::ReduceOnPlateau { factor, patience, threshold } => {
+            F32LRSchedulerType::ReduceOnPlateau {
+                factor,
+                patience,
+                threshold,
+            } => {
                 if let Some(current_metric) = metric {
                     if current_metric < self.best_metric - threshold {
                         self.best_metric = current_metric;
@@ -2446,14 +2608,18 @@ impl F32LRScheduler {
                 self.current_lr
             }
 
-            F32LRSchedulerType::WarmupCosine { warmup_steps, total_steps } => {
+            F32LRSchedulerType::WarmupCosine {
+                warmup_steps,
+                total_steps,
+            } => {
                 if self.current_step <= *warmup_steps {
                     // Linear warmup
                     self.initial_lr * (self.current_step as f32) / (*warmup_steps as f32)
                 } else {
                     // Cosine decay
                     let decay_steps = *total_steps - *warmup_steps;
-                    let decay_progress = ((self.current_step - *warmup_steps) as f32) / (decay_steps as f32);
+                    let decay_progress =
+                        ((self.current_step - *warmup_steps) as f32) / (decay_steps as f32);
                     let cosine_factor = 0.5 * (1.0 + (std::f32::consts::PI * decay_progress).cos());
                     self.initial_lr * cosine_factor
                 }
@@ -2485,7 +2651,6 @@ impl F32LRScheduler {
         (self.current_step, self.current_lr, self.best_metric)
     }
 }
-
 
 /// F32Trainerに学習率スケジューラーサポートを追加
 /// Add learning rate scheduler support to F32Trainer
@@ -2576,7 +2741,11 @@ impl F32Trainer {
             } else if verbose {
                 println!(
                     "Epoch {}/{} - train_loss: {:.4}, train_acc: {:.4}, lr: {:.6}",
-                    epoch + 1, epochs, epoch_train_loss, epoch_train_acc, lr_scheduler.get_lr()
+                    epoch + 1,
+                    epochs,
+                    epoch_train_loss,
+                    epoch_train_acc,
+                    lr_scheduler.get_lr()
                 );
             }
 
@@ -2599,7 +2768,7 @@ impl F32Trainer {
 /// 2D Convolution layer
 #[derive(Debug)]
 pub struct F32Conv2d {
-    pub weight: F32Tensor,     // (out_channels, in_channels, kernel_h, kernel_w)
+    pub weight: F32Tensor,       // (out_channels, in_channels, kernel_h, kernel_w)
     pub bias: Option<F32Tensor>, // (out_channels,)
     pub weight_grad: Option<F32Tensor>,
     pub bias_grad: Option<F32Tensor>,
@@ -2662,7 +2831,9 @@ impl F32Conv2d {
         // 入力形状: (batch_size, in_channels, height, width)
         let input_shape = input.shape();
         if input_shape.len() != 4 {
-            return Err(RusTorchError::tensor_op("Conv2d input must be 4D (batch, channels, height, width)"));
+            return Err(RusTorchError::tensor_op(
+                "Conv2d input must be 4D (batch, channels, height, width)",
+            ));
         }
 
         let batch_size = input_shape[0];
@@ -2670,11 +2841,14 @@ impl F32Conv2d {
         let input_width = input_shape[3];
 
         // 出力サイズ計算
-        let output_height = (input_height + 2 * self.padding.0 - self.kernel_size.0) / self.stride.0 + 1;
-        let output_width = (input_width + 2 * self.padding.1 - self.kernel_size.1) / self.stride.1 + 1;
+        let output_height =
+            (input_height + 2 * self.padding.0 - self.kernel_size.0) / self.stride.0 + 1;
+        let output_width =
+            (input_width + 2 * self.padding.1 - self.kernel_size.1) / self.stride.1 + 1;
 
         // 簡素化された畳み込み（im2colを使わない直接実装）
-        let mut output_data = vec![0.0; batch_size * self.out_channels * output_height * output_width];
+        let mut output_data =
+            vec![0.0; batch_size * self.out_channels * output_height * output_width];
         let input_data = input.as_slice();
         let weight_data = self.weight.as_slice();
 
@@ -2691,18 +2865,27 @@ impl F32Conv2d {
                                 let iw = ow * self.stride.1 + kw;
 
                                 // パディングチェック
-                                if ih >= self.padding.0 && ih < input_height + self.padding.0 &&
-                                   iw >= self.padding.1 && iw < input_width + self.padding.1 {
+                                if ih >= self.padding.0
+                                    && ih < input_height + self.padding.0
+                                    && iw >= self.padding.1
+                                    && iw < input_width + self.padding.1
+                                {
                                     let ih_actual = ih - self.padding.0;
                                     let iw_actual = iw - self.padding.1;
 
                                     for in_c in 0..self.in_channels {
-                                        let input_idx = b * self.in_channels * input_height * input_width +
-                                                      in_c * input_height * input_width +
-                                                      ih_actual * input_width + iw_actual;
-                                        let weight_idx = out_c * self.in_channels * self.kernel_size.0 * self.kernel_size.1 +
-                                                       in_c * self.kernel_size.0 * self.kernel_size.1 +
-                                                       kh * self.kernel_size.1 + kw;
+                                        let input_idx =
+                                            b * self.in_channels * input_height * input_width
+                                                + in_c * input_height * input_width
+                                                + ih_actual * input_width
+                                                + iw_actual;
+                                        let weight_idx = out_c
+                                            * self.in_channels
+                                            * self.kernel_size.0
+                                            * self.kernel_size.1
+                                            + in_c * self.kernel_size.0 * self.kernel_size.1
+                                            + kh * self.kernel_size.1
+                                            + kw;
 
                                         sum += input_data[input_idx] * weight_data[weight_idx];
                                     }
@@ -2715,9 +2898,10 @@ impl F32Conv2d {
                             sum += bias.as_slice()[out_c];
                         }
 
-                        let output_idx = b * self.out_channels * output_height * output_width +
-                                       out_c * output_height * output_width +
-                                       oh * output_width + ow;
+                        let output_idx = b * self.out_channels * output_height * output_width
+                            + out_c * output_height * output_width
+                            + oh * output_width
+                            + ow;
                         output_data[output_idx] = sum;
                     }
                 }
@@ -2771,8 +2955,8 @@ impl F32Layer for F32Conv2d {
 #[derive(Debug)]
 pub struct F32BatchNorm2d {
     pub num_features: usize,
-    pub weight: F32Tensor,     // (num_features,)
-    pub bias: F32Tensor,       // (num_features,)
+    pub weight: F32Tensor,       // (num_features,)
+    pub bias: F32Tensor,         // (num_features,)
     pub running_mean: F32Tensor, // (num_features,)
     pub running_var: F32Tensor,  // (num_features,)
     pub momentum: f32,
@@ -2860,8 +3044,10 @@ impl F32BatchNorm2d {
             let mut new_running_var = vec![0.0; self.num_features];
 
             for c in 0..self.num_features {
-                new_running_mean[c] = (1.0 - self.momentum) * running_mean_data[c] + self.momentum * batch_mean[c];
-                new_running_var[c] = (1.0 - self.momentum) * running_var_data[c] + self.momentum * batch_var[c];
+                new_running_mean[c] =
+                    (1.0 - self.momentum) * running_mean_data[c] + self.momentum * batch_mean[c];
+                new_running_var[c] =
+                    (1.0 - self.momentum) * running_var_data[c] + self.momentum * batch_var[c];
             }
 
             self.running_mean = F32Tensor::from_vec(new_running_mean, &[self.num_features])?;
@@ -2956,9 +3142,23 @@ impl F32SimpleCNN {
         num_classes: usize,
         hidden_channels: usize,
     ) -> Result<Self, RusTorchError> {
-        let conv1 = F32Conv2d::new(input_channels, hidden_channels, (3, 3), (1, 1), (1, 1), true)?;
+        let conv1 = F32Conv2d::new(
+            input_channels,
+            hidden_channels,
+            (3, 3),
+            (1, 1),
+            (1, 1),
+            true,
+        )?;
         let bn1 = F32BatchNorm2d::new(hidden_channels, 0.1, 1e-5)?;
-        let conv2 = F32Conv2d::new(hidden_channels, hidden_channels * 2, (3, 3), (2, 2), (1, 1), true)?;
+        let conv2 = F32Conv2d::new(
+            hidden_channels,
+            hidden_channels * 2,
+            (3, 3),
+            (2, 2),
+            (1, 1),
+            true,
+        )?;
         let bn2 = F32BatchNorm2d::new(hidden_channels * 2, 0.1, 1e-5)?;
 
         // 仮定：28x28の入力画像（MNIST風）でのFC層の入力サイズ
@@ -3049,8 +3249,8 @@ pub struct F32PretrainedModelInfo {
     pub architecture: String,
     pub input_size: (usize, usize, usize), // (channels, height, width)
     pub num_classes: usize,
-    pub mean: Vec<f32>,     // 正規化の平均値
-    pub std: Vec<f32>,      // 正規化の標準偏差
+    pub mean: Vec<f32>, // 正規化の平均値
+    pub std: Vec<f32>,  // 正規化の標準偏差
     pub file_path: String,
 }
 
@@ -3101,18 +3301,24 @@ impl F32PretrainedLoader {
     /// モデル情報を取得
     /// Get model info
     pub fn get_model_info(&self, name: &str) -> Option<&F32PretrainedModelInfo> {
-        self.available_models.iter().find(|model| model.name == name)
+        self.available_models
+            .iter()
+            .find(|model| model.name == name)
     }
 
     /// 事前学習モデルをロード（簡素化された実装）
     /// Load pre-trained model (simplified implementation)
     pub fn load_model(&self, name: &str) -> Result<F32SimpleCNN, RusTorchError> {
-        let model_info = self.get_model_info(name)
+        let model_info = self
+            .get_model_info(name)
             .ok_or_else(|| RusTorchError::tensor_op(&format!("Model '{}' not found", name)))?;
 
         // 簡素化：実際のファイルからロードする代わりに、新しいモデルを作成
         // TODO: 実際の事前学習重みをロードする実装
-        println!("Warning: Loading architecture only, not pre-trained weights for {}", name);
+        println!(
+            "Warning: Loading architecture only, not pre-trained weights for {}",
+            name
+        );
 
         match model_info.architecture.as_str() {
             "ResNet" | "MobileNet" => {
@@ -3120,7 +3326,10 @@ impl F32PretrainedLoader {
                 let num_classes = model_info.num_classes;
                 F32SimpleCNN::new(input_channels, num_classes, 64)
             }
-            _ => Err(RusTorchError::tensor_op(&format!("Unsupported architecture: {}", model_info.architecture)))
+            _ => Err(RusTorchError::tensor_op(&format!(
+                "Unsupported architecture: {}",
+                model_info.architecture
+            ))),
         }
     }
 }
@@ -3144,7 +3353,11 @@ impl F32ImagePreprocessor {
     /// 新しい前処理器を作成
     /// Create a new preprocessor
     pub fn new(mean: Vec<f32>, std: Vec<f32>, resize_size: Option<(usize, usize)>) -> Self {
-        Self { mean, std, resize_size }
+        Self {
+            mean,
+            std,
+            resize_size,
+        }
     }
 
     /// ImageNet用の標準前処理器
@@ -3162,12 +3375,16 @@ impl F32ImagePreprocessor {
     pub fn normalize(&self, input: &F32Tensor) -> Result<F32Tensor, RusTorchError> {
         let input_shape = input.shape();
         if input_shape.len() != 4 {
-            return Err(RusTorchError::tensor_op("Image input must be 4D (batch, channels, height, width)"));
+            return Err(RusTorchError::tensor_op(
+                "Image input must be 4D (batch, channels, height, width)",
+            ));
         }
 
         let channels = input_shape[1];
         if channels != self.mean.len() || channels != self.std.len() {
-            return Err(RusTorchError::tensor_op("Channel count mismatch with mean/std"));
+            return Err(RusTorchError::tensor_op(
+                "Channel count mismatch with mean/std",
+            ));
         }
 
         let input_data = input.as_slice();
@@ -3182,7 +3399,8 @@ impl F32ImagePreprocessor {
             for c in 0..channels {
                 for spatial in 0..spatial_size {
                     let idx = b * channels * spatial_size + c * spatial_size + spatial;
-                    output_data[idx] = (input_data[idx] - self.mean.get(c).unwrap_or(&0.0)) / self.std.get(c).unwrap_or(&1.0);
+                    output_data[idx] = (input_data[idx] - self.mean.get(c).unwrap_or(&0.0))
+                        / self.std.get(c).unwrap_or(&1.0);
                 }
             }
         }
@@ -3213,7 +3431,7 @@ impl Default for F32ImagePreprocessor {
 /// 1D Convolution layer
 #[derive(Debug)]
 pub struct F32Conv1d {
-    pub weight: F32Tensor,     // (out_channels, in_channels, kernel_size)
+    pub weight: F32Tensor,       // (out_channels, in_channels, kernel_size)
     pub bias: Option<F32Tensor>, // (out_channels,)
     pub weight_grad: Option<F32Tensor>,
     pub bias_grad: Option<F32Tensor>,
@@ -3277,7 +3495,9 @@ impl F32Conv1d {
         // 入力形状: (batch_size, in_channels, length)
         let input_shape = input.shape();
         if input_shape.len() != 3 {
-            return Err(RusTorchError::tensor_op("Conv1d input must be 3D (batch, channels, length)"));
+            return Err(RusTorchError::tensor_op(
+                "Conv1d input must be 3D (batch, channels, length)",
+            ));
         }
 
         let batch_size = input_shape[0];
@@ -3285,7 +3505,8 @@ impl F32Conv1d {
 
         // 出力サイズ計算
         let effective_kernel_size = self.dilation * (self.kernel_size - 1) + 1;
-        let output_length = (input_length + 2 * self.padding - effective_kernel_size) / self.stride + 1;
+        let output_length =
+            (input_length + 2 * self.padding - effective_kernel_size) / self.stride + 1;
 
         // 1D畳み込み実装
         let mut output_data = vec![0.0; batch_size * self.out_channels * output_length];
@@ -3306,10 +3527,12 @@ impl F32Conv1d {
                             let il_actual = il - self.padding;
 
                             for in_c in 0..self.in_channels {
-                                let input_idx = b * self.in_channels * input_length +
-                                              in_c * input_length + il_actual;
-                                let weight_idx = out_c * self.in_channels * self.kernel_size +
-                                               in_c * self.kernel_size + k;
+                                let input_idx = b * self.in_channels * input_length
+                                    + in_c * input_length
+                                    + il_actual;
+                                let weight_idx = out_c * self.in_channels * self.kernel_size
+                                    + in_c * self.kernel_size
+                                    + k;
 
                                 sum += input_data[input_idx] * weight_data[weight_idx];
                             }
@@ -3321,8 +3544,8 @@ impl F32Conv1d {
                         sum += bias.as_slice()[out_c];
                     }
 
-                    let output_idx = b * self.out_channels * output_length +
-                                   out_c * output_length + ol;
+                    let output_idx =
+                        b * self.out_channels * output_length + out_c * output_length + ol;
                     output_data[output_idx] = sum;
                 }
             }
@@ -3385,7 +3608,7 @@ impl F32Layer for F32Conv1d {
 /// 3D Convolution layer
 #[derive(Debug)]
 pub struct F32Conv3d {
-    pub weight: F32Tensor,     // (out_channels, in_channels, kernel_d, kernel_h, kernel_w)
+    pub weight: F32Tensor, // (out_channels, in_channels, kernel_d, kernel_h, kernel_w)
     pub bias: Option<F32Tensor>, // (out_channels,)
     pub weight_grad: Option<F32Tensor>,
     pub bias_grad: Option<F32Tensor>,
@@ -3448,7 +3671,9 @@ impl F32Conv3d {
         // 入力形状: (batch_size, in_channels, depth, height, width)
         let input_shape = input.shape();
         if input_shape.len() != 5 {
-            return Err(RusTorchError::tensor_op("Conv3d input must be 5D (batch, channels, depth, height, width)"));
+            return Err(RusTorchError::tensor_op(
+                "Conv3d input must be 5D (batch, channels, depth, height, width)",
+            ));
         }
 
         let batch_size = input_shape[0];
@@ -3457,12 +3682,16 @@ impl F32Conv3d {
         let input_width = input_shape[4];
 
         // 出力サイズ計算
-        let output_depth = (input_depth + 2 * self.padding.0 - self.kernel_size.0) / self.stride.0 + 1;
-        let output_height = (input_height + 2 * self.padding.1 - self.kernel_size.1) / self.stride.1 + 1;
-        let output_width = (input_width + 2 * self.padding.2 - self.kernel_size.2) / self.stride.2 + 1;
+        let output_depth =
+            (input_depth + 2 * self.padding.0 - self.kernel_size.0) / self.stride.0 + 1;
+        let output_height =
+            (input_height + 2 * self.padding.1 - self.kernel_size.1) / self.stride.1 + 1;
+        let output_width =
+            (input_width + 2 * self.padding.2 - self.kernel_size.2) / self.stride.2 + 1;
 
         // 3D畳み込み実装
-        let mut output_data = vec![0.0; batch_size * self.out_channels * output_depth * output_height * output_width];
+        let mut output_data =
+            vec![0.0; batch_size * self.out_channels * output_depth * output_height * output_width];
         let input_data = input.as_slice();
         let weight_data = self.weight.as_slice();
 
@@ -3482,24 +3711,45 @@ impl F32Conv3d {
                                         let iw = ow * self.stride.2 + kw;
 
                                         // パディングチェック
-                                        if id >= self.padding.0 && id < input_depth + self.padding.0 &&
-                                           ih >= self.padding.1 && ih < input_height + self.padding.1 &&
-                                           iw >= self.padding.2 && iw < input_width + self.padding.2 {
+                                        if id >= self.padding.0
+                                            && id < input_depth + self.padding.0
+                                            && ih >= self.padding.1
+                                            && ih < input_height + self.padding.1
+                                            && iw >= self.padding.2
+                                            && iw < input_width + self.padding.2
+                                        {
                                             let id_actual = id - self.padding.0;
                                             let ih_actual = ih - self.padding.1;
                                             let iw_actual = iw - self.padding.2;
 
                                             for in_c in 0..self.in_channels {
-                                                let input_idx = b * self.in_channels * input_depth * input_height * input_width +
-                                                              in_c * input_depth * input_height * input_width +
-                                                              id_actual * input_height * input_width +
-                                                              ih_actual * input_width + iw_actual;
-                                                let weight_idx = out_c * self.in_channels * self.kernel_size.0 * self.kernel_size.1 * self.kernel_size.2 +
-                                                               in_c * self.kernel_size.0 * self.kernel_size.1 * self.kernel_size.2 +
-                                                               kd * self.kernel_size.1 * self.kernel_size.2 +
-                                                               kh * self.kernel_size.2 + kw;
+                                                let input_idx = b
+                                                    * self.in_channels
+                                                    * input_depth
+                                                    * input_height
+                                                    * input_width
+                                                    + in_c
+                                                        * input_depth
+                                                        * input_height
+                                                        * input_width
+                                                    + id_actual * input_height * input_width
+                                                    + ih_actual * input_width
+                                                    + iw_actual;
+                                                let weight_idx = out_c
+                                                    * self.in_channels
+                                                    * self.kernel_size.0
+                                                    * self.kernel_size.1
+                                                    * self.kernel_size.2
+                                                    + in_c
+                                                        * self.kernel_size.0
+                                                        * self.kernel_size.1
+                                                        * self.kernel_size.2
+                                                    + kd * self.kernel_size.1 * self.kernel_size.2
+                                                    + kh * self.kernel_size.2
+                                                    + kw;
 
-                                                sum += input_data[input_idx] * weight_data[weight_idx];
+                                                sum +=
+                                                    input_data[input_idx] * weight_data[weight_idx];
                                             }
                                         }
                                     }
@@ -3511,10 +3761,12 @@ impl F32Conv3d {
                                 sum += bias.as_slice()[out_c];
                             }
 
-                            let output_idx = b * self.out_channels * output_depth * output_height * output_width +
-                                           out_c * output_depth * output_height * output_width +
-                                           od * output_height * output_width +
-                                           oh * output_width + ow;
+                            let output_idx =
+                                b * self.out_channels * output_depth * output_height * output_width
+                                    + out_c * output_depth * output_height * output_width
+                                    + od * output_height * output_width
+                                    + oh * output_width
+                                    + ow;
                             output_data[output_idx] = sum;
                         }
                     }
@@ -3522,7 +3774,13 @@ impl F32Conv3d {
             }
         }
 
-        let output_shape = vec![batch_size, self.out_channels, output_depth, output_height, output_width];
+        let output_shape = vec![
+            batch_size,
+            self.out_channels,
+            output_depth,
+            output_height,
+            output_width,
+        ];
         F32Tensor::from_vec(output_data, &output_shape)
     }
 }
@@ -3573,10 +3831,10 @@ impl F32Layer for F32Conv3d {
 
         Ok(())
     }
-}// ========================================
-// RNN/LSTM/GRU - 時系列処理層
-// RNN/LSTM/GRU - Time series processing layers
-// ========================================
+} // ========================================
+  // RNN/LSTM/GRU - 時系列処理層
+  // RNN/LSTM/GRU - Time series processing layers
+  // ========================================
 
 /// RNN層（Vanilla RNN）
 /// RNN layer (Vanilla RNN)
@@ -3584,8 +3842,8 @@ impl F32Layer for F32Conv3d {
 pub struct F32RNN {
     pub input_size: usize,
     pub hidden_size: usize,
-    pub weight_ih: F32Tensor,  // input to hidden weights
-    pub weight_hh: F32Tensor,  // hidden to hidden weights
+    pub weight_ih: F32Tensor, // input to hidden weights
+    pub weight_hh: F32Tensor, // hidden to hidden weights
     pub bias_ih: Option<F32Tensor>,
     pub bias_hh: Option<F32Tensor>,
     pub weight_ih_grad: Option<F32Tensor>,
@@ -3649,7 +3907,11 @@ impl F32RNN {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, input: &F32Tensor, hidden: Option<&F32Tensor>) -> Result<(F32Tensor, F32Tensor), RusTorchError> {
+    pub fn forward(
+        &mut self,
+        input: &F32Tensor,
+        hidden: Option<&F32Tensor>,
+    ) -> Result<(F32Tensor, F32Tensor), RusTorchError> {
         self.last_input = Some(input.clone());
 
         let input_shape = input.shape();
@@ -3671,10 +3933,12 @@ impl F32RNN {
         // 各時刻でのRNN計算
         for t in 0..seq_len {
             let x_t = if self.batch_first {
-                input.slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
+                input
+                    .slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             } else {
-                input.slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
+                input
+                    .slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             };
 
@@ -3684,12 +3948,16 @@ impl F32RNN {
             let mut gate = ih.add(&hh)?;
 
             if let Some(ref bias_ih) = self.bias_ih {
-                let bias_ih_expanded = bias_ih.unsqueeze(0)?.expand(&[batch_size, self.hidden_size])?;
+                let bias_ih_expanded = bias_ih
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, self.hidden_size])?;
                 gate = gate.add(&bias_ih_expanded)?;
             }
 
             if let Some(ref bias_hh) = self.bias_hh {
-                let bias_hh_expanded = bias_hh.unsqueeze(0)?.expand(&[batch_size, self.hidden_size])?;
+                let bias_hh_expanded = bias_hh
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, self.hidden_size])?;
                 gate = gate.add(&bias_hh_expanded)?;
             }
 
@@ -3769,12 +4037,16 @@ impl F32Layer for F32RNN {
             self.weight_hh = self.weight_hh.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) = (&mut self.bias_ih, &self.bias_ih_grad) {
+        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) =
+            (&mut self.bias_ih, &self.bias_ih_grad)
+        {
             let update = bias_ih_grad.mul(&lr_tensor)?;
             *bias_ih = bias_ih.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) = (&mut self.bias_hh, &self.bias_hh_grad) {
+        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) =
+            (&mut self.bias_hh, &self.bias_hh_grad)
+        {
             let update = bias_hh_grad.mul(&lr_tensor)?;
             *bias_hh = bias_hh.sub(&update)?;
         }
@@ -3790,10 +4062,10 @@ pub struct F32LSTM {
     pub input_size: usize,
     pub hidden_size: usize,
     // 4つのゲート用の重み: input, forget, cell, output
-    pub weight_ih: F32Tensor,  // (4 * hidden_size, input_size)
-    pub weight_hh: F32Tensor,  // (4 * hidden_size, hidden_size)
-    pub bias_ih: Option<F32Tensor>,  // (4 * hidden_size)
-    pub bias_hh: Option<F32Tensor>,  // (4 * hidden_size)
+    pub weight_ih: F32Tensor,       // (4 * hidden_size, input_size)
+    pub weight_hh: F32Tensor,       // (4 * hidden_size, hidden_size)
+    pub bias_ih: Option<F32Tensor>, // (4 * hidden_size)
+    pub bias_hh: Option<F32Tensor>, // (4 * hidden_size)
     pub weight_ih_grad: Option<F32Tensor>,
     pub weight_hh_grad: Option<F32Tensor>,
     pub bias_ih_grad: Option<F32Tensor>,
@@ -3862,7 +4134,11 @@ impl F32LSTM {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, input: &F32Tensor, state: Option<(&F32Tensor, &F32Tensor)>) -> Result<(F32Tensor, F32Tensor, F32Tensor), RusTorchError> {
+    pub fn forward(
+        &mut self,
+        input: &F32Tensor,
+        state: Option<(&F32Tensor, &F32Tensor)>,
+    ) -> Result<(F32Tensor, F32Tensor, F32Tensor), RusTorchError> {
         self.last_input = Some(input.clone());
 
         let input_shape = input.shape();
@@ -3887,10 +4163,12 @@ impl F32LSTM {
         // 各時刻でのLSTM計算
         for t in 0..seq_len {
             let x_t = if self.batch_first {
-                input.slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
+                input
+                    .slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             } else {
-                input.slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
+                input
+                    .slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             };
 
@@ -3900,20 +4178,31 @@ impl F32LSTM {
             let mut gates = ih.add(&hh)?;
 
             if let Some(ref bias_ih) = self.bias_ih {
-                let bias_ih_expanded = bias_ih.unsqueeze(0)?.expand(&[batch_size, 4 * self.hidden_size])?;
+                let bias_ih_expanded = bias_ih
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, 4 * self.hidden_size])?;
                 gates = gates.add(&bias_ih_expanded)?;
             }
 
             if let Some(ref bias_hh) = self.bias_hh {
-                let bias_hh_expanded = bias_hh.unsqueeze(0)?.expand(&[batch_size, 4 * self.hidden_size])?;
+                let bias_hh_expanded = bias_hh
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, 4 * self.hidden_size])?;
                 gates = gates.add(&bias_hh_expanded)?;
             }
 
             // 4つのゲートに分割
             let i_gate = gates.slice(&[(0, batch_size), (0, self.hidden_size)])?;
-            let f_gate = gates.slice(&[(0, batch_size), (self.hidden_size, 2 * self.hidden_size)])?;
-            let g_gate = gates.slice(&[(0, batch_size), (2 * self.hidden_size, 3 * self.hidden_size)])?;
-            let o_gate = gates.slice(&[(0, batch_size), (3 * self.hidden_size, 4 * self.hidden_size)])?;
+            let f_gate =
+                gates.slice(&[(0, batch_size), (self.hidden_size, 2 * self.hidden_size)])?;
+            let g_gate = gates.slice(&[
+                (0, batch_size),
+                (2 * self.hidden_size, 3 * self.hidden_size),
+            ])?;
+            let o_gate = gates.slice(&[
+                (0, batch_size),
+                (3 * self.hidden_size, 4 * self.hidden_size),
+            ])?;
 
             // ゲート活性化
             let i = F32Activation::Sigmoid.forward(&i_gate)?;
@@ -4001,12 +4290,16 @@ impl F32Layer for F32LSTM {
             self.weight_hh = self.weight_hh.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) = (&mut self.bias_ih, &self.bias_ih_grad) {
+        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) =
+            (&mut self.bias_ih, &self.bias_ih_grad)
+        {
             let update = bias_ih_grad.mul(&lr_tensor)?;
             *bias_ih = bias_ih.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) = (&mut self.bias_hh, &self.bias_hh_grad) {
+        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) =
+            (&mut self.bias_hh, &self.bias_hh_grad)
+        {
             let update = bias_hh_grad.mul(&lr_tensor)?;
             *bias_hh = bias_hh.sub(&update)?;
         }
@@ -4022,10 +4315,10 @@ pub struct F32GRU {
     pub input_size: usize,
     pub hidden_size: usize,
     // 3つのゲート用の重み: reset, update, new
-    pub weight_ih: F32Tensor,  // (3 * hidden_size, input_size)
-    pub weight_hh: F32Tensor,  // (3 * hidden_size, hidden_size)
-    pub bias_ih: Option<F32Tensor>,  // (3 * hidden_size)
-    pub bias_hh: Option<F32Tensor>,  // (3 * hidden_size)
+    pub weight_ih: F32Tensor,       // (3 * hidden_size, input_size)
+    pub weight_hh: F32Tensor,       // (3 * hidden_size, hidden_size)
+    pub bias_ih: Option<F32Tensor>, // (3 * hidden_size)
+    pub bias_hh: Option<F32Tensor>, // (3 * hidden_size)
     pub weight_ih_grad: Option<F32Tensor>,
     pub weight_hh_grad: Option<F32Tensor>,
     pub bias_ih_grad: Option<F32Tensor>,
@@ -4087,7 +4380,11 @@ impl F32GRU {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, input: &F32Tensor, hidden: Option<&F32Tensor>) -> Result<(F32Tensor, F32Tensor), RusTorchError> {
+    pub fn forward(
+        &mut self,
+        input: &F32Tensor,
+        hidden: Option<&F32Tensor>,
+    ) -> Result<(F32Tensor, F32Tensor), RusTorchError> {
         self.last_input = Some(input.clone());
 
         let input_shape = input.shape();
@@ -4109,10 +4406,12 @@ impl F32GRU {
         // 各時刻でのGRU計算
         for t in 0..seq_len {
             let x_t = if self.batch_first {
-                input.slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
+                input
+                    .slice(&[(0, batch_size), (t, t + 1), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             } else {
-                input.slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
+                input
+                    .slice(&[(t, t + 1), (0, batch_size), (0, self.input_size)])?
                     .reshape(&[batch_size, self.input_size])?
             };
 
@@ -4124,12 +4423,16 @@ impl F32GRU {
             let mut gh = hh.clone();
 
             if let Some(ref bias_ih) = self.bias_ih {
-                let bias_ih_expanded = bias_ih.unsqueeze(0)?.expand(&[batch_size, 3 * self.hidden_size])?;
+                let bias_ih_expanded = bias_ih
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, 3 * self.hidden_size])?;
                 gi = gi.add(&bias_ih_expanded)?;
             }
 
             if let Some(ref bias_hh) = self.bias_hh {
-                let bias_hh_expanded = bias_hh.unsqueeze(0)?.expand(&[batch_size, 3 * self.hidden_size])?;
+                let bias_hh_expanded = bias_hh
+                    .unsqueeze(0)?
+                    .expand(&[batch_size, 3 * self.hidden_size])?;
                 gh = gh.add(&bias_hh_expanded)?;
             }
 
@@ -4143,8 +4446,14 @@ impl F32GRU {
             let z = F32Activation::Sigmoid.forward(&i_z.add(&h_z)?)?;
 
             // new gate計算
-            let i_n = gi.slice(&[(0, batch_size), (2 * self.hidden_size, 3 * self.hidden_size)])?;
-            let h_n = gh.slice(&[(0, batch_size), (2 * self.hidden_size, 3 * self.hidden_size)])?;
+            let i_n = gi.slice(&[
+                (0, batch_size),
+                (2 * self.hidden_size, 3 * self.hidden_size),
+            ])?;
+            let h_n = gh.slice(&[
+                (0, batch_size),
+                (2 * self.hidden_size, 3 * self.hidden_size),
+            ])?;
             let n = F32Activation::Tanh.forward(&i_n.add(&r.mul(&h_n)?)?)?;
 
             // 隠れ状態更新
@@ -4224,22 +4533,26 @@ impl F32Layer for F32GRU {
             self.weight_hh = self.weight_hh.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) = (&mut self.bias_ih, &self.bias_ih_grad) {
+        if let (Some(ref mut bias_ih), Some(ref bias_ih_grad)) =
+            (&mut self.bias_ih, &self.bias_ih_grad)
+        {
             let update = bias_ih_grad.mul(&lr_tensor)?;
             *bias_ih = bias_ih.sub(&update)?;
         }
 
-        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) = (&mut self.bias_hh, &self.bias_hh_grad) {
+        if let (Some(ref mut bias_hh), Some(ref bias_hh_grad)) =
+            (&mut self.bias_hh, &self.bias_hh_grad)
+        {
             let update = bias_hh_grad.mul(&lr_tensor)?;
             *bias_hh = bias_hh.sub(&update)?;
         }
 
         Ok(())
     }
-}// ========================================
-// Transformer - 現代的アーキテクチャ
-// Transformer - Modern architecture
-// ========================================
+} // ========================================
+  // Transformer - 現代的アーキテクチャ
+  // Transformer - Modern architecture
+  // ========================================
 
 /// 位置エンコーディング
 /// Positional Encoding
@@ -4286,7 +4599,10 @@ impl F32PositionalEncoding {
         }
 
         let pe_slice = self.encoding.slice(&[(0, seq_len), (0, self.d_model)])?;
-        let pe_expanded = pe_slice.unsqueeze(0)?.expand(&[input_shape[0], seq_len, self.d_model])?;
+        let pe_expanded =
+            pe_slice
+                .unsqueeze(0)?
+                .expand(&[input_shape[0], seq_len, self.d_model])?;
 
         input.add(&pe_expanded)
     }
@@ -4313,7 +4629,11 @@ impl F32MultiHeadAttention {
     /// 新しいマルチヘッドアテンションを作成
     /// Create new multi-head attention
     pub fn new(d_model: usize, num_heads: usize, dropout_rate: f32) -> Result<Self, RusTorchError> {
-        assert_eq!(d_model % num_heads, 0, "d_model must be divisible by num_heads");
+        assert_eq!(
+            d_model % num_heads,
+            0,
+            "d_model must be divisible by num_heads"
+        );
 
         let d_k = d_model / num_heads;
         let d_v = d_model / num_heads;
@@ -4354,7 +4674,8 @@ impl F32MultiHeadAttention {
         let scale = 1.0 / d_k.sqrt();
 
         // Attention scores: Q @ K^T / sqrt(d_k)
-        let scores = q.matmul(&k.transpose()?)?
+        let scores = q
+            .matmul(&k.transpose()?)?
             .mul(&F32Tensor::from_scalar(scale)?)?;
 
         // マスクを適用（オプション）
@@ -4373,7 +4694,13 @@ impl F32MultiHeadAttention {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, query: &F32Tensor, key: &F32Tensor, value: &F32Tensor, mask: Option<&F32Tensor>) -> Result<F32Tensor, RusTorchError> {
+    pub fn forward(
+        &mut self,
+        query: &F32Tensor,
+        key: &F32Tensor,
+        value: &F32Tensor,
+        mask: Option<&F32Tensor>,
+    ) -> Result<F32Tensor, RusTorchError> {
         self.last_input = Some(query.clone());
 
         let batch_size = query.shape()[0];
@@ -4385,21 +4712,27 @@ impl F32MultiHeadAttention {
         let v = value.matmul(&self.w_v)?;
 
         // ヘッドに分割: (batch_size, seq_len, d_model) -> (batch_size, num_heads, seq_len, d_k)
-        let q_heads = q.reshape(&[batch_size, seq_len, self.num_heads, self.d_k])?
+        let q_heads = q
+            .reshape(&[batch_size, seq_len, self.num_heads, self.d_k])?
             .transpose_dims(1, 2)?;
-        let k_heads = k.reshape(&[batch_size, seq_len, self.num_heads, self.d_k])?
+        let k_heads = k
+            .reshape(&[batch_size, seq_len, self.num_heads, self.d_k])?
             .transpose_dims(1, 2)?;
-        let v_heads = v.reshape(&[batch_size, seq_len, self.num_heads, self.d_v])?
+        let v_heads = v
+            .reshape(&[batch_size, seq_len, self.num_heads, self.d_v])?
             .transpose_dims(1, 2)?;
 
         // 各ヘッドでアテンション計算
         let mut head_outputs = Vec::new();
         for h in 0..self.num_heads {
-            let q_h = q_heads.slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_k)])?
+            let q_h = q_heads
+                .slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_k)])?
                 .reshape(&[batch_size, seq_len, self.d_k])?;
-            let k_h = k_heads.slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_k)])?
+            let k_h = k_heads
+                .slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_k)])?
                 .reshape(&[batch_size, seq_len, self.d_k])?;
-            let v_h = v_heads.slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_v)])?
+            let v_h = v_heads
+                .slice(&[(0, batch_size), (h, h + 1), (0, seq_len), (0, self.d_v)])?
                 .reshape(&[batch_size, seq_len, self.d_v])?;
 
             let head_output = self.scaled_dot_product_attention(&q_h, &k_h, &v_h, mask)?;
@@ -4579,9 +4912,11 @@ impl F32LayerNorm {
 
             // 平均と分散を計算
             let mean = batch_data.iter().sum::<f32>() / last_dim as f32;
-            let variance = batch_data.iter()
+            let variance = batch_data
+                .iter()
                 .map(|x| (x - mean) * (x - mean))
-                .sum::<f32>() / last_dim as f32;
+                .sum::<f32>()
+                / last_dim as f32;
 
             let std = (variance + self.eps).sqrt();
 
@@ -4668,7 +5003,11 @@ impl F32TransformerBlock {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, input: &F32Tensor, mask: Option<&F32Tensor>) -> Result<F32Tensor, RusTorchError> {
+    pub fn forward(
+        &mut self,
+        input: &F32Tensor,
+        mask: Option<&F32Tensor>,
+    ) -> Result<F32Tensor, RusTorchError> {
         // Self-attention with residual connection
         let attn_output = self.attention.forward(input, input, input, mask)?;
         let x = input.add(&attn_output)?; // Residual connection
@@ -4772,7 +5111,11 @@ impl F32Transformer {
 
     /// フォワードパス
     /// Forward pass
-    pub fn forward(&mut self, input_ids: &F32Tensor, mask: Option<&F32Tensor>) -> Result<F32Tensor, RusTorchError> {
+    pub fn forward(
+        &mut self,
+        input_ids: &F32Tensor,
+        mask: Option<&F32Tensor>,
+    ) -> Result<F32Tensor, RusTorchError> {
         // Embedding
         let x = self.embedding.forward(input_ids)?;
 

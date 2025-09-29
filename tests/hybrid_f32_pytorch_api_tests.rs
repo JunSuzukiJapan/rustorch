@@ -3,9 +3,9 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::F32Tensor;
-    use rustorch::hybrid_f32::tensor::core::{Index2D, Index3D};
     use rustorch::error::RusTorchResult;
+    use rustorch::hybrid_f32::tensor::core::{Index2D, Index3D};
+    use rustorch::hybrid_f32::tensor::F32Tensor;
 
     #[test]
     fn test_operator_overloading() -> RusTorchResult<()> {
@@ -26,7 +26,10 @@ mod tests {
 
         // テンソル / テンソル
         let result = (&a / &b)?;
-        assert_eq!(result.as_slice(), &[1.0/5.0, 2.0/6.0, 3.0/7.0, 4.0/8.0]);
+        assert_eq!(
+            result.as_slice(),
+            &[1.0 / 5.0, 2.0 / 6.0, 3.0 / 7.0, 4.0 / 8.0]
+        );
 
         Ok(())
     }
@@ -73,10 +76,7 @@ mod tests {
 
     #[test]
     fn test_2d_indexing() -> RusTorchResult<()> {
-        let mut tensor = F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &[2, 3],
-        )?;
+        let mut tensor = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3])?;
 
         // 読み取り
         assert_eq!(tensor[Index2D(0, 0)], 1.0);
@@ -92,10 +92,7 @@ mod tests {
 
     #[test]
     fn test_3d_indexing() -> RusTorchResult<()> {
-        let mut tensor = F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            &[2, 2, 2],
-        )?;
+        let mut tensor = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &[2, 2, 2])?;
 
         // 読み取り
         assert_eq!(tensor[Index3D(0, 0, 0)], 1.0);
@@ -164,7 +161,7 @@ mod tests {
 
         // エラーケース
         assert!(tensor.try_get(&[2, 0]).is_err()); // 範囲外
-        assert!(tensor.try_get(&[0]).is_err());    // 次元不一致
+        assert!(tensor.try_get(&[0]).is_err()); // 次元不一致
         assert!(tensor.try_set(&[0, 0], f32::NAN).is_err()); // 無効値
 
         Ok(())
@@ -200,7 +197,12 @@ mod tests {
         let expected = vec![1.0, 2.5, 3.7, 4.2];
         assert_eq!(f64_vec.len(), expected.len());
         for (actual, expected) in f64_vec.iter().zip(expected.iter()) {
-            assert!((actual - expected).abs() < 1e-6, "Expected {}, got {}", expected, actual);
+            assert!(
+                (actual - expected).abs() < 1e-6,
+                "Expected {}, got {}",
+                expected,
+                actual
+            );
         }
 
         // 空テンソル

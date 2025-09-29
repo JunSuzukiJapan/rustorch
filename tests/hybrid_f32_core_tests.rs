@@ -3,21 +3,23 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::core::F32Tensor;
     use rustorch::hybrid_f32::error::{F32Error, F32Result};
+    use rustorch::hybrid_f32::tensor::core::F32Tensor;
 
     /// テストヘルパー関数
     /// Test helper functions
     fn assert_tensor_eq(a: &F32Tensor, b: &F32Tensor, tolerance: f32) {
         assert_eq!(a.shape(), b.shape(), "Shape mismatch");
-        
+
         for i in 0..a.numel() {
             let val_a = a.data.as_slice().unwrap()[i];
             let val_b = b.data.as_slice().unwrap()[i];
             assert!(
                 (val_a - val_b).abs() < tolerance,
                 "Values differ: {} vs {} (tolerance: {})",
-                val_a, val_b, tolerance
+                val_a,
+                val_b,
+                tolerance
             );
         }
     }
@@ -55,10 +57,7 @@ mod tests {
 
     #[test]
     fn test_tensor_properties() {
-        let tensor = F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &[2, 3],
-        ).unwrap();
+        let tensor = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3]).unwrap();
 
         // 基本プロパティ
         assert_eq!(tensor.shape(), &[2, 3]);
@@ -80,7 +79,7 @@ mod tests {
     #[test]
     fn test_gradient_tracking() {
         let mut tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).unwrap();
-        
+
         // デフォルトでは勾配追跡なし
         assert!(!tensor.is_grad_enabled());
 
@@ -96,18 +95,17 @@ mod tests {
     #[test]
     fn test_device_state() {
         let tensor = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3]).unwrap();
-        
+
         // デフォルトはCPU
-        assert!(matches!(tensor.device_state(), 
-                         rustorch::hybrid_f32::tensor::core::DeviceState::CPU));
+        assert!(matches!(
+            tensor.device_state(),
+            rustorch::hybrid_f32::tensor::core::DeviceState::CPU
+        ));
     }
 
     #[test]
     fn test_tensor_cloning() {
-        let original = F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &[2, 3],
-        ).unwrap();
+        let original = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3]).unwrap();
         let cloned = original.clone();
 
         // 同じ形状とデータ
@@ -148,13 +146,14 @@ mod tests {
     fn test_numerical_precision() {
         // 浮動小数点精度テスト
         let a = F32Tensor::from_vec(vec![0.1, 0.2], &[2]).unwrap();
-        
+
         // f32の精度を考慮した比較
         assert!((a.data.as_slice().unwrap()[0] - 0.1).abs() < 1e-6);
         assert!((a.data.as_slice().unwrap()[1] - 0.2).abs() < 1e-6);
 
         // 特殊値のテスト
-        let special = F32Tensor::from_vec(vec![f32::INFINITY, f32::NEG_INFINITY, f32::NAN], &[3]).unwrap();
+        let special =
+            F32Tensor::from_vec(vec![f32::INFINITY, f32::NEG_INFINITY, f32::NAN], &[3]).unwrap();
         assert!(special.data.as_slice().unwrap()[0].is_infinite());
         assert!(special.data.as_slice().unwrap()[1].is_infinite());
         assert!(special.data.as_slice().unwrap()[2].is_nan());

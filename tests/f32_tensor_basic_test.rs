@@ -3,8 +3,8 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod f32_tensor_basic {
-    use rustorch::hybrid_f32::tensor::core::{F32Tensor, DeviceState};
     use rustorch::error::RusTorchResult;
+    use rustorch::hybrid_f32::tensor::core::{DeviceState, F32Tensor};
 
     #[test]
     fn test_basic_tensor_creation() -> RusTorchResult<()> {

@@ -1,12 +1,12 @@
 // 型変換・精度変換機能
 // Type conversion and precision conversion functionality
 
-use ndarray::Array;
-use num_complex::Complex64;
-use crate::common::RusTorchResult;
+use super::complex_tensor::ComplexTensor;
 use super::core::F32Tensor;
 use super::f64_tensor::F64Tensor;
-use super::complex_tensor::ComplexTensor;
+use crate::common::RusTorchResult;
+use ndarray::Array;
+use num_complex::Complex64;
 
 /// テンソル型変換トレイト
 /// Tensor type conversion trait
@@ -158,9 +158,10 @@ impl F32Tensor {
             "f32" => Ok(TensorVariant::F32(self.clone())),
             "f64" => Ok(TensorVariant::F64(self.to_f64()?)),
             "complex64" => Ok(TensorVariant::Complex(self.to_complex()?)),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 }
@@ -185,9 +186,10 @@ impl F64Tensor {
             "f32" => Ok(TensorVariant::F32(self.to_f32()?)),
             "f64" => Ok(TensorVariant::F64(self.clone())),
             "complex64" => Ok(TensorVariant::Complex(self.to_complex()?)),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 }
@@ -220,9 +222,10 @@ impl ComplexTensor {
             "f32" => Ok(TensorVariant::F32(self.to_real_f32()?)),
             "f64" => Ok(TensorVariant::F64(self.to_real_f64()?)),
             "complex64" => Ok(TensorVariant::Complex(self.clone())),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 }

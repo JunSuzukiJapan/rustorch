@@ -65,8 +65,8 @@ impl BenchmarkConfig {
             tensor_sizes: vec![1000, 5000, 10000],
             matrix_sizes: vec![64, 128, 256],
             conv_sizes: vec![
-                (1, 3, 32, 32),   // 小規模画像
-                (1, 16, 64, 64),  // 中規模画像
+                (1, 3, 32, 32),    // 小規模画像
+                (1, 16, 64, 64),   // 中規模画像
                 (1, 32, 128, 128), // 大規模画像
             ],
         }
@@ -78,11 +78,7 @@ impl BenchmarkConfig {
             warmup_iterations: 10,
             tensor_sizes: vec![10000, 50000, 100000],
             matrix_sizes: vec![128, 256, 512],
-            conv_sizes: vec![
-                (4, 32, 64, 64),
-                (8, 64, 128, 128),
-                (16, 128, 256, 256),
-            ],
+            conv_sizes: vec![(4, 32, 64, 64), (8, 64, 128, 128), (16, 128, 256, 256)],
         }
     }
 }
@@ -110,7 +106,9 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// 包括的ベンチマーク実行
-    pub fn run_comprehensive_benchmark(&mut self) -> rustorch::error::RusTorchResult<HybridBenchmarkResults> {
+    pub fn run_comprehensive_benchmark(
+        &mut self,
+    ) -> rustorch::error::RusTorchResult<HybridBenchmarkResults> {
         println!("🚀 GPU + Neural Engine ハイブリッド実行ベンチマーク開始");
         println!("🚀 Starting GPU + Neural Engine Hybrid Execution Benchmark");
         println!("============================================================\n");
@@ -177,7 +175,11 @@ impl GPUNeuralEngineBenchmark {
         // 複合演算
         let mixed_operations = self.benchmark_mixed_operations_cpu()?;
 
-        let total_time = tensor_addition + matrix_multiplication + convolution_2d + activation_relu + mixed_operations;
+        let total_time = tensor_addition
+            + matrix_multiplication
+            + convolution_2d
+            + activation_relu
+            + mixed_operations;
 
         let results = DeviceBenchmarkResults {
             device_name: "CPU".to_string(),
@@ -194,17 +196,28 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// Metal GPU単体実行ベンチマーク
-    fn benchmark_metal_gpu_execution(&mut self) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
+    fn benchmark_metal_gpu_execution(
+        &mut self,
+    ) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
         println!("  Metal GPU初期化中...");
 
         // Metal GPU強制使用でベンチマーク実行
-        let tensor_addition = self.benchmark_operation_on_device(GPUDevice::Metal(0), "tensor_addition")?;
-        let matrix_multiplication = self.benchmark_operation_on_device(GPUDevice::Metal(0), "matrix_multiplication")?;
-        let convolution_2d = self.benchmark_operation_on_device(GPUDevice::Metal(0), "convolution_2d")?;
-        let activation_relu = self.benchmark_operation_on_device(GPUDevice::Metal(0), "activation_relu")?;
-        let mixed_operations = self.benchmark_operation_on_device(GPUDevice::Metal(0), "mixed_operations")?;
+        let tensor_addition =
+            self.benchmark_operation_on_device(GPUDevice::Metal(0), "tensor_addition")?;
+        let matrix_multiplication =
+            self.benchmark_operation_on_device(GPUDevice::Metal(0), "matrix_multiplication")?;
+        let convolution_2d =
+            self.benchmark_operation_on_device(GPUDevice::Metal(0), "convolution_2d")?;
+        let activation_relu =
+            self.benchmark_operation_on_device(GPUDevice::Metal(0), "activation_relu")?;
+        let mixed_operations =
+            self.benchmark_operation_on_device(GPUDevice::Metal(0), "mixed_operations")?;
 
-        let total_time = tensor_addition + matrix_multiplication + convolution_2d + activation_relu + mixed_operations;
+        let total_time = tensor_addition
+            + matrix_multiplication
+            + convolution_2d
+            + activation_relu
+            + mixed_operations;
 
         let results = DeviceBenchmarkResults {
             device_name: "Metal GPU".to_string(),
@@ -221,17 +234,28 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// Neural Engine単体実行ベンチマーク
-    fn benchmark_neural_engine_execution(&mut self) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
+    fn benchmark_neural_engine_execution(
+        &mut self,
+    ) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
         println!("  Neural Engine初期化中...");
 
         // Neural Engine強制使用でベンチマーク実行
-        let tensor_addition = self.benchmark_operation_on_device(GPUDevice::CoreML(0), "tensor_addition")?;
-        let matrix_multiplication = self.benchmark_operation_on_device(GPUDevice::CoreML(0), "matrix_multiplication")?;
-        let convolution_2d = self.benchmark_operation_on_device(GPUDevice::CoreML(0), "convolution_2d")?;
-        let activation_relu = self.benchmark_operation_on_device(GPUDevice::CoreML(0), "activation_relu")?;
-        let mixed_operations = self.benchmark_operation_on_device(GPUDevice::CoreML(0), "mixed_operations")?;
+        let tensor_addition =
+            self.benchmark_operation_on_device(GPUDevice::CoreML(0), "tensor_addition")?;
+        let matrix_multiplication =
+            self.benchmark_operation_on_device(GPUDevice::CoreML(0), "matrix_multiplication")?;
+        let convolution_2d =
+            self.benchmark_operation_on_device(GPUDevice::CoreML(0), "convolution_2d")?;
+        let activation_relu =
+            self.benchmark_operation_on_device(GPUDevice::CoreML(0), "activation_relu")?;
+        let mixed_operations =
+            self.benchmark_operation_on_device(GPUDevice::CoreML(0), "mixed_operations")?;
 
-        let total_time = tensor_addition + matrix_multiplication + convolution_2d + activation_relu + mixed_operations;
+        let total_time = tensor_addition
+            + matrix_multiplication
+            + convolution_2d
+            + activation_relu
+            + mixed_operations;
 
         let results = DeviceBenchmarkResults {
             device_name: "Neural Engine".to_string(),
@@ -248,7 +272,9 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// ハイブリッド実行ベンチマーク（智的デバイス選択）
-    fn benchmark_hybrid_execution(&mut self) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
+    fn benchmark_hybrid_execution(
+        &mut self,
+    ) -> rustorch::error::RusTorchResult<DeviceBenchmarkResults> {
         println!("  ハイブリッド実行中（智的デバイス選択）...");
 
         // 各演算を最適デバイスで自動実行
@@ -258,7 +284,11 @@ impl GPUNeuralEngineBenchmark {
         let activation_relu = self.benchmark_hybrid_activation()?;
         let mixed_operations = self.benchmark_hybrid_mixed_operations()?;
 
-        let total_time = tensor_addition + matrix_multiplication + convolution_2d + activation_relu + mixed_operations;
+        let total_time = tensor_addition
+            + matrix_multiplication
+            + convolution_2d
+            + activation_relu
+            + mixed_operations;
 
         let results = DeviceBenchmarkResults {
             device_name: "Hybrid (Auto-select)".to_string(),
@@ -275,7 +305,11 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// 指定デバイスでの演算ベンチマーク
-    fn benchmark_operation_on_device(&mut self, device: GPUDevice, operation: &str) -> rustorch::error::RusTorchResult<f64> {
+    fn benchmark_operation_on_device(
+        &mut self,
+        device: GPUDevice,
+        operation: &str,
+    ) -> rustorch::error::RusTorchResult<f64> {
         match operation {
             "tensor_addition" => {
                 let size = self.config.tensor_sizes[1]; // 中規模サイズ使用
@@ -295,8 +329,14 @@ impl GPUNeuralEngineBenchmark {
             }
             "matrix_multiplication" => {
                 let size = self.config.matrix_sizes[1]; // 中規模サイズ使用
-                let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-                let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+                let a = F32Tensor::new(
+                    (0..size * size).map(|i| i as f32 * 0.01).collect(),
+                    &[size, size],
+                )?;
+                let b = F32Tensor::new(
+                    (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+                    &[size, size],
+                )?;
 
                 // ウォームアップ
                 for _ in 0..self.config.warmup_iterations {
@@ -313,17 +353,27 @@ impl GPUNeuralEngineBenchmark {
                 // Neural Engine優先での畳み込み実行
                 let (_, channels, height, width) = self.config.conv_sizes[1];
                 let input_size = channels * height * width;
-                let input = F32Tensor::new((0..input_size).map(|i| i as f32 * 0.01).collect(), &[1, channels, height, width])?;
+                let input = F32Tensor::new(
+                    (0..input_size).map(|i| i as f32 * 0.01).collect(),
+                    &[1, channels, height, width],
+                )?;
 
                 let start = Instant::now();
                 for _ in 0..self.config.iterations / 10 {
                     let _ = self.execute_on_device(&input, &input, &device, "conv2d")?;
                 }
-                Ok(start.elapsed().as_nanos() as f64 / (self.config.iterations / 10) as f64 / 1_000_000.0)
+                Ok(start.elapsed().as_nanos() as f64
+                    / (self.config.iterations / 10) as f64
+                    / 1_000_000.0)
             }
             "activation_relu" => {
                 let size = self.config.tensor_sizes[1];
-                let input = F32Tensor::new((0..size).map(|i| (i as f32 - size as f32 / 2.0) * 0.01).collect(), &[size])?;
+                let input = F32Tensor::new(
+                    (0..size)
+                        .map(|i| (i as f32 - size as f32 / 2.0) * 0.01)
+                        .collect(),
+                    &[size],
+                )?;
 
                 let start = Instant::now();
                 for _ in 0..self.config.iterations {
@@ -333,8 +383,14 @@ impl GPUNeuralEngineBenchmark {
             }
             "mixed_operations" => {
                 let size = self.config.matrix_sizes[1];
-                let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-                let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+                let a = F32Tensor::new(
+                    (0..size * size).map(|i| i as f32 * 0.01).collect(),
+                    &[size, size],
+                )?;
+                let b = F32Tensor::new(
+                    (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+                    &[size, size],
+                )?;
 
                 let start = Instant::now();
                 for _ in 0..self.config.iterations / 5 {
@@ -342,7 +398,9 @@ impl GPUNeuralEngineBenchmark {
                     let (result, _) = self.execute_matmul_on_device(&a, &b, &device)?;
                     let _ = self.execute_on_device(&result, &result, &device, "relu")?;
                 }
-                Ok(start.elapsed().as_nanos() as f64 / (self.config.iterations / 5) as f64 / 1_000_000.0)
+                Ok(start.elapsed().as_nanos() as f64
+                    / (self.config.iterations / 5) as f64
+                    / 1_000_000.0)
             }
             _ => {
                 // 他の演算のプレースホルダー
@@ -352,26 +410,44 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// デバイス固定での演算実行
-    fn execute_on_device(&mut self, a: &F32Tensor, b: &F32Tensor, device: &GPUDevice, operation: &str) -> rustorch::error::RusTorchResult<F32Tensor> {
+    fn execute_on_device(
+        &mut self,
+        a: &F32Tensor,
+        b: &F32Tensor,
+        device: &GPUDevice,
+        operation: &str,
+    ) -> rustorch::error::RusTorchResult<F32Tensor> {
         match device {
             GPUDevice::CoreML(device_id) => {
                 // Neural Engine専用実行
-                println!("🧠 Executing {} on Neural Engine {} (f32 direct)", operation, device_id);
+                println!(
+                    "🧠 Executing {} on Neural Engine {} (f32 direct)",
+                    operation, device_id
+                );
                 match operation {
-                    "add" => a.add(b), // CoreMLでの加算（将来の実装）
+                    "add" => a.add(b),  // CoreMLでの加算（将来の実装）
                     "relu" => a.relu(), // CoreMLでのReLU（将来の実装）
-                    "conv2d" => { let _ = a.sum()?; Ok(a.clone()) }, // CoreMLでの畳み込み（将来の実装）
-                    _ => a.add(b), // デフォルト
+                    "conv2d" => {
+                        let _ = a.sum()?;
+                        Ok(a.clone())
+                    } // CoreMLでの畳み込み（将来の実装）
+                    _ => a.add(b),      // デフォルト
                 }
             }
             GPUDevice::Metal(device_id) => {
                 // Metal GPU専用実行
-                println!("⚡ Executing {} on Metal GPU {} (f32 direct)", operation, device_id);
+                println!(
+                    "⚡ Executing {} on Metal GPU {} (f32 direct)",
+                    operation, device_id
+                );
                 match operation {
-                    "add" => a.add(b), // MetalでのGPU加算
+                    "add" => a.add(b),  // MetalでのGPU加算
                     "relu" => a.relu(), // MetalでのGPU ReLU
-                    "conv2d" => { let _ = a.sum()?; Ok(a.clone()) }, // MetalでのGPU畳み込み
-                    _ => a.add(b), // デフォルト
+                    "conv2d" => {
+                        let _ = a.sum()?;
+                        Ok(a.clone())
+                    } // MetalでのGPU畳み込み
+                    _ => a.add(b),      // デフォルト
                 }
             }
             _ => {
@@ -380,7 +456,10 @@ impl GPUNeuralEngineBenchmark {
                 match operation {
                     "add" => a.add(b),
                     "relu" => a.relu(),
-                    "conv2d" => { let _ = a.sum()?; Ok(a.clone()) },
+                    "conv2d" => {
+                        let _ = a.sum()?;
+                        Ok(a.clone())
+                    }
                     _ => a.add(b),
                 }
             }
@@ -388,17 +467,28 @@ impl GPUNeuralEngineBenchmark {
     }
 
     /// デバイス固定での行列乗算実行
-    fn execute_matmul_on_device(&mut self, a: &F32Tensor, b: &F32Tensor, device: &GPUDevice) -> rustorch::error::RusTorchResult<(F32Tensor, GPUDevice)> {
+    fn execute_matmul_on_device(
+        &mut self,
+        a: &F32Tensor,
+        b: &F32Tensor,
+        device: &GPUDevice,
+    ) -> rustorch::error::RusTorchResult<(F32Tensor, GPUDevice)> {
         match device {
             GPUDevice::CoreML(device_id) => {
                 // Neural Engine強制実行
-                println!("🧠 Executing matmul on Neural Engine {} (f32 direct)", device_id);
+                println!(
+                    "🧠 Executing matmul on Neural Engine {} (f32 direct)",
+                    device_id
+                );
                 let result = a.matmul(b)?; // CoreML実行（将来の実装）
                 Ok((result, device.clone()))
             }
             GPUDevice::Metal(device_id) => {
                 // Metal GPU強制実行
-                println!("⚡ Executing matmul on Metal GPU {} (f32 direct)", device_id);
+                println!(
+                    "⚡ Executing matmul on Metal GPU {} (f32 direct)",
+                    device_id
+                );
                 let (result, _selected_device) = self.hybrid_executor.execute_matmul(a, b)?;
                 Ok((result, device.clone()))
             }
@@ -431,8 +521,14 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_matrix_multiplication_cpu(&self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.matrix_sizes[1];
-        let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-        let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+        let a = F32Tensor::new(
+            (0..size * size).map(|i| i as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
+        let b = F32Tensor::new(
+            (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -450,10 +546,14 @@ impl GPUNeuralEngineBenchmark {
         // 畳み込みのシミュレーション（簡略化実装）
         let (_, channels, height, width) = self.config.conv_sizes[1];
         let input_size = channels * height * width;
-        let input = F32Tensor::new((0..input_size).map(|i| i as f32 * 0.01).collect(), &[1, channels, height, width])?;
+        let input = F32Tensor::new(
+            (0..input_size).map(|i| i as f32 * 0.01).collect(),
+            &[1, channels, height, width],
+        )?;
 
         let start = Instant::now();
-        for _ in 0..self.config.iterations / 10 { // 畳み込みは重いので反復数削減
+        for _ in 0..self.config.iterations / 10 {
+            // 畳み込みは重いので反復数削減
             // 簡単な処理でシミュレート
             let _ = input.sum()?;
         }
@@ -462,7 +562,12 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_activation_cpu(&self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.tensor_sizes[1];
-        let input = F32Tensor::new((0..size).map(|i| (i as f32 - size as f32 / 2.0) * 0.01).collect(), &[size])?;
+        let input = F32Tensor::new(
+            (0..size)
+                .map(|i| (i as f32 - size as f32 / 2.0) * 0.01)
+                .collect(),
+            &[size],
+        )?;
 
         // ウォームアップ
         for _ in 0..self.config.warmup_iterations {
@@ -478,11 +583,18 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_mixed_operations_cpu(&self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.matrix_sizes[0]; // 小規模から開始
-        let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-        let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+        let a = F32Tensor::new(
+            (0..size * size).map(|i| i as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
+        let b = F32Tensor::new(
+            (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
 
         let start = Instant::now();
-        for _ in 0..self.config.iterations / 5 { // 複合演算は重いので反復数削減
+        for _ in 0..self.config.iterations / 5 {
+            // 複合演算は重いので反復数削減
             // 複合演算: 行列乗算 → 活性化 → 合計
             let result = a.matmul(&b)?;
             let _activated_value = result.max()?; // 活性化関数の代替
@@ -506,8 +618,14 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_hybrid_matrix_multiplication(&mut self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.matrix_sizes[2]; // 大規模サイズでMetal GPU選択を促進
-        let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-        let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+        let a = F32Tensor::new(
+            (0..size * size).map(|i| i as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
+        let b = F32Tensor::new(
+            (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
 
         let start = Instant::now();
         for _ in 0..self.config.iterations {
@@ -520,7 +638,10 @@ impl GPUNeuralEngineBenchmark {
         // Neural Engine最適化された畳み込み実行
         let (_, channels, height, width) = self.config.conv_sizes[1];
         let input_size = channels * height * width;
-        let input = F32Tensor::new((0..input_size).map(|i| i as f32 * 0.01).collect(), &[1, channels, height, width])?;
+        let input = F32Tensor::new(
+            (0..input_size).map(|i| i as f32 * 0.01).collect(),
+            &[1, channels, height, width],
+        )?;
 
         let start = Instant::now();
         for _ in 0..self.config.iterations / 10 {
@@ -532,7 +653,12 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_hybrid_activation(&mut self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.tensor_sizes[1];
-        let input = F32Tensor::new((0..size).map(|i| (i as f32 - size as f32 / 2.0) * 0.01).collect(), &[size])?;
+        let input = F32Tensor::new(
+            (0..size)
+                .map(|i| (i as f32 - size as f32 / 2.0) * 0.01)
+                .collect(),
+            &[size],
+        )?;
 
         let start = Instant::now();
         for _ in 0..self.config.iterations {
@@ -543,8 +669,14 @@ impl GPUNeuralEngineBenchmark {
 
     fn benchmark_hybrid_mixed_operations(&mut self) -> rustorch::error::RusTorchResult<f64> {
         let size = self.config.matrix_sizes[1];
-        let a = F32Tensor::new((0..size*size).map(|i| i as f32 * 0.01).collect(), &[size, size])?;
-        let b = F32Tensor::new((0..size*size).map(|i| (i + 1) as f32 * 0.01).collect(), &[size, size])?;
+        let a = F32Tensor::new(
+            (0..size * size).map(|i| i as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
+        let b = F32Tensor::new(
+            (0..size * size).map(|i| (i + 1) as f32 * 0.01).collect(),
+            &[size, size],
+        )?;
 
         let start = Instant::now();
         for _ in 0..self.config.iterations / 5 {
@@ -553,14 +685,18 @@ impl GPUNeuralEngineBenchmark {
             let (result, _) = self.hybrid_executor.execute_matmul(&a, &b)?;
             // 2. 活性化関数（Neural Engine）
             let _activated_value = result.max()?; // 活性化関数の代替
-            // 3. 合計（適応的選択）
+                                                  // 3. 合計（適応的選択）
             let _ = result.sum()?;
         }
         Ok(start.elapsed().as_nanos() as f64 / (self.config.iterations / 5) as f64 / 1_000_000.0)
     }
 
     /// 効率性評価の計算
-    fn calculate_efficiency_rating(&self, hybrid: &DeviceBenchmarkResults, cpu: &DeviceBenchmarkResults) -> f64 {
+    fn calculate_efficiency_rating(
+        &self,
+        hybrid: &DeviceBenchmarkResults,
+        cpu: &DeviceBenchmarkResults,
+    ) -> f64 {
         // 各演算の改善度を重み付け平均
         let weights = [0.2, 0.3, 0.2, 0.1, 0.2]; // [add, matmul, conv, relu, mixed]
         let improvements = [
@@ -571,17 +707,36 @@ impl GPUNeuralEngineBenchmark {
             cpu.mixed_operations / hybrid.mixed_operations,
         ];
 
-        improvements.iter().zip(weights.iter()).map(|(imp, weight)| imp * weight).sum::<f64>()
+        improvements
+            .iter()
+            .zip(weights.iter())
+            .map(|(imp, weight)| imp * weight)
+            .sum::<f64>()
     }
 
     /// デバイス別結果表示
     fn print_device_results(&self, results: &DeviceBenchmarkResults) {
         println!("  {} 結果:", results.device_name);
-        println!("    Tensor addition:       {:.6} ms", results.tensor_addition);
-        println!("    Matrix multiplication: {:.6} ms", results.matrix_multiplication);
-        println!("    Convolution 2D:        {:.6} ms", results.convolution_2d);
-        println!("    Activation (ReLU):     {:.6} ms", results.activation_relu);
-        println!("    Mixed operations:      {:.6} ms", results.mixed_operations);
+        println!(
+            "    Tensor addition:       {:.6} ms",
+            results.tensor_addition
+        );
+        println!(
+            "    Matrix multiplication: {:.6} ms",
+            results.matrix_multiplication
+        );
+        println!(
+            "    Convolution 2D:        {:.6} ms",
+            results.convolution_2d
+        );
+        println!(
+            "    Activation (ReLU):     {:.6} ms",
+            results.activation_relu
+        );
+        println!(
+            "    Mixed operations:      {:.6} ms",
+            results.mixed_operations
+        );
         println!("    Total time:            {:.6} ms", results.total_time);
     }
 
@@ -597,31 +752,68 @@ impl GPUNeuralEngineBenchmark {
         println!("|------|-----|-----------|---------------|--------|----------|");
 
         let operations = [
-            ("Tensor Addition",
-             results.cpu_results.tensor_addition,
-             results.metal_gpu_results.as_ref().map(|r| r.tensor_addition),
-             results.neural_engine_results.as_ref().map(|r| r.tensor_addition),
-             results.hybrid_results.tensor_addition),
-            ("Matrix Multiplication",
-             results.cpu_results.matrix_multiplication,
-             results.metal_gpu_results.as_ref().map(|r| r.matrix_multiplication),
-             results.neural_engine_results.as_ref().map(|r| r.matrix_multiplication),
-             results.hybrid_results.matrix_multiplication),
-            ("Convolution 2D",
-             results.cpu_results.convolution_2d,
-             results.metal_gpu_results.as_ref().map(|r| r.convolution_2d),
-             results.neural_engine_results.as_ref().map(|r| r.convolution_2d),
-             results.hybrid_results.convolution_2d),
-            ("Activation (ReLU)",
-             results.cpu_results.activation_relu,
-             results.metal_gpu_results.as_ref().map(|r| r.activation_relu),
-             results.neural_engine_results.as_ref().map(|r| r.activation_relu),
-             results.hybrid_results.activation_relu),
-            ("Mixed Operations",
-             results.cpu_results.mixed_operations,
-             results.metal_gpu_results.as_ref().map(|r| r.mixed_operations),
-             results.neural_engine_results.as_ref().map(|r| r.mixed_operations),
-             results.hybrid_results.mixed_operations),
+            (
+                "Tensor Addition",
+                results.cpu_results.tensor_addition,
+                results
+                    .metal_gpu_results
+                    .as_ref()
+                    .map(|r| r.tensor_addition),
+                results
+                    .neural_engine_results
+                    .as_ref()
+                    .map(|r| r.tensor_addition),
+                results.hybrid_results.tensor_addition,
+            ),
+            (
+                "Matrix Multiplication",
+                results.cpu_results.matrix_multiplication,
+                results
+                    .metal_gpu_results
+                    .as_ref()
+                    .map(|r| r.matrix_multiplication),
+                results
+                    .neural_engine_results
+                    .as_ref()
+                    .map(|r| r.matrix_multiplication),
+                results.hybrid_results.matrix_multiplication,
+            ),
+            (
+                "Convolution 2D",
+                results.cpu_results.convolution_2d,
+                results.metal_gpu_results.as_ref().map(|r| r.convolution_2d),
+                results
+                    .neural_engine_results
+                    .as_ref()
+                    .map(|r| r.convolution_2d),
+                results.hybrid_results.convolution_2d,
+            ),
+            (
+                "Activation (ReLU)",
+                results.cpu_results.activation_relu,
+                results
+                    .metal_gpu_results
+                    .as_ref()
+                    .map(|r| r.activation_relu),
+                results
+                    .neural_engine_results
+                    .as_ref()
+                    .map(|r| r.activation_relu),
+                results.hybrid_results.activation_relu,
+            ),
+            (
+                "Mixed Operations",
+                results.cpu_results.mixed_operations,
+                results
+                    .metal_gpu_results
+                    .as_ref()
+                    .map(|r| r.mixed_operations),
+                results
+                    .neural_engine_results
+                    .as_ref()
+                    .map(|r| r.mixed_operations),
+                results.hybrid_results.mixed_operations,
+            ),
         ];
 
         for (op_name, cpu_time, metal_time, neural_time, hybrid_time) in operations.iter() {
@@ -631,7 +823,10 @@ impl GPUNeuralEngineBenchmark {
                 *neural_time,
                 Some(*hybrid_time),
             ];
-            let best_time = times.iter().filter_map(|&x| x).fold(f64::INFINITY, f64::min);
+            let best_time = times
+                .iter()
+                .filter_map(|&x| x)
+                .fold(f64::INFINITY, f64::min);
             let best_device = if best_time == *cpu_time {
                 "CPU"
             } else if metal_time.map_or(false, |t| t == best_time) {
@@ -642,7 +837,8 @@ impl GPUNeuralEngineBenchmark {
                 "Hybrid"
             };
 
-            println!("| {} | {:.3} | {} | {} | {:.3} | {} |",
+            println!(
+                "| {} | {:.3} | {} | {} | {:.3} | {} |",
                 op_name,
                 cpu_time,
                 metal_time.map_or("N/A".to_string(), |t| format!("{:.3}", t)),
@@ -667,13 +863,18 @@ impl GPUNeuralEngineBenchmark {
 
         // 推奨事項
         println!("\n💡 推奨事項:");
-        if results.hybrid_results.matrix_multiplication < results.cpu_results.matrix_multiplication {
+        if results.hybrid_results.matrix_multiplication < results.cpu_results.matrix_multiplication
+        {
             println!("  ✓ 大規模行列演算にはハイブリッド実行が効果的");
         }
-        if results.neural_engine_results.as_ref().map_or(false, |r| r.activation_relu < results.cpu_results.activation_relu) {
+        if results.neural_engine_results.as_ref().map_or(false, |r| {
+            r.activation_relu < results.cpu_results.activation_relu
+        }) {
             println!("  ✓ 活性化関数にはNeural Engineが最適");
         }
-        if results.metal_gpu_results.as_ref().map_or(false, |r| r.matrix_multiplication < results.cpu_results.matrix_multiplication) {
+        if results.metal_gpu_results.as_ref().map_or(false, |r| {
+            r.matrix_multiplication < results.cpu_results.matrix_multiplication
+        }) {
             println!("  ✓ Metal GPUは大規模線形代数で威力発揮");
         }
 

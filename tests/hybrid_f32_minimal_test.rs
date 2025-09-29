@@ -3,7 +3,7 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::core::{F32Tensor, DeviceState};
+    use rustorch::hybrid_f32::tensor::core::{DeviceState, F32Tensor};
 
     #[test]
     fn test_f32_tensor_creation() {
@@ -36,7 +36,7 @@ mod tests {
     #[test]
     fn test_tensor_properties() {
         let tensor = F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0], &[2, 2]).unwrap();
-        
+
         // 形状関連
         assert_eq!(tensor.shape(), &[2, 2]);
         assert_eq!(tensor.numel(), 4);

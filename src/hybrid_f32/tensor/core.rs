@@ -1,11 +1,11 @@
 //! F32Tensor - コア実装
 //! F32Tensor - Core implementation
 
-use crate::error::{RusTorchResult, RusTorchError};
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::hybrid_f32_experimental;
 use ndarray::{Array, IxDyn};
-use std::sync::Arc;
 use std::ops::{Index, IndexMut};
+use std::sync::Arc;
 
 /// 2次元インデックス
 /// 2D index
@@ -106,7 +106,7 @@ impl Clone for F32Tensor {
 // PyTorchライクな演算子オーバーロード
 // PyTorch-like operator overloading
 
-use std::ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign, Neg};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 /// Addition operator: tensor + tensor
 impl Add<F32Tensor> for F32Tensor {
@@ -362,7 +362,7 @@ impl F32Tensor {
     /// Create zero tensor
     pub fn zeros(shape: &[usize]) -> RusTorchResult<Self> {
         hybrid_f32_experimental!();
-        
+
         let data = Array::zeros(IxDyn(shape));
         Ok(Self {
             data,
@@ -378,20 +378,21 @@ impl F32Tensor {
     /// Create random normal tensor
     pub fn randn(shape: &[usize]) -> RusTorchResult<Self> {
         hybrid_f32_experimental!();
-        
-        use rand_distr::StandardNormal;
+
         use rand::Rng;
-        
+        use rand_distr::StandardNormal;
+
         let mut rng = rand::thread_rng();
         let size: usize = shape.iter().product();
         let data: Vec<f32> = (0..size).map(|_| rng.sample(StandardNormal)).collect();
-        
-        let array = Array::from_shape_vec(IxDyn(shape), data)
-            .map_err(|e| RusTorchError::InvalidParameters {
+
+        let array = Array::from_shape_vec(IxDyn(shape), data).map_err(|e| {
+            RusTorchError::InvalidParameters {
                 operation: "randn".to_string(),
                 message: format!("Shape error: {}", e),
-            })?;
-        
+            }
+        })?;
+
         Ok(Self {
             data: array,
             metal_buffer: None,
@@ -406,7 +407,7 @@ impl F32Tensor {
     /// Create tensor from scalar
     pub fn from_scalar(value: f32) -> RusTorchResult<Self> {
         hybrid_f32_experimental!();
-        
+
         let data = Array::from_elem(IxDyn(&[1]), value);
         Ok(Self {
             data,
@@ -434,7 +435,7 @@ impl F32Tensor {
     /// Transfer to Metal GPU
     pub fn to_metal(&mut self, device_id: usize) -> RusTorchResult<()> {
         hybrid_f32_experimental!();
-        
+
         self.device_state = DeviceState::Metal { device_id };
         self.metal_buffer = Some(Arc::new(MetalBuffer::new(device_id, self.data.len())));
         Ok(())
@@ -444,7 +445,7 @@ impl F32Tensor {
     /// Transfer to CoreML Neural Engine
     pub fn to_coreml(&mut self, device_id: usize) -> RusTorchResult<()> {
         hybrid_f32_experimental!();
-        
+
         self.device_state = DeviceState::CoreML { device_id };
         self.coreml_buffer = Some(Arc::new(CoreMLBuffer::new(device_id, self.shape.clone())));
         Ok(())
@@ -486,12 +487,12 @@ impl F32Tensor {
                 shape: self.shape.clone(),
             });
         }
-        
+
         // 形状の互換性チェック（通常のテンソル演算）
         if self.shape != other.shape {
             return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
-        
+
         let result_data = &self.data + &other.data;
         Ok(Self {
             data: result_data,
@@ -524,7 +525,7 @@ impl F32Tensor {
         if self.shape.len() == 2 && other.shape.len() == 2 {
             let (m, k) = (self.shape[0], self.shape[1]);
             let (k2, n) = (other.shape[0], other.shape[1]);
-            
+
             if k != k2 {
                 return Err(RusTorchError::InvalidParameters {
                     operation: "matmul".to_string(),
@@ -534,7 +535,7 @@ impl F32Tensor {
 
             let result_shape = vec![m, n];
             let mut result_data = vec![0.0f32; m * n];
-            
+
             for i in 0..m {
                 for j in 0..n {
                     let mut sum = 0.0;
@@ -544,13 +545,14 @@ impl F32Tensor {
                     result_data[i * n + j] = sum;
                 }
             }
-            
-            let array = Array::from_shape_vec(IxDyn(&result_shape), result_data)
-                .map_err(|e| RusTorchError::InvalidParameters {
+
+            let array = Array::from_shape_vec(IxDyn(&result_shape), result_data).map_err(|e| {
+                RusTorchError::InvalidParameters {
                     operation: "matmul".to_string(),
                     message: format!("Shape error: {}", e),
-                })?;
-            
+                }
+            })?;
+
             Ok(Self {
                 data: array,
                 metal_buffer: None,
@@ -573,7 +575,7 @@ impl F32Tensor {
         if self.shape.len() == 2 {
             let transposed = self.data.view().reversed_axes().to_owned();
             let new_shape = vec![self.shape[1], self.shape[0]];
-            
+
             Ok(Self {
                 data: transposed,
                 metal_buffer: None,
@@ -613,7 +615,13 @@ impl F32Tensor {
     /// より大きい要素マスク
     /// Greater than element mask
     pub fn gt(&self, other: &Self) -> RusTorchResult<Self> {
-        let result_data = self.data.mapv(|x| if x > other.data.iter().next().copied().unwrap_or(0.0) { 1.0 } else { 0.0 });
+        let result_data = self.data.mapv(|x| {
+            if x > other.data.iter().next().copied().unwrap_or(0.0) {
+                1.0
+            } else {
+                0.0
+            }
+        });
         Ok(Self {
             data: result_data,
             metal_buffer: None,
@@ -627,7 +635,13 @@ impl F32Tensor {
     /// より小さいか等しい要素マスク
     /// Less than or equal element mask
     pub fn le(&self, other: &Self) -> RusTorchResult<Self> {
-        let result_data = self.data.mapv(|x| if x <= other.data.iter().next().copied().unwrap_or(0.0) { 1.0 } else { 0.0 });
+        let result_data = self.data.mapv(|x| {
+            if x <= other.data.iter().next().copied().unwrap_or(0.0) {
+                1.0
+            } else {
+                0.0
+            }
+        });
         Ok(Self {
             data: result_data,
             metal_buffer: None,
@@ -725,7 +739,9 @@ impl F32Tensor {
     /// 最大値（要素ごと）
     /// Element-wise maximum
     pub fn maximum(&self, other: &Self) -> RusTorchResult<Self> {
-        let result_data = self.data.mapv(|x| x.max(other.data.iter().next().copied().unwrap_or(0.0)));
+        let result_data = self
+            .data
+            .mapv(|x| x.max(other.data.iter().next().copied().unwrap_or(0.0)));
         Ok(Self {
             data: result_data,
             metal_buffer: None,
@@ -739,7 +755,9 @@ impl F32Tensor {
     /// 最小値（要素ごと）
     /// Element-wise minimum
     pub fn minimum(&self, other: &Self) -> RusTorchResult<Self> {
-        let result_data = self.data.mapv(|x| x.min(other.data.iter().next().copied().unwrap_or(0.0)));
+        let result_data = self
+            .data
+            .mapv(|x| x.min(other.data.iter().next().copied().unwrap_or(0.0)));
         Ok(Self {
             data: result_data,
             metal_buffer: None,
@@ -767,12 +785,14 @@ impl F32Tensor {
     /// 最大値のインデックス
     /// Index of maximum value
     pub fn argmax(&self) -> RusTorchResult<Self> {
-        let max_idx = self.data.iter()
+        let max_idx = self
+            .data
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx as f32)
             .unwrap_or(0.0);
-        
+
         Self::from_scalar(max_idx)
     }
 
@@ -783,11 +803,18 @@ impl F32Tensor {
         if new_size != self.data.len() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "reshape".to_string(),
-                message: format!("Cannot reshape tensor of size {} to size {}", self.data.len(), new_size),
+                message: format!(
+                    "Cannot reshape tensor of size {} to size {}",
+                    self.data.len(),
+                    new_size
+                ),
             });
         }
 
-        let reshaped_data = self.data.clone().into_shape_with_order(IxDyn(new_shape))
+        let reshaped_data = self
+            .data
+            .clone()
+            .into_shape_with_order(IxDyn(new_shape))
             .map_err(|e| RusTorchError::InvalidParameters {
                 operation: "reshape".to_string(),
                 message: format!("Reshape error: {}", e),
@@ -849,19 +876,19 @@ impl F32Tensor {
                 shape: self.shape.clone(),
             });
         }
-        
+
         // 形状の互換性チェック（通常のテンソル演算）
         if self.shape != other.shape {
             return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
-        
+
         // ゼロ除算チェック
         for &value in other.data.iter() {
             if value == 0.0 {
                 return Err(RusTorchError::tensor_op("Division by zero"));
             }
         }
-        
+
         let result_data = &self.data / &other.data;
         Ok(Self {
             data: result_data,
@@ -890,12 +917,12 @@ impl F32Tensor {
                 shape: self.shape.clone(),
             });
         }
-        
+
         // 形状の互換性チェック（通常のテンソル演算）
         if self.shape != other.shape {
             return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
-        
+
         let result_data = &self.data - &other.data;
         Ok(Self {
             data: result_data,
@@ -924,12 +951,12 @@ impl F32Tensor {
                 shape: self.shape.clone(),
             });
         }
-        
+
         // 形状の互換性チェック（通常のテンソル演算）
         if self.shape != other.shape {
             return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
         }
-        
+
         let result_data = &self.data * &other.data;
         Ok(Self {
             data: result_data,
@@ -973,7 +1000,9 @@ impl F32Tensor {
     /// Calculate mean of all elements
     pub fn mean(&self) -> RusTorchResult<f32> {
         if self.data.is_empty() {
-            return Err(RusTorchError::tensor_op("Cannot calculate mean of empty tensor"));
+            return Err(RusTorchError::tensor_op(
+                "Cannot calculate mean of empty tensor",
+            ));
         }
         Ok(self.data.mean().unwrap())
     }
@@ -982,7 +1011,9 @@ impl F32Tensor {
     /// Calculate minimum value
     pub fn min(&self) -> RusTorchResult<f32> {
         if self.data.is_empty() {
-            return Err(RusTorchError::tensor_op("Cannot calculate min of empty tensor"));
+            return Err(RusTorchError::tensor_op(
+                "Cannot calculate min of empty tensor",
+            ));
         }
         let min_val = self.data.iter().cloned().fold(f32::INFINITY, f32::min);
         Ok(min_val)
@@ -992,7 +1023,9 @@ impl F32Tensor {
     /// Calculate maximum value
     pub fn max(&self) -> RusTorchResult<f32> {
         if self.data.is_empty() {
-            return Err(RusTorchError::tensor_op("Cannot calculate max of empty tensor"));
+            return Err(RusTorchError::tensor_op(
+                "Cannot calculate max of empty tensor",
+            ));
         }
         let max_val = self.data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
         Ok(max_val)
@@ -1012,8 +1045,6 @@ impl F32Tensor {
         Self::from_scalar(sum_val)
     }
 
-    
-
     /// データからテンソル作成
     /// Create tensor from vector data
     pub fn from_vec(data: Vec<f32>, shape: &[usize]) -> RusTorchResult<Self> {
@@ -1021,15 +1052,20 @@ impl F32Tensor {
         if data.len() != expected_size {
             return Err(RusTorchError::InvalidParameters {
                 operation: "from_vec".to_string(),
-                message: format!("Data length {} doesn't match shape size {}", data.len(), expected_size),
+                message: format!(
+                    "Data length {} doesn't match shape size {}",
+                    data.len(),
+                    expected_size
+                ),
             });
         }
 
-        let array = Array::from_shape_vec(IxDyn(shape), data)
-            .map_err(|e| RusTorchError::InvalidParameters {
+        let array = Array::from_shape_vec(IxDyn(shape), data).map_err(|e| {
+            RusTorchError::InvalidParameters {
                 operation: "from_vec".to_string(),
                 message: format!("Shape error: {}", e),
-            })?;
+            }
+        })?;
 
         Ok(Self {
             data: array,
@@ -1129,7 +1165,9 @@ impl F32Tensor {
                 operation: "try_reshape".to_string(),
                 message: format!(
                     "Cannot reshape tensor with {} elements to shape {:?} ({} elements)",
-                    self.numel(), new_shape, new_numel
+                    self.numel(),
+                    new_shape,
+                    new_numel
                 ),
             });
         }
@@ -1140,9 +1178,10 @@ impl F32Tensor {
     /// Safe transpose
     pub fn try_transpose(&self) -> RusTorchResult<F32Tensor> {
         if self.ndim() != 2 {
-            return Err(crate::error::RusTorchError::InvalidOperation(
-                format!("transpose requires 2D tensor, got {}D", self.ndim())
-            ));
+            return Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "transpose requires 2D tensor, got {}D",
+                self.ndim()
+            )));
         }
         self.transpose()
     }
@@ -1155,7 +1194,9 @@ impl F32Tensor {
                 operation: "try_slice".to_string(),
                 message: format!(
                     "Expected {} slice ranges for {}D tensor, got {}",
-                    self.ndim(), self.ndim(), ranges.len()
+                    self.ndim(),
+                    self.ndim(),
+                    ranges.len()
                 ),
             });
         }
@@ -1225,9 +1266,7 @@ impl F32Tensor {
         }
 
         let data = self.data.as_slice().ok_or_else(|| {
-            crate::error::RusTorchError::InvalidOperation(
-                "Cannot access tensor data".to_string()
-            )
+            crate::error::RusTorchError::InvalidOperation("Cannot access tensor data".to_string())
         })?;
 
         Ok(data.iter().map(|&x| T::from(x)).collect())
@@ -1241,7 +1280,9 @@ impl F32Tensor {
                 operation: "try_get".to_string(),
                 message: format!(
                     "Expected {} indices for {}D tensor, got {}",
-                    self.ndim(), self.ndim(), indices.len()
+                    self.ndim(),
+                    self.ndim(),
+                    indices.len()
                 ),
             });
         }
@@ -1249,7 +1290,10 @@ impl F32Tensor {
         let shape = self.shape();
         for (i, &idx) in indices.iter().enumerate() {
             if idx >= shape[i] {
-                return Err(crate::error::RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
+                return Err(crate::error::RusTorchError::index_out_of_bounds(
+                    &[idx],
+                    &[shape[i]],
+                ));
             }
         }
 
@@ -1262,9 +1306,7 @@ impl F32Tensor {
         }
 
         let data = self.data.as_slice().ok_or_else(|| {
-            crate::error::RusTorchError::InvalidOperation(
-                "Cannot access tensor data".to_string()
-            )
+            crate::error::RusTorchError::InvalidOperation("Cannot access tensor data".to_string())
         })?;
 
         Ok(data[flat_index])
@@ -1285,7 +1327,9 @@ impl F32Tensor {
                 operation: "try_set".to_string(),
                 message: format!(
                     "Expected {} indices for {}D tensor, got {}",
-                    self.ndim(), self.ndim(), indices.len()
+                    self.ndim(),
+                    self.ndim(),
+                    indices.len()
                 ),
             });
         }
@@ -1293,7 +1337,10 @@ impl F32Tensor {
         let shape = self.shape();
         for (i, &idx) in indices.iter().enumerate() {
             if idx >= shape[i] {
-                return Err(crate::error::RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
+                return Err(crate::error::RusTorchError::index_out_of_bounds(
+                    &[idx],
+                    &[shape[i]],
+                ));
             }
         }
 
@@ -1307,7 +1354,7 @@ impl F32Tensor {
 
         let data = self.data.as_slice_mut().ok_or_else(|| {
             crate::error::RusTorchError::InvalidOperation(
-                "Cannot access tensor data for modification".to_string()
+                "Cannot access tensor data for modification".to_string(),
             )
         })?;
 
@@ -1339,22 +1386,29 @@ impl F32Tensor {
     /// Add dimension (unsqueeze)
     pub fn unsqueeze(&self, dim: usize) -> RusTorchResult<Self> {
         let mut new_shape = self.shape.clone();
-        
+
         if dim > new_shape.len() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "unsqueeze".to_string(),
-                message: format!("Dimension {} out of bounds for tensor with {} dimensions", dim, new_shape.len()),
+                message: format!(
+                    "Dimension {} out of bounds for tensor with {} dimensions",
+                    dim,
+                    new_shape.len()
+                ),
             });
         }
-        
+
         new_shape.insert(dim, 1);
-        
-        let reshaped_data = self.data.clone().into_shape_with_order(IxDyn(&new_shape))
+
+        let reshaped_data = self
+            .data
+            .clone()
+            .into_shape_with_order(IxDyn(&new_shape))
             .map_err(|e| RusTorchError::InvalidParameters {
                 operation: "unsqueeze".to_string(),
                 message: format!("Reshape error: {}", e),
             })?;
-        
+
         Ok(Self {
             data: reshaped_data,
             metal_buffer: None,
@@ -1371,40 +1425,47 @@ impl F32Tensor {
         if new_shape.len() != self.shape.len() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "expand".to_string(),
-                message: format!("Cannot expand from {} dimensions to {} dimensions", 
-                                self.shape.len(), new_shape.len()),
+                message: format!(
+                    "Cannot expand from {} dimensions to {} dimensions",
+                    self.shape.len(),
+                    new_shape.len()
+                ),
             });
         }
-        
+
         // Check that each dimension can be expanded
         for (i, (&current, &target)) in self.shape.iter().zip(new_shape.iter()).enumerate() {
             if current != 1 && current != target {
                 return Err(RusTorchError::InvalidParameters {
                     operation: "expand".to_string(),
-                    message: format!("Cannot expand dimension {} from {} to {}", i, current, target),
+                    message: format!(
+                        "Cannot expand dimension {} from {} to {}",
+                        i, current, target
+                    ),
                 });
             }
         }
-        
+
         // For now, create a simple broadcasted version by repeating data
         let total_size: usize = new_shape.iter().product();
         let mut expanded_data = Vec::with_capacity(total_size);
-        
+
         // Simple expansion logic - repeat the pattern
         let source_data = self.data.as_slice().unwrap();
         let source_size = source_data.len();
         let repeat_count = total_size / source_size;
-        
+
         for _ in 0..repeat_count {
             expanded_data.extend_from_slice(source_data);
         }
-        
-        let array = Array::from_shape_vec(IxDyn(new_shape), expanded_data)
-            .map_err(|e| RusTorchError::InvalidParameters {
+
+        let array = Array::from_shape_vec(IxDyn(new_shape), expanded_data).map_err(|e| {
+            RusTorchError::InvalidParameters {
                 operation: "expand".to_string(),
                 message: format!("Shape error: {}", e),
-            })?;
-        
+            }
+        })?;
+
         Ok(Self {
             data: array,
             metal_buffer: None,
@@ -1421,25 +1482,29 @@ impl F32Tensor {
         if dim1 >= self.shape.len() || dim2 >= self.shape.len() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "transpose_dims".to_string(),
-                message: format!("Dimension indices {} and {} out of bounds for tensor with {} dimensions", 
-                                dim1, dim2, self.shape.len()),
+                message: format!(
+                    "Dimension indices {} and {} out of bounds for tensor with {} dimensions",
+                    dim1,
+                    dim2,
+                    self.shape.len()
+                ),
             });
         }
-        
+
         if dim1 == dim2 {
             return Ok(self.clone());
         }
-        
+
         // Create new shape with swapped dimensions
         let mut new_shape = self.shape.clone();
         new_shape.swap(dim1, dim2);
-        
+
         // For ndarray, we need to use swap_axes
         let mut transposed_data = self.data.clone();
-        
+
         // Use ndarray's swap_axes method
         transposed_data.swap_axes(dim1, dim2);
-        
+
         Ok(Self {
             data: transposed_data,
             metal_buffer: None,
@@ -1455,27 +1520,30 @@ impl F32Tensor {
     pub fn softmax(&self, dim: Option<usize>) -> RusTorchResult<Self> {
         // Apply softmax along the last dimension by default
         let softmax_dim = dim.unwrap_or(self.shape.len().saturating_sub(1));
-        
+
         if softmax_dim >= self.shape.len() {
             return Err(RusTorchError::InvalidParameters {
                 operation: "softmax".to_string(),
-                message: format!("Dimension {} out of bounds for tensor with {} dimensions", 
-                                softmax_dim, self.shape.len()),
+                message: format!(
+                    "Dimension {} out of bounds for tensor with {} dimensions",
+                    softmax_dim,
+                    self.shape.len()
+                ),
             });
         }
-        
+
         // For numerical stability, subtract the maximum value
         let max_val = self.data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
         let max_tensor = F32Tensor::from_scalar(max_val)?;
         let shifted = self.sub(&max_tensor)?;
-        
+
         // Compute exp
         let exp_data = shifted.exp()?;
-        
+
         // Compute sum for normalization
         let sum_val = exp_data.data.sum();
         let sum_tensor = F32Tensor::from_scalar(sum_val)?;
-        
+
         // Divide by sum
         exp_data.divide(&sum_tensor)
     }
@@ -1496,16 +1564,16 @@ impl F32Tensor {
 
         let (m, n) = (self.shape[0], self.shape[1]);
         let min_dim = m.min(n);
-        
+
         // Q行列の初期化（単位行列）
         let mut q_data = vec![0.0f32; m * m];
         for i in 0..m {
             q_data[i * m + i] = 1.0;
         }
-        
+
         // R行列の初期化（Aのコピー）
         let mut r_data = self.data.as_slice().unwrap().to_vec();
-        
+
         // Householder変換によるQR分解
         for k in 0..min_dim {
             // k列目の対角要素以下のベクトル抽出
@@ -1513,47 +1581,51 @@ impl F32Tensor {
             for i in k..m {
                 v[i - k] = r_data[i * n + k];
             }
-            
+
             // Householder反射ベクトル計算
             let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm == 0.0 { continue; }
-            
+            if norm == 0.0 {
+                continue;
+            }
+
             v[0] += if v[0] >= 0.0 { norm } else { -norm };
             let v_norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if v_norm == 0.0 { continue; }
-            
+            if v_norm == 0.0 {
+                continue;
+            }
+
             for i in 0..v.len() {
                 v[i] /= v_norm;
             }
-            
+
             // Householder変換をR行列に適用
             for j in k..n {
                 let mut dot_product = 0.0;
                 for i in k..m {
                     dot_product += v[i - k] * r_data[i * n + j];
                 }
-                
+
                 for i in k..m {
                     r_data[i * n + j] -= 2.0 * v[i - k] * dot_product;
                 }
             }
-            
+
             // Householder変換をQ行列に適用
             for j in 0..m {
                 let mut dot_product = 0.0;
                 for i in k..m {
                     dot_product += v[i - k] * q_data[i * m + j];
                 }
-                
+
                 for i in k..m {
                     q_data[i * m + j] -= 2.0 * v[i - k] * dot_product;
                 }
             }
         }
-        
+
         let q = F32Tensor::from_vec(q_data, &[m, m])?;
         let r = F32Tensor::from_vec(r_data, &[m, n])?;
-        
+
         Ok((q, r))
     }
 
@@ -1570,7 +1642,7 @@ impl F32Tensor {
         let n = self.shape[0];
         let mut l_data = vec![0.0f32; n * n];
         let a_data = self.data.as_slice().unwrap();
-        
+
         for i in 0..n {
             for j in 0..=i {
                 if i == j {
@@ -1597,7 +1669,7 @@ impl F32Tensor {
                 }
             }
         }
-        
+
         F32Tensor::from_vec(l_data, &[n, n])
     }
 
@@ -1612,37 +1684,40 @@ impl F32Tensor {
         }
 
         let (m, n) = (self.shape[0], self.shape[1]);
-        
+
         // 簡易版SVD（反復法）
         // A^T * A の固有値分解によりV, Σを求める
         let at = self.transpose()?;
         let ata = at.matmul(self)?;
-        
+
         // 最大固有値とその固有ベクトルを求める（Power method）
         let mut v = F32Tensor::randn(&[n, 1])?;
-        
-        for _ in 0..100 { // 最大100回反復
+
+        for _ in 0..100 {
+            // 最大100回反復
             let av = ata.matmul(&v)?;
             let norm = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm == 0.0 { break; }
-            
+            if norm == 0.0 {
+                break;
+            }
+
             v = av.mul_scalar(1.0 / norm)?;
         }
-        
+
         // σ = ||Av||
         let av = self.matmul(&v)?;
         let sigma = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
-        
+
         // u = Av / σ
         let u = if sigma > 1e-10 {
             av.mul_scalar(1.0 / sigma)?
         } else {
             F32Tensor::zeros(&[m, 1])?
         };
-        
+
         // 簡易版では単一の特異値のみ返す
         let s = F32Tensor::from_scalar(sigma)?;
-        
+
         Ok((u, s, v))
     }
 
@@ -1657,30 +1732,33 @@ impl F32Tensor {
         }
 
         let n = self.shape[0];
-        
+
         // Power methodで最大固有値と固有ベクトルを求める
         let mut v = F32Tensor::randn(&[n, 1])?;
         let mut eigenvalue = 0.0;
-        
-        for _ in 0..100 { // 最大100回反復
+
+        for _ in 0..100 {
+            // 最大100回反復
             let av = self.matmul(&v)?;
-            
+
             // Rayleigh商で固有値を近似
             let vt_av = v.transpose()?.matmul(&av)?;
             let vt_v = v.transpose()?.matmul(&v)?;
-            
+
             eigenvalue = vt_av.unwrap()? / vt_v.unwrap()?;
-            
+
             // 正規化
             let norm = av.data.iter().map(|x| x * x).sum::<f32>().sqrt();
-            if norm < 1e-10 { break; }
-            
+            if norm < 1e-10 {
+                break;
+            }
+
             v = av.mul_scalar(1.0 / norm)?;
         }
-        
+
         let eigenvalues = F32Tensor::from_scalar(eigenvalue)?;
         let eigenvectors = v;
-        
+
         Ok((eigenvalues, eigenvectors))
     }
 
@@ -1698,30 +1776,30 @@ impl F32Tensor {
         let mut a_data = self.data.as_slice().unwrap().to_vec();
         let mut l_data = vec![0.0f32; n * n];
         let mut p_data = vec![0.0f32; n * n];
-        
+
         // 置換行列を単位行列で初期化
         for i in 0..n {
             p_data[i * n + i] = 1.0;
         }
-        
-        // L行列を単位行列で初期化  
+
+        // L行列を単位行列で初期化
         for i in 0..n {
             l_data[i * n + i] = 1.0;
         }
-        
+
         // Gaussian elimination with partial pivoting
         for k in 0..n {
             // ピボット選択
             let mut max_row = k;
             let mut max_val = a_data[k * n + k].abs();
-            
+
             for i in (k + 1)..n {
                 if a_data[i * n + k].abs() > max_val {
                     max_val = a_data[i * n + k].abs();
                     max_row = i;
                 }
             }
-            
+
             // 行の交換
             if max_row != k {
                 for j in 0..n {
@@ -1729,7 +1807,7 @@ impl F32Tensor {
                     p_data.swap(k * n + j, max_row * n + j);
                 }
             }
-            
+
             // L行列の計算
             for i in (k + 1)..n {
                 if a_data[k * n + k].abs() < 1e-10 {
@@ -1738,20 +1816,20 @@ impl F32Tensor {
                         message: "Matrix is singular".to_string(),
                     });
                 }
-                
+
                 let factor = a_data[i * n + k] / a_data[k * n + k];
                 l_data[i * n + k] = factor;
-                
+
                 for j in k..n {
                     a_data[i * n + j] -= factor * a_data[k * n + j];
                 }
             }
         }
-        
+
         let p = F32Tensor::from_vec(p_data, &[n, n])?;
         let l = F32Tensor::from_vec(l_data, &[n, n])?;
         let u = F32Tensor::from_vec(a_data, &[n, n])?;
-        
+
         Ok((p, l, u))
     }
 
@@ -1766,16 +1844,16 @@ impl F32Tensor {
         }
 
         let (p, _l, u) = self.lu_decomposition()?;
-        
+
         // U行列の対角要素の積
         let n = self.shape[0];
         let u_data = u.data.as_slice().unwrap();
         let mut det = 1.0;
-        
+
         for i in 0..n {
             det *= u_data[i * n + i];
         }
-        
+
         // 置換行列による符号の修正
         let p_data = p.data.as_slice().unwrap();
         let mut sign = 1.0;
@@ -1787,7 +1865,7 @@ impl F32Tensor {
                 }
             }
         }
-        
+
         Ok(det * sign)
     }
 
@@ -1804,7 +1882,7 @@ impl F32Tensor {
         let n = self.shape[0];
         let mut augmented = vec![0.0f32; n * (2 * n)];
         let a_data = self.data.as_slice().unwrap();
-        
+
         // 拡大行列 [A|I] を構築
         for i in 0..n {
             for j in 0..n {
@@ -1812,27 +1890,27 @@ impl F32Tensor {
                 augmented[i * (2 * n) + (n + j)] = if i == j { 1.0 } else { 0.0 };
             }
         }
-        
+
         // Gauss-Jordan elimination
         for i in 0..n {
             // ピボット選択
             let mut max_row = i;
             let mut max_val = augmented[i * (2 * n) + i].abs();
-            
+
             for k in (i + 1)..n {
                 if augmented[k * (2 * n) + i].abs() > max_val {
                     max_val = augmented[k * (2 * n) + i].abs();
                     max_row = k;
                 }
             }
-            
+
             // 行の交換
             if max_row != i {
                 for j in 0..(2 * n) {
                     augmented.swap(i * (2 * n) + j, max_row * (2 * n) + j);
                 }
             }
-            
+
             // 対角要素で正規化
             let pivot = augmented[i * (2 * n) + i];
             if pivot.abs() < 1e-10 {
@@ -1841,11 +1919,11 @@ impl F32Tensor {
                     message: "Matrix is singular".to_string(),
                 });
             }
-            
+
             for j in 0..(2 * n) {
                 augmented[i * (2 * n) + j] /= pivot;
             }
-            
+
             // 他の行を処理
             for k in 0..n {
                 if k != i {
@@ -1856,7 +1934,7 @@ impl F32Tensor {
                 }
             }
         }
-        
+
         // 逆行列部分を抽出
         let mut inverse_data = vec![0.0f32; n * n];
         for i in 0..n {
@@ -1864,7 +1942,7 @@ impl F32Tensor {
                 inverse_data[i * n + j] = augmented[i * (2 * n) + (n + j)];
             }
         }
-        
+
         F32Tensor::from_vec(inverse_data, &[n, n])
     }
 
@@ -1881,11 +1959,9 @@ impl F32Tensor {
         // 簡易版：ゼロでない特異値の数をカウント
         let (_u, s, _v) = self.svd()?;
         let tolerance = 1e-6;
-        
-        let rank = s.data.iter()
-            .filter(|&&x| x.abs() > tolerance)
-            .count();
-        
+
+        let rank = s.data.iter().filter(|&&x| x.abs() > tolerance).count();
+
         Ok(rank)
     }
 
@@ -1901,16 +1977,17 @@ impl F32Tensor {
 
         let (_u, s, _v) = self.svd()?;
         let s_data = s.data.as_slice().unwrap();
-        
+
         if s_data.is_empty() {
             return Ok(f32::INFINITY);
         }
-        
+
         let max_singular = s_data.iter().fold(0.0f32, |a, &b| a.max(b));
-        let min_singular = s_data.iter()
+        let min_singular = s_data
+            .iter()
             .filter(|&&x| x > 1e-10)
             .fold(f32::INFINITY, |a, &b| a.min(b));
-        
+
         if min_singular == f32::INFINITY || min_singular == 0.0 {
             Ok(f32::INFINITY)
         } else {
@@ -1921,9 +1998,7 @@ impl F32Tensor {
     /// Frobenius ノルム
     /// Frobenius norm
     pub fn frobenius_norm(&self) -> RusTorchResult<f32> {
-        let sum_of_squares = self.data.iter()
-            .map(|&x| x * x)
-            .sum::<f32>();
+        let sum_of_squares = self.data.iter().map(|&x| x * x).sum::<f32>();
         Ok(sum_of_squares.sqrt())
     }
 
@@ -1940,11 +2015,11 @@ impl F32Tensor {
         let n = self.shape[0];
         let data = self.data.as_slice().unwrap();
         let mut trace = 0.0;
-        
+
         for i in 0..n {
             trace += data[i * n + i];
         }
-        
+
         Ok(trace)
     }
 }
@@ -2083,7 +2158,9 @@ impl F32Tensor {
         crate::hybrid_f32_experimental!();
 
         if self.data.is_empty() {
-            return Err(RusTorchError::tensor_op("Cannot calculate std of empty tensor"));
+            return Err(RusTorchError::tensor_op(
+                "Cannot calculate std of empty tensor",
+            ));
         }
 
         let mut context = crate::hybrid_f32::gpu::F32UnifiedGPUContext::new();
@@ -2098,9 +2175,12 @@ impl F32Tensor {
             Some(_axis) => {
                 // 軸指定標準偏差（CPU計算）
                 let mean_val = self.mean()?;
-                let variance = self.data.iter()
+                let variance = self
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (self.data.len() as f32);
+                    .sum::<f32>()
+                    / (self.data.len() as f32);
                 let std_val = variance.sqrt();
                 Self::from_scalar(std_val)
             }
@@ -2113,7 +2193,9 @@ impl F32Tensor {
         crate::hybrid_f32_experimental!();
 
         if self.data.is_empty() {
-            return Err(RusTorchError::tensor_op("Cannot calculate var of empty tensor"));
+            return Err(RusTorchError::tensor_op(
+                "Cannot calculate var of empty tensor",
+            ));
         }
 
         let mut context = crate::hybrid_f32::gpu::F32UnifiedGPUContext::new();
@@ -2128,9 +2210,12 @@ impl F32Tensor {
             Some(_axis) => {
                 // 軸指定分散（CPU計算）
                 let mean_val = self.mean()?;
-                let variance = self.data.iter()
+                let variance = self
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (self.data.len() as f32);
+                    .sum::<f32>()
+                    / (self.data.len() as f32);
                 Self::from_scalar(variance)
             }
         }
@@ -2142,22 +2227,41 @@ impl F32Tensor {
         match operation {
             "sum" => {
                 // Metal/CoreMLで最適化された並列合計
-                println!("🚀 GPU並列リダクション: {} (size={})", operation, self.numel());
+                println!(
+                    "🚀 GPU並列リダクション: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 Ok(self.sum()?) // 実装中はCPU実行
             }
             "mean" => {
-                println!("🚀 GPU並列リダクション: {} (size={})", operation, self.numel());
+                println!(
+                    "🚀 GPU並列リダクション: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 Ok(self.mean()?)
             }
             "min" => {
-                println!("🚀 GPU並列リダクション: {} (size={})", operation, self.numel());
+                println!(
+                    "🚀 GPU並列リダクション: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 Ok(self.min()?)
             }
             "max" => {
-                println!("🚀 GPU並列リダクション: {} (size={})", operation, self.numel());
+                println!(
+                    "🚀 GPU並列リダクション: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 Ok(self.max()?)
             }
-            _ => Err(RusTorchError::tensor_op(&format!("Unsupported reduction operation: {}", operation)))
+            _ => Err(RusTorchError::tensor_op(&format!(
+                "Unsupported reduction operation: {}",
+                operation
+            ))),
         }
     }
 
@@ -2167,22 +2271,39 @@ impl F32Tensor {
         match operation {
             "std" => {
                 // Neural Engineで最適化された標準偏差計算
-                println!("🧠 Neural Engine統計処理: {} (size={})", operation, self.numel());
+                println!(
+                    "🧠 Neural Engine統計処理: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 let mean_val = self.mean()?;
-                let variance = self.data.iter()
+                let variance = self
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (self.data.len() as f32);
+                    .sum::<f32>()
+                    / (self.data.len() as f32);
                 Ok(variance.sqrt())
             }
             "variance" => {
-                println!("🧠 Neural Engine統計処理: {} (size={})", operation, self.numel());
+                println!(
+                    "🧠 Neural Engine統計処理: {} (size={})",
+                    operation,
+                    self.numel()
+                );
                 let mean_val = self.mean()?;
-                let variance = self.data.iter()
+                let variance = self
+                    .data
+                    .iter()
                     .map(|&x| (x - mean_val).powi(2))
-                    .sum::<f32>() / (self.data.len() as f32);
+                    .sum::<f32>()
+                    / (self.data.len() as f32);
                 Ok(variance)
             }
-            _ => Err(RusTorchError::tensor_op(&format!("Unsupported statistics operation: {}", operation)))
+            _ => Err(RusTorchError::tensor_op(&format!(
+                "Unsupported statistics operation: {}",
+                operation
+            ))),
         }
     }
 
@@ -2207,18 +2328,16 @@ impl Index<Index3D> for F32Tensor {
     type Output = f32;
 
     fn index(&self, index: Index3D) -> &Self::Output {
-        let flat_index = index.0 * (self.shape[1] * self.shape[2]) +
-                        index.1 * self.shape[2] +
-                        index.2;
+        let flat_index =
+            index.0 * (self.shape[1] * self.shape[2]) + index.1 * self.shape[2] + index.2;
         &self.data.as_slice().unwrap()[flat_index]
     }
 }
 
 impl IndexMut<Index3D> for F32Tensor {
     fn index_mut(&mut self, index: Index3D) -> &mut Self::Output {
-        let flat_index = index.0 * (self.shape[1] * self.shape[2]) +
-                        index.1 * self.shape[2] +
-                        index.2;
+        let flat_index =
+            index.0 * (self.shape[1] * self.shape[2]) + index.1 * self.shape[2] + index.2;
         &mut self.data.as_slice_mut().unwrap()[flat_index]
     }
 }

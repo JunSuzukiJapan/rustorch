@@ -7,8 +7,8 @@
 //! このモジュールは、f32精度での高効率自動微分を提供し、
 //! Neural Engine、Metal GPU、CPUでの統一実行をサポートします。
 
-use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::error::RusTorchResult;
+use crate::hybrid_f32::tensor::core::F32Tensor;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -182,7 +182,7 @@ impl F32Variable {
             match &mut self.grad {
                 Some(existing_grad) => {
                     *existing_grad = existing_grad.add(grad)?;
-                },
+                }
                 None => {
                     self.grad = Some(grad.clone());
                 }
@@ -343,7 +343,7 @@ impl F32AutogradEngine {
                                 match gradients.get_mut(&input_id) {
                                     Some(existing_grad) => {
                                         *existing_grad = existing_grad.add(&input_grads[i])?;
-                                    },
+                                    }
                                     None => {
                                         gradients.insert(input_id, input_grads[i].clone());
                                     }
@@ -422,9 +422,10 @@ impl F32AutogradContext {
         let mut engine = self.engine.lock().unwrap();
         let mut variables = self.variables.lock().unwrap();
 
-        let requires_grad = self.grad_enabled && inputs.iter().any(|&id| {
-            variables.get(&id).map_or(false, |v| v.requires_grad)
-        });
+        let requires_grad = self.grad_enabled
+            && inputs
+                .iter()
+                .any(|&id| variables.get(&id).map_or(false, |v| v.requires_grad));
 
         let node_id = engine.add_node(operation.to_string(), inputs, gradient_function);
 

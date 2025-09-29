@@ -1,11 +1,14 @@
 //! hybrid_f32統合テスト
 //! hybrid_f32 integration tests
 
-use rustorch::hybrid_f32::tensor::core::F32Tensor;
-use rustorch::hybrid_f32::tensor::core::{Index2D, Index3D};
+#[cfg(feature = "hybrid-f32")]
 use rustorch::error::RusTorchResult;
+#[cfg(feature = "hybrid-f32")]
+use rustorch::hybrid_f32::tensor::core::F32Tensor;
+#[cfg(feature = "hybrid-f32")]
+use rustorch::hybrid_f32::tensor::core::{Index2D, Index3D};
 
-#[cfg(test)]
+#[cfg(all(test, feature = "hybrid-f32"))]
 mod integration_tests {
     use super::*;
 
@@ -13,14 +16,16 @@ mod integration_tests {
     /// Test helper functions
     fn assert_tensor_eq(a: &F32Tensor, b: &F32Tensor, tolerance: f32) {
         assert_eq!(a.shape(), b.shape(), "Shape mismatch");
-        
+
         for i in 0..a.numel() {
             let val_a = a.data.as_slice().unwrap()[i];
             let val_b = b.data.as_slice().unwrap()[i];
             assert!(
                 (val_a - val_b).abs() < tolerance,
                 "Values differ: {} vs {} (tolerance: {})",
-                val_a, val_b, tolerance
+                val_a,
+                val_b,
+                tolerance
             );
         }
     }
@@ -30,17 +35,11 @@ mod integration_tests {
     }
 
     fn create_test_tensor_2d() -> F32Tensor {
-        F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-            &[2, 3],
-        ).unwrap()
+        F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0], &[2, 3]).unwrap()
     }
 
     fn create_test_tensor_3d() -> F32Tensor {
-        F32Tensor::new(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            &[2, 2, 2],
-        ).unwrap()
+        F32Tensor::new(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &[2, 2, 2]).unwrap()
     }
 
     #[test]
@@ -184,7 +183,7 @@ mod integration_tests {
         // エラーケース
         assert!(tensor.try_get(&[2, 0]).is_err()); // 行が範囲外
         assert!(tensor.try_get(&[0, 3]).is_err()); // 列が範囲外
-        assert!(tensor.try_get(&[0]).is_err());    // 次元数不一致
+        assert!(tensor.try_get(&[0]).is_err()); // 次元数不一致
         assert!(tensor.try_get(&[0, 1, 2]).is_err()); // 次元数不一致
 
         // 安全な設定
@@ -205,7 +204,9 @@ mod integration_tests {
         assert!(result.is_err());
 
         // ゼロ除算エラー（try_div_scalarを使用）
-        let zero_div = a.try_mul_scalar(1.0).and_then(|t| t.try_div(&F32Tensor::from_vec(vec![0.0, 0.0], &[2]).unwrap()));
+        let zero_div = a
+            .try_mul_scalar(1.0)
+            .and_then(|t| t.try_div(&F32Tensor::from_vec(vec![0.0, 0.0], &[2]).unwrap()));
         assert!(zero_div.is_err());
 
         // 無効なテンソル作成
@@ -229,14 +230,14 @@ mod integration_tests {
         // 独立したデータ
         let mut modified = cloned;
         modified[Index2D(0, 0)] = 999.0;
-        
+
         assert_ne!(original[Index2D(0, 0)], modified[Index2D(0, 0)]);
     }
 
     #[test]
     fn test_gradient_tracking() {
         let mut tensor = create_test_tensor_1d();
-        
+
         // デフォルトでは勾配追跡なし
         assert!(!tensor.is_grad_enabled());
 
@@ -252,10 +253,12 @@ mod integration_tests {
     #[test]
     fn test_device_state() {
         let tensor = create_test_tensor_1d();
-        
+
         // デフォルトはCPU
-        assert!(matches!(tensor.device_state(), 
-                         rustorch::hybrid_f32::tensor::core::DeviceState::CPU));
+        assert!(matches!(
+            tensor.device_state(),
+            rustorch::hybrid_f32::tensor::core::DeviceState::CPU
+        ));
     }
 
     #[test]
@@ -281,15 +284,16 @@ mod integration_tests {
         // 浮動小数点精度テスト
         let a = F32Tensor::from_vec(vec![0.1, 0.2], &[2]).unwrap();
         let b = F32Tensor::from_vec(vec![0.3, 0.4], &[2]).unwrap();
-        
+
         let sum = (&a + &b).unwrap();
-        
+
         // f32の精度を考慮した比較
         assert!((sum[0] - 0.4).abs() < 1e-6);
         assert!((sum[1] - 0.6).abs() < 1e-6);
 
         // 特殊値のテスト
-        let special = F32Tensor::from_vec(vec![f32::INFINITY, f32::NEG_INFINITY, f32::NAN], &[3]).unwrap();
+        let special =
+            F32Tensor::from_vec(vec![f32::INFINITY, f32::NEG_INFINITY, f32::NAN], &[3]).unwrap();
         assert!(special[0].is_infinite());
         assert!(special[1].is_infinite());
         assert!(special[2].is_nan());
@@ -303,12 +307,16 @@ mod integration_tests {
         let size = 1000;
         let a = F32Tensor::ones(&[size]).unwrap();
         let b = F32Tensor::ones(&[size]).unwrap();
-        
+
         let start = Instant::now();
         let _result = (&a + &b).unwrap();
         let elapsed = start.elapsed();
-        
+
         // パフォーマンスは環境依存だが、異常に遅くないことを確認
-        assert!(elapsed.as_millis() < 100, "Addition took too long: {:?}", elapsed);
+        assert!(
+            elapsed.as_millis() < 100,
+            "Addition took too long: {:?}",
+            elapsed
+        );
     }
 }

@@ -1,8 +1,8 @@
 //! 実験結果管理モジュール
 //! Experiment results management module
 
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use serde::{Serialize, Deserialize};
 
 /// 実験結果構造体
 /// Experiment results structure
@@ -84,7 +84,11 @@ impl ExperimentResults {
             - Conversion Cost Reduction: {:.2}%\n",
             self.performance_gain * 100.0,
             self.memory_efficiency * 100.0,
-            if self.accuracy_maintained { "Yes" } else { "No" },
+            if self.accuracy_maintained {
+                "Yes"
+            } else {
+                "No"
+            },
             self.device_compatibility.join(", "),
             self.total_execution_time.as_secs_f64(),
             self.conversion_cost_reduction * 100.0

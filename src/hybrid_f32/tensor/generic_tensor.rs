@@ -1,13 +1,13 @@
 // ジェネリックテンソル統一API
 // Generic tensor unified API
 
-use std::fmt::Debug;
-use std::ops::{Add, Sub, Mul, Div, Neg};
-use crate::common::RusTorchResult;
+use super::complex_tensor::ComplexTensor;
 use super::core::F32Tensor;
 use super::f64_tensor::F64Tensor;
-use super::complex_tensor::ComplexTensor;
-use super::type_conversion::{TensorVariant, TensorConversion};
+use super::type_conversion::{TensorConversion, TensorVariant};
+use crate::common::RusTorchResult;
+use std::fmt::Debug;
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
 /// テンソルの基本操作を定義するトレイト
 /// Trait defining basic tensor operations
@@ -181,7 +181,11 @@ impl TensorOps for F32Tensor {
         // mean関数がないので、sum/lengthで計算
         let sum_val = self.sum().unwrap_or(0.0);
         let len = self.data.len() as f32;
-        if len > 0.0 { sum_val / len } else { 0.0 }
+        if len > 0.0 {
+            sum_val / len
+        } else {
+            0.0
+        }
     }
 }
 
@@ -326,7 +330,11 @@ impl TensorOps for F64Tensor {
         // mean関数がないので、sum/lengthで計算
         let sum_val = self.sum();
         let len = self.data.len() as f64;
-        if len > 0.0 { sum_val / len } else { 0.0 }
+        if len > 0.0 {
+            sum_val / len
+        } else {
+            0.0
+        }
     }
 }
 
@@ -405,15 +413,17 @@ impl TensorOps for ComplexTensor {
 
     fn randn(shape: &[usize]) -> RusTorchResult<Self> {
         // 複素数のランダムテンソル：実部と虚部が独立した正規分布
-        use ndarray_rand::RandomExt;
-        use ndarray_rand::rand_distr::StandardNormal;
         use ndarray::Array;
+        use ndarray_rand::rand_distr::StandardNormal;
+        use ndarray_rand::RandomExt;
         use num_complex::Complex64;
 
         let real_part: Array<f64, _> = Array::random(shape, StandardNormal);
         let imag_part: Array<f64, _> = Array::random(shape, StandardNormal);
 
-        let complex_data = real_part.iter().zip(imag_part.iter())
+        let complex_data = real_part
+            .iter()
+            .zip(imag_part.iter())
             .map(|(&r, &i)| Complex64::new(r, i))
             .collect::<Vec<_>>();
 
@@ -474,7 +484,11 @@ impl TensorOps for ComplexTensor {
         // mean関数がないので、sum/lengthで計算
         let sum_val = self.sum();
         let len = self.data.len() as f64;
-        if len > 0.0 { sum_val / len } else { Complex64::new(0.0, 0.0) }
+        if len > 0.0 {
+            sum_val / len
+        } else {
+            Complex64::new(0.0, 0.0)
+        }
     }
 }
 
@@ -539,7 +553,7 @@ impl MathOps for ComplexTensor {
     fn softmax(&self, _dim: Option<usize>) -> RusTorchResult<Self> {
         // 複素数のソフトマックスは定義が複雑なため、実部のみに適用
         Err(crate::error::RusTorchError::InvalidOperation(
-            "Softmax is not well-defined for complex tensors".to_string()
+            "Softmax is not well-defined for complex tensors".to_string(),
         ))
     }
 }
@@ -636,9 +650,10 @@ impl TensorFactory {
             "f32" => Ok(TensorVariant::F32(F32Tensor::zeros(shape)?)),
             "f64" => Ok(TensorVariant::F64(F64Tensor::zeros(shape)?)),
             "complex64" => Ok(TensorVariant::Complex(ComplexTensor::zeros(shape)?)),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 
@@ -649,9 +664,10 @@ impl TensorFactory {
             "f32" => Ok(TensorVariant::F32(F32Tensor::ones(shape)?)),
             "f64" => Ok(TensorVariant::F64(F64Tensor::ones(shape)?)),
             "complex64" => Ok(TensorVariant::Complex(ComplexTensor::ones(shape)?)),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 
@@ -662,15 +678,20 @@ impl TensorFactory {
             "f32" => Ok(TensorVariant::F32(F32Tensor::randn(shape)?)),
             "f64" => Ok(TensorVariant::F64(F64Tensor::randn(shape)?)),
             "complex64" => Ok(TensorVariant::Complex(ComplexTensor::randn(shape)?)),
-            _ => Err(crate::error::RusTorchError::InvalidOperation(
-                format!("Unsupported dtype: {}", dtype)
-            )),
+            _ => Err(crate::error::RusTorchError::InvalidOperation(format!(
+                "Unsupported dtype: {}",
+                dtype
+            ))),
         }
     }
 
     /// 最適な精度を自動選択
     /// Automatically select optimal precision
-    pub fn auto_precision(shape: &[usize], requires_high_precision: bool, is_complex: bool) -> RusTorchResult<TensorVariant> {
+    pub fn auto_precision(
+        shape: &[usize],
+        requires_high_precision: bool,
+        is_complex: bool,
+    ) -> RusTorchResult<TensorVariant> {
         let dtype = match (requires_high_precision, is_complex) {
             (true, true) => "complex64",
             (true, false) => "f64",
@@ -684,7 +705,7 @@ impl TensorFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hybrid_f32::tensor::{F32Tensor, F64Tensor, ComplexTensor};
+    use crate::hybrid_f32::tensor::{ComplexTensor, F32Tensor, F64Tensor};
 
     #[test]
     fn test_generic_tensor_ops() {

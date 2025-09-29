@@ -3,8 +3,8 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::F32Tensor;
     use rustorch::error::RusTorchResult;
+    use rustorch::hybrid_f32::tensor::F32Tensor;
 
     // ===== 形状操作テスト / Shape Operations Tests =====
 
@@ -40,10 +40,8 @@ mod tests {
         assert_eq!(transposed.numel(), 4);
 
         // 3次元テンソル作成（転置はエラーになることを確認）
-        let tensor_3d = F32Tensor::from_vec(
-            vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
-            &[2, 2, 2]
-        )?;
+        let tensor_3d =
+            F32Tensor::from_vec(vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0], &[2, 2, 2])?;
         assert!(tensor_3d.try_transpose().is_err());
 
         // エラーケース：1次元テンソル

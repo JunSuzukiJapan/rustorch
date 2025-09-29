@@ -9,10 +9,12 @@
 //! cargo run --example hybrid_error_analysis --features hybrid-f32 --release
 //! ```
 
-use rustorch::gpu::{hybrid_executor::HybridExecutor, OpType, DeviceType};
+#[cfg(feature = "coreml")]
 use rustorch::gpu::hybrid_executor::HybridExecution;
-use rustorch::tensor::Tensor;
+#[cfg(feature = "coreml")]
+use rustorch::gpu::{hybrid_executor::HybridExecutor, DeviceType, OpType};
 
+#[cfg(feature = "coreml")]
 fn main() -> rustorch::error::RusTorchResult<()> {
     println!("🔍 Hybrid Error Analysis - Investigating Error Conditions");
     println!("=========================================================");
@@ -32,7 +34,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     // テストデータ作成
     let size = 512;
     let data_a: Vec<f64> = (0..size * size).map(|i| (i as f64 % 100.0) + 1.0).collect();
-    let data_b: Vec<f64> = (0..size * size).map(|i| ((i + size) as f64 % 100.0) + 1.0).collect();
+    let data_b: Vec<f64> = (0..size * size)
+        .map(|i| ((i + size) as f64 % 100.0) + 1.0)
+        .collect();
     let matrix_a = Tensor::from_vec(data_a, vec![size, size]);
     let matrix_b = Tensor::from_vec(data_b, vec![size, size]);
 
@@ -58,7 +62,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
         println!("    🎯 Device selected: {:?}", device);
         if device == DeviceType::Cpu {
             println!("    🚫 CPU fallback prohibited - returning error");
-            return Err(rustorch::error::RusTorchError::tensor_op("CPU fallback prohibited"));
+            return Err(rustorch::error::RusTorchError::tensor_op(
+                "CPU fallback prohibited",
+            ));
         }
         println!("    ✅ Executing on non-CPU device: {:?}", device);
         matrix_a.matmul(&matrix_b)
@@ -73,11 +79,15 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     println!("\n📋 Scenario 3: All Devices Rejected");
     println!("  🚫 Rejecting all devices to force error");
 
-    let result3: Result<Tensor<f64>, _> = matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
-        println!("    🎯 Device attempted: {:?}", device);
-        println!("    🚫 Rejecting device: {:?}", device);
-        Err(rustorch::error::RusTorchError::tensor_op(format!("Device {:?} rejected", device)))
-    });
+    let result3: Result<Tensor<f64>, _> =
+        matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
+            println!("    🎯 Device attempted: {:?}", device);
+            println!("    🚫 Rejecting device: {:?}", device);
+            Err(rustorch::error::RusTorchError::tensor_op(format!(
+                "Device {:?} rejected",
+                device
+            )))
+        });
 
     match result3 {
         Ok(_) => println!("  ⚠️ Unexpected success when all devices rejected"),
@@ -90,23 +100,27 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
     let attempt_count = std::sync::Arc::new(std::sync::Mutex::new(0));
     let count_clone = attempt_count.clone();
-    let result4: Result<Tensor<f64>, _> = matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
-        let mut count = count_clone.lock().unwrap();
-        *count += 1;
-        let current_count = *count;
-        drop(count);
+    let result4: Result<Tensor<f64>, _> =
+        matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
+            let mut count = count_clone.lock().unwrap();
+            *count += 1;
+            let current_count = *count;
+            drop(count);
 
-        println!("    🎯 Device attempt {}: {:?}", current_count, device);
+            println!("    🎯 Device attempt {}: {:?}", current_count, device);
 
-        // 最初のデバイス（通常Metal(0)やCoreML(0)）を拒否
-        if current_count == 1 {
-            println!("    🚫 Rejecting first device: {:?}", device);
-            return Err(rustorch::error::RusTorchError::tensor_op(format!("First device {:?} rejected", device)));
-        }
+            // 最初のデバイス（通常Metal(0)やCoreML(0)）を拒否
+            if current_count == 1 {
+                println!("    🚫 Rejecting first device: {:?}", device);
+                return Err(rustorch::error::RusTorchError::tensor_op(format!(
+                    "First device {:?} rejected",
+                    device
+                )));
+            }
 
-        println!("    ✅ Accepting fallback device: {:?}", device);
-        matrix_a.matmul(&matrix_b)
-    });
+            println!("    ✅ Accepting fallback device: {:?}", device);
+            matrix_a.matmul(&matrix_b)
+        });
 
     match result4 {
         Ok(_) => println!("  ✅ Fallback mechanism worked correctly"),
@@ -148,24 +162,31 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     let devices_attempted = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let devices_clone = devices_attempted.clone();
 
-    let result6: Result<Tensor<f64>, _> = matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
-        {
-            let mut devices = devices_clone.lock().unwrap();
-            devices.push(device);
-        }
+    let result6: Result<Tensor<f64>, _> =
+        matrix_a.hybrid_operation(OpType::LinearAlgebra, |device| {
+            {
+                let mut devices = devices_clone.lock().unwrap();
+                devices.push(device);
+            }
 
-        println!("    🎯 Device selection attempt: {:?}", device);
+            println!("    🎯 Device selection attempt: {:?}", device);
 
-        // 最初の2つのデバイスを拒否して、fallback chainを観察
-        let devices = devices_attempted.lock().unwrap();
-        if devices.len() <= 2 {
-            println!("    🚫 Rejecting device {} to observe fallback", devices.len());
-            return Err(rustorch::error::RusTorchError::tensor_op(format!("Device {:?} rejected for observation", device)));
-        }
+            // 最初の2つのデバイスを拒否して、fallback chainを観察
+            let devices = devices_attempted.lock().unwrap();
+            if devices.len() <= 2 {
+                println!(
+                    "    🚫 Rejecting device {} to observe fallback",
+                    devices.len()
+                );
+                return Err(rustorch::error::RusTorchError::tensor_op(format!(
+                    "Device {:?} rejected for observation",
+                    device
+                )));
+            }
 
-        println!("    ✅ Accepting device: {:?}", device);
-        matrix_a.matmul(&matrix_b)
-    });
+            println!("    ✅ Accepting device: {:?}", device);
+            matrix_a.matmul(&matrix_b)
+        });
 
     println!("  📊 Device selection sequence:");
     let final_devices = devices_attempted.lock().unwrap();
@@ -183,10 +204,14 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     println!("=========================");
     println!();
     println!("🔍 Error Conditions Identified:");
-    println!("  1. ✅ CPU Fallback Prohibition: Errors occur when CPU device is explicitly rejected");
+    println!(
+        "  1. ✅ CPU Fallback Prohibition: Errors occur when CPU device is explicitly rejected"
+    );
     println!("  2. ✅ All Devices Rejected: Errors occur when no device accepts the operation");
     println!("  3. ✅ Fallback Chain: Multiple devices are attempted in sequence");
-    println!("  4. ✅ Operation Type Specific: Different OpTypes may have different device preferences");
+    println!(
+        "  4. ✅ Operation Type Specific: Different OpTypes may have different device preferences"
+    );
     println!();
     println!("🎯 Key Findings:");
     println!("  - 既存ハイブリッドは自動的にfallback chainを試行します");
@@ -204,4 +229,10 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     println!("📝 Clear understanding of error conditions established");
 
     Ok(())
+}
+
+#[cfg(not(feature = "coreml"))]
+fn main() {
+    println!("❌ This example requires 'coreml' feature to be enabled.");
+    println!("📋 Run with: cargo run --example hybrid_error_analysis --features coreml");
 }

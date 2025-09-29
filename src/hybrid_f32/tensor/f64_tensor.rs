@@ -1,11 +1,11 @@
 // F64Tensor実装 - 高精度数値計算用
 // F64Tensor implementation - for high-precision numerical computation
 
-use ndarray::{Array, IxDyn};
-use std::sync::Arc;
-use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
+use super::core::{CoreMLBuffer, DeviceState, Index2D, Index3D, MetalBuffer};
 use crate::common::RusTorchResult;
-use super::core::{Index2D, Index3D, DeviceState, MetalBuffer, CoreMLBuffer};
+use ndarray::{Array, IxDyn};
+use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
+use std::sync::Arc;
 
 /// f64専用テンソル（高精度計算特化）
 /// f64-specific tensor (high-precision computation optimized)
@@ -395,8 +395,8 @@ impl F64Tensor {
     /// ランダムテンソルを作成
     /// Create a random tensor
     pub fn randn(shape: &[usize]) -> RusTorchResult<Self> {
-        use ndarray_rand::RandomExt;
         use ndarray_rand::rand_distr::StandardNormal;
+        use ndarray_rand::RandomExt;
         let data = Array::random(shape, StandardNormal);
         Ok(F64Tensor::new(data))
     }
@@ -462,13 +462,20 @@ impl F64Tensor {
         let (k2, n) = (other.shape[0], other.shape[1]);
 
         if k != k2 {
-            return Err(crate::error::RusTorchError::tensor_op(
-                format!("Cannot multiply matrices with shapes {:?} and {:?}", self.shape, other.shape)
-            ));
+            return Err(crate::error::RusTorchError::tensor_op(format!(
+                "Cannot multiply matrices with shapes {:?} and {:?}",
+                self.shape, other.shape
+            )));
         }
 
         let mut result_data = Array::zeros((m, n));
-        general_mat_mul(1.0, &self.data.view().into_dimensionality()?, &other.data.view().into_dimensionality()?, 0.0, &mut result_data.view_mut());
+        general_mat_mul(
+            1.0,
+            &self.data.view().into_dimensionality()?,
+            &other.data.view().into_dimensionality()?,
+            0.0,
+            &mut result_data.view_mut(),
+        );
 
         let result_dyn = result_data.into_dyn();
         let mut result = F64Tensor::new(result_dyn);
@@ -519,7 +526,9 @@ impl F64Tensor {
     /// 形状を拡張
     /// Expand shape
     pub fn expand(&self, new_shape: &[usize]) -> RusTorchResult<Self> {
-        let expanded_data = self.data.broadcast(new_shape)
+        let expanded_data = self
+            .data
+            .broadcast(new_shape)
             .ok_or_else(|| crate::error::RusTorchError::tensor_op("Cannot broadcast to new shape"))?
             .to_owned();
         let mut result = F64Tensor::new(expanded_data);

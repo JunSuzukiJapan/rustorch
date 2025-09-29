@@ -1,11 +1,11 @@
 // 高度ガベージコレクション機能
 // Advanced garbage collection functionality
 
-use std::time::{Duration, Instant};
-use std::sync::{Arc, Mutex, RwLock, OnceLock};
-use std::collections::HashMap;
-use std::thread;
 use crate::common::RusTorchResult;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::thread;
+use std::time::{Duration, Instant};
 
 /// ガベージコレクション設定
 /// Garbage collection configuration
@@ -98,7 +98,13 @@ pub struct GCStats {
 impl GCStats {
     /// 統計を更新
     /// Update statistics
-    pub fn update_collection(&mut self, duration: Duration, memory_freed: usize, objects_freed: u64, is_young: bool) {
+    pub fn update_collection(
+        &mut self,
+        duration: Duration,
+        memory_freed: usize,
+        objects_freed: u64,
+        is_young: bool,
+    ) {
         self.total_collections += 1;
         self.last_collection_time = Some(Instant::now());
         self.last_collection_duration = Some(duration);
@@ -360,7 +366,10 @@ impl GarbageCollector {
 
         {
             let mut objects_guard = objects.lock().unwrap();
-            let current_memory = objects_guard.values().map(|e| e.object.size()).sum::<usize>();
+            let current_memory = objects_guard
+                .values()
+                .map(|e| e.object.size())
+                .sum::<usize>();
 
             // メモリ閾値チェック
             // Check memory threshold
@@ -371,7 +380,12 @@ impl GarbageCollector {
             // 世代別GCを実行
             // Perform generational GC
             if config.enable_generational {
-                Self::perform_generational_gc(&mut objects_guard, config, &mut memory_freed, &mut objects_freed)?;
+                Self::perform_generational_gc(
+                    &mut objects_guard,
+                    config,
+                    &mut memory_freed,
+                    &mut objects_freed,
+                )?;
             } else {
                 Self::perform_full_gc(&mut objects_guard, &mut memory_freed, &mut objects_freed)?;
             }
@@ -383,7 +397,12 @@ impl GarbageCollector {
         // Update statistics
         {
             let mut stats_guard = stats.write().unwrap();
-            stats_guard.update_collection(duration, memory_freed, objects_freed, config.enable_generational);
+            stats_guard.update_collection(
+                duration,
+                memory_freed,
+                objects_freed,
+                config.enable_generational,
+            );
         }
 
         // 最後のGC時刻を更新
@@ -444,7 +463,8 @@ impl GarbageCollector {
 
         // 古い世代のGC（必要に応じて）
         // Old generation GC (if needed)
-        let old_memory: usize = objects.values()
+        let old_memory: usize = objects
+            .values()
             .filter(|e| e.generation == 1)
             .map(|e| e.object.size())
             .sum();

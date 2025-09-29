@@ -1,11 +1,11 @@
 // テンソルプール - メモリ再利用による高速化
 // Tensor pool - acceleration through memory reuse
 
-use std::sync::{Arc, Mutex, RwLock};
-use std::collections::{HashMap, VecDeque};
-use std::time::{Instant, Duration};
 use crate::common::RusTorchResult;
 use crate::hybrid_f32::tensor::core::F32Tensor;
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex, RwLock};
+use std::time::{Duration, Instant};
 
 /// プールサイズ設定
 /// Pool size configuration
@@ -360,7 +360,9 @@ impl TensorPool {
     /// Get most frequently used shapes
     pub fn top_shapes(&self, limit: usize) -> Vec<(Vec<usize>, usize)> {
         let stats = self.stats.read().unwrap();
-        let mut shapes: Vec<_> = stats.shapes.iter()
+        let mut shapes: Vec<_> = stats
+            .shapes
+            .iter()
             .map(|(shape, count)| (shape.clone(), *count))
             .collect();
 
@@ -394,9 +396,11 @@ impl TensorPool {
 
         let shape_count = pools.len() as f64;
         let avg_per_shape = pools.values().map(|p| p.len()).sum::<usize>() as f64 / shape_count;
-        let variance = pools.values()
+        let variance = pools
+            .values()
             .map(|p| (p.len() as f64 - avg_per_shape).powi(2))
-            .sum::<f64>() / shape_count;
+            .sum::<f64>()
+            / shape_count;
 
         variance.sqrt() / avg_per_shape.max(1.0)
     }
@@ -407,16 +411,22 @@ impl TensorPool {
         let mut recommendations = Vec::new();
 
         if stats.hit_rate < 0.3 {
-            recommendations.push("ヒット率が低いです。プールサイズを増やすかGC間隔を調整してください".to_string());
+            recommendations.push(
+                "ヒット率が低いです。プールサイズを増やすかGC間隔を調整してください".to_string(),
+            );
         }
 
         if stats.current_size > self.config.max_pool_size * 9 / 10 {
-            recommendations.push("プールが満杯に近いです。最大サイズを増やすかGCを頻繁に実行してください".to_string());
+            recommendations.push(
+                "プールが満杯に近いです。最大サイズを増やすかGCを頻繁に実行してください"
+                    .to_string(),
+            );
         }
 
         let fragmentation = self.calculate_fragmentation();
         if fragmentation > 2.0 {
-            recommendations.push("フラグメンテーションが高いです。形状の分散を見直してください".to_string());
+            recommendations
+                .push("フラグメンテーションが高いです。形状の分散を見直してください".to_string());
         }
 
         if recommendations.is_empty() {

@@ -1,12 +1,12 @@
 // ComplexTensor実装 - 複素数数値計算用
 // ComplexTensor implementation - for complex numerical computation
 
-use ndarray::{Array, IxDyn};
-use std::sync::Arc;
-use std::ops::{Add, Sub, Mul, Div, Neg, Index, IndexMut};
-use num_complex::Complex64;
+use super::core::{CoreMLBuffer, DeviceState, Index2D, Index3D, MetalBuffer};
 use crate::common::RusTorchResult;
-use super::core::{Index2D, Index3D, DeviceState, MetalBuffer, CoreMLBuffer};
+use ndarray::{Array, IxDyn};
+use num_complex::Complex64;
+use std::ops::{Add, Div, Index, IndexMut, Mul, Neg, Sub};
+use std::sync::Arc;
 
 /// Complex64専用テンソル（複素数計算特化）
 /// Complex64-specific tensor (complex computation optimized)
@@ -395,14 +395,19 @@ impl ComplexTensor {
 
     /// 実部と虚部から複素数テンソルを作成
     /// Create complex tensor from real and imaginary parts
-    pub fn from_real_imag(real: &Array<f64, IxDyn>, imag: &Array<f64, IxDyn>) -> RusTorchResult<Self> {
+    pub fn from_real_imag(
+        real: &Array<f64, IxDyn>,
+        imag: &Array<f64, IxDyn>,
+    ) -> RusTorchResult<Self> {
         if real.shape() != imag.shape() {
             return Err(crate::error::RusTorchError::tensor_op(
-                "Real and imaginary parts must have the same shape"
+                "Real and imaginary parts must have the same shape",
             ));
         }
 
-        let complex_data = real.iter().zip(imag.iter())
+        let complex_data = real
+            .iter()
+            .zip(imag.iter())
             .map(|(&r, &i)| Complex64::new(r, i))
             .collect::<Vec<_>>();
 
@@ -478,13 +483,20 @@ impl ComplexTensor {
         let (k2, n) = (other.shape[0], other.shape[1]);
 
         if k != k2 {
-            return Err(crate::error::RusTorchError::tensor_op(
-                format!("Cannot multiply matrices with shapes {:?} and {:?}", self.shape, other.shape)
-            ));
+            return Err(crate::error::RusTorchError::tensor_op(format!(
+                "Cannot multiply matrices with shapes {:?} and {:?}",
+                self.shape, other.shape
+            )));
         }
 
         let mut result_data = Array::zeros((m, n));
-        general_mat_mul(Complex64::new(1.0, 0.0), &self.data.view().into_dimensionality()?, &other.data.view().into_dimensionality()?, Complex64::new(0.0, 0.0), &mut result_data.view_mut());
+        general_mat_mul(
+            Complex64::new(1.0, 0.0),
+            &self.data.view().into_dimensionality()?,
+            &other.data.view().into_dimensionality()?,
+            Complex64::new(0.0, 0.0),
+            &mut result_data.view_mut(),
+        );
 
         let result_dyn = result_data.into_dyn();
         let mut result = ComplexTensor::new(result_dyn);
@@ -549,7 +561,9 @@ impl ComplexTensor {
     /// 形状を拡張
     /// Expand shape
     pub fn expand(&self, new_shape: &[usize]) -> RusTorchResult<Self> {
-        let expanded_data = self.data.broadcast(new_shape)
+        let expanded_data = self
+            .data
+            .broadcast(new_shape)
             .ok_or_else(|| crate::error::RusTorchError::tensor_op("Cannot broadcast to new shape"))?
             .to_owned();
         let mut result = ComplexTensor::new(expanded_data);
@@ -575,7 +589,7 @@ impl ComplexTensor {
         // Simple FFT implementation (1D only)
         if self.ndim() != 1 {
             return Err(crate::error::RusTorchError::InvalidOperation(
-                "FFT currently only supports 1D tensors".to_string()
+                "FFT currently only supports 1D tensors".to_string(),
             ));
         }
 
@@ -586,7 +600,9 @@ impl ComplexTensor {
         // Recursive FFT (simplified version)
         fn fft_recursive(data: &mut [Complex64]) {
             let n = data.len();
-            if n <= 1 { return; }
+            if n <= 1 {
+                return;
+            }
 
             // 偶数と奇数のインデックスに分ける
             let mut even: Vec<Complex64> = Vec::with_capacity(n / 2);
@@ -604,10 +620,10 @@ impl ComplexTensor {
             fft_recursive(&mut odd);
 
             use std::f64::consts::PI;
-            for i in 0..n/2 {
+            for i in 0..n / 2 {
                 let t = Complex64::from_polar(1.0, -2.0 * PI * i as f64 / n as f64) * odd[i];
                 data[i] = even[i] + t;
-                data[i + n/2] = even[i] - t;
+                data[i + n / 2] = even[i] - t;
             }
         }
 

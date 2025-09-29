@@ -3,8 +3,8 @@
 
 #[cfg(feature = "hybrid-f32")]
 mod tests {
-    use rustorch::hybrid_f32::tensor::F32Tensor;
     use rustorch::error::RusTorchResult;
+    use rustorch::hybrid_f32::tensor::F32Tensor;
 
     #[test]
     fn test_tensor_creation_methods() -> RusTorchResult<()> {
@@ -77,7 +77,7 @@ mod tests {
         assert_eq!(prod.as_slice(), &[5.0, 12.0, 21.0, 32.0]);
 
         let quot = b.divide(&a)?;
-        assert_eq!(quot.as_slice(), &[5.0, 3.0, 7.0/3.0, 2.0]);
+        assert_eq!(quot.as_slice(), &[5.0, 3.0, 7.0 / 3.0, 2.0]);
 
         Ok(())
     }
@@ -197,7 +197,10 @@ mod tests {
         assert_eq!(original.as_slice(), cloned.as_slice());
 
         // デバイス状態
-        assert!(matches!(original.device_state(), rustorch::hybrid_f32::tensor::core::DeviceState::CPU));
+        assert!(matches!(
+            original.device_state(),
+            rustorch::hybrid_f32::tensor::core::DeviceState::CPU
+        ));
 
         // 勾配追跡
         let mut tensor = original;

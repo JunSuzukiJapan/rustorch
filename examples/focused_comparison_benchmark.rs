@@ -16,15 +16,11 @@
 
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::{
-    gpu::F32UnifiedGPUContext,
-    tensor::F32Tensor,
-    unified::F32HybridExecutor,
+    gpu::F32UnifiedGPUContext, tensor::F32Tensor, unified::F32HybridExecutor,
 };
 
 #[cfg(feature = "hybrid-f32")]
-use rustorch::gpu::{hybrid_executor::HybridExecutor, OpType, DeviceType};
-use rustorch::tensor::Tensor;
-use std::time::Instant;
+use rustorch::gpu::{hybrid_executor::HybridExecutor, DeviceType, OpType};
 
 #[cfg(feature = "hybrid-f32")]
 fn main() -> rustorch::error::RusTorchResult<()> {
@@ -52,27 +48,44 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     let test_size = 2048;
     let iterations = 1;
 
-    println!("🔥 Focused Test - {}x{} matrix, {} iterations", test_size, test_size, iterations);
-    println!("Memory usage: ~{:.1} GB per matrix", (test_size * test_size * 4) as f64 / 1_000_000_000.0);
+    println!(
+        "🔥 Focused Test - {}x{} matrix, {} iterations",
+        test_size, test_size, iterations
+    );
+    println!(
+        "Memory usage: ~{:.1} GB per matrix",
+        (test_size * test_size * 4) as f64 / 1_000_000_000.0
+    );
     println!("=====================================");
 
     // データ作成
     println!("📊 Creating test matrices...");
 
     // f32データ（hybrid_f32用）
-    let data_a_f32: Vec<f32> = (0..test_size * test_size).map(|i| (i as f32 % 100.0) + 1.0).collect();
-    let data_b_f32: Vec<f32> = (0..test_size * test_size).map(|i| ((i + test_size) as f32 % 100.0) + 1.0).collect();
+    let data_a_f32: Vec<f32> = (0..test_size * test_size)
+        .map(|i| (i as f32 % 100.0) + 1.0)
+        .collect();
+    let data_b_f32: Vec<f32> = (0..test_size * test_size)
+        .map(|i| ((i + test_size) as f32 % 100.0) + 1.0)
+        .collect();
     let matrix_a_f32 = F32Tensor::new(data_a_f32, &[test_size, test_size])?;
     let matrix_b_f32 = F32Tensor::new(data_b_f32, &[test_size, test_size])?;
 
     // f64データ（既存hybrid用）
-    let data_a_f64: Vec<f64> = (0..test_size * test_size).map(|i| (i as f64 % 100.0) + 1.0).collect();
-    let data_b_f64: Vec<f64> = (0..test_size * test_size).map(|i| ((i + test_size) as f64 % 100.0) + 1.0).collect();
+    let data_a_f64: Vec<f64> = (0..test_size * test_size)
+        .map(|i| (i as f64 % 100.0) + 1.0)
+        .collect();
+    let data_b_f64: Vec<f64> = (0..test_size * test_size)
+        .map(|i| ((i + test_size) as f64 % 100.0) + 1.0)
+        .collect();
     let matrix_a_f64 = Tensor::from_vec(data_a_f64, vec![test_size, test_size]);
     let matrix_b_f64 = Tensor::from_vec(data_b_f64, vec![test_size, test_size]);
 
     // 標準化された演算チェーン
-    let perform_standard_operations_f32 = |a: &F32Tensor, b: &F32Tensor, executor: &mut F32HybridExecutor| -> rustorch::error::RusTorchResult<f64> {
+    let perform_standard_operations_f32 = |a: &F32Tensor,
+                                           b: &F32Tensor,
+                                           executor: &mut F32HybridExecutor|
+     -> rustorch::error::RusTorchResult<f64> {
         let start = Instant::now();
 
         // 1. 行列乗算
@@ -89,22 +102,23 @@ fn main() -> rustorch::error::RusTorchResult<()> {
         Ok(start.elapsed().as_millis() as f64)
     };
 
-    let perform_standard_operations_f64 = |a: &Tensor<f64>, b: &Tensor<f64>| -> rustorch::error::RusTorchResult<f64> {
-        let start = Instant::now();
+    let perform_standard_operations_f64 =
+        |a: &Tensor<f64>, b: &Tensor<f64>| -> rustorch::error::RusTorchResult<f64> {
+            let start = Instant::now();
 
-        // 1. 行列乗算
-        let result1 = a.matmul(b)?;
-        // 2. 転置
-        let result2 = result1.transpose()?;
-        // 3. 加算
-        let result3 = result2.add(&result1)?;
-        // 4. 再度行列乗算
-        let result4 = result3.matmul(&result1)?;
-        // 5. 統計操作
-        let _ = result4.sum();
+            // 1. 行列乗算
+            let result1 = a.matmul(b)?;
+            // 2. 転置
+            let result2 = result1.transpose()?;
+            // 3. 加算
+            let result3 = result2.add(&result1)?;
+            // 4. 再度行列乗算
+            let result4 = result3.matmul(&result1)?;
+            // 5. 統計操作
+            let _ = result4.sum();
 
-        Ok(start.elapsed().as_millis() as f64)
-    };
+            Ok(start.elapsed().as_millis() as f64)
+        };
 
     // 1️⃣ CPU単体実行
     println!("\n💻 CPU-Only Test:");
@@ -125,15 +139,22 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     let mut metal_times = Vec::new();
     for i in 0..iterations {
         println!("  ⚡ Metal GPU iteration {}/{}", i + 1, iterations);
-        let time = perform_standard_operations_f32(&matrix_a_f32, &matrix_b_f32, &mut hybrid_executor)?;
+        let time =
+            perform_standard_operations_f32(&matrix_a_f32, &matrix_b_f32, &mut hybrid_executor)?;
         metal_times.push(time);
         println!("    ⏱️ Metal GPU operations: {:.0}ms", time);
     }
     let metal_avg = metal_times.iter().sum::<f64>() / iterations as f64;
-    println!("  ⚡ Metal GPU average: {:.0}ms per operation chain", metal_avg);
+    println!(
+        "  ⚡ Metal GPU average: {:.0}ms per operation chain",
+        metal_avg
+    );
 
     // 既存ハイブリッド演算（GPU強制実行）
-    let perform_existing_hybrid_operations = |a: &Tensor<f64>, b: &Tensor<f64>, executor: &HybridExecutor| -> rustorch::error::RusTorchResult<f64> {
+    let perform_existing_hybrid_operations = |a: &Tensor<f64>,
+                                              b: &Tensor<f64>,
+                                              executor: &HybridExecutor|
+     -> rustorch::error::RusTorchResult<f64> {
         use rustorch::gpu::hybrid_executor::HybridExecution;
 
         let start = Instant::now();
@@ -141,7 +162,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
         // HybridExecutionトレイトを使用してGPU強制実行
         let result1 = a.hybrid_operation(OpType::LinearAlgebra, |device| {
             if device == DeviceType::Cpu {
-                return Err(rustorch::error::RusTorchError::tensor_op("CPU fallback prohibited - GPU execution required"));
+                return Err(rustorch::error::RusTorchError::tensor_op(
+                    "CPU fallback prohibited - GPU execution required",
+                ));
             }
             println!("    🎯 Executing matmul on device: {:?}", device);
             a.matmul(b)
@@ -149,7 +172,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
         let result2 = result1.hybrid_operation(OpType::LinearAlgebra, |device| {
             if device == DeviceType::Cpu {
-                return Err(rustorch::error::RusTorchError::tensor_op("CPU fallback prohibited - GPU execution required"));
+                return Err(rustorch::error::RusTorchError::tensor_op(
+                    "CPU fallback prohibited - GPU execution required",
+                ));
             }
             println!("    🎯 Executing transpose on device: {:?}", device);
             result1.transpose()
@@ -157,7 +182,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
         let result3 = result2.hybrid_operation(OpType::LinearAlgebra, |device| {
             if device == DeviceType::Cpu {
-                return Err(rustorch::error::RusTorchError::tensor_op("CPU fallback prohibited - GPU execution required"));
+                return Err(rustorch::error::RusTorchError::tensor_op(
+                    "CPU fallback prohibited - GPU execution required",
+                ));
             }
             println!("    🎯 Executing add on device: {:?}", device);
             result2.add(&result1)
@@ -165,7 +192,9 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
         let result4 = result3.hybrid_operation(OpType::LinearAlgebra, |device| {
             if device == DeviceType::Cpu {
-                return Err(rustorch::error::RusTorchError::tensor_op("CPU fallback prohibited - GPU execution required"));
+                return Err(rustorch::error::RusTorchError::tensor_op(
+                    "CPU fallback prohibited - GPU execution required",
+                ));
             }
             println!("    🎯 Executing final matmul on device: {:?}", device);
             result3.matmul(&result1)
@@ -180,15 +209,26 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     println!("  🔥 HybridExecution trait with GPU enforcement");
     let mut existing_times = Vec::new();
     for i in 0..iterations {
-        println!("  🔄 True existing hybrid iteration {}/{}", i + 1, iterations);
+        println!(
+            "  🔄 True existing hybrid iteration {}/{}",
+            i + 1,
+            iterations
+        );
         println!("    🔄 Using HybridExecution trait with CPU fallback prohibition");
 
-        let time = perform_existing_hybrid_operations(&matrix_a_f64, &matrix_b_f64, &existing_hybrid_executor)?;
+        let time = perform_existing_hybrid_operations(
+            &matrix_a_f64,
+            &matrix_b_f64,
+            &existing_hybrid_executor,
+        )?;
         existing_times.push(time);
         println!("    ⏱️ True existing hybrid operations: {:.0}ms", time);
     }
     let existing_avg = existing_times.iter().sum::<f64>() / iterations as f64;
-    println!("  🔄 True existing hybrid average: {:.0}ms per operation chain", existing_avg);
+    println!(
+        "  🔄 True existing hybrid average: {:.0}ms per operation chain",
+        existing_avg
+    );
 
     // 4️⃣ hybrid_f32実行
     println!("\n🚀 Hybrid_f32 Test:");
@@ -199,17 +239,27 @@ fn main() -> rustorch::error::RusTorchResult<()> {
         println!("    🚀 f32 unified execution with zero conversion cost");
         println!("    📊 Automatic device selection for optimal performance");
 
-        let time = perform_standard_operations_f32(&matrix_a_f32, &matrix_b_f32, &mut hybrid_executor)?;
+        let time =
+            perform_standard_operations_f32(&matrix_a_f32, &matrix_b_f32, &mut hybrid_executor)?;
         f32_times.push(time);
         println!("    ⏱️ Hybrid_f32 operations: {:.0}ms", time);
     }
     let f32_avg = f32_times.iter().sum::<f64>() / iterations as f64;
-    println!("  🚀 Hybrid_f32 average: {:.0}ms per operation chain", f32_avg);
+    println!(
+        "  🚀 Hybrid_f32 average: {:.0}ms per operation chain",
+        f32_avg
+    );
 
     // 📊 詳細分析
-    println!("\n📊 Focused Comparison Analysis for {}x{} matrix:", test_size, test_size);
+    println!(
+        "\n📊 Focused Comparison Analysis for {}x{} matrix:",
+        test_size, test_size
+    );
     println!("  Operation chain: matmul → transpose → add → matmul → sum");
-    println!("  Memory per matrix: {:.1} GB", (test_size * test_size * 4) as f64 / 1_000_000_000.0);
+    println!(
+        "  Memory per matrix: {:.1} GB",
+        (test_size * test_size * 4) as f64 / 1_000_000_000.0
+    );
     println!();
 
     println!("  💻 CPU-Only:         {:.0}ms per chain", cpu_avg);
@@ -224,7 +274,10 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
     println!("\n🏃 Focused Speedup Analysis (vs CPU):");
     println!("  Metal GPU vs CPU:      {:.2}x speedup", speedup_metal);
-    println!("  True Existing Hybrid vs CPU: {:.2}x speedup", speedup_existing);
+    println!(
+        "  True Existing Hybrid vs CPU: {:.2}x speedup",
+        speedup_existing
+    );
     println!("  Hybrid_f32 vs CPU:     {:.2}x speedup", speedup_f32);
 
     // 相対比較
@@ -233,9 +286,15 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     let f32_vs_existing = existing_avg / f32_avg;
 
     println!("\n🔬 Relative Performance Analysis:");
-    println!("  Metal GPU vs True Existing Hybrid: {:.2}x ratio", metal_vs_existing);
+    println!(
+        "  Metal GPU vs True Existing Hybrid: {:.2}x ratio",
+        metal_vs_existing
+    );
     println!("  Metal GPU vs Hybrid_f32:      {:.2}x ratio", metal_vs_f32);
-    println!("  Hybrid_f32 vs True Existing Hybrid: {:.2}x ratio", f32_vs_existing);
+    println!(
+        "  Hybrid_f32 vs True Existing Hybrid: {:.2}x ratio",
+        f32_vs_existing
+    );
 
     // 最高性能の判定
     let times = [cpu_avg, metal_avg, existing_avg, f32_avg];
@@ -253,7 +312,8 @@ fn main() -> rustorch::error::RusTorchResult<()> {
 
     // 効率性判定
     let max_speedup = [speedup_metal, speedup_existing, speedup_f32]
-        .iter().fold(0.0f64, |a, &b| a.max(b));
+        .iter()
+        .fold(0.0f64, |a, &b| a.max(b));
 
     if max_speedup > 5.0 {
         println!("  🚀 Exceptional acceleration achieved!");
@@ -270,11 +330,20 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     // hybrid_f32の優位性分析
     println!("\n🎯 Hybrid_f32 Advantages:");
     if f32_vs_existing > 1.5 {
-        println!("  🎯 Major advantage over true existing hybrid ({:.2}x faster)", f32_vs_existing);
+        println!(
+            "  🎯 Major advantage over true existing hybrid ({:.2}x faster)",
+            f32_vs_existing
+        );
     } else if f32_vs_existing > 1.2 {
-        println!("  📈 Significant advantage over true existing hybrid ({:.2}x faster)", f32_vs_existing);
+        println!(
+            "  📈 Significant advantage over true existing hybrid ({:.2}x faster)",
+            f32_vs_existing
+        );
     } else if f32_vs_existing > 1.05 {
-        println!("  📈 Moderate advantage over true existing hybrid ({:.2}x faster)", f32_vs_existing);
+        println!(
+            "  📈 Moderate advantage over true existing hybrid ({:.2}x faster)",
+            f32_vs_existing
+        );
     } else {
         println!("  ⚖️ Similar performance to true existing hybrid");
     }
@@ -282,9 +351,15 @@ fn main() -> rustorch::error::RusTorchResult<()> {
     if metal_vs_f32 > 0.95 && metal_vs_f32 < 1.05 {
         println!("  ✅ Hybrid_f32 matches Metal GPU performance");
     } else if metal_vs_f32 > 1.05 {
-        println!("  🚀 Hybrid_f32 outperforms Metal GPU ({:.2}x faster)", 1.0 / metal_vs_f32);
+        println!(
+            "  🚀 Hybrid_f32 outperforms Metal GPU ({:.2}x faster)",
+            1.0 / metal_vs_f32
+        );
     } else {
-        println!("  📊 Metal GPU slightly faster than Hybrid_f32 ({:.2}x)", metal_vs_f32);
+        println!(
+            "  📊 Metal GPU slightly faster than Hybrid_f32 ({:.2}x)",
+            metal_vs_f32
+        );
     }
 
     println!("\n✅ Focused comparison benchmark completed!");

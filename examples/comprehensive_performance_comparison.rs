@@ -19,10 +19,7 @@ use rustorch::tensor::Tensor;
 use std::time::Instant;
 
 #[cfg(feature = "hybrid-f32")]
-use rustorch::hybrid_f32::{
-    tensor::F32Tensor,
-    unified::F32HybridExecutor,
-};
+use rustorch::hybrid_f32::{tensor::F32Tensor, unified::F32HybridExecutor};
 
 #[derive(Debug, Clone)]
 pub struct BenchmarkConfig {
@@ -64,7 +61,9 @@ impl ComprehensivePerformanceBenchmark {
     }
 
     /// 包括的ベンチマーク実行
-    pub fn run_all_benchmarks(&self) -> Result<Vec<PerformanceResults>, Box<dyn std::error::Error>> {
+    pub fn run_all_benchmarks(
+        &self,
+    ) -> Result<Vec<PerformanceResults>, Box<dyn std::error::Error>> {
         println!("🚀 包括的パフォーマンス比較ベンチマーク開始");
         println!("🚀 Starting Comprehensive Performance Comparison Benchmark");
         println!("============================================================\n");
@@ -142,8 +141,10 @@ impl ComprehensivePerformanceBenchmark {
         // テンソル加算
         let tensor_addition = {
             let size = self.config.tensor_sizes[1]; // 中規模サイズ
-            let tensor_a = Tensor::<f64>::from_vec((0..size).map(|i| i as f64).collect(), vec![size]);
-            let tensor_b = Tensor::<f64>::from_vec((0..size).map(|i| (i + 1) as f64).collect(), vec![size]);
+            let tensor_a =
+                Tensor::<f64>::from_vec((0..size).map(|i| i as f64).collect(), vec![size]);
+            let tensor_b =
+                Tensor::<f64>::from_vec((0..size).map(|i| (i + 1) as f64).collect(), vec![size]);
 
             // ウォームアップ
             for _ in 0..self.config.warmup_iterations {
@@ -250,8 +251,10 @@ impl ComprehensivePerformanceBenchmark {
         };
 
         let mut final_results = results;
-        final_results.total_time = final_results.tensor_addition + final_results.matrix_multiplication +
-                                   final_results.tensor_sum + final_results.tensor_creation;
+        final_results.total_time = final_results.tensor_addition
+            + final_results.matrix_multiplication
+            + final_results.tensor_sum
+            + final_results.tensor_creation;
 
         self.print_results(&final_results);
         Ok(final_results)
@@ -259,7 +262,9 @@ impl ComprehensivePerformanceBenchmark {
 
     /// Neural Engine単体実行ベンチマーク（シミュレート）
     #[cfg(feature = "coreml")]
-    fn benchmark_neural_engine_only(&self) -> Result<PerformanceResults, Box<dyn std::error::Error>> {
+    fn benchmark_neural_engine_only(
+        &self,
+    ) -> Result<PerformanceResults, Box<dyn std::error::Error>> {
         println!("  Neural Engine実行をシミュレート中... / Simulating Neural Engine execution...");
 
         let cpu_results = self.benchmark_cpu_only()?;
@@ -276,8 +281,10 @@ impl ComprehensivePerformanceBenchmark {
         };
 
         let mut final_results = results;
-        final_results.total_time = final_results.tensor_addition + final_results.matrix_multiplication +
-                                   final_results.tensor_sum + final_results.tensor_creation;
+        final_results.total_time = final_results.tensor_addition
+            + final_results.matrix_multiplication
+            + final_results.tensor_sum
+            + final_results.tensor_creation;
 
         self.print_results(&final_results);
         Ok(final_results)
@@ -304,8 +311,10 @@ impl ComprehensivePerformanceBenchmark {
         };
 
         let mut final_results = results;
-        final_results.total_time = final_results.tensor_addition + final_results.matrix_multiplication +
-                                   final_results.tensor_sum + final_results.tensor_creation;
+        final_results.total_time = final_results.tensor_addition
+            + final_results.matrix_multiplication
+            + final_results.tensor_sum
+            + final_results.tensor_creation;
 
         self.print_results(&final_results);
         Ok(final_results)
@@ -313,7 +322,9 @@ impl ComprehensivePerformanceBenchmark {
 
     /// f32統一ハイブリッド実行ベンチマーク
     #[cfg(feature = "hybrid-f32")]
-    fn benchmark_f32_unified_hybrid(&self) -> Result<PerformanceResults, Box<dyn std::error::Error>> {
+    fn benchmark_f32_unified_hybrid(
+        &self,
+    ) -> Result<PerformanceResults, Box<dyn std::error::Error>> {
         println!("  f32統一ハイブリッド実行中... / Running f32 unified hybrid execution...");
 
         rustorch::hybrid_f32_experimental!();
@@ -421,10 +432,19 @@ impl ComprehensivePerformanceBenchmark {
     /// 結果表示
     fn print_results(&self, results: &PerformanceResults) {
         println!("  {} 結果:", results.execution_mode);
-        println!("    Tensor addition:       {:.6} ms", results.tensor_addition);
-        println!("    Matrix multiplication: {:.6} ms", results.matrix_multiplication);
+        println!(
+            "    Tensor addition:       {:.6} ms",
+            results.tensor_addition
+        );
+        println!(
+            "    Matrix multiplication: {:.6} ms",
+            results.matrix_multiplication
+        );
         println!("    Tensor sum:            {:.6} ms", results.tensor_sum);
-        println!("    Tensor creation:       {:.6} ms", results.tensor_creation);
+        println!(
+            "    Tensor creation:       {:.6} ms",
+            results.tensor_creation
+        );
         println!("    Total time:            {:.6} ms", results.total_time);
         println!("    Notes: {}", results.notes);
     }
@@ -440,7 +460,9 @@ impl ComprehensivePerformanceBenchmark {
         println!("| 実行モード | Tensor Add | Matrix Mul | Tensor Sum | Creation | Total | Speed vs CPU |");
         println!("|-----------|------------|------------|------------|----------|-------|--------------|");
 
-        let cpu_baseline = all_results.iter().find(|r| r.execution_mode.contains("CPU Only"));
+        let cpu_baseline = all_results
+            .iter()
+            .find(|r| r.execution_mode.contains("CPU Only"));
 
         for result in all_results {
             let speedup = if let Some(baseline) = cpu_baseline {
@@ -482,37 +504,62 @@ impl ComprehensivePerformanceBenchmark {
     fn find_best_performance_by_operation(&self, results: &[PerformanceResults]) {
         // Tensor Addition最適
         if let Some(best) = results.iter().min_by(|a, b| {
-            a.tensor_addition.partial_cmp(&b.tensor_addition).unwrap_or(std::cmp::Ordering::Equal)
+            a.tensor_addition
+                .partial_cmp(&b.tensor_addition)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            println!("  Tensor Addition: {} ({:.6} ms)", best.execution_mode, best.tensor_addition);
+            println!(
+                "  Tensor Addition: {} ({:.6} ms)",
+                best.execution_mode, best.tensor_addition
+            );
         }
 
         // Matrix Multiplication最適
         if let Some(best) = results.iter().min_by(|a, b| {
-            a.matrix_multiplication.partial_cmp(&b.matrix_multiplication).unwrap_or(std::cmp::Ordering::Equal)
+            a.matrix_multiplication
+                .partial_cmp(&b.matrix_multiplication)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            println!("  Matrix Multiplication: {} ({:.6} ms)", best.execution_mode, best.matrix_multiplication);
+            println!(
+                "  Matrix Multiplication: {} ({:.6} ms)",
+                best.execution_mode, best.matrix_multiplication
+            );
         }
 
         // Tensor Sum最適
         if let Some(best) = results.iter().min_by(|a, b| {
-            a.tensor_sum.partial_cmp(&b.tensor_sum).unwrap_or(std::cmp::Ordering::Equal)
+            a.tensor_sum
+                .partial_cmp(&b.tensor_sum)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            println!("  Tensor Sum: {} ({:.6} ms)", best.execution_mode, best.tensor_sum);
+            println!(
+                "  Tensor Sum: {} ({:.6} ms)",
+                best.execution_mode, best.tensor_sum
+            );
         }
 
         // Tensor Creation最適
         if let Some(best) = results.iter().min_by(|a, b| {
-            a.tensor_creation.partial_cmp(&b.tensor_creation).unwrap_or(std::cmp::Ordering::Equal)
+            a.tensor_creation
+                .partial_cmp(&b.tensor_creation)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            println!("  Tensor Creation: {} ({:.6} ms)", best.execution_mode, best.tensor_creation);
+            println!(
+                "  Tensor Creation: {} ({:.6} ms)",
+                best.execution_mode, best.tensor_creation
+            );
         }
 
         // Total Time最適
         if let Some(best) = results.iter().min_by(|a, b| {
-            a.total_time.partial_cmp(&b.total_time).unwrap_or(std::cmp::Ordering::Equal)
+            a.total_time
+                .partial_cmp(&b.total_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
-            println!("  Total Time: {} ({:.6} ms)", best.execution_mode, best.total_time);
+            println!(
+                "  Total Time: {} ({:.6} ms)",
+                best.execution_mode, best.total_time
+            );
         }
     }
 
@@ -520,20 +567,27 @@ impl ComprehensivePerformanceBenchmark {
     fn generate_recommendations(&self, results: &[PerformanceResults]) {
         // 全体最速を見つける
         if let Some(fastest_overall) = results.iter().min_by(|a, b| {
-            a.total_time.partial_cmp(&b.total_time).unwrap_or(std::cmp::Ordering::Equal)
+            a.total_time
+                .partial_cmp(&b.total_time)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
             println!("  • 全体最速: {}", fastest_overall.execution_mode);
         }
 
         // 行列乗算最速を見つける
         if let Some(fastest_matmul) = results.iter().min_by(|a, b| {
-            a.matrix_multiplication.partial_cmp(&b.matrix_multiplication).unwrap_or(std::cmp::Ordering::Equal)
+            a.matrix_multiplication
+                .partial_cmp(&b.matrix_multiplication)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }) {
             println!("  • 大規模行列演算推奨: {}", fastest_matmul.execution_mode);
         }
 
         // f32ハイブリッド関連の推奨
-        if results.iter().any(|r| r.execution_mode.contains("f32 Unified")) {
+        if results
+            .iter()
+            .any(|r| r.execution_mode.contains("f32 Unified"))
+        {
             println!("  • ゼロ変換コストが必要な場合: f32 Unified Hybrid");
         }
     }
@@ -541,16 +595,24 @@ impl ComprehensivePerformanceBenchmark {
     /// f32統一ハイブリッドの利点分析
     #[cfg(feature = "hybrid-f32")]
     fn analyze_f32_hybrid_advantages(&self, results: &[PerformanceResults]) {
-        let f32_hybrid = results.iter().find(|r| r.execution_mode.contains("f32 Unified"));
-        let legacy_hybrid = results.iter().find(|r| r.execution_mode.contains("Legacy Hybrid"));
+        let f32_hybrid = results
+            .iter()
+            .find(|r| r.execution_mode.contains("f32 Unified"));
+        let legacy_hybrid = results
+            .iter()
+            .find(|r| r.execution_mode.contains("Legacy Hybrid"));
 
         if let (Some(f32), Some(legacy)) = (f32_hybrid, legacy_hybrid) {
             println!("\n🚀 f32統一ハイブリッドの利点分析:");
 
-            let conversion_cost_reduction = ((legacy.total_time - f32.total_time) / legacy.total_time) * 100.0;
+            let conversion_cost_reduction =
+                ((legacy.total_time - f32.total_time) / legacy.total_time) * 100.0;
 
             println!("  • 変換コスト削減効果: {:.1}%", conversion_cost_reduction);
-            println!("  • 総実行時間改善: {:.6} ms → {:.6} ms", legacy.total_time, f32.total_time);
+            println!(
+                "  • 総実行時間改善: {:.6} ms → {:.6} ms",
+                legacy.total_time, f32.total_time
+            );
 
             if conversion_cost_reduction > 0.0 {
                 println!("  ✅ f32統一システムが従来システムより高速");

@@ -1,8 +1,8 @@
 //! GPU実行エンジン - f32統一バックエンド
 //! GPU execution engines - f32 unified backends
 
-use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::error::RusTorchResult;
+use crate::hybrid_f32::tensor::core::F32Tensor;
 
 #[cfg(target_os = "macos")]
 pub mod coreml;
@@ -53,7 +53,11 @@ pub trait F32GPUExecutor {
 
     /// f32統計処理直接実行
     /// Direct f32 statistical processing execution
-    fn statistical_processing_f32(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32>;
+    fn statistical_processing_f32(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32>;
 }
 
 /// デバイス性能情報
@@ -233,7 +237,11 @@ impl F32UnifiedGPUContext {
 
     /// 統一並列リダクション実行
     /// Unified parallel reduction execution
-    pub fn execute_parallel_reduction(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32> {
+    pub fn execute_parallel_reduction(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
         crate::hybrid_f32_experimental!();
 
         match &self.current_device {
@@ -264,7 +272,10 @@ impl F32UnifiedGPUContext {
                     "mean" => tensor.mean(),
                     "min" => tensor.min(),
                     "max" => tensor.max(),
-                    _ => Err(crate::error::RusTorchError::tensor_op(&format!("Unsupported reduction operation: {}", operation)))
+                    _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                        "Unsupported reduction operation: {}",
+                        operation
+                    ))),
                 }
             }
         }
@@ -272,7 +283,11 @@ impl F32UnifiedGPUContext {
 
     /// 統一統計処理実行
     /// Unified statistical processing execution
-    pub fn execute_statistical_processing(&self, tensor: &F32Tensor, operation: &str) -> RusTorchResult<f32> {
+    pub fn execute_statistical_processing(
+        &self,
+        tensor: &F32Tensor,
+        operation: &str,
+    ) -> RusTorchResult<f32> {
         crate::hybrid_f32_experimental!();
 
         match &self.current_device {
@@ -301,19 +316,28 @@ impl F32UnifiedGPUContext {
                 match operation {
                     "std" => {
                         let mean_val = tensor.mean()?;
-                        let variance = tensor.data.iter()
+                        let variance = tensor
+                            .data
+                            .iter()
                             .map(|&x| (x - mean_val).powi(2))
-                            .sum::<f32>() / (tensor.data.len() as f32);
+                            .sum::<f32>()
+                            / (tensor.data.len() as f32);
                         Ok(variance.sqrt())
                     }
                     "variance" => {
                         let mean_val = tensor.mean()?;
-                        let variance = tensor.data.iter()
+                        let variance = tensor
+                            .data
+                            .iter()
                             .map(|&x| (x - mean_val).powi(2))
-                            .sum::<f32>() / (tensor.data.len() as f32);
+                            .sum::<f32>()
+                            / (tensor.data.len() as f32);
                         Ok(variance)
                     }
-                    _ => Err(crate::error::RusTorchError::tensor_op(&format!("Unsupported statistics operation: {}", operation)))
+                    _ => Err(crate::error::RusTorchError::tensor_op(&format!(
+                        "Unsupported statistics operation: {}",
+                        operation
+                    ))),
                 }
             }
         }
