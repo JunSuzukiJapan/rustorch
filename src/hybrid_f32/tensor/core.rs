@@ -5,6 +5,17 @@ use crate::error::{RusTorchResult, RusTorchError};
 use crate::hybrid_f32_experimental;
 use ndarray::{Array, IxDyn};
 use std::sync::Arc;
+use std::ops::{Index, IndexMut};
+
+/// 2次元インデックス
+/// 2D index
+#[derive(Debug, Clone, Copy)]
+pub struct Index2D(pub usize, pub usize);
+
+/// 3次元インデックス
+/// 3D index
+#[derive(Debug, Clone, Copy)]
+pub struct Index3D(pub usize, pub usize, pub usize);
 
 /// デバイス最適化状態
 /// Device optimization state
@@ -89,6 +100,225 @@ impl Clone for F32Tensor {
             requires_grad: self.requires_grad,
             shape: self.shape.clone(),
         }
+    }
+}
+
+// PyTorchライクな演算子オーバーロード
+// PyTorch-like operator overloading
+
+use std::ops::{Add, Sub, Mul, Div, AddAssign, SubAssign, MulAssign, DivAssign, Neg};
+
+/// Addition operator: tensor + tensor
+impl Add<F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn add(self, rhs: F32Tensor) -> Self::Output {
+        (&self).add(&rhs)
+    }
+}
+
+/// Addition operator: tensor + &tensor
+impl Add<&F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn add(self, rhs: &F32Tensor) -> Self::Output {
+        (&self).add(rhs)
+    }
+}
+
+/// Addition operator: &tensor + &tensor
+impl Add for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn add(self, rhs: &F32Tensor) -> Self::Output {
+        self.add(rhs)
+    }
+}
+
+/// Addition operator: tensor + scalar
+impl Add<f32> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        let scalar_tensor = F32Tensor::from_scalar(rhs)?;
+        self.add(&scalar_tensor)
+    }
+}
+
+/// Addition operator: &tensor + scalar
+impl Add<f32> for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        let scalar_tensor = F32Tensor::from_scalar(rhs)?;
+        self.add(&scalar_tensor)
+    }
+}
+
+/// Subtraction operator: tensor - tensor
+impl Sub<F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn sub(self, rhs: F32Tensor) -> Self::Output {
+        (&self).sub(&rhs)
+    }
+}
+
+/// Subtraction operator: tensor - &tensor
+impl Sub<&F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn sub(self, rhs: &F32Tensor) -> Self::Output {
+        (&self).sub(rhs)
+    }
+}
+
+/// Subtraction operator: &tensor - &tensor
+impl Sub for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn sub(self, rhs: &F32Tensor) -> Self::Output {
+        self.sub(rhs)
+    }
+}
+
+/// Subtraction operator: tensor - scalar
+impl Sub<f32> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        let scalar_tensor = F32Tensor::from_scalar(rhs)?;
+        self.sub(&scalar_tensor)
+    }
+}
+
+/// Subtraction operator: &tensor - scalar
+impl Sub<f32> for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        let scalar_tensor = F32Tensor::from_scalar(rhs)?;
+        self.sub(&scalar_tensor)
+    }
+}
+
+/// Multiplication operator: tensor * tensor
+impl Mul<F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn mul(self, rhs: F32Tensor) -> Self::Output {
+        (&self).mul(&rhs)
+    }
+}
+
+/// Multiplication operator: tensor * &tensor
+impl Mul<&F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn mul(self, rhs: &F32Tensor) -> Self::Output {
+        (&self).mul(rhs)
+    }
+}
+
+/// Multiplication operator: &tensor * &tensor
+impl Mul for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn mul(self, rhs: &F32Tensor) -> Self::Output {
+        self.mul(rhs)
+    }
+}
+
+/// Multiplication operator: tensor * scalar
+impl Mul<f32> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.mul_scalar(rhs)
+    }
+}
+
+/// Multiplication operator: &tensor * scalar
+impl Mul<f32> for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.mul_scalar(rhs)
+    }
+}
+
+/// Division operator: tensor / tensor
+impl Div<F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn div(self, rhs: F32Tensor) -> Self::Output {
+        (&self).divide(&rhs)
+    }
+}
+
+/// Division operator: tensor / &tensor
+impl Div<&F32Tensor> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn div(self, rhs: &F32Tensor) -> Self::Output {
+        (&self).divide(rhs)
+    }
+}
+
+/// Division operator: &tensor / &tensor
+impl Div for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn div(self, rhs: &F32Tensor) -> Self::Output {
+        self.divide(rhs)
+    }
+}
+
+/// Division operator: tensor / scalar
+impl Div<f32> for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        if rhs == 0.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "div".to_string(),
+                message: "Division by zero".to_string(),
+            });
+        }
+        self.mul_scalar(1.0 / rhs)
+    }
+}
+
+/// Division operator: &tensor / scalar
+impl Div<f32> for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        if rhs == 0.0 {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "div".to_string(),
+                message: "Division by zero".to_string(),
+            });
+        }
+        self.mul_scalar(1.0 / rhs)
+    }
+}
+
+/// Negation operator: -tensor
+impl Neg for F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn neg(self) -> Self::Output {
+        self.mul_scalar(-1.0)
+    }
+}
+
+/// Negation operator: -&tensor
+impl Neg for &F32Tensor {
+    type Output = RusTorchResult<F32Tensor>;
+
+    fn neg(self) -> Self::Output {
+        self.mul_scalar(-1.0)
     }
 }
 impl F32Tensor {
@@ -553,11 +783,23 @@ impl F32Tensor {
         })
     }
 
-    /// テンソルスライス
-    /// Tensor slice
+    /// テンソルスライス（簡易版）
+    /// Tensor slice (simple version)
     pub fn slice(&self, ranges: &[(usize, usize)]) -> RusTorchResult<Self> {
-        // 簡単な実装（プレースホルダー）
-        Ok(self.clone())
+        // Simple slice implementation for compatibility
+        let mut result_data = Vec::new();
+        let shape = self.shape();
+
+        // For simplicity, just extract the first range for 1D case
+        if ranges.len() == 1 && self.ndim() == 1 {
+            let (start, end) = ranges[0];
+            let slice_data = &self.data.as_slice().unwrap()[start..end];
+            result_data.extend_from_slice(slice_data);
+            F32Tensor::new(result_data, &[end - start])
+        } else {
+            // For more complex cases, return a clone for now
+            Ok(self.clone())
+        }
     }
 
     /// 型変換
@@ -654,6 +896,248 @@ impl F32Tensor {
         self.unwrap()
     }
 
+    // ========================================
+    // try_*メソッド群 - エラー処理改善
+    // try_* methods - Improved error handling
+    // ========================================
+
+    /// 安全なテンソル加算
+    /// Safe tensor addition
+    pub fn try_add(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        self.add(other)
+    }
+
+    /// 安全なテンソル減算
+    /// Safe tensor subtraction
+    pub fn try_sub(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        self.sub(other)
+    }
+
+    /// 安全なテンソル乗算
+    /// Safe tensor multiplication
+    pub fn try_mul(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        self.mul(other)
+    }
+
+    /// 安全なテンソル除算
+    /// Safe tensor division
+    pub fn try_div(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        self.divide(other)
+    }
+
+    /// 安全な行列乗算
+    /// Safe matrix multiplication
+    pub fn try_matmul(&self, other: &F32Tensor) -> RusTorchResult<F32Tensor> {
+        self.matmul(other)
+    }
+
+    /// 安全なスカラー乗算
+    /// Safe scalar multiplication
+    pub fn try_mul_scalar(&self, scalar: f32) -> RusTorchResult<F32Tensor> {
+        if scalar.is_nan() || scalar.is_infinite() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_mul_scalar".to_string(),
+                message: format!("Invalid scalar value: {}", scalar),
+            });
+        }
+        self.mul_scalar(scalar)
+    }
+
+    /// 安全な形状変更
+    /// Safe reshape
+    pub fn try_reshape(&self, new_shape: &[usize]) -> RusTorchResult<F32Tensor> {
+        let new_numel: usize = new_shape.iter().product();
+        if new_numel != self.numel() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_reshape".to_string(),
+                message: format!(
+                    "Cannot reshape tensor with {} elements to shape {:?} ({} elements)",
+                    self.numel(), new_shape, new_numel
+                ),
+            });
+        }
+        self.reshape(new_shape)
+    }
+
+    /// 安全な転置
+    /// Safe transpose
+    pub fn try_transpose(&self) -> RusTorchResult<F32Tensor> {
+        if self.ndim() != 2 {
+            return Err(crate::error::RusTorchError::InvalidOperation(
+                format!("transpose requires 2D tensor, got {}D", self.ndim())
+            ));
+        }
+        self.transpose()
+    }
+
+    /// 安全なスライス
+    /// Safe slice
+    pub fn try_slice(&self, ranges: &[(usize, usize)]) -> RusTorchResult<F32Tensor> {
+        if ranges.len() != self.ndim() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_slice".to_string(),
+                message: format!(
+                    "Expected {} slice ranges for {}D tensor, got {}",
+                    self.ndim(), self.ndim(), ranges.len()
+                ),
+            });
+        }
+
+        let shape = self.shape();
+        for (i, &(start, end)) in ranges.iter().enumerate() {
+            if start >= end || end > shape[i] {
+                return Err(crate::error::RusTorchError::InvalidParameters {
+                    operation: "try_slice".to_string(),
+                    message: format!(
+                        "Invalid slice range for dimension {}: {}..{} (max: {})",
+                        i, start, end, shape[i]
+                    ),
+                });
+            }
+        }
+
+        self.slice(ranges)
+    }
+
+    /// 安全なCPU転送
+    /// Safe CPU transfer
+    pub fn try_to_cpu(&self) -> RusTorchResult<F32Tensor> {
+        self.to_cpu()
+    }
+
+    /// 安全なMetal転送
+    /// Safe Metal transfer
+    pub fn try_to_metal(&mut self, device_id: usize) -> RusTorchResult<()> {
+        #[cfg(all(target_os = "macos", feature = "metal"))]
+        {
+            self.to_metal(device_id)
+        }
+
+        #[cfg(not(all(target_os = "macos", feature = "metal")))]
+        {
+            Err(crate::error::RusTorchError::BackendUnavailable {
+                backend: "Metal (macOS + metal feature required)".to_string(),
+            })
+        }
+    }
+
+    /// 安全なCoreML転送
+    /// Safe CoreML transfer
+    pub fn try_to_coreml(&mut self, device_id: usize) -> RusTorchResult<()> {
+        #[cfg(all(target_os = "macos", feature = "coreml"))]
+        {
+            self.to_coreml(device_id)
+        }
+
+        #[cfg(not(all(target_os = "macos", feature = "coreml")))]
+        {
+            Err(crate::error::RusTorchError::BackendUnavailable {
+                backend: "CoreML (macOS + coreml feature required)".to_string(),
+            })
+        }
+    }
+
+    /// 安全な型変換
+    /// Safe type conversion
+    pub fn try_to_type<T>(&self) -> RusTorchResult<Vec<T>>
+    where
+        T: From<f32> + Copy,
+    {
+        if self.numel() == 0 {
+            return Ok(Vec::new());
+        }
+
+        let data = self.data.as_slice().ok_or_else(|| {
+            crate::error::RusTorchError::InvalidOperation(
+                "Cannot access tensor data".to_string()
+            )
+        })?;
+
+        Ok(data.iter().map(|&x| T::from(x)).collect())
+    }
+
+    /// 安全な要素アクセス
+    /// Safe element access
+    pub fn try_get(&self, indices: &[usize]) -> RusTorchResult<f32> {
+        if indices.len() != self.ndim() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_get".to_string(),
+                message: format!(
+                    "Expected {} indices for {}D tensor, got {}",
+                    self.ndim(), self.ndim(), indices.len()
+                ),
+            });
+        }
+
+        let shape = self.shape();
+        for (i, &idx) in indices.iter().enumerate() {
+            if idx >= shape[i] {
+                return Err(crate::error::RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
+            }
+        }
+
+        // 平坦化インデックス計算
+        let mut flat_index = 0;
+        let mut stride = 1;
+        for i in (0..indices.len()).rev() {
+            flat_index += indices[i] * stride;
+            stride *= shape[i];
+        }
+
+        let data = self.data.as_slice().ok_or_else(|| {
+            crate::error::RusTorchError::InvalidOperation(
+                "Cannot access tensor data".to_string()
+            )
+        })?;
+
+        Ok(data[flat_index])
+    }
+
+    /// 安全な要素設定
+    /// Safe element setting
+    pub fn try_set(&mut self, indices: &[usize], value: f32) -> RusTorchResult<()> {
+        if value.is_nan() || value.is_infinite() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_set".to_string(),
+                message: format!("Invalid value: {}", value),
+            });
+        }
+
+        if indices.len() != self.ndim() {
+            return Err(crate::error::RusTorchError::InvalidParameters {
+                operation: "try_set".to_string(),
+                message: format!(
+                    "Expected {} indices for {}D tensor, got {}",
+                    self.ndim(), self.ndim(), indices.len()
+                ),
+            });
+        }
+
+        let shape = self.shape();
+        for (i, &idx) in indices.iter().enumerate() {
+            if idx >= shape[i] {
+                return Err(crate::error::RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
+            }
+        }
+
+        // 平坦化インデックス計算
+        let mut flat_index = 0;
+        let mut stride = 1;
+        for i in (0..indices.len()).rev() {
+            flat_index += indices[i] * stride;
+            stride *= shape[i];
+        }
+
+        let data = self.data.as_slice_mut().ok_or_else(|| {
+            crate::error::RusTorchError::InvalidOperation(
+                "Cannot access tensor data for modification".to_string()
+            )
+        })?;
+
+        data[flat_index] = value;
+        Ok(())
+    }
+
     /// 全要素の合計（スカラー）
     /// Sum of all elements (scalar)
     pub fn sum(&self) -> RusTorchResult<f32> {
@@ -672,5 +1156,60 @@ impl F32Tensor {
             requires_grad: self.requires_grad,
             shape: self.shape.clone(),
         })
+    }
+}
+
+// Indexing implementations
+
+/// 1D indexing implementation
+impl Index<usize> for F32Tensor {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data.as_slice().unwrap()[index]
+    }
+}
+
+impl IndexMut<usize> for F32Tensor {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.data.as_slice_mut().unwrap()[index]
+    }
+}
+
+/// 2D indexing implementation
+impl Index<Index2D> for F32Tensor {
+    type Output = f32;
+
+    fn index(&self, index: Index2D) -> &Self::Output {
+        let flat_index = index.0 * self.shape[1] + index.1;
+        &self.data.as_slice().unwrap()[flat_index]
+    }
+}
+
+impl IndexMut<Index2D> for F32Tensor {
+    fn index_mut(&mut self, index: Index2D) -> &mut Self::Output {
+        let flat_index = index.0 * self.shape[1] + index.1;
+        &mut self.data.as_slice_mut().unwrap()[flat_index]
+    }
+}
+
+/// 3D indexing implementation
+impl Index<Index3D> for F32Tensor {
+    type Output = f32;
+
+    fn index(&self, index: Index3D) -> &Self::Output {
+        let flat_index = index.0 * (self.shape[1] * self.shape[2]) +
+                        index.1 * self.shape[2] +
+                        index.2;
+        &self.data.as_slice().unwrap()[flat_index]
+    }
+}
+
+impl IndexMut<Index3D> for F32Tensor {
+    fn index_mut(&mut self, index: Index3D) -> &mut Self::Output {
+        let flat_index = index.0 * (self.shape[1] * self.shape[2]) +
+                        index.1 * self.shape[2] +
+                        index.2;
+        &mut self.data.as_slice_mut().unwrap()[flat_index]
     }
 }

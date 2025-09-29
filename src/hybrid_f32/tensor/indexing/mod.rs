@@ -188,10 +188,7 @@ impl F32Tensor {
         let shape = self.shape();
         for (i, &idx) in indices.iter().enumerate() {
             if idx >= shape[i] {
-                return Err(RusTorchError::IndexError(
-                    format!("Index {} out of bounds for dimension {} with size {}", 
-                            idx, i, shape[i])
-                ));
+                return Err(RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
             }
         }
         
@@ -214,10 +211,7 @@ impl F32Tensor {
         let shape = self.shape();
         for (i, &idx) in indices.iter().enumerate() {
             if idx >= shape[i] {
-                return Err(RusTorchError::IndexError(
-                    format!("Index {} out of bounds for dimension {} with size {}", 
-                            idx, i, shape[i])
-                ));
+                return Err(RusTorchError::index_out_of_bounds(&[idx], &[shape[i]]));
             }
         }
         
@@ -248,9 +242,7 @@ impl F32Tensor {
             let step = range.step.unwrap_or(1);
             
             if start >= shape[dim] || end > shape[dim] || start >= end {
-                return Err(RusTorchError::IndexError(
-                    format!("Invalid slice range for dimension {}: {}..{}", dim, start, end)
-                ));
+                return Err(RusTorchError::index_out_of_bounds(&[start, end], &[shape[dim]]));
             }
             
             let dim_indices: Vec<usize> = (start..end).step_by(step).collect();
@@ -262,7 +254,7 @@ impl F32Tensor {
         let mut result_data = Vec::new();
         self.extract_slice_data(&indices, 0, &mut Vec::new(), &mut result_data)?;
         
-        F32Tensor::new(result_data, new_shape)
+        F32Tensor::new(result_data, &new_shape)
     }
 
     /// 平坦化インデックス計算
