@@ -382,67 +382,79 @@
 <a href=#382 id=382 data-nosnippet>382</a></span><span class="attr">#[cfg(feature = <span class="string">"hybrid-f32"</span>)]
 <a href=#383 id=383 data-nosnippet>383</a></span><span class="kw">pub mod </span>hybrid_f32;
 <a href=#384 id=384 data-nosnippet>384</a>
-<a href=#385 id=385 data-nosnippet>385</a><span class="doccomment">/// Re-exports of commonly used items
-<a href=#386 id=386 data-nosnippet>386</a></span><span class="kw">pub mod </span>prelude {
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="kw">pub use </span><span class="kw">crate</span>::autograd::Variable;
-<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">pub use </span><span class="kw">crate</span>::convert::{LayerInfo, LayerType, ModelGraph, ModelParser};
-<a href=#389 id=389 data-nosnippet>389</a>    <span class="kw">pub use </span><span class="kw">crate</span>::convert::{
-<a href=#390 id=390 data-nosnippet>390</a>        SimpleConversionError, SimplePyTorchConverter, SimplifiedPyTorchModel,
-<a href=#391 id=391 data-nosnippet>391</a>    };
-<a href=#392 id=392 data-nosnippet>392</a>    <span class="kw">pub use </span><span class="kw">crate</span>::data::dataloader::DataLoader;
-<a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">pub use </span><span class="kw">crate</span>::data::{Dataset, TensorDataset};
-<a href=#394 id=394 data-nosnippet>394</a>    <span class="kw">pub use </span><span class="kw">crate</span>::distributions::{
-<a href=#395 id=395 data-nosnippet>395</a>        Bernoulli, Beta, Categorical, Exponential, Gamma, Normal, Uniform,
-<a href=#396 id=396 data-nosnippet>396</a>    };
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">pub use </span><span class="kw">crate</span>::distributions::{Distribution, DistributionTrait};
-<a href=#398 id=398 data-nosnippet>398</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#399 id=399 data-nosnippet>399</a>    </span><span class="kw">pub use </span><span class="kw">crate</span>::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
-<a href=#400 id=400 data-nosnippet>400</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
-<a href=#401 id=401 data-nosnippet>401</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{
-<a href=#402 id=402 data-nosnippet>402</a>        CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,
+<a href=#385 id=385 data-nosnippet>385</a><span class="comment">// hybrid_f32実験マクロをクレートルートレベルで定義
+<a href=#386 id=386 data-nosnippet>386</a>// Define hybrid_f32 experimental macros at crate root level
+<a href=#387 id=387 data-nosnippet>387</a></span><span class="attr">#[cfg(feature = <span class="string">"hybrid-f32"</span>)]
+<a href=#388 id=388 data-nosnippet>388</a>#[macro_export]
+<a href=#389 id=389 data-nosnippet>389</a></span><span class="macro">macro_rules!</span> hybrid_f32_experimental {
+<a href=#390 id=390 data-nosnippet>390</a>    () =&gt; {
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="attr">#[cfg(feature = <span class="string">"hybrid-f32"</span>)]
+<a href=#392 id=392 data-nosnippet>392</a>        #[cfg(debug_assertions)]
+<a href=#393 id=393 data-nosnippet>393</a>        </span><span class="macro">eprintln!</span>(<span class="string">"[HYBRID_F32_EXPERIMENTAL] {}"</span>, <span class="macro">std::module_path!</span>());
+<a href=#394 id=394 data-nosnippet>394</a>    };
+<a href=#395 id=395 data-nosnippet>395</a>}
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a><span class="doccomment">/// Re-exports of commonly used items
+<a href=#398 id=398 data-nosnippet>398</a></span><span class="kw">pub mod </span>prelude {
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="kw">pub use </span><span class="kw">crate</span>::autograd::Variable;
+<a href=#400 id=400 data-nosnippet>400</a>    <span class="kw">pub use </span><span class="kw">crate</span>::convert::{LayerInfo, LayerType, ModelGraph, ModelParser};
+<a href=#401 id=401 data-nosnippet>401</a>    <span class="kw">pub use </span><span class="kw">crate</span>::convert::{
+<a href=#402 id=402 data-nosnippet>402</a>        SimpleConversionError, SimplePyTorchConverter, SimplifiedPyTorchModel,
 <a href=#403 id=403 data-nosnippet>403</a>    };
-<a href=#404 id=404 data-nosnippet>404</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{InferenceEngine, Metrics, Trainer, TrainingConfig, TrainingResult};
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
-<a href=#406 id=406 data-nosnippet>406</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{ModelLoader, ModelSaver, SerializationFormat};
-<a href=#407 id=407 data-nosnippet>407</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::activation::{
-<a href=#408 id=408 data-nosnippet>408</a>        elu, gelu, hardswish, leaky_relu, mish, relu, selu, sigmoid, softmax, swish, tanh,
-<a href=#409 id=409 data-nosnippet>409</a>    };
-<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::loss::{
-<a href=#411 id=411 data-nosnippet>411</a>        binary_cross_entropy, cross_entropy, huber_loss, mse_loss, nll_loss,
-<a href=#412 id=412 data-nosnippet>412</a>    };
-<a href=#413 id=413 data-nosnippet>413</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::{
-<a href=#414 id=414 data-nosnippet>414</a>        dropout, AlphaDropout, AvgPool2d, BatchNorm1d, BatchNorm2d, Conv2d, Dropout, GRUCell,
-<a href=#415 id=415 data-nosnippet>415</a>        LSTMCell, Linear, MaxPool2d, Module, RNNCell, GRU, LSTM, RNN,
-<a href=#416 id=416 data-nosnippet>416</a>    };
-<a href=#417 id=417 data-nosnippet>417</a>    <span class="kw">pub use </span><span class="kw">crate</span>::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
-<a href=#418 id=418 data-nosnippet>418</a>    <span class="kw">pub use </span><span class="kw">crate</span>::quantization::{
-<a href=#419 id=419 data-nosnippet>419</a>        FakeQuantize, HistogramObserver, MinMaxObserver, QATConv2d, QATLinear, QATModule,
-<a href=#420 id=420 data-nosnippet>420</a>        QuantizationScheme, QuantizationType, QuantizedTensor, StaticQuantizer, TensorQuantization,
+<a href=#404 id=404 data-nosnippet>404</a>    <span class="kw">pub use </span><span class="kw">crate</span>::data::dataloader::DataLoader;
+<a href=#405 id=405 data-nosnippet>405</a>    <span class="kw">pub use </span><span class="kw">crate</span>::data::{Dataset, TensorDataset};
+<a href=#406 id=406 data-nosnippet>406</a>    <span class="kw">pub use </span><span class="kw">crate</span>::distributions::{
+<a href=#407 id=407 data-nosnippet>407</a>        Bernoulli, Beta, Categorical, Exponential, Gamma, Normal, Uniform,
+<a href=#408 id=408 data-nosnippet>408</a>    };
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">pub use </span><span class="kw">crate</span>::distributions::{Distribution, DistributionTrait};
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#411 id=411 data-nosnippet>411</a>    </span><span class="kw">pub use </span><span class="kw">crate</span>::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
+<a href=#413 id=413 data-nosnippet>413</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{
+<a href=#414 id=414 data-nosnippet>414</a>        CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,
+<a href=#415 id=415 data-nosnippet>415</a>    };
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{InferenceEngine, Metrics, Trainer, TrainingConfig, TrainingResult};
+<a href=#417 id=417 data-nosnippet>417</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
+<a href=#418 id=418 data-nosnippet>418</a>    <span class="kw">pub use </span><span class="kw">crate</span>::models::{ModelLoader, ModelSaver, SerializationFormat};
+<a href=#419 id=419 data-nosnippet>419</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::activation::{
+<a href=#420 id=420 data-nosnippet>420</a>        elu, gelu, hardswish, leaky_relu, mish, relu, selu, sigmoid, softmax, swish, tanh,
 <a href=#421 id=421 data-nosnippet>421</a>    };
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::pruning::{ModelPruner, PruningConfig, PruningStrategy};
-<a href=#423 id=423 data-nosnippet>423</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::sparse_layers::{
-<a href=#424 id=424 data-nosnippet>424</a>        SparseAttention, SparseConv2d, SparseEmbedding, SparseLinear,
-<a href=#425 id=425 data-nosnippet>425</a>    };
-<a href=#426 id=426 data-nosnippet>426</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::{SparseFormat, SparseOps, SparseTensor};
-<a href=#427 id=427 data-nosnippet>427</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::SpecialFunctions;
-<a href=#428 id=428 data-nosnippet>428</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{bessel_i, bessel_j, bessel_k, bessel_y};
-<a href=#429 id=429 data-nosnippet>429</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{beta, digamma, gamma, lbeta, lgamma};
-<a href=#430 id=430 data-nosnippet>430</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{erf, erfc, erfcinv, erfinv};
-<a href=#431 id=431 data-nosnippet>431</a>    <span class="kw">pub use </span><span class="kw">crate</span>::tensor::Tensor;
-<a href=#432 id=432 data-nosnippet>432</a>    <span class="kw">pub use </span><span class="kw">crate</span>::vision::{
-<a href=#433 id=433 data-nosnippet>433</a>        datasets::<span class="kw-2">*</span>, pipeline::<span class="kw-2">*</span>, presets::<span class="kw-2">*</span>, transforms::<span class="kw-2">*</span>, Image, ImageFormat,
-<a href=#434 id=434 data-nosnippet>434</a>    };
-<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">pub use </span><span class="kw">crate</span>::visualization::{ChartType, ColorMap, PlotConfig, PlotStyle, TensorPlotConfig};
-<a href=#436 id=436 data-nosnippet>436</a>    <span class="kw">pub use </span><span class="kw">crate</span>::visualization::{GraphVisualizer, TensorVisualizer, TrainingPlotter};
-<a href=#437 id=437 data-nosnippet>437</a>}
-<a href=#438 id=438 data-nosnippet>438</a>
-<a href=#439 id=439 data-nosnippet>439</a><span class="attr">#[cfg(test)]
-<a href=#440 id=440 data-nosnippet>440</a></span><span class="kw">mod </span>tests {
-<a href=#441 id=441 data-nosnippet>441</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#442 id=442 data-nosnippet>442</a>
-<a href=#443 id=443 data-nosnippet>443</a>    <span class="attr">#[test]
-<a href=#444 id=444 data-nosnippet>444</a>    </span><span class="kw">fn </span>test_tensor_creation() {
-<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">let </span>t = tensor::Tensor::from_vec(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>], <span class="macro">vec!</span>[<span class="number">3</span>]);
-<a href=#446 id=446 data-nosnippet>446</a>        <span class="macro">assert_eq!</span>(t.size(), <span class="macro">vec!</span>[<span class="number">3</span>]);
-<a href=#447 id=447 data-nosnippet>447</a>    }
-<a href=#448 id=448 data-nosnippet>448</a>}</code></pre></div></section></main></body></html>
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::loss::{
+<a href=#423 id=423 data-nosnippet>423</a>        binary_cross_entropy, cross_entropy, huber_loss, mse_loss, nll_loss,
+<a href=#424 id=424 data-nosnippet>424</a>    };
+<a href=#425 id=425 data-nosnippet>425</a>    <span class="kw">pub use </span><span class="kw">crate</span>::nn::{
+<a href=#426 id=426 data-nosnippet>426</a>        dropout, AlphaDropout, AvgPool2d, BatchNorm1d, BatchNorm2d, Conv2d, Dropout, GRUCell,
+<a href=#427 id=427 data-nosnippet>427</a>        LSTMCell, Linear, MaxPool2d, Module, RNNCell, GRU, LSTM, RNN,
+<a href=#428 id=428 data-nosnippet>428</a>    };
+<a href=#429 id=429 data-nosnippet>429</a>    <span class="kw">pub use </span><span class="kw">crate</span>::optim::{AdaGrad, Adam, Optimizer, RMSprop, SGD};
+<a href=#430 id=430 data-nosnippet>430</a>    <span class="kw">pub use </span><span class="kw">crate</span>::quantization::{
+<a href=#431 id=431 data-nosnippet>431</a>        FakeQuantize, HistogramObserver, MinMaxObserver, QATConv2d, QATLinear, QATModule,
+<a href=#432 id=432 data-nosnippet>432</a>        QuantizationScheme, QuantizationType, QuantizedTensor, StaticQuantizer, TensorQuantization,
+<a href=#433 id=433 data-nosnippet>433</a>    };
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::pruning::{ModelPruner, PruningConfig, PruningStrategy};
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::sparse_layers::{
+<a href=#436 id=436 data-nosnippet>436</a>        SparseAttention, SparseConv2d, SparseEmbedding, SparseLinear,
+<a href=#437 id=437 data-nosnippet>437</a>    };
+<a href=#438 id=438 data-nosnippet>438</a>    <span class="kw">pub use </span><span class="kw">crate</span>::sparse::{SparseFormat, SparseOps, SparseTensor};
+<a href=#439 id=439 data-nosnippet>439</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::SpecialFunctions;
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{bessel_i, bessel_j, bessel_k, bessel_y};
+<a href=#441 id=441 data-nosnippet>441</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{beta, digamma, gamma, lbeta, lgamma};
+<a href=#442 id=442 data-nosnippet>442</a>    <span class="kw">pub use </span><span class="kw">crate</span>::special::{erf, erfc, erfcinv, erfinv};
+<a href=#443 id=443 data-nosnippet>443</a>    <span class="kw">pub use </span><span class="kw">crate</span>::tensor::Tensor;
+<a href=#444 id=444 data-nosnippet>444</a>    <span class="kw">pub use </span><span class="kw">crate</span>::vision::{
+<a href=#445 id=445 data-nosnippet>445</a>        datasets::<span class="kw-2">*</span>, pipeline::<span class="kw-2">*</span>, presets::<span class="kw-2">*</span>, transforms::<span class="kw-2">*</span>, Image, ImageFormat,
+<a href=#446 id=446 data-nosnippet>446</a>    };
+<a href=#447 id=447 data-nosnippet>447</a>    <span class="kw">pub use </span><span class="kw">crate</span>::visualization::{ChartType, ColorMap, PlotConfig, PlotStyle, TensorPlotConfig};
+<a href=#448 id=448 data-nosnippet>448</a>    <span class="kw">pub use </span><span class="kw">crate</span>::visualization::{GraphVisualizer, TensorVisualizer, TrainingPlotter};
+<a href=#449 id=449 data-nosnippet>449</a>}
+<a href=#450 id=450 data-nosnippet>450</a>
+<a href=#451 id=451 data-nosnippet>451</a><span class="attr">#[cfg(test)]
+<a href=#452 id=452 data-nosnippet>452</a></span><span class="kw">mod </span>tests {
+<a href=#453 id=453 data-nosnippet>453</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>    <span class="attr">#[test]
+<a href=#456 id=456 data-nosnippet>456</a>    </span><span class="kw">fn </span>test_tensor_creation() {
+<a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>t = tensor::Tensor::from_vec(<span class="macro">vec!</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>], <span class="macro">vec!</span>[<span class="number">3</span>]);
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="macro">assert_eq!</span>(t.size(), <span class="macro">vec!</span>[<span class="number">3</span>]);
+<a href=#459 id=459 data-nosnippet>459</a>    }
+<a href=#460 id=460 data-nosnippet>460</a>}</code></pre></div></section></main></body></html>
