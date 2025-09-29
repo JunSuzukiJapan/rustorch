@@ -77,4 +77,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD echo "RusTorch container is healthy"
 
 # Default command
-CMD ["bash"]
+CMD ["bash"]# Docker Build Fix Applied
