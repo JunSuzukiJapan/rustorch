@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759155779536,
+  "lastUpdate": 1759156681376,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1500,6 +1500,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "id": "3579aab6de7c9baf439579c74842d0cab8ae4377",
+          "message": "feat: RusTorch v0.6.26 Release - Production-Ready Hybrid F32 System",
+          "timestamp": "2025-09-29T14:21:49Z",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/pull/34/commits/3579aab6de7c9baf439579c74842d0cab8ae4377"
+        },
+        "date": 1759156678317,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
