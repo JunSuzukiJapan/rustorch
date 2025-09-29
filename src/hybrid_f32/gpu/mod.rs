@@ -1,7 +1,7 @@
 //! GPU実行エンジン - f32統一バックエンド
 //! GPU execution engines - f32 unified backends
 
-use super::tensor::F32Tensor;
+use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::error::RusTorchResult;
 
 #[cfg(target_os = "macos")]

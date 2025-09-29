@@ -7,7 +7,7 @@
 //! このモジュールは、f32精度での高効率自動微分を提供し、
 //! Neural Engine、Metal GPU、CPUでの統一実行をサポートします。
 
-use super::tensor::F32Tensor;
+use crate::hybrid_f32::tensor::core::F32Tensor;
 use crate::error::RusTorchResult;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -54,7 +54,7 @@ impl GradientFunction for AddBackward {
         _inputs: &[&F32Tensor],
     ) -> RusTorchResult<Vec<F32Tensor>> {
         // 加算の勾配は入力にそのまま伝播
-        Ok(vec![grad_output.clone()?, grad_output.clone()?])
+        Ok(vec![grad_output.clone(), grad_output.clone()])
     }
 
     fn name(&self) -> &str {
@@ -130,9 +130,9 @@ impl GradientFunction for ReLUBackward {
         _inputs: &[&F32Tensor],
     ) -> RusTorchResult<Vec<F32Tensor>> {
         // ReLUの勾配: x > 0 なら 1, x <= 0 なら 0
-        let zero = F32Tensor::zeros(self.input.shape());
+        let zero = F32Tensor::zeros(self.input.shape())?;
         let mask = self.input.gt(&zero)?;
-        let grad_input = grad_output.mul(&mask.to_type(grad_output)?)?;
+        let grad_input = grad_output.mul(&mask)?;
 
         Ok(vec![grad_input])
     }
@@ -168,10 +168,11 @@ impl F32Variable {
 
     /// 勾配をゼロに初期化
     /// Zero gradients
-    pub fn zero_grad(&mut self) {
+    pub fn zero_grad(&mut self) -> RusTorchResult<()> {
         if self.requires_grad {
-            self.grad = Some(F32Tensor::zeros(self.data.shape()));
+            self.grad = Some(F32Tensor::zeros(self.data.shape())?);
         }
+        Ok(())
     }
 
     /// 勾配を累積
@@ -183,7 +184,7 @@ impl F32Variable {
                     *existing_grad = existing_grad.add(grad)?;
                 },
                 None => {
-                    self.grad = Some(grad.clone()?);
+                    self.grad = Some(grad.clone());
                 }
             }
         }
@@ -193,7 +194,7 @@ impl F32Variable {
     /// デタッチ（勾配計算を停止）
     /// Detach (stop gradient computation)
     pub fn detach(&self) -> RusTorchResult<F32Variable> {
-        Ok(F32Variable::new(self.data.clone()?, false))
+        Ok(F32Variable::new(self.data.clone(), false))
     }
 
     /// 形状を取得
@@ -210,8 +211,8 @@ impl F32Variable {
 
     /// スライスとして取得
     /// Get as slice
-    pub fn as_slice(&self) -> &[f32] {
-        self.data.as_slice()
+    pub fn as_slice(&self) -> Option<&[f32]> {
+        Some(self.data.as_slice())
     }
 }
 impl Clone for F32Variable {
@@ -219,8 +220,8 @@ impl Clone for F32Variable {
         // Note: This clone() method for F32Variable does not return a Result
         // We handle F32Tensor's clone() which returns Result<F32Tensor, Error>
         F32Variable {
-            data: self.data.clone().expect("Failed to clone F32Tensor data"),
-            grad: self.grad.as_ref().map(|g| g.clone().expect("Failed to clone F32Tensor grad")),
+            data: self.data.clone(),
+            grad: self.grad.as_ref().map(|g| g.clone()),
             requires_grad: self.requires_grad,
             node_id: self.node_id,
             is_leaf: self.is_leaf,
@@ -316,7 +317,7 @@ impl F32AutogradEngine {
         root_node: NodeId,
     ) -> RusTorchResult<()> {
         let mut gradients: HashMap<NodeId, F32Tensor> = HashMap::new();
-        gradients.insert(root_node, root_grad.clone()?);
+        gradients.insert(root_node, root_grad.clone());
 
         // トポロジカル順序の逆順で勾配を計算
         for &node_id in self.topological_order.iter().rev() {
@@ -327,7 +328,7 @@ impl F32AutogradEngine {
                         let mut input_tensors = Vec::new();
                         for &input_id in &node.inputs {
                             if let Some(variable) = variables.get(&input_id) {
-                                input_tensors.push(variable.data.clone()?);
+                                input_tensors.push(variable.data.clone());
                             }
                         }
 
@@ -344,7 +345,7 @@ impl F32AutogradEngine {
                                         *existing_grad = existing_grad.add(&input_grads[i])?;
                                     },
                                     None => {
-                                        gradients.insert(input_id, input_grads[i].clone()?);
+                                        gradients.insert(input_id, input_grads[i].clone());
                                     }
                                 }
                             }
@@ -445,7 +446,7 @@ impl F32AutogradContext {
 
             engine.topological_sort(node_id);
 
-            let ones = F32Tensor::ones(variable.data.shape());
+            let ones = F32Tensor::ones(variable.data.shape())?;
             engine.backward(&mut variables, &ones, node_id)?;
         }
 
@@ -453,9 +454,10 @@ impl F32AutogradContext {
     }
 }
 
-/// グローバル自動微分コンテキスト
-/// Global autograd context
+// グローバル自動微分コンテキスト
+// Global autograd context
 lazy_static::lazy_static! {
+    /// グローバル自動微分コンテキスト / Global autograd context
     pub static ref GLOBAL_AUTOGRAD_CONTEXT: Arc<Mutex<F32AutogradContext>> =
         Arc::new(Mutex::new(F32AutogradContext::new()));
 }
@@ -499,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_f32_variable_creation() -> RusTorchResult<()> {
-        let data = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], vec![3])?;
+        let data = F32Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3])?;
         let var = F32Variable::new(data, true);
 
         assert!(var.requires_grad);
@@ -511,16 +513,16 @@ mod tests {
 
     #[test]
     fn test_gradient_functions() -> RusTorchResult<()> {
-        let a = F32Tensor::from_vec(vec![2.0, 3.0], vec![2])?;
-        let b = F32Tensor::from_vec(vec![4.0, 5.0], vec![2])?;
-        let grad_output = F32Tensor::from_vec(vec![1.0, 1.0], vec![2])?;
+        let a = F32Tensor::from_vec(vec![2.0, 3.0], &[2])?;
+        let b = F32Tensor::from_vec(vec![4.0, 5.0], &[2])?;
+        let grad_output = F32Tensor::from_vec(vec![1.0, 1.0], &[2])?;
 
         let mul_backward = MulBackward;
         let grads = mul_backward.compute_gradient(&grad_output, &[&a, &b])?;
 
         assert_eq!(grads.len(), 2);
-        assert_eq!(grads[0].as_slice(), &[4.0, 5.0]); // grad_a = grad_output * b
-        assert_eq!(grads[1].as_slice(), &[2.0, 3.0]); // grad_b = grad_output * a
+        assert_eq!(grads[0].as_slice(), &[4.0, 5.0][..]); // grad_a = grad_output * b
+        assert_eq!(grads[1].as_slice(), &[2.0, 3.0][..]); // grad_b = grad_output * a
 
         Ok(())
     }
@@ -529,7 +531,7 @@ mod tests {
     fn test_autograd_context() -> RusTorchResult<()> {
         let context = F32AutogradContext::new();
 
-        let data = F32Tensor::from_vec(vec![1.0, 2.0], vec![2])?;
+        let data = F32Tensor::from_vec(vec![1.0, 2.0], &[2])?;
         let var = F32Variable::new(data, true);
 
         let _node_id = context.register_variable(var)?;

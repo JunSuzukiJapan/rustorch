@@ -116,7 +116,8 @@ impl F32GPUExecutor for F32MetalExecutor {
     }
 
     fn transfer_to_cpu(&self, tensor: &mut F32Tensor) -> RusTorchResult<()> {
-        tensor.to_cpu()
+        *tensor = tensor.to_cpu()?;
+        Ok(())
     }
 
     fn matmul_f32(&self, a: &F32Tensor, b: &F32Tensor) -> RusTorchResult<F32Tensor> {
@@ -161,7 +162,7 @@ impl F32GPUExecutor for F32MetalExecutor {
         let output_width = (input_shape[3] + 2 * padding.1 - kernel_shape[3]) / stride.1 + 1;
 
         let output_shape = vec![batch_size, output_channels, output_height, output_width];
-        Ok(F32Tensor::zeros(&output_shape))
+        F32Tensor::zeros(&output_shape)
     }
 
     fn get_performance_info(&self) -> DevicePerformanceInfo {
