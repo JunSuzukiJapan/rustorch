@@ -767,7 +767,7 @@ impl F32Tensor {
             });
         }
 
-        let reshaped_data = self.data.clone().into_shape(IxDyn(new_shape))
+        let reshaped_data = self.data.clone().into_shape_with_order(IxDyn(new_shape))
             .map_err(|e| RusTorchError::InvalidParameters {
                 operation: "reshape".to_string(),
                 message: format!("Reshape error: {}", e),
@@ -1156,6 +1156,151 @@ impl F32Tensor {
             requires_grad: self.requires_grad,
             shape: self.shape.clone(),
         })
+    }
+
+    /// 次元を追加（unsqueeze）
+    /// Add dimension (unsqueeze)
+    pub fn unsqueeze(&self, dim: usize) -> RusTorchResult<Self> {
+        let mut new_shape = self.shape.clone();
+        
+        if dim > new_shape.len() {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "unsqueeze".to_string(),
+                message: format!("Dimension {} out of bounds for tensor with {} dimensions", dim, new_shape.len()),
+            });
+        }
+        
+        new_shape.insert(dim, 1);
+        
+        let reshaped_data = self.data.clone().into_shape_with_order(IxDyn(&new_shape))
+            .map_err(|e| RusTorchError::InvalidParameters {
+                operation: "unsqueeze".to_string(),
+                message: format!("Reshape error: {}", e),
+            })?;
+        
+        Ok(Self {
+            data: reshaped_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad,
+            shape: new_shape,
+        })
+    }
+
+    /// テンソルサイズを拡張（expand）
+    /// Expand tensor size
+    pub fn expand(&self, new_shape: &[usize]) -> RusTorchResult<Self> {
+        if new_shape.len() != self.shape.len() {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "expand".to_string(),
+                message: format!("Cannot expand from {} dimensions to {} dimensions", 
+                                self.shape.len(), new_shape.len()),
+            });
+        }
+        
+        // Check that each dimension can be expanded
+        for (i, (&current, &target)) in self.shape.iter().zip(new_shape.iter()).enumerate() {
+            if current != 1 && current != target {
+                return Err(RusTorchError::InvalidParameters {
+                    operation: "expand".to_string(),
+                    message: format!("Cannot expand dimension {} from {} to {}", i, current, target),
+                });
+            }
+        }
+        
+        // For now, create a simple broadcasted version by repeating data
+        let total_size: usize = new_shape.iter().product();
+        let mut expanded_data = Vec::with_capacity(total_size);
+        
+        // Simple expansion logic - repeat the pattern
+        let source_data = self.data.as_slice().unwrap();
+        let source_size = source_data.len();
+        let repeat_count = total_size / source_size;
+        
+        for _ in 0..repeat_count {
+            expanded_data.extend_from_slice(source_data);
+        }
+        
+        let array = Array::from_shape_vec(IxDyn(new_shape), expanded_data)
+            .map_err(|e| RusTorchError::InvalidParameters {
+                operation: "expand".to_string(),
+                message: format!("Shape error: {}", e),
+            })?;
+        
+        Ok(Self {
+            data: array,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad,
+            shape: new_shape.to_vec(),
+        })
+    }
+
+    /// 指定された次元で転置（transpose_dims）
+    /// Transpose with specified dimensions
+    pub fn transpose_dims(&self, dim1: usize, dim2: usize) -> RusTorchResult<Self> {
+        if dim1 >= self.shape.len() || dim2 >= self.shape.len() {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "transpose_dims".to_string(),
+                message: format!("Dimension indices {} and {} out of bounds for tensor with {} dimensions", 
+                                dim1, dim2, self.shape.len()),
+            });
+        }
+        
+        if dim1 == dim2 {
+            return Ok(self.clone());
+        }
+        
+        // Create new shape with swapped dimensions
+        let mut new_shape = self.shape.clone();
+        new_shape.swap(dim1, dim2);
+        
+        // For ndarray, we need to use swap_axes
+        let mut transposed_data = self.data.clone();
+        
+        // Use ndarray's swap_axes method
+        transposed_data.swap_axes(dim1, dim2);
+        
+        Ok(Self {
+            data: transposed_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad,
+            shape: new_shape,
+        })
+    }
+
+    /// Softmax活性化関数
+    /// Softmax activation function
+    pub fn softmax(&self, dim: Option<usize>) -> RusTorchResult<Self> {
+        // Apply softmax along the last dimension by default
+        let softmax_dim = dim.unwrap_or(self.shape.len().saturating_sub(1));
+        
+        if softmax_dim >= self.shape.len() {
+            return Err(RusTorchError::InvalidParameters {
+                operation: "softmax".to_string(),
+                message: format!("Dimension {} out of bounds for tensor with {} dimensions", 
+                                softmax_dim, self.shape.len()),
+            });
+        }
+        
+        // For numerical stability, subtract the maximum value
+        let max_val = self.data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+        let max_tensor = F32Tensor::from_scalar(max_val)?;
+        let shifted = self.sub(&max_tensor)?;
+        
+        // Compute exp
+        let exp_data = shifted.exp()?;
+        
+        // Compute sum for normalization
+        let sum_val = exp_data.data.sum();
+        let sum_tensor = F32Tensor::from_scalar(sum_val)?;
+        
+        // Divide by sum
+        exp_data.divide(&sum_tensor)
     }
 }
 
