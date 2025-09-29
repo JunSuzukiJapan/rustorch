@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759156681376,
+  "lastUpdate": 1759157773277,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1527,6 +1527,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "95b2e9efc83572f6c19c0949f27e444f507d0c6a",
+          "message": "feat: RusTorch v0.6.26 Release - Production-Ready Hybrid F32 System\n\n🚀 RusTorch v0.6.26 Release - Production-Ready Hybrid F32 System\n\nMajor version release featuring complete hybrid_f32 system implementation with comprehensive pre-publish validation and production-grade quality assurance.\n\n## ✨ Key Achievements\n\n### 🎯 Core Features Completed\n- ✅ Hybrid F32 System: Complete f32-native tensor operations with zero conversion overhead\n- ✅ Missing Hybrid Infrastructure: Full restoration of existing hybrid system components  \n- ✅ MacOS Optimization: Optimized fallback chain (Metal → CoreML → CPU) with CUDA removal\n- ✅ Production Quality: 1139-1203 tests passing across all feature combinations\n\n### 🔧 System Architecture Improvements\n- CPU Fallback Prohibition: Smart conditional fallback only when GPU/Neural Engine unavailable\n- Device Chain Optimization: Efficient Metal(0) → CoreML(0) → CPU progression\n- Memory Management: Enhanced tensor pooling, garbage collection, and compression\n- Error Handling: Comprehensive hybrid_f32-specific error system with recovery logic\n\n## 📊 Performance Validation\n\n### Comprehensive Benchmarking Suite\n- 7 New Benchmark Examples: Complete performance analysis across devices\n- Multi-Device Testing: CPU, Metal GPU, CoreML Neural Engine validation\n- Load Testing: From lightweight to extreme maximum load scenarios\n- Cross-Platform: Verified compatibility across feature combinations\n\n### Quality Assurance Results\n- Unit Tests: ✅ 1139-1203 passing (All feature combinations validated)\n- Integration Tests: ✅ 36 doctests passing (API documentation verified)\n- Lint/Format: ✅ Zero warnings (Clippy + rustfmt compliance)\n- Build Targets: ✅ All successful (Library + WASM + examples)\n- Benchmarks: ✅ Performance validated (GPU acceleration confirmed)\n\n## 🛠️ Technical Implementation\n\n### New Benchmark Examples\n- all_features_heavy_benchmark.rs - Multi-feature stress testing\n- comprehensive_heavy_benchmark.rs - Complete system validation\n- device_specific_heavy_benchmark.rs - Device-targeted performance tests\n- extreme_heavy_benchmark.rs - Maximum load testing\n- maximum_load_benchmark.rs - GPU/Neural Engine limit testing\n- quick_extreme_benchmark.rs - Fast performance differentiation\n- smart_fallback_benchmark.rs - Improved fallback chain validation\n\n### Code Quality Improvements\n- Feature Gate Fixes: Proper conditional compilation for all examples\n- Import Cleanup: Removed unused imports across all files\n- Format Compliance: Zero trailing whitespace and formatting issues\n- Error Recovery: Enhanced error handling with user-friendly messages\n\n## 📚 Documentation & Internationalization\n\n### Version Synchronization\n- README.md: Updated installation examples to v0.6.26\n- Jupyter Integration: Package version sync for consistent UX\n- Multi-language Notebooks: 8 languages (EN, JP, ES, FR, IT, KO, ZH, DE) updated\n\n## 🔍 CI/CD Infrastructure Improvements\n\n### Pull Request Target Fix\n- Fixed Docker build execution in pull_request_target events\n- Standardized CI conditions across main and feature branches\n- Eliminated workspace member loading issues in containerized builds\n- Enhanced CI reliability and consistency\n\n## 🎯 Production Benefits\n\n### For Developers\n- Zero Conversion Overhead: Native f32 operations without type conversion penalties\n- Hardware Acceleration: Automatic GPU/Neural Engine utilization with CPU fallback\n- Type Safety: Compile-time guarantees with runtime performance\n- Easy Integration: PyTorch-like API with Rust performance benefits\n\n### For Production Systems\n- Reliability: Comprehensive testing across 1200+ test cases\n- Performance: Validated GPU acceleration with fallback reliability\n- Maintainability: Clean architecture with comprehensive error handling\n- Compatibility: Cross-platform support with consistent behavior\n\nReady for production deployments, performance-critical applications, and developers seeking Rust-native ML with GPU acceleration.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-09-29T23:54:59+09:00",
+          "tree_id": "4b22b368dfac7e21035599759396ef22af979e8c",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/95b2e9efc83572f6c19c0949f27e444f507d0c6a"
+        },
+        "date": 1759157770644,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
