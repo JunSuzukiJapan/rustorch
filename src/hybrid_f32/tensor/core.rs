@@ -873,6 +873,131 @@ impl F32Tensor {
         })
     }
 
+    /// 減算
+    /// Subtraction
+    pub fn subtract(&self, other: &Self) -> RusTorchResult<Self> {
+        // スカラーブロードキャスティングのサポート
+        if other.shape == [1] {
+            // スカラーとの演算
+            let scalar_value = other.data.iter().next().unwrap();
+            let result_data = self.data.mapv(|x| x - scalar_value);
+            return Ok(Self {
+                data: result_data,
+                metal_buffer: None,
+                coreml_buffer: None,
+                device_state: DeviceState::CPU,
+                requires_grad: self.requires_grad || other.requires_grad,
+                shape: self.shape.clone(),
+            });
+        }
+        
+        // 形状の互換性チェック（通常のテンソル演算）
+        if self.shape != other.shape {
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
+        }
+        
+        let result_data = &self.data - &other.data;
+        Ok(Self {
+            data: result_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad || other.requires_grad,
+            shape: self.shape.clone(),
+        })
+    }
+
+    /// 乗算（要素ごと）
+    /// Element-wise multiplication
+    pub fn multiply(&self, other: &Self) -> RusTorchResult<Self> {
+        // スカラーブロードキャスティングのサポート
+        if other.shape == [1] {
+            // スカラーとの演算
+            let scalar_value = other.data.iter().next().unwrap();
+            let result_data = self.data.mapv(|x| x * scalar_value);
+            return Ok(Self {
+                data: result_data,
+                metal_buffer: None,
+                coreml_buffer: None,
+                device_state: DeviceState::CPU,
+                requires_grad: self.requires_grad || other.requires_grad,
+                shape: self.shape.clone(),
+            });
+        }
+        
+        // 形状の互換性チェック（通常のテンソル演算）
+        if self.shape != other.shape {
+            return Err(RusTorchError::shape_mismatch(&self.shape, &other.shape));
+        }
+        
+        let result_data = &self.data * &other.data;
+        Ok(Self {
+            data: result_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad || other.requires_grad,
+            shape: self.shape.clone(),
+        })
+    }
+
+    /// スカラー加算
+    /// Add scalar value to all elements
+    pub fn add_scalar(&self, scalar: f32) -> RusTorchResult<Self> {
+        let result_data = self.data.mapv(|x| x + scalar);
+        Ok(Self {
+            data: result_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad,
+            shape: self.shape.clone(),
+        })
+    }
+
+    /// スカラー乗算
+    /// Multiply all elements by scalar value
+    pub fn multiply_scalar(&self, scalar: f32) -> RusTorchResult<Self> {
+        let result_data = self.data.mapv(|x| x * scalar);
+        Ok(Self {
+            data: result_data,
+            metal_buffer: None,
+            coreml_buffer: None,
+            device_state: DeviceState::CPU,
+            requires_grad: self.requires_grad,
+            shape: self.shape.clone(),
+        })
+    }
+
+    /// 平均値計算
+    /// Calculate mean of all elements
+    pub fn mean(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(RusTorchError::tensor_op("Cannot calculate mean of empty tensor"));
+        }
+        Ok(self.data.mean().unwrap())
+    }
+
+    /// 最小値計算
+    /// Calculate minimum value
+    pub fn min(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(RusTorchError::tensor_op("Cannot calculate min of empty tensor"));
+        }
+        let min_val = self.data.iter().cloned().fold(f32::INFINITY, f32::min);
+        Ok(min_val)
+    }
+
+    /// 最大値計算
+    /// Calculate maximum value
+    pub fn max(&self) -> RusTorchResult<f32> {
+        if self.data.is_empty() {
+            return Err(RusTorchError::tensor_op("Cannot calculate max of empty tensor"));
+        }
+        let max_val = self.data.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        Ok(max_val)
+    }
+
     /// 平均（テンソル同士）
     /// Mean (tensor-wise)
     pub fn mean_tensor(&self) -> RusTorchResult<Self> {
