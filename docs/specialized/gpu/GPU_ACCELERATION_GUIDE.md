@@ -396,10 +396,10 @@ criterion_main!(benches);
 
 ## 🔗 関連リソース
 
-- [RusTorch メインドキュメント](../README.md)
-- [パフォーマンス分析レポート](../PERFORMANCE_ANALYSIS.md)
-- [GPU カーネルデモ](../examples/gpu_kernel_demo.rs)
-- [GPU vs CPU ベンチマーク](../benches/gpu_cpu_performance.rs)
+- [RusTorch メインドキュメント](../../../README.md)
+- [パフォーマンスガイド](../../guides/performance.md)
+- [GPU カーネルデモ](../../../examples/gpu_kernel_demo.rs)
+- [GPU vs CPU ベンチマーク](../../../benches/gpu_cpu_performance.rs)
 
 ---
 

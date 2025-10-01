@@ -752,7 +752,7 @@ wasm-pack test --chrome --firefox --safari
 **より多くの例については、`/examples` ディレクトリを参照してください**
 
 **🔗 Links:**
-- [Main Documentation](../README.md)
+- [Main Documentation](../../../README.md)
 - [API Reference](https://docs.rs/rustorch)
-- [WebGPU Demo](../examples/webgpu_simple_demo.html)
+- [WebGPU Demo](../../../examples/webgpu_simple_demo.html)
 - [GitHub Repository](https://github.com/JunSuzukiJapan/rustorch)

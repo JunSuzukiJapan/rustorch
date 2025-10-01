@@ -330,8 +330,8 @@ fn main() {
 ## 📚 Next Steps
 
 - **[Features](features.md)** - Explore all available features
-- **[Performance](performance.md)** - Learn about optimization techniques
-- **[Examples](examples.md)** - Browse comprehensive examples
+- **[Performance](../guides/performance.md)** - Learn about optimization techniques
+- **[Examples](../guides/examples.md)** - Browse comprehensive examples
 - **[Architecture](architecture.md)** - Understand the system design
 - **[API Documentation](https://docs.rs/rustorch)** - Detailed API reference
 
@@ -353,4 +353,4 @@ GPU features require appropriate drivers and libraries:
 - **Metal**: macOS with Metal support
 - **OpenCL**: OpenCL drivers for your platform
 
-See [GPU Acceleration Guide](GPU_ACCELERATION_GUIDE.md) for detailed setup instructions.
+See [GPU Acceleration Guide](../specialized/gpu/GPU_ACCELERATION_GUIDE.md) for detailed setup instructions.

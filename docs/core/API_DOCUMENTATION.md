@@ -21,7 +21,7 @@ rustorch/
 ├── gpu/                 # GPU acceleration (CUDA/Metal/OpenCL/WebGPU)
 ├── sparse/              # Sparse tensor operations and pruning (Phase 12)
 ├── serialization/       # Model serialization and JIT compilation (Phase 9)
-└── wasm/                # WebAssembly bindings (see [WASM API Documentation](WASM_API_DOCUMENTATION.md))
+└── wasm/                # WebAssembly bindings (see [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md))
 ```
 
 ## 📊 Tensor Module
@@ -1330,7 +1330,7 @@ ModelIO::save_with_options(&model, "portable_model.bin", compat_options)?;
 
 ## 🌐 WebAssembly Support
 
-> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md)
 
 For browser-based machine learning applications, RusTorch provides comprehensive WebAssembly bindings including:
 
@@ -1358,7 +1358,7 @@ let model = WasmModel::new();
 let predictions = model.predict(&input_data);
 ```
 
-**📚 For detailed WASM API documentation, examples, and browser integration guides, see:** [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+**📚 For detailed WASM API documentation, examples, and browser integration guides, see:** [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md)
 
 ## 📊 FFT and Signal Processing
 
@@ -2638,9 +2638,9 @@ println!("{}", benchmark.report());
 
 ## 🌐 WebAssembly (WASM) Module
 
-> 📋 **Complete WASM API Reference**: [WASM API Documentation](WASM_API_DOCUMENTATION.md)
+> 📋 **Complete WASM API Reference**: [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md)
 
-The WASM module provides comprehensive browser-based machine learning capabilities. For detailed API reference, examples, and integration guides, see the dedicated [WASM API Documentation](WASM_API_DOCUMENTATION.md).
+The WASM module provides comprehensive browser-based machine learning capabilities. For detailed API reference, examples, and integration guides, see the dedicated [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md).
 
 For complete documentation and examples, visit the [examples directory](../examples/) or generate local docs:
 
