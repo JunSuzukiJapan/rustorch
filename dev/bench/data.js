@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759301089767,
+  "lastUpdate": 1759301595693,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1926,6 +1926,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30012,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "id": "59da677d64785ab854e8cf0f42c246076824c44b",
+          "message": "feat: Add tensor_nd! procedural macro for N-dimensional tensors",
+          "timestamp": "2025-10-01T06:43:33Z",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/pull/36/commits/59da677d64785ab854e8cf0f42c246076824c44b"
+        },
+        "date": 1759301592699,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
