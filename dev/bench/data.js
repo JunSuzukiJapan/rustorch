@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759285590147,
+  "lastUpdate": 1759286602081,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1620,6 +1620,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "14e998ea2dce7562fab455cd4efeee887dab451e",
+          "message": "docs: fix broken internal links in documentation files\n\nFixed relative path links across documentation:\n- docs/core/API_DOCUMENTATION.md: Updated WASM API links to ../specialized/wasm/\n- docs/core/getting-started.md: Fixed links to guides/ and specialized/ directories\n- docs/specialized/gpu/GPU_ACCELERATION_GUIDE.md: Updated README and performance links\n- docs/specialized/wasm/WASM_GUIDE.md: Fixed README path to project root\n\nAll internal documentation links now correctly point to their target files.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T11:42:07+09:00",
+          "tree_id": "fe0947d98da45515db6d95397a8a07625082136f",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/14e998ea2dce7562fab455cd4efeee887dab451e"
+        },
+        "date": 1759286598921,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30009,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
