@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759297074783,
+  "lastUpdate": 1759297133462,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1744,6 +1744,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "20971b251176d4eb64fa99efd473c73a5002d775",
+          "message": "docs: update README Basic Usage example to use tensor! macro\n\nModernized example code to demonstrate the new tensor! macro for cleaner tensor initialization.\nAdded verification example file that successfully runs and validates the updated code.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T14:28:24+09:00",
+          "tree_id": "d887de0900a3a69b63ab6d2d1232d9ce7e1bf278",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/20971b251176d4eb64fa99efd473c73a5002d775"
+        },
+        "date": 1759297130229,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
