@@ -4,7 +4,12 @@ version = "0.6.28"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Procedural macros for RusTorch tensor creation"
+documentation = "https://docs.rs/rustorch-macros"
+homepage = "https://github.com/JunSuzukiJapan/rustorch"
+repository = "https://github.com/JunSuzukiJapan/rustorch"
 license = "MIT OR Apache-2.0"
+keywords = ["pytorch", "tensor", "macro", "procedural", "ndarray"]
+categories = ["science", "algorithms"]
 
 [lib]
 proc-macro = true
