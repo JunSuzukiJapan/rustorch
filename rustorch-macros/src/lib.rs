@@ -58,11 +58,9 @@ pub fn tensor_nd(input: TokenStream) -> TokenStream {
 
             TokenStream::from(expanded)
         }
-        _ => {
-            syn::Error::new_spanned(expr, "Expected array literal")
-                .to_compile_error()
-                .into()
-        }
+        _ => syn::Error::new_spanned(expr, "Expected array literal")
+            .to_compile_error()
+            .into(),
     }
 }
 
@@ -113,11 +111,14 @@ fn flatten_array(arr: &ExprArray) -> (Vec<proc_macro2::TokenStream>, Vec<usize>)
         }
         _ => {
             // Leaf level - convert elements to f32
-            let data: Vec<_> = elems.iter().map(|e| {
-                quote! {
-                    (#e as f64) as f32
-                }
-            }).collect();
+            let data: Vec<_> = elems
+                .iter()
+                .map(|e| {
+                    quote! {
+                        (#e as f64) as f32
+                    }
+                })
+                .collect();
 
             (data, vec![elems.len()])
         }

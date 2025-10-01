@@ -13,9 +13,7 @@ fn test_tensor_nd_4d() {
 
 #[test]
 fn test_tensor_nd_5d() {
-    let t = tensor_nd!([
-        [[[[1, 2]], [[3, 4]]], [[[5, 6]], [[7, 8]]]],
-    ]);
+    let t = tensor_nd!([[[[[1, 2]], [[3, 4]]], [[[5, 6]], [[7, 8]]]],]);
     assert_eq!(t.shape(), &[1, 2, 2, 1, 2]);
     assert_eq!(t.data.as_slice().unwrap().len(), 8);
 }
@@ -50,32 +48,25 @@ fn test_tensor_nd_1d() {
 
 #[test]
 fn test_tensor_nd_2d() {
-    let t = tensor_nd!([
-        [1, 2, 3],
-        [4, 5, 6]
-    ]);
+    let t = tensor_nd!([[1, 2, 3], [4, 5, 6]]);
     assert_eq!(t.shape(), &[2, 3]);
     assert_eq!(t.data.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
 }
 
 #[test]
 fn test_tensor_nd_3d() {
-    let t = tensor_nd!([
-        [[1, 2], [3, 4]],
-        [[5, 6], [7, 8]]
-    ]);
+    let t = tensor_nd!([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
     assert_eq!(t.shape(), &[2, 2, 2]);
-    assert_eq!(t.data.as_slice().unwrap(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+    assert_eq!(
+        t.data.as_slice().unwrap(),
+        &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    );
 }
 
 #[test]
 fn test_tensor_nd_large_4d() {
     let t = tensor_nd!([
-        [
-            [[1, 2], [3, 4]],
-            [[5, 6], [7, 8]],
-            [[9, 10], [11, 12]]
-        ],
+        [[[1, 2], [3, 4]], [[5, 6], [7, 8]], [[9, 10], [11, 12]]],
         [
             [[13, 14], [15, 16]],
             [[17, 18], [19, 20]],
