@@ -149,28 +149,25 @@
 <a href=#149 id=149 data-nosnippet>149</a>
 <a href=#150 id=150 data-nosnippet>150</a>    <span class="attr">#[test]
 <a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">fn </span>test_tensor_macro_2d() {
-<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([
-<a href=#153 id=153 data-nosnippet>153</a>            [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>],
-<a href=#154 id=154 data-nosnippet>154</a>            [<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]
-<a href=#155 id=155 data-nosnippet>155</a>        ]);
-<a href=#156 id=156 data-nosnippet>156</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">3</span>]);
-<a href=#157 id=157 data-nosnippet>157</a>        <span class="macro">assert_eq!</span>(t.as_slice(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>, <span class="number">5.0</span>, <span class="number">6.0</span>][..]));
-<a href=#158 id=158 data-nosnippet>158</a>    }
-<a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="attr">#[test]
-<a href=#161 id=161 data-nosnippet>161</a>    </span><span class="kw">fn </span>test_tensor_macro_3d() {
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([
-<a href=#163 id=163 data-nosnippet>163</a>            [[<span class="number">1</span>, <span class="number">2</span>], [<span class="number">3</span>, <span class="number">4</span>]],
-<a href=#164 id=164 data-nosnippet>164</a>            [[<span class="number">5</span>, <span class="number">6</span>], [<span class="number">7</span>, <span class="number">8</span>]]
-<a href=#165 id=165 data-nosnippet>165</a>        ]);
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>]);
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">assert_eq!</span>(t.as_slice(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>, <span class="number">5.0</span>, <span class="number">6.0</span>, <span class="number">7.0</span>, <span class="number">8.0</span>][..]));
-<a href=#168 id=168 data-nosnippet>168</a>    }
-<a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="attr">#[test]
-<a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">fn </span>test_tensor_macro_mixed_types() {
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([<span class="number">1</span>, <span class="number">2.5</span>, <span class="number">3</span>, <span class="number">4.2</span>]);
-<a href=#173 id=173 data-nosnippet>173</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">4</span>]);
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="macro">assert_eq!</span>(t.as_slice(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.5</span>, <span class="number">3.0</span>, <span class="number">4.2</span>][..]));
-<a href=#175 id=175 data-nosnippet>175</a>    }
-<a href=#176 id=176 data-nosnippet>176</a>}</code></pre></div></section></main></body></html>
+<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], [<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>]]);
+<a href=#153 id=153 data-nosnippet>153</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">3</span>]);
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="macro">assert_eq!</span>(t.as_slice(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>, <span class="number">5.0</span>, <span class="number">6.0</span>][..]));
+<a href=#155 id=155 data-nosnippet>155</a>    }
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="attr">#[test]
+<a href=#158 id=158 data-nosnippet>158</a>    </span><span class="kw">fn </span>test_tensor_macro_3d() {
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([[[<span class="number">1</span>, <span class="number">2</span>], [<span class="number">3</span>, <span class="number">4</span>]], [[<span class="number">5</span>, <span class="number">6</span>], [<span class="number">7</span>, <span class="number">8</span>]]]);
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>]);
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="macro">assert_eq!</span>(
+<a href=#162 id=162 data-nosnippet>162</a>            t.as_slice(),
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="number">4.0</span>, <span class="number">5.0</span>, <span class="number">6.0</span>, <span class="number">7.0</span>, <span class="number">8.0</span>][..])
+<a href=#164 id=164 data-nosnippet>164</a>        );
+<a href=#165 id=165 data-nosnippet>165</a>    }
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="attr">#[test]
+<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="kw">fn </span>test_tensor_macro_mixed_types() {
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">let </span>t = <span class="macro">tensor!</span>([<span class="number">1</span>, <span class="number">2.5</span>, <span class="number">3</span>, <span class="number">4.2</span>]);
+<a href=#170 id=170 data-nosnippet>170</a>        <span class="macro">assert_eq!</span>(t.shape(), <span class="kw-2">&amp;</span>[<span class="number">4</span>]);
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="macro">assert_eq!</span>(t.as_slice(), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>[<span class="number">1.0</span>, <span class="number">2.5</span>, <span class="number">3.0</span>, <span class="number">4.2</span>][..]));
+<a href=#172 id=172 data-nosnippet>172</a>    }
+<a href=#173 id=173 data-nosnippet>173</a>}</code></pre></div></section></main></body></html>
