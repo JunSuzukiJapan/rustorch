@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759297133462,
+  "lastUpdate": 1759298183846,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1775,6 +1775,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "id": "a90cd2a2688c79e9f61172b4480ded856aa8f044",
+          "message": "Release v0.6.27: Enhanced Tensor Initialization with tensor! Macro",
+          "timestamp": "2025-10-01T05:37:23Z",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/pull/35/commits/a90cd2a2688c79e9f61172b4480ded856aa8f044"
+        },
+        "date": 1759298180561,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30005,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
