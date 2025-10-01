@@ -307,6 +307,10 @@ pub mod special;
 /// Tensor operations and data structures
 /// テンソル操作とデータ構造
 pub mod tensor;
+
+// Re-export procedural macros
+// 手続き型マクロの再エクスポート
+pub use rustorch_macros::tensor_nd;
 /// TensorBoard integration
 /// TensorBoard統合
 pub mod tensorboard;

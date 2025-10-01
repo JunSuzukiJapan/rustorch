@@ -24,7 +24,7 @@ rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
 cargo.all_features = true
 
 [workspace]
-members = ["benchmarks"]
+members = ["benchmarks", "rustorch-macros"]
 
 [workspace.metadata]
 # ワークスペースのメタデータ
@@ -38,6 +38,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+rustorch-macros = { path = "rustorch-macros", version = "0.6.27" }
 # Core dependencies
 ndarray = { version = "0.16.1", features = ["rayon", "approx"] }
 ndarray-rand = "0.15.0"
