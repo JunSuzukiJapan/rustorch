@@ -51,7 +51,7 @@ RusTorch is a fully functional deep learning library that leverages Rust's safet
 - 🐛 **Comprehensive Debug & Logging**: Structured logging, performance profiling, memory tracking, automated alerts
 - 🎯 **Phase 8 Tensor Utilities**: Conditional operations (where, masked_select, masked_fill), indexing operations (gather, scatter, index_select), statistical operations (topk, kthvalue), and advanced utilities (unique, histogram)
 
-For detailed features, see [Features Documentation](docs/features.md).
+For detailed features, see [Features Documentation](docs/core/features.md).
 
 ## 🚀 Quick Start
 
@@ -71,7 +71,7 @@ rustorch-jupyter          # Global command / グローバルコマンド
 ./start_jupyter_quick.sh  # Interactive menu / 対話式メニュー
 ```
 
-- **コーディング開始！(Start coding!)**
+- **コーディング開���！(Start coding!)**
 
 **🎉 That's it! Your browser will open with Jupyter ready to use RusTorch!**  
 **🎉 これで完了！ブラウザでJupyterが開き、RusTorchを使う準備完了！**
@@ -268,30 +268,27 @@ cargo run --example special_functions_demo --no-default-features
 cargo run --example fft_demo --no-default-features
 ```
 
-For more examples, see [Getting Started Guide](docs/getting-started.md) and [WebAssembly Guide](docs/WASM_GUIDE.md).
+For more examples, see [Getting Started Guide](docs/core/getting-started.md) and [WebAssembly Guide](docs/specialized/wasm/WASM_GUIDE.md).
 
 ## 📚 Documentation
 
-- **[Getting Started](docs/getting-started.md)** - Basic usage and examples
-- **[Features](docs/features.md)** - Complete feature list and specifications
-- **[Performance](docs/performance.md)** - Benchmarks and optimization details
-- **[Architecture](docs/architecture.md)** - System design and project structure
-- **[Examples](docs/examples.md)** - Comprehensive code examples
+- **[Getting Started](docs/core/getting-started.md)** - Basic usage and examples
+- **[Features](docs/core/features.md)** - Complete feature list and specifications
+- **[Performance](docs/guides/performance.md)** - Benchmarks and optimization details
+- **[Architecture](docs/core/architecture.md)** - System design and project structure
+- **[Examples](docs/guides/examples.md)** - Comprehensive code examples
 - **[API Documentation](https://docs.rs/rustorch)** - Detailed API reference
 
 ### WebAssembly & Browser ML
-- **[WebAssembly Guide](docs/WASM_GUIDE.md)** - Complete WASM integration and API reference
-- **[Jupyter WASM Guide](docs/jupyter-wasm-guide.md)** - Step-by-step Jupyter Notebook setup (日本語)
-- **[Jupyter WASM Guide (English)](docs/jupyter-wasm-guide-en.md)** - Step-by-step Jupyter Notebook setup
-- **[WebGPU Integration](docs/WEBGPU_INTEGRATION.md)** - Chrome-optimized GPU acceleration
-- **[Browser Compatibility](docs/BROWSER_COMPATIBILITY.md)** - Cross-browser support matrix
-- **[WASM Performance](docs/WASM_PERFORMANCE.md)** - Benchmarking and optimization strategies
+- **[WebAssembly Guide](docs/specialized/wasm/WASM_GUIDE.md)** - Complete WASM integration and API reference
+- **[Jupyter Guide](docs/guides/jupyter-guide.md)** - Step-by-step Jupyter Notebook setup
+- **[WebGPU Integration](docs/specialized/wasm/webgpu-integration.md)** - Chrome-optimized GPU acceleration
+- **[Browser Compatibility](docs/specialized/compatibility/BROWSER_COMPATIBILITY.md)** - Cross-browser support matrix
+- **[WASM Performance](docs/specialized/wasm/WASM_PERFORMANCE.md)** - Benchmarking and optimization strategies
 
 ### Production & Operations
-- **[GPU Acceleration Guide](docs/GPU_ACCELERATION_GUIDE.md)** - GPU setup and usage
-- **[Production Guide](docs/PRODUCTION_GUIDE.md)** - Deployment and scaling
-- **[Data Validation Guide](docs/DATA_VALIDATION_GUIDE.md)** - Quality assurance and validation
-- **[Debug & Logging Guide](docs/DEBUG_GUIDE.md)** - Comprehensive debugging tools
+- **[GPU Acceleration Guide](docs/specialized/gpu/GPU_ACCELERATION_GUIDE.md)** - GPU setup and usage
+- **[Production Guide](docs/guides/production.md)** - Deployment and scaling
 
 ## 📊 Performance
 
@@ -335,7 +332,7 @@ cargo run --bin quick_optimizer_bench --release
 cargo run --bin manual_quick_bench
 ```
 
-For detailed performance analysis, see [Performance Documentation](docs/performance.md).
+For detailed performance analysis, see [Performance Documentation](docs/guides/performance.md).
 
 
 ## 🧪 Testing
@@ -370,7 +367,7 @@ docker build -f docker/Dockerfile.gpu -t rustorch:gpu .
 docker run --gpus all -it rustorch:gpu
 ```
 
-For complete deployment guide, see [Production Guide](docs/PRODUCTION_GUIDE.md).
+For complete deployment guide, see [Production Guide](docs/guides/production.md).
 
 ## 🤝 Contributing
 
