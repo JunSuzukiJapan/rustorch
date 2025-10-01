@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759298183846,
+  "lastUpdate": 1759299196971,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1802,6 +1802,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30005,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2a84a85087753866d0b80aebd928fe1b3cd9b63b",
+          "message": "Release v0.6.27: Enhanced Tensor Initialization with tensor! Macro\n\nRusTorch v0.6.27 release featuring the new tensor! macro for intuitive tensor initialization.\n\n## Key Features\n- tensor! macro with compile-time shape inference for 1D-3D tensors\n- Updated README.md Basic Usage example\n- Docker build fixes for benchmarks workspace member\n\n## Testing\nAll CI checks passed:\n- Tests (macOS/Ubuntu/Windows - stable/beta/nightly)\n- CodeQL Analysis, Documentation, License Compliance\n- Performance Benchmarks, Security Scan, WebAssembly Build\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T15:11:53+09:00",
+          "tree_id": "1d1a1acee9d852887e1484b85e08429df1a4c1c5",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/2a84a85087753866d0b80aebd928fe1b3cd9b63b"
+        },
+        "date": 1759299193617,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
