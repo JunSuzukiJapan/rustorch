@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759158032198,
+  "lastUpdate": 1759285590147,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1584,6 +1584,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/808e1415530b1c6dbfc4cb8014e9cbadff9c75ef"
         },
         "date": 1759158029438,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "d82d2d75cfdad8b2cb8342fb5ea6a8a6fae6dd61",
+          "message": "docs: fix broken documentation links in README.md\n\nUpdated all documentation links to reflect the current directory structure:\n- Core docs: docs/core/ (getting-started, features, architecture)\n- Guide docs: docs/guides/ (performance, examples, jupyter-guide, production)\n- Specialized docs: docs/specialized/{wasm,gpu,compatibility}/\n\nRemoved links to non-existent files (DATA_VALIDATION_GUIDE, DEBUG_GUIDE).\nConsolidated Jupyter WASM guides into single Jupyter Guide reference.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T11:25:15+09:00",
+          "tree_id": "46b7dc06d6f747b08da8d51d80f3b5b8933ac600",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/d82d2d75cfdad8b2cb8342fb5ea6a8a6fae6dd61"
+        },
+        "date": 1759285587449,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
