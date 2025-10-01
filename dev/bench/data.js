@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759302593757,
+  "lastUpdate": 1759302722751,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1984,6 +1984,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30007,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "838b0e1fe5bf7683ae1910a1b625991f604b6021",
+          "message": "chore: add metadata to rustorch-macros for crates.io publication",
+          "timestamp": "2025-10-01T16:10:45+09:00",
+          "tree_id": "388126150dc3d3f2a3aa4bb73d9df759826abfe3",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/838b0e1fe5bf7683ae1910a1b625991f604b6021"
+        },
+        "date": 1759302719693,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
