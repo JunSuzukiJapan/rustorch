@@ -2608,7 +2608,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.6.27"
+version = "0.6.28"
 dependencies = [
  "anyhow",
  "approx",
@@ -2663,6 +2663,7 @@ dependencies = [
  "rayon",
  "regex",
  "reqwest",
+ "rustorch-macros",
  "safetensors",
  "serde",
  "serde_json",
@@ -2691,6 +2692,16 @@ dependencies = [
  "rustorch",
  "sysinfo",
  "tokio",
+]
+
+[[package]]
+name = "rustorch-macros"
+version = "0.6.28"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustorch",
+ "syn",
 ]
 
 [[package]]
