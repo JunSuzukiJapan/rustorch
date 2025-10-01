@@ -122,15 +122,15 @@ pub mod operations;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod simd_integration;
 
+/// Convenient macros for tensor creation with literal syntax
+/// リテラル構文によるテンソル作成のための便利なマクロ
+pub mod macros;
 /// Shared operations between regular and WASM tensors
 /// 通常テンソルとWASMテンソル間の共通操作
 pub mod shared_ops;
 /// Phase 8: Advanced tensor utilities for conditional, indexing, and statistical operations
 /// フェーズ8: 条件、インデックス、統計操作のための高度なテンソルユーティリティ
 pub mod utilities;
-/// Convenient macros for tensor creation with literal syntax
-/// リテラル構文によるテンソル作成のための便利なマクロ
-pub mod macros;
 // Enable modules step by step
 // mod broadcasting; // Temporarily disabled to avoid conflicts with shape_operations
 

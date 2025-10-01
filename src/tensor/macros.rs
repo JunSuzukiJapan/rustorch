@@ -149,22 +149,19 @@ mod tests {
 
     #[test]
     fn test_tensor_macro_2d() {
-        let t = tensor!([
-            [1, 2, 3],
-            [4, 5, 6]
-        ]);
+        let t = tensor!([[1, 2, 3], [4, 5, 6]]);
         assert_eq!(t.shape(), &[2, 3]);
         assert_eq!(t.as_slice(), Some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0][..]));
     }
 
     #[test]
     fn test_tensor_macro_3d() {
-        let t = tensor!([
-            [[1, 2], [3, 4]],
-            [[5, 6], [7, 8]]
-        ]);
+        let t = tensor!([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
         assert_eq!(t.shape(), &[2, 2, 2]);
-        assert_eq!(t.as_slice(), Some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0][..]));
+        assert_eq!(
+            t.as_slice(),
+            Some(&[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0][..])
+        );
     }
 
     #[test]
