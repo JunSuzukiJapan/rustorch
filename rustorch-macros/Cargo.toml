@@ -1,6 +1,6 @@
 [package]
 name = "rustorch-macros"
-version = "0.6.27"
+version = "0.6.28"
 edition = "2021"
 authors = ["Jun Suzuki <jun.suzuki.japan@gmail.com>"]
 description = "Procedural macros for RusTorch tensor creation"
