@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759300905619,
+  "lastUpdate": 1759301089767,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1895,6 +1895,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "43a0a62d2d795f7f5dfe21a55986ffbebcf4e4aa",
+          "message": "docs: add release workflow to prevent conflicts\n\n- Comprehensive step-by-step release process\n- Best practices for conflict prevention\n- Pre-publish checklist\n- Troubleshooting guide\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T15:15:52+09:00",
+          "tree_id": "3ebcefd13e5a3a6d5a1c2bb94be56a6d8137f5db",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/43a0a62d2d795f7f5dfe21a55986ffbebcf4e4aa"
+        },
+        "date": 1759301086966,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30012,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
