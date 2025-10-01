@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759299423907,
+  "lastUpdate": 1759300905619,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1859,6 +1859,37 @@ window.BENCHMARK_DATA = {
           "url": "https://github.com/JunSuzukiJapan/rustorch/commit/43a0a62d2d795f7f5dfe21a55986ffbebcf4e4aa"
         },
         "date": 1759299421166,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "43f7a537f838c570a905845f7d760b38185be9fb",
+          "message": "feat: add tensor_nd! procedural macro for N-dimensional tensors\n\nImplements a new procedural macro `tensor_nd!` that supports arbitrary\ndimensional tensor creation (4D, 5D, 6D, and beyond) with compile-time\nshape inference.\n\nKey Features:\n- New rustorch-macros workspace member for procedural macros\n- Support for N-dimensional tensors (1D through 8D and beyond)\n- Compile-time shape inference from nested array literals\n- Automatic numeric type conversion to f32\n- Mixed numeric types support (integers and floats)\n\nImplementation:\n- Created rustorch-macros/Cargo.toml with proc-macro configuration\n- Implemented tensor_nd! macro with recursive array flattening\n- Added comprehensive integration tests for 1D-8D tensors\n- Created tensor_nd_demo.rs with usage examples\n- Re-exported macro in main rustorch crate\n\nTests:\n- 10 integration tests covering dimensions 1D through 8D\n- Tests for shape calculation and data flattening\n- Mixed numeric types validation\n- Doc tests for API examples\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T15:40:31+09:00",
+          "tree_id": "a63a4363fc1c8e1d86f70de8f3e558c30139db9d",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/43f7a537f838c570a905845f7d760b38185be9fb"
+        },
+        "date": 1759300902916,
         "tool": "customSmallerIsBetter",
         "benches": [
           {
