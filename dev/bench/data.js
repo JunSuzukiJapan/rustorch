@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759301595693,
+  "lastUpdate": 1759302593757,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1953,6 +1953,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3c48f02bc3aad6f25f256fbb7acc2ab967feb483",
+          "message": "feat: Add tensor_nd! procedural macro for N-dimensional tensors (#36)\n\n* feat: add tensor_nd! procedural macro for N-dimensional tensors\n\nImplements a new procedural macro `tensor_nd!` that supports arbitrary\ndimensional tensor creation (4D, 5D, 6D, and beyond) with compile-time\nshape inference.\n\nKey Features:\n- New rustorch-macros workspace member for procedural macros\n- Support for N-dimensional tensors (1D through 8D and beyond)\n- Compile-time shape inference from nested array literals\n- Automatic numeric type conversion to f32\n- Mixed numeric types support (integers and floats)\n\nImplementation:\n- Created rustorch-macros/Cargo.toml with proc-macro configuration\n- Implemented tensor_nd! macro with recursive array flattening\n- Added comprehensive integration tests for 1D-8D tensors\n- Created tensor_nd_demo.rs with usage examples\n- Re-exported macro in main rustorch crate\n\nTests:\n- 10 integration tests covering dimensions 1D through 8D\n- Tests for shape calculation and data flattening\n- Mixed numeric types validation\n- Doc tests for API examples\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n\n* chore: bump version to 0.6.28 for tensor_nd! macro release\n\n* chore: format code for pre-publish checks\n\n---------\n\nCo-authored-by: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T16:08:12+09:00",
+          "tree_id": "f19a3d4e63eaab6e0de7b0c82688dd448a6113be",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/3c48f02bc3aad6f25f256fbb7acc2ab967feb483"
+        },
+        "date": 1759302591010,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30007,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
