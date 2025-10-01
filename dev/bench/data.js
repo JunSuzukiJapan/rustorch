@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759286602081,
+  "lastUpdate": 1759296171981,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1651,6 +1651,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30009,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "4d1fdd1f6b2b56446a240db04acd40a6c7b8f9f3",
+          "message": "feat: add tensor literal initialization macro with automatic shape inference\n\nImplements convenient `tensor!` macro for creating 1D, 2D, and 3D tensors with literal syntax.\nSupports automatic type conversion via ToPrimitive and compile-time shape calculation.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T14:21:30+09:00",
+          "tree_id": "73e0a87bd7f4bbefe0b34589ff98438bb287c719",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/4d1fdd1f6b2b56446a240db04acd40a6c7b8f9f3"
+        },
+        "date": 1759296168759,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
