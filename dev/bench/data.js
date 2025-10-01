@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759296583259,
+  "lastUpdate": 1759297074783,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -1713,6 +1713,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30006,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": false,
+          "id": "529afc49238f860192bae1bab5a0592eef7fa6ae",
+          "message": "chore: bump version to 0.6.27\n\n- Update version in Cargo.toml (0.6.26 → 0.6.27)\n- Update version references in README.md\n- Update version in all Rust kernel demo notebooks (8 files)\n- Update Cargo.lock\n\nRelease preparation for v0.6.27 with tensor! macro feature.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-01T14:33:14+09:00",
+          "tree_id": "d356f4ad06d909073243975dbf9539f157fbae08",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/529afc49238f860192bae1bab5a0592eef7fa6ae"
+        },
+        "date": 1759297071884,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30008,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
