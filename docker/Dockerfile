@@ -20,6 +20,7 @@ WORKDIR /usr/src/rustorch
 
 # Copy manifests first for better caching
 COPY Cargo.toml ./
+COPY benchmarks/Cargo.toml ./benchmarks/
 
 # Create src directory and add dummy lib.rs to build dependencies
 RUN mkdir -p src && echo "// Dummy lib for dependency compilation" > src/lib.rs
@@ -31,7 +32,7 @@ RUN cargo build --release && rm -rf src
 COPY src ./src
 COPY examples ./examples
 COPY benches ./benches
-COPY benchmarks ./benchmarks
+COPY benchmarks/src ./benchmarks/src
 
 # Build the library only (excluding problematic binaries)
 RUN cargo build --release --lib

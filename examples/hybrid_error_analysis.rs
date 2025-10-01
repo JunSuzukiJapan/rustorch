@@ -13,6 +13,8 @@
 use rustorch::gpu::hybrid_executor::HybridExecution;
 #[cfg(feature = "coreml")]
 use rustorch::gpu::{hybrid_executor::HybridExecutor, DeviceType, OpType};
+#[cfg(feature = "coreml")]
+use rustorch::tensor::Tensor;
 
 #[cfg(feature = "coreml")]
 fn main() -> rustorch::error::RusTorchResult<()> {
