@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod cli;
+pub mod metrics;
 pub mod model;
 pub mod session;
 pub mod tokenizer;

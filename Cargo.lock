@@ -3168,6 +3168,7 @@ dependencies = [
  "chrono",
  "clap",
  "colored",
+ "criterion",
  "ctrlc",
  "directories",
  "half",

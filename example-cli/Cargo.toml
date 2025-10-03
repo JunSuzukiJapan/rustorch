@@ -53,6 +53,7 @@ ctrlc = "3.4"
 assert_cmd = "2.0"
 predicates = "3.1"
 tempfile = "3.12"
+criterion = "0.5"
 
 [features]
 default = []
@@ -68,3 +69,12 @@ hybrid-f32 = ["rustorch/hybrid-f32"]
 # Optional features
 mlx = []
 async = []
+
+# Benchmarks
+[[bench]]
+name = "inference_benchmark"
+harness = false
+
+[[bench]]
+name = "backend_comparison"
+harness = false
