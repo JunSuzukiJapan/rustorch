@@ -4,21 +4,24 @@ use rustyline::DefaultEditor;
 use std::path::PathBuf;
 
 use super::commands::Command;
+use crate::model::InferenceEngine;
 use crate::session::SessionManager;
 use crate::utils::ProgressIndicator;
 
 pub struct REPL {
     editor: DefaultEditor,
     session: SessionManager,
+    engine: InferenceEngine,
     show_progress: bool,
 }
 
 impl REPL {
-    pub fn new(session: SessionManager, show_progress: bool) -> Result<Self> {
+    pub fn new(session: SessionManager, engine: InferenceEngine, show_progress: bool) -> Result<Self> {
         let editor = DefaultEditor::new()?;
         Ok(Self {
             editor,
             session,
+            engine,
             show_progress,
         })
     }
@@ -202,9 +205,7 @@ impl REPL {
     }
 
     fn generate_response(&self, message: &str) -> Result<String> {
-        // TODO: Implement actual inference
-        // For now, return a placeholder response
-        Ok(format!("[Echo] {}", message))
+        self.engine.generate(message)
     }
 }
 
@@ -212,6 +213,7 @@ impl REPL {
 mod tests {
     use super::*;
     use crate::session::GenerationConfig;
+    use crate::model::{ModelLoader, InferenceEngine};
 
     fn create_test_session() -> SessionManager {
         let config = GenerationConfig {
@@ -223,18 +225,26 @@ mod tests {
         SessionManager::new_dummy(config, "cpu", "test-model")
     }
 
+    fn create_test_engine() -> InferenceEngine {
+        let loader = ModelLoader::dummy();
+        let config = GenerationConfig::default();
+        InferenceEngine::new(loader, config)
+    }
+
     #[test]
     fn test_repl_creation() {
         let session = create_test_session();
-        let repl = REPL::new(session, true);
+        let engine = create_test_engine();
+        let repl = REPL::new(session, engine, true);
         assert!(repl.is_ok());
     }
 
     #[test]
-    fn test_generate_response_placeholder() {
+    fn test_generate_response() {
         let session = create_test_session();
-        let repl = REPL::new(session, false).unwrap();
+        let engine = create_test_engine();
+        let repl = REPL::new(session, engine, false).unwrap();
         let response = repl.generate_response("Hello").unwrap();
-        assert!(response.contains("Echo"));
+        assert!(!response.is_empty());
     }
 }

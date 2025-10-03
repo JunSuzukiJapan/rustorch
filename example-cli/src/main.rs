@@ -1,7 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 
-use rustorch_cli::{CliArgs, GenerationConfig, SessionManager, REPL, init_logger};
+use rustorch_cli::{CliArgs, GenerationConfig, SessionManager, ModelLoader, InferenceEngine, REPL, init_logger};
 
 fn main() -> Result<()> {
     // Parse command line arguments
@@ -29,20 +29,26 @@ fn main() -> Result<()> {
     // Validate generation config
     gen_config.validate()?;
 
-    // Determine model path
-    let model_path = if let Some(path) = &args.model {
-        path.display().to_string()
+    // Load model
+    let model_loader = if let Some(path) = &args.model {
+        tracing::info!("Loading model from: {}", path.display());
+        ModelLoader::from_file(path)?
     } else {
         // TODO: Try to load from config file
         tracing::warn!("No model specified, using dummy model");
-        "dummy-model".to_string()
+        ModelLoader::dummy()
     };
+
+    let model_name = model_loader.metadata().name.clone();
+
+    // Create inference engine
+    let engine = InferenceEngine::new(model_loader, gen_config.clone());
 
     // Create session manager
     let mut session = SessionManager::new(
         gen_config,
         args.backend.as_str(),
-        &model_path,
+        &model_name,
     );
 
     // Set system prompt if provided
@@ -66,7 +72,7 @@ fn main() -> Result<()> {
     }
 
     // Create and run REPL
-    let mut repl = REPL::new(session, !args.no_progress)?;
+    let mut repl = REPL::new(session, engine, !args.no_progress)?;
     repl.run()?;
 
     tracing::info!("RusTorch CLI exiting...");
