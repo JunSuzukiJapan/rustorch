@@ -26,6 +26,7 @@ tokenizers = "0.19"
 
 # Model formats
 safetensors = "0.4"
+serde-pickle = "1.1"  # PyTorch .pt/.pth format support
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }

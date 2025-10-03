@@ -31,6 +31,7 @@ pub enum ModelFormat {
     Safetensors,
     ONNX,
     MLX,
+    PyTorch,
 }
 
 impl ModelFormat {
@@ -45,6 +46,7 @@ impl ModelFormat {
             "safetensors" => Ok(ModelFormat::Safetensors),
             "onnx" => Ok(ModelFormat::ONNX),
             "mlx" => Ok(ModelFormat::MLX),
+            "pt" | "pth" => Ok(ModelFormat::PyTorch),
             _ => Err(anyhow::anyhow!("Unsupported model format: {}", extension)),
         }
     }
@@ -56,6 +58,7 @@ impl ModelFormat {
             ModelFormat::Safetensors => "safetensors",
             ModelFormat::ONNX => "onnx",
             ModelFormat::MLX => "mlx",
+            ModelFormat::PyTorch => "pytorch",
         }
     }
 }
@@ -78,12 +81,24 @@ mod tests {
 
         let path = PathBuf::from("model.onnx");
         assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::ONNX);
+
+        let path = PathBuf::from("model.mlx");
+        assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::MLX);
+
+        let path = PathBuf::from("model.pt");
+        assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::PyTorch);
+
+        let path = PathBuf::from("model.pth");
+        assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::PyTorch);
     }
 
     #[test]
     fn test_model_format_as_str() {
         assert_eq!(ModelFormat::GGUF.as_str(), "gguf");
         assert_eq!(ModelFormat::Safetensors.as_str(), "safetensors");
+        assert_eq!(ModelFormat::ONNX.as_str(), "onnx");
+        assert_eq!(ModelFormat::MLX.as_str(), "mlx");
+        assert_eq!(ModelFormat::PyTorch.as_str(), "pytorch");
         assert_eq!(ModelFormat::Dummy.as_str(), "dummy");
     }
 }

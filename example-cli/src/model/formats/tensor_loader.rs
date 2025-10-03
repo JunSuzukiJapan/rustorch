@@ -217,6 +217,90 @@ fn dequantize_quantized_placeholder(data: &[u8]) -> Result<Vec<f64>> {
     Ok(data.iter().map(|&b| (b as f64 - 128.0) / 128.0).collect())
 }
 
+// Public helper methods for MLX and PyTorch loaders
+
+impl TensorLoader {
+    /// Convert bytes to f32 vector
+    pub fn bytes_to_f32_vec(data: &[u8]) -> Result<Vec<f32>> {
+        if data.len() % 4 != 0 {
+            anyhow::bail!("Invalid F32 data length: {}", data.len());
+        }
+
+        let mut result = Vec::with_capacity(data.len() / 4);
+        for chunk in data.chunks_exact(4) {
+            let bytes: [u8; 4] = chunk.try_into().unwrap();
+            let value = f32::from_le_bytes(bytes);
+            result.push(value);
+        }
+
+        Ok(result)
+    }
+
+    /// Convert bytes to f64 vector
+    pub fn bytes_to_f64_vec(data: &[u8]) -> Result<Vec<f64>> {
+        if data.len() % 8 != 0 {
+            anyhow::bail!("Invalid F64 data length: {}", data.len());
+        }
+
+        let mut result = Vec::with_capacity(data.len() / 8);
+        for chunk in data.chunks_exact(8) {
+            let bytes: [u8; 8] = chunk.try_into().unwrap();
+            let value = f64::from_le_bytes(bytes);
+            result.push(value);
+        }
+
+        Ok(result)
+    }
+
+    /// Convert bytes to f16 vector (using half crate)
+    pub fn bytes_to_f16_vec(data: &[u8]) -> Result<Vec<half::f16>> {
+        if data.len() % 2 != 0 {
+            anyhow::bail!("Invalid F16 data length: {}", data.len());
+        }
+
+        let mut result = Vec::with_capacity(data.len() / 2);
+        for chunk in data.chunks_exact(2) {
+            let bytes: [u8; 2] = chunk.try_into().unwrap();
+            let value = half::f16::from_le_bytes(bytes);
+            result.push(value);
+        }
+
+        Ok(result)
+    }
+
+    /// Convert bytes to i32 vector
+    pub fn bytes_to_i32_vec(data: &[u8]) -> Result<Vec<i32>> {
+        if data.len() % 4 != 0 {
+            anyhow::bail!("Invalid I32 data length: {}", data.len());
+        }
+
+        let mut result = Vec::with_capacity(data.len() / 4);
+        for chunk in data.chunks_exact(4) {
+            let bytes: [u8; 4] = chunk.try_into().unwrap();
+            let value = i32::from_le_bytes(bytes);
+            result.push(value);
+        }
+
+        Ok(result)
+    }
+
+    /// Convert bytes to i64 vector
+    pub fn bytes_to_i64_vec(data: &[u8]) -> Result<Vec<i64>> {
+        if data.len() % 8 != 0 {
+            anyhow::bail!("Invalid I64 data length: {}", data.len());
+        }
+
+        let mut result = Vec::with_capacity(data.len() / 8);
+        for chunk in data.chunks_exact(8) {
+            let bytes: [u8; 8] = chunk.try_into().unwrap();
+            let value = i64::from_le_bytes(bytes);
+            result.push(value);
+        }
+
+        Ok(result)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

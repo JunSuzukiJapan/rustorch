@@ -26,6 +26,7 @@ impl ModelLoader {
             ModelFormat::Safetensors => Self::load_safetensors(path),
             ModelFormat::ONNX => Self::load_onnx(path),
             ModelFormat::MLX => Self::load_mlx(path),
+            ModelFormat::PyTorch => Self::load_pytorch(path),
             ModelFormat::Dummy => Self::load_dummy(),
         }
     }
@@ -120,10 +121,36 @@ impl ModelLoader {
         Ok(Self { metadata })
     }
 
-    fn load_mlx(_path: &Path) -> Result<Self> {
-        // TODO: Implement MLX loading
-        tracing::warn!("MLX loading not yet implemented, using dummy model");
-        Self::load_dummy()
+    fn load_mlx(path: &Path) -> Result<Self> {
+        use super::formats::MLXLoader;
+
+        tracing::info!("Loading MLX model from: {}", path.display());
+
+        // Load MLX file
+        let (_tensors, metadata) = MLXLoader::load(path)?;
+
+        tracing::info!(
+            "Successfully loaded MLX model with {} tensors",
+            _tensors.len()
+        );
+
+        Ok(Self { metadata })
+    }
+
+    fn load_pytorch(path: &Path) -> Result<Self> {
+        use super::formats::PyTorchLoader;
+
+        tracing::info!("Loading PyTorch model from: {}", path.display());
+
+        // Load PyTorch state_dict
+        let (_state_dict, metadata) = PyTorchLoader::load(path)?;
+
+        tracing::info!(
+            "Successfully loaded PyTorch model with {} tensors",
+            _state_dict.len()
+        );
+
+        Ok(Self { metadata })
     }
 
     pub fn metadata(&self) -> &ModelMetadata {
