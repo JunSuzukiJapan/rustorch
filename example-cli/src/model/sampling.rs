@@ -114,37 +114,162 @@ pub fn sample_token(
     Ok((vocab_size / 2) as u32)
 }
 
+/// Softmax function for converting logits to probabilities
+pub fn softmax(logits: &[f64]) -> Result<Vec<f64>> {
+    // Find max for numerical stability
+    let max_logit = logits
+        .iter()
+        .cloned()
+        .fold(f64::NEG_INFINITY, f64::max);
+
+    // Compute exp(x - max)
+    let exp_values: Vec<f64> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
+
+    // Compute sum of exponentials
+    let sum: f64 = exp_values.iter().sum();
+
+    // Normalize
+    let probs: Vec<f64> = exp_values.iter().map(|&x| x / sum).collect();
+
+    Ok(probs)
+}
+
+/// Apply temperature scaling to logits (returns Vec for sampling operations)
+pub fn apply_temperature_to_vec(logits: &[f64], temperature: f64) -> Result<Vec<f64>> {
+    if temperature <= 0.0 {
+        anyhow::bail!("Temperature must be positive");
+    }
+    Ok(logits.iter().map(|&x| x / temperature).collect())
+}
+
 /// Apply temperature scaling to logits
 pub fn apply_temperature(logits: &Tensor<f64>, temperature: f64) -> Tensor<f64> {
     if temperature == 0.0 || temperature == 1.0 {
         return logits.clone();
     }
 
-    // TODO: Implement actual temperature scaling (logits / temperature)
-    // For now, just return the original logits
-    logits.clone()
+    // Scale logits by temperature
+    let scaled_data: Vec<f64> = logits.data.iter().map(|&x| x / temperature).collect();
+    Tensor::from_vec(scaled_data, logits.size().to_vec())
+}
+
+/// Apply top-k sampling: keep only top-k highest probabilities
+pub fn apply_top_k_to_probs(probs: &[f64], k: usize) -> Result<Vec<f64>> {
+    if k == 0 || k >= probs.len() {
+        return Ok(probs.to_vec());
+    }
+
+    // Create indices with probabilities
+    let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+
+    // Sort by probability (descending)
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    // Keep only top-k, zero out the rest
+    let mut filtered = vec![0.0; probs.len()];
+    for (idx, prob) in indexed.iter().take(k) {
+        filtered[*idx] = *prob;
+    }
+
+    // Renormalize
+    let sum: f64 = filtered.iter().sum();
+    if sum > 0.0 {
+        for p in filtered.iter_mut() {
+            *p /= sum;
+        }
+    }
+
+    Ok(filtered)
 }
 
 /// Apply top-k filtering to logits
 pub fn apply_top_k(logits: &Tensor<f64>, k: usize) -> Tensor<f64> {
-    // TODO: Implement actual top-k filtering
-    // 1. Find top-k values
-    // 2. Set all other values to -inf
-    // For now, just return the original logits
+    if k == 0 {
+        return logits.clone();
+    }
+
     tracing::debug!("Applying top-k filtering with k={}", k);
-    logits.clone()
+
+    // Extract logits as vec, apply filtering, convert back
+    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
+    match softmax(&logits_vec).and_then(|probs| apply_top_k_to_probs(&probs, k)) {
+        Ok(filtered) => Tensor::from_vec(filtered, logits.size().to_vec()),
+        Err(_) => logits.clone(),
+    }
+}
+
+/// Apply top-p (nucleus) sampling: keep smallest set of top probabilities that sum to >= p
+pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> Result<Vec<f64>> {
+    if p <= 0.0 || p >= 1.0 {
+        return Ok(probs.to_vec());
+    }
+
+    // Create indices with probabilities
+    let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &prob)| (i, prob)).collect();
+
+    // Sort by probability (descending)
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    // Find cutoff: smallest set where cumulative prob >= p
+    let mut cumulative = 0.0;
+    let mut cutoff = indexed.len();
+    for (i, (_idx, prob)) in indexed.iter().enumerate() {
+        cumulative += prob;
+        if cumulative >= p {
+            cutoff = i + 1;
+            break;
+        }
+    }
+
+    // Keep only top-p tokens, zero out the rest
+    let mut filtered = vec![0.0; probs.len()];
+    for (idx, prob) in indexed.iter().take(cutoff) {
+        filtered[*idx] = *prob;
+    }
+
+    // Renormalize
+    let sum: f64 = filtered.iter().sum();
+    if sum > 0.0 {
+        for prob in filtered.iter_mut() {
+            *prob /= sum;
+        }
+    }
+
+    Ok(filtered)
 }
 
 /// Apply top-p (nucleus) filtering to logits
 pub fn apply_top_p(logits: &Tensor<f64>, p: f64) -> Tensor<f64> {
-    // TODO: Implement actual top-p filtering
-    // 1. Sort logits in descending order
-    // 2. Compute cumulative probabilities
-    // 3. Find cutoff where cumsum > p
-    // 4. Set all values below cutoff to -inf
-    // For now, just return the original logits
+    if !(0.0..=1.0).contains(&p) {
+        return logits.clone();
+    }
+
     tracing::debug!("Applying top-p filtering with p={}", p);
-    logits.clone()
+
+    // Extract logits as vec, apply filtering, convert back
+    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
+    match softmax(&logits_vec).and_then(|probs| apply_top_p_to_probs(&probs, p)) {
+        Ok(filtered) => Tensor::from_vec(filtered, logits.size().to_vec()),
+        Err(_) => logits.clone(),
+    }
+}
+
+/// Sample from a probability distribution using multinomial sampling
+pub fn multinomial_sample(probs: &[f64]) -> Result<usize> {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let random: f64 = rng.gen();
+
+    let mut cumulative = 0.0;
+    for (i, &prob) in probs.iter().enumerate() {
+        cumulative += prob;
+        if random < cumulative {
+            return Ok(i);
+        }
+    }
+
+    // Fallback: return last index
+    Ok(probs.len() - 1)
 }
 
 /// Apply repetition penalty to logits
@@ -242,6 +367,55 @@ mod tests {
 
         let result = sample_token(&logits, &config, &tokens);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_softmax() {
+        let logits = vec![1.0, 2.0, 3.0];
+        let probs = softmax(&logits).unwrap();
+
+        // Check sum equals 1.0
+        let sum: f64 = probs.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+
+        // Check probabilities are in ascending order
+        assert!(probs[0] < probs[1]);
+        assert!(probs[1] < probs[2]);
+    }
+
+    #[test]
+    fn test_apply_top_k_to_probs() {
+        let probs = vec![0.1, 0.4, 0.3, 0.2];
+        let filtered = apply_top_k_to_probs(&probs, 2).unwrap();
+
+        // Only top-2 should be non-zero
+        let non_zero_count = filtered.iter().filter(|&&p| p > 0.0).count();
+        assert_eq!(non_zero_count, 2);
+
+        // Sum should be 1.0
+        let sum: f64 = filtered.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_apply_top_p_to_probs() {
+        let probs = vec![0.5, 0.3, 0.15, 0.05];
+        let filtered = apply_top_p_to_probs(&probs, 0.8).unwrap();
+
+        // Should keep smallest set that sums to >= 0.8
+        let sum: f64 = filtered.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_multinomial_sample() {
+        let probs = vec![0.25, 0.25, 0.25, 0.25];
+
+        // Should return valid index
+        for _ in 0..100 {
+            let idx = multinomial_sample(&probs).unwrap();
+            assert!(idx < 4);
+        }
     }
 
     #[test]

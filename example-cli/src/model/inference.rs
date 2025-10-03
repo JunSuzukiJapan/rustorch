@@ -229,14 +229,16 @@ impl InferenceEngine {
         _context: &[usize],
         _step: usize,
     ) -> Result<usize> {
+        use crate::model::sampling::{softmax, apply_top_k_to_probs, apply_top_p_to_probs, multinomial_sample};
+
         let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
 
         // Apply softmax to get probabilities
-        let probs = self.softmax(&logits_vec)?;
+        let probs = softmax(&logits_vec)?;
 
         // Apply top-k filtering if specified
         let filtered_probs = if let Some(top_k) = self.sampling_config.top_k {
-            self.apply_top_k(&probs, top_k)?
+            apply_top_k_to_probs(&probs, top_k)?
         } else {
             probs
         };
@@ -244,7 +246,7 @@ impl InferenceEngine {
         // Apply top-p (nucleus) filtering if specified
         let final_probs = if let Some(top_p) = self.sampling_config.top_p {
             if top_p < 1.0 {
-                self.apply_top_p(&filtered_probs, top_p)?
+                apply_top_p_to_probs(&filtered_probs, top_p)?
             } else {
                 filtered_probs
             }
@@ -253,112 +255,7 @@ impl InferenceEngine {
         };
 
         // Sample from the filtered distribution
-        self.multinomial_sample(&final_probs)
-    }
-
-    /// Softmax function for converting logits to probabilities
-    fn softmax(&self, logits: &[f64]) -> Result<Vec<f64>> {
-        // Find max for numerical stability
-        let max_logit = logits
-            .iter()
-            .cloned()
-            .fold(f64::NEG_INFINITY, f64::max);
-
-        // Compute exp(x - max)
-        let exp_values: Vec<f64> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
-
-        // Compute sum of exponentials
-        let sum: f64 = exp_values.iter().sum();
-
-        // Normalize
-        let probs: Vec<f64> = exp_values.iter().map(|&x| x / sum).collect();
-
-        Ok(probs)
-    }
-
-    /// Apply top-k sampling: keep only top-k highest probabilities
-    fn apply_top_k(&self, probs: &[f64], k: usize) -> Result<Vec<f64>> {
-        if k == 0 || k >= probs.len() {
-            return Ok(probs.to_vec());
-        }
-
-        // Create indices with probabilities
-        let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
-
-        // Sort by probability (descending)
-        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        // Keep only top-k, zero out the rest
-        let mut filtered = vec![0.0; probs.len()];
-        for (idx, prob) in indexed.iter().take(k) {
-            filtered[*idx] = *prob;
-        }
-
-        // Renormalize
-        let sum: f64 = filtered.iter().sum();
-        if sum > 0.0 {
-            for p in filtered.iter_mut() {
-                *p /= sum;
-            }
-        }
-
-        Ok(filtered)
-    }
-
-    /// Apply top-p (nucleus) sampling: keep smallest set with cumulative probability >= p
-    fn apply_top_p(&self, probs: &[f64], p: f64) -> Result<Vec<f64>> {
-        if p >= 1.0 || p <= 0.0 {
-            return Ok(probs.to_vec());
-        }
-
-        // Create indices with probabilities
-        let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &pr)| (i, pr)).collect();
-
-        // Sort by probability (descending)
-        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-
-        // Find cutoff where cumulative probability exceeds p
-        let mut cumsum = 0.0;
-        let mut cutoff = indexed.len();
-
-        for (i, (_, prob)) in indexed.iter().enumerate() {
-            cumsum += prob;
-            if cumsum >= p {
-                cutoff = i + 1;
-                break;
-            }
-        }
-
-        // Keep only nucleus, zero out the rest
-        let mut filtered = vec![0.0; probs.len()];
-        for (idx, prob) in indexed.iter().take(cutoff) {
-            filtered[*idx] = *prob;
-        }
-
-        // Renormalize
-        let sum: f64 = filtered.iter().sum();
-        if sum > 0.0 {
-            for pr in filtered.iter_mut() {
-                *pr /= sum;
-            }
-        }
-
-        Ok(filtered)
-    }
-
-    /// Multinomial sampling from probability distribution
-    fn multinomial_sample(&self, probs: &[f64]) -> Result<usize> {
-        // Use deterministic sampling based on probabilities for now
-        // In a real implementation, would use proper RNG
-
-        // Find argmax (greedy sampling as placeholder)
-        let (idx, _) = probs
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .ok_or_else(|| anyhow::anyhow!("Empty probability distribution"))?;
-
-        Ok(idx)
+        multinomial_sample(&final_probs)
     }
 
     fn generate_dummy_response(&self, input: &str) -> String {

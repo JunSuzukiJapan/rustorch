@@ -46,19 +46,19 @@ impl LayerNorm {
     /// Output shape: Same as input
     pub fn forward(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
         // Calculate mean across normalized dimensions
-        let mean = Self::calculate_mean(input)?;
+        let mean = self.calculate_mean(input)?;
 
         // Calculate variance
-        let variance = Self::calculate_variance(input, &mean)?;
+        let variance = self.calculate_variance(input, &mean)?;
 
         // Normalize: (x - mean) / sqrt(variance + eps)
-        let normalized = Self::normalize(input, &mean, &variance, self.eps)?;
+        let normalized = self.normalize(input, &mean, &variance)?;
 
         // Apply affine transformation if enabled
         if self.elementwise_affine {
             if let (Some(gamma), Some(beta)) = (&self.gamma, &self.beta) {
                 // y = gamma * normalized + beta
-                return Self::apply_affine(&normalized, gamma, beta);
+                return self.apply_affine(&normalized, gamma, beta);
             }
         }
 
@@ -66,7 +66,7 @@ impl LayerNorm {
     }
 
     /// Calculate mean across features
-    fn calculate_mean(input: &Tensor<f64>) -> Result<Tensor<f64>> {
+    fn calculate_mean(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
         // Simplified: calculate global mean for now
         // Full implementation would use RusTorch reduction operations
         let total_elements = input.data.len();
@@ -81,7 +81,7 @@ impl LayerNorm {
     }
 
     /// Calculate variance across features
-    fn calculate_variance(input: &Tensor<f64>, mean: &Tensor<f64>) -> Result<Tensor<f64>> {
+    fn calculate_variance(&self, input: &Tensor<f64>, mean: &Tensor<f64>) -> Result<Tensor<f64>> {
         // Simplified: calculate global variance for now
         let total_elements = input.data.len();
         if total_elements == 0 {
@@ -104,10 +104,10 @@ impl LayerNorm {
 
     /// Normalize input
     fn normalize(
+        &self,
         input: &Tensor<f64>,
         mean: &Tensor<f64>,
         variance: &Tensor<f64>,
-        eps: f64,
     ) -> Result<Tensor<f64>> {
         // Simplified: global normalization
         let shape = input.size();
@@ -116,7 +116,7 @@ impl LayerNorm {
         }
 
         let mean_val = mean.data[[0]];
-        let std_val = (variance.data[[0]] + eps).sqrt();
+        let std_val = (variance.data[[0]] + self.eps).sqrt();
 
         let normalized_data: Vec<f64> = input
             .data
@@ -129,6 +129,7 @@ impl LayerNorm {
 
     /// Apply affine transformation
     fn apply_affine(
+        &self,
         normalized: &Tensor<f64>,
         gamma: &Tensor<f64>,
         beta: &Tensor<f64>,
