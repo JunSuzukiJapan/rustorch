@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::*;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
 use std::path::PathBuf;
@@ -76,14 +77,14 @@ impl REPL {
     }
 
     fn print_welcome(&self) {
-        println!("╔════════════════════════════════════════════════════════════╗");
-        println!("║           RusTorch CLI - Local LLM Chat                   ║");
-        println!("╚════════════════════════════════════════════════════════════╝");
+        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
+        println!("{}", "║           RusTorch CLI - Local LLM Chat                   ║".bright_blue());
+        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
         println!();
-        println!("Backend: {}", self.session.backend_name());
-        println!("Model: {}", self.session.model_name());
+        println!("{} {}", "Backend:".bright_green(), self.session.backend_name().cyan());
+        println!("{} {}", "Model:".bright_green(), self.session.model_name().cyan());
         println!();
-        println!("Type '/help' for available commands, '/exit' to quit.");
+        println!("{}", "Type '/help' for available commands, '/exit' to quit.".bright_black());
         println!();
     }
 
@@ -112,11 +113,11 @@ impl REPL {
     }
 
     fn handle_exit(&mut self) -> Result<()> {
-        println!("Saving session...");
+        println!("{}", "Saving session...".yellow());
         if let Err(e) = self.session.auto_save() {
-            eprintln!("Warning: Failed to auto-save session: {}", e);
+            eprintln!("{} {}", "Warning:".yellow(), format!("Failed to auto-save session: {}", e).red());
         }
-        println!("Goodbye!");
+        println!("{}", "Goodbye!".bright_cyan());
         Ok(())
     }
 
@@ -126,7 +127,7 @@ impl REPL {
 
     fn handle_clear(&mut self) -> Result<()> {
         self.session.clear_history();
-        println!("Conversation history cleared.");
+        println!("{}", "Conversation history cleared.".green());
         Ok(())
     }
 
@@ -135,7 +136,7 @@ impl REPL {
             crate::cli::CliArgs::get_default_history_path()
         });
         self.session.save_history(&path)?;
-        println!("Conversation saved to: {}", path.display());
+        println!("{} {}", "Conversation saved to:".green(), path.display().to_string().cyan());
         Ok(())
     }
 
@@ -144,7 +145,7 @@ impl REPL {
             crate::cli::CliArgs::get_default_history_path()
         });
         self.session.load_history(&path)?;
-        println!("Conversation loaded from: {}", path.display());
+        println!("{} {}", "Conversation loaded from:".green(), path.display().to_string().cyan());
         Ok(())
     }
 
@@ -160,27 +161,27 @@ impl REPL {
     }
 
     fn handle_stats(&self) {
-        println!("╔════════════════════════════════════════════════════════════╗");
-        println!("║                     Statistics                             ║");
-        println!("╚════════════════════════════════════════════════════════════╝");
+        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
+        println!("{}", "║                     Statistics                             ║".bright_blue());
+        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
         println!();
-        println!("  Messages:        {}", self.session.message_count());
-        println!("  Total tokens:    {}", self.session.total_tokens());
-        println!("  Backend:         {}", self.session.backend_name());
-        println!("  Model:           {}", self.session.model_name());
+        println!("  {:<16} {}", "Messages:".bright_green(), self.session.message_count().to_string().cyan());
+        println!("  {:<16} {}", "Total tokens:".bright_green(), self.session.total_tokens().to_string().cyan());
+        println!("  {:<16} {}", "Backend:".bright_green(), self.session.backend_name().cyan());
+        println!("  {:<16} {}", "Model:".bright_green(), self.session.model_name().cyan());
         println!();
     }
 
     fn handle_system(&mut self, prompt: &str) -> Result<()> {
         self.session.set_system_prompt(prompt);
-        println!("System prompt updated.");
+        println!("{}", "System prompt updated.".green());
         Ok(())
     }
 
     fn handle_config(&self) {
-        println!("╔════════════════════════════════════════════════════════════╗");
-        println!("║                   Configuration                            ║");
-        println!("╚════════════════════════════════════════════════════════════╝");
+        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
+        println!("{}", "║                   Configuration                            ║".bright_blue());
+        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
         println!();
         self.session.print_config();
         println!();
@@ -198,7 +199,7 @@ impl REPL {
             self.generate_response(message)?
         };
 
-        println!("Assistant> {}", response);
+        println!("{} {}", "Assistant>".bright_magenta().bold(), response.white());
         self.session.add_assistant_message(&response);
 
         Ok(())
