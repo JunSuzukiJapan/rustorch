@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759484290580,
+  "lastUpdate": 1759484868212,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -2042,6 +2042,33 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30015,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "id": "25d5dff431bbc9fa76ce6a1ac8f04dae01902d53",
+          "message": "feat: RusTorch CLI - Complete Implementation with Model Download & GPU Backends",
+          "timestamp": "2025-10-01T07:10:49Z",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/pull/37/commits/25d5dff431bbc9fa76ce6a1ac8f04dae01902d53"
+        },
+        "date": 1759484865519,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30010,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
