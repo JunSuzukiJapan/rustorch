@@ -48,7 +48,8 @@ impl SafetensorsLoader {
         // Extract tensor metadata
         let mut tensors = HashMap::new();
         for name in st.names() {
-            let view = st.tensor(&name)
+            let view = st
+                .tensor(name)
                 .with_context(|| format!("Failed to get tensor: {}", name))?;
 
             let info = TensorInfo {
@@ -88,10 +89,12 @@ impl SafetensorsLoader {
 
     /// Convert tensor data to f32 vector
     pub fn tensor_as_f32(&self, name: &str) -> Result<Vec<f32>> {
-        let info = self.tensor_info(name)
+        let info = self
+            .tensor_info(name)
             .with_context(|| format!("Tensor not found: {}", name))?;
 
-        let data = self.tensor_data(name)
+        let data = self
+            .tensor_data(name)
             .with_context(|| format!("Failed to get tensor data: {}", name))?;
 
         // Parse based on dtype

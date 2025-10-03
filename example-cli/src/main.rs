@@ -1,7 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
 
-use rustorch_cli::{CliArgs, GenerationConfig, SessionManager, ModelLoader, InferenceEngine, REPL, init_logger};
+use rustorch_cli::{
+    init_logger, CliArgs, GenerationConfig, InferenceEngine, ModelLoader, SessionManager, REPL,
+};
 
 fn main() -> Result<()> {
     // Parse command line arguments
@@ -45,11 +47,7 @@ fn main() -> Result<()> {
     let engine = InferenceEngine::new(model_loader, gen_config.clone());
 
     // Create session manager
-    let mut session = SessionManager::new(
-        gen_config,
-        args.backend.as_str(),
-        &model_name,
-    );
+    let mut session = SessionManager::new(gen_config, args.backend.as_str(), &model_name);
 
     // Set system prompt if provided
     if let Some(prompt) = &args.system_prompt {

@@ -112,12 +112,12 @@ fn bytes_per_element(ggml_type: GGMLType) -> usize {
         GGMLType::Q4_0 | GGMLType::Q4_1 => 1, // ~0.5 bytes per element (4-bit)
         GGMLType::Q5_0 | GGMLType::Q5_1 => 1, // ~0.625 bytes per element (5-bit)
         GGMLType::Q8_0 | GGMLType::Q8_1 => 1, // 1 byte per element (8-bit)
-        GGMLType::Q2_K => 1,                   // ~0.25 bytes per element (2-bit)
-        GGMLType::Q3_K => 1,                   // ~0.375 bytes per element (3-bit)
-        GGMLType::Q4_K => 1,                   // ~0.5 bytes per element (4-bit)
-        GGMLType::Q5_K => 1,                   // ~0.625 bytes per element (5-bit)
-        GGMLType::Q6_K => 1,                   // ~0.75 bytes per element (6-bit)
-        GGMLType::Q8_K => 1,                   // 1 byte per element (8-bit)
+        GGMLType::Q2_K => 1,                  // ~0.25 bytes per element (2-bit)
+        GGMLType::Q3_K => 1,                  // ~0.375 bytes per element (3-bit)
+        GGMLType::Q4_K => 1,                  // ~0.5 bytes per element (4-bit)
+        GGMLType::Q5_K => 1,                  // ~0.625 bytes per element (5-bit)
+        GGMLType::Q6_K => 1,                  // ~0.75 bytes per element (6-bit)
+        GGMLType::Q8_K => 1,                  // 1 byte per element (8-bit)
     }
 }
 
@@ -214,10 +214,7 @@ fn dequantize_i32(data: &[u8]) -> Result<Vec<f64>> {
 /// Real implementation would properly decode the quantization format
 fn dequantize_quantized_placeholder(data: &[u8]) -> Result<Vec<f64>> {
     // For now, treat each byte as a quantized value and scale to [-1, 1]
-    Ok(data
-        .iter()
-        .map(|&b| (b as f64 - 128.0) / 128.0)
-        .collect())
+    Ok(data.iter().map(|&b| (b as f64 - 128.0) / 128.0).collect())
 }
 
 #[cfg(test)]

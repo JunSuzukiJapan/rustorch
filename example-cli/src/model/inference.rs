@@ -1,7 +1,7 @@
-use anyhow::Result;
+use super::{sample_token, KVCache, ModelLoader, SamplingConfig, TransformerModel};
 use crate::session::GenerationConfig;
-use super::{ModelLoader, TransformerModel, SamplingConfig, sample_token, KVCache};
 use crate::tokenizer::{Tokenizer, TokenizerWrapper};
+use anyhow::Result;
 use rustorch::tensor::Tensor;
 
 pub struct InferenceEngine {
@@ -18,7 +18,11 @@ impl InferenceEngine {
         // Create sampling config from generation config
         let sampling_config = SamplingConfig {
             temperature: config.temperature as f64,
-            top_k: if config.top_k > 0 { Some(config.top_k as usize) } else { None },
+            top_k: if config.top_k > 0 {
+                Some(config.top_k as usize)
+            } else {
+                None
+            },
             top_p: Some(config.top_p as f64),
             repetition_penalty: 1.0,
         };
@@ -43,10 +47,12 @@ impl InferenceEngine {
     /// Generate a response from input text
     pub fn generate(&self, input: &str) -> Result<String> {
         tracing::debug!("Generating response for input: {}", input);
-        tracing::debug!("Generation config: max_tokens={}, temperature={}, top_p={}",
+        tracing::debug!(
+            "Generation config: max_tokens={}, temperature={}, top_p={}",
             self.generation_config.max_tokens,
             self.generation_config.temperature,
-            self.generation_config.top_p);
+            self.generation_config.top_p
+        );
 
         // If no model is loaded, return dummy response
         if self.model.is_none() {
@@ -54,7 +60,8 @@ impl InferenceEngine {
         }
 
         // Encode input
-        let input_ids = self.tokenizer
+        let input_ids = self
+            .tokenizer
             .encode(input, true)
             .unwrap_or_else(|_| vec![0]); // Fallback to dummy token on error
 
@@ -62,7 +69,8 @@ impl InferenceEngine {
         let output_ids = self.generate_tokens(&input_ids)?;
 
         // Decode output
-        let output = self.tokenizer
+        let output = self
+            .tokenizer
             .decode(&output_ids, true)
             .unwrap_or_else(|_| self.generate_dummy_response(input));
 
@@ -75,11 +83,10 @@ impl InferenceEngine {
         let mut generated_ids = input_ids.to_vec();
 
         // Create KV cache if model has layers
-        let _cache = if let Some(model) = &self.model {
-            Some(KVCache::new(model.config().num_layers))
-        } else {
-            None
-        };
+        let _cache = self
+            .model
+            .as_ref()
+            .map(|model| KVCache::new(model.config().num_layers));
 
         // Generation loop
         for _ in 0..max_new_tokens {
@@ -112,7 +119,7 @@ impl InferenceEngine {
 
     fn generate_dummy_response(&self, input: &str) -> String {
         // Simple dummy response generator
-        let responses = vec![
+        let responses = [
             format!("I understand you said: \"{}\"", input),
             format!("That's an interesting point about: {}", input),
             format!("Let me think about that... You mentioned: {}", input),
@@ -125,7 +132,10 @@ impl InferenceEngine {
     }
 
     /// Generate a streaming response with token-by-token output
-    pub fn generate_stream<'a>(&'a self, input: &str) -> Result<Box<dyn Iterator<Item = String> + 'a>> {
+    pub fn generate_stream<'a>(
+        &'a self,
+        input: &str,
+    ) -> Result<Box<dyn Iterator<Item = String> + 'a>> {
         tracing::debug!("Starting streaming generation for input: {}", input);
 
         // If no model is loaded, return dummy streaming response
@@ -134,7 +144,8 @@ impl InferenceEngine {
         }
 
         // Encode input
-        let input_ids = self.tokenizer
+        let input_ids = self
+            .tokenizer
             .encode(input, true)
             .unwrap_or_else(|_| vec![0]);
 
@@ -149,36 +160,30 @@ impl InferenceEngine {
         let eos_id = self.tokenizer.eos_token_id();
         let vocab_size = self.tokenizer.vocab_size();
 
-        (0..max_new_tokens)
-            .scan(generated_ids, move |state, _| {
-                // Sample next token (placeholder with random logits for now)
-                let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
+        (0..max_new_tokens).scan(generated_ids, move |state, _| {
+            // Sample next token (placeholder with random logits for now)
+            let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
 
-                let next_token = sample_token(&logits, &self.sampling_config, state)
-                    .ok()?;
+            let next_token = sample_token(&logits, &self.sampling_config, state).ok()?;
 
-                // Check for EOS token
-                if let Some(eos) = eos_id {
-                    if next_token == eos {
-                        return None; // Stop iteration
-                    }
+            // Check for EOS token
+            if let Some(eos) = eos_id {
+                if next_token == eos {
+                    return None; // Stop iteration
                 }
+            }
 
-                state.push(next_token);
+            state.push(next_token);
 
-                // Decode the single token
-                self.tokenizer
-                    .decode(&[next_token], false)
-                    .ok()
-            })
+            // Decode the single token
+            self.tokenizer.decode(&[next_token], false).ok()
+        })
     }
 
     /// Generate dummy streaming response for testing
     fn generate_dummy_stream(&self, input: &str) -> impl Iterator<Item = String> + '_ {
         let response = self.generate_dummy_response(input);
-        let words: Vec<String> = response.split_whitespace()
-            .map(|s| s.to_string())
-            .collect();
+        let words: Vec<String> = response.split_whitespace().map(|s| s.to_string()).collect();
 
         words.into_iter()
     }
@@ -244,10 +249,9 @@ mod tests {
 
         // Since model forward() is not fully implemented, this will fall back to dummy response
         // or generate placeholder tokens
-        let response = engine.generate("Hello").unwrap();
+        let _response = engine.generate("Hello").unwrap();
         // Response might be empty if tokenizer decode fails, which is acceptable for now
-        // Just verify it doesn't panic
-        assert!(response.len() >= 0); // Always true, but shows the test passed
+        // Just verify it doesn't panic - test passed if we got here
     }
 
     #[test]

@@ -53,9 +53,9 @@ impl TransformerModel {
         let token_embedding = Embedding::new(
             config.vocab_size,
             config.hidden_size,
-            None,  // no padding_idx
-            None,  // no max_norm
-            None,  // not frozen
+            None, // no padding_idx
+            None, // no max_norm
+            None, // not frozen
         );
 
         // Position embedding
@@ -154,10 +154,10 @@ impl DecoderLayer {
             hidden_size,
             num_heads,
             Some(dropout),
-            Some(true),  // use bias
-            None,        // kdim = hidden_size
-            None,        // vdim = hidden_size
-            Some(true),  // batch_first = true
+            Some(true), // use bias
+            None,       // kdim = hidden_size
+            None,       // vdim = hidden_size
+            Some(true), // batch_first = true
         )?;
 
         // Create feedforward network
@@ -170,7 +170,11 @@ impl DecoderLayer {
         })
     }
 
-    pub fn forward(&self, hidden_states: &Tensor<f64>, _attention_mask: Option<&Tensor<f64>>) -> Result<Tensor<f64>> {
+    pub fn forward(
+        &self,
+        hidden_states: &Tensor<f64>,
+        _attention_mask: Option<&Tensor<f64>>,
+    ) -> Result<Tensor<f64>> {
         // For now, just apply feedforward (self-attention integration pending)
         // TODO: Add self-attention application
         // TODO: Add layer normalization and residual connections when RusTorch supports it

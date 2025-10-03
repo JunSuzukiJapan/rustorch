@@ -1,13 +1,13 @@
 pub mod formats;
-pub mod loader;
 pub mod inference;
-pub mod transformer;
+pub mod loader;
 pub mod sampling;
+pub mod transformer;
 
-pub use loader::ModelLoader;
 pub use inference::InferenceEngine;
-pub use transformer::{TransformerConfig, TransformerModel, KVCache};
-pub use sampling::{SamplingConfig, sample_token};
+pub use loader::ModelLoader;
+pub use sampling::{sample_token, SamplingConfig};
+pub use transformer::{KVCache, TransformerConfig, TransformerModel};
 
 use anyhow::Result;
 use std::path::Path;
@@ -71,7 +71,10 @@ mod tests {
         assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::GGUF);
 
         let path = PathBuf::from("model.safetensors");
-        assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::Safetensors);
+        assert_eq!(
+            ModelFormat::from_path(&path).unwrap(),
+            ModelFormat::Safetensors
+        );
 
         let path = PathBuf::from("model.onnx");
         assert_eq!(ModelFormat::from_path(&path).unwrap(), ModelFormat::ONNX);

@@ -166,8 +166,12 @@ impl GGUFLoader {
         tracing::info!("Parsing GGUF file: {}", path.display());
 
         let header = Self::read_header(&mut reader)?;
-        tracing::debug!("GGUF header: version={}, tensor_count={}, metadata_count={}",
-            header.version, header.tensor_count, header.metadata_kv_count);
+        tracing::debug!(
+            "GGUF header: version={}, tensor_count={}, metadata_count={}",
+            header.version,
+            header.tensor_count,
+            header.metadata_kv_count
+        );
 
         let metadata_list = Self::read_metadata(&mut reader, header.metadata_kv_count)?;
         let metadata: HashMap<String, GGUFValue> = metadata_list
@@ -183,7 +187,7 @@ impl GGUFLoader {
         // Calculate tensor data offset
         let current_pos = reader.stream_position()?;
         let alignment = 32; // GGUF uses 32-byte alignment
-        let tensor_data_offset = ((current_pos + alignment - 1) / alignment) * alignment;
+        let tensor_data_offset = current_pos.div_ceil(alignment) * alignment;
 
         Ok(Self {
             reader,
@@ -198,13 +202,21 @@ impl GGUFLoader {
         let magic = Self::read_u32(reader)?;
 
         if magic != GGUF_MAGIC {
-            anyhow::bail!("Invalid GGUF magic number: 0x{:08x} (expected 0x{:08x})", magic, GGUF_MAGIC);
+            anyhow::bail!(
+                "Invalid GGUF magic number: 0x{:08x} (expected 0x{:08x})",
+                magic,
+                GGUF_MAGIC
+            );
         }
 
         let version = Self::read_u32(reader)?;
 
         if version != GGUF_VERSION {
-            tracing::warn!("GGUF version mismatch: {} (expected {})", version, GGUF_VERSION);
+            tracing::warn!(
+                "GGUF version mismatch: {} (expected {})",
+                version,
+                GGUF_VERSION
+            );
         }
 
         let tensor_count = Self::read_u64(reader)?;

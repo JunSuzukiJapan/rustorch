@@ -71,10 +71,11 @@ impl ModelLoader {
         // Extract basic model info from tensor shapes
         // This is a simplified approach - real models would have config.json
         let vocab_size = 32000; // Default, should come from config
-        let hidden_size = 512;  // Default, should come from config
+        let hidden_size = 512; // Default, should come from config
 
         let metadata = ModelMetadata {
-            name: path.file_name()
+            name: path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string(),
@@ -103,7 +104,8 @@ impl ModelLoader {
         // Note: Full ONNX inference requires ONNX Runtime
         // This is just metadata loading for now
         let metadata = ModelMetadata {
-            name: path.file_name()
+            name: path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown")
                 .to_string(),

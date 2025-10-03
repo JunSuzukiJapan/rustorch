@@ -49,15 +49,15 @@ impl Command {
             "help" | "h" | "?" => Ok(Command::Help),
             "clear" | "cls" => Ok(Command::Clear),
             "save" => {
-                let path = args.first().map(|s| PathBuf::from(s));
+                let path = args.first().map(PathBuf::from);
                 Ok(Command::Save(path))
             }
             "load" => {
-                let path = args.first().map(|s| PathBuf::from(s));
+                let path = args.first().map(PathBuf::from);
                 Ok(Command::Load(path))
             }
             "model" => {
-                let path = args.first().map(|s| PathBuf::from(s));
+                let path = args.first().map(PathBuf::from);
                 Ok(Command::Model(path))
             }
             "backend" => {

@@ -8,7 +8,7 @@ pub mod utils;
 // Re-exports
 pub use backend::Backend as ComputeBackend;
 pub use cli::{Backend, CliArgs, LogLevel, REPL};
-pub use model::{InferenceEngine, ModelLoader, TransformerConfig, TransformerModel, KVCache};
+pub use model::{InferenceEngine, KVCache, ModelLoader, TransformerConfig, TransformerModel};
 pub use session::{GenerationConfig, SessionManager};
 pub use tokenizer::{Tokenizer, TokenizerWrapper};
 pub use utils::{init_logger, CliError, ProgressIndicator};

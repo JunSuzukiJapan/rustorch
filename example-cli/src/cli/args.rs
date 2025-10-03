@@ -188,10 +188,7 @@ impl CliArgs {
 
     pub fn get_default_config_path() -> PathBuf {
         if let Some(config_dir) = directories::BaseDirs::new() {
-            config_dir
-                .config_dir()
-                .join("rustorch")
-                .join("config.toml")
+            config_dir.config_dir().join("rustorch").join("config.toml")
         } else {
             PathBuf::from("config.toml")
         }

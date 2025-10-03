@@ -10,7 +10,7 @@ impl ProgressIndicator {
         pb.set_style(
             ProgressStyle::default_spinner()
                 .template("{spinner:.green} {msg}")
-                .expect("Failed to set progress style")
+                .expect("Failed to set progress style"),
         );
         pb.set_message(message.to_string());
         pb.enable_steady_tick(std::time::Duration::from_millis(100));

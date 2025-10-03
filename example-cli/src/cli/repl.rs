@@ -17,7 +17,11 @@ pub struct REPL {
 }
 
 impl REPL {
-    pub fn new(session: SessionManager, engine: InferenceEngine, show_progress: bool) -> Result<Self> {
+    pub fn new(
+        session: SessionManager,
+        engine: InferenceEngine,
+        show_progress: bool,
+    ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
         Ok(Self {
             editor,
@@ -60,10 +64,8 @@ impl REPL {
                         eprintln!("{}", format!("Error: {}", e).red());
                     }
                 }
-            } else {
-                if let Err(e) = self.handle_message(&input) {
-                    eprintln!("{}", format!("Error: {}", e).red());
-                }
+            } else if let Err(e) = self.handle_message(&input) {
+                eprintln!("{}", format!("Error: {}", e).red());
             }
         }
 
@@ -81,9 +83,9 @@ impl REPL {
                     let trimmed = line.trim_end();
 
                     // Check if line ends with backslash (continuation)
-                    if trimmed.ends_with('\\') {
+                    if let Some(stripped) = trimmed.strip_suffix('\\') {
                         // Remove backslash and add line
-                        lines.push(trimmed[..trimmed.len() - 1].to_string());
+                        lines.push(stripped.to_string());
                         prompt = "...> ".to_string(); // Continuation prompt
                         continue;
                     } else {
@@ -118,14 +120,34 @@ impl REPL {
     }
 
     fn print_welcome(&self) {
-        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
-        println!("{}", "║           RusTorch CLI - Local LLM Chat                   ║".bright_blue());
-        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
+        println!(
+            "{}",
+            "╔════════════════════════════════════════════════════════════╗".bright_blue()
+        );
+        println!(
+            "{}",
+            "║           RusTorch CLI - Local LLM Chat                   ║".bright_blue()
+        );
+        println!(
+            "{}",
+            "╚════════════════════════════════════════════════════════════╝".bright_blue()
+        );
         println!();
-        println!("{} {}", "Backend:".bright_green(), self.session.backend_name().cyan());
-        println!("{} {}", "Model:".bright_green(), self.session.model_name().cyan());
+        println!(
+            "{} {}",
+            "Backend:".bright_green(),
+            self.session.backend_name().cyan()
+        );
+        println!(
+            "{} {}",
+            "Model:".bright_green(),
+            self.session.model_name().cyan()
+        );
         println!();
-        println!("{}", "Type '/help' for available commands, '/exit' to quit.".bright_black());
+        println!(
+            "{}",
+            "Type '/help' for available commands, '/exit' to quit.".bright_black()
+        );
         println!();
     }
 
@@ -156,7 +178,11 @@ impl REPL {
     fn handle_exit(&mut self) -> Result<()> {
         println!("{}", "Saving session...".yellow());
         if let Err(e) = self.session.auto_save() {
-            eprintln!("{} {}", "Warning:".yellow(), format!("Failed to auto-save session: {}", e).red());
+            eprintln!(
+                "{} {}",
+                "Warning:".yellow(),
+                format!("Failed to auto-save session: {}", e).red()
+            );
         }
         println!("{}", "Goodbye!".bright_cyan());
         Ok(())
@@ -173,20 +199,24 @@ impl REPL {
     }
 
     fn handle_save(&mut self, path: Option<PathBuf>) -> Result<()> {
-        let path = path.unwrap_or_else(|| {
-            crate::cli::CliArgs::get_default_history_path()
-        });
+        let path = path.unwrap_or_else(|| crate::cli::CliArgs::get_default_history_path());
         self.session.save_history(&path)?;
-        println!("{} {}", "Conversation saved to:".green(), path.display().to_string().cyan());
+        println!(
+            "{} {}",
+            "Conversation saved to:".green(),
+            path.display().to_string().cyan()
+        );
         Ok(())
     }
 
     fn handle_load(&mut self, path: Option<PathBuf>) -> Result<()> {
-        let path = path.unwrap_or_else(|| {
-            crate::cli::CliArgs::get_default_history_path()
-        });
+        let path = path.unwrap_or_else(|| crate::cli::CliArgs::get_default_history_path());
         self.session.load_history(&path)?;
-        println!("{} {}", "Conversation loaded from:".green(), path.display().to_string().cyan());
+        println!(
+            "{} {}",
+            "Conversation loaded from:".green(),
+            path.display().to_string().cyan()
+        );
         Ok(())
     }
 
@@ -195,20 +225,37 @@ impl REPL {
             Some(model_path) => {
                 // Validate file exists
                 if !model_path.exists() {
-                    eprintln!("{} {}", "Error:".red(), format!("Model file not found: {}", model_path.display()));
+                    eprintln!(
+                        "{} Model file not found: {}",
+                        "Error:".red(),
+                        model_path.display()
+                    );
                     return Ok(());
                 }
 
-                println!("{} {}", "Loading model:".bright_green(), model_path.display().to_string().cyan());
+                println!(
+                    "{} {}",
+                    "Loading model:".bright_green(),
+                    model_path.display().to_string().cyan()
+                );
 
                 // Update session model name
-                self.session.set_model_name(&model_path.display().to_string());
+                self.session
+                    .set_model_name(model_path.display().to_string());
                 println!("{}", "Model path updated.".green());
-                println!("{}", "Note: Actual model loading will be implemented with full inference support.".bright_black());
+                println!(
+                    "{}",
+                    "Note: Actual model loading will be implemented with full inference support."
+                        .bright_black()
+                );
             }
             None => {
                 // Show current model info
-                println!("{} {}", "Current model:".bright_green(), self.session.model_name().cyan());
+                println!(
+                    "{} {}",
+                    "Current model:".bright_green(),
+                    self.session.model_name().cyan()
+                );
                 println!("{}", "Usage: /model <path>".bright_black());
             }
         }
@@ -224,7 +271,7 @@ impl REPL {
             "cuda" | "gpu" => Backend::Cuda,
             "metal" => Backend::Metal,
             _ => {
-                eprintln!("{} {}", "Error:".red(), format!("Unknown backend: {}", backend));
+                eprintln!("{} Unknown backend: {}", "Error:".red(), backend);
                 println!("{}", "Available backends: cpu, cuda, metal".bright_black());
                 return Ok(());
             }
@@ -232,30 +279,66 @@ impl REPL {
 
         // Check if backend is available
         if !new_backend.is_available() {
-            eprintln!("{} {}", "Warning:".yellow(), format!("Backend '{}' may not be available on this system", backend));
+            eprintln!(
+                "{} Backend '{}' may not be available on this system",
+                "Warning:".yellow(),
+                backend
+            );
             println!("{}", "Attempting to switch anyway...".bright_black());
         }
 
         // Update session backend
         self.session.set_backend_name(new_backend.as_str());
-        println!("{} {}", "Backend switched to:".green(), new_backend.as_str().cyan());
+        println!(
+            "{} {}",
+            "Backend switched to:".green(),
+            new_backend.as_str().cyan()
+        );
 
         // Note: In a full implementation, we would recreate the inference engine
         // with the new backend. For now, we just update the name.
-        println!("{}", "Note: Backend switch will take effect for new models.".bright_black());
+        println!(
+            "{}",
+            "Note: Backend switch will take effect for new models.".bright_black()
+        );
 
         Ok(())
     }
 
     fn handle_stats(&self) {
-        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
-        println!("{}", "║                     Statistics                             ║".bright_blue());
-        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
+        println!(
+            "{}",
+            "╔════════════════════════════════════════════════════════════╗".bright_blue()
+        );
+        println!(
+            "{}",
+            "║                     Statistics                             ║".bright_blue()
+        );
+        println!(
+            "{}",
+            "╚════════════════════════════════════════════════════════════╝".bright_blue()
+        );
         println!();
-        println!("  {:<16} {}", "Messages:".bright_green(), self.session.message_count().to_string().cyan());
-        println!("  {:<16} {}", "Total tokens:".bright_green(), self.session.total_tokens().to_string().cyan());
-        println!("  {:<16} {}", "Backend:".bright_green(), self.session.backend_name().cyan());
-        println!("  {:<16} {}", "Model:".bright_green(), self.session.model_name().cyan());
+        println!(
+            "  {:<16} {}",
+            "Messages:".bright_green(),
+            self.session.message_count().to_string().cyan()
+        );
+        println!(
+            "  {:<16} {}",
+            "Total tokens:".bright_green(),
+            self.session.total_tokens().to_string().cyan()
+        );
+        println!(
+            "  {:<16} {}",
+            "Backend:".bright_green(),
+            self.session.backend_name().cyan()
+        );
+        println!(
+            "  {:<16} {}",
+            "Model:".bright_green(),
+            self.session.model_name().cyan()
+        );
         println!();
     }
 
@@ -266,9 +349,18 @@ impl REPL {
     }
 
     fn handle_config(&self) {
-        println!("{}", "╔════════════════════════════════════════════════════════════╗".bright_blue());
-        println!("{}", "║                   Configuration                            ║".bright_blue());
-        println!("{}", "╚════════════════════════════════════════════════════════════╝".bright_blue());
+        println!(
+            "{}",
+            "╔════════════════════════════════════════════════════════════╗".bright_blue()
+        );
+        println!(
+            "{}",
+            "║                   Configuration                            ║".bright_blue()
+        );
+        println!(
+            "{}",
+            "╚════════════════════════════════════════════════════════════╝".bright_blue()
+        );
         println!();
         self.session.print_config();
         println!();
@@ -309,7 +401,10 @@ impl REPL {
             }
             Err(e) => {
                 // Fallback to non-streaming generation
-                tracing::warn!("Streaming failed, falling back to regular generation: {}", e);
+                tracing::warn!(
+                    "Streaming failed, falling back to regular generation: {}",
+                    e
+                );
                 let response = self.generate_response(message)?;
                 println!("{}", response.white());
                 full_response = response;
@@ -329,8 +424,8 @@ impl REPL {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::{InferenceEngine, ModelLoader};
     use crate::session::GenerationConfig;
-    use crate::model::{ModelLoader, InferenceEngine};
 
     fn create_test_session() -> SessionManager {
         let config = GenerationConfig {

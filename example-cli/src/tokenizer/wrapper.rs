@@ -52,7 +52,8 @@ impl TokenizerWrapper {
 
 impl Tokenizer for TokenizerWrapper {
     fn encode(&self, text: &str, add_special_tokens: bool) -> Result<Vec<u32>> {
-        let encoding = self.tokenizer
+        let encoding = self
+            .tokenizer
             .encode(text, add_special_tokens)
             .map_err(|e| anyhow::anyhow!("Encoding failed: {}", e))?;
 
@@ -60,7 +61,8 @@ impl Tokenizer for TokenizerWrapper {
     }
 
     fn decode(&self, ids: &[u32], skip_special_tokens: bool) -> Result<String> {
-        let text = self.tokenizer
+        let text = self
+            .tokenizer
             .decode(ids, skip_special_tokens)
             .map_err(|e| anyhow::anyhow!("Decoding failed: {}", e))?;
 
@@ -104,9 +106,8 @@ mod tests {
 
     #[test]
     fn test_dummy_tokenizer_creation() {
-        let tokenizer = TokenizerWrapper::dummy().unwrap();
-        // Dummy tokenizer with default BPE has minimal vocab
-        assert!(tokenizer.vocab_size() >= 0);
+        let _tokenizer = TokenizerWrapper::dummy().unwrap();
+        // Dummy tokenizer created successfully - test passes if no panic
     }
 
     #[test]
