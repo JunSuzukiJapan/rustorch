@@ -77,6 +77,7 @@ pub struct GGUFTensorInfo {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
+#[allow(non_camel_case_types)]
 pub enum GGMLType {
     F32 = 0,
     F16 = 1,
@@ -144,10 +145,12 @@ impl GGMLType {
 }
 
 pub struct GGUFLoader {
+    #[allow(dead_code)]
     reader: BufReader<File>,
     header: GGUFHeader,
     metadata: HashMap<String, GGUFValue>,
     tensors: Vec<GGUFTensorInfo>,
+    #[allow(dead_code)]
     tensor_data_offset: u64,
 }
 
