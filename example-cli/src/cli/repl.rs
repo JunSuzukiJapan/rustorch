@@ -166,6 +166,7 @@ impl REPL {
             Command::Stats => self.handle_stats(),
             Command::System(prompt) => self.handle_system(&prompt)?,
             Command::Config => self.handle_config(),
+            Command::ConfigSave(path) => self.handle_config_save(path)?,
             Command::Unknown(cmd) => {
                 println!("Unknown command: {}", cmd);
                 println!("Type '/help' for available commands.");
@@ -199,7 +200,7 @@ impl REPL {
     }
 
     fn handle_save(&mut self, path: Option<PathBuf>) -> Result<()> {
-        let path = path.unwrap_or_else(|| crate::cli::CliArgs::get_default_history_path());
+        let path = path.unwrap_or_else(crate::cli::CliArgs::get_default_history_path);
         self.session.save_history(&path)?;
         println!(
             "{} {}",
@@ -210,7 +211,7 @@ impl REPL {
     }
 
     fn handle_load(&mut self, path: Option<PathBuf>) -> Result<()> {
-        let path = path.unwrap_or_else(|| crate::cli::CliArgs::get_default_history_path());
+        let path = path.unwrap_or_else(crate::cli::CliArgs::get_default_history_path);
         self.session.load_history(&path)?;
         println!(
             "{} {}",
@@ -364,6 +365,43 @@ impl REPL {
         println!();
         self.session.print_config();
         println!();
+    }
+
+    fn handle_config_save(&self, path: Option<PathBuf>) -> Result<()> {
+        use crate::utils::Config;
+
+        // Create config from current session settings
+        let mut config = Config::default();
+
+        // Set generation config from session
+        let gen_config = self.session.generation_config();
+        config.generation.max_tokens = gen_config.max_tokens;
+        config.generation.temperature = gen_config.temperature;
+        config.generation.top_p = gen_config.top_p;
+        config.generation.top_k = gen_config.top_k as usize;
+
+        // Set backend
+        config.backend.default = self.session.backend_name().to_string();
+
+        // Save to file
+        if let Some(path) = path {
+            config.save_to_file(&path)?;
+            println!(
+                "{} {}",
+                "Configuration saved to:".green(),
+                path.display().to_string().cyan()
+            );
+        } else {
+            config.save_default()?;
+            let config_path = Config::default_config_path()?;
+            println!(
+                "{} {}",
+                "Configuration saved to:".green(),
+                config_path.display().to_string().cyan()
+            );
+        }
+
+        Ok(())
     }
 
     fn handle_message(&mut self, message: &str) -> Result<()> {

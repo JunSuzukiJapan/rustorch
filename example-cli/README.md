@@ -61,6 +61,7 @@ Once inside the REPL, you can use the following commands:
 | `/stats`, `/status` | Display statistics |
 | `/system <PROMPT>` | Set system prompt |
 | `/config`, `/cfg` | Display current configuration |
+| `/config save [FILE]` | Save configuration to file |
 
 ## ⚙️ Configuration
 
@@ -163,7 +164,10 @@ example-cli/
 │   └── main.rs       # Entry point
 ├── docs/             # Documentation
 │   ├── REQUIREMENTS.md
-│   └── IMPLEMENTATION_PLAN.md
+│   ├── IMPLEMENTATION_PLAN.md
+│   ├── CONFIG.md           # Configuration guide (Phase 7)
+│   ├── EXAMPLES.md
+│   └── TROUBLESHOOTING.md
 ├── tests/            # Integration tests
 ├── examples/         # Usage examples
 └── Cargo.toml        # Project configuration
@@ -203,6 +207,9 @@ MIT OR Apache-2.0
 - [Documentation](docs/)
 - [Requirements](docs/REQUIREMENTS.md)
 - [Implementation Plan](docs/IMPLEMENTATION_PLAN.md)
+- [Configuration Guide](docs/CONFIG.md)
+- [Examples](docs/EXAMPLES.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ## 🎯 Roadmap
 
@@ -236,16 +243,29 @@ MIT OR Apache-2.0
 - ✅ ModelLoader integration
 
 ### Phase 6: Quality & Docs ✅ COMPLETE
-- ✅ 99 unit tests passing
+- ✅ 102 unit tests passing
 - ✅ Code refactoring
 - ✅ Clippy compliance
 - ✅ Comprehensive documentation
 
-### Phase 7: Advanced Features (Planned)
-- ⏳ Function calling support
-- ⏳ Multi-modal inputs
-- ⏳ API server mode
-- ⏳ Distributed inference
+### Phase 7: Configuration Management ✅ COMPLETE
+- ✅ TOML configuration file support
+- ✅ `~/.rustorch/config.toml` auto-loading
+- ✅ `/config save` command
+- ✅ CLI argument priority override
+- ✅ Comprehensive CONFIG.md guide
+
+### Phase 8: CLI Arguments Complete ✅ COMPLETE
+- ✅ `--save-history` flag implementation
+- ✅ `--load-history` flag implementation
+- ✅ Auto-save on exit with Ctrl+C handling
+- ✅ Full CLI argument coverage
+
+### Phase 9-12: Advanced Features (Planned)
+- ⏳ MLX and PyTorch format support
+- ⏳ Real model inference with RusTorch API
+- ⏳ Full backend optimization (Metal/CUDA/OpenCL)
+- ⏳ Performance measurement and benchmarks
 
 ## 💡 Examples
 
@@ -282,17 +302,22 @@ Goodbye!
 
 ## ⚠️ Current Status
 
-**Phase 6 Complete** - Production-ready CLI with comprehensive features:
+**Phase 8 Complete** - Production-ready CLI with complete CLI argument support:
 
 ✅ **Implemented:**
 - Full REPL interface with colored output
 - Token streaming display
 - Multiline input support
+- **TOML configuration file support** (Phase 7)
+- **Persistent settings with `~/.rustorch/config.toml`** (Phase 7)
+- **`/config save` command** (Phase 7)
+- **`--save-history` / `--load-history` flags** (Phase 8)
+- **Auto-save on exit** (Phase 8)
 - Multiple model format loaders (GGUF, Safetensors, ONNX)
 - Multi-backend support (CPU, Metal, CUDA)
 - Session management with save/load
 - Model and backend hot-swapping
-- 99 unit tests, zero clippy warnings
+- 108 unit tests, zero clippy warnings
 
 ⏳ **Limitations:**
 - Full model inference requires actual model weights

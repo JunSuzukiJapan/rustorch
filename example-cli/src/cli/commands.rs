@@ -23,6 +23,8 @@ pub enum Command {
     System(String),
     /// Display current configuration
     Config,
+    /// Save configuration to file
+    ConfigSave(Option<PathBuf>),
     /// Unknown command
     Unknown(String),
 }
@@ -74,7 +76,15 @@ impl Command {
                 let prompt = args.join(" ");
                 Ok(Command::System(prompt))
             }
-            "config" | "cfg" => Ok(Command::Config),
+            "config" | "cfg" => {
+                if let Some(first_arg) = args.first() {
+                    if first_arg.to_lowercase() == "save" {
+                        let path = args.get(1).map(PathBuf::from);
+                        return Ok(Command::ConfigSave(path));
+                    }
+                }
+                Ok(Command::Config)
+            }
             _ => Ok(Command::Unknown(input.to_string())),
         }
     }
@@ -92,6 +102,7 @@ impl Command {
   /stats, /status          Display statistics (tokens, time, etc.)
   /system <PROMPT>         Set system prompt
   /config, /cfg            Display current configuration
+  /config save [FILE]      Save configuration to file (default: ~/.rustorch/config.toml)
 
 Tips:
   - Press Ctrl+C or Ctrl+D to exit

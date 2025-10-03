@@ -2,7 +2,8 @@ use anyhow::Result;
 use clap::Parser;
 
 use rustorch_cli::{
-    init_logger, CliArgs, GenerationConfig, InferenceEngine, ModelLoader, SessionManager, REPL,
+    init_logger, CliArgs, Config, GenerationConfig, InferenceEngine, ModelLoader, SessionManager,
+    REPL,
 };
 
 fn main() -> Result<()> {
@@ -20,12 +21,44 @@ fn main() -> Result<()> {
     tracing::info!("Backend: {}", args.backend.as_str());
     tracing::debug!("Configuration: {:?}", args);
 
-    // Create generation config from CLI args
+    // Load config file (if exists)
+    let file_config = Config::load_default().unwrap_or_else(|e| {
+        tracing::debug!("Could not load config file: {}", e);
+        Config::default()
+    });
+
+    // Merge configs: CLI args override config file
+    // Use CLI args if provided, otherwise use config file values
+    let max_tokens = if args.max_tokens != 512 {
+        args.max_tokens
+    } else {
+        file_config.generation.max_tokens
+    };
+
+    let temperature = if (args.temperature - 0.7).abs() > f32::EPSILON {
+        args.temperature
+    } else {
+        file_config.generation.temperature
+    };
+
+    let top_p = if (args.top_p - 0.9).abs() > f32::EPSILON {
+        args.top_p
+    } else {
+        file_config.generation.top_p
+    };
+
+    let top_k = if args.top_k != 40 {
+        args.top_k
+    } else {
+        file_config.generation.top_k as u32
+    };
+
+    // Create generation config from merged values
     let gen_config = GenerationConfig {
-        max_tokens: args.max_tokens,
-        temperature: args.temperature,
-        top_p: args.top_p,
-        top_k: args.top_k,
+        max_tokens,
+        temperature,
+        top_p,
+        top_k,
     };
 
     // Validate generation config
