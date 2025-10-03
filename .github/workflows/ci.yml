@@ -23,8 +23,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Default RUSTFLAGS - will be overridden per-job for Windows compatibility
-  RUSTFLAGS: "-C target-cpu=native"
   # Environment variables for better LAPACK/BLAS linking on Linux
   PKG_CONFIG_PATH: "/usr/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/local/lib/pkgconfig"
   LD_LIBRARY_PATH: "/usr/lib:/usr/lib/x86_64-linux-gnu:/usr/local/lib"

@@ -1,6 +1,6 @@
 use rustorch::error::RusTorchResult;
 use rustorch::optim::{AnnealStrategy, OneCycleLR, WarmupScheduler, SGD};
-use rustorch::{tensor, tensor::Tensor};
+use rustorch::tensor;
 
 fn main() -> RusTorchResult<()> {
     // Create tensors with convenient macro syntax
@@ -36,11 +36,11 @@ fn main() -> RusTorchResult<()> {
 
     // Advanced optimizers with learning rate scheduling
     let optimizer = SGD::new(0.01);
-    let mut scheduler = WarmupScheduler::new(optimizer, 0.1, 5); // Warmup to 0.1 over 5 epochs
+    let scheduler = WarmupScheduler::new(optimizer, 0.1, 5); // Warmup to 0.1 over 5 epochs
 
     // One-cycle learning rate policy
     let optimizer2 = SGD::new(0.01);
-    let mut one_cycle = OneCycleLR::new(optimizer2, 1.0, 100, 0.3, AnnealStrategy::Cos);
+    let one_cycle = OneCycleLR::new(optimizer2, 1.0, 100, 0.3, AnnealStrategy::Cos);
 
     println!("Shape: {:?}", c.shape());
     println!("Result: {:?}", c.as_slice());
