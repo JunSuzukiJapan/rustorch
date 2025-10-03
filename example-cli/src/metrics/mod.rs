@@ -1,7 +1,7 @@
 // Performance metrics collection system for RusTorch CLI
 
-pub mod timing;
 pub mod reporter;
+pub mod timing;
 
 use std::collections::HashMap;
 

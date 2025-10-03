@@ -1,7 +1,7 @@
 // Backend performance comparison benchmark
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use rustorch_cli::backend::{Backend, cpu::CpuBackend};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use rustorch_cli::backend::{cpu::CpuBackend, Backend};
 
 fn benchmark_cpu_backend(c: &mut Criterion) {
     let mut group = c.benchmark_group("cpu_backend");
@@ -46,36 +46,24 @@ fn benchmark_tensor_creation(c: &mut Criterion) {
     let backend = CpuBackend::new();
 
     for size in [10, 100, 1000].iter() {
-        group.bench_with_input(
-            BenchmarkId::new("zeros", size),
-            size,
-            |b, &s| {
-                b.iter(|| {
-                    let tensor = backend.zeros(&[s, s]).unwrap();
-                    black_box(tensor);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("zeros", size), size, |b, &s| {
+            b.iter(|| {
+                let tensor = backend.zeros(&[s, s]).unwrap();
+                black_box(tensor);
+            });
+        });
 
-        group.bench_with_input(
-            BenchmarkId::new("from_vec", size),
-            size,
-            |b, &s| {
-                let data = vec![1.0; s * s];
-                b.iter(|| {
-                    let tensor = backend.from_vec(data.clone(), &[s, s]).unwrap();
-                    black_box(tensor);
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::new("from_vec", size), size, |b, &s| {
+            let data = vec![1.0; s * s];
+            b.iter(|| {
+                let tensor = backend.from_vec(data.clone(), &[s, s]).unwrap();
+                black_box(tensor);
+            });
+        });
     }
 
     group.finish();
 }
 
-criterion_group!(
-    benches,
-    benchmark_cpu_backend,
-    benchmark_tensor_creation
-);
+criterion_group!(benches, benchmark_cpu_backend, benchmark_tensor_creation);
 criterion_main!(benches);

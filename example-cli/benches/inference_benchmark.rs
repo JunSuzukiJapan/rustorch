@@ -1,7 +1,7 @@
 // Inference performance benchmark for RusTorch CLI
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use rustorch_cli::metrics::{MetricsCollector, timing::InferenceTimer};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use rustorch_cli::metrics::{timing::InferenceTimer, MetricsCollector};
 
 fn benchmark_metrics_collection(c: &mut Criterion) {
     let mut group = c.benchmark_group("metrics_collection");

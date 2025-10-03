@@ -2,8 +2,8 @@
 
 use super::Backend;
 use anyhow::Result;
-use rustorch::tensor::Tensor;
 use rustorch::tensor::device::Device;
+use rustorch::tensor::Tensor;
 
 /// CUDA GPU backend for NVIDIA GPUs
 pub struct CudaBackend {

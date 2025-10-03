@@ -117,10 +117,7 @@ pub fn sample_token(
 /// Softmax function for converting logits to probabilities
 pub fn softmax(logits: &[f64]) -> Result<Vec<f64>> {
     // Find max for numerical stability
-    let max_logit = logits
-        .iter()
-        .cloned()
-        .fold(f64::NEG_INFINITY, f64::max);
+    let max_logit = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
     // Compute exp(x - max)
     let exp_values: Vec<f64> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
@@ -205,7 +202,11 @@ pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> Result<Vec<f64>> {
     }
 
     // Create indices with probabilities
-    let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &prob)| (i, prob)).collect();
+    let mut indexed: Vec<(usize, f64)> = probs
+        .iter()
+        .enumerate()
+        .map(|(i, &prob)| (i, prob))
+        .collect();
 
     // Sort by probability (descending)
     indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());

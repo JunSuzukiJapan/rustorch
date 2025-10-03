@@ -18,8 +18,8 @@ impl MLXLoader {
 
         // MLX uses safetensors format internally with .mlx extension
         // Read the file and parse as safetensors-compatible format
-        let mut file = File::open(path)
-            .with_context(|| format!("Failed to open MLX file: {:?}", path))?;
+        let mut file =
+            File::open(path).with_context(|| format!("Failed to open MLX file: {:?}", path))?;
 
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)
@@ -102,7 +102,10 @@ impl MLXLoader {
         // Extract model metadata
         let model_metadata = Self::extract_metadata(&metadata_json)?;
 
-        tracing::info!("Successfully loaded {} tensors from MLX model", tensors.len());
+        tracing::info!(
+            "Successfully loaded {} tensors from MLX model",
+            tensors.len()
+        );
 
         Ok((tensors, model_metadata))
     }
@@ -143,30 +146,29 @@ impl MLXLoader {
             .get("__metadata__")
             .and_then(|m| m.as_object());
 
-        let (vocab_size, hidden_size, num_layers, num_heads, context_length) = if let Some(meta) =
-            meta
-        {
-            (
-                meta.get("vocab_size")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(32000) as usize,
-                meta.get("hidden_size")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(4096) as usize,
-                meta.get("num_hidden_layers")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(32) as usize,
-                meta.get("num_attention_heads")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(32) as usize,
-                meta.get("max_position_embeddings")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(2048) as usize,
-            )
-        } else {
-            // Default values if metadata not available
-            (32000, 4096, 32, 32, 2048)
-        };
+        let (vocab_size, hidden_size, num_layers, num_heads, context_length) =
+            if let Some(meta) = meta {
+                (
+                    meta.get("vocab_size")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(32000) as usize,
+                    meta.get("hidden_size")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(4096) as usize,
+                    meta.get("num_hidden_layers")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(32) as usize,
+                    meta.get("num_attention_heads")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(32) as usize,
+                    meta.get("max_position_embeddings")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(2048) as usize,
+                )
+            } else {
+                // Default values if metadata not available
+                (32000, 4096, 32, 32, 2048)
+            };
 
         Ok(ModelMetadata {
             name: "mlx_model".to_string(),

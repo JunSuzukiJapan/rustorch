@@ -1,11 +1,11 @@
 /// Model download functionality for various platforms
 pub mod huggingface;
-pub mod ollama;
 pub mod manager;
+pub mod ollama;
 pub mod progress;
 
-pub use manager::ModelDownloadManager;
 pub use huggingface::HuggingFaceClient;
+pub use manager::ModelDownloadManager;
 pub use ollama::OllamaClient;
 
 use anyhow::Result;
@@ -25,7 +25,10 @@ impl ModelSource {
             "hf" | "huggingface" => Ok(ModelSource::HuggingFace),
             "ollama" => Ok(ModelSource::Ollama),
             "ms" | "modelscope" => Ok(ModelSource::ModelScope),
-            _ => anyhow::bail!("Unknown model source: {}. Supported: hf, ollama, ms", prefix),
+            _ => anyhow::bail!(
+                "Unknown model source: {}. Supported: hf, ollama, ms",
+                prefix
+            ),
         }
     }
 }
@@ -122,10 +125,22 @@ mod tests {
 
     #[test]
     fn test_model_source_from_prefix() {
-        assert_eq!(ModelSource::from_prefix("hf").unwrap(), ModelSource::HuggingFace);
-        assert_eq!(ModelSource::from_prefix("huggingface").unwrap(), ModelSource::HuggingFace);
-        assert_eq!(ModelSource::from_prefix("ollama").unwrap(), ModelSource::Ollama);
-        assert_eq!(ModelSource::from_prefix("ms").unwrap(), ModelSource::ModelScope);
+        assert_eq!(
+            ModelSource::from_prefix("hf").unwrap(),
+            ModelSource::HuggingFace
+        );
+        assert_eq!(
+            ModelSource::from_prefix("huggingface").unwrap(),
+            ModelSource::HuggingFace
+        );
+        assert_eq!(
+            ModelSource::from_prefix("ollama").unwrap(),
+            ModelSource::Ollama
+        );
+        assert_eq!(
+            ModelSource::from_prefix("ms").unwrap(),
+            ModelSource::ModelScope
+        );
         assert!(ModelSource::from_prefix("unknown").is_err());
     }
 

@@ -1,8 +1,8 @@
 /// HuggingFace Hub API client for model downloads
 use anyhow::Result;
-use std::path::{Path, PathBuf};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 const HF_ENDPOINT: &str = "https://huggingface.co";
 
@@ -22,9 +22,7 @@ pub struct HuggingFaceClient {
 
 impl HuggingFaceClient {
     pub fn new(token: Option<String>) -> Result<Self> {
-        let client = Client::builder()
-            .user_agent("rustorch-cli/0.1.0")
-            .build()?;
+        let client = Client::builder().user_agent("rustorch-cli/0.1.0").build()?;
 
         Ok(Self { client, token })
     }

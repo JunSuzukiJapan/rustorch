@@ -165,8 +165,14 @@ mod tests {
     #[test]
     fn test_format_duration() {
         assert_eq!(ProgressBar::format_duration(Duration::from_secs(30)), "30s");
-        assert_eq!(ProgressBar::format_duration(Duration::from_secs(90)), "1m 30s");
-        assert_eq!(ProgressBar::format_duration(Duration::from_secs(3661)), "1h 1m");
+        assert_eq!(
+            ProgressBar::format_duration(Duration::from_secs(90)),
+            "1m 30s"
+        );
+        assert_eq!(
+            ProgressBar::format_duration(Duration::from_secs(3661)),
+            "1h 1m"
+        );
     }
 
     #[test]

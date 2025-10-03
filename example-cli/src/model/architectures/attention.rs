@@ -89,7 +89,10 @@ impl MultiHeadAttention {
     ) -> Result<Tensor<f64>> {
         let q_shape = q.size();
         if q_shape.len() != 3 {
-            anyhow::bail!("Expected query shape [batch, seq_len, d_model], got {:?}", q_shape);
+            anyhow::bail!(
+                "Expected query shape [batch, seq_len, d_model], got {:?}",
+                q_shape
+            );
         }
 
         let batch_size = q_shape[0];
@@ -209,8 +212,10 @@ impl MultiHeadAttention {
             for s in 0..seq_len {
                 for h in 0..self.num_heads {
                     for d in 0..self.d_k {
-                        let input_idx =
-                            b * self.num_heads * seq_len * self.d_k + h * seq_len * self.d_k + s * self.d_k + d;
+                        let input_idx = b * self.num_heads * seq_len * self.d_k
+                            + h * seq_len * self.d_k
+                            + s * self.d_k
+                            + d;
                         output_data.push(input_data[input_idx]);
                     }
                 }
@@ -254,8 +259,10 @@ impl MultiHeadAttention {
                     for j in 0..seq_len_k {
                         let mut score = 0.0;
                         for d in 0..d_k {
-                            let q_idx = b * num_heads * seq_len_q * d_k + h * seq_len_q * d_k + i * d_k + d;
-                            let k_idx = b * num_heads * seq_len_k * d_k + h * seq_len_k * d_k + j * d_k + d;
+                            let q_idx =
+                                b * num_heads * seq_len_q * d_k + h * seq_len_q * d_k + i * d_k + d;
+                            let k_idx =
+                                b * num_heads * seq_len_k * d_k + h * seq_len_k * d_k + j * d_k + d;
                             score += q_data[q_idx] * k_data[k_idx];
                         }
                         scores.push(score * scale);
@@ -265,7 +272,8 @@ impl MultiHeadAttention {
         }
 
         // Apply softmax
-        let attention_weights = self.softmax_2d(&scores, batch_size * num_heads, seq_len_q, seq_len_k)?;
+        let attention_weights =
+            self.softmax_2d(&scores, batch_size * num_heads, seq_len_q, seq_len_k)?;
 
         // Apply attention weights to V
         let mut output_data = Vec::with_capacity(batch_size * num_heads * seq_len_q * d_k);
@@ -276,8 +284,10 @@ impl MultiHeadAttention {
                     for d in 0..d_k {
                         let mut value = 0.0;
                         for j in 0..seq_len_k {
-                            let weight_idx = (b * num_heads + h) * seq_len_q * seq_len_k + i * seq_len_k + j;
-                            let v_idx = b * num_heads * seq_len_k * d_k + h * seq_len_k * d_k + j * d_k + d;
+                            let weight_idx =
+                                (b * num_heads + h) * seq_len_q * seq_len_k + i * seq_len_k + j;
+                            let v_idx =
+                                b * num_heads * seq_len_k * d_k + h * seq_len_k * d_k + j * d_k + d;
                             value += attention_weights[weight_idx] * v_data[v_idx];
                         }
                         output_data.push(value);
@@ -293,7 +303,13 @@ impl MultiHeadAttention {
     }
 
     /// Softmax over last dimension (2D version for efficiency)
-    fn softmax_2d(&self, input: &[f64], batch_size: usize, rows: usize, cols: usize) -> Result<Vec<f64>> {
+    fn softmax_2d(
+        &self,
+        input: &[f64],
+        batch_size: usize,
+        rows: usize,
+        cols: usize,
+    ) -> Result<Vec<f64>> {
         let mut output = Vec::with_capacity(input.len());
 
         for b in 0..batch_size {

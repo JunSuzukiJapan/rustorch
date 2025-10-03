@@ -2,8 +2,8 @@
 
 use super::Backend;
 use anyhow::Result;
-use rustorch::tensor::Tensor;
 use rustorch::tensor::device::Device;
+use rustorch::tensor::Tensor;
 
 /// OpenCL GPU backend for cross-platform GPU acceleration
 pub struct OpenCLBackend {

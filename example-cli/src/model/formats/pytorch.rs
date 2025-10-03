@@ -17,8 +17,8 @@ impl PyTorchLoader {
     pub fn load(path: &Path) -> Result<(HashMap<String, Tensor<f64>>, ModelMetadata)> {
         tracing::info!("Loading PyTorch model from {:?}", path);
 
-        let file = File::open(path)
-            .with_context(|| format!("Failed to open PyTorch file: {:?}", path))?;
+        let file =
+            File::open(path).with_context(|| format!("Failed to open PyTorch file: {:?}", path))?;
 
         let mut reader = BufReader::new(file);
         let mut buffer = Vec::new();
@@ -272,8 +272,14 @@ mod tests {
 
     #[test]
     fn test_extract_layer_number() {
-        assert_eq!(PyTorchLoader::extract_layer_number("layer.0.weight"), Some(0));
-        assert_eq!(PyTorchLoader::extract_layer_number("block_12.attn"), Some(12));
+        assert_eq!(
+            PyTorchLoader::extract_layer_number("layer.0.weight"),
+            Some(0)
+        );
+        assert_eq!(
+            PyTorchLoader::extract_layer_number("block_12.attn"),
+            Some(12)
+        );
         assert_eq!(
             PyTorchLoader::extract_layer_number("layers.23.mlp.weight"),
             Some(23)
@@ -295,10 +301,7 @@ mod tests {
 
     #[test]
     fn test_extract_shape_from_list() {
-        let list = vec![
-            serde_pickle::Value::I64(5),
-            serde_pickle::Value::I64(15),
-        ];
+        let list = vec![serde_pickle::Value::I64(5), serde_pickle::Value::I64(15)];
         let value = serde_pickle::Value::List(list);
         let shape = PyTorchLoader::extract_shape(&value).unwrap();
         assert_eq!(shape, vec![5, 15]);

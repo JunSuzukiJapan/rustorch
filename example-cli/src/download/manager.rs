@@ -1,8 +1,7 @@
 /// Unified model download manager
 use super::{
-    ModelIdentifier, ModelSource, DownloadOptions,
-    HuggingFaceClient, OllamaClient,
     progress::{ProgressBar, Spinner},
+    DownloadOptions, HuggingFaceClient, ModelIdentifier, ModelSource, OllamaClient,
 };
 use anyhow::Result;
 use std::path::PathBuf;
@@ -166,12 +165,13 @@ impl ModelDownloadManager {
             model_name,
             Some(Box::new(move |progress| {
                 let mut last = last_status.lock().unwrap();
-                let status_msg = if let (Some(total), Some(completed)) = (progress.total, progress.completed) {
-                    let percentage = (completed as f64 / total as f64 * 100.0) as u32;
-                    format!("  Progress: {}%", percentage)
-                } else {
-                    format!("  Status: {}", progress.status)
-                };
+                let status_msg =
+                    if let (Some(total), Some(completed)) = (progress.total, progress.completed) {
+                        let percentage = (completed as f64 / total as f64 * 100.0) as u32;
+                        format!("  Progress: {}%", percentage)
+                    } else {
+                        format!("  Status: {}", progress.status)
+                    };
 
                 // Only print if status changed
                 if *last != status_msg {
@@ -200,7 +200,9 @@ impl ModelDownloadManager {
                 Ok(models.into_iter().map(|m| m.name).collect())
             }
             ModelSource::HuggingFace => {
-                anyhow::bail!("Listing HuggingFace models requires search API (not yet implemented)")
+                anyhow::bail!(
+                    "Listing HuggingFace models requires search API (not yet implemented)"
+                )
             }
             ModelSource::ModelScope => {
                 anyhow::bail!("ModelScope not yet implemented")

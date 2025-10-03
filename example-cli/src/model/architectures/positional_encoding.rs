@@ -31,20 +31,13 @@ impl PositionalEncoding {
                 let angle = Self::calculate_angle(pos, i, self.d_model);
 
                 // Even indices: sin, Odd indices: cos
-                let value = if i % 2 == 0 {
-                    angle.sin()
-                } else {
-                    angle.cos()
-                };
+                let value = if i % 2 == 0 { angle.sin() } else { angle.cos() };
 
                 pe_data.push(value);
             }
         }
 
-        self.encoding = Some(Tensor::from_vec(
-            pe_data,
-            vec![self.max_len, self.d_model],
-        ));
+        self.encoding = Some(Tensor::from_vec(pe_data, vec![self.max_len, self.d_model]));
 
         Ok(())
     }

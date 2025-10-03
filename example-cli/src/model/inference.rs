@@ -163,8 +163,7 @@ impl InferenceEngine {
             };
 
             // Sample next token using RusTorch operations
-            let next_token_id =
-                self.sample_from_logits(&scaled_logits, &generated_ids, step)?;
+            let next_token_id = self.sample_from_logits(&scaled_logits, &generated_ids, step)?;
 
             // Check for EOS token
             if let Some(eos_id) = self.tokenizer.eos_token_id() {
@@ -229,7 +228,9 @@ impl InferenceEngine {
         _context: &[usize],
         _step: usize,
     ) -> Result<usize> {
-        use crate::model::sampling::{softmax, apply_top_k_to_probs, apply_top_p_to_probs, multinomial_sample};
+        use crate::model::sampling::{
+            apply_top_k_to_probs, apply_top_p_to_probs, multinomial_sample, softmax,
+        };
 
         let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
 

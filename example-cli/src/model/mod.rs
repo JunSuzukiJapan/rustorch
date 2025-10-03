@@ -5,9 +5,7 @@ pub mod loader;
 pub mod sampling;
 pub mod transformer;
 
-pub use architectures::{
-    FeedForward, GPTModel, LayerNorm, MultiHeadAttention, PositionalEncoding,
-};
+pub use architectures::{FeedForward, GPTModel, LayerNorm, MultiHeadAttention, PositionalEncoding};
 pub use inference::InferenceEngine;
 pub use loader::ModelLoader;
 pub use sampling::{sample_token, SamplingConfig};

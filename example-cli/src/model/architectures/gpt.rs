@@ -189,7 +189,12 @@ impl GPTModel {
     /// Forward pass
     /// Input: token_ids [batch_size, seq_len]
     /// Output: logits [batch_size, seq_len, vocab_size]
-    pub fn forward(&self, token_ids: &[usize], batch_size: usize, seq_len: usize) -> Result<Tensor<f64>> {
+    pub fn forward(
+        &self,
+        token_ids: &[usize],
+        batch_size: usize,
+        seq_len: usize,
+    ) -> Result<Tensor<f64>> {
         // Embedding lookup
         let embedded = self.embed_tokens(token_ids, batch_size, seq_len)?;
 
@@ -210,7 +215,12 @@ impl GPTModel {
     }
 
     /// Embed token IDs
-    fn embed_tokens(&self, token_ids: &[usize], batch_size: usize, seq_len: usize) -> Result<Tensor<f64>> {
+    fn embed_tokens(
+        &self,
+        token_ids: &[usize],
+        batch_size: usize,
+        seq_len: usize,
+    ) -> Result<Tensor<f64>> {
         let embedding = self
             .token_embedding
             .as_ref()
@@ -247,7 +257,9 @@ impl GPTModel {
             .ok_or_else(|| anyhow::anyhow!("Output projection not initialized"))?;
 
         // Use RusTorch matmul operation
-        hidden.matmul(projection).map_err(|e| anyhow::anyhow!("Matmul failed: {}", e))
+        hidden
+            .matmul(projection)
+            .map_err(|e| anyhow::anyhow!("Matmul failed: {}", e))
     }
 
     /// Get model configuration

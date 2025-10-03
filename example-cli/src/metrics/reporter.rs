@@ -50,10 +50,7 @@ impl PerformanceReporter {
             } else {
                 "✗"
             };
-            report.push_str(&format!(
-                "Time to First Token: {:.2} ms {}\n",
-                ttft, status
-            ));
+            report.push_str(&format!("Time to First Token: {:.2} ms {}\n", ttft, status));
         }
 
         if let Some(tps) = self.metrics.tokens_per_sec {
@@ -176,10 +173,7 @@ impl PerformanceReporter {
             } else {
                 "✗"
             };
-            md.push_str(&format!(
-                "| Tokens/sec | {:.2} | >20 | {} |\n",
-                tps, status
-            ));
+            md.push_str(&format!("| Tokens/sec | {:.2} | >20 | {} |\n", tps, status));
         }
 
         if let Some(total) = self.metrics.total_time {

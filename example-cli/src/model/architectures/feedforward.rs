@@ -47,7 +47,10 @@ impl FeedForward {
 
         // Layer 2: d_ff -> d_model
         self.w2 = Some(Self::xavier_init(self.d_model, self.d_ff, std2)?);
-        self.b2 = Some(Tensor::from_vec(vec![0.0; self.d_model], vec![self.d_model]));
+        self.b2 = Some(Tensor::from_vec(
+            vec![0.0; self.d_model],
+            vec![self.d_model],
+        ));
 
         Ok(())
     }
@@ -71,11 +74,8 @@ impl FeedForward {
     /// Output shape: [batch_size, seq_len, d_model]
     pub fn forward(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
         // First linear layer: x @ W1^T + b1
-        let hidden = self.linear_with_bias(
-            input,
-            self.w1.as_ref().unwrap(),
-            self.b1.as_ref().unwrap(),
-        )?;
+        let hidden =
+            self.linear_with_bias(input, self.w1.as_ref().unwrap(), self.b1.as_ref().unwrap())?;
 
         // ReLU activation: max(0, x)
         let activated = self.relu(&hidden)?;

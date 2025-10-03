@@ -1,8 +1,8 @@
 /// Ollama API client for model downloads
 use anyhow::Result;
-use std::path::{Path, PathBuf};
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 const OLLAMA_ENDPOINT: &str = "http://localhost:11434";
 
@@ -32,8 +32,7 @@ pub struct OllamaClient {
 
 impl OllamaClient {
     pub fn new() -> Result<Self> {
-        let endpoint = std::env::var("OLLAMA_HOST")
-            .unwrap_or_else(|_| OLLAMA_ENDPOINT.to_string());
+        let endpoint = std::env::var("OLLAMA_HOST").unwrap_or_else(|_| OLLAMA_ENDPOINT.to_string());
 
         let client = Client::builder()
             .timeout(std::time::Duration::from_secs(300)) // 5 min timeout for large downloads
@@ -93,11 +92,7 @@ impl OllamaClient {
             stream: true,
         };
 
-        let mut response = self
-            .client
-            .post(&url)
-            .json(&request_body)
-            .send()?;
+        let mut response = self.client.post(&url).json(&request_body).send()?;
 
         if !response.status().is_success() {
             anyhow::bail!("Failed to pull model: HTTP {}", response.status());
