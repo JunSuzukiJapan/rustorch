@@ -37,9 +37,12 @@ pub struct TransformerModel {
     config: TransformerConfig,
     #[allow(dead_code)]
     token_embedding: Embedding<f64>,
-    // TODO: Add position embedding
-    // TODO: Add decoder layers
-    // TODO: Add output projection
+    #[allow(dead_code)]
+    position_embedding: Embedding<f64>,
+    #[allow(dead_code)]
+    layers: Vec<DecoderLayer>,
+    #[allow(dead_code)]
+    output_projection: Linear<f64>,
 }
 
 impl TransformerModel {
@@ -55,9 +58,35 @@ impl TransformerModel {
             None,  // not frozen
         );
 
+        // Position embedding
+        let position_embedding = Embedding::new(
+            config.max_position_embeddings,
+            config.hidden_size,
+            None,
+            None,
+            None,
+        );
+
+        // Create decoder layers
+        let mut layers = Vec::new();
+        for _ in 0..config.num_layers {
+            layers.push(DecoderLayer::new(
+                config.hidden_size,
+                config.num_heads,
+                config.intermediate_size,
+                config.dropout,
+            )?);
+        }
+
+        // Output projection to vocabulary
+        let output_projection = Linear::new(config.hidden_size, config.vocab_size);
+
         Ok(Self {
             config,
             token_embedding,
+            position_embedding,
+            layers,
+            output_projection,
         })
     }
 
@@ -108,12 +137,18 @@ pub struct DecoderLayer {
     hidden_size: usize,
     #[allow(dead_code)]
     self_attn: MultiheadAttention<f64>,
-    // TODO: Add layer normalization
-    // TODO: Add feedforward network
+    #[allow(dead_code)]
+    ffn: FeedForward,
+    // Note: Layer normalization will be added when RusTorch provides LayerNorm
 }
 
 impl DecoderLayer {
-    pub fn new(hidden_size: usize, num_heads: usize, dropout: f64) -> Result<Self> {
+    pub fn new(
+        hidden_size: usize,
+        num_heads: usize,
+        intermediate_size: usize,
+        dropout: f64,
+    ) -> Result<Self> {
         // Create self-attention layer using RusTorch MultiheadAttention
         let self_attn = MultiheadAttention::new(
             hidden_size,
@@ -125,15 +160,23 @@ impl DecoderLayer {
             Some(true),  // batch_first = true
         )?;
 
+        // Create feedforward network
+        let ffn = FeedForward::new(hidden_size, intermediate_size, dropout);
+
         Ok(Self {
             hidden_size,
             self_attn,
+            ffn,
         })
     }
 
     pub fn forward(&self, hidden_states: &Tensor<f64>, _attention_mask: Option<&Tensor<f64>>) -> Result<Tensor<f64>> {
-        // TODO: Implement full forward pass with layer norm and feedforward
-        // For now, just return input
+        // For now, just apply feedforward (self-attention integration pending)
+        // TODO: Add self-attention application
+        // TODO: Add layer normalization and residual connections when RusTorch supports it
+
+        // Simplified forward pass: just return input for now
+        // Full implementation requires Variable<->Tensor conversion
         Ok(hidden_states.clone())
     }
 }
@@ -244,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_decoder_layer_creation() {
-        let layer = DecoderLayer::new(512, 8, 0.1);
+        let layer = DecoderLayer::new(512, 8, 2048, 0.1);
         assert!(layer.is_ok());
     }
 

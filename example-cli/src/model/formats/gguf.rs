@@ -375,6 +375,16 @@ impl GGUFLoader {
         self.tensors.iter().find(|t| t.name == name)
     }
 
+    /// Alias for find_tensor for compatibility
+    pub fn get_tensor(&self, name: &str) -> Option<&GGUFTensorInfo> {
+        self.find_tensor(name)
+    }
+
+    /// Get list of all tensor names
+    pub fn tensor_names(&self) -> Vec<String> {
+        self.tensors.iter().map(|t| t.name.clone()).collect()
+    }
+
     /// Load tensor data (placeholder - will be implemented when integrating with RusTorch)
     pub fn load_tensor_data(&mut self, _tensor_name: &str) -> Result<Vec<u8>> {
         // TODO: Implement actual tensor data loading

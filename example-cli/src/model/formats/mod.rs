@@ -1,6 +1,7 @@
 // Model format implementations
-// Currently placeholder - will be implemented in future phases
 
 pub mod gguf;
+pub mod tensor_loader;
 
 pub use gguf::GGUFLoader;
+pub use tensor_loader::TensorLoader;

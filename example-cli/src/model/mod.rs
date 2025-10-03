@@ -2,10 +2,12 @@ pub mod formats;
 pub mod loader;
 pub mod inference;
 pub mod transformer;
+pub mod sampling;
 
 pub use loader::ModelLoader;
 pub use inference::InferenceEngine;
 pub use transformer::{TransformerConfig, TransformerModel, KVCache};
+pub use sampling::{SamplingConfig, sample_token};
 
 use anyhow::Result;
 use std::path::Path;
