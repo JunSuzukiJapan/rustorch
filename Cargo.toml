@@ -24,7 +24,7 @@ rustdoc-args = ["--cfg", "docsrs", "--allow", "rustdoc::broken_intra_doc_links"]
 cargo.all_features = true
 
 [workspace]
-members = ["benchmarks", "rustorch-macros"]
+members = ["benchmarks", "rustorch-macros", "example-cli"]
 
 [workspace.metadata]
 # ワークスペースのメタデータ
