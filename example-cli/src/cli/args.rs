@@ -1,4 +1,4 @@
-use clap::{Parser, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -10,8 +10,11 @@ use std::path::PathBuf;
                   large language models with support for multiple backends (CPU/GPU/Neural Engine)."
 )]
 pub struct CliArgs {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
     /// Path to the model file
-    #[arg(short, long, value_name = "FILE")]
+    #[arg(short, long, value_name = "FILE", global = true)]
     pub model: Option<PathBuf>,
 
     /// Computation backend
@@ -276,4 +279,42 @@ mod tests {
         args.top_p = 0.9;
         assert!(args.validate().is_ok());
     }
+}
+
+/// Subcommands for RusTorch CLI
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    /// Download models from HuggingFace, Ollama, or other sources
+    Download {
+        /// Model identifier (e.g., hf:TheBloke/Llama-2-7B-GGUF, ollama:llama2:7b)
+        #[arg(value_name = "MODEL_ID")]
+        model_id: String,
+
+        /// Output directory for downloaded models
+        #[arg(short, long, value_name = "DIR")]
+        output_dir: Option<PathBuf>,
+
+        /// Model format preference (gguf, safetensors, pytorch)
+        #[arg(short, long)]
+        format: Option<String>,
+
+        /// Quantization level (q4_0, q4_k_m, q8_0, etc.)
+        #[arg(short, long)]
+        quantization: Option<String>,
+
+        /// Force re-download even if file exists
+        #[arg(long)]
+        force: bool,
+
+        /// HuggingFace token for private models
+        #[arg(long, env = "HF_TOKEN")]
+        token: Option<String>,
+    },
+
+    /// List available models from a source
+    List {
+        /// Model source (ollama, hf, ms)
+        #[arg(value_name = "SOURCE")]
+        source: String,
+    },
 }

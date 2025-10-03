@@ -2,13 +2,18 @@ use anyhow::Result;
 use clap::Parser;
 
 use rustorch_cli::{
-    init_logger, CliArgs, Config, GenerationConfig, InferenceEngine, ModelLoader, SessionManager,
-    REPL,
+    init_logger, CliArgs, Commands, Config, DownloadOptions, GenerationConfig, InferenceEngine,
+    ModelDownloadManager, ModelIdentifier, ModelLoader, SessionManager, REPL,
 };
 
 fn main() -> Result<()> {
     // Parse command line arguments
     let args = CliArgs::parse();
+
+    // Handle subcommands first
+    if let Some(command) = &args.command {
+        return handle_command(command);
+    }
 
     // Initialize logger
     init_logger(args.log_level);
@@ -109,4 +114,71 @@ fn main() -> Result<()> {
     tracing::info!("RusTorch CLI exiting...");
 
     Ok(())
+}
+
+/// Handle subcommands
+fn handle_command(command: &Commands) -> Result<()> {
+    match command {
+        Commands::Download {
+            model_id,
+            output_dir,
+            format,
+            quantization,
+            force,
+            token,
+        } => {
+            println!("🚀 RusTorch Model Downloader\n");
+
+            // Parse model identifier
+            let identifier = ModelIdentifier::parse(model_id)?;
+
+            // Prepare download options
+            let mut options = DownloadOptions::default();
+
+            if let Some(dir) = output_dir {
+                options.output_dir = dir.clone();
+            }
+
+            options.format = format.clone();
+            options.quantization = quantization.clone();
+            options.force = *force;
+            options.token = token.clone();
+
+            // Create download manager
+            let manager = ModelDownloadManager::new()?;
+
+            // Download model
+            let path = manager.download(&identifier, &options)?;
+
+            println!("\n✅ Model ready to use!");
+            println!("📂 Path: {}", path.display());
+            println!("\n💡 Usage:");
+            println!("   rustorch-cli --model {}", path.display());
+
+            Ok(())
+        }
+
+        Commands::List { source } => {
+            use rustorch_cli::download::ModelSource;
+
+            println!("📋 Listing models from {}...\n", source);
+
+            let source = ModelSource::from_prefix(source)?;
+            let manager = ModelDownloadManager::new()?;
+
+            let models = manager.list_models(source)?;
+
+            if models.is_empty() {
+                println!("No models found.");
+            } else {
+                println!("Available models:");
+                for (i, model) in models.iter().enumerate() {
+                    println!("  {}. {}", i + 1, model);
+                }
+                println!("\nTotal: {} models", models.len());
+            }
+
+            Ok(())
+        }
+    }
 }
