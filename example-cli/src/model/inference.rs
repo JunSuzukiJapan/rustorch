@@ -217,8 +217,7 @@ impl InferenceEngine {
             anyhow::bail!("Temperature must be positive");
         }
 
-        let data = logits.data;
-        let scaled: Vec<f64> = data.iter().map(|&x| x / temperature).collect();
+        let scaled: Vec<f64> = logits.data.iter().map(|&x| x / temperature).collect();
 
         Ok(Tensor::from_vec(scaled, logits.size().to_vec()))
     }
@@ -230,10 +229,10 @@ impl InferenceEngine {
         _context: &[usize],
         _step: usize,
     ) -> Result<usize> {
-        let logits_data = logits.data;
+        let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
 
         // Apply softmax to get probabilities
-        let probs = self.softmax(logits_data)?;
+        let probs = self.softmax(&logits_vec)?;
 
         // Apply top-k filtering if specified
         let filtered_probs = if let Some(top_k) = self.sampling_config.top_k {

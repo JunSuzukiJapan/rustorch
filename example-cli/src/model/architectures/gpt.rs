@@ -56,20 +56,8 @@ impl GPTBlock {
 
     /// Add two tensors (residual connection)
     fn add_tensors(&self, a: &Tensor<f64>, b: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let a_data = a.data;
-        let b_data = b.data;
-
-        if a_data.len() != b_data.len() {
-            anyhow::bail!(
-                "Tensor size mismatch for addition: {} vs {}",
-                a_data.len(),
-                b_data.len()
-            );
-        }
-
-        let result: Vec<f64> = a_data.iter().zip(b_data.iter()).map(|(&x, &y)| x + y).collect();
-
-        Ok(Tensor::from_vec(result, a.size().to_vec()))
+        // Use RusTorch element-wise addition operator
+        Ok(a + b)
     }
 
     /// Get all learnable parameters
@@ -237,9 +225,12 @@ impl GPTModel {
                 anyhow::bail!("Token ID {} out of vocabulary range", token_id);
             }
 
-            // Extract embedding row for this token using ndarray slicing
-            let row = embedding.data.slice(ndarray::s![token_id, ..]);
-            output_data.extend(row.iter().copied());
+            // Extract embedding row for this token
+            // Access each element using 2D indexing
+            for d in 0..d_model {
+                let value = embedding.data[[token_id, d]];
+                output_data.push(value);
+            }
         }
 
         Ok(Tensor::from_vec(
@@ -256,7 +247,7 @@ impl GPTModel {
             .ok_or_else(|| anyhow::anyhow!("Output projection not initialized"))?;
 
         // Use RusTorch matmul operation
-        hidden.matmul(projection)
+        hidden.matmul(projection).map_err(|e| anyhow::anyhow!("Matmul failed: {}", e))
     }
 
     /// Get model configuration
