@@ -105,6 +105,18 @@ impl SessionManager {
         &self.model_name
     }
 
+    pub fn set_backend_name(&mut self, backend: impl Into<String>) {
+        self.backend_name = backend.into();
+    }
+
+    pub fn set_model_name(&mut self, model: impl Into<String>) {
+        self.model_name = model.into();
+    }
+
+    pub fn generation_config(&self) -> &GenerationConfig {
+        &self.config
+    }
+
     pub fn set_system_prompt(&mut self, prompt: impl Into<String>) {
         self.system_prompt = Some(prompt.into());
     }

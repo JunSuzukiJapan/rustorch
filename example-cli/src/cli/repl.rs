@@ -31,49 +31,90 @@ impl REPL {
         self.print_welcome();
 
         loop {
-            match self.editor.readline("You> ") {
-                Ok(line) => {
-                    let line = line.trim();
+            // Read input (potentially multiline)
+            let input = match self.read_input() {
+                Ok(Some(text)) => text,
+                Ok(None) => break, // EOF or exit
+                Err(e) => {
+                    eprintln!("{}", format!("Error: {}", e).red());
+                    continue;
+                }
+            };
 
-                    if line.is_empty() {
-                        continue;
-                    }
+            if input.is_empty() {
+                continue;
+            }
 
-                    self.editor.add_history_entry(line)?;
+            // Add to history
+            self.editor.add_history_entry(&input)?;
 
-                    if line.starts_with('/') {
-                        match Command::parse(line) {
-                            Ok(cmd) => {
-                                if !self.handle_command(cmd)? {
-                                    break; // Exit command
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Error: {}", e);
-                            }
+            // Process command or message
+            if input.starts_with('/') {
+                match Command::parse(&input) {
+                    Ok(cmd) => {
+                        if !self.handle_command(cmd)? {
+                            break; // Exit command
                         }
-                    } else {
-                        if let Err(e) = self.handle_message(line) {
-                            eprintln!("Error: {}", e);
-                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{}", format!("Error: {}", e).red());
                     }
                 }
-                Err(ReadlineError::Interrupted) => {
-                    println!("^C");
-                    println!("Use /exit or /quit to exit, or press Ctrl+D");
-                }
-                Err(ReadlineError::Eof) => {
-                    println!("^D");
-                    break;
-                }
-                Err(err) => {
-                    eprintln!("Error: {}", err);
-                    break;
+            } else {
+                if let Err(e) = self.handle_message(&input) {
+                    eprintln!("{}", format!("Error: {}", e).red());
                 }
             }
         }
 
         Ok(())
+    }
+
+    /// Read input from user, supporting multiline input
+    fn read_input(&mut self) -> Result<Option<String>> {
+        let mut lines = Vec::new();
+        let mut prompt = "You> ".to_string();
+
+        loop {
+            match self.editor.readline(&prompt) {
+                Ok(line) => {
+                    let trimmed = line.trim_end();
+
+                    // Check if line ends with backslash (continuation)
+                    if trimmed.ends_with('\\') {
+                        // Remove backslash and add line
+                        lines.push(trimmed[..trimmed.len() - 1].to_string());
+                        prompt = "...> ".to_string(); // Continuation prompt
+                        continue;
+                    } else {
+                        // Add final line and break
+                        lines.push(line);
+                        break;
+                    }
+                }
+                Err(ReadlineError::Interrupted) => {
+                    println!("^C");
+                    if lines.is_empty() {
+                        println!("{}", "Use /exit to quit, or press Ctrl+D".bright_black());
+                        return Ok(Some(String::new()));
+                    } else {
+                        // Cancel multiline input
+                        println!("{}", "Multiline input cancelled.".yellow());
+                        return Ok(Some(String::new()));
+                    }
+                }
+                Err(ReadlineError::Eof) => {
+                    println!("^D");
+                    return Ok(None);
+                }
+                Err(err) => {
+                    return Err(err.into());
+                }
+            }
+        }
+
+        let combined = lines.join("\n");
+        Ok(Some(combined.trim().to_string()))
     }
 
     fn print_welcome(&self) {
@@ -149,14 +190,60 @@ impl REPL {
         Ok(())
     }
 
-    fn handle_model(&mut self, _path: Option<PathBuf>) -> Result<()> {
-        println!("Model switching is not yet implemented.");
+    fn handle_model(&mut self, path: Option<PathBuf>) -> Result<()> {
+        match path {
+            Some(model_path) => {
+                // Validate file exists
+                if !model_path.exists() {
+                    eprintln!("{} {}", "Error:".red(), format!("Model file not found: {}", model_path.display()));
+                    return Ok(());
+                }
+
+                println!("{} {}", "Loading model:".bright_green(), model_path.display().to_string().cyan());
+
+                // Update session model name
+                self.session.set_model_name(&model_path.display().to_string());
+                println!("{}", "Model path updated.".green());
+                println!("{}", "Note: Actual model loading will be implemented with full inference support.".bright_black());
+            }
+            None => {
+                // Show current model info
+                println!("{} {}", "Current model:".bright_green(), self.session.model_name().cyan());
+                println!("{}", "Usage: /model <path>".bright_black());
+            }
+        }
         Ok(())
     }
 
     fn handle_switch_backend(&mut self, backend: &str) -> Result<()> {
-        println!("Backend switching is not yet implemented.");
-        println!("Requested backend: {}", backend);
+        use crate::cli::Backend;
+
+        // Parse backend from string
+        let new_backend = match backend.to_lowercase().as_str() {
+            "cpu" => Backend::Cpu,
+            "cuda" | "gpu" => Backend::Cuda,
+            "metal" => Backend::Metal,
+            _ => {
+                eprintln!("{} {}", "Error:".red(), format!("Unknown backend: {}", backend));
+                println!("{}", "Available backends: cpu, cuda, metal".bright_black());
+                return Ok(());
+            }
+        };
+
+        // Check if backend is available
+        if !new_backend.is_available() {
+            eprintln!("{} {}", "Warning:".yellow(), format!("Backend '{}' may not be available on this system", backend));
+            println!("{}", "Attempting to switch anyway...".bright_black());
+        }
+
+        // Update session backend
+        self.session.set_backend_name(new_backend.as_str());
+        println!("{} {}", "Backend switched to:".green(), new_backend.as_str().cyan());
+
+        // Note: In a full implementation, we would recreate the inference engine
+        // with the new backend. For now, we just update the name.
+        println!("{}", "Note: Backend switch will take effect for new models.".bright_black());
+
         Ok(())
     }
 
@@ -190,17 +277,46 @@ impl REPL {
     fn handle_message(&mut self, message: &str) -> Result<()> {
         self.session.add_user_message(message);
 
-        let response = if self.show_progress {
-            let progress = ProgressIndicator::new("Thinking...");
-            let result = self.generate_response(message);
+        if self.show_progress {
+            // Show brief progress indicator
+            let progress = ProgressIndicator::new("Thinking");
+            std::thread::sleep(std::time::Duration::from_millis(300));
             progress.finish();
-            result?
-        } else {
-            self.generate_response(message)?
-        };
+        }
 
-        println!("{} {}", "Assistant>".bright_magenta().bold(), response.white());
-        self.session.add_assistant_message(&response);
+        // Display assistant label
+        print!("{} ", "Assistant>".bright_magenta().bold());
+        std::io::Write::flush(&mut std::io::stdout())?;
+
+        // Generate response with streaming
+        let mut full_response = String::new();
+        match self.engine.generate_stream(message) {
+            Ok(stream) => {
+                for token in stream {
+                    print!("{}", token.white());
+                    // Add space after each word for dummy mode
+                    if !token.ends_with(' ') && !token.is_empty() {
+                        print!(" ");
+                    }
+                    std::io::Write::flush(&mut std::io::stdout())?;
+                    full_response.push_str(&token);
+                    full_response.push(' ');
+
+                    // Small delay for visual effect
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                println!(); // New line after streaming
+            }
+            Err(e) => {
+                // Fallback to non-streaming generation
+                tracing::warn!("Streaming failed, falling back to regular generation: {}", e);
+                let response = self.generate_response(message)?;
+                println!("{}", response.white());
+                full_response = response;
+            }
+        }
+
+        self.session.add_assistant_message(full_response.trim());
 
         Ok(())
     }

@@ -124,10 +124,63 @@ impl InferenceEngine {
         responses[idx].clone()
     }
 
-    /// Generate a streaming response (future implementation)
-    pub fn generate_stream(&self, _input: &str) -> Result<impl Iterator<Item = String>> {
-        // TODO: Implement streaming generation
-        Ok(std::iter::empty())
+    /// Generate a streaming response with token-by-token output
+    pub fn generate_stream<'a>(&'a self, input: &str) -> Result<Box<dyn Iterator<Item = String> + 'a>> {
+        tracing::debug!("Starting streaming generation for input: {}", input);
+
+        // If no model is loaded, return dummy streaming response
+        if self.model.is_none() {
+            return Ok(Box::new(self.generate_dummy_stream(input)));
+        }
+
+        // Encode input
+        let input_ids = self.tokenizer
+            .encode(input, true)
+            .unwrap_or_else(|_| vec![0]);
+
+        // Generate tokens with streaming
+        Ok(Box::new(self.generate_tokens_stream(input_ids)))
+    }
+
+    /// Generate tokens one by one for streaming
+    fn generate_tokens_stream(&self, input_ids: Vec<u32>) -> impl Iterator<Item = String> + '_ {
+        let max_new_tokens = self.generation_config.max_tokens;
+        let generated_ids = input_ids.clone();
+        let eos_id = self.tokenizer.eos_token_id();
+        let vocab_size = self.tokenizer.vocab_size();
+
+        (0..max_new_tokens)
+            .scan(generated_ids, move |state, _| {
+                // Sample next token (placeholder with random logits for now)
+                let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
+
+                let next_token = sample_token(&logits, &self.sampling_config, state)
+                    .ok()?;
+
+                // Check for EOS token
+                if let Some(eos) = eos_id {
+                    if next_token == eos {
+                        return None; // Stop iteration
+                    }
+                }
+
+                state.push(next_token);
+
+                // Decode the single token
+                self.tokenizer
+                    .decode(&[next_token], false)
+                    .ok()
+            })
+    }
+
+    /// Generate dummy streaming response for testing
+    fn generate_dummy_stream(&self, input: &str) -> impl Iterator<Item = String> + '_ {
+        let response = self.generate_dummy_response(input);
+        let words: Vec<String> = response.split_whitespace()
+            .map(|s| s.to_string())
+            .collect();
+
+        words.into_iter()
     }
 }
 
