@@ -56,8 +56,8 @@ impl SafetensorsLoader {
                 name: name.to_string(),
                 shape: view.shape().to_vec(),
                 dtype: format!("{:?}", view.dtype()),
-                offset: view.data().as_ptr() as usize - data.as_ptr() as usize,
-                size: view.data().len(),
+                offset: view.data.as_ptr() as usize - data.as_ptr() as usize,
+                size: view.data.len(),
             };
 
             tensors.insert(name.to_string(), info);

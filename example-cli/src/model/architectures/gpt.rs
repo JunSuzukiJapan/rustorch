@@ -56,8 +56,8 @@ impl GPTBlock {
 
     /// Add two tensors (residual connection)
     fn add_tensors(&self, a: &Tensor<f64>, b: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let a_data = a.data();
-        let b_data = b.data();
+        let a_data = a.data;
+        let b_data = b.data;
 
         if a_data.len() != b_data.len() {
             anyhow::bail!(
@@ -228,7 +228,6 @@ impl GPTModel {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Token embedding not initialized"))?;
 
-        let embed_data = embedding.data();
         let d_model = self.config.d_model;
 
         let mut output_data = Vec::with_capacity(batch_size * seq_len * d_model);
@@ -238,10 +237,9 @@ impl GPTModel {
                 anyhow::bail!("Token ID {} out of vocabulary range", token_id);
             }
 
-            // Copy embedding for this token
-            let start = token_id * d_model;
-            let end = start + d_model;
-            output_data.extend_from_slice(&embed_data[start..end]);
+            // Extract embedding row for this token using ndarray slicing
+            let row = embedding.data.slice(ndarray::s![token_id, ..]);
+            output_data.extend(row.iter().copied());
         }
 
         Ok(Tensor::from_vec(
@@ -257,35 +255,8 @@ impl GPTModel {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Output projection not initialized"))?;
 
-        let hidden_data = hidden.data();
-        let proj_data = projection.data();
-        let hidden_shape = hidden.size();
-
-        let batch_size = hidden_shape[0];
-        let seq_len = hidden_shape[1];
-        let d_model = hidden_shape[2];
-        let vocab_size = self.config.vocab_size;
-
-        let mut output_data = Vec::with_capacity(batch_size * seq_len * vocab_size);
-
-        for b in 0..batch_size {
-            for s in 0..seq_len {
-                for v in 0..vocab_size {
-                    let mut logit = 0.0;
-                    for d in 0..d_model {
-                        let hidden_idx = b * seq_len * d_model + s * d_model + d;
-                        let proj_idx = d * vocab_size + v;
-                        logit += hidden_data[hidden_idx] * proj_data[proj_idx];
-                    }
-                    output_data.push(logit);
-                }
-            }
-        }
-
-        Ok(Tensor::from_vec(
-            output_data,
-            vec![batch_size, seq_len, vocab_size],
-        ))
+        // Use RusTorch matmul operation
+        hidden.matmul(projection)
     }
 
     /// Get model configuration

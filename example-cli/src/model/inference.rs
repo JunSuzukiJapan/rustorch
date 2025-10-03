@@ -2,10 +2,14 @@ use super::{sample_token, KVCache, ModelLoader, SamplingConfig, TransformerModel
 use crate::session::GenerationConfig;
 use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 use anyhow::Result;
-use rustorch::tensor::Tensor;
+use rustorch::prelude::Tensor;
+
+// Import GPT model
+use super::GPTModel;
 
 pub struct InferenceEngine {
     model: Option<TransformerModel>,
+    gpt_model: Option<GPTModel>,
     tokenizer: TokenizerWrapper,
     generation_config: GenerationConfig,
     sampling_config: SamplingConfig,
@@ -32,6 +36,7 @@ impl InferenceEngine {
 
         Self {
             model: None,
+            gpt_model: None,
             tokenizer,
             generation_config: config,
             sampling_config,
@@ -42,6 +47,11 @@ impl InferenceEngine {
     /// Set the transformer model
     pub fn set_model(&mut self, model: TransformerModel) {
         self.model = Some(model);
+    }
+
+    /// Set the GPT model
+    pub fn set_gpt_model(&mut self, model: GPTModel) {
+        self.gpt_model = Some(model);
     }
 
     /// Generate a response from input text
@@ -55,7 +65,7 @@ impl InferenceEngine {
         );
 
         // If no model is loaded, return dummy response
-        if self.model.is_none() {
+        if self.model.is_none() && self.gpt_model.is_none() {
             return Ok(self.generate_dummy_response(input));
         }
 
@@ -88,10 +98,14 @@ impl InferenceEngine {
             .as_ref()
             .map(|model| KVCache::new(model.config().num_layers));
 
-        // Generation loop
+        // Use GPT model if available
+        if let Some(ref gpt_model) = self.gpt_model {
+            return self.generate_with_gpt(gpt_model, input_ids, max_new_tokens);
+        }
+
+        // Fallback to dummy generation if no GPT model
+        // Generation loop with placeholder logits
         for _ in 0..max_new_tokens {
-            // For now, just sample random tokens since model.forward() is not fully implemented
-            // TODO: Use model.forward() when fully implemented
             let vocab_size = self.tokenizer.vocab_size();
             let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
 
@@ -115,6 +129,237 @@ impl InferenceEngine {
 
         // Return only the newly generated tokens
         Ok(generated_ids[input_ids.len()..].to_vec())
+    }
+
+    /// Generate tokens using GPT model with RusTorch
+    fn generate_with_gpt(
+        &self,
+        gpt_model: &GPTModel,
+        input_ids: &[u32],
+        max_new_tokens: usize,
+    ) -> Result<Vec<u32>> {
+        let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
+
+        // Generation loop
+        for step in 0..max_new_tokens {
+            // Prepare input for model (current sequence)
+            let seq_len = generated_ids.len();
+            let batch_size = 1;
+
+            // Forward pass through GPT model
+            // Input: token_ids [batch_size, seq_len]
+            // Output: logits [batch_size, seq_len, vocab_size]
+            let logits_tensor = gpt_model.forward(&generated_ids, batch_size, seq_len)?;
+
+            // Extract logits for the last position
+            // Shape: [batch_size=1, seq_len, vocab_size] -> [vocab_size]
+            let last_logits = self.extract_last_logits(&logits_tensor, seq_len)?;
+
+            // Apply temperature scaling
+            let scaled_logits = if self.sampling_config.temperature != 1.0 {
+                self.apply_temperature(&last_logits, self.sampling_config.temperature)?
+            } else {
+                last_logits
+            };
+
+            // Sample next token using RusTorch operations
+            let next_token_id =
+                self.sample_from_logits(&scaled_logits, &generated_ids, step)?;
+
+            // Check for EOS token
+            if let Some(eos_id) = self.tokenizer.eos_token_id() {
+                if next_token_id == eos_id as usize {
+                    tracing::debug!("EOS token generated at step {}", step);
+                    break;
+                }
+            }
+
+            generated_ids.push(next_token_id);
+
+            // Stop if context limit exceeded
+            if seq_len >= gpt_model.config().max_seq_len {
+                tracing::warn!("Reached maximum sequence length");
+                break;
+            }
+        }
+
+        // Return only the newly generated tokens
+        let new_tokens: Vec<u32> = generated_ids[input_ids.len()..]
+            .iter()
+            .map(|&id| id as u32)
+            .collect();
+
+        Ok(new_tokens)
+    }
+
+    /// Extract logits for the last position from model output
+    fn extract_last_logits(
+        &self,
+        logits_tensor: &Tensor<f64>,
+        seq_len: usize,
+    ) -> Result<Tensor<f64>> {
+        let shape = logits_tensor.size();
+        let vocab_size = shape[2];
+
+        // Get data for last position: logits[:, -1, :]
+        let data = logits_tensor.data;
+        let start_idx = (seq_len - 1) * vocab_size;
+        let end_idx = seq_len * vocab_size;
+
+        let last_logits_data = data[start_idx..end_idx].to_vec();
+
+        Ok(Tensor::from_vec(last_logits_data, vec![vocab_size]))
+    }
+
+    /// Apply temperature scaling to logits
+    fn apply_temperature(&self, logits: &Tensor<f64>, temperature: f64) -> Result<Tensor<f64>> {
+        if temperature <= 0.0 {
+            anyhow::bail!("Temperature must be positive");
+        }
+
+        let data = logits.data;
+        let scaled: Vec<f64> = data.iter().map(|&x| x / temperature).collect();
+
+        Ok(Tensor::from_vec(scaled, logits.size().to_vec()))
+    }
+
+    /// Sample from logits using top-k, top-p sampling
+    fn sample_from_logits(
+        &self,
+        logits: &Tensor<f64>,
+        _context: &[usize],
+        _step: usize,
+    ) -> Result<usize> {
+        let logits_data = logits.data;
+
+        // Apply softmax to get probabilities
+        let probs = self.softmax(logits_data)?;
+
+        // Apply top-k filtering if specified
+        let filtered_probs = if let Some(top_k) = self.sampling_config.top_k {
+            self.apply_top_k(&probs, top_k)?
+        } else {
+            probs
+        };
+
+        // Apply top-p (nucleus) filtering if specified
+        let final_probs = if let Some(top_p) = self.sampling_config.top_p {
+            if top_p < 1.0 {
+                self.apply_top_p(&filtered_probs, top_p)?
+            } else {
+                filtered_probs
+            }
+        } else {
+            filtered_probs
+        };
+
+        // Sample from the filtered distribution
+        self.multinomial_sample(&final_probs)
+    }
+
+    /// Softmax function for converting logits to probabilities
+    fn softmax(&self, logits: &[f64]) -> Result<Vec<f64>> {
+        // Find max for numerical stability
+        let max_logit = logits
+            .iter()
+            .cloned()
+            .fold(f64::NEG_INFINITY, f64::max);
+
+        // Compute exp(x - max)
+        let exp_values: Vec<f64> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
+
+        // Compute sum of exponentials
+        let sum: f64 = exp_values.iter().sum();
+
+        // Normalize
+        let probs: Vec<f64> = exp_values.iter().map(|&x| x / sum).collect();
+
+        Ok(probs)
+    }
+
+    /// Apply top-k sampling: keep only top-k highest probabilities
+    fn apply_top_k(&self, probs: &[f64], k: usize) -> Result<Vec<f64>> {
+        if k == 0 || k >= probs.len() {
+            return Ok(probs.to_vec());
+        }
+
+        // Create indices with probabilities
+        let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+
+        // Sort by probability (descending)
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        // Keep only top-k, zero out the rest
+        let mut filtered = vec![0.0; probs.len()];
+        for (idx, prob) in indexed.iter().take(k) {
+            filtered[*idx] = *prob;
+        }
+
+        // Renormalize
+        let sum: f64 = filtered.iter().sum();
+        if sum > 0.0 {
+            for p in filtered.iter_mut() {
+                *p /= sum;
+            }
+        }
+
+        Ok(filtered)
+    }
+
+    /// Apply top-p (nucleus) sampling: keep smallest set with cumulative probability >= p
+    fn apply_top_p(&self, probs: &[f64], p: f64) -> Result<Vec<f64>> {
+        if p >= 1.0 || p <= 0.0 {
+            return Ok(probs.to_vec());
+        }
+
+        // Create indices with probabilities
+        let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &pr)| (i, pr)).collect();
+
+        // Sort by probability (descending)
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+        // Find cutoff where cumulative probability exceeds p
+        let mut cumsum = 0.0;
+        let mut cutoff = indexed.len();
+
+        for (i, (_, prob)) in indexed.iter().enumerate() {
+            cumsum += prob;
+            if cumsum >= p {
+                cutoff = i + 1;
+                break;
+            }
+        }
+
+        // Keep only nucleus, zero out the rest
+        let mut filtered = vec![0.0; probs.len()];
+        for (idx, prob) in indexed.iter().take(cutoff) {
+            filtered[*idx] = *prob;
+        }
+
+        // Renormalize
+        let sum: f64 = filtered.iter().sum();
+        if sum > 0.0 {
+            for pr in filtered.iter_mut() {
+                *pr /= sum;
+            }
+        }
+
+        Ok(filtered)
+    }
+
+    /// Multinomial sampling from probability distribution
+    fn multinomial_sample(&self, probs: &[f64]) -> Result<usize> {
+        // Use deterministic sampling based on probabilities for now
+        // In a real implementation, would use proper RNG
+
+        // Find argmax (greedy sampling as placeholder)
+        let (idx, _) = probs
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+            .ok_or_else(|| anyhow::anyhow!("Empty probability distribution"))?;
+
+        Ok(idx)
     }
 
     fn generate_dummy_response(&self, input: &str) -> String {

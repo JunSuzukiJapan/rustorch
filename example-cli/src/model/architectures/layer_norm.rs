@@ -67,7 +67,7 @@ impl LayerNorm {
 
     /// Calculate mean across features
     fn calculate_mean(input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.data();
+        let data = input.data;
         let shape = input.size();
 
         // For now, calculate mean across last dimension
@@ -96,8 +96,8 @@ impl LayerNorm {
 
     /// Calculate variance across features
     fn calculate_variance(input: &Tensor<f64>, mean: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.data();
-        let mean_data = mean.data();
+        let data = input.data;
+        let mean_data = mean.data;
         let shape = input.size();
 
         if shape.is_empty() {
@@ -139,9 +139,9 @@ impl LayerNorm {
         variance: &Tensor<f64>,
         eps: f64,
     ) -> Result<Tensor<f64>> {
-        let data = input.data();
-        let mean_data = mean.data();
-        let var_data = variance.data();
+        let data = input.data;
+        let mean_data = mean.data;
+        let var_data = variance.data;
         let shape = input.size();
 
         if shape.is_empty() {
@@ -173,9 +173,9 @@ impl LayerNorm {
         gamma: &Tensor<f64>,
         beta: &Tensor<f64>,
     ) -> Result<Tensor<f64>> {
-        let norm_data = normalized.data();
-        let gamma_data = gamma.data();
-        let beta_data = beta.data();
+        let norm_data = normalized.data;
+        let gamma_data = gamma.data;
+        let beta_data = beta.data;
 
         let result_data: Vec<f64> = norm_data
             .iter()
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(output.size(), &[1, 4]);
 
         // Check that mean is approximately 0
-        let out_data = output.data();
+        let out_data = output.data;
         let mean: f64 = out_data.iter().sum::<f64>() / out_data.len() as f64;
         assert!(mean.abs() < 0.1);
     }

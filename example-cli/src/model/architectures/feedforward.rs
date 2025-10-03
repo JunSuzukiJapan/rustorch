@@ -102,9 +102,9 @@ impl FeedForward {
         weight: &Tensor<f64>,
         bias: &Tensor<f64>,
     ) -> Result<Tensor<f64>> {
-        let input_data = input.data();
-        let weight_data = weight.data();
-        let bias_data = bias.data();
+        let input_data = input.data;
+        let weight_data = weight.data;
+        let bias_data = bias.data;
         let input_shape = input.size();
         let weight_shape = weight.size();
 
@@ -156,7 +156,7 @@ impl FeedForward {
 
     /// ReLU activation: max(0, x)
     fn relu(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.data();
+        let data = input.data;
         let activated: Vec<f64> = data.iter().map(|&x| x.max(0.0)).collect();
 
         Ok(Tensor::from_vec(activated, input.size().to_vec()))
@@ -173,7 +173,7 @@ impl FeedForward {
     /// GELU(x) ≈ 0.5x(1 + tanh[√(2/π)(x + 0.044715x³)])
     #[allow(dead_code)]
     fn gelu(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.data();
+        let data = input.data;
         let sqrt_2_over_pi = (2.0 / std::f64::consts::PI).sqrt();
 
         let activated: Vec<f64> = data
@@ -244,7 +244,7 @@ mod tests {
         let output = ff.relu(&input).unwrap();
 
         let expected = vec![0.0, 0.0, 1.0, 2.0];
-        assert_eq!(output.data(), &expected);
+        assert_eq!(output.data, &expected);
     }
 
     #[test]
@@ -256,7 +256,7 @@ mod tests {
 
         // GELU(0) ≈ 0, GELU(1) ≈ 0.841, GELU(-1) ≈ -0.159
         assert_eq!(output.size(), &[3]);
-        assert!(output.data()[0].abs() < 0.1); // GELU(0) ≈ 0
+        assert!(output.data[0].abs() < 0.1); // GELU(0) ≈ 0
     }
 
     #[test]

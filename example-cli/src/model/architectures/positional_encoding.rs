@@ -1,7 +1,6 @@
 // Positional Encoding implementation
 use anyhow::Result;
 use rustorch::prelude::Tensor;
-use std::f64::consts::PI;
 
 /// Positional Encoding using sinusoidal functions
 /// PE(pos, 2i) = sin(pos / 10000^(2i/d_model))
@@ -64,7 +63,7 @@ impl PositionalEncoding {
     /// Input shape: [batch_size, seq_len, d_model]
     /// Output shape: [batch_size, seq_len, d_model]
     pub fn forward(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let input_data = input.data();
+        let input_data = input.data;
         let input_shape = input.size();
 
         if input_shape.len() != 3 {
@@ -98,7 +97,7 @@ impl PositionalEncoding {
             .encoding
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Positional encoding not initialized"))?;
-        let pe_data = encoding.data();
+        let pe_data = encoding.data;
 
         // Add positional encoding to input
         let mut output_data = Vec::with_capacity(input_data.len());
@@ -128,7 +127,7 @@ impl PositionalEncoding {
             anyhow::bail!("End position {} exceeds max_len {}", end, self.max_len);
         }
 
-        let pe_data = encoding.data();
+        let pe_data = encoding.data;
         let length = end - start;
 
         let mut output_data = Vec::with_capacity(length * self.d_model);
