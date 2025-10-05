@@ -131,7 +131,7 @@
 //!
 //! The library is organized into several key modules:
 //!
-//! - [`tensor`]: Core tensor operations with parallel and GPU acceleration
+//! - [`mod@tensor`]: Core tensor operations with parallel and GPU acceleration
 //! - [`nn`]: Neural network layers and building blocks
 //!   - [`nn::safe_ops`]: Safe tensor operations with error handling and ReLU activation
 //!   - [`nn::conv_base`]: Shared base traits for convolution and pooling layers
@@ -414,10 +414,10 @@ pub mod prelude {
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
     pub use crate::formats::gguf::{GGMLType, GGUFLoader, GGUFTensorInfo, ModelParams};
-    pub use crate::formats::safetensors::{SafetensorsLoader, SafetensorsSaver, TensorInfo};
     pub use crate::formats::mlx::{MLXLoader, MLXModelMetadata, MLXTensorInfo};
     #[cfg(feature = "onnx")]
     pub use crate::formats::onnx::{OnnxError, OnnxExporter, OnnxModel};
+    pub use crate::formats::safetensors::{SafetensorsLoader, SafetensorsSaver, TensorInfo};
     pub use crate::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
     pub use crate::models::{
         CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,

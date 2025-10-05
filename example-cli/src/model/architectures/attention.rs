@@ -122,8 +122,12 @@ impl MultiHeadAttention {
 
     /// Linear projection: input @ weight^T
     fn linear_projection(&self, input: &Tensor<f64>, weight: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
-        let weight_data = weight.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get weight data"))?;
+        let input_data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let weight_data = weight
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get weight data"))?;
         let input_shape = input.size();
         let weight_shape = weight.size();
 
@@ -173,7 +177,9 @@ impl MultiHeadAttention {
         batch_size: usize,
         seq_len: usize,
     ) -> Result<Tensor<f64>> {
-        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let input_data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
 
         // Reshape from [batch, seq_len, d_model] to [batch, seq_len, num_heads, d_k]
         // Then permute to [batch, num_heads, seq_len, d_k]
@@ -204,7 +210,9 @@ impl MultiHeadAttention {
         batch_size: usize,
         seq_len: usize,
     ) -> Result<Tensor<f64>> {
-        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let input_data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
 
         // Reshape from [batch, num_heads, seq_len, d_k] to [batch, seq_len, d_model]
         let mut output_data = Vec::with_capacity(input_data.len());
@@ -238,9 +246,15 @@ impl MultiHeadAttention {
         v: &Tensor<f64>,
         _mask: Option<&Tensor<f64>>,
     ) -> Result<Tensor<f64>> {
-        let q_data = q.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get q data"))?;
-        let k_data = k.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get k data"))?;
-        let v_data = v.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get v data"))?;
+        let q_data = q
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get q data"))?;
+        let k_data = k
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get k data"))?;
+        let v_data = v
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get v data"))?;
         let q_shape = q.size();
 
         let batch_size = q_shape[0];

@@ -102,7 +102,9 @@ impl TransformerModel {
         let seq_len = input_ids.shape()[1];
 
         // Get token embeddings
-        let token_embeds = self.token_embedding.forward(&Variable::new(input_ids.clone(), false));
+        let token_embeds = self
+            .token_embedding
+            .forward(&Variable::new(input_ids.clone(), false));
         let token_tensor = token_embeds.data().read().unwrap().clone();
 
         // Get position IDs [0, 1, 2, ..., seq_len-1]
@@ -116,7 +118,9 @@ impl TransformerModel {
         let position_ids_tensor = Tensor::from_vec(position_ids, vec![batch_size, seq_len]);
 
         // Get position embeddings
-        let position_embeds = self.position_embedding.forward(&Variable::new(position_ids_tensor, false));
+        let position_embeds = self
+            .position_embedding
+            .forward(&Variable::new(position_ids_tensor, false));
         let position_tensor = position_embeds.data().read().unwrap().clone();
 
         // Add token and position embeddings
@@ -129,7 +133,9 @@ impl TransformerModel {
         }
 
         // Project to vocabulary
-        let logits = self.output_projection.forward(&Variable::new(hidden_states, false));
+        let logits = self
+            .output_projection
+            .forward(&Variable::new(hidden_states, false));
         let logits_tensor = logits.data().read().unwrap().clone();
 
         Ok(logits_tensor)
@@ -189,10 +195,10 @@ impl DecoderLayer {
             &hidden_var,
             &hidden_var,
             &hidden_var,
-            None,       // key_padding_mask
+            None,        // key_padding_mask
             Some(false), // need_weights
-            None,       // attn_mask
-            None,       // average_attn_weights
+            None,        // attn_mask
+            None,        // average_attn_weights
         )?;
 
         // Residual connection

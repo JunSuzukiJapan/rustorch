@@ -436,25 +436,39 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
                                         let iw = ow * stride_w + kw;
 
                                         // Handle padding - only compute if within valid input bounds
-                                        if ih >= pad_h && ih < in_h + pad_h && iw >= pad_w && iw < in_w + pad_w {
+                                        if ih >= pad_h
+                                            && ih < in_h + pad_h
+                                            && iw >= pad_w
+                                            && iw < in_w + pad_w
+                                        {
                                             let actual_ih = ih - pad_h;
                                             let actual_iw = iw - pad_w;
 
-                                            let input_idx = (((b * in_channels + ic) * in_h + actual_ih) * in_w + actual_iw) as usize;
-                                            let kernel_idx = (((oc * in_channels + ic) * k_h + kh) * k_w + kw) as usize;
-                                            val = val + input_slice[input_idx] * kernel_slice[kernel_idx];
+                                            let input_idx =
+                                                (((b * in_channels + ic) * in_h + actual_ih) * in_w
+                                                    + actual_iw)
+                                                    as usize;
+                                            let kernel_idx =
+                                                (((oc * in_channels + ic) * k_h + kh) * k_w + kw)
+                                                    as usize;
+                                            val = val
+                                                + input_slice[input_idx] * kernel_slice[kernel_idx];
                                         }
                                     }
                                 }
                             }
-                            let out_idx = (((b * out_channels + oc) * out_h + oh) * out_w + ow) as usize;
+                            let out_idx =
+                                (((b * out_channels + oc) * out_h + oh) * out_w + ow) as usize;
                             out[out_idx] = val;
                         }
                     }
                 }
             }
 
-            Ok(Tensor::from_vec(out, vec![batch, out_channels, out_h, out_w]))
+            Ok(Tensor::from_vec(
+                out,
+                vec![batch, out_channels, out_h, out_w],
+            ))
         }
     }
 

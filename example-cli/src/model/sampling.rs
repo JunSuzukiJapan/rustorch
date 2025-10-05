@@ -263,7 +263,6 @@ pub fn multinomial_sample(probs: &[f64]) -> Result<usize> {
     Ok(probs.len() - 1)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

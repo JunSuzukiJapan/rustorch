@@ -275,7 +275,7 @@ fn dequantize_q4_0(data: &[u8]) -> Result<Vec<f64>> {
             let byte = block[2 + byte_idx];
             // Lower 4 bits
             let v0 = (byte & 0x0F) as i8 - 8; // Convert to signed (-8 to 7)
-            // Upper 4 bits
+                                              // Upper 4 bits
             let v1 = ((byte >> 4) & 0x0F) as i8 - 8;
 
             result.push(v0 as f64 * scale);

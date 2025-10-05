@@ -1,7 +1,5 @@
 /// Unified model download manager
-use super::{
-    DownloadOptions, HuggingFaceClient, ModelIdentifier, ModelSource, OllamaClient,
-};
+use super::{DownloadOptions, HuggingFaceClient, ModelIdentifier, ModelSource, OllamaClient};
 use anyhow::Result;
 use std::path::PathBuf;
 

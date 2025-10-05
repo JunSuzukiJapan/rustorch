@@ -70,9 +70,18 @@ mod tests {
 
     #[test]
     fn test_extract_layer_number() {
-        assert_eq!(metadata_utils::extract_layer_number("layer.0.weight"), Some(0));
-        assert_eq!(metadata_utils::extract_layer_number("block_12.attn"), Some(12));
-        assert_eq!(metadata_utils::extract_layer_number("layers.23.mlp.weight"), Some(23));
+        assert_eq!(
+            metadata_utils::extract_layer_number("layer.0.weight"),
+            Some(0)
+        );
+        assert_eq!(
+            metadata_utils::extract_layer_number("block_12.attn"),
+            Some(12)
+        );
+        assert_eq!(
+            metadata_utils::extract_layer_number("layers.23.mlp.weight"),
+            Some(23)
+        );
         assert_eq!(metadata_utils::extract_layer_number("embed.weight"), None);
     }
 

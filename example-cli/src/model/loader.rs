@@ -1,7 +1,7 @@
 use anyhow::Result;
+use rustorch::prelude::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
-use rustorch::prelude::Tensor;
 
 use super::format_loader::FormatLoader;
 use super::loaders::{GGUFFormatLoader, MLXFormatLoader, SafetensorsFormatLoader};
@@ -80,7 +80,10 @@ impl ModelLoader {
 
         tracing::info!("Loading PyTorch model from: {}", path.display());
         let (_state_dict, metadata) = PyTorchLoader::load(path)?;
-        tracing::info!("Successfully loaded PyTorch model with {} tensors", _state_dict.len());
+        tracing::info!(
+            "Successfully loaded PyTorch model with {} tensors",
+            _state_dict.len()
+        );
 
         Ok(metadata)
     }

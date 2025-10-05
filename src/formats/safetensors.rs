@@ -25,8 +25,9 @@ impl SafetensorsLoader {
     /// Load a safetensors file
     /// safetensorsファイルを読み込み
     pub fn from_file<P: AsRef<Path>>(path: P) -> RusTorchResult<Self> {
-        let file = File::open(path.as_ref())
-            .map_err(|e| RusTorchError::IoError(format!("Failed to open safetensors file: {}", e)))?;
+        let file = File::open(path.as_ref()).map_err(|e| {
+            RusTorchError::IoError(format!("Failed to open safetensors file: {}", e))
+        })?;
         let mmap = unsafe { Mmap::map(&file) }
             .map_err(|e| RusTorchError::IoError(format!("Failed to mmap file: {}", e)))?;
 
@@ -35,8 +36,9 @@ impl SafetensorsLoader {
         // we own the mmap and keep it alive
         let tensors = unsafe {
             let data: &'static [u8] = std::mem::transmute(mmap.as_ref());
-            SafeTensors::deserialize(data)
-                .map_err(|e| RusTorchError::DeserializationError(format!("Safetensors parse error: {}", e)))?
+            SafeTensors::deserialize(data).map_err(|e| {
+                RusTorchError::DeserializationError(format!("Safetensors parse error: {}", e))
+            })?
         };
 
         Ok(Self {
@@ -54,7 +56,9 @@ impl SafetensorsLoader {
     /// Get tensor metadata
     /// テンソルメタデータを取得
     pub fn tensor_info(&self, name: &str) -> RusTorchResult<TensorInfo> {
-        let tensor = self.tensors.tensor(name)
+        let tensor = self
+            .tensors
+            .tensor(name)
             .map_err(|e| RusTorchError::tensor_op(format!("Tensor not found: {}", e)))?;
 
         Ok(TensorInfo {
@@ -66,11 +70,10 @@ impl SafetensorsLoader {
 
     /// Load a tensor by name
     /// 名前でテンソルを読み込み
-    pub fn load_tensor<T: Float + 'static>(
-        &self,
-        name: &str,
-    ) -> RusTorchResult<Tensor<T>> {
-        let tensor = self.tensors.tensor(name)
+    pub fn load_tensor<T: Float + 'static>(&self, name: &str) -> RusTorchResult<Tensor<T>> {
+        let tensor = self
+            .tensors
+            .tensor(name)
             .map_err(|e| RusTorchError::tensor_op(format!("Tensor '{}' not found: {}", name, e)))?;
         let shape = tensor.shape().to_vec();
 
@@ -210,18 +213,21 @@ impl SafetensorsSaver {
         for (name, shape, bytes) in &tensor_data {
             let dtype = Dtype::F32;
             let tensor_view =
-                TensorView::new(dtype, shape.clone(), bytes.as_slice())
-                    .map_err(|e| RusTorchError::SerializationError(format!("TensorView creation error: {}", e)))?;
+                TensorView::new(dtype, shape.clone(), bytes.as_slice()).map_err(|e| {
+                    RusTorchError::SerializationError(format!("TensorView creation error: {}", e))
+                })?;
             data_map.insert(name.clone(), tensor_view);
         }
 
         // Create safetensors data
-        let safetensor_data = safetensors::serialize(&data_map, &None)
-            .map_err(|e| RusTorchError::SerializationError(format!("Safetensors serialization error: {}", e)))?;
+        let safetensor_data = safetensors::serialize(&data_map, &None).map_err(|e| {
+            RusTorchError::SerializationError(format!("Safetensors serialization error: {}", e))
+        })?;
 
         // Write to file
-        std::fs::write(path.as_ref(), safetensor_data)
-            .map_err(|e| RusTorchError::IoError(format!("Failed to write safetensors file: {}", e)))?;
+        std::fs::write(path.as_ref(), safetensor_data).map_err(|e| {
+            RusTorchError::IoError(format!("Failed to write safetensors file: {}", e))
+        })?;
 
         Ok(())
     }

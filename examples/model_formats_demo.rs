@@ -4,7 +4,6 @@
 use rustorch::formats::pytorch::PyTorchModel;
 use rustorch::tensor::Tensor;
 
-#[cfg(feature = "safetensors")]
 use std::collections::HashMap;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,8 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. PyTorch Compatible Format
     pytorch_format_demo()?;
 
-    // 2. Safetensors Format (if feature enabled)
-    #[cfg(feature = "safetensors")]
+    // 2. Safetensors Format
     safetensors_format_demo()?;
 
     // 3. ONNX Format (if feature enabled)
@@ -89,7 +87,6 @@ fn pytorch_format_demo() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg(feature = "safetensors")]
 fn safetensors_format_demo() -> Result<(), Box<dyn std::error::Error>> {
     use rustorch::formats::safetensors::{SafetensorsLoader, SafetensorsSaver};
 
@@ -185,16 +182,6 @@ fn onnx_format_demo() -> Result<(), Box<dyn std::error::Error>> {
     println!("   3. Use OnnxModel::from_file() to load the model");
     println!("   4. Use model.run() or model.run_single() for inference");
 
-    Ok(())
-}
-
-#[cfg(not(feature = "safetensors"))]
-#[allow(dead_code)]
-fn safetensors_format_demo() -> Result<(), Box<dyn std::error::Error>> {
-    println!("\n🔒 Safetensors Format Demo");
-    println!("--------------------------");
-    println!("⚠️  Safetensors feature not enabled");
-    println!("💡 To enable: cargo run --features safetensors --example model_formats_demo");
     Ok(())
 }
 

@@ -1,7 +1,7 @@
 //! GGUF format support for loading quantized models
 //! 量子化モデル読み込み用GGUF形式サポート
 //!
-//! Reference: https://github.com/ggerganov/ggml/blob/master/docs/gguf.md
+//! Reference: <https://github.com/ggerganov/ggml/blob/master/docs/gguf.md>
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
@@ -172,28 +172,26 @@ impl GGUFLoader {
 
         // Read metadata
         let metadata_vec = Self::read_metadata(&mut reader, header.metadata_kv_count)?;
-        let metadata: HashMap<String, GGUFValue> = metadata_vec
-            .into_iter()
-            .map(|m| (m.key, m.value))
-            .collect();
+        let metadata: HashMap<String, GGUFValue> =
+            metadata_vec.into_iter().map(|m| (m.key, m.value)).collect();
 
         // Read tensor info
         let tensors = Self::read_tensor_info(&mut reader, header.tensor_count)?;
 
         // Calculate data offset
-        let data_offset = reader.stream_position().map_err(|e| {
-            RusTorchError::IoError(format!("Failed to get stream position: {}", e))
-        })?;
+        let data_offset = reader
+            .stream_position()
+            .map_err(|e| RusTorchError::IoError(format!("Failed to get stream position: {}", e)))?;
 
         // Align to 32 bytes
         let aligned_offset = (data_offset + 31) & !31;
-        reader.seek(SeekFrom::Start(aligned_offset)).map_err(|e| {
-            RusTorchError::IoError(format!("Failed to seek to data: {}", e))
-        })?;
+        reader
+            .seek(SeekFrom::Start(aligned_offset))
+            .map_err(|e| RusTorchError::IoError(format!("Failed to seek to data: {}", e)))?;
 
-        let final_offset = reader.stream_position().map_err(|e| {
-            RusTorchError::IoError(format!("Failed to get final position: {}", e))
-        })?;
+        let final_offset = reader
+            .stream_position()
+            .map_err(|e| RusTorchError::IoError(format!("Failed to get final position: {}", e)))?;
 
         Ok(Self {
             header,
@@ -218,7 +216,9 @@ impl GGUFLoader {
                     .get("llama.vocab_size")
                     .and_then(|v| v.as_u32())
             })
-            .ok_or_else(|| RusTorchError::ParseError("Missing vocab_size or tokenizer.ggml.tokens".to_string()))?;
+            .ok_or_else(|| {
+                RusTorchError::ParseError("Missing vocab_size or tokenizer.ggml.tokens".to_string())
+            })?;
 
         let hidden_size = self
             .metadata
@@ -340,10 +340,7 @@ impl GGUFLoader {
         Ok(tensors)
     }
 
-    fn read_value(
-        reader: &mut BufReader<File>,
-        value_type: u32,
-    ) -> RusTorchResult<GGUFValue> {
+    fn read_value(reader: &mut BufReader<File>, value_type: u32) -> RusTorchResult<GGUFValue> {
         match value_type {
             0 => Ok(GGUFValue::UInt8(Self::read_u8(reader)?)),
             1 => Ok(GGUFValue::Int8(Self::read_i8(reader)?)),

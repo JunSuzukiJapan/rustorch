@@ -102,9 +102,15 @@ impl FeedForward {
         weight: &Tensor<f64>,
         bias: &Tensor<f64>,
     ) -> Result<Tensor<f64>> {
-        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
-        let weight_data = weight.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get weight data"))?;
-        let bias_data = bias.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get bias data"))?;
+        let input_data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let weight_data = weight
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get weight data"))?;
+        let bias_data = bias
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get bias data"))?;
         let input_shape = input.size();
         let weight_shape = weight.size();
 
@@ -157,7 +163,9 @@ impl FeedForward {
 
     /// ReLU activation: max(0, x)
     fn relu(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
         let activated: Vec<f64> = data.iter().map(|&x| x.max(0.0)).collect();
 
         Ok(Tensor::from_vec(activated, input.size().to_vec()))
@@ -174,7 +182,9 @@ impl FeedForward {
     /// GELU(x) ≈ 0.5x(1 + tanh[√(2/π)(x + 0.044715x³)])
     #[allow(dead_code)]
     fn gelu(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
-        let data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let data = input
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
         let sqrt_2_over_pi = (2.0 / std::f64::consts::PI).sqrt();
 
         let activated: Vec<f64> = data

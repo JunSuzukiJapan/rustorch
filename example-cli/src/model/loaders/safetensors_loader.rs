@@ -15,8 +15,15 @@ impl FormatLoader for SafetensorsFormatLoader {
         let loader = rustorch::formats::safetensors::SafetensorsLoader::from_file(path)
             .map_err(|e| anyhow::anyhow!("Failed to load Safetensors file: {}", e))?;
 
-        let tensor_names_vec: Vec<String> = loader.tensor_names().iter().map(|&s| s.to_string()).collect();
-        tracing::info!("Found {} tensors in Safetensors file", tensor_names_vec.len());
+        let tensor_names_vec: Vec<String> = loader
+            .tensor_names()
+            .iter()
+            .map(|&s| s.to_string())
+            .collect();
+        tracing::info!(
+            "Found {} tensors in Safetensors file",
+            tensor_names_vec.len()
+        );
 
         // Infer model architecture from tensor names and shapes
         let vocab_size = Self::infer_vocab_size(&loader, &tensor_names_vec);
@@ -36,7 +43,7 @@ impl FormatLoader for SafetensorsFormatLoader {
             vocab_size,
             hidden_size,
             num_layers,
-            num_heads: 8, // Default, could be inferred from attention weights
+            num_heads: 8,         // Default, could be inferred from attention weights
             context_length: 2048, // Default, could be inferred from position embeddings
         })
     }
@@ -85,8 +92,12 @@ mod tests {
 
     #[test]
     fn test_can_load() {
-        assert!(SafetensorsFormatLoader::can_load(Path::new("model.safetensors")));
-        assert!(SafetensorsFormatLoader::can_load(Path::new("model.SAFETENSORS")));
+        assert!(SafetensorsFormatLoader::can_load(Path::new(
+            "model.safetensors"
+        )));
+        assert!(SafetensorsFormatLoader::can_load(Path::new(
+            "model.SAFETENSORS"
+        )));
         assert!(!SafetensorsFormatLoader::can_load(Path::new("model.gguf")));
         assert!(!SafetensorsFormatLoader::can_load(Path::new("model.pt")));
     }

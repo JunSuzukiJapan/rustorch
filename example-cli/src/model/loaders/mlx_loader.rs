@@ -28,12 +28,8 @@ impl FormatLoader for MLXFormatLoader {
             format: ModelFormat::MLX,
             vocab_size: mlx_meta.and_then(|m| m.vocab_size).unwrap_or(32000),
             hidden_size: mlx_meta.and_then(|m| m.hidden_size).unwrap_or(4096),
-            num_layers: mlx_meta
-                .and_then(|m| m.num_hidden_layers)
-                .unwrap_or(32),
-            num_heads: mlx_meta
-                .and_then(|m| m.num_attention_heads)
-                .unwrap_or(32),
+            num_layers: mlx_meta.and_then(|m| m.num_hidden_layers).unwrap_or(32),
+            num_heads: mlx_meta.and_then(|m| m.num_attention_heads).unwrap_or(32),
             context_length: mlx_meta
                 .and_then(|m| m.max_position_embeddings)
                 .unwrap_or(2048),

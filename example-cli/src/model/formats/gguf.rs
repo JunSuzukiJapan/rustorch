@@ -213,10 +213,7 @@ impl GGUFLoader {
         let version = Self::read_u32(reader)?;
 
         if version != GGUF_VERSION_V3 && version != GGUF_VERSION_V2 {
-            tracing::warn!(
-                "GGUF version: {} (supported: v2, v3)",
-                version
-            );
+            tracing::warn!("GGUF version: {} (supported: v2, v3)", version);
         } else {
             tracing::info!("GGUF version: {}", version);
         }
@@ -311,7 +308,8 @@ impl GGUFLoader {
             anyhow::bail!("String length too large: {}", len);
         }
         let mut buf = vec![0u8; len as usize];
-        reader.read_exact(&mut buf)
+        reader
+            .read_exact(&mut buf)
             .context(format!("Failed to read string of length {}", len))?;
         String::from_utf8(buf).context("Invalid UTF-8 in string")
     }
@@ -436,8 +434,12 @@ impl GGUFLoader {
             let block_size = match tensor_info.ggml_type {
                 GGMLType::Q4_0 | GGMLType::Q4_1 | GGMLType::Q5_0 | GGMLType::Q5_1 => 32,
                 GGMLType::Q8_0 | GGMLType::Q8_1 => 32,
-                GGMLType::Q2_K | GGMLType::Q3_K | GGMLType::Q4_K
-                | GGMLType::Q5_K | GGMLType::Q6_K | GGMLType::Q8_K => 256,
+                GGMLType::Q2_K
+                | GGMLType::Q3_K
+                | GGMLType::Q4_K
+                | GGMLType::Q5_K
+                | GGMLType::Q6_K
+                | GGMLType::Q8_K => 256,
                 _ => num_elements,
             };
             let num_blocks = num_elements.div_ceil(block_size);

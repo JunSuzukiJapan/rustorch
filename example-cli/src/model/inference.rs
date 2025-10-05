@@ -115,14 +115,17 @@ impl InferenceEngine {
         let mut generated_ids = input_ids.to_vec();
         let _cache = KVCache::new(model.config().num_layers);
 
-        tracing::info!("Generating {} tokens with Transformer model", max_new_tokens);
+        tracing::info!(
+            "Generating {} tokens with Transformer model",
+            max_new_tokens
+        );
 
         for step in 0..max_new_tokens {
             // Prepare input tensor [batch_size=1, seq_len]
             let seq_len = generated_ids.len();
             let input_tensor = Tensor::from_vec(
                 generated_ids.iter().map(|&id| id as f64).collect(),
-                vec![1, seq_len]
+                vec![1, seq_len],
             );
 
             // Forward pass through transformer
@@ -131,7 +134,9 @@ impl InferenceEngine {
             // Get logits for last position [batch_size, seq_len, vocab_size]
             // Extract last position: [vocab_size]
             let vocab_size = model.config().vocab_size;
-            let last_logits_data: Vec<f64> = logits.data.iter()
+            let last_logits_data: Vec<f64> = logits
+                .data
+                .iter()
                 .skip((seq_len - 1) * vocab_size)
                 .take(vocab_size)
                 .copied()
@@ -251,7 +256,9 @@ impl InferenceEngine {
         let vocab_size = shape[2];
 
         // Get data for last position: logits[:, -1, :]
-        let data_slice = logits_tensor.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?;
+        let data_slice = logits_tensor
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?;
         let start_idx = (seq_len - 1) * vocab_size;
         let end_idx = seq_len * vocab_size;
 
@@ -266,7 +273,12 @@ impl InferenceEngine {
             anyhow::bail!("Temperature must be positive");
         }
 
-        let scaled: Vec<f64> = logits.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?.iter().map(|&x| x / temperature).collect();
+        let scaled: Vec<f64> = logits
+            .as_slice()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?
+            .iter()
+            .map(|&x| x / temperature)
+            .collect();
 
         Ok(Tensor::from_vec(scaled, logits.size().to_vec()))
     }
@@ -439,7 +451,7 @@ mod tests {
         let config = TransformerConfig {
             vocab_size: 100,
             hidden_size: 64,
-            num_layers: 1,  // Minimal layers
+            num_layers: 1, // Minimal layers
             num_heads: 4,
             intermediate_size: 256,
             max_position_embeddings: 128,

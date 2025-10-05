@@ -103,8 +103,10 @@ impl MLXLoader {
 
         // Parse metadata JSON
         let metadata_bytes = &file_data[8..8 + metadata_size];
-        let metadata_json: serde_json::Value = serde_json::from_slice(metadata_bytes)
-            .map_err(|e| RusTorchError::DeserializationError(format!("Failed to parse MLX metadata: {}", e)))?;
+        let metadata_json: serde_json::Value =
+            serde_json::from_slice(metadata_bytes).map_err(|e| {
+                RusTorchError::DeserializationError(format!("Failed to parse MLX metadata: {}", e))
+            })?;
 
         let mut tensors_info = HashMap::new();
         let mut model_metadata = None;
@@ -144,27 +146,40 @@ impl MLXLoader {
                 // Extract tensor info
                 let dtype = meta["dtype"]
                     .as_str()
-                    .ok_or_else(|| RusTorchError::ParseError(format!("Missing dtype for tensor {}", name)))?
+                    .ok_or_else(|| {
+                        RusTorchError::ParseError(format!("Missing dtype for tensor {}", name))
+                    })?
                     .to_string();
 
                 let shape = meta["shape"]
                     .as_array()
-                    .ok_or_else(|| RusTorchError::ParseError(format!("Missing shape for tensor {}", name)))?
+                    .ok_or_else(|| {
+                        RusTorchError::ParseError(format!("Missing shape for tensor {}", name))
+                    })?
                     .iter()
                     .map(|v| {
                         v.as_u64()
-                            .ok_or_else(|| RusTorchError::ParseError("Invalid shape dimension".to_string()))
+                            .ok_or_else(|| {
+                                RusTorchError::ParseError("Invalid shape dimension".to_string())
+                            })
                             .map(|v| v as usize)
                     })
                     .collect::<RusTorchResult<Vec<usize>>>()?;
 
                 let data_offsets = meta["data_offsets"]
                     .as_array()
-                    .ok_or_else(|| RusTorchError::ParseError(format!("Missing data_offsets for tensor {}", name)))?
+                    .ok_or_else(|| {
+                        RusTorchError::ParseError(format!(
+                            "Missing data_offsets for tensor {}",
+                            name
+                        ))
+                    })?
                     .iter()
                     .map(|v| {
                         v.as_u64()
-                            .ok_or_else(|| RusTorchError::ParseError("Invalid data offset".to_string()))
+                            .ok_or_else(|| {
+                                RusTorchError::ParseError("Invalid data offset".to_string())
+                            })
                             .map(|v| v as usize)
                     })
                     .collect::<RusTorchResult<Vec<usize>>>()?;
@@ -259,10 +274,7 @@ impl MLXLoader {
                     .chunks_exact(4)
                     .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
                     .collect();
-                let converted: Vec<T> = values
-                    .iter()
-                    .map(|&v| T::from(v).unwrap())
-                    .collect();
+                let converted: Vec<T> = values.iter().map(|&v| T::from(v).unwrap()).collect();
                 Ok(Tensor::from_vec(converted, shape.to_vec()))
             }
             "F16" | "float16" => {
@@ -290,10 +302,8 @@ impl MLXLoader {
                     .chunks_exact(4)
                     .map(|chunk| i32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
                     .collect();
-                let converted: Vec<T> = values
-                    .iter()
-                    .map(|&v| T::from(v as f64).unwrap())
-                    .collect();
+                let converted: Vec<T> =
+                    values.iter().map(|&v| T::from(v as f64).unwrap()).collect();
                 Ok(Tensor::from_vec(converted, shape.to_vec()))
             }
             "I64" | "int64" => {
@@ -311,10 +321,8 @@ impl MLXLoader {
                         ])
                     })
                     .collect();
-                let converted: Vec<T> = values
-                    .iter()
-                    .map(|&v| T::from(v as f64).unwrap())
-                    .collect();
+                let converted: Vec<T> =
+                    values.iter().map(|&v| T::from(v as f64).unwrap()).collect();
                 Ok(Tensor::from_vec(converted, shape.to_vec()))
             }
             _ => Err(RusTorchError::ParseError(format!(
@@ -377,8 +385,7 @@ mod tests {
             0x00, 0x00, 0x40, 0x40, // 3.0 in little-endian F32
         ];
         let shape = vec![3];
-        let tensor: Tensor<f32> =
-            MLXLoader::parse_tensor_data(&data, &shape, "F32").unwrap();
+        let tensor: Tensor<f32> = MLXLoader::parse_tensor_data(&data, &shape, "F32").unwrap();
 
         assert_eq!(tensor.shape(), &[3]);
         let tensor_data = tensor.data.as_slice().unwrap();
@@ -394,8 +401,7 @@ mod tests {
             0x02, 0x00, 0x00, 0x00, // 2 in little-endian I32
         ];
         let shape = vec![2];
-        let tensor: Tensor<f64> =
-            MLXLoader::parse_tensor_data(&data, &shape, "I32").unwrap();
+        let tensor: Tensor<f64> = MLXLoader::parse_tensor_data(&data, &shape, "I32").unwrap();
 
         assert_eq!(tensor.shape(), &[2]);
         let tensor_data = tensor.data.as_slice().unwrap();
