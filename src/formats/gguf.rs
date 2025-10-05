@@ -516,6 +516,11 @@ impl GGUFLoader {
                 }
                 data
             }
+            GGMLType::Q4_0 => {
+                // Q4_0: Blocks of 32 elements
+                // Block size: 18 bytes (2 bytes scale + 16 bytes quantized)
+                Self::dequantize_q4_0(&mut reader, num_elements)?
+            }
             GGMLType::Q4_K => {
                 // Q4_K: Super-blocks of 256 elements (8 blocks of 32)
                 // Block size: 144 bytes per super-block
@@ -535,6 +540,53 @@ impl GGUFLoader {
         };
 
         Ok(Tensor::from_vec(data, shape))
+    }
+
+    /// Dequantize Q4_0 format
+    /// Q4_0: Blocks of 32 elements
+    /// Block structure: scale (f16) + quants (16 bytes of 4-bit values)
+    fn dequantize_q4_0(
+        reader: &mut BufReader<File>,
+        num_elements: usize,
+    ) -> RusTorchResult<Vec<f64>> {
+        const QK: usize = 32; // Elements per block
+        const BLOCK_SIZE: usize = 18; // 2 bytes scale + 16 bytes quantized
+
+        let num_blocks = (num_elements + QK - 1) / QK;
+        let mut output = Vec::with_capacity(num_elements);
+
+        for _ in 0..num_blocks {
+            // Read scale (f16)
+            let scale_bits = Self::read_u16(reader)?;
+            let scale = half::f16::from_bits(scale_bits).to_f32();
+
+            // Read 16 bytes of quantized 4-bit values (32 values total)
+            let mut qs = [0u8; QK / 2];
+            reader.read_exact(&mut qs).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q4_0 quants: {}", e))
+            })?;
+
+            // Dequantize: Each byte contains two 4-bit values
+            for i in 0..QK {
+                let byte_idx = i / 2;
+                let nibble = if i % 2 == 0 {
+                    // Lower 4 bits
+                    qs[byte_idx] & 0x0F
+                } else {
+                    // Upper 4 bits
+                    (qs[byte_idx] >> 4) & 0x0F
+                };
+
+                // Convert 4-bit unsigned to signed: 0-15 -> -8 to 7
+                let signed = (nibble as i8) - 8;
+                let value = (signed as f32) * scale;
+                output.push(value as f64);
+            }
+        }
+
+        // Trim to exact size
+        output.truncate(num_elements);
+        Ok(output)
     }
 
     /// Dequantize Q4_K format
