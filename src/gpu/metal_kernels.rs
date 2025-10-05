@@ -403,6 +403,94 @@ impl MetalKernelExecutor {
             float sigmoid_x = 1.0f / (1.0f + exp(-x));
             output[index] = x * sigmoid_x;
         }
+
+        // LayerNorm: normalize over last dimension with learned affine parameters
+        // Optimized for GPT transformer models
+        kernel void layer_norm_f32(
+            device const float* input [[buffer(0)]],
+            device float* output [[buffer(1)]],
+            device const float* gamma [[buffer(2)]],
+            device const float* beta [[buffer(3)]],
+            constant uint& batch_size [[buffer(4)]],
+            constant uint& seq_len [[buffer(5)]],
+            constant uint& features [[buffer(6)]],
+            constant float& eps [[buffer(7)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint b = gid.y;  // batch index
+            uint s = gid.x;  // sequence position index
+
+            if (b >= batch_size || s >= seq_len) return;
+
+            uint offset = (b * seq_len + s) * features;
+
+            // Calculate mean
+            float sum = 0.0f;
+            for (uint f = 0; f < features; f++) {
+                sum += input[offset + f];
+            }
+            float mean = sum / float(features);
+
+            // Calculate variance
+            float var_sum = 0.0f;
+            for (uint f = 0; f < features; f++) {
+                float diff = input[offset + f] - mean;
+                var_sum += diff * diff;
+            }
+            float variance = var_sum / float(features);
+            float std = sqrt(variance + eps);
+
+            // Normalize and apply affine transformation
+            for (uint f = 0; f < features; f++) {
+                float normalized = (input[offset + f] - mean) / std;
+                output[offset + f] = gamma[f] * normalized + beta[f];
+            }
+        }
+
+        // LayerNorm f64 version - DISABLED: Metal does not support f64 (double precision)
+        // Use f32 version or CPU fallback instead
+        /*
+        kernel void layer_norm_f64(
+            device const double* input [[buffer(0)]],
+            device double* output [[buffer(1)]],
+            device const double* gamma [[buffer(2)]],
+            device const double* beta [[buffer(3)]],
+            constant uint& batch_size [[buffer(4)]],
+            constant uint& seq_len [[buffer(5)]],
+            constant uint& features [[buffer(6)]],
+            constant double& eps [[buffer(7)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint b = gid.y;  // batch index
+            uint s = gid.x;  // sequence position index
+
+            if (b >= batch_size || s >= seq_len) return;
+
+            uint offset = (b * seq_len + s) * features;
+
+            // Calculate mean
+            double sum = 0.0;
+            for (uint f = 0; f < features; f++) {
+                sum += input[offset + f];
+            }
+            double mean = sum / double(features);
+
+            // Calculate variance
+            double var_sum = 0.0;
+            for (uint f = 0; f < features; f++) {
+                double diff = input[offset + f] - mean;
+                var_sum += diff * diff;
+            }
+            double variance = var_sum / double(features);
+            double std = sqrt(variance + eps);
+
+            // Normalize and apply affine transformation
+            for (uint f = 0; f < features; f++) {
+                double normalized = (input[offset + f] - mean) / std;
+                output[offset + f] = gamma[f] * normalized + beta[f];
+            }
+        }
+        */
         "#;
 
         let library = device
@@ -1381,6 +1469,240 @@ impl MetalKernelExecutor {
 
         Ok(())
     }
+
+    /// Execute LayerNorm using Metal GPU (f32 version)
+    /// Metal GPUを使用してLayerNormを実行（f32版）
+    pub fn layer_norm_f32(
+        &self,
+        input: &[f32],
+        output: &mut [f32],
+        gamma: &[f32],
+        beta: &[f32],
+        batch_size: usize,
+        seq_len: usize,
+        features: usize,
+        eps: f32,
+    ) -> RusTorchResult<()> {
+        if input.len() != batch_size * seq_len * features {
+            return Err(RusTorchError::InvalidOperation(
+                "Input size mismatch".to_string(),
+            ));
+        }
+        if output.len() != input.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Output size mismatch".to_string(),
+            ));
+        }
+        if gamma.len() != features || beta.len() != features {
+            return Err(RusTorchError::InvalidOperation(
+                "Gamma/Beta size mismatch".to_string(),
+            ));
+        }
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (input.len() * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (output.len() * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let gamma_buffer = self.device.new_buffer_with_data(
+            gamma.as_ptr() as *const c_void,
+            (features * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let beta_buffer = self.device.new_buffer_with_data(
+            beta.as_ptr() as *const c_void,
+            (features * std::mem::size_of::<f32>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for LayerNorm
+        let function = self
+            .library
+            .get_function("layer_norm_f32", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get LayerNorm function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create LayerNorm pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_buffer(2, Some(&gamma_buffer), 0);
+        encoder.set_buffer(3, Some(&beta_buffer), 0);
+        encoder.set_bytes(
+            4,
+            std::mem::size_of::<u32>() as u64,
+            &(batch_size as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            5,
+            std::mem::size_of::<u32>() as u64,
+            &(seq_len as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            6,
+            std::mem::size_of::<u32>() as u64,
+            &(features as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            7,
+            std::mem::size_of::<f32>() as u64,
+            &eps as *const f32 as *const c_void,
+        );
+
+        // Dispatch threads: one thread per (batch, sequence) position
+        let threads_per_threadgroup = metal::MTLSize::new(16, 16, 1);
+        let threadgroups = metal::MTLSize::new(
+            seq_len.div_ceil(16).try_into().unwrap(),
+            batch_size.div_ceil(16).try_into().unwrap(),
+            1,
+        );
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), output.len());
+        }
+
+        Ok(())
+    }
+
+    /// Execute LayerNorm using Metal GPU (f64 version)
+    /// Metal GPUを使用してLayerNormを実行（f64版）
+    pub fn layer_norm_f64(
+        &self,
+        input: &[f64],
+        output: &mut [f64],
+        gamma: &[f64],
+        beta: &[f64],
+        batch_size: usize,
+        seq_len: usize,
+        features: usize,
+        eps: f64,
+    ) -> RusTorchResult<()> {
+        if input.len() != batch_size * seq_len * features {
+            return Err(RusTorchError::InvalidOperation(
+                "Input size mismatch".to_string(),
+            ));
+        }
+        if output.len() != input.len() {
+            return Err(RusTorchError::InvalidOperation(
+                "Output size mismatch".to_string(),
+            ));
+        }
+        if gamma.len() != features || beta.len() != features {
+            return Err(RusTorchError::InvalidOperation(
+                "Gamma/Beta size mismatch".to_string(),
+            ));
+        }
+
+        // Create buffers
+        let input_buffer = self.device.new_buffer_with_data(
+            input.as_ptr() as *const c_void,
+            (input.len() * std::mem::size_of::<f64>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let output_buffer = self.device.new_buffer(
+            (output.len() * std::mem::size_of::<f64>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let gamma_buffer = self.device.new_buffer_with_data(
+            gamma.as_ptr() as *const c_void,
+            (features * std::mem::size_of::<f64>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        let beta_buffer = self.device.new_buffer_with_data(
+            beta.as_ptr() as *const c_void,
+            (features * std::mem::size_of::<f64>()) as u64,
+            metal::MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get or create pipeline state for LayerNorm
+        let function = self
+            .library
+            .get_function("layer_norm_f64", None)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to get LayerNorm function: {}", e)))?;
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state_with_function(&function)
+            .map_err(|e| RusTorchError::gpu(&format!("Failed to create LayerNorm pipeline: {}", e)))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(&pipeline_state);
+        encoder.set_buffer(0, Some(&input_buffer), 0);
+        encoder.set_buffer(1, Some(&output_buffer), 0);
+        encoder.set_buffer(2, Some(&gamma_buffer), 0);
+        encoder.set_buffer(3, Some(&beta_buffer), 0);
+        encoder.set_bytes(
+            4,
+            std::mem::size_of::<u32>() as u64,
+            &(batch_size as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            5,
+            std::mem::size_of::<u32>() as u64,
+            &(seq_len as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            6,
+            std::mem::size_of::<u32>() as u64,
+            &(features as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            7,
+            std::mem::size_of::<f64>() as u64,
+            &eps as *const f64 as *const c_void,
+        );
+
+        // Dispatch threads: one thread per (batch, sequence) position
+        let threads_per_threadgroup = metal::MTLSize::new(16, 16, 1);
+        let threadgroups = metal::MTLSize::new(
+            seq_len.div_ceil(16).try_into().unwrap(),
+            batch_size.div_ceil(16).try_into().unwrap(),
+            1,
+        );
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f64;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), output.len());
+        }
+
+        Ok(())
+    }
 }
 
 /// Non-Metal fallback executor for compatibility
@@ -1642,6 +1964,72 @@ pub fn metal_swish_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> 
 
 #[cfg(not(feature = "metal"))]
 pub fn metal_swish_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute LayerNorm using Metal GPU (f32 version)
+/// Metal GPUを使用してLayerNormを実行（f32版）
+#[cfg(feature = "metal")]
+pub fn metal_layer_norm_f32(
+    input: &[f32],
+    output: &mut [f32],
+    gamma: &[f32],
+    beta: &[f32],
+    batch_size: usize,
+    seq_len: usize,
+    features: usize,
+    eps: f32,
+) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.layer_norm_f32(input, output, gamma, beta, batch_size, seq_len, features, eps)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_layer_norm_f32(
+    _input: &[f32],
+    _output: &mut [f32],
+    _gamma: &[f32],
+    _beta: &[f32],
+    _batch_size: usize,
+    _seq_len: usize,
+    _features: usize,
+    _eps: f32,
+) -> RusTorchResult<()> {
+    Err(RusTorchError::UnsupportedDevice(
+        "Metal not available".to_string(),
+    ))
+}
+
+/// Execute LayerNorm using Metal GPU (f64 version)
+/// Metal GPUを使用してLayerNormを実行（f64版）
+#[cfg(feature = "metal")]
+pub fn metal_layer_norm_f64(
+    input: &[f64],
+    output: &mut [f64],
+    gamma: &[f64],
+    beta: &[f64],
+    batch_size: usize,
+    seq_len: usize,
+    features: usize,
+    eps: f64,
+) -> RusTorchResult<()> {
+    let executor = MetalKernelExecutor::new()?;
+    executor.layer_norm_f64(input, output, gamma, beta, batch_size, seq_len, features, eps)
+}
+
+#[cfg(not(feature = "metal"))]
+pub fn metal_layer_norm_f64(
+    _input: &[f64],
+    _output: &mut [f64],
+    _gamma: &[f64],
+    _beta: &[f64],
+    _batch_size: usize,
+    _seq_len: usize,
+    _features: usize,
+    _eps: f64,
+) -> RusTorchResult<()> {
     Err(RusTorchError::UnsupportedDevice(
         "Metal not available".to_string(),
     ))

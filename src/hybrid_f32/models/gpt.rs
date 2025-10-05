@@ -252,12 +252,12 @@ impl F32GPTModel {
     /// Apply LayerNorm using GPU acceleration if available
     fn apply_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
         let ln_weight_key = format!("blk.{}.attn_norm.weight", layer_idx);
-        let ln_bias_key = format!("blk.{}.attn_norm.bias", layer_idx);
 
         let gamma = self.weights.get(&ln_weight_key)
             .ok_or_else(|| F32Error::device_error(format!("LayerNorm weight not found: {}", ln_weight_key)))?;
-        let beta = self.weights.get(&ln_bias_key)
-            .ok_or_else(|| F32Error::device_error(format!("LayerNorm bias not found: {}", ln_bias_key)))?;
+
+        // Beta (bias) is optional - Llama models use RMSNorm without bias
+        let beta = self.weights.get(&format!("blk.{}.attn_norm.bias", layer_idx));
 
         self.layer_norm_impl(&input, gamma, beta)
     }
@@ -267,15 +267,16 @@ impl F32GPTModel {
         let gamma = self.weights.get("output_norm.weight")
             .or_else(|| self.weights.get("model.norm.weight"))
             .ok_or_else(|| F32Error::device_error("Final LayerNorm weight not found"))?;
+
+        // Beta (bias) is optional - Llama models use RMSNorm without bias
         let beta = self.weights.get("output_norm.bias")
-            .or_else(|| self.weights.get("model.norm.bias"))
-            .ok_or_else(|| F32Error::device_error("Final LayerNorm bias not found"))?;
+            .or_else(|| self.weights.get("model.norm.bias"));
 
         self.layer_norm_impl(&input, gamma, beta)
     }
 
     /// LayerNorm implementation with Metal GPU acceleration
-    fn layer_norm_impl(&self, input: &F32Tensor, gamma: &F32Tensor, beta: &F32Tensor) -> F32Result<F32Tensor> {
+    fn layer_norm_impl(&self, input: &F32Tensor, gamma: &F32Tensor, beta: Option<&F32Tensor>) -> F32Result<F32Tensor> {
         let input_shape = input.data.shape();
         if input_shape.len() != 3 {
             return Err(F32Error::dimension_error(3, input_shape.len()));
@@ -285,10 +286,12 @@ impl F32GPTModel {
         let seq_len = input_shape[1];
         let features = input_shape[2];
 
-        #[cfg(feature = "metal")]
-        if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
-            return self.metal_layer_norm(input, gamma, beta, batch_size, seq_len, features);
-        }
+        // TODO: Fix Metal LayerNorm f64 compilation issue
+        // For now, use CPU fallback
+        // #[cfg(feature = "metal")]
+        // if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
+        //     return self.metal_layer_norm(input, gamma, beta, batch_size, seq_len, features);
+        // }
 
         self.cpu_layer_norm(input, gamma, beta, batch_size, seq_len, features)
     }
@@ -298,7 +301,7 @@ impl F32GPTModel {
         &self,
         input: &F32Tensor,
         gamma: &F32Tensor,
-        beta: &F32Tensor,
+        beta: Option<&F32Tensor>,
         batch_size: usize,
         seq_len: usize,
         features: usize,
@@ -309,8 +312,16 @@ impl F32GPTModel {
             .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
         let gamma_slice = gamma.data.as_slice()
             .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
-        let beta_slice = beta.data.as_slice()
-            .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?;
+
+        // If beta is None, create a zero vector (RMSNorm doesn't use bias)
+        let zero_beta;
+        let beta_slice = if let Some(b) = beta {
+            b.data.as_slice()
+                .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?
+        } else {
+            zero_beta = vec![0.0f32; features];
+            &zero_beta
+        };
 
         let mut output = vec![0.0f32; input_slice.len()];
 
@@ -334,7 +345,7 @@ impl F32GPTModel {
         &self,
         input: &F32Tensor,
         gamma: &F32Tensor,
-        beta: &F32Tensor,
+        beta: Option<&F32Tensor>,
         batch_size: usize,
         seq_len: usize,
         features: usize,
@@ -343,8 +354,16 @@ impl F32GPTModel {
             .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
         let gamma_slice = gamma.data.as_slice()
             .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
-        let beta_slice = beta.data.as_slice()
-            .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?;
+
+        // If beta is None, create a zero vector (RMSNorm doesn't use bias)
+        let zero_beta;
+        let beta_slice = if let Some(b) = beta {
+            b.data.as_slice()
+                .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?
+        } else {
+            zero_beta = vec![0.0f32; features];
+            &zero_beta
+        };
 
         let mut output = vec![0.0f32; input_slice.len()];
         let eps = 1e-5f32;
