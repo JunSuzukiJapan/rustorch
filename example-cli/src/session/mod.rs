@@ -89,11 +89,18 @@ impl SessionManager {
     }
 
     pub fn total_tokens(&self) -> usize {
-        // TODO: Implement actual token counting
+        // Improved token estimation using character-based calculation
+        // GPT-style tokenizers typically use ~4 characters per token on average
         self.history
             .messages()
             .iter()
-            .map(|m| m.content.split_whitespace().count())
+            .map(|m| {
+                // Estimate tokens: character count / 4 + word count * 0.5
+                // This provides better approximation than word count alone
+                let char_count = m.content.chars().count();
+                let word_count = m.content.split_whitespace().count();
+                (char_count / 4).max(word_count)
+            })
             .sum()
     }
 

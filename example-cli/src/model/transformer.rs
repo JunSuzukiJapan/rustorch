@@ -134,28 +134,6 @@ impl TransformerModel {
 
         Ok(logits_tensor)
     }
-
-    /// Generate tokens (placeholder - will be implemented)
-    pub fn generate(
-        &self,
-        input_ids: Vec<u32>,
-        max_new_tokens: usize,
-        temperature: f32,
-        top_p: f32,
-        top_k: u32,
-    ) -> Result<Vec<u32>> {
-        tracing::debug!(
-            "Generating {} new tokens with temp={}, top_p={}, top_k={}",
-            max_new_tokens,
-            temperature,
-            top_p,
-            top_k
-        );
-
-        // TODO: Implement actual generation with KV cache
-        // For now, just return input_ids
-        Ok(input_ids)
-    }
 }
 
 /// Decoder layer with self-attention and feedforward
@@ -255,11 +233,13 @@ impl FeedForward {
         // Apply GELU activation
         let activated = gelu(&hidden);
 
-        // TODO: Apply dropout when RusTorch supports it
+        // Note: Dropout is not applied during inference
+        // Training mode would require dropout here
 
         let output = self.fc2.forward(&activated);
 
-        // TODO: Apply dropout when RusTorch supports it
+        // Note: Dropout is not applied during inference
+        // Training mode would require dropout here
 
         Ok(output)
     }

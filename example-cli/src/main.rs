@@ -73,8 +73,11 @@ fn main() -> Result<()> {
     let model_loader = if let Some(path) = &args.model {
         tracing::info!("Loading model from: {}", path.display());
         ModelLoader::from_file(path)?
+    } else if let Some(default_model) = file_config.model.default.as_ref() {
+        // Try to load default model from config file
+        tracing::info!("Loading default model from config: {}", default_model);
+        ModelLoader::from_file(default_model)?
     } else {
-        // TODO: Try to load from config file
         tracing::warn!("No model specified, using dummy model");
         ModelLoader::dummy()
     };
