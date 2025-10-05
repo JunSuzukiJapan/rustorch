@@ -4,13 +4,10 @@ use std::collections::HashMap;
 use rustorch::prelude::Tensor;
 
 use super::{ModelFormat, ModelMetadata};
-use super::formats::{GGUFLoader, TensorLoader};
 use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 
 pub struct ModelLoader {
     metadata: ModelMetadata,
-    #[allow(dead_code)]
-    gguf_loader: Option<GGUFLoader>,
     weights: HashMap<String, Tensor<f64>>,
     tokenizer: Box<dyn Tokenizer>,
 }
@@ -62,7 +59,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: None,
             weights: HashMap::new(),
             tokenizer,
         })
@@ -71,78 +67,31 @@ impl ModelLoader {
     fn load_gguf(path: &Path) -> Result<Self> {
         tracing::info!("Loading GGUF model from: {}", path.display());
 
-        // Load GGUF file
-        let mut loader = GGUFLoader::new(path)?;
+        // Use RusTorch's GGUF loader
+        let gguf_loader = rustorch::formats::gguf::GGUFLoader::from_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to load GGUF file: {}", e))?;
 
-        // Get model metadata from GGUF
-        let metadata_map = loader.metadata();
-
-        // Extract model parameters from metadata
-        let vocab_size = metadata_map
-            .get("tokenizer.ggml.model")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(32000) as usize;
-
-        let hidden_size = metadata_map
-            .get("llama.embedding_length")
-            .or_else(|| metadata_map.get("gpt2.embedding_length"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(2048) as usize;
-
-        let num_layers = metadata_map
-            .get("llama.block_count")
-            .or_else(|| metadata_map.get("gpt2.block_count"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(22) as usize;
-
-        let num_heads = metadata_map
-            .get("llama.attention.head_count")
-            .or_else(|| metadata_map.get("gpt2.attention.head_count"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(32) as usize;
-
-        let context_length = metadata_map
-            .get("llama.context_length")
-            .or_else(|| metadata_map.get("gpt2.context_length"))
-            .and_then(|v| v.as_u64())
-            .unwrap_or(2048) as usize;
+        // Extract model parameters from GGUF metadata
+        let model_params = gguf_loader.get_model_params()
+            .map_err(|e| anyhow::anyhow!("Failed to extract model parameters: {}", e))?;
 
         tracing::info!(
             "GGUF model parameters: vocab={}, hidden={}, layers={}, heads={}, context={}",
-            vocab_size,
-            hidden_size,
-            num_layers,
-            num_heads,
-            context_length
+            model_params.vocab_size,
+            model_params.hidden_size,
+            model_params.num_layers,
+            model_params.num_heads,
+            model_params.context_length
         );
 
-        let tensor_names = loader.tensor_names();
+        let tensor_names = gguf_loader.tensor_names();
         tracing::info!("Found {} tensors in GGUF file", tensor_names.len());
 
-        // Load all tensors into memory
-        let mut weights = HashMap::new();
-        let tensor_loader = TensorLoader::new();
+        // For now, we'll keep weights empty until we implement tensor loading
+        // TODO: Implement tensor data loading from RusTorch GGUF loader
+        let weights = HashMap::new();
 
-        for tensor_name in &tensor_names {
-            tracing::debug!("Loading tensor: {}", tensor_name);
-
-            // Load tensor data from GGUF
-            let tensor_bytes = loader.load_tensor_data(tensor_name)?;
-
-            // Get tensor info for shape and type
-            let tensor_info = loader.tensor_info(tensor_name)?;
-
-            // Convert to RusTorch Tensor
-            let tensor = tensor_loader.load_tensor(
-                &tensor_bytes,
-                &tensor_info.dims,
-                tensor_info.ggml_type,
-            )?;
-
-            weights.insert(tensor_name.clone(), tensor);
-        }
-
-        tracing::info!("Successfully loaded {} tensors", weights.len());
+        tracing::info!("Successfully loaded GGUF metadata");
 
         let metadata = ModelMetadata {
             name: path
@@ -151,11 +100,11 @@ impl ModelLoader {
                 .unwrap_or("unknown")
                 .to_string(),
             format: ModelFormat::GGUF,
-            vocab_size,
-            hidden_size,
-            num_layers,
-            num_heads,
-            context_length,
+            vocab_size: model_params.vocab_size as usize,
+            hidden_size: model_params.hidden_size as usize,
+            num_layers: model_params.num_layers as usize,
+            num_heads: model_params.num_heads as usize,
+            context_length: model_params.context_length as usize,
         };
 
         // Try to load tokenizer from same directory
@@ -169,7 +118,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: Some(loader),
             weights,
             tokenizer,
         })
@@ -209,7 +157,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: None,
             weights: HashMap::new(),
             tokenizer,
         })
@@ -246,7 +193,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: None,
             weights: HashMap::new(),
             tokenizer,
         })
@@ -269,7 +215,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: None,
             weights: HashMap::new(),
             tokenizer,
         })
@@ -292,7 +237,6 @@ impl ModelLoader {
 
         Ok(Self {
             metadata,
-            gguf_loader: None,
             weights: HashMap::new(),
             tokenizer,
         })

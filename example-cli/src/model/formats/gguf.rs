@@ -8,7 +8,8 @@ use std::io::{BufReader, Read, Seek};
 use std::path::Path;
 
 const GGUF_MAGIC: u32 = 0x46554747; // "GGUF" in little-endian
-const GGUF_VERSION: u32 = 3;
+const GGUF_VERSION_V3: u32 = 3;
+const GGUF_VERSION_V2: u32 = 2;
 
 #[derive(Debug, Clone)]
 pub struct GGUFHeader {
@@ -211,12 +212,13 @@ impl GGUFLoader {
 
         let version = Self::read_u32(reader)?;
 
-        if version != GGUF_VERSION {
+        if version != GGUF_VERSION_V3 && version != GGUF_VERSION_V2 {
             tracing::warn!(
-                "GGUF version mismatch: {} (expected {})",
-                version,
-                GGUF_VERSION
+                "GGUF version: {} (supported: v2, v3)",
+                version
             );
+        } else {
+            tracing::info!("GGUF version: {}", version);
         }
 
         let tensor_count = Self::read_u64(reader)?;
@@ -302,8 +304,15 @@ impl GGUFLoader {
 
     fn read_string(reader: &mut BufReader<File>) -> Result<String> {
         let len = Self::read_u64(reader)?;
+        if len == 0 {
+            return Ok(String::new());
+        }
+        if len > 1_000_000 {
+            anyhow::bail!("String length too large: {}", len);
+        }
         let mut buf = vec![0u8; len as usize];
-        reader.read_exact(&mut buf)?;
+        reader.read_exact(&mut buf)
+            .context(format!("Failed to read string of length {}", len))?;
         String::from_utf8(buf).context("Invalid UTF-8 in string")
     }
 
