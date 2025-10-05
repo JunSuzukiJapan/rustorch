@@ -68,8 +68,10 @@ cuda = ["rustorch/cuda"]
 metal = ["rustorch/metal"]
 opencl = ["rustorch/opencl"]
 coreml = ["rustorch/coreml"]
-mac-hybrid = ["rustorch/mac-hybrid"]
+# hybrid-f32: Experimental f32 hybrid system
 hybrid-f32 = ["rustorch/hybrid-f32"]
+# mac-hybrid: Recommended for Apple Silicon (includes hybrid-f32)
+mac-hybrid = ["rustorch/mac-hybrid", "hybrid-f32"]
 
 # Optional features
 mlx = []

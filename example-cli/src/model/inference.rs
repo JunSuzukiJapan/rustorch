@@ -350,6 +350,22 @@ impl InferenceEngine {
         let offset = (seq_len - 1) * vocab_size;
 
         if let Some(data_slice) = logits_tensor.data.as_slice() {
+            tracing::debug!(
+                "Logits tensor shape: {:?}, data_slice len: {}, offset: {}, vocab_size: {}",
+                shape, data_slice.len(), offset, vocab_size
+            );
+
+            if data_slice.is_empty() {
+                anyhow::bail!("Logits tensor has empty data (shape: {:?})", shape);
+            }
+
+            if offset + vocab_size > data_slice.len() {
+                anyhow::bail!(
+                    "Index out of range: offset {} + vocab_size {} > data_slice.len() {}",
+                    offset, vocab_size, data_slice.len()
+                );
+            }
+
             Ok(data_slice[offset..offset + vocab_size].to_vec())
         } else {
             anyhow::bail!("Failed to access F32 tensor data")
@@ -358,6 +374,7 @@ impl InferenceEngine {
 
     /// Sample token using argmax (simple greedy decoding)
     #[cfg(feature = "hybrid-f32")]
+    #[allow(dead_code)]
     fn sample_argmax_f32(logits: &[f32]) -> Result<usize> {
         logits
             .iter()

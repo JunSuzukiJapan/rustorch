@@ -106,13 +106,13 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Convert args.backend to device type
     use rustorch_cli::Backend as CliBackend;
 
-    // For hybrid-f32 backend, use F32GPTModel (Metal GPU optimized)
+    // For hybrid-f32 backend, use F32GPTModel (experimental)
     #[cfg(feature = "hybrid-f32")]
     if matches!(args.backend, CliBackend::HybridF32) {
         use rustorch::hybrid_f32::models::{DeviceType, F32GPTModel};
 
         let device_type = DeviceType::Metal;
-        tracing::info!("Loading F32 GPT model with Metal GPU backend");
+        tracing::info!("Loading F32 GPT model with hybrid-f32 backend (experimental)");
 
         match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
             Ok(f32_model) => {
@@ -126,37 +126,70 @@ fn start_cli(args: CliArgs) -> Result<()> {
         }
     }
 
-    // For other backends, use standard GPTModel
-    #[cfg(not(feature = "hybrid-f32"))]
+    // For mac-hybrid backend, use F32GPTModel (Metal/CoreML require f32)
+    #[cfg(feature = "mac-hybrid")]
+    if matches!(args.backend, CliBackend::Hybrid) {
+        use rustorch::hybrid_f32::models::{DeviceType as F32DeviceType, F32GPTModel};
+
+        let device_type = F32DeviceType::Hybrid;
+        tracing::info!("🚀 Loading F32 GPT model with mac-hybrid backend");
+        tracing::info!("   Metal/CoreML GPU acceleration requires f32 precision");
+
+        match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
+            Ok(f32_model) => {
+                tracing::info!("✅ F32 GPT model loaded successfully on mac-hybrid backend");
+                engine.set_f32_gpt_model(f32_model);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load F32 GPT model: {}", e);
+                tracing::warn!("Falling back to dummy inference");
+            }
+        }
+    }
+
+    // For other backends, use standard GPTModel (f64, CPU-only)
+    #[cfg(not(any(feature = "hybrid-f32", feature = "mac-hybrid")))]
     let use_standard_model = true;
-    #[cfg(feature = "hybrid-f32")]
+    #[cfg(all(feature = "hybrid-f32", not(feature = "mac-hybrid")))]
     let use_standard_model = !matches!(args.backend, CliBackend::HybridF32);
+    #[cfg(feature = "mac-hybrid")]
+    let use_standard_model = !matches!(args.backend, CliBackend::Hybrid | CliBackend::HybridF32);
 
     if use_standard_model {
         let device_type = match args.backend {
             CliBackend::Cpu => rustorch::backends::DeviceType::Cpu,
             CliBackend::Cuda => rustorch::backends::DeviceType::Cuda,
-            CliBackend::Metal => rustorch::backends::DeviceType::Metal,
+            CliBackend::Metal => {
+                tracing::warn!("⚠️  Metal backend uses f64 GPTModel (no GPU acceleration)");
+                tracing::warn!("   Use --backend hybrid with --features mac-hybrid for f32 GPU acceleration");
+                rustorch::backends::DeviceType::Metal
+            }
             CliBackend::Opencl => rustorch::backends::DeviceType::OpenCL,
             CliBackend::Hybrid => {
-                #[cfg(target_os = "macos")]
+                #[cfg(not(feature = "mac-hybrid"))]
                 {
-                    rustorch::backends::DeviceType::Metal
+                    tracing::error!("❌ mac-hybrid feature not enabled!");
+                    tracing::error!("   Build with: cargo build --features mac-hybrid");
+                    tracing::error!("   Falling back to CPU (f64)");
+                    rustorch::backends::DeviceType::Cpu
                 }
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(feature = "mac-hybrid")]
                 {
+                    // Unreachable when mac-hybrid is enabled (handled above)
                     rustorch::backends::DeviceType::Cpu
                 }
             }
             CliBackend::HybridF32 => {
-                // When hybrid-f32 feature is enabled, this is handled separately above
-                // When disabled, treat as Metal backend
-                #[cfg(target_os = "macos")]
+                #[cfg(not(feature = "hybrid-f32"))]
                 {
-                    rustorch::backends::DeviceType::Metal
+                    tracing::error!("❌ hybrid-f32 feature not enabled!");
+                    tracing::error!("   Build with: cargo build --features hybrid-f32");
+                    tracing::error!("   Or use --backend hybrid with --features mac-hybrid for CoreML support");
+                    rustorch::backends::DeviceType::Cpu
                 }
-                #[cfg(not(target_os = "macos"))]
+                #[cfg(feature = "hybrid-f32")]
                 {
+                    // Unreachable when hybrid-f32 is enabled (handled above)
                     rustorch::backends::DeviceType::Cpu
                 }
             }
@@ -164,7 +197,8 @@ fn start_cli(args: CliArgs) -> Result<()> {
 
         match rustorch::models::GPTModel::from_gguf_with_backend(&model_path, device_type) {
             Ok(gpt_model) => {
-                tracing::info!("✅ RusTorch GPT model loaded successfully on {:?} backend", gpt_model.device_type());
+                tracing::info!("✅ GPTModel (f64) loaded successfully on {:?} backend", gpt_model.device_type());
+                tracing::info!("   Note: f64 precision, CPU-only (no GPU acceleration)");
                 engine.set_gpt_model(gpt_model);
             }
             Err(e) => {

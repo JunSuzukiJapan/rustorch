@@ -174,10 +174,11 @@ nccl = ["dep:nccl"]
 coreml = ["dep:objc2-core-ml", "dep:objc2-foundation", "dep:metal"]
 coreml-hybrid = ["coreml", "metal", "cuda"]  # CoreML + GPU hybrid execution
 coreml-fallback = ["coreml-hybrid"]          # Automatic fallback system
-# Mac-hybrid: Intelligent backend selection for macOS (Metal/CoreML)
-mac-hybrid = ["metal", "coreml"]             # Automatic Metal/CoreML selection
 # f32統一ハイブリッドシステム（実験的）
-hybrid-f32 = ["metal", "coreml", "mac-hybrid"]  # f32 unified hybrid system (experimental)
+hybrid-f32 = ["metal"]  # f32 unified hybrid system (experimental)
+# Mac-hybrid: Intelligent backend selection for macOS (Metal/CoreML with f32)
+# Metal and CoreML require f32 precision
+mac-hybrid = ["metal", "coreml", "hybrid-f32"]  # Automatic Metal/CoreML selection with f32
 wasm = ["wasm-bindgen", "wasm-bindgen-futures", "web-sys", "js-sys", "console_error_panic_hook", "getrandom/js"]
 webgpu = ["wasm", "dep:wgpu", "dep:wgpu-hal", "dep:wgpu-core", "dep:wgpu-types"]
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]

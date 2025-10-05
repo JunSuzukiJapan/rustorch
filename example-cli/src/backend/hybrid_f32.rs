@@ -49,7 +49,7 @@ impl Backend for HybridF32Backend {
         #[cfg(feature = "hybrid-f32")]
         {
             // Create F32 tensor and convert to F64
-            let f32_tensor = F32Tensor::zeros(shape);
+            let _f32_tensor = F32Tensor::zeros(shape);
             // For now, convert back to F64 Tensor
             // TODO: Add direct conversion when available
             Ok(Tensor::zeros(shape))
