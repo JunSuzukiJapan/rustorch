@@ -95,12 +95,23 @@ fn start_cli(args: CliArgs) -> Result<()> {
     };
 
     let model_name = model_loader.metadata().name.clone();
+    let model_path = model_loader.path().to_path_buf();
 
     // Create inference engine
-    let engine = InferenceEngine::new(model_loader, gen_config.clone());
+    let mut engine = InferenceEngine::new(model_loader, gen_config.clone());
 
-    // Note: RusTorch GPTModel integration will be implemented in future
-    // Currently using CLI's own model architecture
+    // Load RusTorch GPT model
+    tracing::info!("Loading RusTorch GPT model from: {}", model_path.display());
+    match rustorch::models::GPTModel::from_gguf(&model_path) {
+        Ok(gpt_model) => {
+            tracing::info!("✅ RusTorch GPT model loaded successfully");
+            engine.set_gpt_model(gpt_model);
+        }
+        Err(e) => {
+            tracing::warn!("Failed to load RusTorch GPT model: {}", e);
+            tracing::warn!("Falling back to dummy inference");
+        }
+    }
 
     // Create session manager
     let mut session = SessionManager::new(gen_config, args.backend.as_str(), &model_name);

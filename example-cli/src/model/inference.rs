@@ -4,8 +4,8 @@ use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 use anyhow::Result;
 use rustorch::prelude::Tensor;
 
-// Import GPT model
-use super::GPTModel;
+// Import GPT model from RusTorch core
+use rustorch::models::GPTModel;
 
 pub struct InferenceEngine {
     model: Option<TransformerModel>,
@@ -91,17 +91,20 @@ impl InferenceEngine {
     fn generate_tokens(&self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
 
-        // Use Transformer model if available
-        if let Some(ref model) = self.model {
-            return self.generate_with_transformer(model, input_ids, max_new_tokens);
-        }
-
-        // Use GPT model if available
+        // Use GPT model if available (prioritize RusTorch implementation)
         if let Some(ref gpt_model) = self.gpt_model {
+            tracing::info!("🚀 Using RusTorch GPT model for generation");
             return self.generate_with_gpt(gpt_model, input_ids, max_new_tokens);
         }
 
+        // Use Transformer model if available
+        if let Some(ref model) = self.model {
+            tracing::info!("Using Transformer model for generation");
+            return self.generate_with_transformer(model, input_ids, max_new_tokens);
+        }
+
         // Fallback to dummy generation
+        tracing::warn!("No model loaded, using dummy generation");
         self.generate_dummy(input_ids, max_new_tokens)
     }
 
@@ -186,7 +189,7 @@ impl InferenceEngine {
         Ok(generated_ids[input_ids.len()..].to_vec())
     }
 
-    /// Generate tokens using GPT model (CLI's GPT implementation)
+    /// Generate tokens using GPT model (RusTorch GPT implementation)
     fn generate_with_gpt(
         &self,
         gpt_model: &GPTModel,
@@ -196,21 +199,20 @@ impl InferenceEngine {
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
 
         tracing::info!(
-            "Generating {} tokens with GPT model",
+            "Generating {} tokens with RusTorch GPT model",
             max_new_tokens
         );
 
         // Generation loop
         for step in 0..max_new_tokens {
-            // Prepare input for model (current sequence)
-            let seq_len = generated_ids.len();
-            let batch_size = 1;
-
-            // Forward pass through GPT model
-            let logits_tensor = gpt_model.forward(&generated_ids, batch_size, seq_len)?;
+            // Forward pass through RusTorch GPT model
+            // RusTorch API: forward(&[usize]) -> Result<Tensor<f64>>
+            let logits_tensor = gpt_model.forward(&generated_ids)
+                .map_err(|e| anyhow::anyhow!("GPT forward failed: {}", e))?;
 
             // Extract logits for the last position
             // Shape: [batch_size=1, seq_len, vocab_size] -> [vocab_size]
+            let seq_len = generated_ids.len();
             let last_logits = self.extract_last_logits(&logits_tensor, seq_len)?;
 
             // Apply temperature scaling

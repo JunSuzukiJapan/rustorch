@@ -1,7 +1,7 @@
 use anyhow::Result;
 use rustorch::prelude::Tensor;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::format_loader::FormatLoader;
 use super::loaders::{GGUFFormatLoader, MLXFormatLoader, SafetensorsFormatLoader};
@@ -9,6 +9,7 @@ use super::{ModelFormat, ModelMetadata};
 use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 
 pub struct ModelLoader {
+    path: PathBuf,
     metadata: ModelMetadata,
     weights: HashMap<String, Tensor<f64>>,
     tokenizer: Box<dyn Tokenizer>,
@@ -35,6 +36,7 @@ impl ModelLoader {
         let tokenizer = Self::load_tokenizer(path, &metadata.format)?;
 
         Ok(Self {
+            path: path.to_path_buf(),
             metadata,
             weights: HashMap::new(),
             tokenizer,
@@ -150,12 +152,21 @@ impl ModelLoader {
         let tokenizer = Box::new(TokenizerWrapper::dummy()?);
 
         Ok(Self {
+            path: PathBuf::from("dummy.model"),
             metadata,
             weights: HashMap::new(),
             tokenizer,
         })
     }
 
+    /// Get model path
+    /// モデルパスを取得
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Get model metadata
+    /// モデルメタデータを取得
     pub fn metadata(&self) -> &ModelMetadata {
         &self.metadata
     }
