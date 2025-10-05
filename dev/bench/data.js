@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1759486289782,
+  "lastUpdate": 1759641198356,
   "repoUrl": "https://github.com/JunSuzukiJapan/rustorch",
   "entries": {
     "RusTorch Benchmarks": [
@@ -2100,6 +2100,37 @@ window.BENCHMARK_DATA = {
           {
             "name": "RusTorch Quick Benchmark",
             "value": 30008,
+            "range": "±5%",
+            "unit": "ms",
+            "extra": "Rust tensor operations benchmark"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "committer": {
+            "email": "jun.suzuki.japan@gmail.com",
+            "name": "JunSuzukiJapan",
+            "username": "JunSuzukiJapan"
+          },
+          "distinct": true,
+          "id": "9c39288c1c71ffbaf92569918b7474c65ec30f80",
+          "message": "fix: Implement actual 2D convolution in conv2d_fallback\n\nReplace placeholder zero-fill implementation with proper convolution calculation.\n\n## Changes\n- Implement 8-nested-loop 2D convolution with padding support\n- Add boundary checks for proper padding handling\n- Fix multi-dimensional index calculations for NCHW format\n\n## Fixes\n- Test failure: gpu::conv_ops::tests::test_conv2d_fallback_basic\n- Expected output: 5.0, was getting: 0.0 (zero-fill placeholder)\n- All conv_ops tests now pass (2/2)\n\n## Technical Details\n- Proper batch/channel/spatial dimension iteration\n- Padding boundary validation: `if ih >= pad_h && ih < in_h + pad_h`\n- Correct index calculation for input, kernel, and output tensors\n- Accumulation of weighted sum across input channels and kernel positions\n\nRef: d833821087563671568203baf6904cedd8c5fafa\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>",
+          "timestamp": "2025-10-05T14:11:58+09:00",
+          "tree_id": "1ef14f6005ca531976572d6318ad38394475742d",
+          "url": "https://github.com/JunSuzukiJapan/rustorch/commit/9c39288c1c71ffbaf92569918b7474c65ec30f80"
+        },
+        "date": 1759641195596,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "RusTorch Quick Benchmark",
+            "value": 30011,
             "range": "±5%",
             "unit": "ms",
             "extra": "Rust tensor operations benchmark"
