@@ -147,11 +147,100 @@ impl GPTModel {
         self.weights.keys().cloned().collect()
     }
 
+    /// Create LayerNorm with loaded weights if available
+    /// 読み込まれた重みでLayerNormを作成（利用可能な場合）
+    fn create_layer_norm_variable(&self, weight_key: &str, d_model: usize) -> crate::autograd::Variable<f64> {
+        use crate::autograd::Variable;
+
+        // Create a default weight (all ones) and bias (all zeros)
+        let weight_data = if let Some(loaded_weight) = self.weights.get(weight_key) {
+            // Use loaded weights if available
+            loaded_weight.clone()
+        } else {
+            // Default initialization: ones
+            Tensor::from_vec(vec![1.0; d_model], vec![d_model])
+        };
+
+        let bias_data = Tensor::from_vec(vec![0.0; d_model], vec![d_model]);
+
+        // Return weight and bias as Variables
+        // For now, just return the weight variable (bias will be handled separately)
+        Variable::new(weight_data, true)
+    }
+
+    /// Apply manual LayerNorm with loaded weights
+    /// 読み込まれた重みで手動LayerNormを適用
+    fn apply_layer_norm(&self, input: &crate::autograd::Variable<f64>, weight_key: &str, d_model: usize) -> crate::autograd::Variable<f64> {
+        use crate::autograd::Variable;
+
+        let input_binding = input.data();
+        let input_data = input_binding.read().unwrap();
+        let input_shape = input_data.shape();
+
+        // Get weight and bias
+        let weight = if let Some(w) = self.weights.get(weight_key) {
+            w.clone()
+        } else {
+            Tensor::from_vec(vec![1.0; d_model], vec![d_model])
+        };
+
+        let bias = Tensor::from_vec(vec![0.0; d_model], vec![d_model]);
+        let eps = 1e-5;
+
+        // Manual LayerNorm computation
+        let batch_size = input_shape[0];
+        let seq_len = input_shape[1];
+        let features = input_shape[2];
+
+        let mut output_data = Vec::with_capacity(batch_size * seq_len * features);
+
+        // Process each position
+        for b in 0..batch_size {
+            for s in 0..seq_len {
+                // Extract features for this position
+                let mut position_features = Vec::with_capacity(features);
+                for f in 0..features {
+                    let idx = (b * seq_len * features) + (s * features) + f;
+                    if let Some(slice) = input_data.as_array().as_slice() {
+                        position_features.push(slice[idx]);
+                    }
+                }
+
+                // Calculate mean and variance
+                let mean: f64 = position_features.iter().sum::<f64>() / features as f64;
+                let variance: f64 = position_features.iter()
+                    .map(|&x| (x - mean).powi(2))
+                    .sum::<f64>() / features as f64;
+                let std = (variance + eps).sqrt();
+
+                // Normalize and apply affine transformation
+                for (f, &feature_val) in position_features.iter().enumerate() {
+                    let normalized = (feature_val - mean) / std;
+                    let gamma = if let Some(slice) = weight.as_array().as_slice() {
+                        slice[f]
+                    } else {
+                        1.0
+                    };
+                    let beta = if let Some(slice) = bias.as_array().as_slice() {
+                        slice[f]
+                    } else {
+                        0.0
+                    };
+                    let final_val = gamma * normalized + beta;
+                    output_data.push(final_val);
+                }
+            }
+        }
+
+        let output = Tensor::from_vec(output_data, input_shape.to_vec());
+        Variable::new(output, input.requires_grad())
+    }
+
     /// GPT forward pass with Transformer implementation
     /// TransformerフォワードパスによるGPT実装
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         use crate::autograd::Variable;
-        use crate::nn::{Embedding, SinusoidalPositionalEncoding, MultiheadAttention, LayerNorm, Linear, GELU, Module};
+        use crate::nn::{Embedding, SinusoidalPositionalEncoding, MultiheadAttention, Linear, GELU, Module};
 
         let batch_size = 1;
         let seq_len = input_ids.len();
@@ -186,17 +275,9 @@ impl GPTModel {
             // Save input for residual connection
             let residual = x.clone();
 
-            // Layer Norm 1 (Pre-Attention)
-            // Try to load weights from GGUF if available
+            // Layer Norm 1 (Pre-Attention) with loaded weights
             let ln1_key = format!("blk.{}.attn_norm.weight", layer_idx);
-            let ln1 = if let Some(_ln1_weight) = self.weights.get(&ln1_key) {
-                // TODO: Use loaded weights to initialize LayerNorm
-                // For now, use default initialization
-                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-            } else {
-                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-            };
-            x = ln1.forward(&x);
+            x = self.apply_layer_norm(&x, &ln1_key, d_model);
 
             // Multi-Head Self-Attention
             let attention = MultiheadAttention::<f64>::new(
@@ -216,17 +297,9 @@ impl GPTModel {
             // Save for second residual
             let residual2 = x.clone();
 
-            // Layer Norm 2 (Pre-FFN)
-            // Try to load weights from GGUF if available
+            // Layer Norm 2 (Pre-FFN) with loaded weights
             let ln2_key = format!("blk.{}.ffn_norm.weight", layer_idx);
-            let ln2 = if let Some(_ln2_weight) = self.weights.get(&ln2_key) {
-                // TODO: Use loaded weights to initialize LayerNorm
-                // For now, use default initialization
-                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-            } else {
-                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-            };
-            x = ln2.forward(&x);
+            x = self.apply_layer_norm(&x, &ln2_key, d_model);
 
             // Feed-Forward Network
             let fc1 = Linear::<f64>::new(d_model, d_ff);
@@ -241,17 +314,8 @@ impl GPTModel {
             x = self.add_variables(&residual2, &ffn_out)?;
         }
 
-        // Final Layer Norm (Output Norm)
-        // Try to load weights from GGUF if available
-        let output_norm_key = "output_norm.weight";
-        let final_ln = if let Some(_output_norm_weight) = self.weights.get(output_norm_key) {
-            // TODO: Use loaded weights to initialize LayerNorm
-            // For now, use default initialization
-            LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-        } else {
-            LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
-        };
-        x = final_ln.forward(&x);
+        // Final Layer Norm (Output Norm) with loaded weights
+        x = self.apply_layer_norm(&x, "output_norm.weight", d_model);
 
         // 4. Output Projection to Vocabulary Logits
         // 語彙サイズへの出力射影: [batch_size, seq_len, d_model] -> [batch_size, seq_len, vocab_size]
