@@ -129,7 +129,10 @@ fn dequantize_tensor(data: &[u8], ggml_type: GGMLType) -> Result<Vec<f64>> {
         GGMLType::I8 => dequantize_i8(data),
         GGMLType::I16 => dequantize_i16(data),
         GGMLType::I32 => dequantize_i32(data),
-        // Quantized types - simplified dequantization (would need proper implementation)
+        // Quantized types with proper implementation
+        GGMLType::Q4_0 => dequantize_q4_0(data),
+        GGMLType::Q8_0 => dequantize_q8_0(data),
+        // Other quantized types - use placeholder for now
         _ => {
             tracing::warn!(
                 "Quantized type {:?} not fully implemented, using placeholder dequantization",
@@ -210,8 +213,78 @@ fn dequantize_i32(data: &[u8]) -> Result<Vec<f64>> {
     Ok(result)
 }
 
-/// Placeholder dequantization for quantized types
-/// Real implementation would properly decode the quantization format
+/// Dequantize Q4_0 format (4-bit quantization with block-wise scaling)
+/// Block format: f16 scale + 16 bytes (32 x 4-bit values)
+/// Block size: 32 elements, 18 bytes per block
+fn dequantize_q4_0(data: &[u8]) -> Result<Vec<f64>> {
+    const BLOCK_SIZE: usize = 32;
+    const BYTES_PER_BLOCK: usize = 18; // 2 bytes scale + 16 bytes data
+
+    if data.len() % BYTES_PER_BLOCK != 0 {
+        anyhow::bail!("Invalid Q4_0 data length: {}", data.len());
+    }
+
+    let num_blocks = data.len() / BYTES_PER_BLOCK;
+    let mut result = Vec::with_capacity(num_blocks * BLOCK_SIZE);
+
+    for block_idx in 0..num_blocks {
+        let block_start = block_idx * BYTES_PER_BLOCK;
+        let block = &data[block_start..block_start + BYTES_PER_BLOCK];
+
+        // Read scale as f16
+        let scale_bytes: [u8; 2] = [block[0], block[1]];
+        let scale = half::f16::from_le_bytes(scale_bytes).to_f64();
+
+        // Decode 32 x 4-bit values from 16 bytes
+        for byte_idx in 0..16 {
+            let byte = block[2 + byte_idx];
+            // Lower 4 bits
+            let v0 = (byte & 0x0F) as i8 - 8; // Convert to signed (-8 to 7)
+            // Upper 4 bits
+            let v1 = ((byte >> 4) & 0x0F) as i8 - 8;
+
+            result.push(v0 as f64 * scale);
+            result.push(v1 as f64 * scale);
+        }
+    }
+
+    Ok(result)
+}
+
+/// Dequantize Q8_0 format (8-bit quantization with block-wise scaling)
+/// Block format: f16 scale + 32 bytes (32 x 8-bit values)
+/// Block size: 32 elements, 34 bytes per block
+fn dequantize_q8_0(data: &[u8]) -> Result<Vec<f64>> {
+    const BLOCK_SIZE: usize = 32;
+    const BYTES_PER_BLOCK: usize = 34; // 2 bytes scale + 32 bytes data
+
+    if data.len() % BYTES_PER_BLOCK != 0 {
+        anyhow::bail!("Invalid Q8_0 data length: {}", data.len());
+    }
+
+    let num_blocks = data.len() / BYTES_PER_BLOCK;
+    let mut result = Vec::with_capacity(num_blocks * BLOCK_SIZE);
+
+    for block_idx in 0..num_blocks {
+        let block_start = block_idx * BYTES_PER_BLOCK;
+        let block = &data[block_start..block_start + BYTES_PER_BLOCK];
+
+        // Read scale as f16
+        let scale_bytes: [u8; 2] = [block[0], block[1]];
+        let scale = half::f16::from_le_bytes(scale_bytes).to_f64();
+
+        // Decode 32 x 8-bit values
+        for i in 0..BLOCK_SIZE {
+            let v = block[2 + i] as i8; // Interpret as signed byte
+            result.push(v as f64 * scale);
+        }
+    }
+
+    Ok(result)
+}
+
+/// Placeholder dequantization for other quantized types
+/// This is used as fallback for formats we haven't implemented yet
 fn dequantize_quantized_placeholder(data: &[u8]) -> Result<Vec<f64>> {
     // For now, treat each byte as a quantized value and scale to [-1, 1]
     Ok(data.iter().map(|&b| (b as f64 - 128.0) / 128.0).collect())
