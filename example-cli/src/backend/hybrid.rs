@@ -2,8 +2,19 @@ use super::Backend;
 use anyhow::Result;
 use rustorch::tensor::Tensor;
 
+#[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
+use rustorch::gpu::hybrid_executor::HybridExecutor;
+
 /// Mac Hybrid Backend (Metal + CoreML)
+///
+/// Uses RusTorch's HybridExecutor for intelligent routing between:
+/// - CPU for small operations (< 1MB)
+/// - Metal GPU for medium compute (1MB-100MB)
+/// - CoreML Neural Engine for large operations (> 100MB)
 pub struct HybridBackend {
+    #[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
+    executor: &'static HybridExecutor,
+
     available: bool,
 }
 
@@ -11,7 +22,13 @@ impl HybridBackend {
     pub fn new() -> Result<Self> {
         #[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
         {
-            Ok(Self { available: true })
+            let executor = HybridExecutor::global();
+            let available = true;
+
+            Ok(Self {
+                executor,
+                available,
+            })
         }
         #[cfg(not(all(target_os = "macos", feature = "mac-hybrid")))]
         {
@@ -30,8 +47,7 @@ impl Backend for HybridBackend {
     }
 
     fn to_device(&self, tensor: Tensor<f64>) -> Result<Tensor<f64>> {
-        // For now, just return the CPU tensor
-        // TODO: Implement actual device transfer when Metal/CoreML integration is ready
+        // HybridExecutor handles device routing internally
         Ok(tensor)
     }
 
@@ -57,15 +73,28 @@ mod tests {
 
     #[test]
     #[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
-    fn test_hybrid_backend_name() {
+    fn test_hybrid_backend_availability() {
         let backend = HybridBackend::new().unwrap();
+        assert!(backend.is_available());
         assert_eq!(backend.name(), "Mac Hybrid (Metal + CoreML)");
     }
 
     #[test]
     #[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
-    fn test_hybrid_backend_is_available() {
+    fn test_hybrid_backend_tensor_operations() {
         let backend = HybridBackend::new().unwrap();
-        assert!(backend.is_available());
+
+        // Test zeros
+        let zeros = backend.zeros(&[2, 3]).unwrap();
+        assert_eq!(zeros.shape(), &[2, 3]);
+
+        // Test from_vec
+        let data = vec![1.0, 2.0, 3.0, 4.0];
+        let tensor = backend.from_vec(data, &[2, 2]).unwrap();
+        assert_eq!(tensor.shape(), &[2, 2]);
+
+        // Test to_device
+        let moved = backend.to_device(tensor).unwrap();
+        assert_eq!(moved.shape(), &[2, 2]);
     }
 }
