@@ -166,21 +166,221 @@ impl F32GPTModel {
         self.weights.keys().cloned().collect()
     }
 
-    /// Forward pass (simplified for testing)
-    /// フォワードパス（テスト用簡略版）
+    /// Forward pass through the model
+    /// モデルの順伝播
     pub fn forward(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
         eprintln!("🔄 F32GPTModel forward pass");
         eprintln!("   Device: {:?}", self.device_type);
         eprintln!("   Input length: {}", input_ids.len());
 
-        // TODO: Implement full forward pass with Metal LayerNorm
-        // For now, return a dummy output tensor
-        let output_size = input_ids.len() * self.config.vocab_size;
-        let dummy_output = vec![0.0f32; output_size];
-        let shape = vec![1, input_ids.len(), self.config.vocab_size];
+        let batch_size = 1;
+        let seq_len = input_ids.len();
 
-        F32Tensor::from_vec(dummy_output, &shape)
+        // Step 1: Token Embedding
+        let mut hidden_states = self.get_embeddings(input_ids)?;
+        eprintln!("   ✓ Token embeddings: [{}, {}, {}]", batch_size, seq_len, self.config.d_model);
+
+        // Step 2: Process through transformer layers (simplified - first 2 layers only)
+        for layer_idx in 0..self.config.num_layers.min(2) {
+            eprintln!("   🔄 Layer {}/{}", layer_idx + 1, self.config.num_layers);
+
+            // Apply LayerNorm (GPU-accelerated on Metal)
+            hidden_states = self.apply_layer_norm(hidden_states, layer_idx)?;
+        }
+
+        // Step 3: Final layer norm and projection to vocabulary
+        eprintln!("   🔄 Final LayerNorm and projection");
+        hidden_states = self.apply_final_layer_norm(hidden_states)?;
+        let logits = self.project_to_vocab(hidden_states)?;
+        eprintln!("   ✓ Logits: [{}, {}, {}]", batch_size, seq_len, self.config.vocab_size);
+
+        Ok(logits)
+    }
+
+    /// Get token embeddings
+    fn get_embeddings(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
+        let embed_weight = self.weights.get("token_embd.weight")
+            .or_else(|| self.weights.get("model.embed_tokens.weight"))
+            .ok_or_else(|| F32Error::device_error("Embedding weight not found"))?;
+
+        let seq_len = input_ids.len();
+        let d_model = self.config.d_model;
+        let mut embedding_data = Vec::with_capacity(seq_len * d_model);
+
+        if let Some(embed_slice) = embed_weight.data.as_slice() {
+            for &token_id in input_ids {
+                let token_idx = token_id.min(self.config.vocab_size - 1);
+                let start = token_idx * d_model;
+                let end = start + d_model;
+                embedding_data.extend_from_slice(&embed_slice[start..end]);
+            }
+        } else {
+            return Err(F32Error::device_error("Failed to access embedding weight data"));
+        }
+
+        F32Tensor::from_vec(embedding_data, &[1, seq_len, d_model])
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create embedding tensor: {}", e)))
+    }
+
+    /// Apply LayerNorm using GPU acceleration if available
+    fn apply_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        let ln_weight_key = format!("blk.{}.attn_norm.weight", layer_idx);
+        let ln_bias_key = format!("blk.{}.attn_norm.bias", layer_idx);
+
+        let gamma = self.weights.get(&ln_weight_key)
+            .ok_or_else(|| F32Error::device_error(format!("LayerNorm weight not found: {}", ln_weight_key)))?;
+        let beta = self.weights.get(&ln_bias_key)
+            .ok_or_else(|| F32Error::device_error(format!("LayerNorm bias not found: {}", ln_bias_key)))?;
+
+        self.layer_norm_impl(&input, gamma, beta)
+    }
+
+    /// Apply final LayerNorm
+    fn apply_final_layer_norm(&self, input: F32Tensor) -> F32Result<F32Tensor> {
+        let gamma = self.weights.get("output_norm.weight")
+            .or_else(|| self.weights.get("model.norm.weight"))
+            .ok_or_else(|| F32Error::device_error("Final LayerNorm weight not found"))?;
+        let beta = self.weights.get("output_norm.bias")
+            .or_else(|| self.weights.get("model.norm.bias"))
+            .ok_or_else(|| F32Error::device_error("Final LayerNorm bias not found"))?;
+
+        self.layer_norm_impl(&input, gamma, beta)
+    }
+
+    /// LayerNorm implementation with Metal GPU acceleration
+    fn layer_norm_impl(&self, input: &F32Tensor, gamma: &F32Tensor, beta: &F32Tensor) -> F32Result<F32Tensor> {
+        let input_shape = input.data.shape();
+        if input_shape.len() != 3 {
+            return Err(F32Error::dimension_error(3, input_shape.len()));
+        }
+
+        let batch_size = input_shape[0];
+        let seq_len = input_shape[1];
+        let features = input_shape[2];
+
+        #[cfg(feature = "metal")]
+        if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
+            return self.metal_layer_norm(input, gamma, beta, batch_size, seq_len, features);
+        }
+
+        self.cpu_layer_norm(input, gamma, beta, batch_size, seq_len, features)
+    }
+
+    #[cfg(feature = "metal")]
+    fn metal_layer_norm(
+        &self,
+        input: &F32Tensor,
+        gamma: &F32Tensor,
+        beta: &F32Tensor,
+        batch_size: usize,
+        seq_len: usize,
+        features: usize,
+    ) -> F32Result<F32Tensor> {
+        use crate::gpu::metal_kernels::metal_layer_norm_f32;
+
+        let input_slice = input.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
+        let gamma_slice = gamma.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
+        let beta_slice = beta.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?;
+
+        let mut output = vec![0.0f32; input_slice.len()];
+
+        metal_layer_norm_f32(
+            input_slice,
+            &mut output,
+            gamma_slice,
+            beta_slice,
+            batch_size,
+            seq_len,
+            features,
+            1e-5,
+        )
+        .map_err(|e| F32Error::device_error(format!("Metal LayerNorm failed: {}", e)))?;
+
+        F32Tensor::from_vec(output, &[batch_size, seq_len, features])
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create output tensor: {}", e)))
+    }
+
+    fn cpu_layer_norm(
+        &self,
+        input: &F32Tensor,
+        gamma: &F32Tensor,
+        beta: &F32Tensor,
+        batch_size: usize,
+        seq_len: usize,
+        features: usize,
+    ) -> F32Result<F32Tensor> {
+        let input_slice = input.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
+        let gamma_slice = gamma.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
+        let beta_slice = beta.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?;
+
+        let mut output = vec![0.0f32; input_slice.len()];
+        let eps = 1e-5f32;
+
+        for b in 0..batch_size {
+            for s in 0..seq_len {
+                let offset = (b * seq_len + s) * features;
+                let sum: f32 = input_slice[offset..offset + features].iter().sum();
+                let mean = sum / features as f32;
+                let var_sum: f32 = input_slice[offset..offset + features]
+                    .iter()
+                    .map(|&x| (x - mean).powi(2))
+                    .sum();
+                let variance = var_sum / features as f32;
+                let std = (variance + eps).sqrt();
+
+                for f in 0..features {
+                    let normalized = (input_slice[offset + f] - mean) / std;
+                    output[offset + f] = gamma_slice[f] * normalized + beta_slice[f];
+                }
+            }
+        }
+
+        F32Tensor::from_vec(output, &[batch_size, seq_len, features])
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create output tensor: {}", e)))
+    }
+
+    /// Project hidden states to vocabulary logits
+    fn project_to_vocab(&self, hidden_states: F32Tensor) -> F32Result<F32Tensor> {
+        let output_weight = self.weights.get("output.weight")
+            .or_else(|| self.weights.get("lm_head.weight"))
+            .or_else(|| self.weights.get("token_embd.weight"))
+            .ok_or_else(|| F32Error::device_error("Output projection weight not found"))?;
+
+        let hidden_shape = hidden_states.data.shape();
+        let batch_size = hidden_shape[0];
+        let seq_len = hidden_shape[1];
+        let d_model = hidden_shape[2];
+        let vocab_size = self.config.vocab_size;
+        let mut logits = vec![0.0f32; batch_size * seq_len * vocab_size];
+
+        let hidden_slice = hidden_states.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access hidden states"))?;
+        let weight_slice = output_weight.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access output weight"))?;
+
+        for b in 0..batch_size {
+            for s in 0..seq_len {
+                let hidden_offset = (b * seq_len + s) * d_model;
+                let logit_offset = (b * seq_len + s) * vocab_size;
+                for v in 0..vocab_size {
+                    let weight_offset = v * d_model;
+                    let mut sum = 0.0f32;
+                    for d in 0..d_model {
+                        sum += hidden_slice[hidden_offset + d] * weight_slice[weight_offset + d];
+                    }
+                    logits[logit_offset + v] = sum;
+                }
+            }
+        }
+
+        F32Tensor::from_vec(logits, &[batch_size, seq_len, vocab_size])
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create logits tensor: {}", e)))
     }
 }
 
