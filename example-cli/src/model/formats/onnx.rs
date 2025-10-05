@@ -68,7 +68,6 @@ impl ONNXLoader {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
     use tempfile::NamedTempFile;
 
     fn create_test_onnx() -> Vec<u8> {
@@ -83,7 +82,7 @@ mod tests {
     #[test]
     fn test_onnx_from_file() {
         let data = create_test_onnx();
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
 
         // Rename to have .onnx extension
         let path = temp_file.path().with_extension("onnx");
@@ -104,9 +103,8 @@ mod tests {
 
     #[test]
     fn test_onnx_wrong_extension() {
-        let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(&create_test_onnx()).unwrap();
-        temp_file.flush().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
+        std::fs::write(temp_file.path(), &create_test_onnx()).unwrap();
 
         let result = ONNXLoader::from_file(temp_file.path());
         assert!(result.is_err());
@@ -115,7 +113,7 @@ mod tests {
     #[test]
     fn test_onnx_metadata() {
         let data = create_test_onnx();
-        let mut temp_file = NamedTempFile::new().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
 
         let path = temp_file.path().with_extension("onnx");
         std::fs::write(&path, &data).unwrap();

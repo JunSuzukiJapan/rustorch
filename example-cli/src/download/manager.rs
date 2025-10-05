@@ -1,6 +1,5 @@
 /// Unified model download manager
 use super::{
-    progress::{ProgressBar, Spinner},
     DownloadOptions, HuggingFaceClient, ModelIdentifier, ModelSource, OllamaClient,
 };
 use anyhow::Result;

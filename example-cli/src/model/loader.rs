@@ -9,6 +9,7 @@ use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 
 pub struct ModelLoader {
     metadata: ModelMetadata,
+    #[allow(dead_code)]
     gguf_loader: Option<GGUFLoader>,
     weights: HashMap<String, Tensor<f64>>,
     tokenizer: Box<dyn Tokenizer>,

@@ -2,7 +2,7 @@
 use anyhow::Result;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const OLLAMA_ENDPOINT: &str = "http://localhost:11434";
 
@@ -92,7 +92,7 @@ impl OllamaClient {
             stream: true,
         };
 
-        let mut response = self.client.post(&url).json(&request_body).send()?;
+        let response = self.client.post(&url).json(&request_body).send()?;
 
         if !response.status().is_success() {
             anyhow::bail!("Failed to pull model: HTTP {}", response.status());
