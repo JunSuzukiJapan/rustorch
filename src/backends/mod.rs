@@ -107,6 +107,30 @@ pub enum DeviceType {
     OpenCL,
 }
 
+impl DeviceType {
+    /// Check if this device type supports f64 (double precision)
+    /// このデバイスタイプがf64（倍精度）をサポートするかチェック
+    pub fn supports_f64(&self) -> bool {
+        match self {
+            DeviceType::Cpu => true,      // CPU always supports f64
+            DeviceType::Cuda => true,     // CUDA supports f64 (slower than f32)
+            DeviceType::Metal => false,   // Metal does NOT support f64
+            DeviceType::OpenCL => true,   // OpenCL supports f64 (extension, device-dependent)
+        }
+    }
+
+    /// Get recommended precision for this device type
+    /// このデバイスタイプの推奨精度を取得
+    pub fn recommended_precision(&self) -> &'static str {
+        match self {
+            DeviceType::Cpu => "f64",      // CPU can use f64 efficiently
+            DeviceType::Cuda => "f32",     // CUDA prefers f32 for performance
+            DeviceType::Metal => "f32",    // Metal only supports f32
+            DeviceType::OpenCL => "f32",   // OpenCL prefers f32
+        }
+    }
+}
+
 impl fmt::Display for DeviceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

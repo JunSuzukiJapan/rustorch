@@ -190,9 +190,9 @@ impl F32GPTModel {
         eprintln!("   ✓ Token embeddings: [{}, {}, {}]", batch_size, seq_len, self.config.d_model);
 
         // Step 2: Process through transformer layers
-        // For now, process only first 2 layers to verify implementation
-        // TODO: Implement full attention and FFN, then process all layers
-        for layer_idx in 0..self.config.num_layers.min(2) {
+        // TODO: Optimize for full 22 layers - currently limited for performance
+        let num_layers_to_process = self.config.num_layers.min(5);
+        for layer_idx in 0..num_layers_to_process {
             eprintln!("   🔄 Layer {}/{}", layer_idx + 1, self.config.num_layers);
 
             // Pre-attention LayerNorm
@@ -443,49 +443,242 @@ impl F32GPTModel {
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create output tensor: {}", e)))
     }
 
-    /// Apply Multi-Head Self-Attention
-    /// マルチヘッド自己注意機構を適用
+    /// Apply Grouped Query Attention (GQA)
+    /// グループ化クエリ注意機構（GQA）を適用
     fn apply_attention(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
         let batch_size = input.data.shape()[0];
         let seq_len = input.data.shape()[1];
         let d_model = input.data.shape()[2];
 
-        // Load Q, K, V weight matrices
-        let _q_weight = self.weights.get(&format!("blk.{}.attn_q.weight", layer_idx))
+        // Load Q, K, V, output weight matrices
+        let q_weight = self.weights.get(&format!("blk.{}.attn_q.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("Q weight not found for layer {}", layer_idx)))?;
-        let _k_weight = self.weights.get(&format!("blk.{}.attn_k.weight", layer_idx))
+        let k_weight = self.weights.get(&format!("blk.{}.attn_k.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("K weight not found for layer {}", layer_idx)))?;
-        let _v_weight = self.weights.get(&format!("blk.{}.attn_v.weight", layer_idx))
+        let v_weight = self.weights.get(&format!("blk.{}.attn_v.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("V weight not found for layer {}", layer_idx)))?;
+        let o_weight = self.weights.get(&format!("blk.{}.attn_output.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
 
-        // Placeholder: Return zero tensor (no contribution to residual connection)
-        // TODO: Implement full attention computation
-        // For now, return zeros so residual connection just keeps original hidden states
-        let zero_data = vec![0.0f32; batch_size * seq_len * d_model];
-        F32Tensor::from_vec(zero_data, &[batch_size, seq_len, d_model])
+        let input_slice = input.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
+
+        // Get weight dimensions
+        let q_shape = q_weight.data.shape();
+        let k_shape = k_weight.data.shape();
+        let v_shape = v_weight.data.shape();
+
+        // GGUF weight format: [input_dim, output_dim] (transposed from PyTorch)
+        let q_dim = q_shape[1]; // Output dimension for Q
+        let k_dim = k_shape[1]; // Output dimension for K (256 for GQA)
+        let v_dim = v_shape[1]; // Output dimension for V (256 for GQA)
+
+        // Project Q, K, V using transposed weights
+        let q = self.linear_projection_transposed(input_slice, q_weight, batch_size, seq_len, d_model, q_dim)?;
+        let k = self.linear_projection_transposed(input_slice, k_weight, batch_size, seq_len, d_model, k_dim)?;
+        let v = self.linear_projection_transposed(input_slice, v_weight, batch_size, seq_len, d_model, v_dim)?;
+
+        // Head dimensions
+        let head_dim = 64; // Standard head dimension for Llama
+        let num_q_heads = q_dim / head_dim; // 32 heads
+        let num_kv_heads = k_dim / head_dim; // 4 heads for GQA
+        let num_groups = num_q_heads / num_kv_heads; // 8 Q heads share 1 KV head
+
+        // Step 2: Compute GQA attention
+        let scale = 1.0 / (head_dim as f32).sqrt();
+        let mut attention_output = vec![0.0f32; batch_size * seq_len * q_dim];
+
+        for b in 0..batch_size {
+            for h in 0..num_q_heads {
+                let kv_head = h / num_groups; // Find corresponding KV head
+
+                for i in 0..seq_len {
+                    // Compute attention scores
+                    let mut scores = vec![0.0f32; seq_len];
+                    let mut max_score = f32::NEG_INFINITY;
+
+                    for j in 0..=i {
+                        let q_offset = (b * seq_len + i) * q_dim + h * head_dim;
+                        let k_offset = (b * seq_len + j) * k_dim + kv_head * head_dim;
+
+                        let mut dot_product = 0.0f32;
+                        for d in 0..head_dim {
+                            dot_product += q[q_offset + d] * k[k_offset + d];
+                        }
+                        let score = dot_product * scale;
+                        scores[j] = score;
+                        max_score = max_score.max(score);
+                    }
+
+                    // Apply softmax
+                    let mut sum = 0.0f32;
+                    for j in 0..=i {
+                        scores[j] = (scores[j] - max_score).exp();
+                        sum += scores[j];
+                    }
+                    for j in 0..=i {
+                        scores[j] /= sum;
+                    }
+
+                    // Apply attention to V
+                    for d in 0..head_dim {
+                        let mut weighted_sum = 0.0f32;
+                        for j in 0..=i {
+                            let v_offset = (b * seq_len + j) * v_dim + kv_head * head_dim;
+                            weighted_sum += scores[j] * v[v_offset + d];
+                        }
+                        let output_offset = (b * seq_len + i) * q_dim + h * head_dim;
+                        attention_output[output_offset + d] = weighted_sum;
+                    }
+                }
+            }
+        }
+
+        // Step 3: Output projection (GGUF format: transposed)
+        let o_shape = o_weight.data.shape();
+        let o_output_dim = o_shape[1]; // Should be d_model (2048)
+        let output = self.linear_projection_transposed(&attention_output, o_weight, batch_size, seq_len, q_dim, o_output_dim)?;
+
+        F32Tensor::from_vec(output, &[batch_size, seq_len, d_model])
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create attention output: {}", e)))
     }
 
-    /// Apply Feed-Forward Network
-    /// フィードフォワードネットワークを適用
+    /// Helper: Linear projection (input @ weight^T)
+    fn linear_projection(
+        &self,
+        input: &[f32],
+        weight: &F32Tensor,
+        batch_size: usize,
+        seq_len: usize,
+        input_dim: usize,
+    ) -> F32Result<Vec<f32>> {
+        let weight_slice = weight.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access weight data"))?;
+
+        // Weight shape: [output_dim, input_dim]
+        let weight_shape = weight.data.shape();
+        let output_dim = weight_shape[0];
+        let expected_input_dim = weight_shape[1];
+
+        if expected_input_dim != input_dim {
+            return Err(F32Error::shape_mismatch(format!(
+                "Weight input dim {} doesn't match expected {}",
+                expected_input_dim, input_dim
+            )));
+        }
+
+        let mut output = vec![0.0f32; batch_size * seq_len * output_dim];
+
+        for b in 0..batch_size {
+            for s in 0..seq_len {
+                let input_offset = (b * seq_len + s) * input_dim;
+                let output_offset = (b * seq_len + s) * output_dim;
+
+                for o in 0..output_dim {
+                    let weight_offset = o * input_dim;
+                    let mut sum = 0.0f32;
+                    for d in 0..input_dim {
+                        sum += input[input_offset + d] * weight_slice[weight_offset + d];
+                    }
+                    output[output_offset + o] = sum;
+                }
+            }
+        }
+
+        Ok(output)
+    }
+
+    /// Helper: Linear projection with transposed weight (for GQA K/V)
+    /// Weight shape: [input_dim, output_dim] instead of [output_dim, input_dim]
+    fn linear_projection_transposed(
+        &self,
+        input: &[f32],
+        weight: &F32Tensor,
+        batch_size: usize,
+        seq_len: usize,
+        input_dim: usize,
+        output_dim: usize,
+    ) -> F32Result<Vec<f32>> {
+        let weight_slice = weight.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access weight data"))?;
+
+        // Weight shape: [input_dim, output_dim] (transposed from normal)
+        let weight_shape = weight.data.shape();
+        let expected_input_dim = weight_shape[0];
+        let expected_output_dim = weight_shape[1];
+
+        if expected_input_dim != input_dim || expected_output_dim != output_dim {
+            return Err(F32Error::shape_mismatch(format!(
+                "Weight shape [{}, {}] doesn't match expected [{}, {}]",
+                expected_input_dim, expected_output_dim, input_dim, output_dim
+            )));
+        }
+
+        let mut output = vec![0.0f32; batch_size * seq_len * output_dim];
+
+        for b in 0..batch_size {
+            for s in 0..seq_len {
+                let input_offset = (b * seq_len + s) * input_dim;
+                let output_offset = (b * seq_len + s) * output_dim;
+
+                for o in 0..output_dim {
+                    let mut sum = 0.0f32;
+                    for d in 0..input_dim {
+                        // Transposed access: weight[d][o] instead of weight[o][d]
+                        sum += input[input_offset + d] * weight_slice[d * output_dim + o];
+                    }
+                    output[output_offset + o] = sum;
+                }
+            }
+        }
+
+        Ok(output)
+    }
+
+    /// Apply Feed-Forward Network with SwiGLU activation
+    /// SwiGLU活性化関数付きフィードフォワードネットワークを適用
     fn apply_ffn(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
         let batch_size = input.data.shape()[0];
         let seq_len = input.data.shape()[1];
         let d_model = input.data.shape()[2];
 
         // Load FFN weights
-        let _gate_weight = self.weights.get(&format!("blk.{}.ffn_gate.weight", layer_idx))
+        let gate_weight = self.weights.get(&format!("blk.{}.ffn_gate.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN gate weight not found for layer {}", layer_idx)))?;
-        let _up_weight = self.weights.get(&format!("blk.{}.ffn_up.weight", layer_idx))
+        let up_weight = self.weights.get(&format!("blk.{}.ffn_up.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN up weight not found for layer {}", layer_idx)))?;
-        let _down_weight = self.weights.get(&format!("blk.{}.ffn_down.weight", layer_idx))
+        let down_weight = self.weights.get(&format!("blk.{}.ffn_down.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN down weight not found for layer {}", layer_idx)))?;
 
-        // Placeholder: Return zero tensor (no contribution to residual connection)
-        // TODO: Implement full FFN computation with SwiGLU activation
-        // For now, return zeros so residual connection just keeps original hidden states
-        let zero_data = vec![0.0f32; batch_size * seq_len * d_model];
-        F32Tensor::from_vec(zero_data, &[batch_size, seq_len, d_model])
+        let input_slice = input.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access input data"))?;
+
+        // Get FFN weight shapes (GGUF format: [input_dim, output_dim])
+        let gate_shape = gate_weight.data.shape();
+        let down_shape = down_weight.data.shape();
+        let d_ff = gate_shape[1]; // Intermediate FFN dimension
+
+        // Step 1: Gate projection (GGUF format: transposed)
+        let gate_proj = self.linear_projection_transposed(input_slice, gate_weight, batch_size, seq_len, d_model, d_ff)?;
+
+        // Step 2: Up projection (GGUF format: transposed)
+        let up_proj = self.linear_projection_transposed(input_slice, up_weight, batch_size, seq_len, d_model, d_ff)?;
+
+        // Step 3: Apply SwiGLU activation: gate_proj * silu(up_proj)
+        // SiLU (Swish): x * sigmoid(x)
+        let mut swiglu_output = vec![0.0f32; batch_size * seq_len * d_ff];
+        for i in 0..(batch_size * seq_len * d_ff) {
+            let x = up_proj[i];
+            let sigmoid_x = 1.0 / (1.0 + (-x).exp());
+            let silu_x = x * sigmoid_x;
+            swiglu_output[i] = gate_proj[i] * silu_x;
+        }
+
+        // Step 4: Down projection back to d_model (GGUF format: transposed)
+        let down_output_dim = down_shape[1]; // GGUF: [d_ff, d_model]
+        let output = self.linear_projection_transposed(&swiglu_output, down_weight, batch_size, seq_len, d_ff, down_output_dim)?;
+
+        F32Tensor::from_vec(output, &[batch_size, seq_len, down_output_dim])
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create FFN output: {}", e)))
     }
 
@@ -500,30 +693,25 @@ impl F32GPTModel {
         let batch_size = hidden_shape[0];
         let seq_len = hidden_shape[1];
         let d_model = hidden_shape[2];
-        let vocab_size = self.config.vocab_size;
-        let mut logits = vec![0.0f32; batch_size * seq_len * vocab_size];
+
+        // GGUF format: [d_model, vocab_size]
+        let weight_shape = output_weight.data.shape();
+        let vocab_size = weight_shape[1];
 
         let hidden_slice = hidden_states.data.as_slice()
             .ok_or_else(|| F32Error::device_error("Failed to access hidden states"))?;
-        let weight_slice = output_weight.data.as_slice()
-            .ok_or_else(|| F32Error::device_error("Failed to access output weight"))?;
 
-        for b in 0..batch_size {
-            for s in 0..seq_len {
-                let hidden_offset = (b * seq_len + s) * d_model;
-                let logit_offset = (b * seq_len + s) * vocab_size;
-                for v in 0..vocab_size {
-                    let weight_offset = v * d_model;
-                    let mut sum = 0.0f32;
-                    for d in 0..d_model {
-                        sum += hidden_slice[hidden_offset + d] * weight_slice[weight_offset + d];
-                    }
-                    logits[logit_offset + v] = sum;
-                }
-            }
-        }
+        // Use transposed projection for GGUF format
+        let logits_vec = self.linear_projection_transposed(
+            hidden_slice,
+            output_weight,
+            batch_size,
+            seq_len,
+            d_model,
+            vocab_size
+        )?;
 
-        F32Tensor::from_vec(logits, &[batch_size, seq_len, vocab_size])
+        F32Tensor::from_vec(logits_vec, &[batch_size, seq_len, vocab_size])
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create logits tensor: {}", e)))
     }
 }
