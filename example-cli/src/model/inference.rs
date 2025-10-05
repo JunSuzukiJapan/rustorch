@@ -64,16 +64,20 @@ impl InferenceEngine {
             self.generation_config.top_p
         );
 
-        // If no model is loaded, return dummy response
+        // Check if model is loaded
         if self.model.is_none() && self.gpt_model.is_none() {
-            return Ok(self.generate_dummy_response(input));
+            anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
         // Encode input
         let input_ids = self
             .tokenizer
             .encode(input, true)
-            .unwrap_or_else(|_| vec![0]); // Fallback to dummy token on error
+            .unwrap_or_else(|_| {
+                // Fallback: use simple character-based encoding
+                tracing::warn!("Tokenizer encoding failed, using character-based fallback");
+                input.chars().take(self.generation_config.max_tokens).map(|c| c as u32).collect()
+            });
 
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
@@ -82,7 +86,11 @@ impl InferenceEngine {
         let output = self
             .tokenizer
             .decode(&output_ids, true)
-            .unwrap_or_else(|_| self.generate_dummy_response(input));
+            .unwrap_or_else(|_| {
+                // Fallback: simple character decoding
+                tracing::warn!("Tokenizer decoding failed, using character-based fallback");
+                output_ids.iter().filter_map(|&id| char::from_u32(id)).collect()
+            });
 
         Ok(output)
     }
@@ -103,9 +111,8 @@ impl InferenceEngine {
             return self.generate_with_transformer(model, input_ids, max_new_tokens);
         }
 
-        // Fallback to dummy generation
-        tracing::warn!("No model loaded, using dummy generation");
-        self.generate_dummy(input_ids, max_new_tokens)
+        // No model available - return error
+        anyhow::bail!("No model loaded. Please load a model before attempting generation.")
     }
 
     /// Generate tokens using Transformer model
@@ -164,28 +171,6 @@ impl InferenceEngine {
         }
 
         // Return only the newly generated tokens
-        Ok(generated_ids[input_ids.len()..].to_vec())
-    }
-
-    /// Fallback dummy generation
-    fn generate_dummy(&self, input_ids: &[u32], max_new_tokens: usize) -> Result<Vec<u32>> {
-        let mut generated_ids = input_ids.to_vec();
-
-        for _ in 0..max_new_tokens {
-            let vocab_size = self.tokenizer.vocab_size();
-            let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
-
-            let next_token = sample_token(&logits, &self.sampling_config, &generated_ids)?;
-
-            if let Some(eos_id) = self.tokenizer.eos_token_id() {
-                if next_token == eos_id {
-                    break;
-                }
-            }
-
-            generated_ids.push(next_token);
-        }
-
         Ok(generated_ids[input_ids.len()..].to_vec())
     }
 
@@ -326,20 +311,6 @@ impl InferenceEngine {
         multinomial_sample(&final_probs)
     }
 
-    fn generate_dummy_response(&self, input: &str) -> String {
-        // Simple dummy response generator
-        let responses = [
-            format!("I understand you said: \"{}\"", input),
-            format!("That's an interesting point about: {}", input),
-            format!("Let me think about that... You mentioned: {}", input),
-            format!("Based on your input \"{}\", here's what I think...", input),
-        ];
-
-        // Use input length to select response (deterministic but varied)
-        let idx = input.len() % responses.len();
-        responses[idx].clone()
-    }
-
     /// Generate a streaming response with token-by-token output
     pub fn generate_stream<'a>(
         &'a self,
@@ -347,16 +318,19 @@ impl InferenceEngine {
     ) -> Result<Box<dyn Iterator<Item = String> + 'a>> {
         tracing::debug!("Starting streaming generation for input: {}", input);
 
-        // If no model is loaded, return dummy streaming response
-        if self.model.is_none() {
-            return Ok(Box::new(self.generate_dummy_stream(input)));
+        // Check if model is loaded
+        if self.model.is_none() && self.gpt_model.is_none() {
+            anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
         // Encode input
         let input_ids = self
             .tokenizer
             .encode(input, true)
-            .unwrap_or_else(|_| vec![0]);
+            .unwrap_or_else(|_| {
+                tracing::warn!("Tokenizer encoding failed in stream, using character-based fallback");
+                input.chars().take(self.generation_config.max_tokens).map(|c| c as u32).collect()
+            });
 
         // Generate tokens with streaming
         Ok(Box::new(self.generate_tokens_stream(input_ids)))
@@ -387,14 +361,6 @@ impl InferenceEngine {
             // Decode the single token
             self.tokenizer.decode(&[next_token], false).ok()
         })
-    }
-
-    /// Generate dummy streaming response for testing
-    fn generate_dummy_stream(&self, input: &str) -> impl Iterator<Item = String> + '_ {
-        let response = self.generate_dummy_response(input);
-        let words: Vec<String> = response.split_whitespace().map(|s| s.to_string()).collect();
-
-        words.into_iter()
     }
 }
 

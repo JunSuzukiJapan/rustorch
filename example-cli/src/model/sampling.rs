@@ -247,6 +247,10 @@ pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> Result<Vec<f64>> {
 
 /// Sample from a probability distribution using multinomial sampling
 pub fn multinomial_sample(probs: &[f64]) -> Result<usize> {
+    if probs.is_empty() {
+        anyhow::bail!("Cannot sample from empty probability distribution");
+    }
+
     use rand::Rng;
     let mut rng = rand::thread_rng();
     let random: f64 = rng.gen();
