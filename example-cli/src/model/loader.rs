@@ -124,20 +124,43 @@ impl ModelLoader {
     }
 
     fn load_safetensors(path: &Path) -> Result<Self> {
-        use super::formats::SafetensorsLoader;
-
         tracing::info!("Loading Safetensors model from: {}", path.display());
 
-        // Load safetensors file
-        let loader = SafetensorsLoader::from_file(path)?;
-        let tensor_names = loader.tensor_names();
+        // Use RusTorch's Safetensors loader
+        let loader = rustorch::formats::safetensors::SafetensorsLoader::from_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to load Safetensors file: {}", e))?;
 
+        let tensor_names = loader.tensor_names();
         tracing::info!("Found {} tensors in Safetensors file", tensor_names.len());
 
-        // Extract basic model info from tensor shapes
-        // This is a simplified approach - real models would have config.json
-        let vocab_size = 32000; // Default, should come from config
-        let hidden_size = 512; // Default, should come from config
+        // Try to infer model architecture from tensor names and shapes
+        let vocab_size = tensor_names.iter()
+            .find(|&name| name.contains("embed") && name.contains("weight"))
+            .and_then(|name| loader.tensor_info(name).ok())
+            .and_then(|info| info.shape.first().copied())
+            .unwrap_or(32000);
+
+        let hidden_size = tensor_names.iter()
+            .find(|&name| name.contains("embed") && name.contains("weight"))
+            .and_then(|name| loader.tensor_info(name).ok())
+            .and_then(|info| info.shape.get(1).copied())
+            .unwrap_or(512);
+
+        // Count layers by looking for layer.{N}. patterns
+        let num_layers = tensor_names.iter()
+            .filter_map(|name| {
+                name.split('.').find_map(|part| part.parse::<usize>().ok())
+            })
+            .max()
+            .map(|n| n + 1)
+            .unwrap_or(6);
+
+        tracing::info!(
+            "Safetensors model parameters: vocab={}, hidden={}, layers={}",
+            vocab_size,
+            hidden_size,
+            num_layers
+        );
 
         let metadata = ModelMetadata {
             name: path
@@ -148,7 +171,7 @@ impl ModelLoader {
             format: ModelFormat::Safetensors,
             vocab_size,
             hidden_size,
-            num_layers: 6,
+            num_layers,
             num_heads: 8,
             context_length: 2048,
         };

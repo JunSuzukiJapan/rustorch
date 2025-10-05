@@ -414,6 +414,7 @@ pub mod prelude {
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::execution::{DynamicOp, GraphBuilder, RuntimeConfig, RuntimeEngine};
     pub use crate::formats::gguf::{GGMLType, GGUFLoader, GGUFTensorInfo, ModelParams};
+    pub use crate::formats::safetensors::{SafetensorsLoader, SafetensorsSaver, TensorInfo};
     pub use crate::models::{BERTBuilder, TransformerModel, TransformerModelBuilder, BERT};
     pub use crate::models::{
         CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,

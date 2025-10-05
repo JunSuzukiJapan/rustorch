@@ -1,68 +1,17 @@
 //! Safetensors format support for RusTorch
 //! RusTorch向けSafetensors形式サポート
 
-#[cfg(feature = "safetensors")]
+use crate::error::{RusTorchError, RusTorchResult};
 use crate::tensor::Tensor;
-#[cfg(feature = "safetensors")]
 use memmap2::Mmap;
-#[cfg(feature = "safetensors")]
 use num_traits::Float;
-#[cfg(feature = "safetensors")]
 use safetensors::{tensor::Dtype, SafeTensors};
-#[cfg(feature = "safetensors")]
 use std::collections::HashMap;
-#[cfg(feature = "safetensors")]
 use std::fs::File;
-#[cfg(feature = "safetensors")]
 use std::path::Path;
-
-#[cfg(feature = "safetensors")]
-#[derive(Debug)]
-/// Errors that can occur during safetensors operations
-/// Safetensors操作中に発生する可能性のあるエラー
-pub enum SafetensorsError {
-    /// IO error during file operations
-    /// ファイル操作中のIOエラー
-    IoError(std::io::Error),
-    /// Safetensors library error
-    /// Safetensorsライブラリエラー
-    SafetensorsError(safetensors::SafeTensorError),
-    /// Data conversion error
-    /// データ変換エラー
-    ConversionError(String),
-}
-
-#[cfg(feature = "safetensors")]
-impl From<std::io::Error> for SafetensorsError {
-    fn from(error: std::io::Error) -> Self {
-        SafetensorsError::IoError(error)
-    }
-}
-
-#[cfg(feature = "safetensors")]
-impl From<safetensors::SafeTensorError> for SafetensorsError {
-    fn from(error: safetensors::SafeTensorError) -> Self {
-        SafetensorsError::SafetensorsError(error)
-    }
-}
-
-#[cfg(feature = "safetensors")]
-impl std::fmt::Display for SafetensorsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SafetensorsError::IoError(e) => write!(f, "IO Error: {}", e),
-            SafetensorsError::SafetensorsError(e) => write!(f, "Safetensors Error: {}", e),
-            SafetensorsError::ConversionError(e) => write!(f, "Conversion Error: {}", e),
-        }
-    }
-}
-
-#[cfg(feature = "safetensors")]
-impl std::error::Error for SafetensorsError {}
 
 /// Safetensors model loader for RusTorch
 /// RusTorch向けSafetensorsモデルローダー
-#[cfg(feature = "safetensors")]
 pub struct SafetensorsLoader {
     /// Memory-mapped file to keep data alive
     /// データを保持するためのメモリマップファイル
@@ -72,20 +21,22 @@ pub struct SafetensorsLoader {
     tensors: SafeTensors<'static>,
 }
 
-#[cfg(feature = "safetensors")]
 impl SafetensorsLoader {
     /// Load a safetensors file
     /// safetensorsファイルを読み込み
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, SafetensorsError> {
-        let file = File::open(path)?;
-        let mmap = unsafe { Mmap::map(&file)? };
+    pub fn from_file<P: AsRef<Path>>(path: P) -> RusTorchResult<Self> {
+        let file = File::open(path.as_ref())
+            .map_err(|e| RusTorchError::IoError(format!("Failed to open safetensors file: {}", e)))?;
+        let mmap = unsafe { Mmap::map(&file) }
+            .map_err(|e| RusTorchError::IoError(format!("Failed to mmap file: {}", e)))?;
 
         // SAFETY: We keep the mmap alive for the lifetime of SafetensorsLoader
         // The transmute extends the lifetime to 'static, which is safe because
         // we own the mmap and keep it alive
         let tensors = unsafe {
             let data: &'static [u8] = std::mem::transmute(mmap.as_ref());
-            SafeTensors::deserialize(data)?
+            SafeTensors::deserialize(data)
+                .map_err(|e| RusTorchError::DeserializationError(format!("Safetensors parse error: {}", e)))?
         };
 
         Ok(Self {
@@ -100,13 +51,27 @@ impl SafetensorsLoader {
         self.tensors.names().iter().map(|s| s.as_str()).collect()
     }
 
+    /// Get tensor metadata
+    /// テンソルメタデータを取得
+    pub fn tensor_info(&self, name: &str) -> RusTorchResult<TensorInfo> {
+        let tensor = self.tensors.tensor(name)
+            .map_err(|e| RusTorchError::tensor_op(format!("Tensor not found: {}", e)))?;
+
+        Ok(TensorInfo {
+            name: name.to_string(),
+            shape: tensor.shape().to_vec(),
+            dtype: format!("{:?}", tensor.dtype()),
+        })
+    }
+
     /// Load a tensor by name
     /// 名前でテンソルを読み込み
     pub fn load_tensor<T: Float + 'static>(
         &self,
         name: &str,
-    ) -> Result<Tensor<T>, SafetensorsError> {
-        let tensor = self.tensors.tensor(name)?;
+    ) -> RusTorchResult<Tensor<T>> {
+        let tensor = self.tensors.tensor(name)
+            .map_err(|e| RusTorchError::tensor_op(format!("Tensor '{}' not found: {}", name, e)))?;
         let shape = tensor.shape().to_vec();
 
         // Convert data based on tensor dtype
@@ -120,6 +85,18 @@ impl SafetensorsLoader {
                 let data_slice = tensor.data();
                 let f64_data: &[f64] = bytemuck::cast_slice(data_slice);
                 f64_data.iter().map(|&x| T::from(x).unwrap()).collect()
+            }
+            Dtype::F16 => {
+                let data_slice = tensor.data();
+                // F16 is stored as u16 little-endian
+                let u16_data: &[u16] = bytemuck::cast_slice(data_slice);
+                u16_data
+                    .iter()
+                    .map(|&x| {
+                        let f32_val = half::f16::from_bits(x).to_f32();
+                        T::from(f32_val).unwrap()
+                    })
+                    .collect()
             }
             Dtype::I32 => {
                 let data_slice = tensor.data();
@@ -137,9 +114,41 @@ impl SafetensorsLoader {
                     .map(|&x| T::from(x as f64).unwrap())
                     .collect()
             }
+            Dtype::U8 => {
+                let data_slice = tensor.data();
+                data_slice
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
+            Dtype::I8 => {
+                let data_slice = tensor.data();
+                let i8_data: &[i8] = bytemuck::cast_slice(data_slice);
+                i8_data
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
+            Dtype::U16 => {
+                let data_slice = tensor.data();
+                let u16_data: &[u16] = bytemuck::cast_slice(data_slice);
+                u16_data
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
+            Dtype::I16 => {
+                let data_slice = tensor.data();
+                let i16_data: &[i16] = bytemuck::cast_slice(data_slice);
+                i16_data
+                    .iter()
+                    .map(|&x| T::from(x as f64).unwrap())
+                    .collect()
+            }
             _ => {
-                return Err(SafetensorsError::ConversionError(format!(
-                    "Unsupported dtype: {:?}",
+                return Err(RusTorchError::tensor_op(format!(
+                    "Unsupported dtype for tensor '{}': {:?}",
+                    name,
                     tensor.dtype()
                 )))
             }
@@ -152,7 +161,7 @@ impl SafetensorsLoader {
     /// 全テンソルを読み込み
     pub fn load_all_tensors<T: Float + 'static>(
         &self,
-    ) -> Result<HashMap<String, Tensor<T>>, SafetensorsError> {
+    ) -> RusTorchResult<HashMap<String, Tensor<T>>> {
         let mut tensors = HashMap::new();
 
         for name in self.tensor_names() {
@@ -164,20 +173,27 @@ impl SafetensorsLoader {
     }
 }
 
+/// Tensor metadata information
+/// テンソルメタデータ情報
+#[derive(Debug, Clone)]
+pub struct TensorInfo {
+    pub name: String,
+    pub shape: Vec<usize>,
+    pub dtype: String,
+}
+
 /// Safetensors model saver for RusTorch
 /// RusTorch向けSafetensorsモデルセーバー
-#[cfg(feature = "safetensors")]
 pub struct SafetensorsSaver;
 
-#[cfg(feature = "safetensors")]
 impl SafetensorsSaver {
     /// Save tensors to safetensors format
     /// テンソルをsafetensors形式で保存
     pub fn save_to_file<T: Float + 'static, P: AsRef<Path>>(
         tensors: &HashMap<String, Tensor<T>>,
         path: P,
-    ) -> Result<(), SafetensorsError> {
-        use safetensors::tensor::{Dtype, TensorView};
+    ) -> RusTorchResult<()> {
+        use safetensors::tensor::TensorView;
 
         // Pre-convert all tensor data to avoid borrowing issues
         let mut tensor_data: Vec<(String, Vec<usize>, Vec<u8>)> = Vec::new();
@@ -194,26 +210,24 @@ impl SafetensorsSaver {
         for (name, shape, bytes) in &tensor_data {
             let dtype = Dtype::F32;
             let tensor_view =
-                TensorView::new(dtype, shape.clone(), bytes.as_slice()).map_err(|e| {
-                    SafetensorsError::ConversionError(format!("TensorView error: {}", e))
-                })?;
+                TensorView::new(dtype, shape.clone(), bytes.as_slice())
+                    .map_err(|e| RusTorchError::SerializationError(format!("TensorView creation error: {}", e)))?;
             data_map.insert(name.clone(), tensor_view);
         }
 
         // Create safetensors data
-        let safetensor_data = safetensors::serialize(&data_map, &None)?;
+        let safetensor_data = safetensors::serialize(&data_map, &None)
+            .map_err(|e| RusTorchError::SerializationError(format!("Safetensors serialization error: {}", e)))?;
 
         // Write to file
-        std::fs::write(path, safetensor_data)?;
+        std::fs::write(path.as_ref(), safetensor_data)
+            .map_err(|e| RusTorchError::IoError(format!("Failed to write safetensors file: {}", e)))?;
 
         Ok(())
     }
 }
 
-// bytemuck is available via Cargo.toml dependency
-
 #[cfg(test)]
-#[cfg(feature = "safetensors")]
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
@@ -257,5 +271,22 @@ mod tests {
         assert_eq!(loaded_tensors.len(), 2);
         assert!(loaded_tensors.contains_key("tensor1"));
         assert!(loaded_tensors.contains_key("tensor2"));
+    }
+
+    #[test]
+    fn test_tensor_info() {
+        let mut tensors = HashMap::new();
+        let tensor = Tensor::<f32>::from_vec(vec![1.0, 2.0, 3.0], vec![3]);
+        tensors.insert("test".to_string(), tensor);
+
+        let temp_file = NamedTempFile::new().unwrap();
+        SafetensorsSaver::save_to_file(&tensors, temp_file.path()).unwrap();
+
+        let loader = SafetensorsLoader::from_file(temp_file.path()).unwrap();
+        let info = loader.tensor_info("test").unwrap();
+
+        assert_eq!(info.name, "test");
+        assert_eq!(info.shape, vec![3]);
+        assert_eq!(info.dtype, "F32");
     }
 }

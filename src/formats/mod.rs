@@ -1,8 +1,7 @@
 //! Model format support for RusTorch
 //! RusTorchのモデルフォーマットサポート
 
-#[cfg(feature = "safetensors")]
-pub mod safetensors;
+pub mod safetensors; // Safetensors format support (always available)
 
 #[cfg(feature = "onnx")]
 pub mod onnx;
