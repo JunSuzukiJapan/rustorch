@@ -63,6 +63,45 @@ Once inside the REPL, you can use the following commands:
 | `/config`, `/cfg` | Display current configuration |
 | `/config save [FILE]` | Save configuration to file |
 
+## 🛠️ Development Helper Script
+
+The `run-cli.sh` script provides a convenient way to build and run the CLI during development:
+
+```bash
+# Quick start with CPU backend (release mode)
+./example-cli/run-cli.sh
+
+# Debug mode for faster compilation
+./example-cli/run-cli.sh --debug
+
+# With Metal GPU backend
+./example-cli/run-cli.sh --metal
+
+# With Mac hybrid mode (Metal + CoreML)
+./example-cli/run-cli.sh --mac-hybrid
+
+# With specific CLI commands
+./example-cli/run-cli.sh --metal -- chat
+./example-cli/run-cli.sh --debug -- download --source ollama llama2
+
+# Show help
+./example-cli/run-cli.sh --help
+```
+
+### Script Options
+
+| Option | Description |
+|--------|-------------|
+| `--debug` | Build in debug mode (faster compilation) |
+| `--metal` | Enable Metal GPU backend |
+| `--coreml` | Enable CoreML backend |
+| `--mac-hybrid` | Enable Mac hybrid backend (Metal + CoreML) |
+| `--hybrid-f32` | Enable f32 hybrid mode |
+| `--cuda` | Enable CUDA backend |
+| `--help` | Show help message |
+
+Arguments after `--` are passed directly to the CLI application.
+
 ## ⚙️ Configuration
 
 ### Command-Line Options
