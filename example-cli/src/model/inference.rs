@@ -1,6 +1,6 @@
 use super::{sample_token, KVCache, ModelLoader, SamplingConfig, TransformerModel};
 use crate::session::GenerationConfig;
-use crate::tokenizer::{Tokenizer, TokenizerWrapper};
+use crate::tokenizer::Tokenizer;
 use anyhow::Result;
 use rustorch::prelude::Tensor;
 
@@ -10,10 +10,8 @@ use rustorch::models::GPTModel;
 pub struct InferenceEngine {
     model: Option<TransformerModel>,
     gpt_model: Option<GPTModel>,
-    tokenizer: TokenizerWrapper,
     generation_config: GenerationConfig,
     sampling_config: SamplingConfig,
-    #[allow(dead_code)]
     loader: ModelLoader,
 }
 
@@ -31,17 +29,20 @@ impl InferenceEngine {
             repetition_penalty: 1.0,
         };
 
-        // For now, use dummy tokenizer (will load from model in future)
-        let tokenizer = TokenizerWrapper::dummy().expect("Failed to create tokenizer");
+        tracing::info!("✓ InferenceEngine using tokenizer from ModelLoader");
 
         Self {
             model: None,
             gpt_model: None,
-            tokenizer,
             generation_config: config,
             sampling_config,
             loader,
         }
+    }
+
+    /// Get tokenizer reference from loader
+    fn tokenizer(&self) -> &dyn Tokenizer {
+        self.loader.tokenizer()
     }
 
     /// Set the transformer model
@@ -69,9 +70,9 @@ impl InferenceEngine {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
-        // Encode input
+        // Encode input using loader's tokenizer
         let input_ids = self
-            .tokenizer
+            .tokenizer()
             .encode(input, true)
             .unwrap_or_else(|_| {
                 // Fallback: use simple character-based encoding
@@ -82,9 +83,9 @@ impl InferenceEngine {
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
 
-        // Decode output
+        // Decode output using loader's tokenizer
         let output = self
-            .tokenizer
+            .tokenizer()
             .decode(&output_ids, true)
             .unwrap_or_else(|_| {
                 // Fallback: simple character decoding
@@ -160,7 +161,7 @@ impl InferenceEngine {
             tracing::debug!("Step {}: Generated token {}", step, next_token);
 
             // Check for EOS token
-            if let Some(eos_id) = self.tokenizer.eos_token_id() {
+            if let Some(eos_id) = self.tokenizer().eos_token_id() {
                 if next_token == eos_id {
                     tracing::info!("EOS token encountered, stopping generation");
                     break;
@@ -211,7 +212,7 @@ impl InferenceEngine {
             let next_token_id = self.sample_from_logits(&scaled_logits, &generated_ids, step)?;
 
             // Check for EOS token
-            if let Some(eos_id) = self.tokenizer.eos_token_id() {
+            if let Some(eos_id) = self.tokenizer().eos_token_id() {
                 if next_token_id == eos_id as usize {
                     tracing::debug!("EOS token generated at step {}", step);
                     break;
@@ -323,9 +324,9 @@ impl InferenceEngine {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
-        // Encode input
+        // Encode input using loader's tokenizer
         let input_ids = self
-            .tokenizer
+            .tokenizer()
             .encode(input, true)
             .unwrap_or_else(|_| {
                 tracing::warn!("Tokenizer encoding failed in stream, using character-based fallback");
@@ -340,8 +341,8 @@ impl InferenceEngine {
     fn generate_tokens_stream(&self, input_ids: Vec<u32>) -> impl Iterator<Item = String> + '_ {
         let max_new_tokens = self.generation_config.max_tokens;
         let generated_ids = input_ids.clone();
-        let eos_id = self.tokenizer.eos_token_id();
-        let vocab_size = self.tokenizer.vocab_size();
+        let eos_id = self.tokenizer().eos_token_id();
+        let vocab_size = self.tokenizer().vocab_size();
 
         (0..max_new_tokens).scan(generated_ids, move |state, _| {
             // Sample next token (placeholder with random logits for now)
@@ -358,8 +359,8 @@ impl InferenceEngine {
 
             state.push(next_token);
 
-            // Decode the single token
-            self.tokenizer.decode(&[next_token], false).ok()
+            // Decode the single token using loader's tokenizer
+            self.tokenizer().decode(&[next_token], false).ok()
         })
     }
 }
