@@ -9,6 +9,12 @@ pub mod metal;
 #[cfg(feature = "opencl")]
 pub mod opencl;
 
+#[cfg(feature = "mac-hybrid")]
+pub mod hybrid;
+
+#[cfg(feature = "hybrid-f32")]
+pub mod hybrid_f32;
+
 use anyhow::Result;
 use rustorch::tensor::Tensor;
 
