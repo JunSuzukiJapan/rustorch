@@ -258,6 +258,8 @@ impl GPTModel {
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         // Limit to 2 layers for faster inference during development
         // TODO: Remove this limitation for production use
+        // TODO: Add GPU backend support for tensor operations
+        eprintln!("⚠️  GPT forward pass using CPU (GPU backend not yet integrated)");
         let max_layers = Some(2);
         self.forward_with_layers(input_ids, max_layers)
     }
