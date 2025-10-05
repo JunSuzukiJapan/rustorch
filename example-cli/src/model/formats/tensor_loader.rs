@@ -10,13 +10,21 @@ use std::path::Path;
 
 /// Load tensors from GGUF file
 pub struct TensorLoader {
-    loader: GGUFLoader,
-    reader: BufReader<File>,
+    loader: Option<GGUFLoader>,
+    reader: Option<BufReader<File>>,
 }
 
 impl TensorLoader {
+    /// Create new tensor loader (without file - for standalone use)
+    pub fn new() -> Self {
+        Self {
+            loader: None,
+            reader: None,
+        }
+    }
+
     /// Create new tensor loader from GGUF file
-    pub fn new(path: impl AsRef<Path>) -> Result<Self> {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let loader = GGUFLoader::new(path.as_ref())?;
 
         // Re-open file for tensor data reading
@@ -24,21 +32,49 @@ impl TensorLoader {
             .with_context(|| format!("Failed to open file: {:?}", path.as_ref()))?;
         let reader = BufReader::new(file);
 
-        Ok(Self { loader, reader })
+        Ok(Self {
+            loader: Some(loader),
+            reader: Some(reader),
+        })
     }
 
     /// Get tensor info by name
     pub fn get_tensor_info(&self, name: &str) -> Option<&GGUFTensorInfo> {
-        self.loader.get_tensor(name)
+        self.loader.as_ref()?.get_tensor(name)
     }
 
     /// List all tensor names
     pub fn tensor_names(&self) -> Vec<String> {
-        self.loader.tensor_names()
+        self.loader
+            .as_ref()
+            .map(|l| l.tensor_names())
+            .unwrap_or_default()
     }
 
-    /// Load tensor data by name and convert to RusTorch Tensor
-    pub fn load_tensor(&mut self, name: &str) -> Result<Tensor<f64>> {
+    /// Load tensor from raw data (dequantize and convert to RusTorch Tensor)
+    pub fn load_tensor(
+        &self,
+        data: &[u8],
+        shape: &[u64],
+        ggml_type: GGMLType,
+    ) -> Result<Tensor<f64>> {
+        // Dequantize to f64
+        let f64_data = dequantize_tensor(data, ggml_type)?;
+
+        // Convert dims from u64 to usize
+        let tensor_shape: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+
+        // Create RusTorch tensor
+        Ok(Tensor::from_vec(f64_data, tensor_shape))
+    }
+
+    /// Load tensor data by name and convert to RusTorch Tensor (requires file-based loader)
+    pub fn load_tensor_by_name(&mut self, name: &str) -> Result<Tensor<f64>> {
+        let _loader = self
+            .loader
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Loader not initialized"))?;
+
         // Clone tensor_info to avoid borrow checker issues
         let tensor_info = self
             .get_tensor_info(name)
@@ -56,14 +92,8 @@ impl TensorLoader {
         // Read raw tensor data
         let raw_data = self.read_tensor_data(&tensor_info)?;
 
-        // Dequantize to f64
-        let f64_data = dequantize_tensor(&raw_data, tensor_info.ggml_type)?;
-
-        // Convert dims from u64 to usize
-        let shape: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
-
-        // Create RusTorch tensor
-        Ok(Tensor::from_vec(f64_data, shape))
+        // Use load_tensor to convert
+        self.load_tensor(&raw_data, &tensor_info.dims, tensor_info.ggml_type)
     }
 
     /// Load all tensors and return as a map
@@ -72,7 +102,7 @@ impl TensorLoader {
         let names = self.tensor_names();
 
         for name in names {
-            let tensor = self.load_tensor(&name)?;
+            let tensor = self.load_tensor_by_name(&name)?;
             tensors.insert(name, tensor);
         }
 
@@ -81,17 +111,22 @@ impl TensorLoader {
 
     /// Read raw tensor data from file
     fn read_tensor_data(&mut self, info: &GGUFTensorInfo) -> Result<Vec<u8>> {
+        let reader = self
+            .reader
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("Reader not initialized"))?;
+
         // Calculate tensor data size in bytes
         let num_elements: u64 = info.dims.iter().product();
         let bytes_per_element = bytes_per_element(info.ggml_type);
         let total_bytes = (num_elements as usize) * bytes_per_element;
 
         // Seek to tensor data offset
-        self.reader.seek(SeekFrom::Start(info.offset))?;
+        reader.seek(SeekFrom::Start(info.offset))?;
 
         // Read tensor data
         let mut buffer = vec![0u8; total_bytes];
-        self.reader
+        reader
             .read_exact(&mut buffer)
             .with_context(|| format!("Failed to read tensor data for '{}'", info.name))?;
 

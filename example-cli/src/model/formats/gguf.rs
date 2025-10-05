@@ -397,12 +397,61 @@ impl GGUFLoader {
         self.tensors.iter().map(|t| t.name.clone()).collect()
     }
 
-    /// Load tensor data (placeholder - will be implemented when integrating with RusTorch)
-    pub fn load_tensor_data(&mut self, _tensor_name: &str) -> Result<Vec<u8>> {
-        // TODO: Implement actual tensor data loading
-        // This requires seeking to tensor_data_offset + tensor.offset
-        // and reading the appropriate number of bytes
-        anyhow::bail!("Tensor data loading not yet implemented")
+    /// Get tensor info by name
+    pub fn tensor_info(&self, name: &str) -> Result<&GGUFTensorInfo> {
+        self.tensors
+            .iter()
+            .find(|t| t.name == name)
+            .ok_or_else(|| anyhow::anyhow!("Tensor not found: {}", name))
+    }
+
+    /// Load tensor data from GGUF file
+    pub fn load_tensor_data(&mut self, tensor_name: &str) -> Result<Vec<u8>> {
+        // Find tensor info
+        let tensor_info = self
+            .tensors
+            .iter()
+            .find(|t| t.name == tensor_name)
+            .ok_or_else(|| anyhow::anyhow!("Tensor not found: {}", tensor_name))?;
+
+        // Calculate total bytes needed
+        let num_elements: usize = tensor_info.dims.iter().map(|&d| d as usize).product();
+        let type_size = tensor_info.ggml_type.type_size();
+
+        // For quantized types, calculate bytes based on block structure
+        let total_bytes = if type_size >= 4 {
+            // Regular types: bytes = elements * type_size
+            num_elements * type_size
+        } else {
+            // Quantized types: use block-based calculation
+            let block_size = match tensor_info.ggml_type {
+                GGMLType::Q4_0 | GGMLType::Q4_1 | GGMLType::Q5_0 | GGMLType::Q5_1 => 32,
+                GGMLType::Q8_0 | GGMLType::Q8_1 => 32,
+                GGMLType::Q2_K | GGMLType::Q3_K | GGMLType::Q4_K
+                | GGMLType::Q5_K | GGMLType::Q6_K | GGMLType::Q8_K => 256,
+                _ => num_elements,
+            };
+            let num_blocks = num_elements.div_ceil(block_size);
+            num_blocks * type_size
+        };
+
+        // Seek to tensor data position
+        let data_offset = self.tensor_data_offset + tensor_info.offset;
+        self.reader.seek(std::io::SeekFrom::Start(data_offset))?;
+
+        // Read tensor data
+        let mut buffer = vec![0u8; total_bytes];
+        self.reader.read_exact(&mut buffer)?;
+
+        tracing::debug!(
+            "Loaded tensor '{}': {} elements, {} bytes, type {:?}",
+            tensor_name,
+            num_elements,
+            total_bytes,
+            tensor_info.ggml_type
+        );
+
+        Ok(buffer)
     }
 }
 

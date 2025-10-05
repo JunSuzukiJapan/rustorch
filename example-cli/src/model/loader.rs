@@ -1,10 +1,15 @@
 use anyhow::Result;
 use std::path::Path;
+use std::collections::HashMap;
+use rustorch::prelude::Tensor;
 
 use super::{ModelFormat, ModelMetadata};
+use super::formats::{GGUFLoader, TensorLoader};
 
 pub struct ModelLoader {
     metadata: ModelMetadata,
+    gguf_loader: Option<GGUFLoader>,
+    weights: HashMap<String, Tensor<f64>>,
 }
 
 impl ModelLoader {
@@ -49,13 +54,108 @@ impl ModelLoader {
             context_length: 2048,
         };
 
-        Ok(Self { metadata })
+        Ok(Self {
+            metadata,
+            gguf_loader: None,
+            weights: HashMap::new(),
+        })
     }
 
-    fn load_gguf(_path: &Path) -> Result<Self> {
-        // TODO: Implement GGUF loading
-        tracing::warn!("GGUF loading not yet implemented, using dummy model");
-        Self::load_dummy()
+    fn load_gguf(path: &Path) -> Result<Self> {
+        tracing::info!("Loading GGUF model from: {}", path.display());
+
+        // Load GGUF file
+        let mut loader = GGUFLoader::new(path)?;
+
+        // Get model metadata from GGUF
+        let metadata_map = loader.metadata();
+
+        // Extract model parameters from metadata
+        let vocab_size = metadata_map
+            .get("tokenizer.ggml.model")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(32000) as usize;
+
+        let hidden_size = metadata_map
+            .get("llama.embedding_length")
+            .or_else(|| metadata_map.get("gpt2.embedding_length"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(2048) as usize;
+
+        let num_layers = metadata_map
+            .get("llama.block_count")
+            .or_else(|| metadata_map.get("gpt2.block_count"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(22) as usize;
+
+        let num_heads = metadata_map
+            .get("llama.attention.head_count")
+            .or_else(|| metadata_map.get("gpt2.attention.head_count"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(32) as usize;
+
+        let context_length = metadata_map
+            .get("llama.context_length")
+            .or_else(|| metadata_map.get("gpt2.context_length"))
+            .and_then(|v| v.as_u64())
+            .unwrap_or(2048) as usize;
+
+        tracing::info!(
+            "GGUF model parameters: vocab={}, hidden={}, layers={}, heads={}, context={}",
+            vocab_size,
+            hidden_size,
+            num_layers,
+            num_heads,
+            context_length
+        );
+
+        let tensor_names = loader.tensor_names();
+        tracing::info!("Found {} tensors in GGUF file", tensor_names.len());
+
+        // Load all tensors into memory
+        let mut weights = HashMap::new();
+        let tensor_loader = TensorLoader::new();
+
+        for tensor_name in &tensor_names {
+            tracing::debug!("Loading tensor: {}", tensor_name);
+
+            // Load tensor data from GGUF
+            let tensor_bytes = loader.load_tensor_data(tensor_name)?;
+
+            // Get tensor info for shape and type
+            let tensor_info = loader.tensor_info(tensor_name)?;
+
+            // Convert to RusTorch Tensor
+            let tensor = tensor_loader.load_tensor(
+                &tensor_bytes,
+                &tensor_info.dims,
+                tensor_info.ggml_type,
+            )?;
+
+            weights.insert(tensor_name.clone(), tensor);
+        }
+
+        tracing::info!("Successfully loaded {} tensors", weights.len());
+
+        let metadata = ModelMetadata {
+            name: path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            format: ModelFormat::GGUF,
+            vocab_size,
+            hidden_size,
+            num_layers,
+            num_heads,
+            context_length,
+        };
+
+        Ok(Self {
+            metadata,
+            gguf_loader: Some(loader),
+            weights,
+        })
     }
 
     fn load_safetensors(path: &Path) -> Result<Self> {
@@ -88,7 +188,11 @@ impl ModelLoader {
             context_length: 2048,
         };
 
-        Ok(Self { metadata })
+        Ok(Self {
+            metadata,
+            gguf_loader: None,
+            weights: HashMap::new(),
+        })
     }
 
     fn load_onnx(path: &Path) -> Result<Self> {
@@ -118,7 +222,11 @@ impl ModelLoader {
             context_length: 2048,
         };
 
-        Ok(Self { metadata })
+        Ok(Self {
+            metadata,
+            gguf_loader: None,
+            weights: HashMap::new(),
+        })
     }
 
     fn load_mlx(path: &Path) -> Result<Self> {
@@ -134,7 +242,11 @@ impl ModelLoader {
             _tensors.len()
         );
 
-        Ok(Self { metadata })
+        Ok(Self {
+            metadata,
+            gguf_loader: None,
+            weights: HashMap::new(),
+        })
     }
 
     fn load_pytorch(path: &Path) -> Result<Self> {
@@ -150,11 +262,25 @@ impl ModelLoader {
             _state_dict.len()
         );
 
-        Ok(Self { metadata })
+        Ok(Self {
+            metadata,
+            gguf_loader: None,
+            weights: HashMap::new(),
+        })
     }
 
     pub fn metadata(&self) -> &ModelMetadata {
         &self.metadata
+    }
+
+    /// Get model weights
+    pub fn weights(&self) -> &HashMap<String, Tensor<f64>> {
+        &self.weights
+    }
+
+    /// Get a specific weight by name
+    pub fn weight(&self, name: &str) -> Option<&Tensor<f64>> {
+        self.weights.get(name)
     }
 }
 
