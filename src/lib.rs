@@ -285,6 +285,7 @@ pub mod model_import;
 /// Pre-built models and architectures
 /// 事前構築モデルとアーキテクチャ
 pub mod models;
+pub mod tokenizer;
 /// Neural network layers and building blocks
 /// ニューラルネットワークレイヤーと構成要素
 pub mod nn;

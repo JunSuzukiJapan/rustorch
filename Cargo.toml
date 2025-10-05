@@ -76,6 +76,9 @@ prost-build = { version = "0.12", optional = true }
 bytes = { version = "1.5", optional = true }
 base64 = { version = "0.21", optional = true }
 
+# Tokenizer dependencies
+tokenizers = { version = "0.19", optional = true }
+
 # HTTP client for model downloads
 reqwest = { version = "0.11", optional = true, features = ["stream", "json"] }
 futures-util = { version = "0.3", optional = true }
@@ -180,6 +183,7 @@ webgpu = ["wasm", "dep:wgpu", "dep:wgpu-hal", "dep:wgpu-core", "dep:wgpu-types"]
 model-import = ["dep:protobuf", "dep:prost", "dep:prost-derive", "dep:prost-types", "dep:prost-build", "dep:bytes", "dep:base64"]
 onnx = ["dep:ort"]
 model-hub = ["dep:reqwest", "dep:futures-util", "dep:tokio", "dep:sha2", "dep:md5", "dep:digest", "dep:dirs", "model-import"]
+tokenizer = ["dep:tokenizers"]
 python = ["dep:pyo3", "dep:numpy"]
 ci-fast = []
 memory-debug = []
