@@ -103,34 +103,64 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Load RusTorch GPT model with specified backend
     tracing::info!("Loading RusTorch GPT model from: {}", model_path.display());
 
-    // Convert args.backend to rustorch::backends::DeviceType
+    // Convert args.backend to device type
     use rustorch_cli::Backend as CliBackend;
-    let device_type = match args.backend {
-        CliBackend::Cpu => rustorch::backends::DeviceType::Cpu,
-        CliBackend::Cuda => rustorch::backends::DeviceType::Cuda,
-        CliBackend::Metal => rustorch::backends::DeviceType::Metal,
-        CliBackend::Opencl => rustorch::backends::DeviceType::OpenCL,
-        CliBackend::Hybrid | CliBackend::HybridF32 => {
-            // For hybrid, prefer Metal on macOS, otherwise CPU
-            #[cfg(target_os = "macos")]
-            {
-                rustorch::backends::DeviceType::Metal
-            }
-            #[cfg(not(target_os = "macos"))]
-            {
-                rustorch::backends::DeviceType::Cpu
-            }
-        }
-    };
 
-    match rustorch::models::GPTModel::from_gguf_with_backend(&model_path, device_type) {
-        Ok(gpt_model) => {
-            tracing::info!("✅ RusTorch GPT model loaded successfully on {:?} backend", gpt_model.device_type());
-            engine.set_gpt_model(gpt_model);
+    // For hybrid-f32 backend, use F32GPTModel (Metal GPU optimized)
+    #[cfg(feature = "hybrid-f32")]
+    if matches!(args.backend, CliBackend::HybridF32) {
+        use rustorch::hybrid_f32::models::{DeviceType, F32GPTModel};
+
+        let device_type = DeviceType::Metal;
+        tracing::info!("Loading F32 GPT model with Metal GPU backend");
+
+        match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
+            Ok(f32_model) => {
+                tracing::info!("✅ F32 GPT model loaded successfully on {:?} backend (Metal GPU)", device_type);
+                engine.set_f32_gpt_model(f32_model);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load F32 GPT model: {}", e);
+                tracing::warn!("Falling back to dummy inference");
+            }
         }
-        Err(e) => {
-            tracing::warn!("Failed to load RusTorch GPT model: {}", e);
-            tracing::warn!("Falling back to dummy inference");
+    }
+
+    // For other backends, use standard GPTModel
+    #[cfg(not(feature = "hybrid-f32"))]
+    let use_standard_model = true;
+    #[cfg(feature = "hybrid-f32")]
+    let use_standard_model = !matches!(args.backend, CliBackend::HybridF32);
+
+    if use_standard_model {
+        let device_type = match args.backend {
+            CliBackend::Cpu => rustorch::backends::DeviceType::Cpu,
+            CliBackend::Cuda => rustorch::backends::DeviceType::Cuda,
+            CliBackend::Metal => rustorch::backends::DeviceType::Metal,
+            CliBackend::Opencl => rustorch::backends::DeviceType::OpenCL,
+            CliBackend::Hybrid => {
+                #[cfg(target_os = "macos")]
+                {
+                    rustorch::backends::DeviceType::Metal
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    rustorch::backends::DeviceType::Cpu
+                }
+            }
+            #[cfg(feature = "hybrid-f32")]
+            CliBackend::HybridF32 => unreachable!(),
+        };
+
+        match rustorch::models::GPTModel::from_gguf_with_backend(&model_path, device_type) {
+            Ok(gpt_model) => {
+                tracing::info!("✅ RusTorch GPT model loaded successfully on {:?} backend", gpt_model.device_type());
+                engine.set_gpt_model(gpt_model);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to load RusTorch GPT model: {}", e);
+                tracing::warn!("Falling back to dummy inference");
+            }
         }
     }
 

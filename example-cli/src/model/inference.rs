@@ -4,12 +4,17 @@ use crate::tokenizer::Tokenizer;
 use anyhow::Result;
 use rustorch::prelude::Tensor;
 
-// Import GPT model from RusTorch core
+// Import GPT models from RusTorch core
 use rustorch::models::GPTModel;
+
+#[cfg(feature = "hybrid-f32")]
+use rustorch::hybrid_f32::models::F32GPTModel;
 
 pub struct InferenceEngine {
     model: Option<TransformerModel>,
     gpt_model: Option<GPTModel>,
+    #[cfg(feature = "hybrid-f32")]
+    f32_gpt_model: Option<F32GPTModel>,
     generation_config: GenerationConfig,
     sampling_config: SamplingConfig,
     loader: ModelLoader,
@@ -34,6 +39,8 @@ impl InferenceEngine {
         Self {
             model: None,
             gpt_model: None,
+            #[cfg(feature = "hybrid-f32")]
+            f32_gpt_model: None,
             generation_config: config,
             sampling_config,
             loader,
@@ -53,6 +60,12 @@ impl InferenceEngine {
     /// Set the GPT model
     pub fn set_gpt_model(&mut self, model: GPTModel) {
         self.gpt_model = Some(model);
+    }
+
+    /// Set the F32 GPT model
+    #[cfg(feature = "hybrid-f32")]
+    pub fn set_f32_gpt_model(&mut self, model: F32GPTModel) {
+        self.f32_gpt_model = Some(model);
     }
 
     /// Generate a response from input text
@@ -99,6 +112,13 @@ impl InferenceEngine {
     /// Generate tokens using the model
     fn generate_tokens(&self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
+
+        // Prioritize F32 GPT model (Metal GPU optimized)
+        #[cfg(feature = "hybrid-f32")]
+        if let Some(ref f32_model) = self.f32_gpt_model {
+            tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
+            return self.generate_with_f32_gpt(f32_model, input_ids, max_new_tokens);
+        }
 
         // Use GPT model if available (prioritize RusTorch implementation)
         if let Some(ref gpt_model) = self.gpt_model {
@@ -235,6 +255,94 @@ impl InferenceEngine {
             .collect();
 
         Ok(new_tokens)
+    }
+
+    /// Generate tokens using F32 GPT model (Metal GPU optimized)
+    #[cfg(feature = "hybrid-f32")]
+    fn generate_with_f32_gpt(
+        &self,
+        f32_model: &F32GPTModel,
+        input_ids: &[u32],
+        max_new_tokens: usize,
+    ) -> Result<Vec<u32>> {
+        let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
+
+        tracing::info!(
+            "Generating {} tokens with F32 GPT model (Metal GPU)",
+            max_new_tokens
+        );
+
+        // Generation loop
+        for step in 0..max_new_tokens {
+            // Forward pass through F32 GPT model
+            let logits_tensor = f32_model.forward(&generated_ids)
+                .map_err(|e| anyhow::anyhow!("F32 GPT forward failed: {}", e))?;
+
+            // Extract logits for the last position
+            let seq_len = generated_ids.len();
+            let last_logits = Self::extract_last_f32_logits(&logits_tensor, seq_len)?;
+
+            // Sample next token (use simple argmax for now)
+            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
+
+            tracing::debug!("Step {}: Generated token {}", step, next_token_id);
+
+            // Check for EOS token
+            if let Some(eos_id) = self.tokenizer().eos_token_id() {
+                if next_token_id == eos_id as usize {
+                    tracing::debug!("EOS token generated at step {}", step);
+                    break;
+                }
+            }
+
+            generated_ids.push(next_token_id);
+
+            // Stop if context limit exceeded
+            if seq_len >= f32_model.config().max_seq_len {
+                tracing::warn!("Reached maximum sequence length");
+                break;
+            }
+        }
+
+        // Return only the newly generated tokens
+        let new_tokens: Vec<u32> = generated_ids[input_ids.len()..]
+            .iter()
+            .map(|&id| id as u32)
+            .collect();
+
+        Ok(new_tokens)
+    }
+
+    /// Extract logits for the last position from F32 tensor
+    #[cfg(feature = "hybrid-f32")]
+    fn extract_last_f32_logits(
+        logits_tensor: &rustorch::hybrid_f32::tensor::F32Tensor,
+        seq_len: usize,
+    ) -> Result<Vec<f32>> {
+        let shape = logits_tensor.data.shape();
+        if shape.len() != 3 {
+            anyhow::bail!("Expected 3D logits tensor, got {}D", shape.len());
+        }
+
+        let vocab_size = shape[2];
+        let offset = (seq_len - 1) * vocab_size;
+
+        if let Some(data_slice) = logits_tensor.data.as_slice() {
+            Ok(data_slice[offset..offset + vocab_size].to_vec())
+        } else {
+            anyhow::bail!("Failed to access F32 tensor data")
+        }
+    }
+
+    /// Sample token using argmax (simple greedy decoding)
+    #[cfg(feature = "hybrid-f32")]
+    fn sample_argmax_f32(logits: &[f32]) -> Result<usize> {
+        logits
+            .iter()
+            .enumerate()
+            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(idx, _)| idx)
+            .ok_or_else(|| anyhow::anyhow!("Failed to sample token"))
     }
 
     /// Extract logits for the last position from model output
