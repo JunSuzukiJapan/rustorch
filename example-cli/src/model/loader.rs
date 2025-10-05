@@ -130,6 +130,7 @@ impl ModelLoader {
         Ok(Box::new(TokenizerWrapper::dummy()?))
     }
 
+    #[cfg(test)]
     fn load_dummy() -> Result<Self> {
         tracing::info!("Creating dummy model for testing");
 
