@@ -57,6 +57,19 @@ impl FormatLoader for SafetensorsFormatLoader {
 }
 
 impl SafetensorsFormatLoader {
+    /// Get default tokenizer path for Safetensors models
+    /// Safetensorsモデルのデフォルトトークナイザーパスを取得
+    pub fn default_tokenizer_path(model_path: &std::path::Path) -> Option<std::path::PathBuf> {
+        let model_dir = model_path.parent()?;
+        let tokenizer_path = model_dir.join("tokenizer.json");
+
+        if tokenizer_path.exists() {
+            Some(tokenizer_path)
+        } else {
+            None
+        }
+    }
+
     /// Infer vocabulary size from embedding layer
     /// 埋め込み層から語彙サイズを推論
     fn infer_vocab_size(

@@ -1,6 +1,6 @@
 // GGUF format loader with common interface implementation
 use anyhow::Result;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::model::format_loader::{metadata_utils, FormatLoader};
 use crate::model::{ModelFormat, ModelMetadata};
@@ -48,6 +48,22 @@ impl FormatLoader for GGUFFormatLoader {
             .and_then(|ext| ext.to_str())
             .map(|ext| ext.eq_ignore_ascii_case("gguf"))
             .unwrap_or(false)
+    }
+}
+
+impl GGUFFormatLoader {
+    /// Get default tokenizer path for GGUF models
+    /// GGUFモデルのデフォルトトークナイザーパスを取得
+    pub fn default_tokenizer_path(model_path: &Path) -> Option<PathBuf> {
+        // Try tokenizer.json in the same directory as the model file
+        let model_dir = model_path.parent()?;
+        let tokenizer_path = model_dir.join("tokenizer.json");
+
+        if tokenizer_path.exists() {
+            Some(tokenizer_path)
+        } else {
+            None
+        }
     }
 }
 
