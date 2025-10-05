@@ -240,29 +240,33 @@ impl F32GPTModel {
     }
 
     /// Apply LayerNorm using GPU acceleration if available (for attention)
-    fn apply_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
-        let ln_weight_key = format!("blk.{}.attn_norm.weight", layer_idx);
-
-        let gamma = self.weights.get(&ln_weight_key)
-            .ok_or_else(|| F32Error::device_error(format!("LayerNorm weight not found: {}", ln_weight_key)))?;
+    /// Apply LayerNorm with given weight key prefix
+    fn apply_layer_norm_by_key(&self, input: F32Tensor, weight_key: &str, bias_key: &str) -> F32Result<F32Tensor> {
+        let gamma = self.weights.get(weight_key)
+            .ok_or_else(|| F32Error::device_error(format!("LayerNorm weight not found: {}", weight_key)))?;
 
         // Beta (bias) is optional - Llama models use RMSNorm without bias
-        let beta = self.weights.get(&format!("blk.{}.attn_norm.bias", layer_idx));
+        let beta = self.weights.get(bias_key);
 
         self.layer_norm_impl(&input, gamma, beta)
     }
 
+    /// Apply LayerNorm for attention
+    fn apply_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        self.apply_layer_norm_by_key(
+            input,
+            &format!("blk.{}.attn_norm.weight", layer_idx),
+            &format!("blk.{}.attn_norm.bias", layer_idx)
+        )
+    }
+
     /// Apply LayerNorm for FFN
     fn apply_ffn_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
-        let ln_weight_key = format!("blk.{}.ffn_norm.weight", layer_idx);
-
-        let gamma = self.weights.get(&ln_weight_key)
-            .ok_or_else(|| F32Error::device_error(format!("FFN LayerNorm weight not found: {}", ln_weight_key)))?;
-
-        // Beta (bias) is optional - Llama models use RMSNorm without bias
-        let beta = self.weights.get(&format!("blk.{}.ffn_norm.bias", layer_idx));
-
-        self.layer_norm_impl(&input, gamma, beta)
+        self.apply_layer_norm_by_key(
+            input,
+            &format!("blk.{}.ffn_norm.weight", layer_idx),
+            &format!("blk.{}.ffn_norm.bias", layer_idx)
+        )
     }
 
     /// Add two tensors element-wise (for residual connections)
@@ -293,11 +297,11 @@ impl F32GPTModel {
 
     /// Apply final LayerNorm
     fn apply_final_layer_norm(&self, input: F32Tensor) -> F32Result<F32Tensor> {
+        // Try multiple possible weight names
         let gamma = self.weights.get("output_norm.weight")
             .or_else(|| self.weights.get("model.norm.weight"))
             .ok_or_else(|| F32Error::device_error("Final LayerNorm weight not found"))?;
 
-        // Beta (bias) is optional - Llama models use RMSNorm without bias
         let beta = self.weights.get("output_norm.bias")
             .or_else(|| self.weights.get("model.norm.bias"));
 
@@ -324,6 +328,22 @@ impl F32GPTModel {
         self.cpu_layer_norm(input, gamma, beta, batch_size, seq_len, features)
     }
 
+    /// Helper to get beta slice, creating zero vector for RMSNorm if None
+    #[inline]
+    fn get_beta_slice<'a>(
+        beta: Option<&'a F32Tensor>,
+        zero_beta: &'a mut Vec<f32>,
+        features: usize,
+    ) -> F32Result<&'a [f32]> {
+        if let Some(b) = beta {
+            b.data.as_slice()
+                .ok_or_else(|| F32Error::device_error("Failed to access beta data"))
+        } else {
+            *zero_beta = vec![0.0f32; features];
+            Ok(&zero_beta[..])
+        }
+    }
+
     #[cfg(feature = "metal")]
     fn metal_layer_norm(
         &self,
@@ -341,15 +361,8 @@ impl F32GPTModel {
         let gamma_slice = gamma.data.as_slice()
             .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
 
-        // If beta is None, create a zero vector (RMSNorm doesn't use bias)
-        let zero_beta;
-        let beta_slice = if let Some(b) = beta {
-            b.data.as_slice()
-                .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?
-        } else {
-            zero_beta = vec![0.0f32; features];
-            &zero_beta
-        };
+        let mut zero_beta = Vec::new();
+        let beta_slice = Self::get_beta_slice(beta, &mut zero_beta, features)?;
 
         let mut output = vec![0.0f32; input_slice.len()];
 
@@ -383,15 +396,8 @@ impl F32GPTModel {
         let gamma_slice = gamma.data.as_slice()
             .ok_or_else(|| F32Error::device_error("Failed to access gamma data"))?;
 
-        // If beta is None, create a zero vector (RMSNorm doesn't use bias)
-        let zero_beta;
-        let beta_slice = if let Some(b) = beta {
-            b.data.as_slice()
-                .ok_or_else(|| F32Error::device_error("Failed to access beta data"))?
-        } else {
-            zero_beta = vec![0.0f32; features];
-            &zero_beta
-        };
+        let mut zero_beta = Vec::new();
+        let beta_slice = Self::get_beta_slice(beta, &mut zero_beta, features)?;
 
         let mut output = vec![0.0f32; input_slice.len()];
         let eps = 1e-5f32;
@@ -519,53 +525,18 @@ impl F32GPTModel {
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create attention output: {}", e)))
     }
 
-    /// Helper: Linear projection (input @ weight^T)
-    fn linear_projection(
-        &self,
-        input: &[f32],
-        weight: &F32Tensor,
-        batch_size: usize,
-        seq_len: usize,
-        input_dim: usize,
-    ) -> F32Result<Vec<f32>> {
-        let weight_slice = weight.data.as_slice()
-            .ok_or_else(|| F32Error::device_error("Failed to access weight data"))?;
-
-        // Weight shape: [output_dim, input_dim]
-        let weight_shape = weight.data.shape();
-        let output_dim = weight_shape[0];
-        let expected_input_dim = weight_shape[1];
-
-        if expected_input_dim != input_dim {
-            return Err(F32Error::shape_mismatch(format!(
-                "Weight input dim {} doesn't match expected {}",
-                expected_input_dim, input_dim
-            )));
-        }
-
-        let mut output = vec![0.0f32; batch_size * seq_len * output_dim];
-
-        for b in 0..batch_size {
-            for s in 0..seq_len {
-                let input_offset = (b * seq_len + s) * input_dim;
-                let output_offset = (b * seq_len + s) * output_dim;
-
-                for o in 0..output_dim {
-                    let weight_offset = o * input_dim;
-                    let mut sum = 0.0f32;
-                    for d in 0..input_dim {
-                        sum += input[input_offset + d] * weight_slice[weight_offset + d];
-                    }
-                    output[output_offset + o] = sum;
-                }
-            }
-        }
-
-        Ok(output)
-    }
-
-    /// Helper: Linear projection with transposed weight (for GQA K/V)
-    /// Weight shape: [input_dim, output_dim] instead of [output_dim, input_dim]
+    /// Linear projection for GGUF format weights
+    ///
+    /// GGUF stores all weights as [input_dim, output_dim] (transposed from PyTorch [output_dim, input_dim]).
+    /// This performs: output = input @ weight where weight is [input_dim, output_dim]
+    ///
+    /// # Arguments
+    /// * `input` - Input tensor data [batch_size, seq_len, input_dim]
+    /// * `weight` - Weight tensor [input_dim, output_dim]
+    /// * `batch_size` - Batch size
+    /// * `seq_len` - Sequence length
+    /// * `input_dim` - Input dimension
+    /// * `output_dim` - Output dimension
     fn linear_projection_transposed(
         &self,
         input: &[f32],
