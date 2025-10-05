@@ -99,6 +99,9 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Create inference engine
     let engine = InferenceEngine::new(model_loader, gen_config.clone());
 
+    // Note: RusTorch GPTModel integration will be implemented in future
+    // Currently using CLI's own model architecture
+
     // Create session manager
     let mut session = SessionManager::new(gen_config, args.backend.as_str(), &model_name);
 

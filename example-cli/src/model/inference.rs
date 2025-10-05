@@ -186,7 +186,7 @@ impl InferenceEngine {
         Ok(generated_ids[input_ids.len()..].to_vec())
     }
 
-    /// Generate tokens using GPT model with RusTorch
+    /// Generate tokens using GPT model (CLI's GPT implementation)
     fn generate_with_gpt(
         &self,
         gpt_model: &GPTModel,
@@ -195,6 +195,11 @@ impl InferenceEngine {
     ) -> Result<Vec<u32>> {
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
 
+        tracing::info!(
+            "Generating {} tokens with GPT model",
+            max_new_tokens
+        );
+
         // Generation loop
         for step in 0..max_new_tokens {
             // Prepare input for model (current sequence)
@@ -202,8 +207,6 @@ impl InferenceEngine {
             let batch_size = 1;
 
             // Forward pass through GPT model
-            // Input: token_ids [batch_size, seq_len]
-            // Output: logits [batch_size, seq_len, vocab_size]
             let logits_tensor = gpt_model.forward(&generated_ids, batch_size, seq_len)?;
 
             // Extract logits for the last position
