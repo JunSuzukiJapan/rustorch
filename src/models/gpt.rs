@@ -151,12 +151,14 @@ impl GPTModel {
     /// TransformerフォワードパスによるGPT実装
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         use crate::autograd::Variable;
-        use crate::nn::{Embedding, SinusoidalPositionalEncoding, Module};
+        use crate::nn::{Embedding, SinusoidalPositionalEncoding, MultiheadAttention, LayerNorm, Linear, GELU, Module};
 
         let batch_size = 1;
         let seq_len = input_ids.len();
         let vocab_size = self.config.vocab_size;
         let d_model = self.config.d_model;
+        let num_heads = self.config.num_heads;
+        let d_ff = self.config.d_ff;
 
         // 1. Token Embedding Lookup
         // トークン埋め込み変換: [batch_size, seq_len] -> [batch_size, seq_len, d_model]
@@ -168,7 +170,7 @@ impl GPTModel {
         let input_var = Variable::new(input_tensor, false);
 
         // Get token embeddings: [batch_size, seq_len, d_model]
-        let mut embeddings = token_emb.forward(&input_var);
+        let mut x = token_emb.forward(&input_var);
 
         // 2. Add Positional Encoding
         // 位置エンコーディング追加
@@ -176,52 +178,90 @@ impl GPTModel {
             self.config.max_seq_len,
             d_model
         );
-        embeddings = pos_encoding.forward(&embeddings);
+        x = pos_encoding.forward(&x);
 
         // 3. Apply Transformer Blocks
         // Transformerブロック適用
-        // Note: Full transformer blocks would include:
-        // - Multi-head self-attention
-        // - Layer normalization
-        // - Feed-forward network
-        // - Residual connections
-        //
-        // For now, we extract embeddings and apply a simple projection
-        // 実際のTransformerブロックは今後実装します
+        for layer_idx in 0..self.config.num_layers {
+            // Save input for residual connection
+            let residual = x.clone();
 
-        let embeddings_binding = embeddings.data();
-        let embeddings_data = embeddings_binding.read().unwrap();
+            // Layer Norm 1
+            let ln1 = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+            x = ln1.forward(&x);
+
+            // Multi-Head Self-Attention
+            let attention = MultiheadAttention::<f64>::new(
+                d_model,
+                num_heads,
+                Some(0.0),  // dropout
+                Some(true), // bias
+                None,       // kdim
+                None,       // vdim
+                Some(true), // batch_first
+            )?;
+            let (attn_output, _) = attention.forward(&x, &x, &x, None, Some(false), None, Some(true))?;
+
+            // Residual connection 1
+            x = self.add_variables(&residual, &attn_output)?;
+
+            // Save for second residual
+            let residual2 = x.clone();
+
+            // Layer Norm 2
+            let ln2 = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+            x = ln2.forward(&x);
+
+            // Feed-Forward Network
+            let fc1 = Linear::<f64>::new(d_model, d_ff);
+            let gelu = GELU::<f64>::new();
+            let fc2 = Linear::<f64>::new(d_ff, d_model);
+
+            let mut ffn_out = fc1.forward(&x);
+            ffn_out = gelu.forward(&ffn_out);
+            ffn_out = fc2.forward(&ffn_out);
+
+            // Residual connection 2
+            x = self.add_variables(&residual2, &ffn_out)?;
+        }
+
+        // Final Layer Norm
+        let final_ln = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+        x = final_ln.forward(&x);
 
         // 4. Output Projection to Vocabulary Logits
         // 語彙サイズへの出力射影: [batch_size, seq_len, d_model] -> [batch_size, seq_len, vocab_size]
+        let lm_head = Linear::<f64>::new(d_model, vocab_size);
+        let logits_var = lm_head.forward(&x);
 
-        // Simple linear projection (actual implementation would use loaded weights)
-        // シンプルな線形射影（実際の実装では読み込まれた重みを使用）
-        let mut logits_data = Vec::with_capacity(batch_size * seq_len * vocab_size);
+        // Extract tensor from Variable
+        let logits_binding = logits_var.data();
+        let logits_data = logits_binding.read().unwrap();
+        let logits = logits_data.clone();
 
-        for b in 0..batch_size {
-            for s in 0..seq_len {
-                // Extract embedding for this position
-                let mut position_embedding = Vec::with_capacity(d_model);
-                for d in 0..d_model {
-                    let idx = b * seq_len * d_model + s * d_model + d;
-                    position_embedding.push(embeddings_data.as_array()[[idx / (seq_len * d_model),
-                                                                        (idx % (seq_len * d_model)) / d_model,
-                                                                        idx % d_model]]);
-                }
+        Ok(logits)
+    }
 
-                // Project to vocab_size using simple random projection (placeholder)
-                // 実際の実装では lm_head 重みを使用
-                for _v in 0..vocab_size {
-                    // Placeholder: simple sum of embeddings as logit
-                    let logit: f64 = position_embedding.iter().sum::<f64>() / (d_model as f64);
-                    logits_data.push(logit);
-                }
-            }
+    /// Add two Variables element-wise (for residual connections)
+    /// 2つのVariableを要素ごとに加算（残差接続用）
+    fn add_variables(&self, a: &crate::autograd::Variable<f64>, b: &crate::autograd::Variable<f64>) -> RusTorchResult<crate::autograd::Variable<f64>> {
+        let a_binding = a.data();
+        let a_data = a_binding.read().unwrap();
+        let b_binding = b.data();
+        let b_data = b_binding.read().unwrap();
+
+        if a_data.shape() != b_data.shape() {
+            return Err(RusTorchError::shape_mismatch(a_data.shape(), b_data.shape()));
         }
 
-        let logits = Tensor::from_vec(logits_data, vec![batch_size, seq_len, vocab_size]);
-        Ok(logits)
+        let result_data: Vec<f64> = a_data.as_array().iter()
+            .zip(b_data.as_array().iter())
+            .map(|(x, y)| x + y)
+            .collect();
+
+        let result = Tensor::from_vec(result_data, a_data.shape().to_vec());
+        let requires_grad = a.requires_grad() || b.requires_grad();
+        Ok(crate::autograd::Variable::new(result, requires_grad))
     }
 }
 
