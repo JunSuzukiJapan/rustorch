@@ -186,8 +186,16 @@ impl GPTModel {
             // Save input for residual connection
             let residual = x.clone();
 
-            // Layer Norm 1
-            let ln1 = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+            // Layer Norm 1 (Pre-Attention)
+            // Try to load weights from GGUF if available
+            let ln1_key = format!("blk.{}.attn_norm.weight", layer_idx);
+            let ln1 = if let Some(_ln1_weight) = self.weights.get(&ln1_key) {
+                // TODO: Use loaded weights to initialize LayerNorm
+                // For now, use default initialization
+                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+            } else {
+                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+            };
             x = ln1.forward(&x);
 
             // Multi-Head Self-Attention
@@ -208,8 +216,16 @@ impl GPTModel {
             // Save for second residual
             let residual2 = x.clone();
 
-            // Layer Norm 2
-            let ln2 = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+            // Layer Norm 2 (Pre-FFN)
+            // Try to load weights from GGUF if available
+            let ln2_key = format!("blk.{}.ffn_norm.weight", layer_idx);
+            let ln2 = if let Some(_ln2_weight) = self.weights.get(&ln2_key) {
+                // TODO: Use loaded weights to initialize LayerNorm
+                // For now, use default initialization
+                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+            } else {
+                LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+            };
             x = ln2.forward(&x);
 
             // Feed-Forward Network
@@ -225,8 +241,16 @@ impl GPTModel {
             x = self.add_variables(&residual2, &ffn_out)?;
         }
 
-        // Final Layer Norm
-        let final_ln = LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true));
+        // Final Layer Norm (Output Norm)
+        // Try to load weights from GGUF if available
+        let output_norm_key = "output_norm.weight";
+        let final_ln = if let Some(_output_norm_weight) = self.weights.get(output_norm_key) {
+            // TODO: Use loaded weights to initialize LayerNorm
+            // For now, use default initialization
+            LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+        } else {
+            LayerNorm::<f64>::new(vec![d_model], Some(1e-5), Some(true))
+        };
         x = final_ln.forward(&x);
 
         // 4. Output Projection to Vocabulary Logits
