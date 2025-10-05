@@ -38,7 +38,8 @@ impl ModelLoader {
         }
     }
 
-    /// Create a dummy model for testing
+    /// Create a dummy model for testing only
+    #[cfg(test)]
     pub fn dummy() -> Self {
         Self::load_dummy().expect("Failed to create dummy model")
     }

@@ -78,8 +78,12 @@ fn main() -> Result<()> {
         tracing::info!("Loading default model from config: {}", default_model);
         ModelLoader::from_file(default_model)?
     } else {
-        tracing::warn!("No model specified, using dummy model");
-        ModelLoader::dummy()
+        anyhow::bail!(
+            "No model specified. Please provide a model path using:\n\
+             - Command line: --model <path>\n\
+             - Config file: set model.default in config file\n\
+             - Environment: Use --config to specify config file path"
+        );
     };
 
     let model_name = model_loader.metadata().name.clone();
