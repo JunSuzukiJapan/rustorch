@@ -3,6 +3,8 @@
 
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::formats::gguf::{GGUFLoader, ModelParams};
+use crate::formats::mlx::MLXLoader;
+use crate::formats::safetensors::SafetensorsLoader;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
@@ -65,6 +67,59 @@ impl GPTModel {
 
         for name in tensor_names.iter() {
             match loader.load_tensor(name) {
+                Ok(tensor) => {
+                    model.weights.insert(name.to_string(), tensor);
+                }
+                Err(_e) => {
+                    // Continue loading other tensors even if some fail
+                }
+            }
+        }
+
+        Ok(model)
+    }
+
+    /// Load GPT model from Safetensors file
+    /// SafetensorsファイルからGPTモデルを読み込み
+    pub fn from_safetensors<P: AsRef<Path>>(
+        path: P,
+        config: GPTConfig,
+    ) -> RusTorchResult<Self> {
+        let loader = SafetensorsLoader::from_file(path)?;
+
+        // Create model with provided config
+        let mut model = Self::new(config)?;
+
+        // Load weights
+        let tensor_names = loader.tensor_names();
+
+        for name in tensor_names.iter() {
+            match loader.load_tensor::<f64>(name) {
+                Ok(tensor) => {
+                    model.weights.insert(name.to_string(), tensor);
+                }
+                Err(_e) => {
+                    // Continue loading other tensors even if some fail
+                }
+            }
+        }
+
+        Ok(model)
+    }
+
+    /// Load GPT model from MLX file
+    /// MLXファイルからGPTモデルを読み込み
+    pub fn from_mlx<P: AsRef<Path>>(path: P, config: GPTConfig) -> RusTorchResult<Self> {
+        let loader = MLXLoader::from_file(path)?;
+
+        // Create model with provided config
+        let mut model = Self::new(config)?;
+
+        // Load weights
+        let tensor_names = loader.tensor_names();
+
+        for name in tensor_names.iter() {
+            match loader.load_tensor::<f64>(name) {
                 Ok(tensor) => {
                     model.weights.insert(name.to_string(), tensor);
                 }
