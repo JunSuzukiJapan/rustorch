@@ -178,22 +178,15 @@ impl F32GPTModel {
     /// Forward pass through the model
     /// モデルの順伝播
     pub fn forward(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
-        eprintln!("🔄 F32GPTModel forward pass");
-        eprintln!("   Device: {:?}", self.device_type);
-        eprintln!("   Input length: {}", input_ids.len());
-
         let batch_size = 1;
         let seq_len = input_ids.len();
 
         // Step 1: Token Embedding
         let mut hidden_states = self.get_embeddings(input_ids)?;
-        eprintln!("   ✓ Token embeddings: [{}, {}, {}]", batch_size, seq_len, self.config.d_model);
 
         // Step 2: Process through transformer layers
-        // TODO: Optimize for full 22 layers - currently limited for performance
-        let num_layers_to_process = self.config.num_layers.min(5);
+        let num_layers_to_process = self.config.num_layers;
         for layer_idx in 0..num_layers_to_process {
-            eprintln!("   🔄 Layer {}/{}", layer_idx + 1, self.config.num_layers);
 
             // Pre-attention LayerNorm
             let normed_hidden = self.apply_layer_norm(hidden_states.clone(), layer_idx)?;
@@ -211,36 +204,20 @@ impl F32GPTModel {
         }
 
         // Step 3: Final layer norm and projection to vocabulary
-        eprintln!("   🔄 Final LayerNorm and projection");
         hidden_states = self.apply_final_layer_norm(hidden_states)?;
         let logits = self.project_to_vocab(hidden_states)?;
-        eprintln!("   ✓ Logits: [{}, {}, {}]", batch_size, seq_len, self.config.vocab_size);
 
         Ok(logits)
     }
 
     /// Get token embeddings
     fn get_embeddings(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
-        // Debug: Print all weight names
-        eprintln!("🔍 Looking for embedding weight. Available weights ({} total):", self.weights.len());
-        for (i, name) in self.weights.keys().enumerate().take(20) {
-            eprintln!("   {}: {}", i + 1, name);
-        }
-
         // Try multiple possible embedding weight names
         let embed_weight = self.weights.get("token_embd.weight")
             .or_else(|| self.weights.get("model.embed_tokens.weight"))
             .or_else(|| self.weights.get("tok_embeddings.weight"))
             .or_else(|| self.weights.get("transformer.wte.weight"))
             .or_else(|| self.weights.get("embeddings.weight"))
-            .or_else(|| {
-                // Debug: Print available weight names if embedding not found
-                eprintln!("❌ Embedding weight not found. Available weights:");
-                for (i, name) in self.weights.keys().enumerate().take(20) {
-                    eprintln!("   {}: {}", i + 1, name);
-                }
-                None
-            })
             .ok_or_else(|| F32Error::device_error("Embedding weight not found"))?;
 
         let seq_len = input_ids.len();
@@ -338,12 +315,11 @@ impl F32GPTModel {
         let seq_len = input_shape[1];
         let features = input_shape[2];
 
-        // TODO: Fix Metal LayerNorm f64 compilation issue
-        // For now, use CPU fallback
-        // #[cfg(feature = "metal")]
-        // if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
-        //     return self.metal_layer_norm(input, gamma, beta, batch_size, seq_len, features);
-        // }
+        // Use Metal GPU acceleration for LayerNorm (f32 kernel)
+        #[cfg(feature = "metal")]
+        if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
+            return self.metal_layer_norm(input, gamma, beta, batch_size, seq_len, features);
+        }
 
         self.cpu_layer_norm(input, gamma, beta, batch_size, seq_len, features)
     }

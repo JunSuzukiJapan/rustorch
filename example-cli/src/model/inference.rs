@@ -287,8 +287,8 @@ impl InferenceEngine {
             let seq_len = generated_ids.len();
             let last_logits = Self::extract_last_f32_logits(&logits_tensor, seq_len)?;
 
-            // Sample next token (use simple argmax for now)
-            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
+            // Sample next token with temperature
+            let next_token_id = self.sample_with_temperature_f32(&last_logits, &generated_ids, step)?;
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
 
@@ -348,6 +348,96 @@ impl InferenceEngine {
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(idx, _)| idx)
             .ok_or_else(|| anyhow::anyhow!("Failed to sample token"))
+    }
+
+    /// Sample token with temperature, top-k, and top-p for f32 logits
+    fn sample_with_temperature_f32(
+        &self,
+        logits: &[f32],
+        _context: &[usize],
+        _step: usize,
+    ) -> Result<usize> {
+        use rand::Rng;
+
+        let temperature = self.sampling_config.temperature as f32;
+
+        // If temperature is 0, use greedy sampling
+        if temperature <= 0.0 {
+            return Self::sample_argmax_f32(logits);
+        }
+
+        // Apply temperature scaling
+        let scaled_logits: Vec<f32> = logits.iter().map(|&x| x / temperature).collect();
+
+        // Apply softmax to get probabilities
+        let max_logit = scaled_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let exp_logits: Vec<f32> = scaled_logits.iter().map(|&x| (x - max_logit).exp()).collect();
+        let sum_exp: f32 = exp_logits.iter().sum();
+        let mut probs: Vec<f32> = exp_logits.iter().map(|&x| x / sum_exp).collect();
+
+        // Apply top-k filtering if specified
+        if let Some(top_k) = self.sampling_config.top_k {
+            let mut indexed_probs: Vec<(usize, f32)> = probs.iter().cloned().enumerate().collect();
+            indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+            // Zero out probabilities outside top-k
+            for i in top_k..probs.len() {
+                if let Some((idx, _)) = indexed_probs.get(i) {
+                    probs[*idx] = 0.0;
+                }
+            }
+
+            // Renormalize
+            let sum: f32 = probs.iter().sum();
+            if sum > 0.0 {
+                probs.iter_mut().for_each(|p| *p /= sum);
+            }
+        }
+
+        // Apply top-p (nucleus) filtering if specified
+        if let Some(top_p) = self.sampling_config.top_p {
+            let top_p = top_p as f32;
+            if top_p < 1.0 {
+                let mut indexed_probs: Vec<(usize, f32)> = probs.iter().cloned().enumerate().collect();
+                indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+                let mut cumsum = 0.0;
+                let mut cutoff_idx = probs.len();
+                for (i, (_, prob)) in indexed_probs.iter().enumerate() {
+                    cumsum += prob;
+                    if cumsum >= top_p {
+                        cutoff_idx = i + 1;
+                        break;
+                    }
+                }
+
+                // Zero out probabilities outside nucleus
+                for (idx, _) in indexed_probs.iter().skip(cutoff_idx) {
+                    probs[*idx] = 0.0;
+                }
+
+                // Renormalize
+                let sum: f32 = probs.iter().sum();
+                if sum > 0.0 {
+                    probs.iter_mut().for_each(|p| *p /= sum);
+                }
+            }
+        }
+
+        // Sample from the distribution
+        let mut rng = rand::thread_rng();
+        let random_value: f32 = rng.gen();
+        let mut cumsum = 0.0;
+
+        for (idx, &prob) in probs.iter().enumerate() {
+            cumsum += prob;
+            if random_value < cumsum {
+                return Ok(idx);
+            }
+        }
+
+        // Fallback to last token (should rarely happen)
+        Ok(probs.len() - 1)
     }
 
     /// Extract logits for the last position from model output
