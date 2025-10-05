@@ -100,11 +100,32 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Create inference engine
     let mut engine = InferenceEngine::new(model_loader, gen_config.clone());
 
-    // Load RusTorch GPT model
+    // Load RusTorch GPT model with specified backend
     tracing::info!("Loading RusTorch GPT model from: {}", model_path.display());
-    match rustorch::models::GPTModel::from_gguf(&model_path) {
+
+    // Convert args.backend to rustorch::backends::DeviceType
+    use rustorch_cli::Backend as CliBackend;
+    let device_type = match args.backend {
+        CliBackend::Cpu => rustorch::backends::DeviceType::Cpu,
+        CliBackend::Cuda => rustorch::backends::DeviceType::Cuda,
+        CliBackend::Metal => rustorch::backends::DeviceType::Metal,
+        CliBackend::Opencl => rustorch::backends::DeviceType::OpenCL,
+        CliBackend::Hybrid | CliBackend::HybridF32 => {
+            // For hybrid, prefer Metal on macOS, otherwise CPU
+            #[cfg(target_os = "macos")]
+            {
+                rustorch::backends::DeviceType::Metal
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                rustorch::backends::DeviceType::Cpu
+            }
+        }
+    };
+
+    match rustorch::models::GPTModel::from_gguf_with_backend(&model_path, device_type) {
         Ok(gpt_model) => {
-            tracing::info!("✅ RusTorch GPT model loaded successfully");
+            tracing::info!("✅ RusTorch GPT model loaded successfully on {:?} backend", gpt_model.device_type());
             engine.set_gpt_model(gpt_model);
         }
         Err(e) => {

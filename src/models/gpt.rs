@@ -1,6 +1,7 @@
 //! GPT model implementation for RusTorch
 //! GPTモデル実装
 
+use crate::backends::DeviceType;
 use crate::error::{RusTorchError, RusTorchResult};
 use crate::formats::gguf::{GGUFLoader, ModelParams};
 use crate::formats::mlx::MLXLoader;
@@ -8,6 +9,7 @@ use crate::formats::safetensors::SafetensorsLoader;
 use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
+
 
 /// GPT model configuration
 #[derive(Debug, Clone)]
@@ -40,27 +42,74 @@ impl GPTConfig {
 pub struct GPTModel {
     config: GPTConfig,
     weights: HashMap<String, Tensor<f64>>,
+    device_type: DeviceType,
 }
 
 impl GPTModel {
-    /// Create a new GPT model with given configuration
+    /// Create a new GPT model with given configuration (CPU backend)
     pub fn new(config: GPTConfig) -> RusTorchResult<Self> {
+        Self::with_backend(config, DeviceType::Cpu)
+    }
+
+    /// Create a new GPT model with specified backend
+    pub fn with_backend(config: GPTConfig, device_type: DeviceType) -> RusTorchResult<Self> {
+        // For now, all backends use CPU tensor operations
+        // GPU backend integration will be added in future updates
+        let actual_device = match device_type {
+            DeviceType::Cpu => DeviceType::Cpu,
+            #[cfg(feature = "metal")]
+            DeviceType::Metal => {
+                eprintln!("⚠️  Metal backend selected, but tensor operations use CPU");
+                eprintln!("    GPU acceleration will be added in future updates");
+                DeviceType::Metal
+            }
+            #[cfg(feature = "cuda")]
+            DeviceType::Cuda => {
+                eprintln!("⚠️  CUDA backend selected, but tensor operations use CPU");
+                eprintln!("    GPU acceleration will be added in future updates");
+                DeviceType::Cuda
+            }
+            _ => {
+                eprintln!("⚠️  Unsupported backend: {:?}, using CPU", device_type);
+                DeviceType::Cpu
+            }
+        };
+
         Ok(Self {
             config,
             weights: HashMap::new(),
+            device_type: actual_device,
         })
     }
 
-    /// Load GPT model from GGUF file
+    /// Get backend device type
+    pub fn device_type(&self) -> DeviceType {
+        self.device_type
+    }
+
+    /// Load GPT model from GGUF file (CPU backend)
     pub fn from_gguf<P: AsRef<Path>>(path: P) -> RusTorchResult<Self> {
+        Self::from_gguf_with_backend(path, DeviceType::Cpu)
+    }
+
+    /// Load GPT model from GGUF file with specified backend
+    pub fn from_gguf_with_backend<P: AsRef<Path>>(
+        path: P,
+        device_type: DeviceType,
+    ) -> RusTorchResult<Self> {
         let loader = GGUFLoader::from_file(path)?;
 
         // Extract model parameters
         let params = loader.get_model_params()?;
         let config = GPTConfig::from_model_params(&params);
 
-        // Create model
-        let mut model = Self::new(config)?;
+        // Create model with backend
+        let mut model = Self::with_backend(config, device_type)?;
+
+        eprintln!(
+            "📊 Loading GPT model on {:?} backend",
+            model.device_type
+        );
 
         // Load weights
         let tensor_names = loader.tensor_names();
