@@ -1,6 +1,6 @@
 use anyhow::Result;
 use rustorch::autograd::Variable;
-use rustorch::nn::{Embedding, Linear, MultiheadAttention};
+use rustorch::nn::{activation::gelu, Embedding, Linear, MultiheadAttention};
 use rustorch::tensor::Tensor;
 use std::fmt::Debug;
 
@@ -94,18 +94,45 @@ impl TransformerModel {
         &self.config
     }
 
-    /// Forward pass (placeholder - will be implemented)
+    /// Forward pass through the transformer
     pub fn forward(&self, input_ids: &Tensor<f64>) -> Result<Tensor<f64>> {
-        // TODO: Implement full forward pass
-        // For now, just return dummy output
         tracing::debug!("Forward pass with input shape: {:?}", input_ids.shape());
 
-        // Create dummy output with correct shape
         let batch_size = input_ids.shape()[0];
         let seq_len = input_ids.shape()[1];
-        let output = Tensor::zeros(&[batch_size, seq_len, self.config.vocab_size]);
 
-        Ok(output)
+        // Get token embeddings
+        let token_embeds = self.token_embedding.forward(&Variable::new(input_ids.clone(), false));
+        let token_tensor = token_embeds.data().read().unwrap().clone();
+
+        // Get position IDs [0, 1, 2, ..., seq_len-1]
+        // Repeat for each batch
+        let mut position_ids = Vec::with_capacity(batch_size * seq_len);
+        for _ in 0..batch_size {
+            for i in 0..seq_len {
+                position_ids.push(i as f64);
+            }
+        }
+        let position_ids_tensor = Tensor::from_vec(position_ids, vec![batch_size, seq_len]);
+
+        // Get position embeddings
+        let position_embeds = self.position_embedding.forward(&Variable::new(position_ids_tensor, false));
+        let position_tensor = position_embeds.data().read().unwrap().clone();
+
+        // Add token and position embeddings
+        let mut hidden_states = token_tensor + position_tensor;
+
+        // Pass through decoder layers
+        for (i, layer) in self.layers.iter().enumerate() {
+            tracing::trace!("Processing layer {}/{}", i + 1, self.config.num_layers);
+            hidden_states = layer.forward(&hidden_states, None)?;
+        }
+
+        // Project to vocabulary
+        let logits = self.output_projection.forward(&Variable::new(hidden_states, false));
+        let logits_tensor = logits.data().read().unwrap().clone();
+
+        Ok(logits_tensor)
     }
 
     /// Generate tokens (placeholder - will be implemented)
@@ -175,13 +202,32 @@ impl DecoderLayer {
         hidden_states: &Tensor<f64>,
         _attention_mask: Option<&Tensor<f64>>,
     ) -> Result<Tensor<f64>> {
-        // For now, just apply feedforward (self-attention integration pending)
-        // TODO: Add self-attention application
-        // TODO: Add layer normalization and residual connections when RusTorch supports it
+        // Self-attention with residual connection
+        let hidden_var = Variable::new(hidden_states.clone(), false);
 
-        // Simplified forward pass: just return input for now
-        // Full implementation requires Variable<->Tensor conversion
-        Ok(hidden_states.clone())
+        // Apply self-attention (query = key = value = hidden_states)
+        // Note: RusTorch MultiheadAttention.forward has 7 parameters
+        let (attn_output, _attn_weights) = self.self_attn.forward(
+            &hidden_var,
+            &hidden_var,
+            &hidden_var,
+            None,       // key_padding_mask
+            Some(false), // need_weights
+            None,       // attn_mask
+            None,       // average_attn_weights
+        )?;
+
+        // Residual connection
+        let attn_tensor = attn_output.data().read().unwrap().clone();
+        let hidden_states = hidden_states.clone() + attn_tensor;
+
+        // Feedforward with residual connection
+        let ffn_input = Variable::new(hidden_states.clone(), false);
+        let ffn_output = self.ffn.forward(&ffn_input)?;
+        let ffn_tensor = ffn_output.data().read().unwrap().clone();
+        let output = hidden_states + ffn_tensor;
+
+        Ok(output)
     }
 }
 
@@ -203,15 +249,17 @@ impl FeedForward {
     }
 
     pub fn forward(&self, x: &Variable<f64>) -> Result<Variable<f64>> {
-        // x -> fc1 -> activation -> dropout -> fc2 -> dropout
+        // x -> fc1 -> GELU -> fc2
         let hidden = self.fc1.forward(x);
 
-        // TODO: Apply activation (GELU)
-        // TODO: Apply dropout
+        // Apply GELU activation
+        let activated = gelu(&hidden);
 
-        let output = self.fc2.forward(&hidden);
+        // TODO: Apply dropout when RusTorch supports it
 
-        // TODO: Apply dropout
+        let output = self.fc2.forward(&activated);
+
+        // TODO: Apply dropout when RusTorch supports it
 
         Ok(output)
     }

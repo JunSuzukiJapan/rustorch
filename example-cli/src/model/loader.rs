@@ -5,11 +5,13 @@ use rustorch::prelude::Tensor;
 
 use super::{ModelFormat, ModelMetadata};
 use super::formats::{GGUFLoader, TensorLoader};
+use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 
 pub struct ModelLoader {
     metadata: ModelMetadata,
     gguf_loader: Option<GGUFLoader>,
     weights: HashMap<String, Tensor<f64>>,
+    tokenizer: Box<dyn Tokenizer>,
 }
 
 impl ModelLoader {
@@ -54,10 +56,13 @@ impl ModelLoader {
             context_length: 2048,
         };
 
+        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
+
         Ok(Self {
             metadata,
             gguf_loader: None,
             weights: HashMap::new(),
+            tokenizer,
         })
     }
 
@@ -151,10 +156,20 @@ impl ModelLoader {
             context_length,
         };
 
+        // Try to load tokenizer from same directory
+        let tokenizer_path = path.with_extension("").with_extension("tokenizer.json");
+        let tokenizer: Box<dyn Tokenizer> = if tokenizer_path.exists() {
+            Box::new(TokenizerWrapper::from_file(&tokenizer_path)?)
+        } else {
+            tracing::warn!("Tokenizer file not found, using dummy tokenizer");
+            Box::new(TokenizerWrapper::dummy()?)
+        };
+
         Ok(Self {
             metadata,
             gguf_loader: Some(loader),
             weights,
+            tokenizer,
         })
     }
 
@@ -188,10 +203,13 @@ impl ModelLoader {
             context_length: 2048,
         };
 
+        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
+
         Ok(Self {
             metadata,
             gguf_loader: None,
             weights: HashMap::new(),
+            tokenizer,
         })
     }
 
@@ -222,10 +240,13 @@ impl ModelLoader {
             context_length: 2048,
         };
 
+        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
+
         Ok(Self {
             metadata,
             gguf_loader: None,
             weights: HashMap::new(),
+            tokenizer,
         })
     }
 
@@ -242,10 +263,13 @@ impl ModelLoader {
             _tensors.len()
         );
 
+        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
+
         Ok(Self {
             metadata,
             gguf_loader: None,
             weights: HashMap::new(),
+            tokenizer,
         })
     }
 
@@ -262,10 +286,13 @@ impl ModelLoader {
             _state_dict.len()
         );
 
+        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
+
         Ok(Self {
             metadata,
             gguf_loader: None,
             weights: HashMap::new(),
+            tokenizer,
         })
     }
 
@@ -281,6 +308,21 @@ impl ModelLoader {
     /// Get a specific weight by name
     pub fn weight(&self, name: &str) -> Option<&Tensor<f64>> {
         self.weights.get(name)
+    }
+
+    /// Get tokenizer reference
+    pub fn tokenizer(&self) -> &dyn Tokenizer {
+        self.tokenizer.as_ref()
+    }
+
+    /// Encode text to token IDs
+    pub fn encode(&self, text: &str) -> Result<Vec<u32>> {
+        self.tokenizer.encode(text, true)
+    }
+
+    /// Decode token IDs to text
+    pub fn decode(&self, ids: &[u32]) -> Result<String> {
+        self.tokenizer.decode(ids, true)
     }
 }
 
