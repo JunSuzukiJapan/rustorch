@@ -101,6 +101,23 @@ Download a model from HuggingFace and automatically start the CLI:
 
 After the model downloads, the CLI will automatically start with the downloaded model loaded.
 
+**Smart Download Behavior**:
+- If a model is already downloaded, it will be automatically skipped
+- The CLI will start with the existing model immediately
+- Use `--force` flag to force re-download if needed
+
+```bash
+# First time: Downloads the model
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+
+# Second time: Skips download, starts CLI immediately with existing model
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+
+# Force re-download
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --force
+```
+
+
 ### Script Options
 
 | Option | Description |
