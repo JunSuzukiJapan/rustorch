@@ -79,7 +79,12 @@ impl InferenceEngine {
         );
 
         // Check if model is loaded
-        if self.model.is_none() && self.gpt_model.is_none() {
+        #[cfg(feature = "hybrid-f32")]
+        let has_model = self.model.is_some() || self.gpt_model.is_some() || self.f32_gpt_model.is_some();
+        #[cfg(not(feature = "hybrid-f32"))]
+        let has_model = self.model.is_some() || self.gpt_model.is_some();
+
+        if !has_model {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 

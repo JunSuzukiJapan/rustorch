@@ -130,14 +130,23 @@ impl F32GPTModel {
                         loaded_count += 1;
                     }
                 }
-                Err(_) => {
-                    // Skip tensors that fail to load
+                Err(e) => {
+                    // Show which tensors fail to load (only first 5)
+                    if loaded_count < 5 {
+                        eprintln!("⚠️  Failed to load tensor '{}': {}", name, e);
+                    }
                     continue;
                 }
             }
         }
 
         eprintln!("✅ Loaded {} weights as f32", loaded_count);
+
+        // Debug: Print first 10 weight names
+        eprintln!("📝 Sample weight names:");
+        for (i, name) in model.weights.keys().take(10).enumerate() {
+            eprintln!("   {}: {}", i + 1, name);
+        }
 
         Ok(model)
     }
@@ -199,8 +208,26 @@ impl F32GPTModel {
 
     /// Get token embeddings
     fn get_embeddings(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
+        // Debug: Print all weight names
+        eprintln!("🔍 Looking for embedding weight. Available weights ({} total):", self.weights.len());
+        for (i, name) in self.weights.keys().enumerate().take(20) {
+            eprintln!("   {}: {}", i + 1, name);
+        }
+
+        // Try multiple possible embedding weight names
         let embed_weight = self.weights.get("token_embd.weight")
             .or_else(|| self.weights.get("model.embed_tokens.weight"))
+            .or_else(|| self.weights.get("tok_embeddings.weight"))
+            .or_else(|| self.weights.get("transformer.wte.weight"))
+            .or_else(|| self.weights.get("embeddings.weight"))
+            .or_else(|| {
+                // Debug: Print available weight names if embedding not found
+                eprintln!("❌ Embedding weight not found. Available weights:");
+                for (i, name) in self.weights.keys().enumerate().take(20) {
+                    eprintln!("   {}: {}", i + 1, name);
+                }
+                None
+            })
             .ok_or_else(|| F32Error::device_error("Embedding weight not found"))?;
 
         let seq_len = input_ids.len();
