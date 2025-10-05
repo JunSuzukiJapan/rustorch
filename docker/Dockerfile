@@ -21,15 +21,23 @@ WORKDIR /usr/src/rustorch
 # Copy manifests first for better caching
 COPY Cargo.toml ./
 COPY benchmarks/Cargo.toml ./benchmarks/
+COPY rustorch-macros/Cargo.toml ./rustorch-macros/
+COPY example-cli/Cargo.toml ./example-cli/
+COPY example-cli/benches ./example-cli/benches
 
 # Create src directory and add dummy lib.rs to build dependencies
-RUN mkdir -p src && echo "// Dummy lib for dependency compilation" > src/lib.rs
+RUN mkdir -p src rustorch-macros/src example-cli/src && \
+    echo "// Dummy lib for dependency compilation" > src/lib.rs && \
+    echo "// Dummy lib for dependency compilation" > rustorch-macros/src/lib.rs && \
+    echo "fn main() {}" > example-cli/src/main.rs
 
 # Build dependencies (this will generate a new Cargo.lock compatible with container's Cargo version)
-RUN cargo build --release && rm -rf src
+RUN cargo build --release --lib && rm -rf src rustorch-macros/src example-cli/src
 
 # Copy source code
 COPY src ./src
+COPY rustorch-macros/src ./rustorch-macros/src
+COPY example-cli/src ./example-cli/src
 COPY examples ./examples
 COPY benches ./benches
 COPY benchmarks/src ./benchmarks/src
