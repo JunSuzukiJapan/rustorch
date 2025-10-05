@@ -251,8 +251,15 @@ impl GPTModel {
     ///
     /// # Returns
     /// Logits tensor of shape [batch_size, seq_len, vocab_size]
+    ///
+    /// # Note
+    /// For development/testing, uses only first 2 layers by default.
+    /// Use `forward_with_layers(input_ids, None)` for full model inference.
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
-        self.forward_with_layers(input_ids, None)
+        // Limit to 2 layers for faster inference during development
+        // TODO: Remove this limitation for production use
+        let max_layers = Some(2);
+        self.forward_with_layers(input_ids, max_layers)
     }
 
     /// GPT forward pass with configurable number of layers

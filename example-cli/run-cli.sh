@@ -6,6 +6,7 @@ set -e
 # Default to no features for faster builds
 FEATURES=""
 BUILD_MODE="--release"
+BACKEND_ARG=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -16,22 +17,27 @@ while [[ $# -gt 0 ]]; do
             ;;
         --metal)
             FEATURES="metal"
+            BACKEND_ARG="--backend metal"
             shift
             ;;
         --coreml)
             FEATURES="coreml"
+            BACKEND_ARG="--backend hybrid"
             shift
             ;;
         --mac-hybrid)
             FEATURES="mac-hybrid"
+            BACKEND_ARG="--backend hybrid"
             shift
             ;;
         --hybrid-f32)
             FEATURES="hybrid-f32"
+            BACKEND_ARG="--backend hybrid-f32"
             shift
             ;;
         --cuda)
             FEATURES="cuda"
+            BACKEND_ARG="--backend cuda"
             shift
             ;;
         --help)
@@ -80,8 +86,14 @@ if [ -n "$BUILD_MODE" ]; then
     CMD="$CMD $BUILD_MODE"
 fi
 
-# Add remaining arguments as CLI arguments
-if [ $# -gt 0 ]; then
+# Add backend argument if set
+if [ -n "$BACKEND_ARG" ]; then
+    if [ $# -gt 0 ]; then
+        CMD="$CMD -- $BACKEND_ARG $@"
+    else
+        CMD="$CMD -- $BACKEND_ARG"
+    fi
+elif [ $# -gt 0 ]; then
     CMD="$CMD -- $@"
 fi
 
