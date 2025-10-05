@@ -13,6 +13,7 @@ use rustorch::gpu::hybrid_executor::HybridExecutor;
 /// - CoreML Neural Engine for large operations (> 100MB)
 pub struct HybridBackend {
     #[cfg(all(target_os = "macos", feature = "mac-hybrid"))]
+    #[allow(dead_code)]
     executor: &'static HybridExecutor,
 
     available: bool,
@@ -56,7 +57,7 @@ impl Backend for HybridBackend {
     }
 
     fn from_vec(&self, data: Vec<f64>, shape: &[usize]) -> Result<Tensor<f64>> {
-        Ok(Tensor::from_vec(data, shape))
+        Ok(Tensor::from_vec(data, shape.to_vec()))
     }
 }
 

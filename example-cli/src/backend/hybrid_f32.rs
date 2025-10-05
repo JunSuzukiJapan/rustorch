@@ -68,11 +68,11 @@ impl Backend for HybridF32Backend {
             let _f32_tensor = F32Tensor::from_vec(f32_data, shape);
             // For now, use original F64 tensor
             // TODO: Add direct conversion when available
-            Ok(Tensor::from_vec(data, shape))
+            Ok(Tensor::from_vec(data, shape.to_vec()))
         }
         #[cfg(not(feature = "hybrid-f32"))]
         {
-            Ok(Tensor::from_vec(data, shape))
+            Ok(Tensor::from_vec(data, shape.to_vec()))
         }
     }
 }
