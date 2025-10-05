@@ -205,12 +205,20 @@ impl GGUFLoader {
 
     /// Get model parameters from metadata
     pub fn get_model_params(&self) -> RusTorchResult<ModelParams> {
+        // Get vocab_size from tokenizer.ggml.tokens array length
         let vocab_size = self
             .metadata
-            .get("llama.vocab_size")
-            .or_else(|| self.metadata.get("tokenizer.ggml.vocab_size"))
-            .and_then(|v| v.as_u32())
-            .ok_or_else(|| RusTorchError::ParseError("Missing vocab_size".to_string()))?;
+            .get("tokenizer.ggml.tokens")
+            .and_then(|v| match v {
+                GGUFValue::Array(arr) => Some(arr.len() as u32),
+                _ => None,
+            })
+            .or_else(|| {
+                self.metadata
+                    .get("llama.vocab_size")
+                    .and_then(|v| v.as_u32())
+            })
+            .ok_or_else(|| RusTorchError::ParseError("Missing vocab_size or tokenizer.ggml.tokens".to_string()))?;
 
         let hidden_size = self
             .metadata
