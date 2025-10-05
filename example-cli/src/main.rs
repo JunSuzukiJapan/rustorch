@@ -21,6 +21,14 @@ fn main() -> Result<()> {
     // Validate arguments
     args.validate()?;
 
+    // Start CLI
+    start_cli(args)?;
+
+    Ok(())
+}
+
+/// Start the CLI REPL interface
+fn start_cli(args: CliArgs) -> Result<()> {
     // Log startup information
     tracing::info!("RusTorch CLI starting...");
     tracing::info!("Backend: {}", args.backend.as_str());
@@ -157,10 +165,23 @@ fn handle_command(command: &Commands) -> Result<()> {
             // Download model
             let path = manager.download(&identifier, &options)?;
 
-            println!("\n✅ Model ready to use!");
+            println!("\n✅ Model downloaded successfully!");
             println!("📂 Path: {}", path.display());
-            println!("\n💡 Usage:");
-            println!("   rustorch-cli --model {}", path.display());
+            println!("\n🚀 Starting CLI with downloaded model...\n");
+
+            // Create new args with the downloaded model
+            let mut cli_args = CliArgs::parse();
+            cli_args.model = Some(path);
+            cli_args.command = None; // Clear the download command
+
+            // Initialize logger
+            init_logger(cli_args.log_level);
+
+            // Validate arguments
+            cli_args.validate()?;
+
+            // Continue with normal CLI startup
+            start_cli(cli_args)?;
 
             Ok(())
         }

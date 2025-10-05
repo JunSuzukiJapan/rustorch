@@ -79,14 +79,27 @@ The `run-cli.sh` script provides a convenient way to build and run the CLI durin
 
 # With Mac hybrid mode (Metal + CoreML)
 ./example-cli/run-cli.sh --mac-hybrid
-
-# With specific CLI commands
-./example-cli/run-cli.sh --metal -- chat
-./example-cli/run-cli.sh --debug -- download --source ollama llama2
-
-# Show help
-./example-cli/run-cli.sh --help
 ```
+
+### Download Model and Auto-Start CLI
+
+Download a model from HuggingFace and automatically start the CLI:
+
+```bash
+# Download TinyLlama (small model, ~600MB) and start CLI
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF
+
+# Download Llama 2 7B and start CLI
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/Llama-2-7B-Chat-GGUF
+
+# Download Mistral 7B and start CLI
+./example-cli/run-cli.sh --metal -- download hf:TheBloke/Mistral-7B-Instruct-v0.2-GGUF
+
+# Specify output directory
+./example-cli/run-cli.sh --mac-hybrid -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --output-dir ./models
+```
+
+After the model downloads, the CLI will automatically start with the downloaded model loaded.
 
 ### Script Options
 
@@ -101,6 +114,15 @@ The `run-cli.sh` script provides a convenient way to build and run the CLI durin
 | `--help` | Show help message |
 
 Arguments after `--` are passed directly to the CLI application.
+
+### Available Model Sources
+
+**HuggingFace** (no server required):
+- `hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF` - Small test model (~600MB)
+- `hf:TheBloke/Llama-2-7B-Chat-GGUF` - Llama 2 7B (~4GB)
+- `hf:TheBloke/Mistral-7B-Instruct-v0.2-GGUF` - Mistral 7B (~4GB)
+- `hf:TheBloke/CodeLlama-7B-GGUF` - Code-focused model (~4GB)
+
 
 ## ⚙️ Configuration
 
