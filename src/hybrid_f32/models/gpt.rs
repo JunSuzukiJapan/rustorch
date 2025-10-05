@@ -189,12 +189,25 @@ impl F32GPTModel {
         let mut hidden_states = self.get_embeddings(input_ids)?;
         eprintln!("   ✓ Token embeddings: [{}, {}, {}]", batch_size, seq_len, self.config.d_model);
 
-        // Step 2: Process through transformer layers (simplified - first 2 layers only)
+        // Step 2: Process through transformer layers
+        // For now, process only first 2 layers to verify implementation
+        // TODO: Implement full attention and FFN, then process all layers
         for layer_idx in 0..self.config.num_layers.min(2) {
             eprintln!("   🔄 Layer {}/{}", layer_idx + 1, self.config.num_layers);
 
-            // Apply LayerNorm (GPU-accelerated on Metal)
-            hidden_states = self.apply_layer_norm(hidden_states, layer_idx)?;
+            // Pre-attention LayerNorm
+            let normed_hidden = self.apply_layer_norm(hidden_states.clone(), layer_idx)?;
+
+            // Self-Attention with residual connection (placeholder - just returns input)
+            let attention_out = self.apply_attention(normed_hidden, layer_idx)?;
+            hidden_states = self.add_tensors(&hidden_states, &attention_out)?;
+
+            // Pre-FFN LayerNorm
+            let normed_hidden = self.apply_ffn_layer_norm(hidden_states.clone(), layer_idx)?;
+
+            // Feed-Forward Network with residual connection (placeholder - just returns input)
+            let ffn_out = self.apply_ffn(normed_hidden, layer_idx)?;
+            hidden_states = self.add_tensors(&hidden_states, &ffn_out)?;
         }
 
         // Step 3: Final layer norm and projection to vocabulary
@@ -249,7 +262,7 @@ impl F32GPTModel {
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create embedding tensor: {}", e)))
     }
 
-    /// Apply LayerNorm using GPU acceleration if available
+    /// Apply LayerNorm using GPU acceleration if available (for attention)
     fn apply_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
         let ln_weight_key = format!("blk.{}.attn_norm.weight", layer_idx);
 
@@ -260,6 +273,45 @@ impl F32GPTModel {
         let beta = self.weights.get(&format!("blk.{}.attn_norm.bias", layer_idx));
 
         self.layer_norm_impl(&input, gamma, beta)
+    }
+
+    /// Apply LayerNorm for FFN
+    fn apply_ffn_layer_norm(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        let ln_weight_key = format!("blk.{}.ffn_norm.weight", layer_idx);
+
+        let gamma = self.weights.get(&ln_weight_key)
+            .ok_or_else(|| F32Error::device_error(format!("FFN LayerNorm weight not found: {}", ln_weight_key)))?;
+
+        // Beta (bias) is optional - Llama models use RMSNorm without bias
+        let beta = self.weights.get(&format!("blk.{}.ffn_norm.bias", layer_idx));
+
+        self.layer_norm_impl(&input, gamma, beta)
+    }
+
+    /// Add two tensors element-wise (for residual connections)
+    fn add_tensors(&self, a: &F32Tensor, b: &F32Tensor) -> F32Result<F32Tensor> {
+        let a_shape = a.data.shape();
+        let b_shape = b.data.shape();
+
+        if a_shape != b_shape {
+            return Err(F32Error::shape_mismatch(format!(
+                "Tensor shapes don't match: {:?} vs {:?}",
+                a_shape, b_shape
+            )));
+        }
+
+        let a_slice = a.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access tensor A"))?;
+        let b_slice = b.data.as_slice()
+            .ok_or_else(|| F32Error::device_error("Failed to access tensor B"))?;
+
+        let result: Vec<f32> = a_slice.iter()
+            .zip(b_slice.iter())
+            .map(|(&x, &y)| x + y)
+            .collect();
+
+        F32Tensor::from_vec(result, &a_shape.to_vec())
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create result tensor: {}", e)))
     }
 
     /// Apply final LayerNorm
@@ -389,6 +441,52 @@ impl F32GPTModel {
 
         F32Tensor::from_vec(output, &[batch_size, seq_len, features])
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create output tensor: {}", e)))
+    }
+
+    /// Apply Multi-Head Self-Attention
+    /// マルチヘッド自己注意機構を適用
+    fn apply_attention(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        let batch_size = input.data.shape()[0];
+        let seq_len = input.data.shape()[1];
+        let d_model = input.data.shape()[2];
+
+        // Load Q, K, V weight matrices
+        let _q_weight = self.weights.get(&format!("blk.{}.attn_q.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Q weight not found for layer {}", layer_idx)))?;
+        let _k_weight = self.weights.get(&format!("blk.{}.attn_k.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("K weight not found for layer {}", layer_idx)))?;
+        let _v_weight = self.weights.get(&format!("blk.{}.attn_v.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("V weight not found for layer {}", layer_idx)))?;
+
+        // Placeholder: Return zero tensor (no contribution to residual connection)
+        // TODO: Implement full attention computation
+        // For now, return zeros so residual connection just keeps original hidden states
+        let zero_data = vec![0.0f32; batch_size * seq_len * d_model];
+        F32Tensor::from_vec(zero_data, &[batch_size, seq_len, d_model])
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create attention output: {}", e)))
+    }
+
+    /// Apply Feed-Forward Network
+    /// フィードフォワードネットワークを適用
+    fn apply_ffn(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        let batch_size = input.data.shape()[0];
+        let seq_len = input.data.shape()[1];
+        let d_model = input.data.shape()[2];
+
+        // Load FFN weights
+        let _gate_weight = self.weights.get(&format!("blk.{}.ffn_gate.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("FFN gate weight not found for layer {}", layer_idx)))?;
+        let _up_weight = self.weights.get(&format!("blk.{}.ffn_up.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("FFN up weight not found for layer {}", layer_idx)))?;
+        let _down_weight = self.weights.get(&format!("blk.{}.ffn_down.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("FFN down weight not found for layer {}", layer_idx)))?;
+
+        // Placeholder: Return zero tensor (no contribution to residual connection)
+        // TODO: Implement full FFN computation with SwiGLU activation
+        // For now, return zeros so residual connection just keeps original hidden states
+        let zero_data = vec![0.0f32; batch_size * seq_len * d_model];
+        F32Tensor::from_vec(zero_data, &[batch_size, seq_len, d_model])
+            .map_err(|e| F32Error::shape_mismatch(format!("Failed to create FFN output: {}", e)))
     }
 
     /// Project hidden states to vocabulary logits
