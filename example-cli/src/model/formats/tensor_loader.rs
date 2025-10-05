@@ -464,8 +464,10 @@ mod tests {
     }
 
     #[test]
-    fn test_tensor_loader_nonexistent_file() {
-        let result = TensorLoader::new("nonexistent.gguf");
-        assert!(result.is_err());
+    fn test_tensor_loader_creation() {
+        // TensorLoader can be created without a file
+        let loader = TensorLoader::new();
+        assert!(loader.loader.is_none());
+        assert!(loader.reader.is_none());
     }
 }

@@ -235,6 +235,7 @@ mod tests {
     #[test]
     fn test_validate_temperature() {
         let mut args = CliArgs {
+            command: None,
             model: None,
             backend: Backend::Cpu,
             config: None,
@@ -259,6 +260,7 @@ mod tests {
     #[test]
     fn test_validate_top_p() {
         let mut args = CliArgs {
+            command: None,
             model: None,
             backend: Backend::Cpu,
             config: None,

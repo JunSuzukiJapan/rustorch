@@ -245,7 +245,7 @@ mod tests {
         let output = ff.relu(&input).unwrap();
 
         let expected = vec![0.0, 0.0, 1.0, 2.0];
-        assert_eq!(output.data, &expected);
+        assert_eq!(output.data.as_slice().unwrap(), &expected[..]);
     }
 
     #[test]
