@@ -1,7 +1,9 @@
 pub mod architectures;
+pub mod format_loader;
 pub mod formats;
 pub mod inference;
 pub mod loader;
+pub mod loaders;
 pub mod sampling;
 pub mod transformer;
 

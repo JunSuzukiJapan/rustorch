@@ -1,8 +1,10 @@
 use anyhow::Result;
-use std::path::Path;
 use std::collections::HashMap;
+use std::path::Path;
 use rustorch::prelude::Tensor;
 
+use super::format_loader::FormatLoader;
+use super::loaders::{GGUFFormatLoader, MLXFormatLoader, SafetensorsFormatLoader};
 use super::{ModelFormat, ModelMetadata};
 use crate::tokenizer::{Tokenizer, TokenizerWrapper};
 
@@ -13,7 +15,8 @@ pub struct ModelLoader {
 }
 
 impl ModelLoader {
-    /// Load a model from file
+    /// Load a model from file using the refactored loader architecture
+    /// リファクタリングされたローダーアーキテクチャを使用してモデルを読み込み
     pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
 
@@ -21,25 +24,110 @@ impl ModelLoader {
             anyhow::bail!("Model file not found: {}", path.display());
         }
 
-        let format = ModelFormat::from_path(path)?;
-
         tracing::info!("Loading model from: {}", path.display());
-        tracing::info!("Detected format: {}", format.as_str());
 
-        match format {
-            ModelFormat::GGUF => Self::load_gguf(path),
-            ModelFormat::Safetensors => Self::load_safetensors(path),
-            ModelFormat::ONNX => Self::load_onnx(path),
-            ModelFormat::MLX => Self::load_mlx(path),
-            ModelFormat::PyTorch => Self::load_pytorch(path),
-            ModelFormat::Dummy => Self::load_dummy(),
-        }
+        // Load metadata using appropriate format loader
+        let metadata = Self::load_metadata_with_format_detection(path)?;
+
+        tracing::info!("Detected format: {}", metadata.format.as_str());
+
+        // Try to find tokenizer
+        let tokenizer = Self::load_tokenizer(path, &metadata.format)?;
+
+        Ok(Self {
+            metadata,
+            weights: HashMap::new(),
+            tokenizer,
+        })
     }
 
     /// Create a dummy model for testing only
+    /// テスト専用のダミーモデルを作成
     #[cfg(test)]
     pub fn dummy() -> Self {
         Self::load_dummy().expect("Failed to create dummy model")
+    }
+
+    /// Load metadata with automatic format detection
+    /// 自動フォーマット検出でメタデータを読み込み
+    fn load_metadata_with_format_detection(path: &Path) -> Result<ModelMetadata> {
+        // Try each format loader in order of preference
+        if GGUFFormatLoader::can_load(path) {
+            return GGUFFormatLoader::load_metadata(path);
+        }
+
+        if SafetensorsFormatLoader::can_load(path) {
+            return SafetensorsFormatLoader::load_metadata(path);
+        }
+
+        if MLXFormatLoader::can_load(path) {
+            return MLXFormatLoader::load_metadata(path);
+        }
+
+        // Fall back to format detection by extension
+        let format = ModelFormat::from_path(path)?;
+        match format {
+            ModelFormat::PyTorch => Self::load_pytorch_metadata(path),
+            ModelFormat::ONNX => Self::load_onnx_metadata(path),
+            _ => anyhow::bail!("Unsupported model format for path: {}", path.display()),
+        }
+    }
+
+    /// Load PyTorch metadata (legacy support)
+    /// PyTorchメタデータを読み込み（レガシーサポート）
+    fn load_pytorch_metadata(path: &Path) -> Result<ModelMetadata> {
+        use super::formats::PyTorchLoader;
+
+        tracing::info!("Loading PyTorch model from: {}", path.display());
+        let (_state_dict, metadata) = PyTorchLoader::load(path)?;
+        tracing::info!("Successfully loaded PyTorch model with {} tensors", _state_dict.len());
+
+        Ok(metadata)
+    }
+
+    /// Load ONNX metadata (legacy support)
+    /// ONNXメタデータを読み込み（レガシーサポート）
+    fn load_onnx_metadata(path: &Path) -> Result<ModelMetadata> {
+        use super::formats::ONNXLoader;
+
+        tracing::info!("Loading ONNX model from: {}", path.display());
+        let loader = ONNXLoader::from_file(path)?;
+        let meta = loader.metadata();
+        tracing::info!("ONNX model metadata: {:?}", meta);
+
+        Ok(ModelMetadata {
+            name: path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            format: ModelFormat::ONNX,
+            vocab_size: 32000,
+            hidden_size: 512,
+            num_layers: 6,
+            num_heads: 8,
+            context_length: 2048,
+        })
+    }
+
+    /// Load tokenizer for the model
+    /// モデル用のトークナイザーを読み込み
+    fn load_tokenizer(path: &Path, format: &ModelFormat) -> Result<Box<dyn Tokenizer>> {
+        // Try format-specific tokenizer path
+        let tokenizer_path = match format {
+            ModelFormat::GGUF => GGUFFormatLoader::default_tokenizer_path(path),
+            ModelFormat::Safetensors => SafetensorsFormatLoader::default_tokenizer_path(path),
+            ModelFormat::MLX => MLXFormatLoader::default_tokenizer_path(path),
+            _ => None,
+        };
+
+        if let Some(tokenizer_path) = tokenizer_path {
+            tracing::info!("Loading tokenizer from: {}", tokenizer_path.display());
+            return Ok(Box::new(TokenizerWrapper::from_file(&tokenizer_path)?));
+        }
+
+        tracing::warn!("Tokenizer file not found, using dummy tokenizer");
+        Ok(Box::new(TokenizerWrapper::dummy()?))
     }
 
     fn load_dummy() -> Result<Self> {
@@ -54,223 +142,6 @@ impl ModelLoader {
             num_heads: 8,
             context_length: 2048,
         };
-
-        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
-
-        Ok(Self {
-            metadata,
-            weights: HashMap::new(),
-            tokenizer,
-        })
-    }
-
-    fn load_gguf(path: &Path) -> Result<Self> {
-        tracing::info!("Loading GGUF model from: {}", path.display());
-
-        // Use RusTorch's GGUF loader
-        let gguf_loader = rustorch::formats::gguf::GGUFLoader::from_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load GGUF file: {}", e))?;
-
-        // Extract model parameters from GGUF metadata
-        let model_params = gguf_loader.get_model_params()
-            .map_err(|e| anyhow::anyhow!("Failed to extract model parameters: {}", e))?;
-
-        tracing::info!(
-            "GGUF model parameters: vocab={}, hidden={}, layers={}, heads={}, context={}",
-            model_params.vocab_size,
-            model_params.hidden_size,
-            model_params.num_layers,
-            model_params.num_heads,
-            model_params.context_length
-        );
-
-        let tensor_names = gguf_loader.tensor_names();
-        tracing::info!("Found {} tensors in GGUF file", tensor_names.len());
-
-        // For now, we'll keep weights empty until we implement tensor loading
-        // TODO: Implement tensor data loading from RusTorch GGUF loader
-        let weights = HashMap::new();
-
-        tracing::info!("Successfully loaded GGUF metadata");
-
-        let metadata = ModelMetadata {
-            name: path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            format: ModelFormat::GGUF,
-            vocab_size: model_params.vocab_size as usize,
-            hidden_size: model_params.hidden_size as usize,
-            num_layers: model_params.num_layers as usize,
-            num_heads: model_params.num_heads as usize,
-            context_length: model_params.context_length as usize,
-        };
-
-        // Try to load tokenizer from same directory
-        let tokenizer_path = path.with_extension("").with_extension("tokenizer.json");
-        let tokenizer: Box<dyn Tokenizer> = if tokenizer_path.exists() {
-            Box::new(TokenizerWrapper::from_file(&tokenizer_path)?)
-        } else {
-            tracing::warn!("Tokenizer file not found, using dummy tokenizer");
-            Box::new(TokenizerWrapper::dummy()?)
-        };
-
-        Ok(Self {
-            metadata,
-            weights,
-            tokenizer,
-        })
-    }
-
-    fn load_safetensors(path: &Path) -> Result<Self> {
-        tracing::info!("Loading Safetensors model from: {}", path.display());
-
-        // Use RusTorch's Safetensors loader
-        let loader = rustorch::formats::safetensors::SafetensorsLoader::from_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load Safetensors file: {}", e))?;
-
-        let tensor_names = loader.tensor_names();
-        tracing::info!("Found {} tensors in Safetensors file", tensor_names.len());
-
-        // Try to infer model architecture from tensor names and shapes
-        let vocab_size = tensor_names.iter()
-            .find(|&name| name.contains("embed") && name.contains("weight"))
-            .and_then(|name| loader.tensor_info(name).ok())
-            .and_then(|info| info.shape.first().copied())
-            .unwrap_or(32000);
-
-        let hidden_size = tensor_names.iter()
-            .find(|&name| name.contains("embed") && name.contains("weight"))
-            .and_then(|name| loader.tensor_info(name).ok())
-            .and_then(|info| info.shape.get(1).copied())
-            .unwrap_or(512);
-
-        // Count layers by looking for layer.{N}. patterns
-        let num_layers = tensor_names.iter()
-            .filter_map(|name| {
-                name.split('.').find_map(|part| part.parse::<usize>().ok())
-            })
-            .max()
-            .map(|n| n + 1)
-            .unwrap_or(6);
-
-        tracing::info!(
-            "Safetensors model parameters: vocab={}, hidden={}, layers={}",
-            vocab_size,
-            hidden_size,
-            num_layers
-        );
-
-        let metadata = ModelMetadata {
-            name: path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            format: ModelFormat::Safetensors,
-            vocab_size,
-            hidden_size,
-            num_layers,
-            num_heads: 8,
-            context_length: 2048,
-        };
-
-        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
-
-        Ok(Self {
-            metadata,
-            weights: HashMap::new(),
-            tokenizer,
-        })
-    }
-
-    fn load_onnx(path: &Path) -> Result<Self> {
-        use super::formats::ONNXLoader;
-
-        tracing::info!("Loading ONNX model from: {}", path.display());
-
-        // Load ONNX file metadata
-        let loader = ONNXLoader::from_file(path)?;
-        let meta = loader.metadata();
-
-        tracing::info!("ONNX model metadata: {:?}", meta);
-
-        // Note: Full ONNX inference requires ONNX Runtime
-        // This is just metadata loading for now
-        let metadata = ModelMetadata {
-            name: path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            format: ModelFormat::ONNX,
-            vocab_size: 32000,
-            hidden_size: 512,
-            num_layers: 6,
-            num_heads: 8,
-            context_length: 2048,
-        };
-
-        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
-
-        Ok(Self {
-            metadata,
-            weights: HashMap::new(),
-            tokenizer,
-        })
-    }
-
-    fn load_mlx(path: &Path) -> Result<Self> {
-        tracing::info!("Loading MLX model from: {}", path.display());
-
-        // Use RusTorch's MLX loader
-        let mlx_loader = rustorch::formats::mlx::MLXLoader::from_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to load MLX file: {}", e))?;
-
-        // Extract model metadata
-        let mlx_meta = mlx_loader.model_metadata();
-
-        let metadata = ModelMetadata {
-            name: path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("unknown")
-                .to_string(),
-            format: ModelFormat::MLX,
-            vocab_size: mlx_meta.and_then(|m| m.vocab_size).unwrap_or(32000),
-            hidden_size: mlx_meta.and_then(|m| m.hidden_size).unwrap_or(4096),
-            num_layers: mlx_meta.and_then(|m| m.num_hidden_layers).unwrap_or(32),
-            num_heads: mlx_meta.and_then(|m| m.num_attention_heads).unwrap_or(32),
-            context_length: mlx_meta.and_then(|m| m.max_position_embeddings).unwrap_or(2048),
-        };
-
-        tracing::info!(
-            "Successfully loaded MLX model with {} tensors",
-            mlx_loader.tensor_names().len()
-        );
-
-        let tokenizer = Box::new(TokenizerWrapper::dummy()?);
-
-        Ok(Self {
-            metadata,
-            weights: HashMap::new(),
-            tokenizer,
-        })
-    }
-
-    fn load_pytorch(path: &Path) -> Result<Self> {
-        use super::formats::PyTorchLoader;
-
-        tracing::info!("Loading PyTorch model from: {}", path.display());
-
-        // Load PyTorch state_dict
-        let (_state_dict, metadata) = PyTorchLoader::load(path)?;
-
-        tracing::info!(
-            "Successfully loaded PyTorch model with {} tensors",
-            _state_dict.len()
-        );
 
         let tokenizer = Box::new(TokenizerWrapper::dummy()?);
 
