@@ -178,11 +178,18 @@ impl GPTModel {
         let input_shape = input_data.shape();
 
         // Get weight and bias
-        let weight = if let Some(w) = self.weights.get(weight_key) {
-            w.clone()
+        let (weight, using_loaded_weight) = if let Some(w) = self.weights.get(weight_key) {
+            (w.clone(), true)
         } else {
-            Tensor::from_vec(vec![1.0; d_model], vec![d_model])
+            (Tensor::from_vec(vec![1.0; d_model], vec![d_model]), false)
         };
+
+        #[cfg(debug_assertions)]
+        if using_loaded_weight {
+            eprintln!("✓ Using loaded GGUF weight: {}", weight_key);
+        } else {
+            eprintln!("✗ Weight not found, using default: {}", weight_key);
+        }
 
         let bias = Tensor::from_vec(vec![0.0; d_model], vec![d_model]);
         let eps = 1e-5;
@@ -238,7 +245,26 @@ impl GPTModel {
 
     /// GPT forward pass with Transformer implementation
     /// TransformerフォワードパスによるGPT実装
+    ///
+    /// # Arguments
+    /// * `input_ids` - Input token IDs
+    ///
+    /// # Returns
+    /// Logits tensor of shape [batch_size, seq_len, vocab_size]
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
+        self.forward_with_layers(input_ids, None)
+    }
+
+    /// GPT forward pass with configurable number of layers
+    /// レイヤー数を設定可能なGPTフォワードパス
+    ///
+    /// # Arguments
+    /// * `input_ids` - Input token IDs
+    /// * `max_layers` - Maximum number of layers to use (None = use all)
+    ///
+    /// # Returns
+    /// Logits tensor of shape [batch_size, seq_len, vocab_size]
+    pub fn forward_with_layers(&self, input_ids: &[usize], max_layers: Option<usize>) -> RusTorchResult<Tensor<f64>> {
         use crate::autograd::Variable;
         use crate::nn::{Embedding, SinusoidalPositionalEncoding, MultiheadAttention, Linear, GELU, Module};
 
@@ -271,7 +297,14 @@ impl GPTModel {
 
         // 3. Apply Transformer Blocks
         // Transformerブロック適用
-        for layer_idx in 0..self.config.num_layers {
+        let num_layers = max_layers.unwrap_or(self.config.num_layers).min(self.config.num_layers);
+
+        #[cfg(debug_assertions)]
+        if let Some(max) = max_layers {
+            eprintln!("Using {} layers (out of {})", num_layers, self.config.num_layers);
+        }
+
+        for layer_idx in 0..num_layers {
             // Save input for residual connection
             let residual = x.clone();
 
