@@ -8,3 +8,4 @@ pub mod onnx;
 
 pub mod pytorch; // PyTorch互換フォーマット
 pub mod gguf; // GGUF/GGML quantized format support
+pub mod mlx; // MLX format support (Apple's MLX framework)

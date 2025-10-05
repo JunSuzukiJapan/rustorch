@@ -222,16 +222,32 @@ impl ModelLoader {
     }
 
     fn load_mlx(path: &Path) -> Result<Self> {
-        use super::formats::MLXLoader;
-
         tracing::info!("Loading MLX model from: {}", path.display());
 
-        // Load MLX file
-        let (_tensors, metadata) = MLXLoader::load(path)?;
+        // Use RusTorch's MLX loader
+        let mlx_loader = rustorch::formats::mlx::MLXLoader::from_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to load MLX file: {}", e))?;
+
+        // Extract model metadata
+        let mlx_meta = mlx_loader.model_metadata();
+
+        let metadata = ModelMetadata {
+            name: path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown")
+                .to_string(),
+            format: ModelFormat::MLX,
+            vocab_size: mlx_meta.and_then(|m| m.vocab_size).unwrap_or(32000),
+            hidden_size: mlx_meta.and_then(|m| m.hidden_size).unwrap_or(4096),
+            num_layers: mlx_meta.and_then(|m| m.num_hidden_layers).unwrap_or(32),
+            num_heads: mlx_meta.and_then(|m| m.num_attention_heads).unwrap_or(32),
+            context_length: mlx_meta.and_then(|m| m.max_position_embeddings).unwrap_or(2048),
+        };
 
         tracing::info!(
             "Successfully loaded MLX model with {} tensors",
-            _tensors.len()
+            mlx_loader.tensor_names().len()
         );
 
         let tokenizer = Box::new(TokenizerWrapper::dummy()?);
