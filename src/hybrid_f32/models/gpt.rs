@@ -50,12 +50,36 @@ pub enum DeviceType {
     Hybrid,
 }
 
+/// KV cache for a single layer
+/// 単一レイヤーのKVキャッシュ
+#[derive(Debug, Clone)]
+pub struct LayerKVCache {
+    /// Cached keys: [batch_size, cached_seq_len, num_kv_heads * head_dim]
+    pub keys: Vec<f32>,
+    /// Cached values: [batch_size, cached_seq_len, num_kv_heads * head_dim]
+    pub values: Vec<f32>,
+    /// Number of cached tokens
+    pub cached_len: usize,
+}
+
+impl LayerKVCache {
+    pub fn new() -> Self {
+        Self {
+            keys: Vec::new(),
+            values: Vec::new(),
+            cached_len: 0,
+        }
+    }
+}
+
 /// GPT model with native f32 precision for GPU acceleration
 /// GPU加速用ネイティブf32精度GPTモデル
 pub struct F32GPTModel {
     config: GPTConfig,
     weights: HashMap<String, F32Tensor>,
     device_type: DeviceType,
+    /// KV cache for each layer [num_layers]
+    kv_cache: Vec<LayerKVCache>,
 }
 
 impl F32GPTModel {
@@ -71,11 +95,27 @@ impl F32GPTModel {
         eprintln!("🚀 Creating F32GPTModel with {:?} device", device_type);
         eprintln!("   Precision: native f32 (optimized for GPU)");
 
+        // Initialize KV cache for each layer
+        let kv_cache = (0..config.num_layers)
+            .map(|_| LayerKVCache::new())
+            .collect();
+
         Ok(Self {
             config,
             weights: HashMap::new(),
             device_type,
+            kv_cache,
         })
+    }
+
+    /// Clear KV cache (for new generation sessions)
+    /// KVキャッシュをクリア（新しい生成セッション用）
+    pub fn clear_cache(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.keys.clear();
+            cache.values.clear();
+            cache.cached_len = 0;
+        }
     }
 
     /// Load GPT model from GGUF file with Metal GPU support
@@ -175,9 +215,9 @@ impl F32GPTModel {
         self.weights.keys().cloned().collect()
     }
 
-    /// Forward pass through the model
-    /// モデルの順伝播
-    pub fn forward(&self, input_ids: &[usize]) -> F32Result<F32Tensor> {
+    /// Forward pass through the model with KV caching
+    /// KVキャッシング付きモデルの順伝播
+    pub fn forward(&mut self, input_ids: &[usize]) -> F32Result<F32Tensor> {
         let batch_size = 1;
         let seq_len = input_ids.len();
 
@@ -425,9 +465,9 @@ impl F32GPTModel {
             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create output tensor: {}", e)))
     }
 
-    /// Apply Grouped Query Attention (GQA)
-    /// グループ化クエリ注意機構（GQA）を適用
-    fn apply_attention(&self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+    /// Apply Grouped Query Attention (GQA) with KV caching
+    /// KVキャッシング付きグループ化クエリ注意機構（GQA）を適用
+    fn apply_attention(&mut self, input: F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
         let batch_size = input.data.shape()[0];
         let seq_len = input.data.shape()[1];
         let d_model = input.data.shape()[2];
@@ -455,10 +495,12 @@ impl F32GPTModel {
         let k_dim = k_shape[1]; // Output dimension for K (256 for GQA)
         let v_dim = v_shape[1]; // Output dimension for V (256 for GQA)
 
-        // Project Q, K, V using transposed weights
+        // Project Q for new tokens only
         let q = self.linear_projection_transposed(input_slice, q_weight, batch_size, seq_len, d_model, q_dim)?;
-        let k = self.linear_projection_transposed(input_slice, k_weight, batch_size, seq_len, d_model, k_dim)?;
-        let v = self.linear_projection_transposed(input_slice, v_weight, batch_size, seq_len, d_model, v_dim)?;
+
+        // Project K, V for new tokens
+        let k_new = self.linear_projection_transposed(input_slice, k_weight, batch_size, seq_len, d_model, k_dim)?;
+        let v_new = self.linear_projection_transposed(input_slice, v_weight, batch_size, seq_len, d_model, v_dim)?;
 
         // Head dimensions
         let head_dim = 64; // Standard head dimension for Llama
@@ -466,7 +508,22 @@ impl F32GPTModel {
         let num_kv_heads = k_dim / head_dim; // 4 heads for GQA
         let num_groups = num_q_heads / num_kv_heads; // 8 Q heads share 1 KV head
 
-        // Step 2: Compute GQA attention
+        // Get or initialize KV cache for this layer
+        let cache = &mut self.kv_cache[layer_idx];
+        let cached_len = cache.cached_len;
+
+        // Append new K, V to cache
+        if batch_size != 1 {
+            return Err(F32Error::device_error("KV cache only supports batch_size=1"));
+        }
+
+        cache.keys.extend_from_slice(&k_new);
+        cache.values.extend_from_slice(&v_new);
+        cache.cached_len += seq_len;
+
+        let total_seq_len = cache.cached_len;
+
+        // Step 2: Compute GQA attention with cached K, V
         let scale = 1.0 / (head_dim as f32).sqrt();
         let mut attention_output = vec![0.0f32; batch_size * seq_len * q_dim];
 
@@ -475,17 +532,20 @@ impl F32GPTModel {
                 let kv_head = h / num_groups; // Find corresponding KV head
 
                 for i in 0..seq_len {
-                    // Compute attention scores
-                    let mut scores = vec![0.0f32; seq_len];
+                    // Compute attention scores with all cached tokens
+                    let mut scores = vec![0.0f32; total_seq_len];
                     let mut max_score = f32::NEG_INFINITY;
 
-                    for j in 0..=i {
+                    // Current token position in full sequence
+                    let current_pos = cached_len + i;
+
+                    for j in 0..=current_pos {
                         let q_offset = (b * seq_len + i) * q_dim + h * head_dim;
-                        let k_offset = (b * seq_len + j) * k_dim + kv_head * head_dim;
+                        let k_offset = j * k_dim + kv_head * head_dim;
 
                         let mut dot_product = 0.0f32;
                         for d in 0..head_dim {
-                            dot_product += q[q_offset + d] * k[k_offset + d];
+                            dot_product += q[q_offset + d] * cache.keys[k_offset + d];
                         }
                         let score = dot_product * scale;
                         scores[j] = score;
@@ -494,20 +554,20 @@ impl F32GPTModel {
 
                     // Apply softmax
                     let mut sum = 0.0f32;
-                    for j in 0..=i {
+                    for j in 0..=current_pos {
                         scores[j] = (scores[j] - max_score).exp();
                         sum += scores[j];
                     }
-                    for j in 0..=i {
+                    for j in 0..=current_pos {
                         scores[j] /= sum;
                     }
 
                     // Apply attention to V
                     for d in 0..head_dim {
                         let mut weighted_sum = 0.0f32;
-                        for j in 0..=i {
-                            let v_offset = (b * seq_len + j) * v_dim + kv_head * head_dim;
-                            weighted_sum += scores[j] * v[v_offset + d];
+                        for j in 0..=current_pos {
+                            let v_offset = j * v_dim + kv_head * head_dim;
+                            weighted_sum += scores[j] * cache.values[v_offset + d];
                         }
                         let output_offset = (b * seq_len + i) * q_dim + h * head_dim;
                         attention_output[output_offset + d] = weighted_sum;

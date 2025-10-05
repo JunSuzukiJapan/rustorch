@@ -418,43 +418,16 @@ impl REPL {
         print!("{} ", "Assistant>".bright_magenta().bold());
         std::io::Write::flush(&mut std::io::stdout())?;
 
-        // Generate response with streaming
-        let mut full_response = String::new();
-        match self.engine.generate_stream(message) {
-            Ok(stream) => {
-                for token in stream {
-                    print!("{}", token.white());
-                    // Add space after each word for dummy mode
-                    if !token.ends_with(' ') && !token.is_empty() {
-                        print!(" ");
-                    }
-                    std::io::Write::flush(&mut std::io::stdout())?;
-                    full_response.push_str(&token);
-                    full_response.push(' ');
-
-                    // Small delay for visual effect
-                    std::thread::sleep(std::time::Duration::from_millis(50));
-                }
-                println!(); // New line after streaming
-            }
-            Err(e) => {
-                // Fallback to non-streaming generation
-                tracing::warn!(
-                    "Streaming failed, falling back to regular generation: {}",
-                    e
-                );
-                let response = self.generate_response(message)?;
-                println!("{}", response.white());
-                full_response = response;
-            }
-        }
+        // Generate response (streaming disabled for KV cache compatibility)
+        let full_response = self.generate_response(message)?;
+        println!("{}", full_response.white());
 
         self.session.add_assistant_message(full_response.trim());
 
         Ok(())
     }
 
-    fn generate_response(&self, message: &str) -> Result<String> {
+    fn generate_response(&mut self, message: &str) -> Result<String> {
         self.engine.generate(message)
     }
 }

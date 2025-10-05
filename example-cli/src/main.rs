@@ -148,8 +148,18 @@ fn start_cli(args: CliArgs) -> Result<()> {
                     rustorch::backends::DeviceType::Cpu
                 }
             }
-            #[cfg(feature = "hybrid-f32")]
-            CliBackend::HybridF32 => unreachable!(),
+            CliBackend::HybridF32 => {
+                // When hybrid-f32 feature is enabled, this is handled separately above
+                // When disabled, treat as Metal backend
+                #[cfg(target_os = "macos")]
+                {
+                    rustorch::backends::DeviceType::Metal
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    rustorch::backends::DeviceType::Cpu
+                }
+            }
         };
 
         match rustorch::models::GPTModel::from_gguf_with_backend(&model_path, device_type) {

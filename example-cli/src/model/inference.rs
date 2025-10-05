@@ -69,7 +69,7 @@ impl InferenceEngine {
     }
 
     /// Generate a response from input text
-    pub fn generate(&self, input: &str) -> Result<String> {
+    pub fn generate(&mut self, input: &str) -> Result<String> {
         tracing::debug!("Generating response for input: {}", input);
         tracing::debug!(
             "Generation config: max_tokens={}, temperature={}, top_p={}",
@@ -115,14 +115,14 @@ impl InferenceEngine {
     }
 
     /// Generate tokens using the model
-    fn generate_tokens(&self, input_ids: &[u32]) -> Result<Vec<u32>> {
+    fn generate_tokens(&mut self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
 
         // Prioritize F32 GPT model (Metal GPU optimized)
         #[cfg(feature = "hybrid-f32")]
-        if let Some(ref f32_model) = self.f32_gpt_model {
+        if self.f32_gpt_model.is_some() {
             tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
-            return self.generate_with_f32_gpt(f32_model, input_ids, max_new_tokens);
+            return self.generate_with_f32_gpt_mut(input_ids, max_new_tokens);
         }
 
         // Use GPT model if available (prioritize RusTorch implementation)
@@ -262,30 +262,47 @@ impl InferenceEngine {
         Ok(new_tokens)
     }
 
-    /// Generate tokens using F32 GPT model (Metal GPU optimized)
+    /// Generate tokens using F32 GPT model (Metal GPU optimized) with mutable access
     #[cfg(feature = "hybrid-f32")]
-    fn generate_with_f32_gpt(
-        &self,
-        f32_model: &F32GPTModel,
+    fn generate_with_f32_gpt_mut(
+        &mut self,
         input_ids: &[u32],
         max_new_tokens: usize,
     ) -> Result<Vec<u32>> {
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
 
         tracing::info!(
-            "Generating {} tokens with F32 GPT model (Metal GPU)",
+            "Generating {} tokens with F32 GPT model (Metal GPU + KV Cache)",
             max_new_tokens
         );
 
+        // Clear KV cache for new generation session
+        if let Some(ref mut f32_model) = self.f32_gpt_model {
+            f32_model.clear_cache();
+        }
+
         // Generation loop
         for step in 0..max_new_tokens {
-            // Forward pass through F32 GPT model
-            let logits_tensor = f32_model.forward(&generated_ids)
-                .map_err(|e| anyhow::anyhow!("F32 GPT forward failed: {}", e))?;
+            // Get max sequence length before borrowing mutably
+            let max_seq_len = self.f32_gpt_model.as_ref().unwrap().config().max_seq_len;
+
+            // Forward pass through F32 GPT model with KV cache
+            let logits_tensor = if let Some(ref mut f32_model) = self.f32_gpt_model {
+                // Only pass the last token (KV cache handles the rest)
+                let input_slice = if step == 0 {
+                    &generated_ids // First step: pass all prompt tokens
+                } else {
+                    &generated_ids[generated_ids.len()-1..] // Subsequent: only last token
+                };
+
+                f32_model.forward(input_slice)
+                    .map_err(|e| anyhow::anyhow!("F32 GPT forward failed: {}", e))?
+            } else {
+                anyhow::bail!("F32 model not available");
+            };
 
             // Extract logits for the last position
-            let seq_len = generated_ids.len();
-            let last_logits = Self::extract_last_f32_logits(&logits_tensor, seq_len)?;
+            let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
 
             // Sample next token with temperature
             let next_token_id = self.sample_with_temperature_f32(&last_logits, &generated_ids, step)?;
@@ -303,7 +320,7 @@ impl InferenceEngine {
             generated_ids.push(next_token_id);
 
             // Stop if context limit exceeded
-            if seq_len >= f32_model.config().max_seq_len {
+            if generated_ids.len() >= max_seq_len {
                 tracing::warn!("Reached maximum sequence length");
                 break;
             }
@@ -363,7 +380,10 @@ impl InferenceEngine {
 
         // If temperature is 0, use greedy sampling
         if temperature <= 0.0 {
-            return Self::sample_argmax_f32(logits);
+            let (argmax_idx, _) = logits.iter().enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .ok_or_else(|| anyhow::anyhow!("Empty logits"))?;
+            return Ok(argmax_idx);
         }
 
         // Apply temperature scaling
