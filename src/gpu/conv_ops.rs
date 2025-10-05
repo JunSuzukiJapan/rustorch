@@ -404,27 +404,57 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> Tensor<T>
 
         #[cfg(not(feature = "metal"))]
         {
-            // CPU fallback implementation
-            let output_height = (self.shape()[2] + 2 * params.padding[0] - kernel.shape()[2])
-                / params.stride[0]
-                + 1;
-            let output_width = (self.shape()[3] + 2 * params.padding[1] - kernel.shape()[3])
-                / params.stride[1]
-                + 1;
+            // CPU fallback implementation - actual 2D convolution
+            let batch = self.shape()[0];
+            let in_channels = self.shape()[1];
+            let in_h = self.shape()[2];
+            let in_w = self.shape()[3];
+            let out_channels = kernel.shape()[0];
+            let k_h = kernel.shape()[2];
+            let k_w = kernel.shape()[3];
+            let stride_h = params.stride[0];
+            let stride_w = params.stride[1];
+            let pad_h = params.padding[0];
+            let pad_w = params.padding[1];
 
-            // Simple placeholder implementation
-            let output_size = self.shape()[0] * kernel.shape()[0] * output_height * output_width;
-            let output_data = vec![T::zero(); output_size];
+            let out_h = (in_h + 2 * pad_h - k_h) / stride_h + 1;
+            let out_w = (in_w + 2 * pad_w - k_w) / stride_w + 1;
 
-            // Create output tensor shape: [batch, output_channels, output_height, output_width]
-            let output_shape = vec![
-                self.shape()[0],
-                kernel.shape()[0],
-                output_height,
-                output_width,
-            ];
+            let mut out = vec![T::zero(); batch * out_channels * out_h * out_w];
+            let input_slice = self.as_slice().unwrap();
+            let kernel_slice = kernel.as_slice().unwrap();
 
-            Ok(Tensor::from_vec(output_data, output_shape))
+            for b in 0..batch {
+                for oc in 0..out_channels {
+                    for oh in 0..out_h {
+                        for ow in 0..out_w {
+                            let mut val = T::zero();
+                            for ic in 0..in_channels {
+                                for kh in 0..k_h {
+                                    for kw in 0..k_w {
+                                        let ih = oh * stride_h + kh;
+                                        let iw = ow * stride_w + kw;
+
+                                        // Handle padding - only compute if within valid input bounds
+                                        if ih >= pad_h && ih < in_h + pad_h && iw >= pad_w && iw < in_w + pad_w {
+                                            let actual_ih = ih - pad_h;
+                                            let actual_iw = iw - pad_w;
+
+                                            let input_idx = (((b * in_channels + ic) * in_h + actual_ih) * in_w + actual_iw) as usize;
+                                            let kernel_idx = (((oc * in_channels + ic) * k_h + kh) * k_w + kw) as usize;
+                                            val = val + input_slice[input_idx] * kernel_slice[kernel_idx];
+                                        }
+                                    }
+                                }
+                            }
+                            let out_idx = (((b * out_channels + oc) * out_h + oh) * out_w + ow) as usize;
+                            out[out_idx] = val;
+                        }
+                    }
+                }
+            }
+
+            Ok(Tensor::from_vec(out, vec![batch, out_channels, out_h, out_w]))
         }
     }
 

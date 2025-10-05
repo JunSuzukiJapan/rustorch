@@ -3073,7 +3073,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch"
-version = "0.6.28"
+version = "0.6.29"
 dependencies = [
  "anyhow",
  "approx",
@@ -3193,7 +3193,7 @@ dependencies = [
 
 [[package]]
 name = "rustorch-macros"
-version = "0.6.28"
+version = "0.6.29"
 dependencies = [
  "proc-macro2",
  "quote",
