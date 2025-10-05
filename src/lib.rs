@@ -422,6 +422,7 @@ pub mod prelude {
     pub use crate::models::{
         CNNBuilder, Model, ModelBuilder, ModelMode, ResNet, ResNetBuilder, CNN,
     };
+    pub use crate::models::{GPTConfig, GPTModel};
     pub use crate::models::{InferenceEngine, Metrics, Trainer, TrainingConfig, TrainingResult};
     pub use crate::models::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
     pub use crate::models::{ModelLoader, ModelSaver, SerializationFormat};

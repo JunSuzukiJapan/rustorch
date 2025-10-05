@@ -2,6 +2,7 @@
 //! Machine learning model architectures
 
 pub mod cnn;
+pub mod gpt;
 pub mod rnn;
 pub mod serialization;
 pub mod training;
@@ -87,6 +88,7 @@ where
 
 // Re-export model architectures
 pub use cnn::{CNNBuilder, ResNet, ResNetBuilder, CNN};
+pub use gpt::{GPTConfig, GPTModel};
 pub use rnn::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
 pub use serialization::{ModelLoader, ModelSaver, SerializationFormat};
 pub use training::{Trainer, TrainingConfig, TrainingResult};

@@ -8,7 +8,7 @@ use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const GGUF_MAGIC: u32 = 0x46554747; // "GGUF" in little-endian
 const GGUF_VERSION_V3: u32 = 3;
@@ -153,6 +153,7 @@ pub struct GGUFLoader {
     metadata: HashMap<String, GGUFValue>,
     tensors: Vec<GGUFTensorInfo>,
     data_offset: u64,
+    file_path: PathBuf,
 }
 
 impl GGUFLoader {
@@ -198,6 +199,7 @@ impl GGUFLoader {
             metadata,
             tensors,
             data_offset: final_offset,
+            file_path: path.as_ref().to_path_buf(),
         })
     }
 
@@ -465,6 +467,66 @@ impl GGUFLoader {
             .map_err(|e| RusTorchError::IoError(format!("Failed to read f64: {}", e)))?;
         Ok(f64::from_le_bytes(buf))
     }
+
+    /// Load tensor data by name
+    pub fn load_tensor(&self, name: &str) -> RusTorchResult<Tensor<f64>> {
+        let tensor_info = self
+            .tensors
+            .iter()
+            .find(|t| t.name == name)
+            .ok_or_else(|| RusTorchError::ParseError(format!("Tensor not found: {}", name)))?
+            .clone();
+
+        // Reopen file for reading tensor data
+        let file = File::open(&self.file_path).map_err(|e| {
+            RusTorchError::IoError(format!("Failed to reopen GGUF file: {}", e))
+        })?;
+        let mut reader = BufReader::new(file);
+
+        // Seek to tensor data offset
+        reader
+            .seek(SeekFrom::Start(self.data_offset + tensor_info.offset))
+            .map_err(|e| RusTorchError::IoError(format!("Failed to seek to tensor data: {}", e)))?;
+
+        // Calculate number of elements
+        let num_elements: usize = tensor_info.dims.iter().map(|&d| d as usize).product();
+
+        // Determine tensor shape
+        let shape: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
+
+        // Convert GGML type to GGMLType enum
+        let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
+
+        // Read tensor data based on type
+        let data = match ggml_type {
+            GGMLType::F32 => {
+                let mut f32_data = vec![0.0f32; num_elements];
+                for val in &mut f32_data {
+                    *val = Self::read_f32(&mut reader)?;
+                }
+                f32_data.iter().map(|&x| x as f64).collect()
+            }
+            GGMLType::F16 => {
+                // Read as u16 and convert to f32 then f64
+                let mut data = Vec::with_capacity(num_elements);
+                for _ in 0..num_elements {
+                    let bits = Self::read_u16(&mut reader)?;
+                    let f32_val = half::f16::from_bits(bits).to_f32();
+                    data.push(f32_val as f64);
+                }
+                data
+            }
+            _ => {
+                return Err(RusTorchError::ParseError(format!(
+                    "Tensor type {:?} not yet supported for loading",
+                    ggml_type
+                )))
+            }
+        };
+
+        Ok(Tensor::from_vec(data, shape))
+    }
+
 }
 
 /// Model parameters extracted from GGUF metadata
