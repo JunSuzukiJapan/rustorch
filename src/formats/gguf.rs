@@ -516,6 +516,16 @@ impl GGUFLoader {
                 }
                 data
             }
+            GGMLType::Q4_K => {
+                // Q4_K: Super-blocks of 256 elements (8 blocks of 32)
+                // Block size: 144 bytes per super-block
+                Self::dequantize_q4_k(&mut reader, num_elements)?
+            }
+            GGMLType::Q6_K => {
+                // Q6_K: Super-blocks of 256 elements (16 blocks of 16)
+                // Block size: 210 bytes per super-block
+                Self::dequantize_q6_k(&mut reader, num_elements)?
+            }
             _ => {
                 return Err(RusTorchError::ParseError(format!(
                     "Tensor type {:?} not yet supported for loading",
@@ -525,6 +535,161 @@ impl GGUFLoader {
         };
 
         Ok(Tensor::from_vec(data, shape))
+    }
+
+    /// Dequantize Q4_K format
+    /// Q4_K: Super-blocks of 256 elements (8 blocks of 32 elements each)
+    /// Block structure: scales (6-bit quantized) + mins (6-bit quantized) + quants (4-bit)
+    fn dequantize_q4_k(
+        reader: &mut BufReader<File>,
+        num_elements: usize,
+    ) -> RusTorchResult<Vec<f64>> {
+        const QK_K: usize = 256;          // Elements per super-block
+        const K_SCALE_SIZE: usize = 12;   // Scale data size
+
+        let num_blocks = (num_elements + QK_K - 1) / QK_K;
+        let mut output = Vec::with_capacity(num_elements);
+
+        for _ in 0..num_blocks {
+            // Read super-block data (144 bytes total)
+            // Structure from llama.cpp:
+            // - d (f16): super-scale
+            // - dmin (f16): super-min
+            // - scales[12]: quantized scales
+            // - qs[QK_K/2]: 4-bit quantized values (128 bytes)
+
+            // Read super-scale and super-min (f16 each)
+            let d_bits = Self::read_u16(reader)?;
+            let dmin_bits = Self::read_u16(reader)?;
+            let d = half::f16::from_bits(d_bits).to_f32();
+            let dmin = half::f16::from_bits(dmin_bits).to_f32();
+
+            // Read quantized scales (12 bytes)
+            let mut scales = [0u8; K_SCALE_SIZE];
+            reader.read_exact(&mut scales).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q4_K scales: {}", e))
+            })?;
+
+            // Read quantized values (128 bytes = 256 nibbles)
+            let mut qs = vec![0u8; QK_K / 2];
+            reader.read_exact(&mut qs).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q4_K quants: {}", e))
+            })?;
+
+            // Dequantize: Process 8 blocks of 32 elements each
+            for j in 0..8 {
+                // Extract scale and min for this block (6-bit values)
+                let scale_byte_idx = j * 3 / 2;
+                let scale = if j % 2 == 0 {
+                    scales[scale_byte_idx] & 0x3F
+                } else {
+                    (scales[scale_byte_idx] >> 2) | ((scales[scale_byte_idx + 1] & 0x0F) << 4)
+                } as f32;
+
+                let min = if j % 2 == 0 {
+                    (scales[scale_byte_idx] >> 6) | ((scales[scale_byte_idx + 1] & 0x3F) << 2)
+                } else {
+                    scales[scale_byte_idx + 1] >> 4
+                } as f32;
+
+                let block_scale = d * (scale / 63.0);
+                let block_min = dmin * (min / 63.0);
+
+                // Dequantize 32 elements in this block
+                for k in 0..32 {
+                    let element_idx = j * 32 + k;
+                    if output.len() >= num_elements {
+                        break;
+                    }
+
+                    let byte_idx = element_idx / 2;
+                    let nibble = if element_idx % 2 == 0 {
+                        qs[byte_idx] & 0x0F
+                    } else {
+                        qs[byte_idx] >> 4
+                    };
+
+                    let dequant_val = block_scale * nibble as f32 - block_min;
+                    output.push(dequant_val as f64);
+                }
+            }
+        }
+
+        output.truncate(num_elements);
+        Ok(output)
+    }
+
+    /// Dequantize Q6_K format
+    /// Q6_K: Super-blocks of 256 elements (16 blocks of 16 elements each)
+    /// Block structure: scales (8-bit) + quants (6-bit per element)
+    fn dequantize_q6_k(
+        reader: &mut BufReader<File>,
+        num_elements: usize,
+    ) -> RusTorchResult<Vec<f64>> {
+        const QK_K: usize = 256;  // Elements per super-block
+
+        let num_blocks = (num_elements + QK_K - 1) / QK_K;
+        let mut output = Vec::with_capacity(num_elements);
+
+        for _ in 0..num_blocks {
+            // Read super-block data (210 bytes total)
+            // Structure from llama.cpp:
+            // - ql[QK_K/2]: lower 4 bits of 6-bit quants (128 bytes)
+            // - qh[QK_K/4]: upper 2 bits of 6-bit quants (64 bytes)
+            // - scales[QK_K/16]: scales for 16 blocks (16 bytes)
+            // - d (f16): super-scale (2 bytes)
+
+            // Read lower 4 bits (128 bytes)
+            let mut ql = vec![0u8; QK_K / 2];
+            reader.read_exact(&mut ql).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q6_K ql: {}", e))
+            })?;
+
+            // Read upper 2 bits (64 bytes)
+            let mut qh = vec![0u8; QK_K / 4];
+            reader.read_exact(&mut qh).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q6_K qh: {}", e))
+            })?;
+
+            // Read scales (16 bytes = 16 int8 values)
+            let mut scales_i8 = vec![0i8; QK_K / 16];
+            for scale in &mut scales_i8 {
+                *scale = Self::read_u8(reader)? as i8;
+            }
+
+            // Read super-scale (f16)
+            let d_bits = Self::read_u16(reader)?;
+            let d = half::f16::from_bits(d_bits).to_f32();
+
+            // Dequantize: Process 16 blocks of 16 elements each
+            for j in 0..16 {
+                let block_scale = d * scales_i8[j] as f32;
+
+                for k in 0..16 {
+                    let element_idx = j * 16 + k;
+                    if output.len() >= num_elements {
+                        break;
+                    }
+
+                    // Reconstruct 6-bit value from 4-bit (ql) and 2-bit (qh) parts
+                    let ql_idx = element_idx / 2;
+                    let ql_shift = (element_idx % 2) * 4;
+                    let lower_4 = (ql[ql_idx] >> ql_shift) & 0x0F;
+
+                    let qh_idx = element_idx / 4;
+                    let qh_shift = (element_idx % 4) * 2;
+                    let upper_2 = (qh[qh_idx] >> qh_shift) & 0x03;
+
+                    let q6 = ((upper_2 << 4) | lower_4) as i8 - 32; // Center around 0
+
+                    let dequant_val = block_scale * q6 as f32;
+                    output.push(dequant_val as f64);
+                }
+            }
+        }
+
+        output.truncate(num_elements);
+        Ok(output)
     }
 
 }
