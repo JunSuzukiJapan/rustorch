@@ -201,11 +201,11 @@ impl InferenceEngine {
         let vocab_size = shape[2];
 
         // Get data for last position: logits[:, -1, :]
-        let data = logits_tensor.data;
+        let data_slice = logits_tensor.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?;
         let start_idx = (seq_len - 1) * vocab_size;
         let end_idx = seq_len * vocab_size;
 
-        let last_logits_data = data[start_idx..end_idx].to_vec();
+        let last_logits_data = data_slice[start_idx..end_idx].to_vec();
 
         Ok(Tensor::from_vec(last_logits_data, vec![vocab_size]))
     }
@@ -216,7 +216,7 @@ impl InferenceEngine {
             anyhow::bail!("Temperature must be positive");
         }
 
-        let scaled: Vec<f64> = logits.data.iter().map(|&x| x / temperature).collect();
+        let scaled: Vec<f64> = logits.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?.iter().map(|&x| x / temperature).collect();
 
         Ok(Tensor::from_vec(scaled, logits.size().to_vec()))
     }

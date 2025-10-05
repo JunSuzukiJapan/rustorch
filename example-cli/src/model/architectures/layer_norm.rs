@@ -69,12 +69,13 @@ impl LayerNorm {
     fn calculate_mean(&self, input: &Tensor<f64>) -> Result<Tensor<f64>> {
         // Simplified: calculate global mean for now
         // Full implementation would use RusTorch reduction operations
-        let total_elements = input.data.len();
+        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let total_elements = input_data.len();
         if total_elements == 0 {
             return Ok(Tensor::from_vec(vec![0.0], vec![1]));
         }
 
-        let sum: f64 = input.data.iter().sum();
+        let sum: f64 = input_data.iter().sum();
         let mean = sum / total_elements as f64;
 
         Ok(Tensor::from_vec(vec![mean], vec![1]))
@@ -83,14 +84,15 @@ impl LayerNorm {
     /// Calculate variance across features
     fn calculate_variance(&self, input: &Tensor<f64>, mean: &Tensor<f64>) -> Result<Tensor<f64>> {
         // Simplified: calculate global variance for now
-        let total_elements = input.data.len();
+        let input_data = input.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get input data"))?;
+        let total_elements = input_data.len();
         if total_elements == 0 {
             return Ok(Tensor::from_vec(vec![0.0], vec![1]));
         }
 
-        let mean_val = mean.data[[0]];
-        let variance: f64 = input
-            .data
+        let mean_data = mean.as_slice().ok_or_else(|| anyhow::anyhow!("Failed to get mean data"))?;
+        let mean_val = mean_data[0];
+        let variance: f64 = input_data
             .iter()
             .map(|&x| {
                 let diff = x - mean_val;

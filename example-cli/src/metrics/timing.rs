@@ -64,7 +64,8 @@ impl MultiStageTimer {
     pub fn start_stage(&mut self, label: impl Into<String>) {
         // End previous stage if exists
         if let Some(timer) = self.current_stage.take() {
-            self.stages.push((timer.label, timer.elapsed()));
+            let elapsed = timer.elapsed();
+            self.stages.push((timer.label, elapsed));
         }
         // Start new stage
         self.current_stage = Some(Timer::new(label));
@@ -73,7 +74,8 @@ impl MultiStageTimer {
     /// End current stage
     pub fn end_stage(&mut self) {
         if let Some(timer) = self.current_stage.take() {
-            self.stages.push((timer.label, timer.elapsed()));
+            let elapsed = timer.elapsed();
+            self.stages.push((timer.label, elapsed));
         }
     }
 
