@@ -84,16 +84,9 @@ impl SamplingConfig {
 pub fn sample_token(
     logits: &Tensor<f64>,
     config: &SamplingConfig,
-    _previous_tokens: &[u32],
+    previous_tokens: &[u32],
 ) -> Result<u32> {
     config.validate()?;
-
-    // For now, return a dummy token (will be implemented with actual sampling)
-    // TODO: Implement temperature scaling
-    // TODO: Implement top-k filtering
-    // TODO: Implement top-p (nucleus) filtering
-    // TODO: Implement repetition penalty
-    // TODO: Implement multinomial sampling
 
     tracing::debug!(
         "Sampling with config: temp={}, top_k={:?}, top_p={:?}",
@@ -102,16 +95,56 @@ pub fn sample_token(
         config.top_p
     );
 
-    // Placeholder: return token 0
-    // In real implementation, this would:
-    // 1. Apply temperature scaling to logits
-    // 2. Apply top-k/top-p filtering
-    // 3. Apply repetition penalty
-    // 4. Sample from the filtered distribution
-    let vocab_size = logits.shape()[logits.shape().len() - 1];
+    // Get the last token's logits (assuming shape [..., vocab_size])
+    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
 
-    // Return middle token as placeholder
-    Ok((vocab_size / 2) as u32)
+    // Step 1: Apply repetition penalty
+    let mut processed_logits = logits_vec.clone();
+    if config.repetition_penalty != 1.0 && !previous_tokens.is_empty() {
+        for &token_id in previous_tokens {
+            let idx = token_id as usize;
+            if idx < processed_logits.len() {
+                if processed_logits[idx] > 0.0 {
+                    processed_logits[idx] /= config.repetition_penalty;
+                } else {
+                    processed_logits[idx] *= config.repetition_penalty;
+                }
+            }
+        }
+    }
+
+    // Step 2: Apply temperature scaling
+    if config.temperature > 0.0 && config.temperature != 1.0 {
+        processed_logits = apply_temperature_to_vec(&processed_logits, config.temperature)?;
+    }
+
+    // Step 3: Convert to probabilities
+    let mut probs = softmax(&processed_logits)?;
+
+    // Step 4: Apply top-k filtering
+    if let Some(k) = config.top_k {
+        if k == 1 {
+            // Greedy: just return argmax
+            let max_idx = probs
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(idx, _)| idx)
+                .unwrap_or(0);
+            return Ok(max_idx as u32);
+        }
+        probs = apply_top_k_to_probs(&probs, k)?;
+    }
+
+    // Step 5: Apply top-p filtering
+    if let Some(p) = config.top_p {
+        probs = apply_top_p_to_probs(&probs, p)?;
+    }
+
+    // Step 6: Sample from the distribution
+    let sampled_idx = multinomial_sample(&probs)?;
+
+    Ok(sampled_idx as u32)
 }
 
 /// Softmax function for converting logits to probabilities
@@ -137,17 +170,6 @@ pub fn apply_temperature_to_vec(logits: &[f64], temperature: f64) -> Result<Vec<
         anyhow::bail!("Temperature must be positive");
     }
     Ok(logits.iter().map(|&x| x / temperature).collect())
-}
-
-/// Apply temperature scaling to logits
-pub fn apply_temperature(logits: &Tensor<f64>, temperature: f64) -> Tensor<f64> {
-    if temperature == 0.0 || temperature == 1.0 {
-        return logits.clone();
-    }
-
-    // Scale logits by temperature
-    let scaled_data: Vec<f64> = logits.data.iter().map(|&x| x / temperature).collect();
-    Tensor::from_vec(scaled_data, logits.size().to_vec())
 }
 
 /// Apply top-k sampling: keep only top-k highest probabilities
@@ -177,22 +199,6 @@ pub fn apply_top_k_to_probs(probs: &[f64], k: usize) -> Result<Vec<f64>> {
     }
 
     Ok(filtered)
-}
-
-/// Apply top-k filtering to logits
-pub fn apply_top_k(logits: &Tensor<f64>, k: usize) -> Tensor<f64> {
-    if k == 0 {
-        return logits.clone();
-    }
-
-    tracing::debug!("Applying top-k filtering with k={}", k);
-
-    // Extract logits as vec, apply filtering, convert back
-    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
-    match softmax(&logits_vec).and_then(|probs| apply_top_k_to_probs(&probs, k)) {
-        Ok(filtered) => Tensor::from_vec(filtered, logits.size().to_vec()),
-        Err(_) => logits.clone(),
-    }
 }
 
 /// Apply top-p (nucleus) sampling: keep smallest set of top probabilities that sum to >= p
@@ -239,22 +245,6 @@ pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> Result<Vec<f64>> {
     Ok(filtered)
 }
 
-/// Apply top-p (nucleus) filtering to logits
-pub fn apply_top_p(logits: &Tensor<f64>, p: f64) -> Tensor<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return logits.clone();
-    }
-
-    tracing::debug!("Applying top-p filtering with p={}", p);
-
-    // Extract logits as vec, apply filtering, convert back
-    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
-    match softmax(&logits_vec).and_then(|probs| apply_top_p_to_probs(&probs, p)) {
-        Ok(filtered) => Tensor::from_vec(filtered, logits.size().to_vec()),
-        Err(_) => logits.clone(),
-    }
-}
-
 /// Sample from a probability distribution using multinomial sampling
 pub fn multinomial_sample(probs: &[f64]) -> Result<usize> {
     use rand::Rng;
@@ -273,28 +263,6 @@ pub fn multinomial_sample(probs: &[f64]) -> Result<usize> {
     Ok(probs.len() - 1)
 }
 
-/// Apply repetition penalty to logits
-pub fn apply_repetition_penalty(
-    logits: &Tensor<f64>,
-    previous_tokens: &[u32],
-    penalty: f64,
-) -> Tensor<f64> {
-    if penalty == 1.0 || previous_tokens.is_empty() {
-        return logits.clone();
-    }
-
-    // TODO: Implement actual repetition penalty
-    // For each token in previous_tokens:
-    //   if logits[token] > 0: logits[token] /= penalty
-    //   else: logits[token] *= penalty
-    // For now, just return the original logits
-    tracing::debug!(
-        "Applying repetition penalty={} for {} tokens",
-        penalty,
-        previous_tokens.len()
-    );
-    logits.clone()
-}
 
 #[cfg(test)]
 mod tests {
@@ -420,31 +388,11 @@ mod tests {
     }
 
     #[test]
-    fn test_apply_temperature() {
-        let logits = Tensor::<f64>::zeros(&[10]);
-        let scaled = apply_temperature(&logits, 0.8);
-        assert_eq!(scaled.shape(), logits.shape());
-    }
-
-    #[test]
-    fn test_apply_top_k() {
-        let logits = Tensor::<f64>::zeros(&[100]);
-        let filtered = apply_top_k(&logits, 10);
-        assert_eq!(filtered.shape(), logits.shape());
-    }
-
-    #[test]
-    fn test_apply_top_p() {
-        let logits = Tensor::<f64>::zeros(&[100]);
-        let filtered = apply_top_p(&logits, 0.9);
-        assert_eq!(filtered.shape(), logits.shape());
-    }
-
-    #[test]
-    fn test_apply_repetition_penalty() {
-        let logits = Tensor::<f64>::zeros(&[100]);
-        let tokens = vec![1, 5, 10];
-        let penalized = apply_repetition_penalty(&logits, &tokens, 1.2);
-        assert_eq!(penalized.shape(), logits.shape());
+    fn test_apply_temperature_to_vec() {
+        let logits = vec![1.0, 2.0, 3.0];
+        let scaled = apply_temperature_to_vec(&logits, 0.8).unwrap();
+        assert_eq!(scaled.len(), logits.len());
+        // Should scale all values
+        assert!(scaled[0] > logits[0]);
     }
 }

@@ -90,29 +90,85 @@ impl InferenceEngine {
     /// Generate tokens using the model
     fn generate_tokens(&self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
-        let mut generated_ids = input_ids.to_vec();
 
-        // Create KV cache if model has layers
-        let _cache = self
-            .model
-            .as_ref()
-            .map(|model| KVCache::new(model.config().num_layers));
+        // Use Transformer model if available
+        if let Some(ref model) = self.model {
+            return self.generate_with_transformer(model, input_ids, max_new_tokens);
+        }
 
         // Use GPT model if available
         if let Some(ref gpt_model) = self.gpt_model {
             return self.generate_with_gpt(gpt_model, input_ids, max_new_tokens);
         }
 
-        // Fallback to dummy generation if no GPT model
-        // Generation loop with placeholder logits
+        // Fallback to dummy generation
+        self.generate_dummy(input_ids, max_new_tokens)
+    }
+
+    /// Generate tokens using Transformer model
+    fn generate_with_transformer(
+        &self,
+        model: &TransformerModel,
+        input_ids: &[u32],
+        max_new_tokens: usize,
+    ) -> Result<Vec<u32>> {
+        let mut generated_ids = input_ids.to_vec();
+        let _cache = KVCache::new(model.config().num_layers);
+
+        tracing::info!("Generating {} tokens with Transformer model", max_new_tokens);
+
+        for step in 0..max_new_tokens {
+            // Prepare input tensor [batch_size=1, seq_len]
+            let seq_len = generated_ids.len();
+            let input_tensor = Tensor::from_vec(
+                generated_ids.iter().map(|&id| id as f64).collect(),
+                vec![1, seq_len]
+            );
+
+            // Forward pass through transformer
+            let logits = model.forward(&input_tensor)?;
+
+            // Get logits for last position [batch_size, seq_len, vocab_size]
+            // Extract last position: [vocab_size]
+            let vocab_size = model.config().vocab_size;
+            let last_logits_data: Vec<f64> = logits.data.iter()
+                .skip((seq_len - 1) * vocab_size)
+                .take(vocab_size)
+                .copied()
+                .collect();
+
+            let last_logits = Tensor::from_vec(last_logits_data, vec![vocab_size]);
+
+            // Sample next token
+            let next_token = sample_token(&last_logits, &self.sampling_config, &generated_ids)?;
+
+            tracing::debug!("Step {}: Generated token {}", step, next_token);
+
+            // Check for EOS token
+            if let Some(eos_id) = self.tokenizer.eos_token_id() {
+                if next_token == eos_id {
+                    tracing::info!("EOS token encountered, stopping generation");
+                    break;
+                }
+            }
+
+            generated_ids.push(next_token);
+        }
+
+        // Return only the newly generated tokens
+        Ok(generated_ids[input_ids.len()..].to_vec())
+    }
+
+    /// Fallback dummy generation
+    fn generate_dummy(&self, input_ids: &[u32], max_new_tokens: usize) -> Result<Vec<u32>> {
+        let mut generated_ids = input_ids.to_vec();
+
         for _ in 0..max_new_tokens {
             let vocab_size = self.tokenizer.vocab_size();
             let logits = Tensor::<f64>::zeros(&[1, vocab_size]);
 
-            // Sample next token
             let next_token = sample_token(&logits, &self.sampling_config, &generated_ids)?;
 
-            // Check for EOS token
             if let Some(eos_id) = self.tokenizer.eos_token_id() {
                 if next_token == eos_id {
                     break;
@@ -120,14 +176,8 @@ impl InferenceEngine {
             }
 
             generated_ids.push(next_token);
-
-            // Stop if we've generated enough
-            if generated_ids.len() - input_ids.len() >= max_new_tokens {
-                break;
-            }
         }
 
-        // Return only the newly generated tokens
         Ok(generated_ids[input_ids.len()..].to_vec())
     }
 
