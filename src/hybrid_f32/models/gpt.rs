@@ -621,6 +621,27 @@ impl F32GPTModel {
             )));
         }
 
+        // Try Metal GPU acceleration for matrix multiplication
+        #[cfg(feature = "metal")]
+        if self.device_type == DeviceType::Metal || self.device_type == DeviceType::Hybrid {
+            return self.metal_matmul_transposed(input, weight_slice, batch_size, seq_len, input_dim, output_dim);
+        }
+
+        // CPU fallback
+        self.cpu_matmul_transposed(input, weight_slice, batch_size, seq_len, input_dim, output_dim)
+    }
+
+    /// CPU matrix multiplication for transposed weights
+    #[inline]
+    fn cpu_matmul_transposed(
+        &self,
+        input: &[f32],
+        weight: &[f32],
+        batch_size: usize,
+        seq_len: usize,
+        input_dim: usize,
+        output_dim: usize,
+    ) -> F32Result<Vec<f32>> {
         let mut output = vec![0.0f32; batch_size * seq_len * output_dim];
 
         for b in 0..batch_size {
@@ -632,12 +653,44 @@ impl F32GPTModel {
                     let mut sum = 0.0f32;
                     for d in 0..input_dim {
                         // Transposed access: weight[d][o] instead of weight[o][d]
-                        sum += input[input_offset + d] * weight_slice[d * output_dim + o];
+                        sum += input[input_offset + d] * weight[d * output_dim + o];
                     }
                     output[output_offset + o] = sum;
                 }
             }
         }
+
+        Ok(output)
+    }
+
+    /// Metal GPU matrix multiplication for transposed weights
+    #[cfg(feature = "metal")]
+    fn metal_matmul_transposed(
+        &self,
+        input: &[f32],
+        weight: &[f32],
+        batch_size: usize,
+        seq_len: usize,
+        input_dim: usize,
+        output_dim: usize,
+    ) -> F32Result<Vec<f32>> {
+        use crate::gpu::metal_kernels::metal_matmul_f32;
+
+        let mut output = vec![0.0f32; batch_size * seq_len * output_dim];
+
+        // Reshape input to [batch_size * seq_len, input_dim] for matmul
+        // Weight is [input_dim, output_dim]
+        // Result will be [batch_size * seq_len, output_dim]
+
+        metal_matmul_f32(
+            input,
+            weight,
+            &mut output,
+            batch_size * seq_len,  // M: number of rows in result
+            output_dim,             // N: number of cols in result
+            input_dim,              // K: shared dimension
+        )
+        .map_err(|e| F32Error::device_error(format!("Metal matmul failed: {}", e)))?;
 
         Ok(output)
     }
