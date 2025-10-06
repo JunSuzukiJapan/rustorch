@@ -644,8 +644,9 @@ impl GGUFLoader {
                     (sc as f32, mn as f32)
                 };
 
-                let block_scale = d * (scale / 63.0);
-                let block_min = dmin * (min / 63.0);
+                // Use raw scale/min values directly (llama.cpp: d1 = d * sc, m1 = min * m)
+                let block_scale = d * scale;
+                let block_min = dmin * min;
 
                 // Dequantize 32 elements in this block
                 for k in 0..32 {

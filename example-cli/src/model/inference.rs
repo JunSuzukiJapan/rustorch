@@ -385,10 +385,17 @@ impl InferenceEngine {
             tracing::info!("🔍 [Llama Gen] max_seq_len = {}", max_seq_len);
 
             // Forward pass through F32 Llama model with KV cache
-            tracing::info!("🔍 [Llama Gen] Calling forward with {} tokens", generated_ids.len());
+            // First step: pass all tokens, subsequent steps: pass only last token
+            let input_for_forward = if step == 0 {
+                &generated_ids[..]  // All tokens on first step
+            } else {
+                &generated_ids[generated_ids.len() - 1..]  // Only last token on subsequent steps
+            };
+
+            tracing::info!("🔍 [Llama Gen] Calling forward with {} tokens (step {}, total {})",
+                input_for_forward.len(), step, generated_ids.len());
             let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
-                // For Llama, pass all tokens (Llama handles KV cache internally)
-                llama_model.forward(&generated_ids)
+                llama_model.forward(input_for_forward)
                     .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
             } else {
                 anyhow::bail!("F32 Llama model not available");
@@ -399,6 +406,20 @@ impl InferenceEngine {
             tracing::info!("🔍 [Llama Gen] Extracting last logits");
             let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
             tracing::info!("🔍 [Llama Gen] Extracted {} logits", last_logits.len());
+
+            // Debug: show logit statistics for first 2 steps
+            if step < 2 {
+                let max_logit = last_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min_logit = last_logits.iter().cloned().fold(f32::INFINITY, f32::min);
+                let sum: f32 = last_logits.iter().sum();
+                let mean = sum / last_logits.len() as f32;
+                tracing::info!("🔍 [Llama Logits] min={:.3}, max={:.3}, mean={:.3}", min_logit, max_logit, mean);
+
+                // Show top 5 logits
+                let mut indexed: Vec<(usize, f32)> = last_logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+                indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                tracing::info!("🔍 [Llama Top5] {:?}", &indexed[0..5.min(indexed.len())]);
+            }
 
             // Sample next token with temperature
             tracing::info!("🔍 [Llama Gen] Sampling next token");
