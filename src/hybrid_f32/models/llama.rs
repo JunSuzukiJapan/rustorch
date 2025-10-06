@@ -431,9 +431,13 @@ impl F32LlamaModel {
                 let q_start = q_pos * num_heads * head_dim + h * head_dim;
                 let q_vec = &q_data[q_start..q_start + head_dim];
 
-                // Compute attention scores
-                let mut scores = Vec::with_capacity(total_kv_len);
-                for kv_pos in 0..total_kv_len {
+                // Compute attention scores with causal masking
+                // Query at position q_pos can only attend to keys at positions 0..=current_kv_pos
+                // where current_kv_pos = cached_len + q_pos
+                let current_kv_pos = total_kv_len - seq_len + q_pos;
+                let mut scores = Vec::with_capacity(current_kv_pos + 1);
+
+                for kv_pos in 0..=current_kv_pos {
                     let k_start = kv_pos * num_kv_heads * head_dim + kv_head * head_dim;
                     let k_vec = &full_k[k_start..k_start + head_dim];
 
@@ -451,10 +455,10 @@ impl F32LlamaModel {
                 let sum_exp: f32 = exp_scores.iter().sum();
                 let attn_weights: Vec<f32> = exp_scores.iter().map(|&e| e / sum_exp).collect();
 
-                // Weighted sum of values
+                // Weighted sum of values (only up to current_kv_pos due to causal masking)
                 for dim in 0..head_dim {
                     let mut weighted_sum = 0.0f32;
-                    for kv_pos in 0..total_kv_len {
+                    for kv_pos in 0..=current_kv_pos {
                         let v_start = kv_pos * num_kv_heads * head_dim + kv_head * head_dim;
                         weighted_sum += attn_weights[kv_pos] * full_v[v_start + dim];
                     }
