@@ -738,20 +738,27 @@ impl F32LlamaModel {
 
         // Get current position from first layer's cache (all layers should have same length)
         let current_position = self.kv_cache[0].cached_len;
-        eprintln!("🔍 [FORWARD] seq_len={}, current_position={}", seq_len, current_position);
+
+        // Strategic debug: Monitor problematic positions only
+        let is_critical_position = current_position >= 12 && current_position <= 14;
+        if is_critical_position {
+            eprintln!("⚠️  [CRITICAL] position={}, seq_len={}", current_position, seq_len);
+        } else {
+            eprintln!("🔍 [FORWARD] seq_len={}, current_position={}", seq_len, current_position);
+        }
 
         // Pass through all transformer layers
         for layer_idx in 0..self.config.num_layers {
             x = self.transformer_layer(&x, layer_idx, current_position)?;
 
-            // DEBUG: Log first and last layer outputs
-            if layer_idx == 0 {
-                let layer0_out: Vec<f32> = x.as_slice().iter().take(5).copied().collect();
-                eprintln!("🔍 [L0] layer_0_output[0..5]={:?}", layer0_out);
-            }
+            // DEBUG: Log only last layer output, with special attention at critical positions
             if layer_idx == self.config.num_layers - 1 {
                 let last_layer_out: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
-                eprintln!("🔍 [L{}] last_layer_output[0..10]={:?}", layer_idx, last_layer_out);
+                if is_critical_position {
+                    eprintln!("⚠️  [L{}] CRITICAL last_layer[0..10]={:?}", layer_idx, last_layer_out);
+                } else {
+                    eprintln!("🔍 [L{}] last_layer_output[0..10]={:?}", layer_idx, last_layer_out);
+                }
             }
         }
 
@@ -763,9 +770,11 @@ impl F32LlamaModel {
 
         let normed = self.rms_norm(&x, output_norm_weight)?;
 
-        // DEBUG: Log normed output
-        let normed_out: Vec<f32> = normed.as_slice().iter().take(10).copied().collect();
-        eprintln!("🔍 [NORM] after_output_norm[0..10]={:?}", normed_out);
+        // DEBUG: Log normed output only at critical positions
+        if is_critical_position {
+            let normed_out: Vec<f32> = normed.as_slice().iter().take(10).copied().collect();
+            eprintln!("⚠️  [NORM] CRITICAL after_output_norm[0..10]={:?}", normed_out);
+        }
 
         // LM head (project to vocabulary)
         let lm_head_weight = self.weights.get("output.weight")
@@ -779,19 +788,24 @@ impl F32LlamaModel {
             &[1, hidden_size]
         )?;
 
-        // DEBUG: Log LM head shapes
-        let last_hidden_vals: Vec<f32> = last_token_hidden.as_slice().iter().take(10).copied().collect();
-        eprintln!("🔍 [LM_HEAD] last_token_hidden[0..10]={:?}, shape={:?}", last_hidden_vals, last_token_hidden.shape());
-        eprintln!("🔍 [LM_HEAD] lm_head_weight shape={:?}", lm_head_weight.shape());
+        // DEBUG: Log LM head only at critical positions
+        if is_critical_position {
+            let last_hidden_vals: Vec<f32> = last_token_hidden.as_slice().iter().take(10).copied().collect();
+            eprintln!("⚠️  [LM_HEAD] CRITICAL last_token_hidden[0..10]={:?}", last_hidden_vals);
+        }
 
         let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
-        
-        // DEBUG: Log top-5 logits
+
+        // DEBUG: Always log top-5 logits to detect zero issue
         let logits_slice = logits.as_slice();
         let mut indexed: Vec<(usize, f32)> = logits_slice.iter().enumerate().map(|(i, &v)| (i, v)).collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
         let top5: Vec<(usize, f32)> = indexed.iter().take(5).copied().collect();
-        eprintln!("🔍 [LOGITS] top5={:?}", top5);
+        if is_critical_position {
+            eprintln!("⚠️  [LOGITS] CRITICAL top5={:?}", top5);
+        } else {
+            eprintln!("🔍 [LOGITS] top5={:?}", top5);
+        }
         
         Ok(logits)
     }
