@@ -629,20 +629,20 @@ impl GGUFLoader {
             })?;
 
             // Dequantize: Process 8 blocks of 32 elements each
+            // Using llama.cpp's get_scale_min_k4 logic
             for j in 0..8 {
                 // Extract scale and min for this block (6-bit values)
-                let scale_byte_idx = j * 3 / 2;
-                let scale = if j % 2 == 0 {
-                    scales[scale_byte_idx] & 0x3F
+                let (scale, min) = if j < 4 {
+                    // First 4 blocks: simple extraction
+                    let sc = scales[j] & 63;           // Lower 6 bits
+                    let mn = scales[j + 4] & 63;       // Lower 6 bits
+                    (sc as f32, mn as f32)
                 } else {
-                    (scales[scale_byte_idx] >> 2) | ((scales[scale_byte_idx + 1] & 0x0F) << 4)
-                } as f32;
-
-                let min = if j % 2 == 0 {
-                    (scales[scale_byte_idx] >> 6) | ((scales[scale_byte_idx + 1] & 0x3F) << 2)
-                } else {
-                    scales[scale_byte_idx + 1] >> 4
-                } as f32;
+                    // Last 4 blocks: combine bits from adjacent entries
+                    let sc = (scales[j + 4] & 0x0F) | ((scales[j - 4] >> 6) << 4);
+                    let mn = (scales[j + 4] >> 4) | ((scales[j] >> 6) << 4);
+                    (sc as f32, mn as f32)
+                };
 
                 let block_scale = d * (scale / 63.0);
                 let block_min = dmin * (min / 63.0);
@@ -661,9 +661,9 @@ impl GGUFLoader {
                         qs[byte_idx] >> 4
                     };
 
-                    // FIX: Q4_K dequantization formula should be: scale * nibble + min (not minus!)
-                    // This matches llama.cpp implementation
-                    let dequant_val = block_scale * nibble as f32 + block_min;
+                    // Q4_K dequantization formula from llama.cpp: d1 * q - m1
+                    // where d1 = d * scale, m1 = dmin * min
+                    let dequant_val = block_scale * nibble as f32 - block_min;
                     output.push(dequant_val as f64);
                 }
             }

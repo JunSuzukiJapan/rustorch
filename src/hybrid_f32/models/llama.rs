@@ -452,26 +452,47 @@ impl F32LlamaModel {
             .ok_or_else(|| F32Error::device_error("Embedding weight not found"))?;
 
         let hidden_size = self.config.hidden_size;
+        let vocab_size = self.config.vocab_size;
         let embed_data = embed_weight.as_slice();
+        let embed_shape = embed_weight.shape();
 
-        if token_id >= self.config.vocab_size {
+        if token_id >= vocab_size {
             return Err(F32Error::device_error(format!(
                 "Token ID {} out of vocab range {}",
-                token_id, self.config.vocab_size
+                token_id, vocab_size
             )));
         }
 
-        let start = token_id * hidden_size;
-        let end = start + hidden_size;
+        // GGUF loads embeddings as [hidden_size, vocab_size] instead of [vocab_size, hidden_size]
+        // So we need to extract the token_id-th column, not row
+        if embed_shape[0] == hidden_size && embed_shape[1] == vocab_size {
+            // Weight is [hidden_size, vocab_size] - extract column token_id
+            let mut embedding = Vec::with_capacity(hidden_size);
+            for i in 0..hidden_size {
+                let idx = i * vocab_size + token_id;
+                if idx >= embed_data.len() {
+                    return Err(F32Error::device_error(format!(
+                        "Embedding index out of range: {} >= {}",
+                        idx, embed_data.len()
+                    )));
+                }
+                embedding.push(embed_data[idx]);
+            }
+            Ok(embedding)
+        } else {
+            // Standard layout [vocab_size, hidden_size] - extract row token_id
+            let start = token_id * hidden_size;
+            let end = start + hidden_size;
 
-        if end > embed_data.len() {
-            return Err(F32Error::device_error(format!(
-                "Embedding index out of range: {} > {}",
-                end, embed_data.len()
-            )));
+            if end > embed_data.len() {
+                return Err(F32Error::device_error(format!(
+                    "Embedding index out of range: {} > {}",
+                    end, embed_data.len()
+                )));
+            }
+
+            Ok(embed_data[start..end].to_vec())
         }
-
-        Ok(embed_data[start..end].to_vec())
     }
 
     /// Llama attention layer
@@ -670,8 +691,10 @@ impl F32LlamaModel {
 
                     match F32Tensor::from_vec(data_f32, shape) {
                         Ok(tensor_f32) => {
-                            // Debug: check for output/lm_head weights
-                            if name.contains("output") || name.contains("lm_head") || name.contains("token_embd") {
+                            // Debug: check key weights (embeddings, attention Q/K/V, output)
+                            if name.contains("token_embd") || name.contains("attn_q") ||
+                               name.contains("attn_k") || name.contains("attn_v") ||
+                               name.contains("output") || name.contains("ffn_gate") {
                                 eprintln!("🔍 WEIGHT: '{}' shape: {:?}", name, shape);
                             }
                             model.weights.insert(name.to_string(), tensor_f32);
