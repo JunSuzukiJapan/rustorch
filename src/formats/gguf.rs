@@ -567,20 +567,20 @@ impl GGUFLoader {
             })?;
 
             // Dequantize: Each byte contains two 4-bit values
-            for i in 0..QK {
-                let byte_idx = i / 2;
-                let nibble = if i % 2 == 0 {
-                    // Lower 4 bits
-                    qs[byte_idx] & 0x0F
-                } else {
-                    // Upper 4 bits
-                    (qs[byte_idx] >> 4) & 0x0F
-                };
+            // llama.cpp layout: lower nibbles first, then upper nibbles
+            let half_block = QK / 2;
+            for j in 0..half_block {
+                // Lower 4 bits (0-15) -> -8 to +7
+                let x0 = ((qs[j] & 0x0F) as i8) - 8;
+                // Upper 4 bits (0-15) -> -8 to +7
+                let x1 = ((qs[j] >> 4) as i8) - 8;
 
-                // Convert 4-bit unsigned to signed: 0-15 -> -8 to 7
-                let signed = (nibble as i8) - 8;
-                let value = (signed as f32) * scale;
-                output.push(value as f64);
+                // llama.cpp order: all lower nibbles first, then all upper nibbles
+                output.push((x0 as f32 * scale) as f64);
+            }
+            for j in 0..half_block {
+                let x1 = ((qs[j] >> 4) as i8) - 8;
+                output.push((x1 as f32 * scale) as f64);
             }
         }
 
@@ -628,44 +628,51 @@ impl GGUFLoader {
                 RusTorchError::IoError(format!("Failed to read Q4_K quants: {}", e))
             })?;
 
-            // Dequantize: Process 8 blocks of 32 elements each
-            // Using llama.cpp's get_scale_min_k4 logic
-            for j in 0..8 {
-                // Extract scale and min for this block (6-bit values)
-                let (scale, min) = if j < 4 {
-                    // First 4 blocks: simple extraction
-                    let sc = scales[j] & 63;           // Lower 6 bits
-                    let mn = scales[j + 4] & 63;       // Lower 6 bits
+            // Dequantize: Process in pairs (64 elements at a time) like llama.cpp
+            // Each pair processes 32 bytes: lower nibbles first, then upper nibbles
+            for pair in 0..4 {
+                let j1 = pair * 2;
+                let j2 = pair * 2 + 1;
+                let q_offset = pair * 32; // Byte offset in qs array
+
+                // Get scale/min for both blocks in the pair
+                let (scale1, min1) = if j1 < 4 {
+                    let sc = scales[j1] & 63;
+                    let mn = scales[j1 + 4] & 63;
                     (sc as f32, mn as f32)
                 } else {
-                    // Last 4 blocks: combine bits from adjacent entries
-                    let sc = (scales[j + 4] & 0x0F) | ((scales[j - 4] >> 6) << 4);
-                    let mn = (scales[j + 4] >> 4) | ((scales[j] >> 6) << 4);
+                    let sc = (scales[j1 + 4] & 0x0F) | ((scales[j1 - 4] >> 6) << 4);
+                    let mn = (scales[j1 + 4] >> 4) | ((scales[j1] >> 6) << 4);
                     (sc as f32, mn as f32)
                 };
 
-                // Use raw scale/min values directly (llama.cpp: d1 = d * sc, m1 = min * m)
-                let block_scale = d * scale;
-                let block_min = dmin * min;
+                let (scale2, min2) = if j2 < 4 {
+                    let sc = scales[j2] & 63;
+                    let mn = scales[j2 + 4] & 63;
+                    (sc as f32, mn as f32)
+                } else {
+                    let sc = (scales[j2 + 4] & 0x0F) | ((scales[j2 - 4] >> 6) << 4);
+                    let mn = (scales[j2 + 4] >> 4) | ((scales[j2] >> 6) << 4);
+                    (sc as f32, mn as f32)
+                };
 
-                // Dequantize 32 elements in this block
-                for k in 0..32 {
-                    let element_idx = j * 32 + k;
-                    if output.len() >= num_elements {
-                        break;
-                    }
+                let d1 = d * scale1;
+                let m1 = dmin * min1;
+                let d2 = d * scale2;
+                let m2 = dmin * min2;
 
-                    let byte_idx = element_idx / 2;
-                    let nibble = if element_idx % 2 == 0 {
-                        qs[byte_idx] & 0x0F
-                    } else {
-                        qs[byte_idx] >> 4
-                    };
+                // Process 32 lower nibbles (block 1)
+                for l in 0..32 {
+                    if output.len() >= num_elements { break; }
+                    let q_val = qs[q_offset + l] & 0x0F;
+                    output.push((d1 * q_val as f32 - m1) as f64);
+                }
 
-                    // Q4_K dequantization formula from llama.cpp: d1 * q - m1
-                    // where d1 = d * scale, m1 = dmin * min
-                    let dequant_val = block_scale * nibble as f32 - block_min;
-                    output.push(dequant_val as f64);
+                // Process 32 upper nibbles (block 2)
+                for l in 0..32 {
+                    if output.len() >= num_elements { break; }
+                    let q_val = qs[q_offset + l] >> 4;
+                    output.push((d2 * q_val as f32 - m2) as f64);
                 }
             }
         }
