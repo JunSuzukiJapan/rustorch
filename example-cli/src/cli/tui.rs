@@ -40,7 +40,7 @@ impl TuiApp {
             messages: vec![
                 "Welcome to RusTorch CLI".to_string(),
                 "Type your message and press Enter".to_string(),
-                "Press TAB to toggle chat template mode".to_string(),
+                "Press Shift+TAB to toggle chat template mode".to_string(),
                 "Type /help for commands, /exit to quit".to_string(),
             ],
             use_chat_template,
@@ -140,7 +140,7 @@ impl TuiApp {
             template_status,
             Span::raw(" | "),
             Span::styled(
-                "(TAB to toggle)",
+                "(Shift+TAB to toggle)",
                 Style::default().fg(Color::DarkGray),
             ),
             Span::raw(" | "),
@@ -167,8 +167,8 @@ impl TuiApp {
 
     fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         match (key.code, key.modifiers) {
-            // TAB key to toggle template
-            (KeyCode::Tab, KeyModifiers::NONE) => {
+            // Shift+TAB key to toggle template
+            (KeyCode::BackTab, _) => {
                 self.use_chat_template = !self.use_chat_template;
                 let status = if self.use_chat_template { "ON" } else { "OFF" };
                 self.messages.push(format!("✓ Template toggled: {}", status));
