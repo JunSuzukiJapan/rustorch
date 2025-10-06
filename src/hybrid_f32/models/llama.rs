@@ -736,6 +736,12 @@ impl F32LlamaModel {
         // DEBUG: Log layer 0 and 1 intermediate values at first position only
         let debug = (layer_idx == 0 || layer_idx == 1) && position == 0;
 
+        // Log transformer layer input
+        if debug {
+            let input_vals: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] transformer_input[0..10]={:?}", layer_idx, input_vals);
+        }
+
         // Attention block with residual connection
         let normed = self.rms_norm(x, &attn_norm_weight)?;
         if debug {
@@ -753,6 +759,17 @@ impl F32LlamaModel {
         if debug {
             let after_attn_res: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
             eprintln!("🔍 [L{}] after_attn_residual[0..10]={:?}", layer_idx, after_attn_res);
+
+            // Save full vector to file for Layer 0
+            if layer_idx == 0 {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::File::create("/tmp/layer0_after_attn_residual.txt") {
+                    for val in x.as_slice() {
+                        let _ = writeln!(file, "{:.9}", val);
+                    }
+                    eprintln!("💾 [L0] Saved full after_attn_residual to /tmp/layer0_after_attn_residual.txt");
+                }
+            }
         }
 
         // FFN block with residual connection
