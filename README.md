@@ -275,11 +275,11 @@ For more examples, see [Getting Started Guide](docs/core/getting-started.md) and
 ### Core Documentation
 - **[Getting Started](docs/core/getting-started.md)** - Basic usage and examples
 - **[Features](docs/core/features.md)** - Complete feature list and specifications
+- **[API Documentation](docs/core/API_DOCUMENTATION.md)** 📖 - **Complete API Reference** (Sampling, Chat API, all modules)
 - **[Implementation Verification](docs/core/IMPLEMENTATION_VERIFICATION.md)** ✅ - **100% Verified Core Operations** (Mathematical proof of correctness)
 - **[Performance](docs/guides/performance.md)** - Benchmarks and optimization details
 - **[Architecture](docs/core/architecture.md)** - System design and project structure
 - **[Examples](docs/guides/examples.md)** - Comprehensive code examples
-- **[API Documentation](https://docs.rs/rustorch)** - Detailed API reference
 
 ### WebAssembly & Browser ML
 - **[WebAssembly Guide](docs/specialized/wasm/WASM_GUIDE.md)** - Complete WASM integration and API reference

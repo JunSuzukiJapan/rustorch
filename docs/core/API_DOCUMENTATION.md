@@ -2636,6 +2636,297 @@ println!("Speedup: {:.2}x", comparison.speedup_factor);
 println!("{}", benchmark.report());
 ```
 
+## 🎲 Sampling Module
+
+The sampling module provides advanced text generation strategies for language models with temperature scaling, top-k/top-p filtering, and repetition penalties.
+
+### Sampling Configuration
+
+```rust
+use rustorch::models::sampling::{SamplingConfig, sample_token};
+use rustorch::tensor::Tensor;
+
+// Greedy sampling (always select most likely token)
+let config = SamplingConfig::greedy();
+
+// Top-k sampling (keep only k highest probabilities)
+let config = SamplingConfig::top_k(50, 0.8);  // k=50, temperature=0.8
+
+// Nucleus (top-p) sampling (dynamic vocabulary selection)
+let config = SamplingConfig::nucleus(0.9, 0.7);  // p=0.9, temperature=0.7
+
+// Custom configuration
+let config = SamplingConfig {
+    temperature: 0.8,
+    top_k: Some(50),
+    top_p: Some(0.9),
+    repetition_penalty: 1.2,
+};
+
+// Validate configuration
+config.validate()?;
+```
+
+### Token Sampling
+
+```rust
+// Sample next token from logits
+let logits = model.forward(&input_tokens)?;  // Shape: [batch_size, vocab_size]
+let previous_tokens = vec![1, 529, 29989];  // Context for repetition penalty
+
+let next_token = sample_token(&logits, &config, &previous_tokens)?;
+println!("Next token ID: {}", next_token);
+```
+
+### Sampling Strategies
+
+#### Temperature Scaling
+
+Temperature controls randomness in sampling:
+- **Low temperature (0.1-0.5)**: More deterministic, focused outputs
+- **Medium temperature (0.7-0.9)**: Balanced creativity and coherence
+- **High temperature (1.0+)**: More random, creative outputs
+
+```rust
+use rustorch::models::sampling::apply_temperature_to_vec;
+
+let logits = vec![2.0, 1.0, 0.5];
+let scaled = apply_temperature_to_vec(&logits, 0.8)?;  // Higher values = more random
+```
+
+#### Top-K Filtering
+
+Keep only the k highest probability tokens:
+
+```rust
+use rustorch::models::sampling::apply_top_k_to_probs;
+
+let probs = vec![0.5, 0.3, 0.15, 0.05];
+let filtered = apply_top_k_to_probs(&probs, 2)?;  // Keep top 2 tokens
+// Result: [0.625, 0.375, 0.0, 0.0] (renormalized)
+```
+
+#### Top-P (Nucleus) Filtering
+
+Keep smallest set of tokens with cumulative probability ≥ p:
+
+```rust
+use rustorch::models::sampling::apply_top_p_to_probs;
+
+let probs = vec![0.5, 0.3, 0.15, 0.05];
+let filtered = apply_top_p_to_probs(&probs, 0.8)?;  // Keep tokens summing to ≥ 0.8
+// Result: [0.625, 0.375, 0.0, 0.0] (top 2 tokens sum to 0.8)
+```
+
+#### Repetition Penalty
+
+Reduce probability of recently used tokens:
+
+```rust
+let config = SamplingConfig {
+    repetition_penalty: 1.2,  // Penalize repetition
+    ..Default::default()
+};
+
+// Penalty applied automatically in sample_token()
+// - If logit > 0: logit /= penalty
+// - If logit < 0: logit *= penalty
+```
+
+### Utility Functions
+
+```rust
+use rustorch::models::sampling::{softmax, multinomial_sample};
+
+// Convert logits to probabilities
+let logits = vec![2.0, 1.0, 0.5];
+let probs = softmax(&logits)?;
+// Result: [0.659, 0.242, 0.099] (sums to 1.0)
+
+// Sample from probability distribution
+let sampled_idx = multinomial_sample(&probs)?;
+println!("Sampled index: {}", sampled_idx);  // Probabilistic selection
+```
+
+### Complete Generation Example
+
+```rust
+use rustorch::models::sampling::{SamplingConfig, sample_token};
+use rustorch::models::GPTModel;
+
+let mut model = GPTModel::from_gguf("model.gguf")?;
+let config = SamplingConfig::nucleus(0.9, 0.7);
+
+let mut tokens = vec![1];  // Start with BOS token
+let max_tokens = 50;
+
+for _ in 0..max_tokens {
+    let logits = model.forward(&tokens)?;
+    let next_token = sample_token(&logits, &config, &tokens)?;
+
+    if next_token == 2 {  // EOS token
+        break;
+    }
+
+    tokens.push(next_token);
+}
+
+println!("Generated tokens: {:?}", tokens);
+```
+
+## 💬 Chat API (F32LlamaModel)
+
+The Chat API provides high-level text generation with automatic chat template application for conversational AI.
+
+### Basic Chat Interface
+
+```rust
+use rustorch::hybrid_f32::models::{F32LlamaModel, DeviceType};
+
+// Load model
+let mut model = F32LlamaModel::from_gguf_with_device(
+    "tinyllama-1.1b.gguf",
+    DeviceType::Metal
+)?;
+
+// Simple chat (greedy sampling)
+let response = model.chat(
+    "What is the capital of France?",  // User input
+    None,                                // System message (optional)
+    50                                   // Max tokens
+)?;
+
+println!("Response: {}", response);
+```
+
+### Chat with System Message
+
+```rust
+let response = model.chat(
+    "Explain quantum computing",
+    Some("You are a physics professor explaining complex topics simply."),
+    100
+)?;
+```
+
+### Chat Template System
+
+The `apply_chat_template()` method formats user input according to TinyLlama chat format:
+
+```
+<|system|>
+{system_message}</s>
+<|user|>
+{user_input}</s>
+<|assistant|>
+{model_generation}
+```
+
+```rust
+// Manual template application (for debugging)
+let tokens = model.apply_chat_template(
+    "Hello, how are you?",
+    Some("You are a friendly assistant.")
+);
+
+println!("Template tokens: {:?}", tokens);
+// Output: [1, 529, 29989, 5205, ...] (TinyLlama format)
+```
+
+### Advanced Chat with Sampling
+
+```rust
+// Custom sampling parameters (planned)
+let response = model.chat_with_sampling(
+    "Write a creative story",
+    None,
+    200,              // Max tokens
+    0.9,              // Temperature
+    Some(50),         // Top-k
+    Some(0.9)         // Top-p
+)?;
+```
+
+### Chat API Features
+
+- ✅ **Automatic Template Application** - Formats input for model
+- ✅ **EOS Detection** - Stops generation at end-of-sequence token
+- ✅ **System Message Support** - Context injection for behavior control
+- ✅ **Greedy Sampling** - Deterministic generation by default
+- 🔄 **Custom Sampling** - Temperature/top-k/top-p (coming soon)
+- 🔄 **Token Decoding** - Text output (currently returns token IDs)
+
+### Generation Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `user_input` | `&str` | - | User's message/prompt |
+| `system_message` | `Option<&str>` | `"You are a helpful assistant."` | System instruction |
+| `max_tokens` | `usize` | - | Maximum generation length |
+| `temperature` | `f32` | 1.0 | Sampling temperature (planned) |
+| `top_k` | `Option<usize>` | `None` | Top-k filtering (planned) |
+| `top_p` | `Option<f32>` | `None` | Nucleus sampling (planned) |
+
+### Low-Level Forward Pass
+
+For direct model control without templates:
+
+```rust
+// Raw token input
+let input_tokens: Vec<usize> = vec![1, 529, 29989, 5205];  // Manual tokens
+let logits = model.forward(&input_tokens)?;
+
+// Extract next token logits
+let vocab_size = model.config.vocab_size;
+let logits_vec: Vec<f32> = logits.data.iter().copied().collect();
+let last_logits = &logits_vec[logits_vec.len() - vocab_size..];
+
+// Manual sampling
+let next_token = last_logits
+    .iter()
+    .enumerate()
+    .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+    .map(|(idx, _)| idx)
+    .unwrap();
+
+println!("Next token: {}", next_token);
+```
+
+### Chat Template Compatibility
+
+Currently supports **TinyLlama** format. Token IDs are hardcoded for:
+- `<s>` (BOS): 1
+- `</s>` (EOS): 2
+- `<|system|>`, `<|user|>`, `<|assistant|>`: Special tokens
+
+**Future**: Dynamic tokenizer integration for multi-model support (Llama-2, Mistral, etc.)
+
+### Integration Example
+
+```rust
+use rustorch::hybrid_f32::models::{F32LlamaModel, DeviceType};
+use rustorch::models::sampling::{SamplingConfig, sample_token};
+
+let mut model = F32LlamaModel::from_gguf_with_device("model.gguf", DeviceType::Metal)?;
+let config = SamplingConfig::nucleus(0.9, 0.8);
+
+// Apply template
+let tokens = model.apply_chat_template("Tell me a joke", None);
+let mut current_tokens: Vec<usize> = tokens.iter().map(|&t| t as usize).collect();
+
+// Generate with custom sampling
+for _ in 0..50 {
+    let logits = model.forward(&current_tokens)?;
+
+    // Convert f32 logits to f64 for sampling module
+    let logits_f64 = /* conversion logic */;
+    let next_token = sample_token(&logits_f64, &config, &[])?;
+
+    if next_token == 2 { break; }  // EOS
+    current_tokens.push(next_token as usize);
+}
+```
+
 ## 🌐 WebAssembly (WASM) Module
 
 > 📋 **Complete WASM API Reference**: [WASM API Documentation](../specialized/wasm/WASM_API_DOCUMENTATION.md)
