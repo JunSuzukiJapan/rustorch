@@ -83,10 +83,10 @@ impl LayerKVCache {
 /// GPU加速用ネイティブf32精度Llamaモデル
 pub struct F32LlamaModel {
     config: LlamaConfig,
-    weights: HashMap<String, F32Tensor>,
+    pub weights: HashMap<String, F32Tensor>,  // TEMPデバッグ用にpub
     device_type: DeviceType,
     /// KV cache for each layer [num_layers]
-    kv_cache: Vec<LayerKVCache>,
+    pub kv_cache: Vec<LayerKVCache>,  // TEMPデバッグ用にpub
     /// Precomputed RoPE frequencies
     rope_cos: Vec<f32>,
     rope_sin: Vec<f32>,
