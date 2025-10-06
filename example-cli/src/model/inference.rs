@@ -108,8 +108,14 @@ impl InferenceEngine {
                 input.chars().take(self.generation_config.max_tokens).map(|c| c as u32).collect()
             });
 
+        // DEBUG: Log input tokens
+        eprintln!("🔍 [INPUT] prompt='{}' tokens={:?}", input, input_ids);
+
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
+
+        // DEBUG: Log output tokens
+        eprintln!("🔍 [OUTPUT] tokens={:?}", output_ids);
 
         // Decode output using loader's tokenizer
         let output = self
@@ -361,6 +367,9 @@ impl InferenceEngine {
     ) -> Result<Vec<u32>> {
         tracing::info!("🔍 [Llama Gen] Starting generation");
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
+
+        // DEBUG: Log initial generated_ids
+        eprintln!("🔍 [Llama Gen] Initial generated_ids = {:?}", generated_ids);
 
         tracing::info!(
             "Generating {} tokens with F32 Llama model (Metal GPU + KV Cache)",

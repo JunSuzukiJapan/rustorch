@@ -136,20 +136,29 @@ fn start_cli(args: CliArgs) -> Result<()> {
                 Ok(loader) => {
                     match loader.get_model_params() {
                         Ok(params) => {
+                            // Calculate num_kv_heads from K weight shape
+                            let head_dim = params.hidden_size as usize / params.num_heads as usize;
+                            let num_kv_heads = loader.get_tensor("blk.0.attn_k.weight")
+                                .and_then(|tensor_info| {
+                                    // K weight shape: [hidden_size, num_kv_heads * head_dim]
+                                    tensor_info.dims.get(1).map(|&kv_dim| kv_dim as usize / head_dim)
+                                })
+                                .unwrap_or(params.num_heads as usize); // Fallback to MHA if not found
+
                             let config = LlamaConfig {
                                 vocab_size: params.vocab_size as usize,
                                 hidden_size: params.hidden_size as usize,
                                 num_layers: params.num_layers as usize,
                                 num_heads: params.num_heads as usize,
-                                num_kv_heads: params.num_heads as usize, // GQA heads (assume same as num_heads for now)
+                                num_kv_heads,
                                 intermediate_size: (params.hidden_size * 4) as usize, // Standard 4x expansion
                                 max_seq_len: params.context_length as usize,
                                 rms_norm_eps: 1e-5,
                                 rope_theta: 10000.0,
                             };
 
-                            tracing::info!("📋 Llama Config: vocab={}, hidden={}, layers={}, heads={}",
-                                config.vocab_size, config.hidden_size, config.num_layers, config.num_heads);
+                            tracing::info!("📋 Llama Config: vocab={}, hidden={}, layers={}, heads={}, kv_heads={}",
+                                config.vocab_size, config.hidden_size, config.num_layers, config.num_heads, config.num_kv_heads);
 
                             match F32LlamaModel::from_gguf_with_config(&model_path, config, device_type) {
                                 Ok(llama_model) => {
