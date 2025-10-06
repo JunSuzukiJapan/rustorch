@@ -521,7 +521,7 @@ impl F32Tensor {
     /// 行列乗算
     /// Matrix multiplication
     pub fn matmul(&self, other: &Self) -> RusTorchResult<Self> {
-        eprintln!("🧮 [MATMUL_ENTRY] self.shape={:?}, other.shape={:?}", self.shape, other.shape);
+        // eprintln!("🧮 [MATMUL_ENTRY] self.shape={:?}, other.shape={:?}", self.shape, other.shape);
         // 2D matrix multiplication with Metal GPU acceleration
         if self.shape.len() == 2 && other.shape.len() == 2 {
             let (m, k) = (self.shape[0], self.shape[1]);
@@ -547,7 +547,7 @@ impl F32Tensor {
                     m, n, k
                 ) {
                     Ok(()) => {
-                        eprintln!("✅ [MATMUL] Metal GPU {}x{} @ {}x{}", m, k, k, n);
+                        // eprintln!("✅ [MATMUL] Metal GPU {}x{} @ {}x{}", m, k, k, n);
                         let array = Array::from_shape_vec(IxDyn(&result_shape), result_data).map_err(|e| {
                             RusTorchError::InvalidParameters {
                                 operation: "matmul".to_string(),

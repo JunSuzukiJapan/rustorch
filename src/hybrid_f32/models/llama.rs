@@ -269,6 +269,13 @@ impl F32LlamaModel {
 
         let mut output = Vec::with_capacity(x_data.len());
 
+        let debug_output_norm = weight_data.len() == 2048 && shape.len() == 2 && shape[0] == 1;
+
+        if weight_data.len() == 2048 {
+            eprintln!("🔬 [RMSNORM_CHECK] weight_len={}, shape={:?}, x_len={}, last_dim={}, batch={}",
+                weight_data.len(), shape, x_data.len(), last_dim, batch_size);
+        }
+
         for i in 0..batch_size {
             let start = i * last_dim;
             let end = start + last_dim;
@@ -278,9 +285,21 @@ impl F32LlamaModel {
             let sum_sq: f32 = slice.iter().map(|&v| v * v).sum();
             let rms = (sum_sq / (last_dim as f32) + eps).sqrt();
 
+            if debug_output_norm && i == 0 {
+                eprintln!("🔬 [RMSNORM] input[0..4]={:?}", &slice[0..4]);
+                eprintln!("🔬 [RMSNORM] sum_sq={:.6}, last_dim={}, eps={}", sum_sq, last_dim, eps);
+                eprintln!("🔬 [RMSNORM] rms={:.6}", rms);
+                eprintln!("🔬 [RMSNORM] weight[0..4]={:?}", &weight_data[0..4]);
+            }
+
             // Normalize and scale
             for j in 0..last_dim {
-                output.push((slice[j] / rms) * weight_data[j]);
+                let val = (slice[j] / rms) * weight_data[j];
+                output.push(val);
+                if debug_output_norm && i == 0 && j < 4 {
+                    eprintln!("🔬 [RMSNORM] output[{}] = ({:.6} / {:.6}) * {:.6} = {:.6}",
+                        j, slice[j], rms, weight_data[j], val);
+                }
             }
         }
 
@@ -691,8 +710,8 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
-        // DEBUG: Log layer 0 intermediate values (disabled to reduce overhead)
-        let debug = false; // layer_idx == 0;
+        // DEBUG: Log layer 0 intermediate values at first position only
+        let debug = layer_idx == 0 && position == 0;
 
         // Attention block with residual connection
         let normed = self.rms_norm(x, &attn_norm_weight)?;
@@ -821,6 +840,20 @@ impl F32LlamaModel {
         eprintln!("🔍 [LM_HEAD] last_token_hidden[0..10]={:?}", last_hidden_vals);
         eprintln!("🔍 [LM_HEAD] last_token_hidden shape: {:?}", last_token_hidden.shape());
         eprintln!("🔍 [LM_HEAD] weight shape: {:?}", lm_head_weight.shape());
+
+        // DEBUG: Check if hidden state is valid
+        let hidden_slice = last_token_hidden.as_slice();
+        let non_zero_count = hidden_slice.iter().filter(|&&x| x != 0.0).count();
+        let sum: f32 = hidden_slice.iter().sum();
+        eprintln!("🔍 [LM_HEAD] non_zero={}/{}, sum={:.6}", non_zero_count, hidden_slice.len(), sum);
+
+        // DEBUG: Save hidden state to file for analysis
+        if let Ok(mut file) = std::fs::File::create("/tmp/hidden_state.txt") {
+            use std::io::Write;
+            for val in hidden_slice {
+                writeln!(file, "{}", val).ok();
+            }
+        }
 
         // DEBUG: Check output.weight values for token 1552
         let lm_head_data = lm_head_weight.as_slice();
