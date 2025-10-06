@@ -33,6 +33,16 @@ impl REPL {
         })
     }
 
+    /// Set chat template usage (for auto-detection)
+    pub fn set_use_chat_template(&mut self, enabled: bool) {
+        self.use_chat_template = enabled;
+    }
+
+    /// Get current chat template state
+    pub fn use_chat_template(&self) -> bool {
+        self.use_chat_template
+    }
+
     pub fn run(&mut self) -> Result<()> {
         self.print_welcome();
 

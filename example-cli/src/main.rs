@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use colored::Colorize;
 
 use rustorch_cli::{
     init_logger, CliArgs, Commands, Config, DownloadOptions, GenerationConfig, InferenceEngine,
@@ -364,11 +365,56 @@ fn start_cli(args: CliArgs) -> Result<()> {
 
     // Create and run REPL
     let mut repl = REPL::new(session, engine, !args.no_progress)?;
+
+    // Auto-detect chat template requirement from model name
+    let use_template = should_use_chat_template(&model_name);
+    repl.set_use_chat_template(use_template);
+
+    // Notify user about auto-detection
+    if use_template {
+        println!(
+            "{} {}",
+            "ℹ️  Chat/Instruct model detected:".bright_cyan(),
+            "template enabled".bright_green()
+        );
+        println!(
+            "   {}",
+            "Use /template to toggle if needed".bright_black()
+        );
+    } else {
+        println!(
+            "{} {}",
+            "ℹ️  Base/Completion model detected:".bright_cyan(),
+            "template disabled".bright_yellow()
+        );
+        println!(
+            "   {}",
+            "Use /template to enable if needed".bright_black()
+        );
+    }
+    println!();
+
     repl.run()?;
 
     tracing::info!("RusTorch CLI exiting...");
 
     Ok(())
+}
+
+/// Detect if model requires chat template based on name
+fn should_use_chat_template(model_name: &str) -> bool {
+    let name_lower = model_name.to_lowercase();
+
+    // Keywords indicating chat/instruct models
+    let chat_keywords = [
+        "chat",
+        "instruct",
+        "assistant",
+        "conversation",
+        "dialogue",
+    ];
+
+    chat_keywords.iter().any(|&keyword| name_lower.contains(keyword))
 }
 
 /// Handle subcommands
