@@ -4,6 +4,7 @@
 pub mod cnn;
 pub mod gpt;
 pub mod rnn;
+pub mod sampling;
 pub mod serialization;
 pub mod training;
 pub mod transformer_models;

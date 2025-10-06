@@ -1,0 +1,394 @@
+// Sampling strategies for text generation
+
+use crate::error::{RusTorchError, RusTorchResult};
+use crate::tensor::Tensor;
+
+/// Sampling configuration for text generation
+#[derive(Debug, Clone)]
+pub struct SamplingConfig {
+    pub temperature: f64,
+    pub top_k: Option<usize>,
+    pub top_p: Option<f64>,
+    pub repetition_penalty: f64,
+}
+
+impl Default for SamplingConfig {
+    fn default() -> Self {
+        Self {
+            temperature: 1.0,
+            top_k: None,
+            top_p: None,
+            repetition_penalty: 1.0,
+        }
+    }
+}
+
+impl SamplingConfig {
+    /// Create greedy sampling (always select most likely token)
+    pub fn greedy() -> Self {
+        Self {
+            temperature: 0.0,
+            top_k: Some(1),
+            top_p: None,
+            repetition_penalty: 1.0,
+        }
+    }
+
+    /// Create sampling with top-k filtering
+    pub fn top_k(k: usize, temperature: f64) -> Self {
+        Self {
+            temperature,
+            top_k: Some(k),
+            top_p: None,
+            repetition_penalty: 1.0,
+        }
+    }
+
+    /// Create sampling with nucleus (top-p) filtering
+    pub fn nucleus(p: f64, temperature: f64) -> Self {
+        Self {
+            temperature,
+            top_k: None,
+            top_p: Some(p),
+            repetition_penalty: 1.0,
+        }
+    }
+
+    /// Validate configuration
+    pub fn validate(&self) -> RusTorchResult<()> {
+        if self.temperature < 0.0 {
+            return Err(RusTorchError::ValidationError("Temperature must be non-negative".to_string()));
+        }
+
+        if let Some(k) = self.top_k {
+            if k == 0 {
+                return Err(RusTorchError::ValidationError("top_k must be positive".to_string()));
+            }
+        }
+
+        if let Some(p) = self.top_p {
+            if !(0.0..=1.0).contains(&p) {
+                return Err(RusTorchError::ValidationError("top_p must be between 0.0 and 1.0".to_string()));
+            }
+        }
+
+        if self.repetition_penalty < 0.0 {
+            return Err(RusTorchError::ValidationError("Repetition penalty must be non-negative".to_string()));
+        }
+
+        Ok(())
+    }
+}
+
+/// Sample next token from logits
+pub fn sample_token(
+    logits: &Tensor<f64>,
+    config: &SamplingConfig,
+    previous_tokens: &[u32],
+) -> RusTorchResult<u32> {
+    config.validate()?;
+
+    // Get the last token's logits (assuming shape [..., vocab_size])
+    let logits_vec: Vec<f64> = logits.data.iter().copied().collect();
+
+    // Step 1: Apply repetition penalty
+    let mut processed_logits = logits_vec.clone();
+    if config.repetition_penalty != 1.0 && !previous_tokens.is_empty() {
+        for &token_id in previous_tokens {
+            let idx = token_id as usize;
+            if idx < processed_logits.len() {
+                if processed_logits[idx] > 0.0 {
+                    processed_logits[idx] /= config.repetition_penalty;
+                } else {
+                    processed_logits[idx] *= config.repetition_penalty;
+                }
+            }
+        }
+    }
+
+    // Step 2: Apply temperature scaling
+    if config.temperature > 0.0 && config.temperature != 1.0 {
+        processed_logits = apply_temperature_to_vec(&processed_logits, config.temperature)?;
+    }
+
+    // Step 3: Convert to probabilities
+    let mut probs = softmax(&processed_logits)?;
+
+    // Step 4: Apply top-k filtering
+    if let Some(k) = config.top_k {
+        if k == 1 {
+            // Greedy: just return argmax
+            let max_idx = probs
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(idx, _)| idx)
+                .unwrap_or(0);
+            return Ok(max_idx as u32);
+        }
+        probs = apply_top_k_to_probs(&probs, k)?;
+    }
+
+    // Step 5: Apply top-p filtering
+    if let Some(p) = config.top_p {
+        probs = apply_top_p_to_probs(&probs, p)?;
+    }
+
+    // Step 6: Sample from the distribution
+    let sampled_idx = multinomial_sample(&probs)?;
+
+    Ok(sampled_idx as u32)
+}
+
+/// Softmax function for converting logits to probabilities
+pub fn softmax(logits: &[f64]) -> RusTorchResult<Vec<f64>> {
+    // Find max for numerical stability
+    let max_logit = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+
+    // Compute exp(x - max)
+    let exp_values: Vec<f64> = logits.iter().map(|&x| (x - max_logit).exp()).collect();
+
+    // Compute sum of exponentials
+    let sum: f64 = exp_values.iter().sum();
+
+    // Normalize
+    let probs: Vec<f64> = exp_values.iter().map(|&x| x / sum).collect();
+
+    Ok(probs)
+}
+
+/// Apply temperature scaling to logits (returns Vec for sampling operations)
+pub fn apply_temperature_to_vec(logits: &[f64], temperature: f64) -> RusTorchResult<Vec<f64>> {
+    if temperature <= 0.0 {
+        return Err(RusTorchError::ValidationError("Temperature must be positive".to_string()));
+    }
+    Ok(logits.iter().map(|&x| x / temperature).collect())
+}
+
+/// Apply top-k sampling: keep only top-k highest probabilities
+pub fn apply_top_k_to_probs(probs: &[f64], k: usize) -> RusTorchResult<Vec<f64>> {
+    if k == 0 || k >= probs.len() {
+        return Ok(probs.to_vec());
+    }
+
+    // Create indices with probabilities
+    let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+
+    // Sort by probability (descending)
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    // Keep only top-k, zero out the rest
+    let mut filtered = vec![0.0; probs.len()];
+    for (idx, prob) in indexed.iter().take(k) {
+        filtered[*idx] = *prob;
+    }
+
+    // Renormalize
+    let sum: f64 = filtered.iter().sum();
+    if sum > 0.0 {
+        for p in filtered.iter_mut() {
+            *p /= sum;
+        }
+    }
+
+    Ok(filtered)
+}
+
+/// Apply top-p (nucleus) sampling: keep smallest set of top probabilities that sum to >= p
+pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> RusTorchResult<Vec<f64>> {
+    if p <= 0.0 || p >= 1.0 {
+        return Ok(probs.to_vec());
+    }
+
+    // Create indices with probabilities
+    let mut indexed: Vec<(usize, f64)> = probs
+        .iter()
+        .enumerate()
+        .map(|(i, &prob)| (i, prob))
+        .collect();
+
+    // Sort by probability (descending)
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+    // Find cutoff: smallest set where cumulative prob >= p
+    let mut cumulative = 0.0;
+    let mut cutoff = indexed.len();
+    for (i, (_idx, prob)) in indexed.iter().enumerate() {
+        cumulative += prob;
+        if cumulative >= p {
+            cutoff = i + 1;
+            break;
+        }
+    }
+
+    // Keep only top-p tokens, zero out the rest
+    let mut filtered = vec![0.0; probs.len()];
+    for (idx, prob) in indexed.iter().take(cutoff) {
+        filtered[*idx] = *prob;
+    }
+
+    // Renormalize
+    let sum: f64 = filtered.iter().sum();
+    if sum > 0.0 {
+        for prob in filtered.iter_mut() {
+            *prob /= sum;
+        }
+    }
+
+    Ok(filtered)
+}
+
+/// Sample from a probability distribution using multinomial sampling
+pub fn multinomial_sample(probs: &[f64]) -> RusTorchResult<usize> {
+    if probs.is_empty() {
+        return Err(RusTorchError::ValidationError("Cannot sample from empty probability distribution".to_string()));
+    }
+
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    let random: f64 = rng.gen();
+
+    let mut cumulative = 0.0;
+    for (i, &prob) in probs.iter().enumerate() {
+        cumulative += prob;
+        if random < cumulative {
+            return Ok(i);
+        }
+    }
+
+    // Fallback: return last index
+    Ok(probs.len() - 1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_config() {
+        let config = SamplingConfig::default();
+        assert_eq!(config.temperature, 1.0);
+        assert_eq!(config.top_k, None);
+        assert_eq!(config.top_p, None);
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_greedy_config() {
+        let config = SamplingConfig::greedy();
+        assert_eq!(config.temperature, 0.0);
+        assert_eq!(config.top_k, Some(1));
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_top_k_config() {
+        let config = SamplingConfig::top_k(50, 0.8);
+        assert_eq!(config.temperature, 0.8);
+        assert_eq!(config.top_k, Some(50));
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_nucleus_config() {
+        let config = SamplingConfig::nucleus(0.9, 0.7);
+        assert_eq!(config.temperature, 0.7);
+        assert_eq!(config.top_p, Some(0.9));
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn test_invalid_temperature() {
+        let config = SamplingConfig {
+            temperature: -1.0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_top_k() {
+        let config = SamplingConfig {
+            top_k: Some(0),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_invalid_top_p() {
+        let config = SamplingConfig {
+            top_p: Some(1.5),
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn test_sample_token_basic() {
+        let logits = Tensor::<f64>::zeros(&[1, 100]);
+        let config = SamplingConfig::default();
+        let tokens: Vec<u32> = vec![];
+
+        let result = sample_token(&logits, &config, &tokens);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_softmax() {
+        let logits = vec![1.0, 2.0, 3.0];
+        let probs = softmax(&logits).unwrap();
+
+        // Check sum equals 1.0
+        let sum: f64 = probs.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+
+        // Check probabilities are in ascending order
+        assert!(probs[0] < probs[1]);
+        assert!(probs[1] < probs[2]);
+    }
+
+    #[test]
+    fn test_apply_top_k_to_probs() {
+        let probs = vec![0.1, 0.4, 0.3, 0.2];
+        let filtered = apply_top_k_to_probs(&probs, 2).unwrap();
+
+        // Only top-2 should be non-zero
+        let non_zero_count = filtered.iter().filter(|&&p| p > 0.0).count();
+        assert_eq!(non_zero_count, 2);
+
+        // Sum should be 1.0
+        let sum: f64 = filtered.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_apply_top_p_to_probs() {
+        let probs = vec![0.5, 0.3, 0.15, 0.05];
+        let filtered = apply_top_p_to_probs(&probs, 0.8).unwrap();
+
+        // Should keep smallest set that sums to >= 0.8
+        let sum: f64 = filtered.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_multinomial_sample() {
+        let probs = vec![0.25, 0.25, 0.25, 0.25];
+
+        // Should return valid index
+        for _ in 0..100 {
+            let idx = multinomial_sample(&probs).unwrap();
+            assert!(idx < 4);
+        }
+    }
+
+    #[test]
+    fn test_apply_temperature_to_vec() {
+        let logits = vec![1.0, 2.0, 3.0];
+        let scaled = apply_temperature_to_vec(&logits, 0.8).unwrap();
+        assert_eq!(scaled.len(), logits.len());
+        // Should scale all values
+        assert!(scaled[0] > logits[0]);
+    }
+}

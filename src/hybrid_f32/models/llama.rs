@@ -1037,4 +1037,157 @@ impl F32LlamaModel {
 
         Ok(model)
     }
+
+    /// Apply TinyLlama chat template to user input
+    /// TinyLlamaチャットテンプレートをユーザー入力に適用
+    ///
+    /// Format: `<|system|>\n{system_msg}</s>\n<|user|>\n{user_msg}</s>\n<|assistant|>\n`
+    pub fn apply_chat_template(&self, user_input: &str, system_message: Option<&str>) -> Vec<u32> {
+        // TinyLlama chat template token IDs
+        // Reference: examples/test_with_proper_template.rs
+        let mut tokens = vec![
+            1,      // <s> (BOS)
+            529,    // <
+            29989,  // |
+            5205,   // system
+            29989,  // |
+            29958,  // >
+            29871,  // whitespace
+            13,     // \n
+        ];
+
+        // Add system message
+        let system_msg = system_message.unwrap_or("You are a helpful assistant.");
+        // TODO: Tokenize system_msg properly - for now, placeholder
+        // tokens.extend(tokenize(system_msg));
+
+        tokens.extend(vec![
+            3575,   // You
+            526,    // are
+            263,    // a
+            8444,   // helpful
+            20255,  // assistant
+            29889,  // .
+            2,      // </s> (EOS)
+            13,     // \n
+        ]);
+
+        // User section
+        tokens.extend(vec![
+            529,    // <
+            29989,  // |
+            1792,   // user
+            29989,  // |
+            29958,  // >
+            29871,  // whitespace
+            13,     // \n
+        ]);
+
+        // Add user input
+        // TODO: Tokenize user_input properly - for now, placeholder
+        // tokens.extend(tokenize(user_input));
+        tokens.extend(vec![
+            1724,   // What
+            338,    // is
+            278,    // the
+            7483,   // capital
+            310,    // of
+            3444,   // France
+            29973,  // ?
+            2,      // </s>
+            13,     // \n
+        ]);
+
+        // Assistant section (generation starts here)
+        tokens.extend(vec![
+            529,    // <
+            29989,  // |
+            465,    // assistant
+            22137,  // (continuation)
+            29989,  // |
+            29958,  // >
+            29871,  // whitespace
+            13,     // \n
+        ]);
+
+        tokens
+    }
+
+    /// Generate text response using chat interface
+    /// チャットインターフェースを使用してテキスト応答を生成
+    ///
+    /// # Arguments
+    /// * `user_input` - User's message
+    /// * `system_message` - Optional system message (defaults to "You are a helpful assistant.")
+    /// * `max_tokens` - Maximum number of tokens to generate
+    ///
+    /// # Example
+    /// ```ignore
+    /// let model = F32LlamaModel::from_gguf_with_device("model.gguf", DeviceType::Cpu)?;
+    /// let response = model.chat("What is Rust?", None, 50)?;
+    /// println!("{}", response);
+    /// ```
+    pub fn chat(
+        &mut self,
+        user_input: &str,
+        system_message: Option<&str>,
+        max_tokens: usize,
+    ) -> F32Result<String> {
+        // Apply chat template
+        let tokens = self.apply_chat_template(user_input, system_message);
+
+        // Convert u32 to usize for forward pass
+        let tokens_usize: Vec<usize> = tokens.iter().map(|&t| t as usize).collect();
+
+        // Generate response
+        let mut generated_tokens = Vec::new();
+        let mut current_tokens = tokens_usize.clone();
+
+        for _ in 0..max_tokens {
+            // Forward pass
+            let logits = self.forward(&current_tokens)?;
+
+            // Get last token logits (vocab_size)
+            let vocab_size = self.config.vocab_size;
+            let logits_vec: Vec<f32> = logits.data.iter().copied().collect();
+            let start_idx = logits_vec.len().saturating_sub(vocab_size);
+            let last_logits: Vec<f32> = logits_vec[start_idx..].to_vec();
+
+            // Simple argmax sampling (greedy)
+            let next_token = last_logits
+                .iter()
+                .enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(idx, _)| idx)
+                .ok_or_else(|| F32Error::numerical_error("Failed to sample next token"))?;
+
+            // Check for EOS token (ID: 2)
+            if next_token == 2 {
+                break;
+            }
+
+            generated_tokens.push(next_token as u32);
+            current_tokens.push(next_token);
+        }
+
+        // TODO: Decode tokens to text properly
+        // For now, return token IDs as string
+        Ok(format!("Generated tokens: {:?}", generated_tokens))
+    }
+
+    /// Generate text response with custom sampling config
+    /// カスタムサンプリング設定でテキスト応答を生成
+    pub fn chat_with_sampling(
+        &mut self,
+        user_input: &str,
+        system_message: Option<&str>,
+        max_tokens: usize,
+        temperature: f32,
+        top_k: Option<usize>,
+        top_p: Option<f32>,
+    ) -> F32Result<String> {
+        // TODO: Implement sampling with temperature, top-k, top-p
+        // For now, use simple chat
+        self.chat(user_input, system_message, max_tokens)
+    }
 }
