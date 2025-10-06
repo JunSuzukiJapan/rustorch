@@ -87,7 +87,7 @@ impl Command {
                 }
                 Ok(Command::Config)
             }
-            "template" | "tmp" | "t" => Ok(Command::TemplateToggle),
+            "template" | "toggle" | "tmp" | "t" => Ok(Command::TemplateToggle),
             _ => Ok(Command::Unknown(input.to_string())),
         }
     }
@@ -106,7 +106,7 @@ impl Command {
   /system <PROMPT>         Set system prompt
   /config, /cfg            Display current configuration
   /config save [FILE]      Save configuration to file (default: ~/.rustorch/config.toml)
-  /template, /tmp, /t      Toggle chat template (ON/OFF)
+  /template, /toggle, /tmp, /t    Toggle chat template (ON/OFF)
 
 Tips:
   - Press Ctrl+C or Ctrl+D to exit

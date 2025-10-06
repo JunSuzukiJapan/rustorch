@@ -24,6 +24,7 @@ impl REPL {
         show_progress: bool,
     ) -> Result<Self> {
         let editor = DefaultEditor::new()?;
+
         Ok(Self {
             editor,
             session,
@@ -169,7 +170,7 @@ impl REPL {
             "{} {} {}",
             "Chat Template:".bright_green(),
             template_status,
-            "(Press TAB to toggle)".bright_black()
+            "(Use /toggle or /t to switch)".bright_black()
         );
 
         println!();
