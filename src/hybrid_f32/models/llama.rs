@@ -463,10 +463,10 @@ impl F32LlamaModel {
             )));
         }
 
-        // GGUF loads embeddings as [hidden_size, vocab_size] instead of [vocab_size, hidden_size]
-        // So we need to extract the token_id-th column, not row
+        // Check embedding layout
         if embed_shape[0] == hidden_size && embed_shape[1] == vocab_size {
             // Weight is [hidden_size, vocab_size] - extract column token_id
+            eprintln!("🔍 [EMB LAYOUT] Using column extraction [hidden={}, vocab={}]", hidden_size, vocab_size);
             let mut embedding = Vec::with_capacity(hidden_size);
             for i in 0..hidden_size {
                 let idx = i * vocab_size + token_id;
@@ -481,6 +481,7 @@ impl F32LlamaModel {
             Ok(embedding)
         } else {
             // Standard layout [vocab_size, hidden_size] - extract row token_id
+            eprintln!("🔍 [EMB LAYOUT] Using row extraction [shape={:?}]", embed_shape);
             let start = token_id * hidden_size;
             let end = start + hidden_size;
 
@@ -517,14 +518,42 @@ impl F32LlamaModel {
         let o_weight = self.weights.get(&format!("blk.{}.attn_output.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
 
+        // DEBUG: Log Q weight values for layer 0
+        if layer_idx == 0 {
+            let q_weight_first: Vec<f32> = q_weight.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [WEIGHT] layer=0 Q_weight[0..10]={:?}", q_weight_first);
+            eprintln!("🔍 [WEIGHT] layer=0 Q_weight shape={:?}", q_weight.shape());
+            let x_first: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [INPUT] layer=0 x[0..10]={:?}", x_first);
+            eprintln!("🔍 [INPUT] layer=0 x shape={:?}", x.shape());
+        }
+
         // Linear projections: Q, K, V
         let q = x.matmul(q_weight)?;
         let k = x.matmul(k_weight)?;
         let v = x.matmul(v_weight)?;
 
+        // DEBUG: Log Q, K, V values for layer 0
+        if layer_idx == 0 {
+            let q_first: Vec<f32> = q.as_slice().iter().take(10).copied().collect();
+            let k_first: Vec<f32> = k.as_slice().iter().take(10).copied().collect();
+            let v_first: Vec<f32> = v.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [QKV] layer=0 Q[0..10]={:?}", q_first);
+            eprintln!("🔍 [QKV] layer=0 K[0..10]={:?}", k_first);
+            eprintln!("🔍 [QKV] layer=0 V[0..10]={:?}", v_first);
+        }
+
         // Apply RoPE to Q and K
         let q_rope = self.apply_rope(&q, position)?;
         let k_rope = self.apply_rope(&k, position)?;
+
+        // DEBUG: Log after RoPE for layer 0
+        if layer_idx == 0 {
+            let q_rope_first: Vec<f32> = q_rope.as_slice().iter().take(10).copied().collect();
+            let k_rope_first: Vec<f32> = k_rope.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [ROPE] layer=0 Q_rope[0..10]={:?}", q_rope_first);
+            eprintln!("🔍 [ROPE] layer=0 K_rope[0..10]={:?}", k_rope_first);
+        }
 
         // Get cached K, V
         let cache = &self.kv_cache[layer_idx];
@@ -617,13 +646,21 @@ impl F32LlamaModel {
             embeddings.extend_from_slice(&emb);
         }
 
-        // DEBUG: Log first token embedding (first 10 elements to see pattern)
+        // DEBUG: Log first token embedding (expanded to 20 elements for better analysis)
         if !embeddings.is_empty() {
-            let first_10: Vec<f32> = embeddings.iter().take(10).copied().collect();
-            eprintln!("🔍 [EMB] token={} embedding[0..10]={:?}", input_ids[0], first_10);
-            // Count zeros in first 100 elements
-            let zeros = embeddings.iter().take(100).filter(|&&x| x == 0.0).count();
-            eprintln!("🔍 [EMB] zeros in first 100 elements: {}/100", zeros);
+            let first_20: Vec<f32> = embeddings.iter().take(20).copied().collect();
+            eprintln!("🔍 [EMB] token={} embedding[0..20]={:?}", input_ids[0], first_20);
+            // Count zeros and get statistics
+            let first_100: Vec<f32> = embeddings.iter().take(100).copied().collect();
+            let zeros = first_100.iter().filter(|&&x| x == 0.0).count();
+            let nonzeros: Vec<f32> = first_100.iter().filter(|&&x| x != 0.0).copied().collect();
+            if !nonzeros.is_empty() {
+                let min = nonzeros.iter().cloned().fold(f32::INFINITY, f32::min);
+                let max = nonzeros.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let avg: f32 = nonzeros.iter().sum::<f32>() / nonzeros.len() as f32;
+                eprintln!("🔍 [EMB] stats: zeros={}/100, nonzero range=[{:.6}, {:.6}], avg={:.6}",
+                    zeros, min, max, avg);
+            }
         }
 
         let mut x = F32Tensor::from_vec(embeddings, &[seq_len, hidden_size])?;
@@ -635,11 +672,15 @@ impl F32LlamaModel {
         // Pass through all transformer layers
         for layer_idx in 0..self.config.num_layers {
             x = self.transformer_layer(&x, layer_idx, current_position)?;
-            
-            // DEBUG: Log first layer output (first 5 elements)
+
+            // DEBUG: Log first and last layer outputs
             if layer_idx == 0 {
                 let layer0_out: Vec<f32> = x.as_slice().iter().take(5).copied().collect();
                 eprintln!("🔍 [L0] layer_0_output[0..5]={:?}", layer0_out);
+            }
+            if layer_idx == self.config.num_layers - 1 {
+                let last_layer_out: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
+                eprintln!("🔍 [L{}] last_layer_output[0..10]={:?}", layer_idx, last_layer_out);
             }
         }
 
@@ -650,6 +691,10 @@ impl F32LlamaModel {
             .ok_or_else(|| F32Error::device_error("Output norm weight not found"))?;
 
         let normed = self.rms_norm(&x, output_norm_weight)?;
+
+        // DEBUG: Log normed output
+        let normed_out: Vec<f32> = normed.as_slice().iter().take(10).copied().collect();
+        eprintln!("🔍 [NORM] after_output_norm[0..10]={:?}", normed_out);
 
         // LM head (project to vocabulary)
         let lm_head_weight = self.weights.get("output.weight")
@@ -662,6 +707,11 @@ impl F32LlamaModel {
             normed.as_slice()[(seq_len - 1) * hidden_size..seq_len * hidden_size].to_vec(),
             &[1, hidden_size]
         )?;
+
+        // DEBUG: Log LM head shapes
+        let last_hidden_vals: Vec<f32> = last_token_hidden.as_slice().iter().take(10).copied().collect();
+        eprintln!("🔍 [LM_HEAD] last_token_hidden[0..10]={:?}, shape={:?}", last_hidden_vals, last_token_hidden.shape());
+        eprintln!("🔍 [LM_HEAD] lm_head_weight shape={:?}", lm_head_weight.shape());
 
         let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
         
@@ -720,21 +770,56 @@ impl F32LlamaModel {
                     let data_f32: Vec<f32> = data_f64.iter().map(|&x| x as f32).collect();
                     let shape = tensor_f64.shape();
 
-                    match F32Tensor::from_vec(data_f32, shape) {
-                        Ok(tensor_f32) => {
-                            // Debug: check key weights (embeddings, attention Q/K/V, output)
-                            if name.contains("token_embd") || name.contains("attn_q") ||
-                               name.contains("attn_k") || name.contains("attn_v") ||
-                               name.contains("output") || name.contains("ffn_gate") {
-                                eprintln!("🔍 WEIGHT: '{}' shape: {:?}", name, shape);
-                            }
-                            model.weights.insert(name.to_string(), tensor_f32);
-                            loaded_count += 1;
-                        }
-                        Err(e) => {
-                            eprintln!("⚠️  Failed to convert tensor '{}': {}", name, e);
-                        }
+                    // GGML format analysis confirmed:
+                    // - All weights work as-is, no transpose needed
+                    // - Linear layers: [2048, 256] correct for matmul
+                    // - token_embd.weight [2048, 32000]: column extraction works
+                    // - output.weight [2048, 32000]: correct for matmul [1,2048] @ [2048,32000] → [1,32000]
+
+                    let needs_transpose = false;
+
+                    if name.contains("blk.0.attn") || needs_transpose {
+                        eprintln!("🔍 Loading '{}' with shape {:?} (transpose={})", name, shape, needs_transpose);
                     }
+
+                    let final_tensor = if needs_transpose && shape.len() == 2 {
+                        // Transpose output.weight and token_embd.weight for matmul compatibility
+                        match F32Tensor::from_vec(data_f32, shape) {
+                            Ok(t) => {
+                                match t.transpose() {
+                                    Ok(transposed) => {
+                                        eprintln!("🔄 TRANSPOSED '{}': {:?} → {:?}", name, shape, transposed.shape());
+                                        transposed
+                                    },
+                                    Err(e) => {
+                                        eprintln!("⚠️  Transpose failed for '{}': {}", name, e);
+                                        continue;
+                                    }
+                                }
+                            },
+                            Err(e) => {
+                                eprintln!("⚠️  Failed to create tensor '{}': {}", name, e);
+                                continue;
+                            }
+                        }
+                    } else {
+                        match F32Tensor::from_vec(data_f32, shape) {
+                            Ok(t) => t,
+                            Err(e) => {
+                                eprintln!("⚠️  Failed to convert tensor '{}': {}", name, e);
+                                continue;
+                            }
+                        }
+                    };
+
+                    // Debug: check key weights (embeddings, attention Q/K/V, output)
+                    if name.contains("token_embd") || name.contains("attn_q") ||
+                       name.contains("attn_k") || name.contains("attn_v") ||
+                       name.contains("output") || name.contains("ffn_gate") {
+                        eprintln!("🔍 WEIGHT: '{}' shape: {:?}", name, final_tensor.shape());
+                    }
+                    model.weights.insert(name.to_string(), final_tensor);
+                    loaded_count += 1;
                 }
                 Err(e) => {
                     eprintln!("⚠️  Failed to load tensor '{}': {}", name, e);

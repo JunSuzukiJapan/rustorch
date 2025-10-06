@@ -492,6 +492,7 @@ impl GGUFLoader {
         let num_elements: usize = tensor_info.dims.iter().map(|&d| d as usize).product();
 
         // Determine tensor shape
+        // GGML stores tensors as-is - shape interpretation handled by model code
         let shape: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
 
         // Convert GGML type to GGMLType enum
