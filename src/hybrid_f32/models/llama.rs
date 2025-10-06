@@ -827,8 +827,25 @@ impl F32LlamaModel {
         eprintln!("🔍 [LM_HEAD] last_token_hidden shape: {:?}", last_token_hidden.shape());
         eprintln!("🔍 [LM_HEAD] weight shape: {:?}", lm_head_weight.shape());
 
+        // DEBUG: Check output.weight values for token 1552
+        let lm_head_data = lm_head_weight.as_slice();
+        eprintln!("🔍 [WEIGHT_CHECK] lm_head_data.len()={}", lm_head_data.len());
+        if lm_head_data.len() >= 10 * 32000 + 1552 {
+            let token_1552_weights_start = 1552;  // Column 1552 in row-major layout
+            let mut token_1552_sample: Vec<f32> = Vec::new();
+            for i in 0..10 {
+                let idx = i * 32000 + token_1552_weights_start;
+                token_1552_sample.push(lm_head_data[idx]);
+            }
+            eprintln!("🔍 [WEIGHT_CHECK] output.weight[:10, 1552]={:?}", token_1552_sample);
+        } else {
+            eprintln!("⚠️  [WEIGHT_CHECK] Not enough data to check token 1552");
+        }
+
         // GGUF format: output.weight is [hidden_size, vocab_size] for matmul [1, hidden] @ [hidden, vocab]
+        eprintln!("🔹 [BEFORE_MATMUL] About to call matmul");
         let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
+        eprintln!("🔸 [AFTER_MATMUL] Matmul completed, logits.shape={:?}", logits.shape());
 
         // DEBUG: Log top-5 logits only at critical positions
         if is_critical_position {

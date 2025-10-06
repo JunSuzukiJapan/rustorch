@@ -9,9 +9,9 @@ fn main() -> F32Result<()> {
     let mut model = F32LlamaModel::from_gguf_with_device(&model_path, DeviceType::Cpu)?;
     println!("✅ Model loaded");
 
-    // Test tokens: BOS + " What" + " is" (with leading spaces from BPE)
-    // Verified with llama.cpp tokenizer: 1 -> '<s>', 1724 -> ' What', 338 -> ' is'
-    let mut input_ids = vec![1, 1724, 338];
+    // Test tokens: BOS + "  " + "What" + " is" (correct tokenization from llama.cpp)
+    // Verified: 1 -> '<s>', 259 -> '  ', 5618 -> 'What', 338 -> ' is'
+    let mut input_ids = vec![1, 259, 5618, 338];
 
     println!("\n🧪 Testing token generation (5 tokens)");
     println!("📥 Input tokens: {:?}", input_ids);
@@ -36,8 +36,8 @@ fn main() -> F32Result<()> {
             .collect();
         indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
-        println!("📊 Top-5 logits:");
-        for (i, (token_id, logit)) in indexed.iter().take(5).enumerate() {
+        println!("📊 Top-10 logits:");
+        for (i, (token_id, logit)) in indexed.iter().take(10).enumerate() {
             println!("   {}. Token {}: {:.3}", i + 1, token_id, logit);
         }
 
@@ -46,7 +46,13 @@ fn main() -> F32Result<()> {
         let min_logit = logits_data.iter().cloned().fold(f32::INFINITY, f32::min);
         let sum: f32 = logits_data.iter().sum();
         let mean = sum / logits_data.len() as f32;
-        println!("   Stats: max={:.3}, min={:.3}, mean={:.3}", max_logit, min_logit, mean);
+        let std_dev = (logits_data.iter().map(|&x| (x - mean).powi(2)).sum::<f32>() / logits_data.len() as f32).sqrt();
+        println!("   Stats: max={:.3}, min={:.3}, mean={:.3}, std={:.3}", max_logit, min_logit, mean, std_dev);
+
+        // Check llama.cpp's predicted token
+        if logits_data.len() > 1552 {
+            println!("   Token 1552 ('the'): {:.3} (llama.cpp predicts this)", logits_data[1552]);
+        }
 
         // Sample top token (greedy)
         let next_token = indexed[0].0;

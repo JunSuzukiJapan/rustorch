@@ -521,6 +521,7 @@ impl F32Tensor {
     /// 行列乗算
     /// Matrix multiplication
     pub fn matmul(&self, other: &Self) -> RusTorchResult<Self> {
+        eprintln!("🧮 [MATMUL_ENTRY] self.shape={:?}, other.shape={:?}", self.shape, other.shape);
         // 2D matrix multiplication with Metal GPU acceleration
         if self.shape.len() == 2 && other.shape.len() == 2 {
             let (m, k) = (self.shape[0], self.shape[1]);
@@ -539,31 +540,38 @@ impl F32Tensor {
             // Try Metal GPU acceleration first
             #[cfg(feature = "metal")]
             {
-                if let Ok(()) = crate::gpu::metal_kernels::metal_matmul_f32(
+                match crate::gpu::metal_kernels::metal_matmul_f32(
                     self.data.as_slice().unwrap(),
                     other.data.as_slice().unwrap(),
                     &mut result_data,
                     m, n, k
                 ) {
-                    let array = Array::from_shape_vec(IxDyn(&result_shape), result_data).map_err(|e| {
-                        RusTorchError::InvalidParameters {
-                            operation: "matmul".to_string(),
-                            message: format!("Shape error: {}", e),
-                        }
-                    })?;
+                    Ok(()) => {
+                        eprintln!("✅ [MATMUL] Metal GPU {}x{} @ {}x{}", m, k, k, n);
+                        let array = Array::from_shape_vec(IxDyn(&result_shape), result_data).map_err(|e| {
+                            RusTorchError::InvalidParameters {
+                                operation: "matmul".to_string(),
+                                message: format!("Shape error: {}", e),
+                            }
+                        })?;
 
-                    return Ok(Self {
-                        data: array,
-                        metal_buffer: None,
-                        coreml_buffer: None,
-                        device_state: DeviceState::CPU, // Result is on CPU for now
-                        requires_grad: self.requires_grad || other.requires_grad,
-                        shape: result_shape,
-                    });
+                        return Ok(Self {
+                            data: array,
+                            metal_buffer: None,
+                            coreml_buffer: None,
+                            device_state: DeviceState::CPU, // Result is on CPU for now
+                            requires_grad: self.requires_grad || other.requires_grad,
+                            shape: result_shape,
+                        });
+                    },
+                    Err(e) => {
+                        eprintln!("⚠️  [MATMUL] Metal failed {}x{} @ {}x{}: {:?}, CPU fallback", m, k, k, n, e);
+                    }
                 }
             }
 
             // CPU fallback (slow but reliable)
+            eprintln!("🔧 [MATMUL] Using CPU fallback for {}x{} @ {}x{}", m, k, k, n);
             for i in 0..m {
                 for j in 0..n {
                     let mut sum = 0.0;

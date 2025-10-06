@@ -424,10 +424,25 @@ impl InferenceEngine {
                 let mean = sum / last_logits.len() as f32;
                 tracing::info!("🔍 [Llama Logits] min={:.3}, max={:.3}, mean={:.3}", min_logit, max_logit, mean);
 
-                // Show top 5 logits
+                // Show top 10 logits for better analysis
                 let mut indexed: Vec<(usize, f32)> = last_logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
                 indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-                tracing::info!("🔍 [Llama Top5] {:?}", &indexed[0..5.min(indexed.len())]);
+                tracing::info!("🔍 [Llama Top10] {:?}", &indexed[0..10.min(indexed.len())]);
+
+                // Check specific tokens of interest
+                // "Paris" might be token 3681 or similar - check common answer tokens
+                let tokens_to_check = vec![
+                    (3681, "Paris candidate"),
+                    (1459, "The"),
+                    (7483, "capital"),
+                    (338, "is"),
+                    (13, "newline"),
+                ];
+                for (token_id, name) in tokens_to_check {
+                    if token_id < last_logits.len() {
+                        tracing::info!("🔍 [Token Check] {} ({}): logit={:.3}", name, token_id, last_logits[token_id]);
+                    }
+                }
             }
 
             // Sample next token with temperature

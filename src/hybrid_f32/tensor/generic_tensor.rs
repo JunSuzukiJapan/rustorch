@@ -191,6 +191,7 @@ impl TensorOps for F32Tensor {
 
 impl MatrixOps for F32Tensor {
     fn matmul(&self, other: &Self) -> RusTorchResult<Self> {
+        eprintln!("🎯 [TRAIT_MATMUL] MatrixOps::matmul called");
         self.matmul(other)
     }
 }
