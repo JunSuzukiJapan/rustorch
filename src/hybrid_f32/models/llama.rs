@@ -496,32 +496,27 @@ impl F32LlamaModel {
             )));
         }
 
-        // CRITICAL: Based on llama.cpp's ggml_get_rows implementation:
-        // ggml_vec_cpy_f32(nc, dst, src0 + i01*nb01)
-        //   where nc = ne00 (first dimension = hidden_size)
-        //         i01 = token_id
-        //         nb01 = stride for second dimension
-        //
-        // GGUF shape [2048, 32000] means data is stored as:
-        //   32000 rows of 2048 elements each
-        //   Row 0 = token 0's embedding (2048 values)
-        //   Row 1 = token 1's embedding (2048 values)
+        // CRITICAL: GGUF embedding layout
+        // Shape [2048, 32000] means row-major storage:
+        //   Row 0: [dim0_token0, dim0_token1, ..., dim0_token31999]  (32000 values)
+        //   Row 1: [dim1_token0, dim1_token1, ..., dim1_token31999]  (32000 values)
         //   ...
-        //   Row N = token N's embedding (2048 values)
+        //   Row 2047: [dim2047_token0, dim2047_token1, ..., dim2047_token31999]
         //
-        // So: embedding for token N starts at index N * hidden_size
+        // To extract embedding for token_id:
+        //   embedding[dim] = data[dim * vocab_size + token_id]
 
-        let start = token_id * hidden_size;
-        let end = start + hidden_size;
-
-        if end > embed_data.len() {
-            return Err(F32Error::device_error(format!(
-                "Embedding index out of range: token_id={}, start={}, end={}, data_len={}",
-                token_id, start, end, embed_data.len()
-            )));
+        let mut embedding = Vec::with_capacity(hidden_size);
+        for dim in 0..hidden_size {
+            let idx = dim * vocab_size + token_id;
+            if idx >= embed_data.len() {
+                return Err(F32Error::device_error(format!(
+                    "Embedding index out of range: dim={}, token_id={}, idx={}, data_len={}",
+                    dim, token_id, idx, embed_data.len()
+                )));
+            }
+            embedding.push(embed_data[idx]);
         }
-
-        let embedding = embed_data[start..end].to_vec();
 
         // Debug: Show first 10 values of embedding for important tokens
         // Token 1 (BOS), Token 1724 ("What"), Token 3681 (Paris)
