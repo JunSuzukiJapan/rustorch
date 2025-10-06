@@ -327,8 +327,8 @@ impl InferenceEngine {
             // Extract logits for the last position
             let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
 
-            // Sample next token with temperature
-            let next_token_id = self.sample_with_temperature_f32(&last_logits, &generated_ids, step)?;
+            // Sample next token using argmax (greedy decoding)
+            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
 
@@ -445,9 +445,9 @@ impl InferenceEngine {
                 }
             }
 
-            // Sample next token with temperature
+            // Sample next token using argmax (greedy decoding)
             tracing::info!("🔍 [Llama Gen] Sampling next token");
-            let next_token_id = self.sample_with_temperature_f32(&last_logits, &generated_ids, step)?;
+            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
             tracing::info!("🔍 [Llama Gen] Sampled token: {}", next_token_id);
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
