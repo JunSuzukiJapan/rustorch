@@ -569,6 +569,13 @@ impl F32LlamaModel {
             cached_v,
         )?;
 
+        // DEBUG: Log attention output for layer 0 (disabled)
+        let _debug_attn = false;
+        if _debug_attn && layer_idx == 0 {
+            let attn_out_vals: Vec<f32> = attn_output.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [ATTN] layer=0 grouped_attn_output[0..10]={:?}, shape={:?}", attn_out_vals, attn_output.shape());
+        }
+
         // Update KV cache with correct sequence length increment
         let seq_len = k_rope.shape()[0];
         let old_len = self.kv_cache[layer_idx].cached_len;
@@ -583,7 +590,15 @@ impl F32LlamaModel {
         }
 
         // Output projection
-        attn_output.matmul(o_weight).map_err(|e| e.into())
+        let final_out = attn_output.matmul(o_weight)?;
+
+        // DEBUG: Log final projection output for layer 0 (disabled)
+        if false && layer_idx == 0 {
+            let final_vals: Vec<f32> = final_out.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [ATTN] layer=0 after_output_proj[0..10]={:?}", final_vals);
+        }
+
+        Ok(final_out)
     }
 
     /// Llama FFN layer with SwiGLU
@@ -600,8 +615,31 @@ impl F32LlamaModel {
         // FFN with SwiGLU: down(SwiGLU(gate(x), up(x)))
         let gate = x.matmul(gate_weight)?;
         let up = x.matmul(up_weight)?;
+
+        // DEBUG: Log FFN intermediate values for layer 0 (disabled)
+        let _debug_ffn = false;
+        if _debug_ffn && layer_idx == 0 {
+            let gate_vals: Vec<f32> = gate.as_slice().iter().take(10).copied().collect();
+            let up_vals: Vec<f32> = up.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [FFN] layer=0 gate[0..10]={:?}", gate_vals);
+            eprintln!("🔍 [FFN] layer=0 up[0..10]={:?}", up_vals);
+        }
+
         let swiglu_out = self.swiglu(&gate, &up)?;
-        swiglu_out.matmul(down_weight).map_err(|e| e.into())
+
+        if _debug_ffn && layer_idx == 0 {
+            let swiglu_vals: Vec<f32> = swiglu_out.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [FFN] layer=0 swiglu[0..10]={:?}", swiglu_vals);
+        }
+
+        let final_out = swiglu_out.matmul(down_weight)?;
+
+        if _debug_ffn && layer_idx == 0 {
+            let final_vals: Vec<f32> = final_out.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [FFN] layer=0 after_down_proj[0..10]={:?}", final_vals);
+        }
+
+        Ok(final_out)
     }
 
     /// Single Llama transformer layer
@@ -618,15 +656,48 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
+        // DEBUG: Log layer 0 intermediate values (disabled to reduce overhead)
+        let debug = false; // layer_idx == 0;
+
         // Attention block with residual connection
         let normed = self.rms_norm(x, &attn_norm_weight)?;
+        if debug {
+            let normed_vals: Vec<f32> = normed.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] attn_norm_out[0..10]={:?}", layer_idx, normed_vals);
+        }
+
         let attn_out = self.attention_layer(&normed, layer_idx, position)?;
+        if debug {
+            let attn_vals: Vec<f32> = attn_out.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] attn_out[0..10]={:?}", layer_idx, attn_vals);
+        }
+
         let x = x.add(&attn_out)?;
+        if debug {
+            let after_attn_res: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] after_attn_residual[0..10]={:?}", layer_idx, after_attn_res);
+        }
 
         // FFN block with residual connection
         let normed = self.rms_norm(&x, &ffn_norm_weight)?;
+        if debug {
+            let ffn_norm_vals: Vec<f32> = normed.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] ffn_norm_out[0..10]={:?}", layer_idx, ffn_norm_vals);
+        }
+
         let ffn_out = self.ffn_layer(&normed, layer_idx)?;
-        x.add(&ffn_out).map_err(|e| e.into())
+        if debug {
+            let ffn_vals: Vec<f32> = ffn_out.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] ffn_out[0..10]={:?}", layer_idx, ffn_vals);
+        }
+
+        let result = x.add(&ffn_out)?;
+        if debug {
+            let final_vals: Vec<f32> = result.as_slice().iter().take(10).copied().collect();
+            eprintln!("🔍 [L{}] final_out[0..10]={:?}", layer_idx, final_vals);
+        }
+
+        Ok(result)
     }
 
     /// Forward pass through Llama model
