@@ -394,7 +394,7 @@ impl Default for DeviceType {
         #[cfg(feature = "metal")]
         {
             use crate::gpu::metal_kernels::MetalKernelExecutor;
-            if MetalKernelExecutor::new().is_ok() {
+            if MetalKernelExecutor::get().is_ok() {
                 return DeviceType::Metal(0);
             }
         }
@@ -445,7 +445,7 @@ impl DeviceType {
                 #[cfg(feature = "metal")]
                 {
                     use crate::gpu::metal_kernels::MetalKernelExecutor;
-                    MetalKernelExecutor::new().is_ok()
+                    MetalKernelExecutor::get().is_ok()
                 }
                 #[cfg(not(feature = "metal"))]
                 false
@@ -728,7 +728,7 @@ impl DeviceManager {
         #[cfg(feature = "metal")]
         {
             use crate::gpu::metal_kernels::MetalKernelExecutor;
-            cfg!(target_os = "macos") && MetalKernelExecutor::new().is_ok()
+            cfg!(target_os = "macos") && MetalKernelExecutor::get().is_ok()
         }
         #[cfg(not(feature = "metal"))]
         {

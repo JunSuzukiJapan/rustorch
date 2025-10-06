@@ -430,7 +430,9 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
             use crate::gpu::metal_kernels::MetalKernelExecutor;
 
             // Try Metal GPU acceleration
-            if let Ok(executor) = MetalKernelExecutor::new() {
+            if let Ok(executor_mutex) = MetalKernelExecutor::get() {
+                let executor_guard = executor_mutex.lock().unwrap();
+                if let Some(ref executor) = *executor_guard {
                 if let (Some(a_slice), Some(b_slice)) = (a.as_slice(), b.as_slice()) {
                     let a_f32: Vec<f32> =
                         a_slice.iter().map(|&x| x.to_f32().unwrap_or(0.0)).collect();
@@ -473,6 +475,7 @@ impl<T: Float + FromPrimitive + ScalarOperand + Send + Sync + 'static> GpuBatchM
                             )));
                         }
                     }
+                }
                 }
             }
         }

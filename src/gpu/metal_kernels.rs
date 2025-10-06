@@ -14,6 +14,10 @@ use metal::{
     CommandQueue, CompileOptions, ComputePipelineState, Device, Library, MTLResourceOptions,
     MTLSize,
 };
+#[cfg(feature = "metal")]
+use lazy_static::lazy_static;
+#[cfg(feature = "metal")]
+use std::sync::Mutex;
 
 /// Metal kernel types
 /// Metalカーネルタイプ
@@ -151,10 +155,46 @@ pub struct MetalKernelExecutor {
 }
 
 #[cfg(feature = "metal")]
+lazy_static! {
+    /// Global singleton Metal kernel executor
+    /// グローバルシングルトンMetalカーネル実行器
+    static ref METAL_EXECUTOR: Mutex<Option<MetalKernelExecutor>> = Mutex::new(None);
+}
+
+#[cfg(feature = "metal")]
+impl Drop for MetalKernelExecutor {
+    fn drop(&mut self) {
+        // Metal Device and CommandQueue are automatically managed by ARC
+        // but we explicitly log cleanup for debugging
+        eprintln!("🧹 Cleaning up Metal kernel executor resources");
+    }
+}
+
+#[cfg(feature = "metal")]
 impl MetalKernelExecutor {
-    /// Create a new Metal kernel executor
-    /// 新しいMetalカーネル実行器を作成
+    /// Get or create the singleton Metal kernel executor
+    /// シングルトンMetalカーネル実行器を取得または作成
+    pub fn get() -> RusTorchResult<&'static Mutex<Option<MetalKernelExecutor>>> {
+        // Ensure executor is initialized
+        let mut executor_guard = METAL_EXECUTOR.lock().unwrap();
+        if executor_guard.is_none() {
+            *executor_guard = Some(Self::new_internal()?);
+            eprintln!("🚀 Initialized Metal kernel executor singleton");
+        }
+        drop(executor_guard);
+        Ok(&METAL_EXECUTOR)
+    }
+
+    /// Create a new Metal kernel executor (deprecated - use get() instead)
+    /// 新しいMetalカーネル実行器を作成（非推奨 - get()を使用してください）
+    #[deprecated(note = "Use MetalKernelExecutor::get() instead to avoid context leaks")]
     pub fn new() -> RusTorchResult<Self> {
+        Self::new_internal()
+    }
+
+    /// Create a new Metal kernel executor (internal use only)
+    /// 新しいMetalカーネル実行器を作成（内部使用のみ）
+    fn new_internal() -> RusTorchResult<Self> {
         let device = Device::system_default()
             .ok_or_else(|| RusTorchError::tensor_op("No Metal device available"))?;
 
@@ -1773,8 +1813,13 @@ pub fn metal_matmul_f32(
 ) -> RusTorchResult<()> {
     #[cfg(feature = "metal")]
     {
-        let executor = MetalKernelExecutor::new()?;
-        executor.matmul_f32(_a, _b, _c, _m, _n, _k)
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        if let Some(ref executor) = *executor_guard {
+            executor.matmul_f32(_a, _b, _c, _m, _n, _k)
+        } else {
+            Err(RusTorchError::tensor_op("Metal executor not initialized"))
+        }
     }
     #[cfg(not(feature = "metal"))]
     {
@@ -1789,8 +1834,13 @@ pub fn metal_matmul_f32(
 pub fn metal_elementwise_add_f32(_a: &[f32], _b: &[f32], _c: &mut [f32]) -> RusTorchResult<()> {
     #[cfg(feature = "metal")]
     {
-        let executor = MetalKernelExecutor::new()?;
-        executor.elementwise_add_f32(_a, _b, _c)
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        if let Some(ref executor) = *executor_guard {
+            executor.elementwise_add_f32(_a, _b, _c)
+        } else {
+            Err(RusTorchError::tensor_op("Metal executor not initialized"))
+        }
     }
     #[cfg(not(feature = "metal"))]
     {
@@ -1805,8 +1855,13 @@ pub fn metal_elementwise_add_f32(_a: &[f32], _b: &[f32], _c: &mut [f32]) -> RusT
 pub fn metal_reduce_sum_f32(_input: &[f32]) -> RusTorchResult<f32> {
     #[cfg(feature = "metal")]
     {
-        let executor = MetalKernelExecutor::new()?;
-        executor.reduce_sum_f32(_input)
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        if let Some(ref executor) = *executor_guard {
+            executor.reduce_sum_f32(_input)
+        } else {
+            Err(RusTorchError::tensor_op("Metal executor not initialized"))
+        }
     }
     #[cfg(not(feature = "metal"))]
     {
@@ -1835,22 +1890,27 @@ pub fn metal_conv2d_f32(
 ) -> RusTorchResult<()> {
     #[cfg(feature = "metal")]
     {
-        let executor = MetalKernelExecutor::new()?;
-        executor.conv2d_f32(
-            input,
-            kernel,
-            output,
-            input_height,
-            input_width,
-            input_channels,
-            output_channels,
-            kernel_height,
-            kernel_width,
-            stride_h,
-            stride_w,
-            pad_h,
-            pad_w,
-        )
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        if let Some(ref executor) = *executor_guard {
+            executor.conv2d_f32(
+                input,
+                kernel,
+                output,
+                input_height,
+                input_width,
+                input_channels,
+                output_channels,
+                kernel_height,
+                kernel_width,
+                stride_h,
+                stride_w,
+                pad_h,
+                pad_w,
+            )
+        } else {
+            Err(RusTorchError::tensor_op("Metal executor not initialized"))
+        }
     }
     #[cfg(not(feature = "metal"))]
     {
@@ -1864,8 +1924,13 @@ pub fn metal_conv2d_f32(
 /// Metal GPUを使用してReLU活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_relu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.relu_f32(input, output)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.relu_f32(input, output)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1879,8 +1944,13 @@ pub fn metal_relu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()>
 /// Metal GPUを使用してSigmoid活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_sigmoid_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.sigmoid_f32(input, output)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.sigmoid_f32(input, output)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1894,8 +1964,13 @@ pub fn metal_sigmoid_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<
 /// Metal GPUを使用してTanh活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_tanh_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.tanh_f32(input, output)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.tanh_f32(input, output)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1909,8 +1984,13 @@ pub fn metal_tanh_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()>
 /// Metal GPUを使用してGELU活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_gelu_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.gelu_f32(input, output)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.gelu_f32(input, output)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1924,8 +2004,13 @@ pub fn metal_gelu_f32(_input: &[f32], _output: &mut [f32]) -> RusTorchResult<()>
 /// Metal GPUを使用してLeaky ReLU活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_leaky_relu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.leaky_relu_f32(input, output, alpha)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.leaky_relu_f32(input, output, alpha)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1943,8 +2028,13 @@ pub fn metal_leaky_relu_f32(
 /// Metal GPUを使用してELU活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_elu_f32(input: &[f32], output: &mut [f32], alpha: f32) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.elu_f32(input, output, alpha)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.elu_f32(input, output, alpha)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1958,8 +2048,13 @@ pub fn metal_elu_f32(_input: &[f32], _output: &mut [f32], _alpha: f32) -> RusTor
 /// Metal GPUを使用してSwish活性化を実行
 #[cfg(feature = "metal")]
 pub fn metal_swish_f32(input: &[f32], output: &mut [f32]) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.swish_f32(input, output)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.swish_f32(input, output)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -1982,8 +2077,13 @@ pub fn metal_layer_norm_f32(
     features: usize,
     eps: f32,
 ) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.layer_norm_f32(input, output, gamma, beta, batch_size, seq_len, features, eps)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.layer_norm_f32(input, output, gamma, beta, batch_size, seq_len, features, eps)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
@@ -2015,8 +2115,13 @@ pub fn metal_layer_norm_f64(
     features: usize,
     eps: f64,
 ) -> RusTorchResult<()> {
-    let executor = MetalKernelExecutor::new()?;
-    executor.layer_norm_f64(input, output, gamma, beta, batch_size, seq_len, features, eps)
+    let executor_mutex = MetalKernelExecutor::get()?;
+    let executor_guard = executor_mutex.lock().unwrap();
+    if let Some(ref executor) = *executor_guard {
+        executor.layer_norm_f64(input, output, gamma, beta, batch_size, seq_len, features, eps)
+    } else {
+        Err(RusTorchError::tensor_op("Metal executor not initialized"))
+    }
 }
 
 #[cfg(not(feature = "metal"))]
