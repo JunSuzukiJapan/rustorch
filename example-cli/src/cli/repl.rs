@@ -14,6 +14,7 @@ pub struct REPL {
     session: SessionManager,
     engine: InferenceEngine,
     show_progress: bool,
+    use_chat_template: bool,  // Toggle for chat template usage
 }
 
 impl REPL {
@@ -28,6 +29,7 @@ impl REPL {
             session,
             engine,
             show_progress,
+            use_chat_template: true,  // Enable by default
         })
     }
 
@@ -75,7 +77,10 @@ impl REPL {
     /// Read input from user, supporting multiline input
     fn read_input(&mut self) -> Result<Option<String>> {
         let mut lines = Vec::new();
-        let mut prompt = "You> ".to_string();
+
+        // Create prompt with template status indicator
+        let template_indicator = if self.use_chat_template { "📋" } else { "  " };
+        let mut prompt = format!("{}You> ", template_indicator);
 
         loop {
             match self.editor.readline(&prompt) {
@@ -143,6 +148,20 @@ impl REPL {
             "Model:".bright_green(),
             self.session.model_name().cyan()
         );
+
+        // Template status indicator
+        let template_status = if self.use_chat_template {
+            "ON".bright_green()
+        } else {
+            "OFF".bright_red()
+        };
+        println!(
+            "{} {} {}",
+            "Chat Template:".bright_green(),
+            template_status,
+            "(Press TAB to toggle)".bright_black()
+        );
+
         println!();
         println!(
             "{}",
@@ -167,6 +186,7 @@ impl REPL {
             Command::System(prompt) => self.handle_system(&prompt)?,
             Command::Config => self.handle_config(),
             Command::ConfigSave(path) => self.handle_config_save(path)?,
+            Command::TemplateToggle => self.handle_template_toggle(),
             Command::Unknown(cmd) => {
                 println!("Unknown command: {}", cmd);
                 println!("Type '/help' for available commands.");
@@ -174,6 +194,24 @@ impl REPL {
         }
 
         Ok(true)
+    }
+
+    fn handle_template_toggle(&mut self) {
+        self.use_chat_template = !self.use_chat_template;
+        let status = if self.use_chat_template {
+            "ON".bright_green()
+        } else {
+            "OFF".bright_red()
+        };
+        println!(
+            "{} Chat template is now {}",
+            "✓".bright_green(),
+            status
+        );
+        println!(
+            "{}",
+            "  → Raw tokens will be used without template wrapper".bright_black()
+        );
     }
 
     fn handle_exit(&mut self) -> Result<()> {

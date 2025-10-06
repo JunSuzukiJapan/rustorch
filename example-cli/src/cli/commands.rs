@@ -25,6 +25,8 @@ pub enum Command {
     Config,
     /// Save configuration to file
     ConfigSave(Option<PathBuf>),
+    /// Toggle chat template on/off
+    TemplateToggle,
     /// Unknown command
     Unknown(String),
 }
@@ -85,6 +87,7 @@ impl Command {
                 }
                 Ok(Command::Config)
             }
+            "template" | "tmp" | "t" => Ok(Command::TemplateToggle),
             _ => Ok(Command::Unknown(input.to_string())),
         }
     }
@@ -103,11 +106,13 @@ impl Command {
   /system <PROMPT>         Set system prompt
   /config, /cfg            Display current configuration
   /config save [FILE]      Save configuration to file (default: ~/.rustorch/config.toml)
+  /template, /tmp, /t      Toggle chat template (ON/OFF)
 
 Tips:
   - Press Ctrl+C or Ctrl+D to exit
   - Use Up/Down arrows to navigate history
   - Multi-line input: type your message and press Enter
+  - Chat template indicator: 📋 (ON) or blank (OFF) in prompt
 "#
     }
 }
