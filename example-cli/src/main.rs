@@ -109,19 +109,80 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // For hybrid-f32 backend, use F32GPTModel (experimental)
     #[cfg(feature = "hybrid-f32")]
     if matches!(args.backend, CliBackend::HybridF32) {
-        use rustorch::hybrid_f32::models::{DeviceType, F32GPTModel};
+        use rustorch::hybrid_f32::models::{DeviceType, F32GPTModel, F32LlamaModel, LlamaConfig};
+        use rustorch::formats::gguf::GGUFLoader;
 
         let device_type = DeviceType::Metal;
-        tracing::info!("Loading F32 GPT model with hybrid-f32 backend (experimental)");
+        tracing::info!("Loading model with hybrid-f32 backend (Metal GPU)");
 
-        match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
-            Ok(f32_model) => {
-                tracing::info!("✅ F32 GPT model loaded successfully on {:?} backend (Metal GPU)", device_type);
-                engine.set_f32_gpt_model(f32_model);
+        // Detect model architecture from filename
+        let model_name_lower = model_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        let is_llama = model_name_lower.contains("llama") ||
+                      model_name_lower.contains("mistral") ||
+                      model_name_lower.contains("mixtral");
+
+        tracing::info!("🔍 Model filename: {}", model_name_lower);
+        tracing::info!("🔍 Is Llama architecture: {}", is_llama);
+
+        if is_llama {
+            tracing::info!("🦙 Loading Llama-architecture model with hybrid-f32");
+
+            // Load GGUF to extract config
+            match GGUFLoader::from_file(&model_path) {
+                Ok(loader) => {
+                    match loader.get_model_params() {
+                        Ok(params) => {
+                            let config = LlamaConfig {
+                                vocab_size: params.vocab_size as usize,
+                                hidden_size: params.hidden_size as usize,
+                                num_layers: params.num_layers as usize,
+                                num_heads: params.num_heads as usize,
+                                num_kv_heads: params.num_heads as usize, // GQA heads (assume same as num_heads for now)
+                                intermediate_size: (params.hidden_size * 4) as usize, // Standard 4x expansion
+                                max_seq_len: params.context_length as usize,
+                                rms_norm_eps: 1e-5,
+                                rope_theta: 10000.0,
+                            };
+
+                            tracing::info!("📋 Llama Config: vocab={}, hidden={}, layers={}, heads={}",
+                                config.vocab_size, config.hidden_size, config.num_layers, config.num_heads);
+
+                            match F32LlamaModel::from_gguf_with_config(&model_path, config, device_type) {
+                                Ok(llama_model) => {
+                                    tracing::info!("✅ F32 Llama model loaded successfully on Metal backend");
+                                    engine.set_f32_llama_model(llama_model);
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Failed to load F32 Llama model: {}", e);
+                                    tracing::warn!("Falling back to dummy inference");
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to extract model params: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load GGUF: {}", e);
+                }
             }
-            Err(e) => {
-                tracing::warn!("Failed to load F32 GPT model: {}", e);
-                tracing::warn!("Falling back to dummy inference");
+        } else {
+            tracing::info!("🤖 Loading GPT-architecture model with hybrid-f32");
+
+            match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
+                Ok(f32_model) => {
+                    tracing::info!("✅ F32 GPT model loaded successfully on Metal backend");
+                    engine.set_f32_gpt_model(f32_model);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load F32 GPT model: {}", e);
+                    tracing::warn!("Falling back to dummy inference");
+                }
             }
         }
     }

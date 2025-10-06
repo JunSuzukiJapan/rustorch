@@ -195,6 +195,9 @@ impl F32LlamaModel {
                         let f32_tensor = F32Tensor::from_vec(f32_data, &shape)
                             .map_err(|e| F32Error::shape_mismatch(format!("Failed to create F32Tensor: {}", e)))?;
 
+                        // Debug: log ALL weight names and shapes to identify LM head
+                        eprintln!("WEIGHT_DEBUG: {} {:?}", name, shape);
+
                         model.weights.insert(name.to_string(), f32_tensor);
                         loaded_count += 1;
                     }
@@ -312,25 +315,36 @@ impl F32LlamaModel {
 
     /// Apply RoPE (Rotary Position Embedding)
     /// RoPE（回転位置埋め込み）を適用
-    fn apply_rope(&self, x: &F32Tensor, position: usize) -> F32Result<F32Tensor> {
+    fn apply_rope(&self, x: &F32Tensor, start_position: usize) -> F32Result<F32Tensor> {
         let shape = x.shape();
+        let seq_len = shape[0];
+        let total_dim = shape[1];
         let head_dim = self.config.head_dim();
+        let num_heads = total_dim / head_dim;
         let x_data = x.as_slice();
 
         let mut output = Vec::with_capacity(x_data.len());
 
-        // Apply rotation for each head
-        for head_data in x_data.chunks(head_dim) {
-            for i in 0..(head_dim / 2) {
-                let cos = self.rope_cos[position * (head_dim / 2) + i];
-                let sin = self.rope_sin[position * (head_dim / 2) + i];
+        // Apply rotation for each token in sequence
+        for token_idx in 0..seq_len {
+            let position = start_position + token_idx;
 
-                let x0 = head_data[2 * i];
-                let x1 = head_data[2 * i + 1];
+            // For each head of this token
+            for head_idx in 0..num_heads {
+                let head_offset = token_idx * total_dim + head_idx * head_dim;
+                let head_data = &x_data[head_offset..head_offset + head_dim];
 
-                // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
-                output.push(x0 * cos - x1 * sin);
-                output.push(x0 * sin + x1 * cos);
+                for i in 0..(head_dim / 2) {
+                    let cos = self.rope_cos[position * (head_dim / 2) + i];
+                    let sin = self.rope_sin[position * (head_dim / 2) + i];
+
+                    let x0 = head_data[2 * i];
+                    let x1 = head_data[2 * i + 1];
+
+                    // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
+                    output.push(x0 * cos - x1 * sin);
+                    output.push(x0 * sin + x1 * cos);
+                }
             }
         }
 
@@ -505,10 +519,11 @@ impl F32LlamaModel {
             cached_v,
         )?;
 
-        // Update KV cache
+        // Update KV cache with correct sequence length increment
+        let seq_len = k_rope.shape()[0];
         self.kv_cache[layer_idx].keys = new_k;
         self.kv_cache[layer_idx].values = new_v;
-        self.kv_cache[layer_idx].cached_len += 1;
+        self.kv_cache[layer_idx].cached_len += seq_len;
 
         // Output projection
         attn_output.matmul(o_weight).map_err(|e| e.into())
@@ -602,6 +617,9 @@ impl F32LlamaModel {
             &[1, hidden_size]
         )?;
 
+        // TODO: Investigate why logits are producing repeated tokens
+        // Shape is correct: [1, 2048] @ [2048, 32000] = [1, 32000]
+        // But values suggest issue in attention/FFN or dequantization
         last_token_hidden.matmul(lm_head_weight).map_err(|e| e.into())
     }
 
@@ -652,6 +670,10 @@ impl F32LlamaModel {
 
                     match F32Tensor::from_vec(data_f32, shape) {
                         Ok(tensor_f32) => {
+                            // Debug: check for output/lm_head weights
+                            if name.contains("output") || name.contains("lm_head") || name.contains("token_embd") {
+                                eprintln!("🔍 WEIGHT: '{}' shape: {:?}", name, shape);
+                            }
                             model.weights.insert(name.to_string(), tensor_f32);
                             loaded_count += 1;
                         }
