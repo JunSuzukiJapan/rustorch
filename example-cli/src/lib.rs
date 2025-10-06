@@ -9,7 +9,7 @@ pub mod utils;
 
 // Re-exports
 pub use backend::Backend as ComputeBackend;
-pub use cli::{Backend, CliArgs, Commands, LogLevel, REPL};
+pub use cli::{Backend, CliArgs, Commands, LogLevel, REPL, TuiApp};
 pub use download::{DownloadOptions, ModelDownloadManager, ModelIdentifier};
 pub use model::{InferenceEngine, KVCache, ModelLoader, TransformerConfig, TransformerModel};
 pub use session::{GenerationConfig, SessionManager};

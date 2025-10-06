@@ -20,6 +20,8 @@ rustorch = { path = "..", default-features = false, features = [] }
 # CLI
 clap = { version = "4.5", features = ["derive", "cargo", "env"] }
 rustyline = "14.0"
+ratatui = "0.28"
+crossterm = "0.28"
 
 # Tokenizer
 tokenizers = "0.19"

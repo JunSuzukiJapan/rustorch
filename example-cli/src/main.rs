@@ -4,7 +4,7 @@ use colored::Colorize;
 
 use rustorch_cli::{
     init_logger, CliArgs, Commands, Config, DownloadOptions, GenerationConfig, InferenceEngine,
-    ModelDownloadManager, ModelIdentifier, ModelLoader, SessionManager, REPL,
+    ModelDownloadManager, ModelIdentifier, ModelLoader, SessionManager, REPL, TuiApp,
 };
 
 fn main() -> Result<()> {
@@ -363,38 +363,45 @@ fn start_cli(args: CliArgs) -> Result<()> {
         }
     }
 
-    // Create and run REPL
-    let mut repl = REPL::new(session, engine, !args.no_progress)?;
-
     // Auto-detect chat template requirement from model name
     let use_template = should_use_chat_template(&model_name);
-    repl.set_use_chat_template(use_template);
 
-    // Notify user about auto-detection
-    if use_template {
-        println!(
-            "{} {}",
-            "ℹ️  Chat/Instruct model detected:".bright_cyan(),
-            "template enabled".bright_green()
-        );
-        println!(
-            "   {}",
-            "Use /template to toggle if needed".bright_black()
-        );
+    // Choose between TUI mode and REPL mode
+    if args.tui {
+        // Run TUI mode
+        let mut tui = TuiApp::new(session, engine, use_template);
+        tui.run()?;
     } else {
-        println!(
-            "{} {}",
-            "ℹ️  Base/Completion model detected:".bright_cyan(),
-            "template disabled".bright_yellow()
-        );
-        println!(
-            "   {}",
-            "Use /template to enable if needed".bright_black()
-        );
-    }
-    println!();
+        // Run traditional REPL mode
+        let mut repl = REPL::new(session, engine, !args.no_progress)?;
+        repl.set_use_chat_template(use_template);
 
-    repl.run()?;
+        // Notify user about auto-detection
+        if use_template {
+            println!(
+                "{} {}",
+                "ℹ️  Chat/Instruct model detected:".bright_cyan(),
+                "template enabled".bright_green()
+            );
+            println!(
+                "   {}",
+                "Use /template to toggle if needed".bright_black()
+            );
+        } else {
+            println!(
+                "{} {}",
+                "ℹ️  Base/Completion model detected:".bright_cyan(),
+                "template disabled".bright_yellow()
+            );
+            println!(
+                "   {}",
+                "Use /template to enable if needed".bright_black()
+            );
+        }
+        println!();
+
+        repl.run()?;
+    }
 
     tracing::info!("RusTorch CLI exiting...");
 

@@ -64,6 +64,10 @@ pub struct CliArgs {
     /// System prompt
     #[arg(long)]
     pub system_prompt: Option<String>,
+
+    /// Use TUI mode (Terminal User Interface) with status bar
+    #[arg(long)]
+    pub tui: bool,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
