@@ -241,6 +241,15 @@ impl GGUFLoader {
             .and_then(|v| v.as_u32())
             .ok_or_else(|| RusTorchError::ParseError("Missing head_count".to_string()))?;
 
+        // Read num_kv_heads from GGUF metadata
+        // For GQA (Grouped Query Attention), this is typically less than num_heads
+        // TinyLlama uses 4 KV heads with 32 query heads
+        let num_kv_heads = self
+            .metadata
+            .get("llama.attention.head_count_kv")
+            .and_then(|v| v.as_u32())
+            .unwrap_or(num_heads); // Default to num_heads if not specified (MHA case)
+
         let context_length = self
             .metadata
             .get("llama.context_length")
@@ -252,6 +261,7 @@ impl GGUFLoader {
             hidden_size,
             num_layers,
             num_heads,
+            num_kv_heads,
             context_length,
         })
     }
@@ -764,6 +774,7 @@ pub struct ModelParams {
     pub hidden_size: u32,
     pub num_layers: u32,
     pub num_heads: u32,
+    pub num_kv_heads: u32,  // Number of key-value heads for GQA
     pub context_length: u32,
 }
 

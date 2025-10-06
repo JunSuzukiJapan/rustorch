@@ -32,9 +32,10 @@ impl LlamaConfig {
         let hidden_size = params.hidden_size as usize;
         let num_heads = params.num_heads as usize;
 
-        // Llama-2 uses GQA with num_kv_heads = num_heads (for 7B model)
-        // Llama-2 7Bはnum_kv_heads = num_headsのGQAを使用
-        let num_kv_heads = num_heads;
+        // Use actual num_kv_heads from GGUF metadata
+        // GQA (Grouped Query Attention): TinyLlama uses 4 KV heads with 32 query heads
+        // MHA (Multi-Head Attention): num_kv_heads = num_heads
+        let num_kv_heads = params.num_kv_heads as usize;
 
         Self {
             vocab_size: params.vocab_size as usize,
@@ -325,6 +326,14 @@ impl F32LlamaModel {
 
         let mut output = Vec::with_capacity(x_data.len());
 
+        // DEBUG: Log RoPE parameters
+        let _debug_rope = false;
+        if _debug_rope && start_position == 0 && seq_len == 1 {
+            eprintln!("🔍 [ROPE_INIT] start_position={}, seq_len={}, total_dim={}, head_dim={}, num_heads={}",
+                start_position, seq_len, total_dim, head_dim, num_heads);
+            eprintln!("🔍 [ROPE_INIT] rope_cos.len()={}, rope_sin.len()={}", self.rope_cos.len(), self.rope_sin.len());
+        }
+
         // Apply rotation for each token in sequence
         for token_idx in 0..seq_len {
             let position = start_position + token_idx;
@@ -335,15 +344,35 @@ impl F32LlamaModel {
                 let head_data = &x_data[head_offset..head_offset + head_dim];
 
                 for i in 0..(head_dim / 2) {
-                    let cos = self.rope_cos[position * (head_dim / 2) + i];
-                    let sin = self.rope_sin[position * (head_dim / 2) + i];
+                    let rope_idx = position * (head_dim / 2) + i;
+
+                    // DEBUG: Log first RoPE access
+                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                        eprintln!("🔍 [ROPE_IDX] position={}, i={}, rope_idx={}, head_data[{}]={}, head_data[{}]={}",
+                            position, i, rope_idx, 2*i, head_data[2*i], 2*i+1, head_data[2*i+1]);
+                    }
+
+                    let cos = self.rope_cos[rope_idx];
+                    let sin = self.rope_sin[rope_idx];
+
+                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                        eprintln!("🔍 [ROPE_VAL] i={}, cos={}, sin={}", i, cos, sin);
+                    }
 
                     let x0 = head_data[2 * i];
                     let x1 = head_data[2 * i + 1];
 
                     // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
-                    output.push(x0 * cos - x1 * sin);
-                    output.push(x0 * sin + x1 * cos);
+                    let rotated_0 = x0 * cos - x1 * sin;
+                    let rotated_1 = x0 * sin + x1 * cos;
+
+                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                        eprintln!("🔍 [ROPE_OUT] i={}, x0={}, x1={} → rotated_0={}, rotated_1={}",
+                            i, x0, x1, rotated_0, rotated_1);
+                    }
+
+                    output.push(rotated_0);
+                    output.push(rotated_1);
                 }
             }
         }
@@ -442,7 +471,7 @@ impl F32LlamaModel {
 
     /// Get embedding for a single token
     /// 単一トークンの埋め込みを取得
-    fn get_embedding(&self, token_id: usize) -> F32Result<Vec<f32>> {
+    pub fn get_embedding(&self, token_id: usize) -> F32Result<Vec<f32>> {
         // Try multiple possible embedding weight names
         let embed_weight = self.weights.get("token_embd.weight")
             .or_else(|| self.weights.get("model.embed_tokens.weight"))
@@ -463,37 +492,43 @@ impl F32LlamaModel {
             )));
         }
 
-        // Check embedding layout
-        if embed_shape[0] == hidden_size && embed_shape[1] == vocab_size {
-            // Weight is [hidden_size, vocab_size] - extract column token_id
-            eprintln!("🔍 [EMB LAYOUT] Using column extraction [hidden={}, vocab={}]", hidden_size, vocab_size);
-            let mut embedding = Vec::with_capacity(hidden_size);
-            for i in 0..hidden_size {
-                let idx = i * vocab_size + token_id;
-                if idx >= embed_data.len() {
-                    return Err(F32Error::device_error(format!(
-                        "Embedding index out of range: {} >= {}",
-                        idx, embed_data.len()
-                    )));
-                }
-                embedding.push(embed_data[idx]);
-            }
-            Ok(embedding)
-        } else {
-            // Standard layout [vocab_size, hidden_size] - extract row token_id
-            eprintln!("🔍 [EMB LAYOUT] Using row extraction [shape={:?}]", embed_shape);
-            let start = token_id * hidden_size;
-            let end = start + hidden_size;
+        // CRITICAL: Based on llama.cpp's ggml_get_rows implementation:
+        // ggml_vec_cpy_f32(nc, dst, src0 + i01*nb01)
+        //   where nc = ne00 (first dimension = hidden_size)
+        //         i01 = token_id
+        //         nb01 = stride for second dimension
+        //
+        // GGUF shape [2048, 32000] means data is stored as:
+        //   32000 rows of 2048 elements each
+        //   Row 0 = token 0's embedding (2048 values)
+        //   Row 1 = token 1's embedding (2048 values)
+        //   ...
+        //   Row N = token N's embedding (2048 values)
+        //
+        // So: embedding for token N starts at index N * hidden_size
 
-            if end > embed_data.len() {
-                return Err(F32Error::device_error(format!(
-                    "Embedding index out of range: {} > {}",
-                    end, embed_data.len()
-                )));
-            }
+        let start = token_id * hidden_size;
+        let end = start + hidden_size;
 
-            Ok(embed_data[start..end].to_vec())
+        if end > embed_data.len() {
+            return Err(F32Error::device_error(format!(
+                "Embedding index out of range: token_id={}, start={}, end={}, data_len={}",
+                token_id, start, end, embed_data.len()
+            )));
         }
+
+        let embedding = embed_data[start..end].to_vec();
+
+        // Debug: Show first 10 values of embedding for important tokens
+        // Token 1 (BOS), Token 1724 ("What"), Token 3681 (Paris)
+        if token_id == 1 || token_id == 1724 || token_id == 3681 {
+            let first_10: Vec<f32> = embedding.iter().take(10).copied().collect();
+            let non_zero_count = embedding.iter().filter(|&&x| x.abs() > 1e-8).count();
+            eprintln!("🔍 [GET_EMB] token={} embedding[0..10]={:?} (non_zero={}/{})",
+                token_id, first_10, non_zero_count, embedding.len());
+        }
+
+        Ok(embedding)
     }
 
     /// Llama attention layer
@@ -519,7 +554,8 @@ impl F32LlamaModel {
             .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
 
         // DEBUG: Log Q weight values for layer 0
-        if layer_idx == 0 {
+        let _debug_layer0 = true; // Enable for debugging weight shapes
+        if _debug_layer0 && layer_idx == 0 {
             let q_weight_first: Vec<f32> = q_weight.as_slice().iter().take(10).copied().collect();
             eprintln!("🔍 [WEIGHT] layer=0 Q_weight[0..10]={:?}", q_weight_first);
             eprintln!("🔍 [WEIGHT] layer=0 Q_weight shape={:?}", q_weight.shape());
@@ -534,7 +570,7 @@ impl F32LlamaModel {
         let v = x.matmul(v_weight)?;
 
         // DEBUG: Log Q, K, V values for layer 0
-        if layer_idx == 0 {
+        if _debug_layer0 && layer_idx == 0 {
             let q_first: Vec<f32> = q.as_slice().iter().take(10).copied().collect();
             let k_first: Vec<f32> = k.as_slice().iter().take(10).copied().collect();
             let v_first: Vec<f32> = v.as_slice().iter().take(10).copied().collect();
@@ -548,7 +584,7 @@ impl F32LlamaModel {
         let k_rope = self.apply_rope(&k, position)?;
 
         // DEBUG: Log after RoPE for layer 0
-        if layer_idx == 0 {
+        if _debug_layer0 && layer_idx == 0 {
             let q_rope_first: Vec<f32> = q_rope.as_slice().iter().take(10).copied().collect();
             let k_rope_first: Vec<f32> = k_rope.as_slice().iter().take(10).copied().collect();
             eprintln!("🔍 [ROPE] layer=0 Q_rope[0..10]={:?}", q_rope_first);
@@ -717,21 +753,11 @@ impl F32LlamaModel {
             embeddings.extend_from_slice(&emb);
         }
 
-        // DEBUG: Log first token embedding (expanded to 20 elements for better analysis)
-        if !embeddings.is_empty() {
+        // DEBUG: Enable to debug embedding extraction
+        let _debug_emb = true;
+        if _debug_emb && !embeddings.is_empty() {
             let first_20: Vec<f32> = embeddings.iter().take(20).copied().collect();
-            eprintln!("🔍 [EMB] token={} embedding[0..20]={:?}", input_ids[0], first_20);
-            // Count zeros and get statistics
-            let first_100: Vec<f32> = embeddings.iter().take(100).copied().collect();
-            let zeros = first_100.iter().filter(|&&x| x == 0.0).count();
-            let nonzeros: Vec<f32> = first_100.iter().filter(|&&x| x != 0.0).copied().collect();
-            if !nonzeros.is_empty() {
-                let min = nonzeros.iter().cloned().fold(f32::INFINITY, f32::min);
-                let max = nonzeros.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
-                let avg: f32 = nonzeros.iter().sum::<f32>() / nonzeros.len() as f32;
-                eprintln!("🔍 [EMB] stats: zeros={}/100, nonzero range=[{:.6}, {:.6}], avg={:.6}",
-                    zeros, min, max, avg);
-            }
+            eprintln!("🔍 [EMB] first_token={} embedding[0..20]={:?}", input_ids[0], first_20);
         }
 
         let mut x = F32Tensor::from_vec(embeddings, &[seq_len, hidden_size])?;
@@ -741,10 +767,13 @@ impl F32LlamaModel {
 
         // Strategic debug: Monitor problematic positions only
         let is_critical_position = current_position >= 12 && current_position <= 14;
-        if is_critical_position {
-            eprintln!("⚠️  [CRITICAL] position={}, seq_len={}", current_position, seq_len);
-        } else {
-            eprintln!("🔍 [FORWARD] seq_len={}, current_position={}", seq_len, current_position);
+        let _debug_pos = true;  // Enable for transpose debugging
+        if _debug_pos {
+            if is_critical_position {
+                eprintln!("⚠️  [CRITICAL] position={}, seq_len={}", current_position, seq_len);
+            } else {
+                eprintln!("🔍 [FORWARD] seq_len={}, current_position={}", seq_len, current_position);
+            }
         }
 
         // Pass through all transformer layers
@@ -788,23 +817,22 @@ impl F32LlamaModel {
             &[1, hidden_size]
         )?;
 
-        // DEBUG: Log LM head only at critical positions
-        if is_critical_position {
-            let last_hidden_vals: Vec<f32> = last_token_hidden.as_slice().iter().take(10).copied().collect();
-            eprintln!("⚠️  [LM_HEAD] CRITICAL last_token_hidden[0..10]={:?}", last_hidden_vals);
-        }
+        // DEBUG: Log LM head (always for debugging)
+        let last_hidden_vals: Vec<f32> = last_token_hidden.as_slice().iter().take(10).copied().collect();
+        eprintln!("🔍 [LM_HEAD] last_token_hidden[0..10]={:?}", last_hidden_vals);
+        eprintln!("🔍 [LM_HEAD] last_token_hidden shape: {:?}", last_token_hidden.shape());
+        eprintln!("🔍 [LM_HEAD] weight shape: {:?}", lm_head_weight.shape());
 
+        // GGUF format: output.weight is [hidden_size, vocab_size] for matmul [1, hidden] @ [hidden, vocab]
         let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
 
-        // DEBUG: Always log top-5 logits to detect zero issue
-        let logits_slice = logits.as_slice();
-        let mut indexed: Vec<(usize, f32)> = logits_slice.iter().enumerate().map(|(i, &v)| (i, v)).collect();
-        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-        let top5: Vec<(usize, f32)> = indexed.iter().take(5).copied().collect();
+        // DEBUG: Log top-5 logits only at critical positions
         if is_critical_position {
+            let logits_slice = logits.as_slice();
+            let mut indexed: Vec<(usize, f32)> = logits_slice.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+            indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            let top5: Vec<(usize, f32)> = indexed.iter().take(5).copied().collect();
             eprintln!("⚠️  [LOGITS] CRITICAL top5={:?}", top5);
-        } else {
-            eprintln!("🔍 [LOGITS] top5={:?}", top5);
         }
         
         Ok(logits)
