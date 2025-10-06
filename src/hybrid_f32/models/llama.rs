@@ -542,9 +542,16 @@ impl F32LlamaModel {
 
         // Update KV cache with correct sequence length increment
         let seq_len = k_rope.shape()[0];
-        self.kv_cache[layer_idx].keys = new_k;
-        self.kv_cache[layer_idx].values = new_v;
+        let old_len = self.kv_cache[layer_idx].cached_len;
+        self.kv_cache[layer_idx].keys = new_k.clone();
+        self.kv_cache[layer_idx].values = new_v.clone();
         self.kv_cache[layer_idx].cached_len += seq_len;
+
+        // DEBUG: Log KV cache size for first layer
+        if layer_idx == 0 {
+            eprintln!("🔍 [KV] layer={}, old_len={}, seq_len={}, new_len={}, keys_size={}",
+                layer_idx, old_len, seq_len, self.kv_cache[layer_idx].cached_len, self.kv_cache[layer_idx].keys.len());
+        }
 
         // Output projection
         attn_output.matmul(o_weight).map_err(|e| e.into())
@@ -610,12 +617,30 @@ impl F32LlamaModel {
             embeddings.extend_from_slice(&emb);
         }
 
+        // DEBUG: Log first token embedding (first 10 elements to see pattern)
+        if !embeddings.is_empty() {
+            let first_10: Vec<f32> = embeddings.iter().take(10).copied().collect();
+            eprintln!("🔍 [EMB] token={} embedding[0..10]={:?}", input_ids[0], first_10);
+            // Count zeros in first 100 elements
+            let zeros = embeddings.iter().take(100).filter(|&&x| x == 0.0).count();
+            eprintln!("🔍 [EMB] zeros in first 100 elements: {}/100", zeros);
+        }
+
         let mut x = F32Tensor::from_vec(embeddings, &[seq_len, hidden_size])?;
+
+        // Get current position from first layer's cache (all layers should have same length)
+        let current_position = self.kv_cache[0].cached_len;
+        eprintln!("🔍 [FORWARD] seq_len={}, current_position={}", seq_len, current_position);
 
         // Pass through all transformer layers
         for layer_idx in 0..self.config.num_layers {
-            let position = self.kv_cache[layer_idx].cached_len;
-            x = self.transformer_layer(&x, layer_idx, position)?;
+            x = self.transformer_layer(&x, layer_idx, current_position)?;
+            
+            // DEBUG: Log first layer output (first 5 elements)
+            if layer_idx == 0 {
+                let layer0_out: Vec<f32> = x.as_slice().iter().take(5).copied().collect();
+                eprintln!("🔍 [L0] layer_0_output[0..5]={:?}", layer0_out);
+            }
         }
 
         // Final RMSNorm
@@ -638,10 +663,16 @@ impl F32LlamaModel {
             &[1, hidden_size]
         )?;
 
-        // TODO: Investigate why logits are producing repeated tokens
-        // Shape is correct: [1, 2048] @ [2048, 32000] = [1, 32000]
-        // But values suggest issue in attention/FFN or dequantization
-        last_token_hidden.matmul(lm_head_weight).map_err(|e| e.into())
+        let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
+        
+        // DEBUG: Log top-5 logits
+        let logits_slice = logits.as_slice();
+        let mut indexed: Vec<(usize, f32)> = logits_slice.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+        indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        let top5: Vec<(usize, f32)> = indexed.iter().take(5).copied().collect();
+        eprintln!("🔍 [LOGITS] top5={:?}", top5);
+        
+        Ok(logits)
     }
 
     /// Clear KV cache for all layers
