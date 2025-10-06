@@ -346,10 +346,10 @@ impl F32LlamaModel {
         let mut output = Vec::with_capacity(x_data.len());
 
         // DEBUG: Log RoPE parameters
-        let _debug_rope = false;
-        if _debug_rope && start_position == 0 && seq_len == 1 {
-            eprintln!("🔍 [ROPE_INIT] start_position={}, seq_len={}, total_dim={}, head_dim={}, num_heads={}",
-                start_position, seq_len, total_dim, head_dim, num_heads);
+        let _debug_rope = start_position == 0 && seq_len == 1;
+        eprintln!("🔍 [ROPE_CALL] start_position={}, seq_len={}, total_dim={}, head_dim={}, num_heads={}, debug={}",
+            start_position, seq_len, total_dim, head_dim, num_heads, _debug_rope);
+        if _debug_rope {
             eprintln!("🔍 [ROPE_INIT] rope_cos.len()={}, rope_sin.len()={}", self.rope_cos.len(), self.rope_sin.len());
         }
 
@@ -366,7 +366,7 @@ impl F32LlamaModel {
                     let rope_idx = position * (head_dim / 2) + i;
 
                     // DEBUG: Log first RoPE access
-                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                    if _debug_rope && token_idx == 0 && head_idx == 0 && i < 3 {
                         eprintln!("🔍 [ROPE_IDX] position={}, i={}, rope_idx={}, head_data[{}]={}, head_data[{}]={}",
                             position, i, rope_idx, 2*i, head_data[2*i], 2*i+1, head_data[2*i+1]);
                     }
@@ -374,7 +374,7 @@ impl F32LlamaModel {
                     let cos = self.rope_cos[rope_idx];
                     let sin = self.rope_sin[rope_idx];
 
-                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                    if _debug_rope && token_idx == 0 && head_idx == 0 && i < 3 {
                         eprintln!("🔍 [ROPE_VAL] i={}, cos={}, sin={}", i, cos, sin);
                     }
 
@@ -385,7 +385,7 @@ impl F32LlamaModel {
                     let rotated_0 = x0 * cos - x1 * sin;
                     let rotated_1 = x0 * sin + x1 * cos;
 
-                    if _debug_rope && start_position == 0 && token_idx == 0 && head_idx == 0 && i < 3 {
+                    if _debug_rope && token_idx == 0 && head_idx == 0 && i < 3 {
                         eprintln!("🔍 [ROPE_OUT] i={}, x0={}, x1={} → rotated_0={}, rotated_1={}",
                             i, x0, x1, rotated_0, rotated_1);
                     }
@@ -572,14 +572,38 @@ impl F32LlamaModel {
             .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
 
         // DEBUG: Log Q weight values for layer 0
-        let _debug_layer0 = true; // Enable for debugging weight shapes
-        if _debug_layer0 && layer_idx == 0 {
-            let q_weight_first: Vec<f32> = q_weight.as_slice().iter().take(10).copied().collect();
-            eprintln!("🔍 [WEIGHT] layer=0 Q_weight[0..10]={:?}", q_weight_first);
-            eprintln!("🔍 [WEIGHT] layer=0 Q_weight shape={:?}", q_weight.shape());
+        let _debug_layer0 = layer_idx == 0; // Enable for debugging weight shapes
+
+        if layer_idx == 0 {
+            eprintln!("🔔 [L0_ATTENTION] Called with position={}", position);
+        }
+
+        // カウンタを使ってLayer 0の呼び出し回数を追跡
+        static CALL_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let call_num = if _debug_layer0 {
+            CALL_COUNT.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        } else {
+            0
+        };
+
+        if _debug_layer0 {
+            eprintln!("🔔 [ATTENTION_CALL] layer=0, call_num={}, position={}", call_num, position);
             let x_first: Vec<f32> = x.as_slice().iter().take(10).copied().collect();
-            eprintln!("🔍 [INPUT] layer=0 x[0..10]={:?}", x_first);
-            eprintln!("🔍 [INPUT] layer=0 x shape={:?}", x.shape());
+            let x_sum: f32 = x.as_slice().iter().sum();
+            let x_nonzero = x.as_slice().iter().filter(|&&v| v != 0.0).count();
+            eprintln!("🔍 [INPUT] call={}, x[0..10]={:?}", call_num, x_first);
+            eprintln!("🔍 [INPUT] call={}, sum={:.6}, nonzero={}/2048", call_num, x_sum, x_nonzero);
+
+            // Save full input to file for debugging
+            if call_num == 0 {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::File::create("/tmp/layer0_input.txt") {
+                    for val in x.as_slice() {
+                        let _ = writeln!(file, "{:.9}", val);
+                    }
+                    eprintln!("💾 [SAVED] Full Layer 0 input saved to /tmp/layer0_input.txt");
+                }
+            }
         }
 
         // Linear projections: Q, K, V
@@ -588,13 +612,13 @@ impl F32LlamaModel {
         let v = x.matmul(v_weight)?;
 
         // DEBUG: Log Q, K, V values for layer 0
-        if _debug_layer0 && layer_idx == 0 {
+        if _debug_layer0 {
             let q_first: Vec<f32> = q.as_slice().iter().take(10).copied().collect();
             let k_first: Vec<f32> = k.as_slice().iter().take(10).copied().collect();
             let v_first: Vec<f32> = v.as_slice().iter().take(10).copied().collect();
-            eprintln!("🔍 [QKV] layer=0 Q[0..10]={:?}", q_first);
-            eprintln!("🔍 [QKV] layer=0 K[0..10]={:?}", k_first);
-            eprintln!("🔍 [QKV] layer=0 V[0..10]={:?}", v_first);
+            eprintln!("🔍 [QKV] call={}, Q[0..10]={:?}", call_num, q_first);
+            eprintln!("🔍 [QKV] call={}, K[0..10]={:?}", call_num, k_first);
+            eprintln!("🔍 [QKV] call={}, V[0..10]={:?}", call_num, v_first);
         }
 
         // Apply RoPE to Q and K
@@ -623,11 +647,10 @@ impl F32LlamaModel {
             cached_v,
         )?;
 
-        // DEBUG: Log attention output for layer 0 (disabled)
-        let _debug_attn = false;
-        if _debug_attn && layer_idx == 0 {
+        // DEBUG: Log attention output for layer 0
+        if _debug_layer0 {
             let attn_out_vals: Vec<f32> = attn_output.as_slice().iter().take(10).copied().collect();
-            eprintln!("🔍 [ATTN] layer=0 grouped_attn_output[0..10]={:?}, shape={:?}", attn_out_vals, attn_output.shape());
+            eprintln!("🔍 [ATTN] call={}, grouped_attn_output[0..10]={:?}, shape={:?}", call_num, attn_out_vals, attn_output.shape());
         }
 
         // Update KV cache with correct sequence length increment
@@ -646,10 +669,10 @@ impl F32LlamaModel {
         // Output projection
         let final_out = attn_output.matmul(o_weight)?;
 
-        // DEBUG: Log final projection output for layer 0 (disabled)
-        if false && layer_idx == 0 {
+        // DEBUG: Log final projection output for layer 0
+        if _debug_layer0 {
             let final_vals: Vec<f32> = final_out.as_slice().iter().take(10).copied().collect();
-            eprintln!("🔍 [ATTN] layer=0 after_output_proj[0..10]={:?}", final_vals);
+            eprintln!("🔍 [ATTN] call={}, after_output_proj[0..10]={:?}", call_num, final_vals);
         }
 
         Ok(final_out)
@@ -710,8 +733,8 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
-        // DEBUG: Log layer 0 intermediate values at first position only
-        let debug = layer_idx == 0 && position == 0;
+        // DEBUG: Log layer 0 and 1 intermediate values at first position only
+        let debug = (layer_idx == 0 || layer_idx == 1) && position == 0;
 
         // Attention block with residual connection
         let normed = self.rms_norm(x, &attn_norm_weight)?;
