@@ -126,23 +126,84 @@ fn start_cli(args: CliArgs) -> Result<()> {
         }
     }
 
-    // For mac-hybrid backend, use F32GPTModel (Metal/CoreML require f32)
+    // For mac-hybrid backend, detect model architecture and load accordingly
     #[cfg(feature = "mac-hybrid")]
     if matches!(args.backend, CliBackend::Hybrid) {
-        use rustorch::hybrid_f32::models::{DeviceType as F32DeviceType, F32GPTModel};
+        use rustorch::hybrid_f32::models::{DeviceType as F32DeviceType, F32GPTModel, F32LlamaModel, LlamaConfig};
+        use rustorch::formats::gguf::GGUFLoader;
 
         let device_type = F32DeviceType::Hybrid;
-        tracing::info!("🚀 Loading F32 GPT model with mac-hybrid backend");
-        tracing::info!("   Metal/CoreML GPU acceleration requires f32 precision");
+        tracing::info!("🚀 Loading model with mac-hybrid backend (Metal/CoreML)");
 
-        match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
-            Ok(f32_model) => {
-                tracing::info!("✅ F32 GPT model loaded successfully on mac-hybrid backend");
-                engine.set_f32_gpt_model(f32_model);
+        // Detect model architecture from filename or weights
+        let model_name_lower = model_path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        let is_llama = model_name_lower.contains("llama") ||
+                      model_name_lower.contains("mistral") ||
+                      model_name_lower.contains("mixtral");
+
+        tracing::info!("🔍 Model filename: {}", model_name_lower);
+        tracing::info!("🔍 Is Llama architecture: {}", is_llama);
+
+        if is_llama {
+            tracing::info!("🦙 Detected Llama-architecture model");
+
+            // Load GGUF to extract config
+            match GGUFLoader::from_file(&model_path) {
+                Ok(loader) => {
+                    match loader.get_model_params() {
+                        Ok(params) => {
+                            // Create Llama config from params
+                            let llama_config = LlamaConfig {
+                                vocab_size: params.vocab_size as usize,
+                                hidden_size: params.hidden_size as usize,
+                                num_layers: params.num_layers as usize,
+                                num_heads: params.num_heads as usize,
+                                num_kv_heads: params.num_heads as usize, // Default to MHA (same as num_heads)
+                                intermediate_size: (params.hidden_size * 4) as usize, // Standard 4x hidden size
+                                max_seq_len: params.context_length as usize,
+                                rms_norm_eps: 1e-5,
+                                rope_theta: 10000.0,
+                            };
+
+                            match F32LlamaModel::from_gguf_with_config(&model_path, llama_config, F32DeviceType::Hybrid) {
+                                Ok(llama_model) => {
+                                    tracing::info!("✅ F32 Llama model loaded successfully on mac-hybrid backend");
+                                    engine.set_f32_llama_model(llama_model);
+                                }
+                                Err(e) => {
+                                    tracing::warn!("Failed to load F32 Llama model: {}", e);
+                                    tracing::warn!("Falling back to GPT architecture");
+                                    // Try GPT as fallback
+                                    if let Ok(gpt_model) = F32GPTModel::from_gguf_with_device(&model_path, device_type) {
+                                        engine.set_f32_gpt_model(gpt_model);
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!("Failed to get model params: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load GGUF: {}", e);
+                }
             }
-            Err(e) => {
-                tracing::warn!("Failed to load F32 GPT model: {}", e);
-                tracing::warn!("Falling back to dummy inference");
+        } else {
+            tracing::info!("📝 Detected GPT-architecture model");
+            match F32GPTModel::from_gguf_with_device(&model_path, device_type) {
+                Ok(f32_model) => {
+                    tracing::info!("✅ F32 GPT model loaded successfully on mac-hybrid backend");
+                    engine.set_f32_gpt_model(f32_model);
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to load F32 GPT model: {}", e);
+                    tracing::warn!("Falling back to dummy inference");
+                }
             }
         }
     }

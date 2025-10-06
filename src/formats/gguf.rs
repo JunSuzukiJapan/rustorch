@@ -661,7 +661,9 @@ impl GGUFLoader {
                         qs[byte_idx] >> 4
                     };
 
-                    let dequant_val = block_scale * nibble as f32 - block_min;
+                    // FIX: Q4_K dequantization formula should be: scale * nibble + min (not minus!)
+                    // This matches llama.cpp implementation
+                    let dequant_val = block_scale * nibble as f32 + block_min;
                     output.push(dequant_val as f64);
                 }
             }

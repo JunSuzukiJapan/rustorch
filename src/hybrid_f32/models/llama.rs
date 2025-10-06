@@ -7,6 +7,9 @@ use crate::formats::gguf::{GGUFLoader, ModelParams};
 use std::collections::HashMap;
 use std::path::Path;
 
+// Re-export DeviceType from gpt module to avoid duplication
+pub use super::gpt::DeviceType;
+
 /// Llama model configuration
 /// Llamaモデル設定
 #[derive(Debug, Clone)]
@@ -51,20 +54,6 @@ impl LlamaConfig {
     pub fn head_dim(&self) -> usize {
         self.hidden_size / self.num_heads
     }
-}
-
-/// Device type for GPU acceleration
-/// GPU加速用デバイスタイプ
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DeviceType {
-    /// CPU computation
-    Cpu,
-    /// Metal GPU (macOS)
-    Metal,
-    /// CoreML Neural Engine (macOS)
-    CoreML,
-    /// Hybrid Metal + CoreML
-    Hybrid,
 }
 
 /// KV cache for a single layer with GQA support
@@ -220,13 +209,7 @@ impl F32LlamaModel {
             }
         }
 
-        eprintln!("✅ Loaded {} weights as f32", loaded_count);
-
-        // Debug: Print first 10 weight names
-        eprintln!("📝 Sample weight names:");
-        for (i, name) in model.weights.keys().take(10).enumerate() {
-            eprintln!("   {}: {}", i + 1, name);
-        }
+        eprintln!("✅ Loaded {}/{} weights successfully", loaded_count, tensor_names.len());
 
         Ok(model)
     }
@@ -443,11 +426,252 @@ impl F32LlamaModel {
         Ok((output_tensor, full_k, full_v))
     }
 
-    /// Forward pass placeholder (will be implemented with full architecture)
-    /// フォワードパス（完全なアーキテクチャで実装予定）
-    pub fn forward(&mut self, _input_ids: &[usize]) -> F32Result<F32Tensor> {
-        Err(F32Error::device_error(
-            "Llama forward pass not yet implemented - full forward coming soon"
-        ))
+    /// Get embedding for a single token
+    /// 単一トークンの埋め込みを取得
+    fn get_embedding(&self, token_id: usize) -> F32Result<Vec<f32>> {
+        // Try multiple possible embedding weight names
+        let embed_weight = self.weights.get("token_embd.weight")
+            .or_else(|| self.weights.get("model.embed_tokens.weight"))
+            .or_else(|| self.weights.get("tok_embeddings.weight"))
+            .or_else(|| self.weights.get("transformer.wte.weight"))
+            .or_else(|| self.weights.get("embeddings.weight"))
+            .ok_or_else(|| F32Error::device_error("Embedding weight not found"))?;
+
+        let hidden_size = self.config.hidden_size;
+        let embed_data = embed_weight.as_slice();
+
+        if token_id >= self.config.vocab_size {
+            return Err(F32Error::device_error(format!(
+                "Token ID {} out of vocab range {}",
+                token_id, self.config.vocab_size
+            )));
+        }
+
+        let start = token_id * hidden_size;
+        let end = start + hidden_size;
+
+        if end > embed_data.len() {
+            return Err(F32Error::device_error(format!(
+                "Embedding index out of range: {} > {}",
+                end, embed_data.len()
+            )));
+        }
+
+        Ok(embed_data[start..end].to_vec())
+    }
+
+    /// Llama attention layer
+    /// Llamaアテンション層
+    fn attention_layer(
+        &mut self,
+        x: &F32Tensor,
+        layer_idx: usize,
+        position: usize,
+    ) -> F32Result<F32Tensor> {
+        let head_dim = self.config.head_dim();
+        let num_heads = self.config.num_heads;
+        let num_kv_heads = self.config.num_kv_heads;
+
+        // Get weights
+        let q_weight = self.weights.get(&format!("blk.{}.attn_q.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Q weight not found for layer {}", layer_idx)))?;
+        let k_weight = self.weights.get(&format!("blk.{}.attn_k.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("K weight not found for layer {}", layer_idx)))?;
+        let v_weight = self.weights.get(&format!("blk.{}.attn_v.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("V weight not found for layer {}", layer_idx)))?;
+        let o_weight = self.weights.get(&format!("blk.{}.attn_output.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
+
+        // Linear projections: Q, K, V
+        let q = x.matmul(q_weight)?;
+        let k = x.matmul(k_weight)?;
+        let v = x.matmul(v_weight)?;
+
+        // Apply RoPE to Q and K
+        let q_rope = self.apply_rope(&q, position)?;
+        let k_rope = self.apply_rope(&k, position)?;
+
+        // Get cached K, V
+        let cache = &self.kv_cache[layer_idx];
+        let cached_k = if cache.cached_len > 0 { Some(cache.keys.as_slice()) } else { None };
+        let cached_v = if cache.cached_len > 0 { Some(cache.values.as_slice()) } else { None };
+
+        // Grouped-Query Attention
+        let (attn_output, new_k, new_v) = self.grouped_query_attention(
+            &q_rope,
+            &k_rope,
+            &v,
+            cached_k,
+            cached_v,
+        )?;
+
+        // Update KV cache
+        self.kv_cache[layer_idx].keys = new_k;
+        self.kv_cache[layer_idx].values = new_v;
+        self.kv_cache[layer_idx].cached_len += 1;
+
+        // Output projection
+        attn_output.matmul(o_weight).map_err(|e| e.into())
+    }
+
+    /// Llama FFN layer with SwiGLU
+    /// SwiGLU活性化関数を使用したLlama FFN層
+    fn ffn_layer(&self, x: &F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+        // Get weights
+        let gate_weight = self.weights.get(&format!("blk.{}.ffn_gate.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Gate weight not found for layer {}", layer_idx)))?;
+        let up_weight = self.weights.get(&format!("blk.{}.ffn_up.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Up weight not found for layer {}", layer_idx)))?;
+        let down_weight = self.weights.get(&format!("blk.{}.ffn_down.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Down weight not found for layer {}", layer_idx)))?;
+
+        // FFN with SwiGLU: down(SwiGLU(gate(x), up(x)))
+        let gate = x.matmul(gate_weight)?;
+        let up = x.matmul(up_weight)?;
+        let swiglu_out = self.swiglu(&gate, &up)?;
+        swiglu_out.matmul(down_weight).map_err(|e| e.into())
+    }
+
+    /// Single Llama transformer layer
+    /// 単一のLlamaトランスフォーマー層
+    fn transformer_layer(
+        &mut self,
+        x: &F32Tensor,
+        layer_idx: usize,
+        position: usize,
+    ) -> F32Result<F32Tensor> {
+        // Get normalization weights and clone to avoid borrow issues
+        let attn_norm_weight = self.weights.get(&format!("blk.{}.attn_norm.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("Attention norm weight not found for layer {}", layer_idx)))?.clone();
+        let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
+            .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
+
+        // Attention block with residual connection
+        let normed = self.rms_norm(x, &attn_norm_weight)?;
+        let attn_out = self.attention_layer(&normed, layer_idx, position)?;
+        let x = x.add(&attn_out)?;
+
+        // FFN block with residual connection
+        let normed = self.rms_norm(&x, &ffn_norm_weight)?;
+        let ffn_out = self.ffn_layer(&normed, layer_idx)?;
+        x.add(&ffn_out).map_err(|e| e.into())
+    }
+
+    /// Forward pass through Llama model
+    /// Llamaモデルのフォワードパス
+    pub fn forward(&mut self, input_ids: &[usize]) -> F32Result<F32Tensor> {
+        if input_ids.is_empty() {
+            return Err(F32Error::device_error("Empty input_ids"));
+        }
+
+        let seq_len = input_ids.len();
+        let hidden_size = self.config.hidden_size;
+
+        // Get embeddings for all tokens
+        let mut embeddings = Vec::with_capacity(seq_len * hidden_size);
+        for &token_id in input_ids {
+            let emb = self.get_embedding(token_id)?;
+            embeddings.extend_from_slice(&emb);
+        }
+
+        let mut x = F32Tensor::from_vec(embeddings, &[seq_len, hidden_size])?;
+
+        // Pass through all transformer layers
+        for layer_idx in 0..self.config.num_layers {
+            let position = self.kv_cache[layer_idx].cached_len;
+            x = self.transformer_layer(&x, layer_idx, position)?;
+        }
+
+        // Final RMSNorm
+        let output_norm_weight = self.weights.get("output_norm.weight")
+            .or_else(|| self.weights.get("model.norm.weight"))
+            .or_else(|| self.weights.get("norm.weight"))
+            .ok_or_else(|| F32Error::device_error("Output norm weight not found"))?;
+
+        let normed = self.rms_norm(&x, output_norm_weight)?;
+
+        // LM head (project to vocabulary)
+        let lm_head_weight = self.weights.get("output.weight")
+            .or_else(|| self.weights.get("lm_head.weight"))
+            .or_else(|| self.weights.get("token_embd.weight"))  // Weight tying
+            .ok_or_else(|| F32Error::device_error("LM head weight not found"))?;
+
+        // Get logits for last token only
+        let last_token_hidden = F32Tensor::from_vec(
+            normed.as_slice()[(seq_len - 1) * hidden_size..seq_len * hidden_size].to_vec(),
+            &[1, hidden_size]
+        )?;
+
+        last_token_hidden.matmul(lm_head_weight).map_err(|e| e.into())
+    }
+
+    /// Clear KV cache for all layers
+    /// 全レイヤーのKVキャッシュをクリア
+    pub fn clear_cache(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.keys.clear();
+            cache.values.clear();
+            cache.cached_len = 0;
+        }
+    }
+
+    /// Load Llama model from GGUF file with custom config
+    /// カスタム設定でGGUFファイルからLlamaモデルを読み込む
+    pub fn from_gguf_with_config<P: AsRef<std::path::Path>>(
+        path: P,
+        config: LlamaConfig,
+        device_type: DeviceType,
+    ) -> F32Result<Self> {
+        use crate::formats::gguf::GGUFLoader;
+
+        let loader = GGUFLoader::from_file(path)
+            .map_err(|e| F32Error::device_error(format!("Failed to load GGUF: {}", e)))?;
+
+        // Create model with device
+        let mut model = Self::with_device(config, device_type)?;
+
+        eprintln!("📊 Loading Llama model weights as f32");
+        eprintln!("   Device: {:?}", device_type);
+        eprintln!("   Vocab size: {}", model.config.vocab_size);
+        eprintln!("   Layers: {}", model.config.num_layers);
+        eprintln!("   Hidden size: {}", model.config.hidden_size);
+        eprintln!("   Num heads: {}", model.config.num_heads);
+        eprintln!("   Num KV heads: {}", model.config.num_kv_heads);
+
+        // Load weights as f32
+        let tensor_names = loader.tensor_names();
+        let mut loaded_count = 0;
+
+        for name in tensor_names.iter() {
+            // Load tensor as f64, then convert to f32
+            match loader.load_tensor(name) {
+                Ok(tensor_f64) => {
+                    let data_f64 = &tensor_f64.data;
+                    let data_f32: Vec<f32> = data_f64.iter().map(|&x| x as f32).collect();
+                    let shape = tensor_f64.shape();
+
+                    match F32Tensor::from_vec(data_f32, shape) {
+                        Ok(tensor_f32) => {
+                            model.weights.insert(name.to_string(), tensor_f32);
+                            loaded_count += 1;
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  Failed to convert tensor '{}': {}", name, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to load tensor '{}': {}", name, e);
+                }
+            }
+        }
+
+        eprintln!("✅ Loaded {}/{} weights successfully", loaded_count, tensor_names.len());
+
+        if loaded_count == 0 {
+            return Err(F32Error::device_error("No weights loaded successfully"));
+        }
+
+        Ok(model)
     }
 }

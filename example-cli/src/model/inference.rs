@@ -8,13 +8,15 @@ use rustorch::prelude::Tensor;
 use rustorch::models::GPTModel;
 
 #[cfg(feature = "hybrid-f32")]
-use rustorch::hybrid_f32::models::F32GPTModel;
+use rustorch::hybrid_f32::models::{F32GPTModel, F32LlamaModel};
 
 pub struct InferenceEngine {
     model: Option<TransformerModel>,
     gpt_model: Option<GPTModel>,
     #[cfg(feature = "hybrid-f32")]
     f32_gpt_model: Option<F32GPTModel>,
+    #[cfg(feature = "hybrid-f32")]
+    f32_llama_model: Option<F32LlamaModel>,
     generation_config: GenerationConfig,
     sampling_config: SamplingConfig,
     loader: ModelLoader,
@@ -41,6 +43,8 @@ impl InferenceEngine {
             gpt_model: None,
             #[cfg(feature = "hybrid-f32")]
             f32_gpt_model: None,
+            #[cfg(feature = "hybrid-f32")]
+            f32_llama_model: None,
             generation_config: config,
             sampling_config,
             loader,
@@ -68,6 +72,12 @@ impl InferenceEngine {
         self.f32_gpt_model = Some(model);
     }
 
+    /// Set the F32 Llama model
+    #[cfg(feature = "hybrid-f32")]
+    pub fn set_f32_llama_model(&mut self, model: F32LlamaModel) {
+        self.f32_llama_model = Some(model);
+    }
+
     /// Generate a response from input text
     pub fn generate(&mut self, input: &str) -> Result<String> {
         tracing::debug!("Generating response for input: {}", input);
@@ -80,7 +90,7 @@ impl InferenceEngine {
 
         // Check if model is loaded
         #[cfg(feature = "hybrid-f32")]
-        let has_model = self.model.is_some() || self.gpt_model.is_some() || self.f32_gpt_model.is_some();
+        let has_model = self.model.is_some() || self.gpt_model.is_some() || self.f32_gpt_model.is_some() || self.f32_llama_model.is_some();
         #[cfg(not(feature = "hybrid-f32"))]
         let has_model = self.model.is_some() || self.gpt_model.is_some();
 
@@ -118,7 +128,14 @@ impl InferenceEngine {
     fn generate_tokens(&mut self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
 
-        // Prioritize F32 GPT model (Metal GPU optimized)
+        // Prioritize F32 Llama model (Metal GPU optimized with Llama-2 architecture)
+        #[cfg(feature = "hybrid-f32")]
+        if self.f32_llama_model.is_some() {
+            tracing::info!("🚀 Using F32 Llama model for generation (Metal GPU optimized)");
+            return self.generate_with_f32_llama_mut(input_ids, max_new_tokens);
+        }
+
+        // Then F32 GPT model (Metal GPU optimized)
         #[cfg(feature = "hybrid-f32")]
         if self.f32_gpt_model.is_some() {
             tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
@@ -335,19 +352,108 @@ impl InferenceEngine {
         Ok(new_tokens)
     }
 
+    /// Generate tokens using F32 Llama model with KV cache (mutable access)
+    #[cfg(feature = "hybrid-f32")]
+    fn generate_with_f32_llama_mut(
+        &mut self,
+        input_ids: &[u32],
+        max_new_tokens: usize,
+    ) -> Result<Vec<u32>> {
+        tracing::info!("🔍 [Llama Gen] Starting generation");
+        let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
+
+        tracing::info!(
+            "Generating {} tokens with F32 Llama model (Metal GPU + KV Cache)",
+            max_new_tokens
+        );
+
+        tracing::info!("🔍 [Llama Gen] Clearing KV cache");
+        // Clear KV cache for new generation session
+        if let Some(ref mut llama_model) = self.f32_llama_model {
+            llama_model.clear_cache();
+        }
+        tracing::info!("🔍 [Llama Gen] KV cache cleared");
+
+        // Generation loop
+        tracing::info!("🔍 [Llama Gen] Starting generation loop for {} tokens", max_new_tokens);
+        for step in 0..max_new_tokens {
+            tracing::info!("🔍 [Llama Gen] Step {}/{}", step + 1, max_new_tokens);
+
+            // Get max sequence length before borrowing mutably
+            tracing::info!("🔍 [Llama Gen] Getting max_seq_len");
+            let max_seq_len = self.f32_llama_model.as_ref().unwrap().config().max_seq_len;
+            tracing::info!("🔍 [Llama Gen] max_seq_len = {}", max_seq_len);
+
+            // Forward pass through F32 Llama model with KV cache
+            tracing::info!("🔍 [Llama Gen] Calling forward with {} tokens", generated_ids.len());
+            let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
+                // For Llama, pass all tokens (Llama handles KV cache internally)
+                llama_model.forward(&generated_ids)
+                    .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
+            } else {
+                anyhow::bail!("F32 Llama model not available");
+            };
+            tracing::info!("🔍 [Llama Gen] Forward completed, logits shape: {:?}", logits_tensor.shape());
+
+            // Extract logits for the last position
+            tracing::info!("🔍 [Llama Gen] Extracting last logits");
+            let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
+            tracing::info!("🔍 [Llama Gen] Extracted {} logits", last_logits.len());
+
+            // Sample next token with temperature
+            tracing::info!("🔍 [Llama Gen] Sampling next token");
+            let next_token_id = self.sample_with_temperature_f32(&last_logits, &generated_ids, step)?;
+            tracing::info!("🔍 [Llama Gen] Sampled token: {}", next_token_id);
+
+            tracing::debug!("Step {}: Generated token {}", step, next_token_id);
+
+            // Check for EOS token
+            if let Some(eos_id) = self.tokenizer().eos_token_id() {
+                if next_token_id == eos_id as usize {
+                    tracing::debug!("EOS token generated at step {}", step);
+                    break;
+                }
+            }
+
+            generated_ids.push(next_token_id);
+
+            // Stop if context limit exceeded
+            if generated_ids.len() >= max_seq_len {
+                tracing::warn!("Reached maximum sequence length");
+                break;
+            }
+        }
+
+        // Return only the newly generated tokens
+        let new_tokens: Vec<u32> = generated_ids[input_ids.len()..]
+            .iter()
+            .map(|&id| id as u32)
+            .collect();
+
+        Ok(new_tokens)
+    }
+
     /// Extract logits for the last position from F32 tensor
+    /// Supports both 2D [batch, vocab] (Llama) and 3D [batch, seq, vocab] (GPT) tensors
     #[cfg(feature = "hybrid-f32")]
     fn extract_last_f32_logits(
         logits_tensor: &rustorch::hybrid_f32::tensor::F32Tensor,
         seq_len: usize,
     ) -> Result<Vec<f32>> {
         let shape = logits_tensor.data.shape();
-        if shape.len() != 3 {
-            anyhow::bail!("Expected 3D logits tensor, got {}D", shape.len());
-        }
 
-        let vocab_size = shape[2];
-        let offset = (seq_len - 1) * vocab_size;
+        // Handle both 2D and 3D tensors
+        let (vocab_size, offset) = if shape.len() == 2 {
+            // 2D tensor [batch, vocab] - Llama already extracted last token
+            (shape[1], 0)
+        } else if shape.len() == 3 {
+            // 3D tensor [batch, seq, vocab] - GPT returns full sequence
+            let vocab_size = shape[2];
+            let offset = (seq_len - 1) * vocab_size;
+            (vocab_size, offset)
+        } else {
+            anyhow::bail!("Expected 2D or 3D logits tensor, got {}D", shape.len());
+        };
 
         if let Some(data_slice) = logits_tensor.data.as_slice() {
             tracing::debug!(
