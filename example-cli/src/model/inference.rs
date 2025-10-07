@@ -109,13 +109,11 @@ impl InferenceEngine {
             });
 
         // DEBUG: Log input tokens
-        eprintln!("🔍 [INPUT] prompt='{}' tokens={:?}", input, input_ids);
 
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
 
         // DEBUG: Log output tokens
-        eprintln!("🔍 [OUTPUT] tokens={:?}", output_ids);
 
         // Decode output using loader's tokenizer
         let output = self
@@ -327,8 +325,10 @@ impl InferenceEngine {
             // Extract logits for the last position
             let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
 
-            // Sample next token using argmax (greedy decoding)
-            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
+            // Sample next token with temperature and top-p sampling
+            let temperature = 0.7; // Lower = more deterministic, higher = more creative
+            let top_p = 0.9; // Nucleus sampling threshold
+            let next_token_id = Self::sample_with_temperature_f32(&last_logits, temperature, top_p)?;
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
 
@@ -365,33 +365,25 @@ impl InferenceEngine {
         input_ids: &[u32],
         max_new_tokens: usize,
     ) -> Result<Vec<u32>> {
-        tracing::info!("🔍 [Llama Gen] Starting generation");
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
 
         // DEBUG: Log initial generated_ids
-        eprintln!("🔍 [Llama Gen] Initial generated_ids = {:?}", generated_ids);
 
         tracing::info!(
             "Generating {} tokens with F32 Llama model (Metal GPU + KV Cache)",
             max_new_tokens
         );
 
-        tracing::info!("🔍 [Llama Gen] Clearing KV cache");
         // Clear KV cache for new generation session
         if let Some(ref mut llama_model) = self.f32_llama_model {
             llama_model.clear_cache();
         }
-        tracing::info!("🔍 [Llama Gen] KV cache cleared");
 
         // Generation loop
-        tracing::info!("🔍 [Llama Gen] Starting generation loop for {} tokens", max_new_tokens);
         for step in 0..max_new_tokens {
-            tracing::info!("🔍 [Llama Gen] Step {}/{}", step + 1, max_new_tokens);
 
             // Get max sequence length before borrowing mutably
-            tracing::info!("🔍 [Llama Gen] Getting max_seq_len");
             let max_seq_len = self.f32_llama_model.as_ref().unwrap().config().max_seq_len;
-            tracing::info!("🔍 [Llama Gen] max_seq_len = {}", max_seq_len);
 
             // Forward pass through F32 Llama model with KV cache
             // First step: pass all tokens, subsequent steps: pass only last token
@@ -401,20 +393,15 @@ impl InferenceEngine {
                 &generated_ids[generated_ids.len() - 1..]  // Only last token on subsequent steps
             };
 
-            tracing::info!("🔍 [Llama Gen] Calling forward with {} tokens (step {}, total {})",
-                input_for_forward.len(), step, generated_ids.len());
             let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
                 llama_model.forward(input_for_forward)
                     .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
             } else {
                 anyhow::bail!("F32 Llama model not available");
             };
-            tracing::info!("🔍 [Llama Gen] Forward completed, logits shape: {:?}", logits_tensor.shape());
 
             // Extract logits for the last position
-            tracing::info!("🔍 [Llama Gen] Extracting last logits");
             let last_logits = Self::extract_last_f32_logits(&logits_tensor, 1)?;
-            tracing::info!("🔍 [Llama Gen] Extracted {} logits", last_logits.len());
 
             // Debug: show logit statistics for first 2 steps
             if step < 2 {
@@ -422,12 +409,10 @@ impl InferenceEngine {
                 let min_logit = last_logits.iter().cloned().fold(f32::INFINITY, f32::min);
                 let sum: f32 = last_logits.iter().sum();
                 let mean = sum / last_logits.len() as f32;
-                tracing::info!("🔍 [Llama Logits] min={:.3}, max={:.3}, mean={:.3}", min_logit, max_logit, mean);
 
                 // Show top 10 logits for better analysis
                 let mut indexed: Vec<(usize, f32)> = last_logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
                 indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
-                tracing::info!("🔍 [Llama Top10] {:?}", &indexed[0..10.min(indexed.len())]);
 
                 // Check specific tokens of interest
                 // "Paris" might be token 3681 or similar - check common answer tokens
@@ -440,15 +425,14 @@ impl InferenceEngine {
                 ];
                 for (token_id, name) in tokens_to_check {
                     if token_id < last_logits.len() {
-                        tracing::info!("🔍 [Token Check] {} ({}): logit={:.3}", name, token_id, last_logits[token_id]);
                     }
                 }
             }
 
-            // Sample next token using argmax (greedy decoding)
-            tracing::info!("🔍 [Llama Gen] Sampling next token");
-            let next_token_id = Self::sample_argmax_f32(&last_logits)?;
-            tracing::info!("🔍 [Llama Gen] Sampled token: {}", next_token_id);
+            // Sample next token with temperature and top-p sampling
+            let temperature = 0.7; // Lower = more deterministic, higher = more creative
+            let top_p = 0.9; // Nucleus sampling threshold
+            let next_token_id = Self::sample_with_temperature_f32(&last_logits, temperature, top_p)?;
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
 
@@ -533,6 +517,53 @@ impl InferenceEngine {
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(idx, _)| idx)
             .ok_or_else(|| anyhow::anyhow!("Failed to sample token"))
+    }
+
+    /// Sample token with temperature and top-p (nucleus) sampling
+    fn sample_with_temperature_f32(logits: &[f32], temperature: f32, top_p: f32) -> Result<usize> {
+        use rand::Rng;
+
+        // Apply temperature scaling
+        let scaled_logits: Vec<f32> = if temperature > 0.0 {
+            logits.iter().map(|&x| x / temperature).collect()
+        } else {
+            logits.to_vec()
+        };
+
+        // Compute softmax probabilities
+        let max_logit = scaled_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let exp_logits: Vec<f32> = scaled_logits.iter().map(|&x| (x - max_logit).exp()).collect();
+        let sum_exp: f32 = exp_logits.iter().sum();
+        let probs: Vec<f32> = exp_logits.iter().map(|&x| x / sum_exp).collect();
+
+        // Top-p (nucleus) sampling
+        let mut indexed_probs: Vec<(usize, f32)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
+        indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut cumulative_prob = 0.0;
+        let mut top_p_indices = Vec::new();
+        for (idx, prob) in &indexed_probs {
+            cumulative_prob += *prob;
+            top_p_indices.push((*idx, *prob));
+            if cumulative_prob >= top_p {
+                break;
+            }
+        }
+
+        // Sample from top-p candidates
+        let total_prob: f32 = top_p_indices.iter().map(|(_, p)| p).sum();
+        let mut rng = rand::thread_rng();
+        let mut random_val: f32 = rng.gen::<f32>() * total_prob;
+
+        for (idx, prob) in &top_p_indices {
+            random_val -= *prob;
+            if random_val <= 0.0 {
+                return Ok(*idx);
+            }
+        }
+
+        // Fallback to last candidate
+        Ok(top_p_indices.last().map(|(idx, _)| *idx).unwrap_or(0))
     }
 
     /// Extract logits for the last position from model output
