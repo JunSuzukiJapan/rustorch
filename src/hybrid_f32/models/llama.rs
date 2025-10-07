@@ -426,15 +426,15 @@ impl F32LlamaModel {
         let kv_seq_len = k_data.len() / (num_kv_heads * head_dim);
 
         // Concatenate with cached K, V if available
-        let (full_k, full_v, total_kv_len) = if let (Some(ck), Some(cv)) = (cached_k, cached_v) {
+        let (full_k, full_v, total_kv_len, cached_len) = if let (Some(ck), Some(cv)) = (cached_k, cached_v) {
             let cached_len = ck.len() / (num_kv_heads * head_dim);
             let mut new_k = ck.to_vec();
             new_k.extend_from_slice(k_data);
             let mut new_v = cv.to_vec();
             new_v.extend_from_slice(v_data);
-            (new_k, new_v, cached_len + kv_seq_len)
+            (new_k, new_v, cached_len + kv_seq_len, cached_len)
         } else {
-            (k_data.to_vec(), v_data.to_vec(), kv_seq_len)
+            (k_data.to_vec(), v_data.to_vec(), kv_seq_len, 0)
         };
 
         // Attention output
@@ -453,7 +453,7 @@ impl F32LlamaModel {
                 // Compute attention scores with causal masking
                 // Query at position q_pos can only attend to keys at positions 0..=current_kv_pos
                 // where current_kv_pos = cached_len + q_pos
-                let current_kv_pos = total_kv_len - seq_len + q_pos;
+                let current_kv_pos = cached_len + q_pos;
                 let mut scores = Vec::with_capacity(current_kv_pos + 1);
 
                 for kv_pos in 0..=current_kv_pos {
