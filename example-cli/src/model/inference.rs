@@ -80,6 +80,10 @@ impl InferenceEngine {
 
     /// Generate a response from input text
     pub fn generate(&mut self, input: &str) -> Result<String> {
+        self.generate_with_template(input, true)
+    }
+
+    pub fn generate_with_template(&mut self, input: &str, use_template: bool) -> Result<String> {
         tracing::debug!("Generating response for input: {}", input);
         tracing::debug!(
             "Generation config: max_tokens={}, temperature={}, top_p={}",
@@ -98,22 +102,31 @@ impl InferenceEngine {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
+        // Apply chat template if enabled
+        let formatted_input = if use_template {
+            format!("<|user|>\n{}</s>\n<|assistant|>\n", input)
+        } else {
+            input.to_string()
+        };
+
         // Encode input using loader's tokenizer
         let input_ids = self
             .tokenizer()
-            .encode(input, true)
+            .encode(&formatted_input, true)
             .unwrap_or_else(|_| {
                 // Fallback: use simple character-based encoding
                 tracing::warn!("Tokenizer encoding failed, using character-based fallback");
-                input.chars().take(self.generation_config.max_tokens).map(|c| c as u32).collect()
+                formatted_input.chars().take(self.generation_config.max_tokens).map(|c| c as u32).collect()
             });
 
         // DEBUG: Log input tokens
+        eprintln!("🔍 [INPUT] formatted='{}' tokens={:?}", formatted_input, &input_ids[..input_ids.len().min(20)]);
 
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
 
         // DEBUG: Log output tokens
+        eprintln!("🔍 [OUTPUT] tokens={:?}", &output_ids[..output_ids.len().min(20)]);
 
         // Decode output using loader's tokenizer
         let output = self

@@ -477,7 +477,7 @@ impl REPL {
     }
 
     fn generate_response(&mut self, message: &str) -> Result<String> {
-        self.engine.generate(message)
+        self.engine.generate_with_template(message, self.use_chat_template)
     }
 }
 
