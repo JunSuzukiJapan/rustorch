@@ -81,6 +81,15 @@ impl LayerKVCache {
 
 /// Llama model with native f32 precision for GPU acceleration
 /// GPU加速用ネイティブf32精度Llamaモデル
+/// Statistics for tensor debugging
+#[derive(Debug, Clone, Copy)]
+struct TensorStats {
+    rms: f32,
+    min: f32,
+    max: f32,
+    mean: f32,
+}
+
 pub struct F32LlamaModel {
     config: LlamaConfig,
     pub weights: HashMap<String, F32Tensor>,  // TEMPデバッグ用にpub
@@ -261,6 +270,18 @@ impl F32LlamaModel {
         let x_data = x.as_slice();
         let weight_data = weight.as_slice();
         let shape = x.shape();
+
+        // Debug: Check weight stats for first call
+        {
+            use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+            static FIRST_NORM_CALL: AtomicBool = AtomicBool::new(true);
+            if FIRST_NORM_CALL.swap(false, AtomicOrdering::SeqCst) {
+                let weight_stats = Self::compute_stats(weight_data);
+                eprintln!("🔍 [RMSNorm WEIGHT] rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                    weight_stats.rms, weight_stats.min, weight_stats.max, weight_stats.mean);
+                eprintln!("🔍 [RMSNorm] eps={}, weight_len={}", eps, weight_data.len());
+            }
+        }
 
         // Calculate RMS over last dimension
         let last_dim = shape[shape.len() - 1];
@@ -599,6 +620,25 @@ impl F32LlamaModel {
         Ok(final_out)
     }
 
+    /// Compute statistics for debugging
+    /// デバッグ用の統計を計算
+    fn compute_stats(data: &[f32]) -> TensorStats {
+        if data.is_empty() {
+            return TensorStats { rms: 0.0, min: 0.0, max: 0.0, mean: 0.0 };
+        }
+
+        let sum: f32 = data.iter().sum();
+        let mean = sum / data.len() as f32;
+
+        let sum_sq: f32 = data.iter().map(|&x| x * x).sum();
+        let rms = (sum_sq / data.len() as f32).sqrt();
+
+        let min = data.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+        let max = data.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+
+        TensorStats { rms, min, max, mean }
+    }
+
     /// Single Llama transformer layer
     /// 単一のLlamaトランスフォーマー層
     fn transformer_layer(
@@ -613,22 +653,71 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
+        // Debug logging for layer 0 only
+        let debug_layer = layer_idx == 0;
 
-        // Log transformer layer input
+        if debug_layer {
+            let x_slice = x.as_slice();
+            let stats = Self::compute_stats(x_slice);
+            eprintln!("🔍 [LAYER {}] Input: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
 
         // Attention block with residual connection
         let normed = self.rms_norm(x, &attn_norm_weight)?;
 
+        if debug_layer {
+            let normed_slice = normed.as_slice();
+            let stats = Self::compute_stats(normed_slice);
+            eprintln!("🔍 [LAYER {}] After Attn RMSNorm: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
+
         let attn_out = self.attention_layer(&normed, layer_idx, position)?;
 
+        if debug_layer {
+            let attn_slice = attn_out.as_slice();
+            let stats = Self::compute_stats(attn_slice);
+            eprintln!("🔍 [LAYER {}] Attention Output: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
+
         let x = x.add(&attn_out)?;
+
+        if debug_layer {
+            let x_slice = x.as_slice();
+            let stats = Self::compute_stats(x_slice);
+            eprintln!("🔍 [LAYER {}] After Attn Residual: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
 
         // FFN block with residual connection
         let normed = self.rms_norm(&x, &ffn_norm_weight)?;
 
+        if debug_layer {
+            let normed_slice = normed.as_slice();
+            let stats = Self::compute_stats(normed_slice);
+            eprintln!("🔍 [LAYER {}] After FFN RMSNorm: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
+
         let ffn_out = self.ffn_layer(&normed, layer_idx)?;
 
+        if debug_layer {
+            let ffn_slice = ffn_out.as_slice();
+            let stats = Self::compute_stats(ffn_slice);
+            eprintln!("🔍 [LAYER {}] FFN Output: rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
+
         let result = x.add(&ffn_out)?;
+
+        if debug_layer {
+            let result_slice = result.as_slice();
+            let stats = Self::compute_stats(result_slice);
+            eprintln!("🔍 [LAYER {}] After FFN Residual (Layer Output): rms={:.6}, min={:.6}, max={:.6}, mean={:.6}\n",
+                layer_idx, stats.rms, stats.min, stats.max, stats.mean);
+        }
 
         Ok(result)
     }

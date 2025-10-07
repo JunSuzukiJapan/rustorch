@@ -194,6 +194,8 @@ impl GGUFLoader {
             .stream_position()
             .map_err(|e| RusTorchError::IoError(format!("Failed to get final position: {}", e)))?;
 
+        eprintln!("🔧 [GGUF] data_offset (after alignment) = {}", final_offset);
+
         Ok(Self {
             header,
             metadata,
@@ -525,8 +527,8 @@ impl GGUFLoader {
             }
         };
 
-        // Debug: Log dimension handling for embedding and output weights
-        if name.contains("token_embd") || name.contains("output.weight") {
+        // Debug: Log dimension handling for norm weights
+        if name.contains("norm.weight") || name.contains("token_embd") || name.contains("output.weight") {
             eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
                 name, ggml_type, original_dims, shape);
         }
