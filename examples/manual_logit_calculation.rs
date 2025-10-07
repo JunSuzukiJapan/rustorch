@@ -15,7 +15,16 @@ fn main() -> F32Result<()> {
     // モデルのforward pass
     println!("📂 モデル読み込みと推論...");
     let mut model = F32LlamaModel::from_gguf_with_device(&model_path, DeviceType::Cpu)?;
-    let input = vec![1]; // BOS
+
+    // Test with multi-token input (same as CLI)
+    // "<|user|>\nWhat is the capital of France?</s>\n<|assistant|>\n"
+    let input = vec![1, 529, 29989, 1792, 29989, 29958, 13, 5618, 338, 278, 7483, 310, 3444, 29973, 2, 29871, 13, 29966, 29989, 465, 22137, 29989, 29958, 13];
+    println!("Input tokens ({}): {:?}", input.len(), &input[0..10.min(input.len())]);
+
+    // Clear cache like CLI does
+    println!("🧹 Clearing KV cache...");
+    model.clear_cache();
+
     let logits = model.forward(&input)?;
     let logits_data = logits.as_slice();
 
@@ -24,9 +33,9 @@ fn main() -> F32Result<()> {
     println!("   Logit Token 20780: {:.8}", logits_data[20780]);
     println!("   Logit Token 12517: {:.8}", logits_data[12517]);
 
-    // 最後のhidden stateを取得（/tmp/hidden_state.txtに保存されている）
+    // 最後のhidden stateを取得（/tmp/hidden_state_call_0.txtに保存されている）
     println!("\n📄 Hidden stateを読み込み...");
-    let hidden_state_str = std::fs::read_to_string("/tmp/hidden_state.txt")
+    let hidden_state_str = std::fs::read_to_string("/tmp/hidden_state_call_0.txt")
         .map_err(|e| F32Error::device_error(format!("Failed to read hidden state: {}", e)))?;
 
     let hidden_state: Vec<f64> = hidden_state_str

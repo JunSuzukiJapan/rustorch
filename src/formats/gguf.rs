@@ -496,8 +496,11 @@ impl GGUFLoader {
         let mut reader = BufReader::new(file);
 
         // Seek to tensor data offset
+        let absolute_offset = self.data_offset + tensor_info.offset;
+        eprintln!("🔧 [GGUF SEEK] '{}': data_offset={}, tensor_offset={}, absolute={}",
+                  name, self.data_offset, tensor_info.offset, absolute_offset);
         reader
-            .seek(SeekFrom::Start(self.data_offset + tensor_info.offset))
+            .seek(SeekFrom::Start(absolute_offset))
             .map_err(|e| RusTorchError::IoError(format!("Failed to seek to tensor data: {}", e)))?;
 
         // Calculate number of elements
@@ -505,6 +508,8 @@ impl GGUFLoader {
 
         // Convert GGML type to GGMLType enum
         let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
+        eprintln!("🔧 [GGUF] Loading '{}': type={:?}, ggml_type_code={}",
+                  name, ggml_type, tensor_info.ggml_type);
 
         // CRITICAL: GGML dimension ordering is REVERSED from PyTorch
         // GGML dims = [ne[0], ne[1], ...] where ne[0] is innermost (fastest-changing)
@@ -591,7 +596,7 @@ impl GGUFLoader {
         let num_blocks = (num_elements + QK - 1) / QK;
         let mut output = Vec::with_capacity(num_elements);
 
-        for _ in 0..num_blocks {
+        for block_idx in 0..num_blocks {
             // Read scale (f16)
             let scale_bits = Self::read_u16(reader)?;
             let scale = half::f16::from_bits(scale_bits).to_f32();
@@ -602,21 +607,32 @@ impl GGUFLoader {
                 RusTorchError::IoError(format!("Failed to read Q4_0 quants: {}", e))
             })?;
 
+            // Debug: Print first block's scale and raw bytes
+            if block_idx == 0 {
+                eprintln!("🐛 [Q4_0 DEBUG] First block:");
+                eprintln!("   scale_bits: 0x{:04x}", scale_bits);
+                eprintln!("   scale: {:.10}", scale);
+                eprintln!("   First 4 quant bytes: {:02x} {:02x} {:02x} {:02x}",
+                         qs[0], qs[1], qs[2], qs[3]);
+            }
+
             // Dequantize: Each byte contains two 4-bit values
-            // llama.cpp layout: lower nibbles first, then upper nibbles
-            let half_block = QK / 2;
-            for j in 0..half_block {
+            // llama.cpp interleaves: x0[j] at position j, x1[j] at position j+16
+            // Prepare output space for this block
+            let block_start = output.len();
+            for _ in 0..QK {
+                output.push(0.0);
+            }
+
+            for j in 0..QK / 2 {
                 // Lower 4 bits (0-15) -> -8 to +7
                 let x0 = ((qs[j] & 0x0F) as i8) - 8;
                 // Upper 4 bits (0-15) -> -8 to +7
                 let x1 = ((qs[j] >> 4) as i8) - 8;
 
-                // llama.cpp order: all lower nibbles first, then all upper nibbles
-                output.push((x0 as f32 * scale) as f64);
-            }
-            for j in 0..half_block {
-                let x1 = ((qs[j] >> 4) as i8) - 8;
-                output.push((x1 as f32 * scale) as f64);
+                // llama.cpp interleaved layout: y[j] = x0, y[j+16] = x1
+                output[block_start + j] = (x0 as f32 * scale) as f64;
+                output[block_start + j + QK / 2] = (x1 as f32 * scale) as f64;
             }
         }
 
@@ -696,6 +712,16 @@ impl GGUFLoader {
                 let m1 = dmin * min1;
                 let d2 = d * scale2;
                 let m2 = dmin * min2;
+
+                // Debug: Print first block's values
+                if output.is_empty() && pair == 0 {
+                    eprintln!("🐛 [Q4_K DEBUG] First block:");
+                    eprintln!("   d={:.10}, dmin={:.10}", d, dmin);
+                    eprintln!("   scale1={}, min1={}", scale1, min1);
+                    eprintln!("   d1={:.10}, m1={:.10}", d1, m1);
+                    eprintln!("   First q_val: {}", qs[q_offset] & 0x0F);
+                    eprintln!("   First dequant: {:.10}", d1 * (qs[q_offset] & 0x0F) as f32 - m1);
+                }
 
                 // Process 32 lower nibbles (block 1)
                 for l in 0..32 {
