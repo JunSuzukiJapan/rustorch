@@ -715,6 +715,11 @@ impl F32LlamaModel {
         }
     }
 
+    /// Get KV cache length for a specific layer
+    pub fn get_kv_cache_len(&self, layer_idx: usize) -> usize {
+        self.kv_cache.get(layer_idx).map(|c| c.cached_len).unwrap_or(0)
+    }
+
     /// Load Llama model from GGUF file with custom config
     /// カスタム設定でGGUFファイルからLlamaモデルを読み込む
     pub fn from_gguf_with_config<P: AsRef<std::path::Path>>(

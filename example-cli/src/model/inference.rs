@@ -138,6 +138,15 @@ impl InferenceEngine {
                 output_ids.iter().filter_map(|&id| char::from_u32(id)).collect()
             });
 
+        // DEBUG: Show individual token decoding for first few tokens
+        if output_ids.len() > 0 {
+            eprintln!("🔍 [DECODE] First 5 tokens:");
+            for (i, &token_id) in output_ids.iter().take(5).enumerate() {
+                let decoded = self.tokenizer().decode(&[token_id], true).unwrap_or_else(|_| "?".to_string());
+                eprintln!("  Token {}: {} -> '{}'", i, token_id, decoded);
+            }
+        }
+
         Ok(output)
     }
 
@@ -406,6 +415,15 @@ impl InferenceEngine {
                 &generated_ids[generated_ids.len() - 1..]  // Only last token on subsequent steps
             };
 
+            // DEBUG: Log KV cache state
+            if step < 3 {
+                if let Some(ref llama_model) = self.f32_llama_model {
+                    let kv_len = llama_model.get_kv_cache_len(0);
+                    eprintln!("🔍 [STEP {}] input_tokens={:?}, generated_len={}, kv_cache_len={}",
+                        step, input_for_forward, generated_ids.len(), kv_len);
+                }
+            }
+
             let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
                 llama_model.forward(input_for_forward)
                     .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
@@ -427,18 +445,10 @@ impl InferenceEngine {
                 let mut indexed: Vec<(usize, f32)> = last_logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
                 indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
-                // Check specific tokens of interest
-                // "Paris" might be token 3681 or similar - check common answer tokens
-                let tokens_to_check = vec![
-                    (3681, "Paris candidate"),
-                    (1459, "The"),
-                    (7483, "capital"),
-                    (338, "is"),
-                    (13, "newline"),
-                ];
-                for (token_id, name) in tokens_to_check {
-                    if token_id < last_logits.len() {
-                    }
+                eprintln!("🔍 [LOGITS STEP {}] Stats: max={:.4}, min={:.4}, mean={:.4}", step, max_logit, min_logit, mean);
+                eprintln!("🔍 [LOGITS STEP {}] Top 10:", step);
+                for (rank, (token_id, logit)) in indexed.iter().take(10).enumerate() {
+                    eprintln!("  #{}: token={} logit={:.4}", rank+1, token_id, logit);
                 }
             }
 
