@@ -104,8 +104,8 @@ impl InferenceEngine {
 
         // Apply chat template if enabled
         let formatted_input = if use_template {
-            // TinyLlama format with system message
-            format!("<|system|>\nYou are a helpful assistant.</s>\n<|user|>\n{}</s>\n<|assistant|>\n", input)
+            // TinyLlama format without system message (simpler)
+            format!("<|user|>\n{}</s>\n<|assistant|>\n", input)
         } else {
             input.to_string()
         };
