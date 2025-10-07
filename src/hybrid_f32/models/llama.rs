@@ -433,7 +433,8 @@ impl F32LlamaModel {
                 // Compute attention scores with causal masking
                 // Query at position q_pos can only attend to keys at positions 0..=current_kv_pos
                 // where current_kv_pos = cached_len + q_pos
-                let current_kv_pos = cached_len + q_pos;
+                // BUT: current_kv_pos must not exceed total_kv_len - 1
+                let current_kv_pos = (cached_len + q_pos).min(total_kv_len - 1);
                 let mut scores = Vec::with_capacity(current_kv_pos + 1);
 
                 for kv_pos in 0..=current_kv_pos {
@@ -653,8 +654,8 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
-        // Debug logging for layer 0 only
-        let debug_layer = layer_idx == 0;
+        // Debug logging for selected layers (0, 10, 21)
+        let debug_layer = layer_idx == 0 || layer_idx == 10 || layer_idx == 21;
 
         if debug_layer {
             let x_slice = x.as_slice();
@@ -756,6 +757,18 @@ impl F32LlamaModel {
 
         // Get current position from first layer's cache (all layers should have same length)
         let current_position = self.kv_cache[0].cached_len;
+
+        // DEBUG: Log position for first 3 forward calls
+        {
+            use std::sync::atomic::{AtomicUsize, Ordering};
+            static POSITION_LOG_COUNTER: AtomicUsize = AtomicUsize::new(0);
+            let log_count = POSITION_LOG_COUNTER.load(Ordering::SeqCst);
+            if log_count < 3 {
+                eprintln!("🔍 [POSITION] Forward call {}: seq_len={}, current_position={}, will apply RoPE positions: {}..{}",
+                    log_count, seq_len, current_position, current_position, current_position + seq_len - 1);
+                POSITION_LOG_COUNTER.fetch_add(1, Ordering::SeqCst);
+            }
+        }
 
         // Strategic debug: Monitor problematic positions only
 

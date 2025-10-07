@@ -104,7 +104,8 @@ impl InferenceEngine {
 
         // Apply chat template if enabled
         let formatted_input = if use_template {
-            format!("<|user|>\n{}</s>\n<|assistant|>\n", input)
+            // TinyLlama format with system message
+            format!("<|system|>\nYou are a helpful assistant.</s>\n<|user|>\n{}</s>\n<|assistant|>\n", input)
         } else {
             input.to_string()
         };
@@ -415,12 +416,13 @@ impl InferenceEngine {
                 &generated_ids[generated_ids.len() - 1..]  // Only last token on subsequent steps
             };
 
-            // DEBUG: Log KV cache state
+            // DEBUG: Log KV cache state and input
             if step < 3 {
                 if let Some(ref llama_model) = self.f32_llama_model {
                     let kv_len = llama_model.get_kv_cache_len(0);
-                    eprintln!("🔍 [STEP {}] input_tokens={:?}, generated_len={}, kv_cache_len={}",
-                        step, input_for_forward, generated_ids.len(), kv_len);
+                    eprintln!("🔍 [STEP {}] Before forward:", step);
+                    eprintln!("   input_tokens={:?}", input_for_forward);
+                    eprintln!("   generated_ids.len={}, kv_cache_len={}", generated_ids.len(), kv_len);
                 }
             }
 
@@ -461,15 +463,76 @@ impl InferenceEngine {
                 }
             }
 
-            // Sample next token with temperature and top-p sampling
-            // TEMP DEBUG: Use argmax (temperature=0) to always select top logit token
-            let next_token_id = last_logits.iter().enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-                .map(|(idx, _)| idx)
-                .ok_or_else(|| anyhow::anyhow!("Failed to find max logit"))?;
+            // Apply repetition penalty to discourage repeated tokens
+            let mut penalized_logits = last_logits.clone();
+            let repetition_penalty = 1.1; // llama.cpp default
+
+            // Apply penalty to already generated tokens (last 64 tokens as in llama.cpp)
+            let penalty_window = 64.min(generated_ids.len());
+            let recent_tokens = &generated_ids[generated_ids.len() - penalty_window..];
+
+            for &token_id in recent_tokens {
+                if token_id < penalized_logits.len() {
+                    // If logit > 0, divide by penalty; if logit < 0, multiply by penalty
+                    if penalized_logits[token_id] > 0.0 {
+                        penalized_logits[token_id] /= repetition_penalty;
+                    } else {
+                        penalized_logits[token_id] *= repetition_penalty;
+                    }
+                }
+            }
+
+            // Apply temperature sampling (temperature = 0.8 as in llama.cpp)
+            let temperature = 0.8;
+            if temperature > 0.0 {
+                for logit in &mut penalized_logits {
+                    *logit /= temperature;
+                }
+            }
+
+            // Convert logits to probabilities using softmax
+            let max_logit = penalized_logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            let exp_logits: Vec<f32> = penalized_logits.iter()
+                .map(|&x| (x - max_logit).exp())
+                .collect();
+            let sum_exp: f32 = exp_logits.iter().sum();
+            let probs: Vec<f32> = exp_logits.iter().map(|&x| x / sum_exp).collect();
+
+            // Top-p (nucleus) sampling with p=0.95
+            let top_p = 0.95;
+            let mut indexed_probs: Vec<(usize, f32)> = probs.iter()
+                .enumerate()
+                .map(|(i, &p)| (i, p))
+                .collect();
+            indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+            let mut cumsum = 0.0;
+            let mut top_p_indices = Vec::new();
+            for (idx, prob) in &indexed_probs {
+                cumsum += prob;
+                top_p_indices.push(*idx);
+                if cumsum >= top_p {
+                    break;
+                }
+            }
+
+            // Sample from top-p candidates
+            use rand::Rng;
+            let mut rng = rand::thread_rng();
+            let rand_val: f32 = rng.gen();
+
+            let mut cumsum = 0.0;
+            let mut next_token_id = top_p_indices[0];
+            for &idx in &top_p_indices {
+                cumsum += probs[idx];
+                if rand_val < cumsum {
+                    next_token_id = idx;
+                    break;
+                }
+            }
 
             if step < 3 {
-                eprintln!("🎯 [STEP {}] Selected token {} (argmax)", step, next_token_id);
+                eprintln!("🎯 [STEP {}] Selected token {} (sampled, prob={:.4})", step, next_token_id, probs[next_token_id]);
             }
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
@@ -483,6 +546,14 @@ impl InferenceEngine {
             }
 
             generated_ids.push(next_token_id);
+
+            // DEBUG: Show generated_ids state after push
+            if step < 3 {
+                eprintln!("📋 [STEP {}] After push: generated_ids.len={}, last_3_tokens={:?}",
+                    step,
+                    generated_ids.len(),
+                    &generated_ids[generated_ids.len().saturating_sub(3)..]);
+            }
 
             // Stop if context limit exceeded
             if generated_ids.len() >= max_seq_len {

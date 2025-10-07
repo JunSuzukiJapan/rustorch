@@ -276,6 +276,233 @@ TinyLlamaのチャットテンプレート:
 
 ---
 
+## 🔍 Known Issues and Investigation Results
+
+### Issue #1: CLI Logit Explosion (2025-10-07)
+
+**Status**: 🔍 Root Cause Identified - CLI inference loop issue
+
+#### Symptoms
+- CLI generates abnormal logits (9-10 range)
+- Output: meaningless tokens ("aut umaruct$ diplom")
+- Only occurs in CLI, not in direct forward pass tests
+
+#### Investigation Process
+
+**Test 1: Single Token (BOS)**
+```rust
+// manual_logit_calculation.rs with input = vec![1]
+Backend: CPU
+Result: NORMAL logits
+  Token 450: -0.477
+  Token 20780: -0.651
+Status: ✅ PASS
+```
+
+**Test 2: Multi-Token Input (24 tokens)**
+```rust
+// Same tokens as CLI: [1, 529, 29989, 1792, ...]
+Backend: CPU → Metal
+Result: NORMAL logits
+  Token 450: 0.472
+  Token 20780: 0.596
+  Token 12517: -1.955
+Layer Stats:
+  Layer 0: rms=0.015
+  Layer 10: rms=0.319
+  Layer 21: rms=1.121
+Status: ✅ PASS (expected scale growth in deep network)
+```
+
+**Test 3: CLI with Same Input**
+```rust
+Backend: Metal (hybrid-f32)
+Result: ABNORMAL logits
+  Token 1247: 9.889
+  Token 13487: 9.785
+  Token 6243: 9.549
+Status: ❌ FAIL
+```
+
+#### Root Cause Analysis (2025-10-07 Update)
+
+**🚨 CRITICAL FINDING**: RusTorch generates completely different output than llama.cpp!
+
+**Comparison Test Results:**
+
+Input: `<|user|>\nWhat is the capital of France?</s>\n<|assistant|>\n`
+
+| Implementation | Top Token | Logit | Generated Output |
+|----------------|-----------|-------|------------------|
+| **llama.cpp** | Token 12711 (" there") | HIGH | "The capital of France" ✅ |
+| **RusTorch** | Token 1247 ("ragment") | 9.89 | "ragmentragmentragment" ❌ |
+
+**Logit Comparison (RusTorch):**
+```
+Token 1247 ("ragment"): 9.89 (highest) ← RusTorch predicts this
+Token 12711 (" there"): 1.41 ← llama.cpp generates this
+Difference: 8.48 (HUGE!)
+```
+
+**Problem Confirmed**: RusTorch's logit distribution is fundamentally wrong!
+
+The token llama.cpp chooses (12711) has a logit 8.48 points LOWER than RusTorch's top token (1247). This is not a normal softmax difference - this indicates a fundamental calculation error.
+
+**Hypothesis - Potential Root Causes:**
+
+1. **❌ Embedding Extraction Error**
+   - Token embeddings may be extracted incorrectly from GGUF
+   - Wrong memory layout or indexing in embedding lookup
+   - Previous verification may have missed this
+
+2. **❌ Input Tokenization Error**
+   - Token IDs may not match expected strings
+   - Chat template tokens may be incorrectly encoded
+   - Need to verify: `[1, 529, 29989, 1792, 29989, 29958, 13, 5618, 338, 278, 7483, 310, 3444, 29973, 2, 29871, 13, 29966, 29989, 465, 22137, 29989, 29958, 13]`
+
+3. **❌ Layer-by-Layer Divergence**
+   - Hidden states may diverge from llama.cpp in early layers
+   - Need to compare intermediate layer outputs
+   - RMS values increase across layers (Layer 0: 0.019 → Layer 21: 1.117) - is this normal?
+
+4. **❌ LM Head Weight Layout**
+   - Despite previous "verification", output.weight may have wrong layout
+   - Row-major vs column-major confusion
+   - Need to compare specific weight columns with llama.cpp
+
+**NOT the problem:**
+- ✅ KV cache handling (tested, works correctly)
+- ✅ Incremental generation (tested, maintains consistency)
+- ✅ clear_cache() function (tested, no side effects)
+- ❓ Forward pass implementation (thought to be correct, but produces wrong logits!)
+- ❓ Metal GPU backend (works, but may compute wrong values)
+- ❓ RMSNorm (mathematically correct, but may have wrong weights)
+
+**ROOT CAUSE IDENTIFIED (2025-10-07 19:30):**
+
+🚨 **Abnormally Small f16 Scale Factors in GGUF**
+
+Direct comparison with llama.cpp revealed:
+
+| Token | llama.cpp logit | RusTorch logit | Correlation |
+|-------|----------------|----------------|-------------|
+| 450 | 10.154 | 0.473 | 0.006 (effectively zero) |
+| 1247 | -5.835 | 9.889 | |
+| 12711 | -0.641 | 1.407 | |
+
+**Investigation Summary:**
+
+✅ **Verified Correct:**
+- Dequantization code matches llama.cpp exactly (Q4_K, Q6_K)
+- Block sizes correct (Q4_K=144 bytes, Q6_K=210 bytes)
+- Tensor types correctly detected from GGUF
+- Scale extraction logic (get_scale_min_k4) matches llama.cpp
+- Formula `dequant = d * scale * q - dmin * min` is correct
+
+❌ **Root Problem:**
+```
+token_embd.weight (Q4_K) first block:
+  d (super-scale): 0.0000000596  ← Expected: ~0.01-0.1
+  dmin: 0.0000002384
+  scale1: 58, min1: 63  ← Correct (0-63 range)
+
+Result: All dequantized weights ~1000x too small
+```
+
+**Debug Evidence:**
+- Direct f16 bytes at offset: `01 00` → 0x0001 → 5.96e-08
+- Both little-endian and big-endian give abnormally small values
+- Q4_K embeddings: abs_mean=0.0018 (expected: ~0.01-0.1)
+- Q6_K output weights: abs_mean=0.013 (1600x larger than Q4_K!)
+
+**Hypotheses:**
+1. **File corruption**: GGUF file may be damaged
+2. **Offset alignment**: Subtle alignment bug in offset calculation
+3. **Format variant**: Q4_K_M (mixed) may need special handling
+4. **f16 format**: Denormalized f16 values not handled correctly
+
+**Q4_0 File Testing (2025-10-07 20:00):**
+
+✅ **Verified Correct:**
+- Q4_0 file loads successfully from GGUF
+- Dequantization matches Python reference implementation exactly
+- File integrity confirmed: llama.cpp generates output correctly
+- Token 1 embedding values match between RusTorch and Python
+- Scale values vary widely between blocks (normal for Q4_0)
+  - Block 0 (Token 0): scale=0.0000019 (tiny, but correct for BOS token)
+  - Block 64 (Token 1): scale=-0.00069809 (350x larger, normal)
+
+❌ **Generation Still Fails:**
+- Q4_0 file still produces nonsensical output in CLI
+- llama.cpp generates correct English ("The capital of France")
+- RusTorch CLI generates "ragmentragment..."
+- **Conclusion**: Problem is NOT in GGUF loading or dequantization
+- **Actual Issue**: Generation loop / autoregressive inference
+
+**Next Steps (Refocused):**
+- Focus on generation loop debugging (NOT file loading)
+- Compare KV cache state between working and broken cases
+- Test CLI with KV cache disabled
+- Investigate incremental forward pass in generation loop
+
+**Hidden State Analysis (2025-10-07 20:30):**
+
+🚨 **Critical Finding: Identical Hidden States**
+
+```
+Call 0: [-1.7034084, 0.45420918, -0.4007794, ...]
+Call 1: [-1.7034084, 0.45420918, -0.4007794, ...]  # ⚠️ IDENTICAL!
+Call 2: [-2.4847524, -0.6566248, 0.19331224, ...]  # Different
+```
+
+**Problem**: Call 0 and Call 1 produce identical hidden states, indicating same token fed repeatedly.
+
+**Hypothesis**: Same token ID generated in each step, causing repeated processing of identical input.
+
+**Action**: Added extensive debug logging to track token generation, KV cache updates, and position parameters.
+
+#### Key Differences: CLI vs Manual Test
+
+| Aspect | Manual Test | CLI |
+|--------|-------------|-----|
+| Forward pass | Single call | Autoregressive loop |
+| KV cache | Not used | Used |
+| Input | All tokens at once | First: all, Then: incremental |
+| Generation | One-shot | Token-by-token |
+| Result | ✅ Normal | ❌ Exploded |
+
+#### RMSNorm Weight Discovery
+
+During investigation, discovered RMSNorm weights are unusually small:
+```
+Layer 0 attn_norm: mean=0.00578, rms=0.046 (expected: ~1.0)
+Layer 0 ffn_norm: mean=0.075, rms=0.075 (expected: ~1.0)
+```
+
+However:
+- Values are correctly loaded from GGUF file (F32 format)
+- Python verification confirmed same values in file
+- RMSNorm output is mathematically correct despite small weights
+- llama.cpp works with same weights
+- Conclusion: Small weights are intentional for this model
+
+#### Next Steps
+1. Compare KV cache state between working and broken cases
+2. Test CLI with KV cache disabled
+3. Investigate incremental forward pass in generation loop
+4. Fix identified issue in inference.rs
+5. Verify generation quality after fix
+
+#### Test Files
+- `examples/manual_logit_calculation.rs` - Working reference
+- `example-cli/src/model/inference.rs` - Issue location
+- Test command:
+  ```bash
+  cargo run --example manual_logit_calculation --features hybrid-f32
+  ```
+
+---
+
 **Last Updated**: 2025-10-07
 **Verified By**: Comprehensive manual testing and llama.cpp comparison
 **Confidence Level**: 100% (Mathematical proof + empirical verification)
