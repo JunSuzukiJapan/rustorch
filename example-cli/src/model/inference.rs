@@ -450,12 +450,27 @@ impl InferenceEngine {
                 for (rank, (token_id, logit)) in indexed.iter().take(10).enumerate() {
                     eprintln!("  #{}: token={} logit={:.4}", rank+1, token_id, logit);
                 }
+
+                // Debug: Check expected English response tokens
+                let expected_tokens = vec![15043, 6324, 18637, 1128, 1724, 306, 20103, 29871];
+                eprintln!("🔍 [EXPECTED TOKENS] Logits for English response tokens:");
+                for &token_id in &expected_tokens {
+                    if token_id < last_logits.len() {
+                        eprintln!("  token {} logit={:.4}", token_id, last_logits[token_id]);
+                    }
+                }
             }
 
             // Sample next token with temperature and top-p sampling
-            let temperature = 0.7; // Lower = more deterministic, higher = more creative
-            let top_p = 0.9; // Nucleus sampling threshold
-            let next_token_id = Self::sample_with_temperature_f32(&last_logits, temperature, top_p)?;
+            // TEMP DEBUG: Use argmax (temperature=0) to always select top logit token
+            let next_token_id = last_logits.iter().enumerate()
+                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+                .map(|(idx, _)| idx)
+                .ok_or_else(|| anyhow::anyhow!("Failed to find max logit"))?;
+
+            if step < 3 {
+                eprintln!("🎯 [STEP {}] Selected token {} (argmax)", step, next_token_id);
+            }
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);
 

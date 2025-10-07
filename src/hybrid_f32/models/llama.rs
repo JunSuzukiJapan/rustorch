@@ -653,6 +653,18 @@ impl F32LlamaModel {
 
         let mut x = F32Tensor::from_vec(embeddings, &[seq_len, hidden_size])?;
 
+        // DEBUG: Check embeddings for first forward call
+        {
+            use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+            static FIRST_CALL: AtomicBool = AtomicBool::new(true);
+            if FIRST_CALL.swap(false, AtomicOrdering::SeqCst) {
+                eprintln!("🔍 [EMBEDDING] First 10 values of first token embedding:");
+                let first_emb: Vec<f32> = x.as_slice()[..10.min(hidden_size)].to_vec();
+                eprintln!("   {:?}", first_emb);
+                eprintln!("🔍 [EMBEDDING] input_ids: {:?}", input_ids);
+            }
+        }
+
         // Get current position from first layer's cache (all layers should have same length)
         let current_position = self.kv_cache[0].cached_len;
 
@@ -677,10 +689,15 @@ impl F32LlamaModel {
 
 
         // LM head (project to vocabulary)
-        let lm_head_weight = self.weights.get("output.weight")
-            .or_else(|| self.weights.get("lm_head.weight"))
-            .or_else(|| self.weights.get("token_embd.weight"))  // Weight tying
-            .ok_or_else(|| F32Error::device_error("LM head weight not found"))?;
+        let (lm_head_weight, weight_source) = if let Some(w) = self.weights.get("output.weight") {
+            (w, "output.weight")
+        } else if let Some(w) = self.weights.get("lm_head.weight") {
+            (w, "lm_head.weight")
+        } else if let Some(w) = self.weights.get("token_embd.weight") {
+            (w, "token_embd.weight (weight tying)")
+        } else {
+            return Err(F32Error::device_error("LM head weight not found"));
+        };
 
         // Get logits for last token only
         let last_token_hidden = F32Tensor::from_vec(
@@ -694,10 +711,21 @@ impl F32LlamaModel {
         let non_zero_count = hidden_slice.iter().filter(|&&x| x != 0.0).count();
         let sum: f32 = hidden_slice.iter().sum();
 
-        if let Ok(mut file) = std::fs::File::create("/tmp/hidden_state.txt") {
-            use std::io::Write;
-            for val in hidden_slice {
-                writeln!(file, "{}", val).ok();
+        // Debug: Save hidden state for first 3 forward passes
+        // We use a static counter to track across all forward calls
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static FORWARD_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+        let call_num = FORWARD_COUNTER.fetch_add(1, Ordering::SeqCst);
+        if call_num < 3 {
+            let filename = format!("/tmp/hidden_state_call_{}.txt", call_num);
+            if let Ok(mut file) = std::fs::File::create(&filename) {
+                use std::io::Write;
+                for val in hidden_slice {
+                    writeln!(file, "{}", val).ok();
+                }
+                eprintln!("📝 [CALL {}] Saved hidden state (kv_cache_len={}) to {}",
+                    call_num, self.kv_cache[0].cached_len, filename);
             }
         }
 
@@ -712,10 +740,76 @@ impl F32LlamaModel {
         } else {
         }
 
-        // GGUF format: output.weight is [hidden_size, vocab_size] for matmul [1, hidden] @ [hidden, vocab]
-        let logits = last_token_hidden.matmul(lm_head_weight).map_err(|e: crate::error::RusTorchError| -> F32Error { e.into() })?;
+        // Debug: Print shapes for first call
+        if call_num == 0 {
+            let lm_shape = lm_head_weight.shape();
+            let hidden_shape = last_token_hidden.shape();
+            eprintln!("🔍 [LM HEAD SOURCE] Using weight: '{}'", weight_source);
+            eprintln!("🔍 [LM HEAD SHAPES] hidden={:?}, lm_head={:?}", hidden_shape, lm_shape);
+            eprintln!("🔍 [LM HEAD INFO] lm_head total_elements={}, hidden_size={}, vocab_size={}",
+                lm_head_data.len(), self.config.hidden_size, 32000);
 
-        
+            // Sample first 10 values of LM head for token 0
+            eprintln!("🔍 [LM HEAD SAMPLE] First 10 weights for token 0:");
+            for i in 0..10.min(lm_head_data.len()) {
+                eprintln!("  lm_head[{}] = {}", i, lm_head_data[i]);
+            }
+        }
+
+        // CRITICAL: Output (LM Head) Weight Layout (VERIFIED in IMPLEMENTATION_VERIFICATION.md)
+        // Format: Row-major [hidden_size, vocab_size] = [2048, 32000]
+        // Matmul: [1, 2048] @ [2048, 32000] = [1, 32000]
+        //
+        // This layout is VERIFIED to be 100% correct through:
+        // - Manual logit calculation (examples/manual_logit_calculation.rs)
+        // - Matmul accuracy: 99.9999% match with hand calculations
+        // - Token 450 logit: 0.06317014 (manual: 0.06316983)
+        //
+        // Access pattern for matmul:
+        //   logits[v] = sum_h(hidden[h] * output_weight[h, v])
+        //            = sum_h(hidden[h] * data[h * vocab_size + v])
+        //
+        // Reference: docs/core/IMPLEMENTATION_VERIFICATION.md, Line 133-136
+
+        let vocab_size = self.config.vocab_size;
+        let hidden_size = self.config.hidden_size;
+        let hidden_slice = last_token_hidden.as_slice();
+        let mut logits_vec = vec![0.0f32; vocab_size];
+
+        for v in 0..vocab_size {
+            let mut sum = 0.0f32;
+            for h in 0..hidden_size {
+                let idx = h * vocab_size + v;
+                if idx >= lm_head_data.len() {
+                    return Err(F32Error::device_error(format!(
+                        "LM head index out of range: v={}, h={}, idx={}, data_len={}",
+                        v, h, idx, lm_head_data.len()
+                    )));
+                }
+                sum += hidden_slice[h] * lm_head_data[idx];
+            }
+            logits_vec[v] = sum;
+        }
+
+        // Convert to F32Tensor
+        let logits = F32Tensor::from_vec(logits_vec.clone(), &[1, vocab_size])
+            .map_err(|e| F32Error::device_error(&format!("Failed to create logits tensor: {}", e)))?;
+
+        // DEBUG: Save first call's logits to file for analysis
+        {
+            use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+            static FIRST_LOGITS: AtomicBool = AtomicBool::new(true);
+            if FIRST_LOGITS.swap(false, AtomicOrdering::SeqCst) {
+                use std::io::Write;
+                if let Ok(mut file) = std::fs::File::create("/tmp/rustorch_logits.txt") {
+                    for (i, &logit) in logits_vec.iter().enumerate() {
+                        writeln!(file, "{} {:.6}", i, logit).ok();
+                    }
+                    eprintln!("📝 [DEBUG] Saved logits to /tmp/rustorch_logits.txt");
+                }
+            }
+        }
+
         Ok(logits)
     }
 
@@ -811,9 +905,13 @@ impl F32LlamaModel {
                     };
 
                     // Debug: check key weights (embeddings, attention Q/K/V, output)
-                    if name.contains("token_embd") || name.contains("attn_q") ||
-                       name.contains("attn_k") || name.contains("attn_v") ||
-                       name.contains("output") || name.contains("ffn_gate") {
+                    if name.contains("token_embd") || name.contains("output.weight") {
+                        eprintln!("📊 [WEIGHT INFO] '{}': GGUF_shape={:?}, tensor_elements={}",
+                            name, shape, final_tensor.as_slice().len());
+
+                        // Sample first 10 values
+                        let sample: Vec<f32> = final_tensor.as_slice().iter().take(10).copied().collect();
+                        eprintln!("   First 10 values: {:?}", sample);
                     }
                     model.weights.insert(name.to_string(), final_tensor);
                     loaded_count += 1;
@@ -825,6 +923,55 @@ impl F32LlamaModel {
         }
 
         eprintln!("✅ Loaded {}/{} weights successfully", loaded_count, tensor_names.len());
+
+        // DEBUG: Test output.weight vs token_embd relationship
+        if let (Some(token_embd), Some(output_weight)) = (model.weights.get("token_embd.weight"), model.weights.get("output.weight")) {
+            eprintln!("\n🔬 [WEIGHT TEST] Testing output.weight correctness...");
+
+            // Get embedding for token 1 (BOS)
+            let token_id = 1usize;
+            let hidden_size = 2048;
+            let vocab_size = 32000;
+
+            let token_embd_data = token_embd.as_slice();
+            let output_data = output_weight.as_slice();
+
+            // Extract embedding for token 1 using VERIFIED column-major layout
+            // Format: Column-major [hidden_size, vocab_size]
+            // Access: embedding[dim] = data[dim * vocab_size + token_id]
+            let mut embedding = Vec::with_capacity(hidden_size);
+            for dim in 0..hidden_size {
+                embedding.push(token_embd_data[dim * vocab_size + token_id]);
+            }
+
+            eprintln!("   Token {} embedding (first 5): {:?}", token_id, &embedding[..5]);
+
+            // Compute logits: embedding @ output.weight^T
+            // GGML dims [2048, 32000]: logits[v] = sum_h(embedding[h] * output[h * vocab_size + v])
+            let mut logits = vec![0.0f32; vocab_size];
+            for v in 0..vocab_size {
+                let mut sum = 0.0f32;
+                for h in 0..hidden_size {
+                    sum += embedding[h] * output_data[h * vocab_size + v];
+                }
+                logits[v] = sum;
+            }
+
+            eprintln!("   Logit[0] (should be embedding · output[0]): {}", logits[0]);
+            eprintln!("   Logit[1] (should be embedding · output[1]): {}", logits[1]);
+
+            // Find top 10 logits
+            let mut indexed: Vec<(usize, f32)> = logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+            indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+            eprintln!("   Top 10 logits for token {} embedding:", token_id);
+            for (rank, (tok, logit)) in indexed.iter().take(10).enumerate() {
+                eprintln!("     #{}: token={} logit={:.4}", rank+1, tok, logit);
+            }
+
+            // Check if token 1 itself has high logit (should be for BOS -> BOS)
+            eprintln!("   Logit for token {} itself: {:.4}", token_id, logits[token_id]);
+        }
 
         if loaded_count == 0 {
             return Err(F32Error::device_error("No weights loaded successfully"));

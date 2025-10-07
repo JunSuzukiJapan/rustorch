@@ -501,12 +501,35 @@ impl GGUFLoader {
         // Calculate number of elements
         let num_elements: usize = tensor_info.dims.iter().map(|&d| d as usize).product();
 
-        // Determine tensor shape
-        // GGML stores tensors as-is - shape interpretation handled by model code
-        let shape: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
-
         // Convert GGML type to GGMLType enum
         let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
+
+        // CRITICAL: GGML dimension ordering is REVERSED from PyTorch
+        // GGML dims = [ne[0], ne[1], ...] where ne[0] is innermost (fastest-changing)
+        // PyTorch shape = [dim0, dim1, ...] where dim0 is outermost
+        // Example: PyTorch [2048, 32000] ↔ GGML dims = [32000, 2048]
+        //
+        // For F32/F16 tensors: We can safely reverse dims to get PyTorch-style shape
+        // For quantized tensors (Q4_K, etc.): Keep GGML order to preserve quantization structure
+        let original_dims: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
+        let shape: Vec<usize> = match ggml_type {
+            GGMLType::F32 | GGMLType::F16 => {
+                // Reverse dims for non-quantized tensors to get PyTorch order
+                let mut s = original_dims.clone();
+                s.reverse();
+                s
+            }
+            _ => {
+                // Keep GGML order for quantized tensors to preserve quantization structure
+                original_dims.clone()
+            }
+        };
+
+        // Debug: Log dimension handling for embedding and output weights
+        if name.contains("token_embd") || name.contains("output.weight") {
+            eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
+                name, ggml_type, original_dims, shape);
+        }
 
         // Read tensor data based on type
         let data = match ggml_type {
