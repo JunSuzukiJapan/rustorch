@@ -278,6 +278,45 @@ impl GGUFLoader {
         self.tensors.iter().map(|t| t.name.as_str()).collect()
     }
 
+    /// Extract tokenizer vocabulary from GGUF metadata
+    /// Returns a vector of tokens in vocabulary order
+    pub fn extract_tokenizer_vocab(&self) -> RusTorchResult<Vec<String>> {
+        let tokens = self
+            .metadata
+            .get("tokenizer.ggml.tokens")
+            .ok_or_else(|| {
+                RusTorchError::ParseError("Missing tokenizer.ggml.tokens in GGUF metadata".to_string())
+            })?;
+
+        match tokens {
+            GGUFValue::Array(arr) => {
+                let mut vocab = Vec::with_capacity(arr.len());
+                for token_value in arr {
+                    match token_value {
+                        GGUFValue::String(s) => vocab.push(s.clone()),
+                        _ => {
+                            return Err(RusTorchError::ParseError(
+                                "Invalid token type in tokenizer.ggml.tokens".to_string(),
+                            ))
+                        }
+                    }
+                }
+                Ok(vocab)
+            }
+            _ => Err(RusTorchError::ParseError(
+                "tokenizer.ggml.tokens is not an array".to_string(),
+            )),
+        }
+    }
+
+    /// Get tokenizer model type (e.g., "llama", "gpt2")
+    pub fn get_tokenizer_model(&self) -> Option<String> {
+        self.metadata
+            .get("tokenizer.ggml.model")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+    }
+
     fn read_header(reader: &mut BufReader<File>) -> RusTorchResult<GGUFHeader> {
         let magic = Self::read_u32(reader)?;
 

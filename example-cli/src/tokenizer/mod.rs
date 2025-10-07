@@ -1,7 +1,9 @@
 pub mod wrapper;
+pub mod gguf_tokenizer;
 
 use anyhow::Result;
 pub use wrapper::TokenizerWrapper;
+pub use gguf_tokenizer::GGUFTokenizer;
 
 /// Tokenizer trait for encoding and decoding text
 pub trait Tokenizer: Send + Sync {

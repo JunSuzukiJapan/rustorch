@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::format_loader::FormatLoader;
 use super::loaders::{GGUFFormatLoader, MLXFormatLoader, SafetensorsFormatLoader};
 use super::{ModelFormat, ModelMetadata};
-use crate::tokenizer::{Tokenizer, TokenizerWrapper};
+use crate::tokenizer::{Tokenizer, TokenizerWrapper, GGUFTokenizer};
 
 pub struct ModelLoader {
     path: PathBuf,
@@ -118,6 +118,31 @@ impl ModelLoader {
     /// Load tokenizer for the model
     /// モデル用のトークナイザーを読み込み
     fn load_tokenizer(path: &Path, format: &ModelFormat) -> Result<Box<dyn Tokenizer>> {
+        // For GGUF format, try to extract tokenizer from file first
+        if matches!(format, ModelFormat::GGUF) {
+            tracing::info!("🔍 Attempting to extract tokenizer from GGUF file...");
+            match rustorch::formats::gguf::GGUFLoader::from_file(path) {
+                Ok(gguf) => {
+                    match gguf.extract_tokenizer_vocab() {
+                        Ok(vocab) => {
+                            tracing::info!("✅ Extracted {} tokens from GGUF file", vocab.len());
+                            let tokenizer_model = gguf.get_tokenizer_model();
+                            if let Some(model_type) = tokenizer_model {
+                                tracing::info!("📝 Tokenizer model type: {}", model_type);
+                            }
+                            return Ok(Box::new(GGUFTokenizer::new(vocab)));
+                        }
+                        Err(e) => {
+                            tracing::warn!("⚠️  Failed to extract tokenizer from GGUF: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️  Failed to load GGUF file for tokenizer extraction: {}", e);
+                }
+            }
+        }
+
         // Try format-specific tokenizer path
         let tokenizer_path = match format {
             ModelFormat::GGUF => GGUFFormatLoader::default_tokenizer_path(path),
