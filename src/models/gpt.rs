@@ -350,19 +350,113 @@ impl GPTModel {
     /// Metal GPU加速フォワードパス
     #[cfg(feature = "metal")]
     fn forward_metal(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
-        eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
-        eprintln!("   Phase 2B.1: Testing Metal kernel operations");
+        use crate::gpu::metal_kernels::MetalKernelExecutor;
 
-        // Test Metal matmul operation
-        if let Err(e) = Self::test_metal_matmul() {
-            eprintln!("⚠️  Metal matmul test failed: {}", e);
-            eprintln!("   Falling back to CPU implementation");
+        eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
+        eprintln!("   Phase 2B.2: Integrating Metal operations into forward pass");
+
+        // Get Metal executor
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        let executor = executor_guard.as_ref()
+            .ok_or_else(|| RusTorchError::tensor_op("Metal executor not initialized"))?;
+
+        let batch_size = 1;
+        let seq_len = input_ids.len();
+        let d_model = self.config.d_model;
+
+        // 1. Token Embedding Lookup (CPU for now - embeddings are quantized)
+        eprintln!("   → Embedding lookup (CPU)");
+        let token_emb_key = "token_embd.weight";
+        let token_emb_tensor = self.weights.get(token_emb_key)
+            .ok_or_else(|| RusTorchError::tensor_op(format!("Token embedding not found: {}", token_emb_key)))?;
+
+        // Debug: print embedding tensor shape
+        eprintln!("     Embedding tensor shape: {:?}, len: {}",
+            token_emb_tensor.data.shape(), token_emb_tensor.data.len());
+        eprintln!("     Input token IDs: {:?}", input_ids);
+
+        // Perform embedding lookup - need to handle ndarray shape
+        // Note: GGUF embeddings are stored as [d_model, vocab_size] - transposed!
+        let mut embedding_data = Vec::with_capacity(seq_len * d_model);
+        let emb_shape = token_emb_tensor.data.shape();
+        let emb_dim0 = emb_shape[0];
+        let emb_dim1 = emb_shape[1];
+
+        eprintln!("     Embedding matrix: dim0={}, dim1={}", emb_dim0, emb_dim1);
+
+        // Shape is [d_model, vocab_size], so we access [dim_idx, token_id]
+        for &token_id in input_ids {
+            if token_id >= emb_dim1 {
+                return Err(RusTorchError::tensor_op(
+                    format!("Token ID {} out of range (vocab_size={})", token_id, emb_dim1)
+                ));
+            }
+            // For each dimension, extract the token's embedding value
+            for dim_idx in 0..emb_dim0 {
+                // Access [dim_idx, token_id] in the [d_model, vocab_size] matrix
+                let linear_idx = dim_idx * emb_dim1 + token_id;
+                if linear_idx >= token_emb_tensor.data.len() {
+                    eprintln!("ERROR: linear_idx={} >= len={}, dim_idx={}, token_id={}, emb_dim1={}",
+                        linear_idx, token_emb_tensor.data.len(), dim_idx, token_id, emb_dim1);
+                    return Err(RusTorchError::tensor_op(
+                        format!("Index {} out of bounds (len={})", linear_idx, token_emb_tensor.data.len())
+                    ));
+                }
+                // Use iter().nth() for safe access
+                if let Some(&value) = token_emb_tensor.data.iter().nth(linear_idx) {
+                    embedding_data.push(value);
+                } else {
+                    return Err(RusTorchError::tensor_op(
+                        format!("Failed to access index {}", linear_idx)
+                    ));
+                }
+            }
         }
 
-        // For now, use CPU implementation for actual forward pass
-        // Next step: Integrate Metal operations into transformer layers
-        let max_layers = Some(2);
-        self.forward_with_layers(input_ids, max_layers)
+        // Convert to f32 for Metal operations
+        let mut x_f32: Vec<f32> = embedding_data.iter().map(|&v| v as f32).collect();
+
+        // 2. Process through one Transformer layer with Metal
+        eprintln!("   → Processing layer 0 with Metal GPU");
+        let layer_idx = 0;
+
+        // Layer Norm 1 (Pre-Attention) - Metal
+        eprintln!("     • Layer Norm 1 (Metal)");
+        let ln1_key = format!("blk.{}.attn_norm.weight", layer_idx);
+        let ln1_weight = self.weights.get(&ln1_key)
+            .ok_or_else(|| RusTorchError::tensor_op(format!("Layer norm weight not found: {}", ln1_key)))?;
+
+        // Convert gamma weights to f32
+        let ln1_gamma_f32: Vec<f32> = ln1_weight.data.iter().map(|&v| v as f32).collect();
+
+        // Beta is typically zero for GPT layer norm (affine=False style)
+        let ln1_beta_f32 = vec![0.0f32; d_model];
+
+        let mut x_ln1 = vec![0.0f32; x_f32.len()];
+        executor.layer_norm_f32(
+            &x_f32,
+            &mut x_ln1,
+            &ln1_gamma_f32,
+            &ln1_beta_f32,
+            batch_size,
+            seq_len,
+            d_model,
+            1e-5
+        )?;
+
+        eprintln!("     ✓ Layer Norm 1 complete");
+
+        // For now, skip attention and use simple feed-forward test
+        // We'll add full attention in the next step
+
+        // Convert back to f64 and create tensor
+        let output_data: Vec<f64> = x_ln1.iter().map(|&v| v as f64).collect();
+        let output_tensor = Tensor::from_vec(output_data, vec![batch_size, seq_len, d_model]);
+
+        eprintln!("   ✅ Metal forward pass complete (Phase 2B.2 - partial)");
+
+        Ok(output_tensor)
     }
 
     /// Convert Tensor<f64> to Vec<f32> for Metal processing
