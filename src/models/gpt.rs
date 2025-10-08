@@ -27,6 +27,7 @@ pub struct GPTConfig {
     pub d_ff: usize,
     pub max_seq_len: usize,
     pub dropout: f64,
+    pub rope_theta: f32,  // RoPE base frequency (default: 10000.0)
 }
 
 impl GPTConfig {
@@ -41,7 +42,13 @@ impl GPTConfig {
             d_ff: (params.hidden_size * 4) as usize, // Standard FFN size
             max_seq_len: params.context_length as usize,
             dropout: 0.1,
+            rope_theta: 10000.0,  // Standard RoPE base frequency
         }
+    }
+
+    /// Get head dimension
+    pub fn head_dim(&self) -> usize {
+        self.d_model / self.num_heads
     }
 }
 
@@ -52,9 +59,39 @@ pub struct GPTModel {
     device_type: DeviceType,
     #[cfg(feature = "metal")]
     has_metal: bool,
+    #[cfg(feature = "metal")]
+    rope_cos: Vec<f32>,  // Precomputed RoPE cosine values
+    #[cfg(feature = "metal")]
+    rope_sin: Vec<f32>,  // Precomputed RoPE sine values
 }
 
 impl GPTModel {
+    /// Precompute RoPE (Rotary Position Embedding) frequencies
+    /// RoPE周波数を事前計算
+    #[cfg(feature = "metal")]
+    fn precompute_rope_frequencies(config: &GPTConfig) -> (Vec<f32>, Vec<f32>) {
+        let head_dim = config.head_dim();
+        let max_seq_len = config.max_seq_len;
+        let theta = config.rope_theta;
+
+        let mut cos_values = Vec::with_capacity(max_seq_len * head_dim);
+        let mut sin_values = Vec::with_capacity(max_seq_len * head_dim);
+
+        for pos in 0..max_seq_len {
+            for i in 0..(head_dim / 2) {
+                let freq = 1.0 / theta.powf(2.0 * (i as f32) / (head_dim as f32));
+                let angle = (pos as f32) * freq;
+                let cos_val = angle.cos();
+                let sin_val = angle.sin();
+
+                cos_values.push(cos_val);
+                sin_values.push(sin_val);
+            }
+        }
+
+        (cos_values, sin_values)
+    }
+
     /// Create a new GPT model with given configuration (CPU backend)
     pub fn new(config: GPTConfig) -> RusTorchResult<Self> {
         Self::with_backend(config, DeviceType::Cpu)
@@ -104,12 +141,23 @@ impl GPTModel {
             false
         };
 
+        #[cfg(feature = "metal")]
+        let (rope_cos, rope_sin) = if has_metal {
+            Self::precompute_rope_frequencies(&config)
+        } else {
+            (Vec::new(), Vec::new())
+        };
+
         Ok(Self {
             config,
             weights: HashMap::new(),
             device_type: actual_device,
             #[cfg(feature = "metal")]
             has_metal,
+            #[cfg(feature = "metal")]
+            rope_cos,
+            #[cfg(feature = "metal")]
+            rope_sin,
         })
     }
 
@@ -503,6 +551,14 @@ impl GPTModel {
         executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
         executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
 
+        // 1.5 Apply RoPE to Q and K projections
+        if debug {
+            eprintln!("       - Apply RoPE (position=0)");
+        }
+        let start_position = 0; // TODO: Track position for multi-token generation
+        let q_proj = self.apply_rope(&q_proj, seq_len, num_q_heads, head_dim, start_position);
+        let k_proj = self.apply_rope(&k_proj, seq_len, num_kv_heads, head_dim, start_position);
+
         // 2. Repeat KV heads to match Q heads for simplified GQA
         // K/V: [seq_len, kv_dim=256] -> [seq_len, d_model=2048]
         if debug {
@@ -785,6 +841,51 @@ impl GPTModel {
 
     /// Repeat KV heads for Grouped Query Attention
     /// Repeats each KV head (num_q_heads / num_kv_heads) times
+    /// Apply RoPE (Rotary Position Embedding) to Q or K projections
+    /// RoPE（回転位置埋め込み）をQ/K投影に適用
+    #[cfg(feature = "metal")]
+    fn apply_rope(
+        &self,
+        x: &[f32],
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+        start_position: usize,
+    ) -> Vec<f32> {
+        let total_dim = num_heads * head_dim;
+        let mut output = Vec::with_capacity(x.len());
+
+        // Apply rotation for each token in sequence
+        for token_idx in 0..seq_len {
+            let position = start_position + token_idx;
+
+            // For each head of this token
+            for head_idx in 0..num_heads {
+                let head_offset = token_idx * total_dim + head_idx * head_dim;
+                let head_data = &x[head_offset..head_offset + head_dim];
+
+                for i in 0..(head_dim / 2) {
+                    let rope_idx = position * (head_dim / 2) + i;
+
+                    let cos = self.rope_cos[rope_idx];
+                    let sin = self.rope_sin[rope_idx];
+
+                    let x0 = head_data[2 * i];
+                    let x1 = head_data[2 * i + 1];
+
+                    // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
+                    let rotated_0 = x0 * cos - x1 * sin;
+                    let rotated_1 = x0 * sin + x1 * cos;
+
+                    output.push(rotated_0);
+                    output.push(rotated_1);
+                }
+            }
+        }
+
+        output
+    }
+
     /// [seq_len, num_kv_heads, head_dim] -> [seq_len, num_q_heads, head_dim]
     #[cfg(feature = "metal")]
     fn repeat_kv_heads(
