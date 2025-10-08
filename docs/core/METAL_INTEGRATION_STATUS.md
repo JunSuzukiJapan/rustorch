@@ -1,10 +1,30 @@
 # Metal Integration Status Report
 生成日時: 2025-10-08
-最終更新: 2025-10-08 15:30 (Phase 2C完了 - Multi-layer Transformer)
+最終更新: 2025-10-08 16:20 (Phase 2完了 + Quantization Support)
 
 ## 🎉 Phase 2C完了: Multi-Layer Transformer with Metal GPU
 
 ### ✅ 最新の達成事項 (2025-10-08)
+
+**Phase 2 Completion Summary**:
+- ✅ 22-layer Transformer implementation
+- ✅ Metal GPU acceleration (~240 ops/token)
+- ✅ 4 quantization formats support (Q4_K_M, Q5_K_M, Q6_K, Q8_0)
+- ✅ CLI debug output refactoring with RUSTORCH_DEBUG
+- Commits: `79c6f4c10`, `ba511e653`
+
+**New: Quantization Format Support** ✅
+- Q5_K dequantization (5-bit K-quant, 176 bytes/super-block)
+- Q6_K dequantization (6-bit K-quant, 210 bytes/super-block) - already implemented
+- Q8_0 dequantization (8-bit, 34 bytes/block)
+- Tested with TinyLlama-1.1B-Chat: all formats working
+- Commit: `ba511e653`
+
+**CLI Refactoring** ✅
+- RUSTORCH_DEBUG environment variable for debug output control
+- Clean production output by default
+- Detailed layer-by-layer output when RUSTORCH_DEBUG=1
+- Commit: `79c6f4c10`
 
 **Phase 2B.4**: Full Feed-Forward Network ✅
 - Gate, Up, Down projections 完全実装 (Metal matmul)
@@ -148,10 +168,10 @@ Output [batch, seq_len, d_model] ✅
 **Status**: ✅ Metal forward pass complete (Phase 2C)
 
 **Quantization Formats Tested:**
-- ✅ Q4_K_M (637 MB) - Working
-- ✅ Q5_K_M (746 MB) - Downloaded
-- ✅ Q6_K (862 MB) - Downloaded
-- ✅ Q8_0 (1.1 GB) - Downloaded
+- ✅ Q4_K_M (638 MB) - Working (all phases)
+- ✅ Q5_K_M (747 MB) - Working (token generation confirmed)
+- ✅ Q6_K (863 MB) - Working (token generation confirmed)
+- ✅ Q8_0 (1.1 GB) - Working (token generation confirmed)
 
 ### 🚀 Phase 1完了: Metal Build & Backend Setup
 
@@ -191,25 +211,34 @@ Output [batch, seq_len, d_model] ✅
 
 ### 📋 次のステップ (Phase 3)
 
-**Priority 1: Multi-Head Attention**
-- 32 attention heads への拡張
-- Head-wise reshape と transpose
-- Parallel head processing
+**Phase 3A: Multi-Head Attention (In Progress)**
+- Status: 🔄 Design phase
+- TinyLlama architecture: 32 query heads, 4 KV heads (GQA)
+- Head dimension: 64 (d_model=2048 / 32 heads)
+- Tasks:
+  - [ ] Implement GQA (Grouped Query Attention)
+  - [ ] Head-wise reshape and split Q, K, V
+  - [ ] Per-head attention computation
+  - [ ] Head concatenation and output projection
+  - [ ] Test with all quantization formats
 
-**Priority 2: Performance Optimization**
+**Phase 3B: Performance Optimization**
 - GPU softmax 実装
 - Batch processing サポート
 - Memory allocation 最適化
+- Kernel fusion opportunities
 
-**Priority 3: Advanced Features**
+**Phase 3C: Advanced Features**
 - Causal masking for autoregressive generation
 - KV cache for efficient inference
 - Quantized matmul on GPU
+- RoPE (Rotary Position Embedding) implementation
 
-**Priority 4: Quality Improvements**
+**Phase 3D: Quality Improvements**
 - Output quality validation
 - Comparison with llama.cpp
 - Perplexity benchmarks
+- Token generation accuracy metrics
 
 ### 🐛 Known Issues
 
