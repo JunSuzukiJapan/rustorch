@@ -23,6 +23,7 @@ pub struct GPTConfig {
     pub d_model: usize,
     pub num_layers: usize,
     pub num_heads: usize,
+    pub num_kv_heads: usize,  // For Grouped Query Attention (GQA)
     pub d_ff: usize,
     pub max_seq_len: usize,
     pub dropout: f64,
@@ -36,6 +37,7 @@ impl GPTConfig {
             d_model: params.hidden_size as usize,
             num_layers: params.num_layers as usize,
             num_heads: params.num_heads as usize,
+            num_kv_heads: params.num_kv_heads as usize,  // GQA support
             d_ff: (params.hidden_size * 4) as usize, // Standard FFN size
             max_seq_len: params.context_length as usize,
             dropout: 0.1,
@@ -452,7 +454,8 @@ impl GPTModel {
             eprintln!("     ✓ Layer Norm 1 complete");
         }
 
-        // Attention Mechanism (simplified single-head)
+        // Attention Mechanism (Simplified - treating as single-head for now)
+        // TODO: Implement full multi-head attention in future phase
         if debug {
             eprintln!("     • Attention (Metal + CPU softmax)");
         }
@@ -746,6 +749,76 @@ impl GPTModel {
         }
     }
 
+    /// Reshape and split tensor for multi-head attention
+    /// [seq_len, d_model] -> [seq_len, num_heads, head_dim]
+    #[cfg(feature = "metal")]
+    fn reshape_for_heads(input: &[f32], seq_len: usize, num_heads: usize, head_dim: usize) -> Vec<f32> {
+        // Input: [seq_len * (num_heads * head_dim)]
+        // Output: [seq_len * num_heads * head_dim] (same data, conceptually reshaped)
+        input.to_vec()
+    }
+
+    /// Repeat KV heads for Grouped Query Attention
+    /// Repeats each KV head (num_q_heads / num_kv_heads) times
+    /// [seq_len, num_kv_heads, head_dim] -> [seq_len, num_q_heads, head_dim]
+    #[cfg(feature = "metal")]
+    fn repeat_kv_heads(
+        input: &[f32],
+        seq_len: usize,
+        num_kv_heads: usize,
+        num_q_heads: usize,
+        head_dim: usize,
+    ) -> Vec<f32> {
+        let repeat_factor = num_q_heads / num_kv_heads;
+        let mut output = Vec::with_capacity(seq_len * num_q_heads * head_dim);
+
+        for s in 0..seq_len {
+            for kv_h in 0..num_kv_heads {
+                // Repeat this KV head `repeat_factor` times
+                for _ in 0..repeat_factor {
+                    let src_offset = (s * num_kv_heads + kv_h) * head_dim;
+                    for d in 0..head_dim {
+                        output.push(input[src_offset + d]);
+                    }
+                }
+            }
+        }
+
+        output
+    }
+
+    /// Concatenate attention heads
+    /// [seq_len, num_heads, head_dim] -> [seq_len, num_heads * head_dim]
+    #[cfg(feature = "metal")]
+    fn concat_heads(head_outputs: &[Vec<f32>], seq_len: usize, num_heads: usize, head_dim: usize) -> Vec<f32> {
+        // Concatenate head outputs: [num_heads][seq_len * head_dim] -> [seq_len * (num_heads * head_dim)]
+        let mut output = Vec::with_capacity(seq_len * num_heads * head_dim);
+
+        // Each head_output is [seq_len, head_dim] stored as seq_len * head_dim elements
+        for s in 0..seq_len {
+            for h in 0..num_heads {
+                let head_offset = s * head_dim;
+                let head_data = &head_outputs[h];
+
+                // Safety check
+                if head_offset + head_dim > head_data.len() {
+                    eprintln!("⚠️  concat_heads: index out of bounds! s={}, h={}, head_offset={}, head_dim={}, head_data.len()={}",
+                              s, h, head_offset, head_dim, head_data.len());
+                    // Pad with zeros if out of bounds
+                    for _ in 0..head_dim {
+                        output.push(0.0);
+                    }
+                    continue;
+                }
+
+                // Copy head_dim values
+                output.extend_from_slice(&head_data[head_offset..head_offset + head_dim]);
+            }
+        }
+
+        output
+    }
+
     /// Test Metal matmul operation with simple matrix
     /// 簡単な行列でMetal matmul演算をテスト
     #[cfg(feature = "metal")]
@@ -933,6 +1006,7 @@ mod tests {
             d_model: 768,
             num_layers: 12,
             num_heads: 12,
+            num_kv_heads: 12,  // Standard MHA (same as num_heads)
             d_ff: 3072,
             max_seq_len: 1024,
             dropout: 0.1,
@@ -949,6 +1023,7 @@ mod tests {
             d_model: 128,
             num_layers: 2,
             num_heads: 4,
+            num_kv_heads: 4,  // Standard MHA
             d_ff: 512,
             max_seq_len: 256,
             dropout: 0.0,
