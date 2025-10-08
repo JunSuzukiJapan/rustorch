@@ -427,7 +427,7 @@ impl REPL {
         config.generation.max_tokens = gen_config.max_tokens;
         config.generation.temperature = gen_config.temperature;
         config.generation.top_p = gen_config.top_p;
-        config.generation.top_k = gen_config.top_k as usize;
+        config.generation.top_k = gen_config.top_k;
 
         // Set backend
         config.backend.default = self.session.backend_name().to_string();

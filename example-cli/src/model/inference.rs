@@ -10,13 +10,18 @@ use rustorch::models::GPTModel;
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::models::{F32GPTModel, F32LlamaModel};
 
+/// Unified model backend enum for simplified model management
+pub enum ModelBackend {
+    Transformer(TransformerModel),
+    GPT(GPTModel),
+    #[cfg(feature = "hybrid-f32")]
+    F32GPT(F32GPTModel),
+    #[cfg(feature = "hybrid-f32")]
+    F32Llama(F32LlamaModel),
+}
+
 pub struct InferenceEngine {
-    model: Option<TransformerModel>,
-    gpt_model: Option<GPTModel>,
-    #[cfg(feature = "hybrid-f32")]
-    f32_gpt_model: Option<F32GPTModel>,
-    #[cfg(feature = "hybrid-f32")]
-    f32_llama_model: Option<F32LlamaModel>,
+    model: Option<ModelBackend>,
     generation_config: GenerationConfig,
     sampling_config: SamplingConfig,
     loader: ModelLoader,
@@ -40,11 +45,6 @@ impl InferenceEngine {
 
         Self {
             model: None,
-            gpt_model: None,
-            #[cfg(feature = "hybrid-f32")]
-            f32_gpt_model: None,
-            #[cfg(feature = "hybrid-f32")]
-            f32_llama_model: None,
             generation_config: config,
             sampling_config,
             loader,
@@ -58,24 +58,24 @@ impl InferenceEngine {
 
     /// Set the transformer model
     pub fn set_model(&mut self, model: TransformerModel) {
-        self.model = Some(model);
+        self.model = Some(ModelBackend::Transformer(model));
     }
 
     /// Set the GPT model
     pub fn set_gpt_model(&mut self, model: GPTModel) {
-        self.gpt_model = Some(model);
+        self.model = Some(ModelBackend::GPT(model));
     }
 
     /// Set the F32 GPT model
     #[cfg(feature = "hybrid-f32")]
     pub fn set_f32_gpt_model(&mut self, model: F32GPTModel) {
-        self.f32_gpt_model = Some(model);
+        self.model = Some(ModelBackend::F32GPT(model));
     }
 
     /// Set the F32 Llama model
     #[cfg(feature = "hybrid-f32")]
     pub fn set_f32_llama_model(&mut self, model: F32LlamaModel) {
-        self.f32_llama_model = Some(model);
+        self.model = Some(ModelBackend::F32Llama(model));
     }
 
     /// Generate a response from input text
@@ -93,12 +93,7 @@ impl InferenceEngine {
         );
 
         // Check if model is loaded
-        #[cfg(feature = "hybrid-f32")]
-        let has_model = self.model.is_some() || self.gpt_model.is_some() || self.f32_gpt_model.is_some() || self.f32_llama_model.is_some();
-        #[cfg(not(feature = "hybrid-f32"))]
-        let has_model = self.model.is_some() || self.gpt_model.is_some();
-
-        if !has_model {
+        if self.model.is_none() {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 
@@ -155,34 +150,29 @@ impl InferenceEngine {
     fn generate_tokens(&mut self, input_ids: &[u32]) -> Result<Vec<u32>> {
         let max_new_tokens = self.generation_config.max_tokens;
 
-        // Prioritize F32 Llama model (Metal GPU optimized with Llama-2 architecture)
-        #[cfg(feature = "hybrid-f32")]
-        if self.f32_llama_model.is_some() {
-            tracing::info!("🚀 Using F32 Llama model for generation (Metal GPU optimized)");
-            return self.generate_with_f32_llama_mut(input_ids, max_new_tokens);
+        match self.model {
+            Some(ref backend) => match backend {
+                #[cfg(feature = "hybrid-f32")]
+                ModelBackend::F32Llama(_) => {
+                    tracing::info!("🚀 Using F32 Llama model for generation (Metal GPU optimized)");
+                    self.generate_with_f32_llama_mut(input_ids, max_new_tokens)
+                }
+                #[cfg(feature = "hybrid-f32")]
+                ModelBackend::F32GPT(_) => {
+                    tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
+                    self.generate_with_f32_gpt_mut(input_ids, max_new_tokens)
+                }
+                ModelBackend::GPT(ref gpt_model) => {
+                    tracing::info!("🚀 Using RusTorch GPT model for generation");
+                    self.generate_with_gpt(gpt_model, input_ids, max_new_tokens)
+                }
+                ModelBackend::Transformer(ref model) => {
+                    tracing::info!("Using Transformer model for generation");
+                    self.generate_with_transformer(model, input_ids, max_new_tokens)
+                }
+            },
+            None => anyhow::bail!("No model loaded. Please load a model before attempting generation."),
         }
-
-        // Then F32 GPT model (Metal GPU optimized)
-        #[cfg(feature = "hybrid-f32")]
-        if self.f32_gpt_model.is_some() {
-            tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
-            return self.generate_with_f32_gpt_mut(input_ids, max_new_tokens);
-        }
-
-        // Use GPT model if available (prioritize RusTorch implementation)
-        if let Some(ref gpt_model) = self.gpt_model {
-            tracing::info!("🚀 Using RusTorch GPT model for generation");
-            return self.generate_with_gpt(gpt_model, input_ids, max_new_tokens);
-        }
-
-        // Use Transformer model if available
-        if let Some(ref model) = self.model {
-            tracing::info!("Using Transformer model for generation");
-            return self.generate_with_transformer(model, input_ids, max_new_tokens);
-        }
-
-        // No model available - return error
-        anyhow::bail!("No model loaded. Please load a model before attempting generation.")
     }
 
     /// Generate tokens using Transformer model
@@ -321,17 +311,21 @@ impl InferenceEngine {
         );
 
         // Clear KV cache for new generation session
-        if let Some(ref mut f32_model) = self.f32_gpt_model {
+        if let Some(ModelBackend::F32GPT(ref mut f32_model)) = self.model {
             f32_model.clear_cache();
         }
 
         // Generation loop
         for step in 0..max_new_tokens {
             // Get max sequence length before borrowing mutably
-            let max_seq_len = self.f32_gpt_model.as_ref().unwrap().config().max_seq_len;
+            let max_seq_len = if let Some(ModelBackend::F32GPT(ref f32_model)) = self.model {
+                f32_model.config().max_seq_len
+            } else {
+                return Err(anyhow::anyhow!("F32 GPT model not loaded"));
+            };
 
             // Forward pass through F32 GPT model with KV cache
-            let logits_tensor = if let Some(ref mut f32_model) = self.f32_gpt_model {
+            let logits_tensor = if let Some(ModelBackend::F32GPT(ref mut f32_model)) = self.model {
                 // Only pass the last token (KV cache handles the rest)
                 let input_slice = if step == 0 {
                     &generated_ids // First step: pass all prompt tokens
@@ -398,7 +392,7 @@ impl InferenceEngine {
         );
 
         // Clear KV cache for new generation session
-        if let Some(ref mut llama_model) = self.f32_llama_model {
+        if let Some(ModelBackend::F32Llama(ref mut llama_model)) = self.model {
             llama_model.clear_cache();
         }
 
@@ -406,7 +400,11 @@ impl InferenceEngine {
         for step in 0..max_new_tokens {
 
             // Get max sequence length before borrowing mutably
-            let max_seq_len = self.f32_llama_model.as_ref().unwrap().config().max_seq_len;
+            let max_seq_len = if let Some(ModelBackend::F32Llama(ref llama_model)) = self.model {
+                llama_model.config().max_seq_len
+            } else {
+                return Err(anyhow::anyhow!("F32 Llama model not loaded"));
+            };
 
             // ✅ FIX: Calculate correct position for RoPE
             // Position = number of tokens already processed (initial prompt + generated tokens)
@@ -426,7 +424,7 @@ impl InferenceEngine {
 
             // DEBUG: Log KV cache state and input
             if step < 3 {
-                if let Some(ref llama_model) = self.f32_llama_model {
+                if let Some(ModelBackend::F32Llama(ref llama_model)) = self.model {
                     let kv_len = llama_model.get_kv_cache_len(0);
                     eprintln!("🔍 [STEP {}] Before forward:", step);
                     eprintln!("   start_position={}", start_position);
@@ -435,7 +433,7 @@ impl InferenceEngine {
                 }
             }
 
-            let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
+            let logits_tensor = if let Some(ModelBackend::F32Llama(ref mut llama_model)) = self.model {
                 llama_model.forward(input_for_forward, start_position)
                     .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
             } else {
@@ -787,7 +785,7 @@ impl InferenceEngine {
         tracing::debug!("Starting streaming generation for input: {}", input);
 
         // Check if model is loaded
-        if self.model.is_none() && self.gpt_model.is_none() {
+        if self.model.is_none() {
             anyhow::bail!("No model loaded. Please load a model before attempting generation.");
         }
 

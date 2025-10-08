@@ -1,11 +1,11 @@
-// Metal backend implementation using RusTorch GPU features
+// Metal backend implementation using RusTorch MPS (Metal Performance Shaders)
 
 use super::Backend;
 use anyhow::Result;
 use rustorch::tensor::device::Device;
 use rustorch::tensor::Tensor;
 
-/// Metal GPU backend for macOS
+/// Metal GPU backend for macOS using Metal Performance Shaders
 pub struct MetalBackend {
     device: Device,
 }
@@ -15,12 +15,20 @@ impl MetalBackend {
     pub fn new() -> Result<Self> {
         #[cfg(feature = "metal")]
         {
-            // Check Metal availability using RusTorch
-            let device = Device::metal();
-            if !device.is_available() {
-                anyhow::bail!("Metal device not available");
+            // Use Metal Performance Shaders (MPS) device
+            let device = Device::Mps;
+
+            // TODO: Add runtime Metal availability check once implemented in rustorch
+            // For now, assume Metal is available on macOS
+            #[cfg(target_os = "macos")]
+            {
+                Ok(Self { device })
             }
-            Ok(Self { device })
+
+            #[cfg(not(target_os = "macos"))]
+            {
+                anyhow::bail!("Metal is only available on macOS")
+            }
         }
         #[cfg(not(feature = "metal"))]
         {
@@ -35,30 +43,31 @@ impl Backend for MetalBackend {
     }
 
     fn is_available(&self) -> bool {
-        #[cfg(feature = "metal")]
+        #[cfg(all(feature = "metal", target_os = "macos"))]
         {
-            self.device.is_available()
+            // Metal is available on macOS when feature is enabled
+            true
         }
-        #[cfg(not(feature = "metal"))]
+        #[cfg(not(all(feature = "metal", target_os = "macos")))]
         {
             false
         }
     }
 
     fn to_device(&self, mut tensor: Tensor<f64>) -> Result<Tensor<f64>> {
-        tensor.device = self.device.clone();
+        tensor.device = self.device;
         Ok(tensor)
     }
 
     fn zeros(&self, shape: &[usize]) -> Result<Tensor<f64>> {
         let mut tensor = Tensor::zeros(shape);
-        tensor.device = self.device.clone();
+        tensor.device = self.device;
         Ok(tensor)
     }
 
     fn from_vec(&self, data: Vec<f64>, shape: &[usize]) -> Result<Tensor<f64>> {
         let mut tensor = Tensor::from_vec(data, shape.to_vec());
-        tensor.device = self.device.clone();
+        tensor.device = self.device;
         Ok(tensor)
     }
 }
@@ -68,7 +77,7 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos"))]
     fn test_metal_backend_creation() {
         if let Ok(backend) = MetalBackend::new() {
             assert_eq!(backend.name(), "metal");
@@ -77,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "metal")]
+    #[cfg(all(feature = "metal", target_os = "macos"))]
     fn test_metal_tensor_operations() {
         if let Ok(backend) = MetalBackend::new() {
             let tensor = backend.zeros(&[2, 2]).unwrap();

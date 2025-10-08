@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use crate::session::GenerationConfig;
 
 /// Main configuration structure
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -29,23 +30,6 @@ pub struct ModelConfig {
     /// Model cache directory
     #[serde(default = "default_cache_dir")]
     pub cache_dir: String,
-}
-
-/// Generation configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenerationConfig {
-    /// Maximum number of tokens to generate
-    #[serde(default = "default_max_tokens")]
-    pub max_tokens: usize,
-    /// Temperature for sampling (0.0 = deterministic, higher = more random)
-    #[serde(default = "default_temperature")]
-    pub temperature: f32,
-    /// Top-p (nucleus) sampling threshold
-    #[serde(default = "default_top_p")]
-    pub top_p: f32,
-    /// Top-k sampling: only sample from top k tokens
-    #[serde(default = "default_top_k")]
-    pub top_k: usize,
 }
 
 /// Backend configuration
@@ -92,21 +76,6 @@ fn default_cache_dir() -> String {
     "~/.rustorch/models".to_string()
 }
 
-fn default_max_tokens() -> usize {
-    512
-}
-
-fn default_temperature() -> f32 {
-    0.7
-}
-
-fn default_top_p() -> f32 {
-    0.9
-}
-
-fn default_top_k() -> usize {
-    40
-}
 
 fn default_backend() -> String {
     "cpu".to_string()
@@ -141,17 +110,6 @@ impl Default for ModelConfig {
         Self {
             default: None,
             cache_dir: default_cache_dir(),
-        }
-    }
-}
-
-impl Default for GenerationConfig {
-    fn default() -> Self {
-        Self {
-            max_tokens: default_max_tokens(),
-            temperature: default_temperature(),
-            top_p: default_top_p(),
-            top_k: default_top_k(),
         }
     }
 }
@@ -265,16 +223,17 @@ impl Config {
         }
 
         // Generation config - only merge if using defaults
-        if self.generation.max_tokens == default_max_tokens() {
+        let defaults = GenerationConfig::default();
+        if self.generation.max_tokens == defaults.max_tokens {
             self.generation.max_tokens = other.generation.max_tokens;
         }
-        if self.generation.temperature == default_temperature() {
+        if self.generation.temperature == defaults.temperature {
             self.generation.temperature = other.generation.temperature;
         }
-        if self.generation.top_p == default_top_p() {
+        if self.generation.top_p == defaults.top_p {
             self.generation.top_p = other.generation.top_p;
         }
-        if self.generation.top_k == default_top_k() {
+        if self.generation.top_k == defaults.top_k {
             self.generation.top_k = other.generation.top_k;
         }
     }
@@ -288,7 +247,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = Config::default();
-        assert_eq!(config.generation.max_tokens, 512);
+        assert_eq!(config.generation.max_tokens, 2048);
         assert_eq!(config.generation.temperature, 0.7);
         assert_eq!(config.backend.default, "cpu");
         assert!(config.session.auto_save);
