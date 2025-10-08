@@ -351,14 +351,78 @@ impl GPTModel {
     #[cfg(feature = "metal")]
     fn forward_metal(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
+        eprintln!("   Phase 2B.1: Testing Metal kernel operations");
 
-        // Phase 1: Implement basic CPU-based forward for now
-        // Phase 2 will add actual Metal kernel execution
-        eprintln!("   Note: Metal kernel integration in progress");
-        eprintln!("   Currently using CPU implementation as placeholder");
+        // Test Metal matmul operation
+        if let Err(e) = Self::test_metal_matmul() {
+            eprintln!("⚠️  Metal matmul test failed: {}", e);
+            eprintln!("   Falling back to CPU implementation");
+        }
 
+        // For now, use CPU implementation for actual forward pass
+        // Next step: Integrate Metal operations into transformer layers
         let max_layers = Some(2);
         self.forward_with_layers(input_ids, max_layers)
+    }
+
+    /// Convert Tensor<f64> to Vec<f32> for Metal processing
+    /// Tensor<f64>をMetal処理用のVec<f32>に変換
+    #[cfg(feature = "metal")]
+    fn tensor_to_f32_vec(tensor: &Tensor<f64>) -> Vec<f32> {
+        tensor.data.iter().map(|&x| x as f32).collect()
+    }
+
+    /// Convert Vec<f32> to Tensor<f64> after Metal processing
+    /// Metal処理後のVec<f32>をTensor<f64>に変換
+    #[cfg(feature = "metal")]
+    fn f32_vec_to_tensor(data: Vec<f32>, shape: Vec<usize>) -> Tensor<f64> {
+        let data_f64: Vec<f64> = data.iter().map(|&x| x as f64).collect();
+        Tensor::from_vec(data_f64, shape)
+    }
+
+    /// Test Metal matmul operation with simple matrix
+    /// 簡単な行列でMetal matmul演算をテスト
+    #[cfg(feature = "metal")]
+    fn test_metal_matmul() -> RusTorchResult<()> {
+        use crate::gpu::metal_kernels::MetalKernelExecutor;
+
+        eprintln!("🧪 Testing Metal matmul operation...");
+
+        // Get Metal executor
+        let executor_mutex = MetalKernelExecutor::get()?;
+        let executor_guard = executor_mutex.lock().unwrap();
+        let executor = executor_guard.as_ref()
+            .ok_or_else(|| RusTorchError::tensor_op("Metal executor not initialized"))?;
+
+        // Test data: 2x3 matrix × 3x2 matrix = 2x2 matrix
+        let a = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // 2x3
+        let b = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // 3x2
+        let mut c = vec![0.0f32; 4]; // 2x2
+
+        // Execute Metal matmul: matmul_f32(a, b, c, m, n, k) where A is m×k, B is k×n, C is m×n
+        executor.matmul_f32(&a, &b, &mut c, 2, 2, 3)?;
+
+        eprintln!("✅ Metal matmul test passed");
+        eprintln!("   Input A (2x3): [{}, {}, {}], [{}, {}, {}]",
+            a[0], a[1], a[2], a[3], a[4], a[5]);
+        eprintln!("   Input B (3x2): [{}, {}], [{}, {}], [{}, {}]",
+            b[0], b[1], b[2], b[3], b[4], b[5]);
+        eprintln!("   Result C (2x2): [{}, {}], [{}, {}]",
+            c[0], c[1], c[2], c[3]);
+
+        // Verify result (expected: [22, 28], [49, 64])
+        let expected = vec![22.0f32, 28.0, 49.0, 64.0];
+        let epsilon = 0.001;
+        for i in 0..4 {
+            if (c[i] - expected[i]).abs() > epsilon {
+                return Err(RusTorchError::tensor_op(
+                    format!("Metal matmul result mismatch at index {}: got {}, expected {}",
+                        i, c[i], expected[i])
+                ));
+            }
+        }
+
+        Ok(())
     }
 
     /// GPT forward pass with configurable number of layers
