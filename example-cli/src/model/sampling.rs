@@ -214,8 +214,8 @@ pub fn apply_top_p_to_probs(probs: &[f64], p: f64) -> Result<Vec<f64>> {
         .map(|(i, &prob)| (i, prob))
         .collect();
 
-    // Sort by probability (descending)
-    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    // Sort by probability (descending), handle NaN by treating as 0.0
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     // Find cutoff: smallest set where cumulative prob >= p
     let mut cumulative = 0.0;
