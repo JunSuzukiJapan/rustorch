@@ -334,10 +334,29 @@ impl GPTModel {
     /// For development/testing, uses only first 2 layers by default.
     /// Use `forward_with_layers(input_ids, None)` for full model inference.
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
-        // Limit to 2 layers for faster inference during development
-        // TODO: Remove this limitation for production use
-        // TODO: Add GPU backend support for tensor operations
-        eprintln!("⚠️  GPT forward pass using CPU (GPU backend not yet integrated)");
+        // Route to Metal or CPU implementation based on backend
+        #[cfg(feature = "metal")]
+        if self.has_metal && self.device_type == DeviceType::Metal {
+            return self.forward_metal(input_ids);
+        }
+
+        // CPU fallback
+        eprintln!("⚠️  GPT forward pass using CPU (GPU backend not available)");
+        let max_layers = Some(2);
+        self.forward_with_layers(input_ids, max_layers)
+    }
+
+    /// Metal GPU-accelerated forward pass
+    /// Metal GPU加速フォワードパス
+    #[cfg(feature = "metal")]
+    fn forward_metal(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
+        eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
+
+        // Phase 1: Implement basic CPU-based forward for now
+        // Phase 2 will add actual Metal kernel execution
+        eprintln!("   Note: Metal kernel integration in progress");
+        eprintln!("   Currently using CPU implementation as placeholder");
+
         let max_layers = Some(2);
         self.forward_with_layers(input_ids, max_layers)
     }

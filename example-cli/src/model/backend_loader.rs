@@ -167,16 +167,36 @@ impl BackendLoader {
         Ok(())
     }
 
-    /// Load standard model (f64, CPU-only)
+    /// Load standard model with specified backend
     pub fn load_standard(
         model_path: &Path,
         engine: &mut InferenceEngine,
     ) -> Result<()> {
         use rustorch::models::GPTModel;
+        use rustorch::backends::DeviceType;
 
-        tracing::info!("Loading standard GPT model (f64, CPU)");
+        // Determine device type from engine's current backend
+        // For now, default to CPU (Metal routing will be added)
+        tracing::info!("Loading standard GPT model (f64)");
         let model = GPTModel::from_gguf(model_path)?;
         tracing::info!("✅ Standard GPT model loaded successfully");
+        engine.set_gpt_model(model);
+
+        Ok(())
+    }
+
+    /// Load model with Metal backend
+    #[cfg(feature = "metal")]
+    pub fn load_with_metal(
+        model_path: &Path,
+        engine: &mut InferenceEngine,
+    ) -> Result<()> {
+        use rustorch::models::GPTModel;
+        use rustorch::backends::DeviceType;
+
+        tracing::info!("Loading GPT model with Metal GPU backend");
+        let model = GPTModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
+        tracing::info!("✅ GPT model loaded with Metal backend");
         engine.set_gpt_model(model);
 
         Ok(())
@@ -205,6 +225,18 @@ impl BackendLoader {
                     .unwrap_or_else(|e| {
                         tracing::warn!("Failed to load mac-hybrid model: {}", e);
                         tracing::warn!("Falling back to dummy inference");
+                    });
+                Ok(())
+            }
+
+            // Metal backend: Use standard model with Metal acceleration
+            #[cfg(feature = "metal")]
+            CliBackend::Metal => {
+                Self::load_with_metal(model_path, engine)
+                    .unwrap_or_else(|e| {
+                        tracing::warn!("Failed to load Metal model: {}", e);
+                        tracing::warn!("Falling back to CPU");
+                        let _ = Self::load_standard(model_path, engine);
                     });
                 Ok(())
             }
