@@ -595,11 +595,6 @@ impl GPTModel {
             eprintln!("     • Feed-Forward Network (Metal)");
         }
 
-        let d_ff = self.config.d_ff;
-        if debug {
-            eprintln!("       d_model={}, d_ff={}, seq_len={}", d_model, d_ff, seq_len);
-        }
-
         // Load FFN weights
         let gate_key = format!("blk.{}.ffn_gate.weight", layer_idx);
         let up_key = format!("blk.{}.ffn_up.weight", layer_idx);
@@ -616,6 +611,18 @@ impl GPTModel {
         let gate_weight_f32: Vec<f32> = gate_weight.data.iter().map(|&v| v as f32).collect();
         let up_weight_f32: Vec<f32> = up_weight.data.iter().map(|&v| v as f32).collect();
         let down_weight_f32: Vec<f32> = down_weight.data.iter().map(|&v| v as f32).collect();
+
+        // Calculate actual d_ff from gate weight size (gate_weight: [d_ff, d_model])
+        let actual_d_ff = gate_weight_f32.len() / d_model;
+
+        if debug {
+            eprintln!("       FFN weights: gate={}, up={}, down={}",
+                      gate_weight_f32.len(), up_weight_f32.len(), down_weight_f32.len());
+            eprintln!("       Calculated d_ff={} (from gate_weight.len={} / d_model={})",
+                      actual_d_ff, gate_weight_f32.len(), d_model);
+        }
+
+        let d_ff = actual_d_ff;
 
         // 1. Gate projection: x @ gate_weight^T
         // x_ln2: [seq_len * d_model], gate_weight: [d_ff, d_model] (transposed in GGUF)
