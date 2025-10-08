@@ -586,6 +586,19 @@ impl GPTModel {
             *score *= scale;
         }
 
+        // 4.5 Apply causal masking (prevent attending to future tokens)
+        if debug {
+            eprintln!("       - Apply causal masking");
+        }
+        for i in 0..seq_len {
+            for j in 0..seq_len {
+                if j > i {
+                    // Mask future positions with negative infinity
+                    attn_scores[i * seq_len + j] = f32::NEG_INFINITY;
+                }
+            }
+        }
+
         // 5. Softmax row-wise (CPU)
         if debug {
             eprintln!("       - Softmax (CPU)");
