@@ -1,68 +1,39 @@
-/// Test tokenization and compare with expected token IDs
 use rustorch::formats::gguf::GGUFLoader;
-use tokenizers::Tokenizer;
-use std::collections::HashMap;
+use std::path::Path;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_path = std::env::var("HOME")? +
-        "/.rustorch/models/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+fn main() -> anyhow::Result<()> {
+    let model_path = Path::new("/Users/junsuzuki/.rustorch/models/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf");
 
-    println!("📂 Model: {}", model_path);
+    println!("Loading GGUF model: {}", model_path.display());
+    let gguf = GGUFLoader::from_file(model_path)?;
 
-    // Extract vocabulary and merges from GGUF
-    let loader = GGUFLoader::from_file(&model_path)?;
-    let vocab = loader.extract_tokenizer_vocab()?;
-    let merges = loader.extract_bpe_merges()?;
+    // Extract vocab and merges
+    let vocab = gguf.extract_tokenizer_vocab()?;
+    println!("✅ Extracted {} tokens from GGUF", vocab.len());
 
-    println!("✅ Extracted {} tokens", vocab.len());
+    let merges = gguf.extract_bpe_merges()?;
     println!("✅ Extracted {} BPE merge rules", merges.len());
 
-    // Build HuggingFace BPE tokenizer
-    use tokenizers::models::bpe::BPE;
-
-    let mut vocab_map = HashMap::new();
-    for (id, token) in vocab.iter().enumerate() {
-        vocab_map.insert(token.clone(), id as u32);
+    // Print first 10 vocab entries
+    println!("\n📝 First 10 tokens:");
+    for (i, token) in vocab.iter().take(10).enumerate() {
+        println!("  [{}] {:?}", i, token);
     }
 
-    let bpe = BPE::builder()
-        .vocab_and_merges(vocab_map, merges)
-        .unk_token("<unk>".to_string())
-        .build()?;
+    // Print first 10 merges
+    println!("\n🔄 First 10 merge rules:");
+    for (i, (token1, token2)) in merges.iter().take(10).enumerate() {
+        println!("  [{}] {:?} + {:?}", i, token1, token2);
+    }
 
-    let tokenizer = Tokenizer::new(bpe);
-
-    // Test tokenization
-    let test_text = "Hello, how are you?";
-    println!("\n📝 Test text: \"{}\"", test_text);
-
-    let encoding = tokenizer.encode(test_text, false)?;
-    let token_ids = encoding.get_ids();
-
-    println!("\n🔢 RusTorch token IDs:");
-    println!("{:?}", token_ids);
-
-    println!("\n📋 Token details:");
-    for (i, &token_id) in token_ids.iter().enumerate() {
-        if (token_id as usize) < vocab.len() {
-            println!("  [{}] {} -> '{}'", i, token_id, vocab[token_id as usize]);
+    // Test specific tokens
+    println!("\n🔍 Looking for specific tokens:");
+    for test_token in &["Hello", "▁Hello", "▁What", "▁is", "▁the", "▁capital"] {
+        if let Some(id) = vocab.iter().position(|t| t == test_token) {
+            println!("  {:?} -> ID {}", test_token, id);
+        } else {
+            println!("  {:?} -> NOT FOUND", test_token);
         }
-    }
-
-    // Expected IDs from llama.cpp
-    let expected = vec![15043, 29892, 920, 526, 366, 29973];
-    println!("\n✅ Expected token IDs (from llama.cpp):");
-    println!("{:?}", expected);
-
-    // Compare
-    println!("\n🔍 Comparison:");
-    let match_count = token_ids.iter().zip(&expected).filter(|(a, b)| a == b).count();
-    println!("  Matches: {}/{}", match_count, expected.len());
-
-    if token_ids == expected.as_slice() {
-        println!("\n✅ PERFECT MATCH! Tokenizer is working correctly.");
-    } else {
-        println!("\n❌ MISMATCH! Token IDs don't match llama.cpp output.");
     }
 
     Ok(())

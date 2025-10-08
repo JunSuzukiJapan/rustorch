@@ -1,75 +1,35 @@
-/// Compare tokenization output with llama.cpp
-/// Dumps token IDs for manual verification
 use rustorch::formats::gguf::GGUFLoader;
-use std::collections::HashMap;
+use std::path::Path;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let model_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| {
-            std::env::var("HOME").unwrap() +
-            "/.rustorch/models/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
-        });
+fn main() -> anyhow::Result<()> {
+    let model_path = Path::new("/Users/junsuzuki/.rustorch/models/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf");
 
-    println!("📂 Model: {}", model_path);
+    println!("Loading GGUF model...");
+    let gguf = GGUFLoader::from_file(model_path)?;
 
-    let loader = GGUFLoader::from_file(&model_path)?;
-    let vocab = loader.extract_tokenizer_vocab()?;
+    let vocab = gguf.extract_tokenizer_vocab()?;
+    let merges = gguf.extract_bpe_merges()?;
+    println!("✅ Extracted vocab ({} tokens) and merges ({} rules)", vocab.len(), merges.len());
 
-    println!("✅ Extracted {} tokens", vocab.len());
-
-    // Build token map
-    let mut token_to_id = HashMap::new();
-    for (id, token) in vocab.iter().enumerate() {
-        token_to_id.insert(token.as_str(), id as u32);
-    }
-
-    // Test prompt
-    let text = "What is the capital of France?";
-    println!("\n📝 Text: \"{}\"", text);
-
-    // Simple tokenization (longest-match without BPE)
-    let mut tokens = Vec::new();
-    tokens.push(1); // BOS
-
-    // Split by spaces and tokenize each word
-    for word in text.split_whitespace() {
-        let word_with_space = format!("▁{}", word);
-
-        // Try to find token for word
-        if let Some(&id) = token_to_id.get(word_with_space.as_str()) {
-            tokens.push(id);
+    // Test text from IMPLEMENTATION_VERIFICATION.md
+    let test_text = "What is the capital of France?";
+    
+    // Expected from llama.cpp (from docs):
+    // [1, 529, 29989, 1792, 29989, 29958, 13, 5618, 338, 278, 7483, 310, 3444, 29973, ...]
+    let expected_tokens = vec![5618, 338, 278, 7483, 310, 3444, 29973];
+    
+    println!("\n📝 Test text: {:?}", test_text);
+    println!("Expected tokens (llama.cpp): {:?}", expected_tokens);
+    
+    // Decode expected tokens to verify vocab
+    println!("\n🔍 Decoding expected tokens:");
+    for (i, &token_id) in expected_tokens.iter().enumerate() {
+        if let Some(token) = vocab.get(token_id as usize) {
+            println!("  Token {} (ID {}): {:?}", i, token_id, token);
         } else {
-            // Try character by character with space prefix
-            for (i, ch) in word.chars().enumerate() {
-                let ch_str = if i == 0 {
-                    format!("▁{}", ch)
-                } else {
-                    ch.to_string()
-                };
-
-                if let Some(&id) = token_to_id.get(ch_str.as_str()) {
-                    tokens.push(id);
-                } else {
-                    // Fallback to UNK
-                    tokens.push(0);
-                }
-            }
+            println!("  Token {} (ID {}): OUT OF RANGE", i, token_id);
         }
     }
-
-    println!("\n🔢 Token IDs (simple longest-match):");
-    println!("{:?}", tokens);
-
-    println!("\n📋 Token details:");
-    for (i, &token_id) in tokens.iter().enumerate() {
-        if token_id < vocab.len() as u32 {
-            println!("  [{}] {} -> '{}'", i, token_id, vocab[token_id as usize]);
-        }
-    }
-
-    println!("\n💡 For llama.cpp comparison, run:");
-    println!("  echo \"{}\" | /opt/homebrew/bin/llama-tokenize -m {}", text, model_path);
 
     Ok(())
 }
