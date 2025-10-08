@@ -408,6 +408,14 @@ impl InferenceEngine {
             // Get max sequence length before borrowing mutably
             let max_seq_len = self.f32_llama_model.as_ref().unwrap().config().max_seq_len;
 
+            // ✅ FIX: Calculate correct position for RoPE
+            // Position = number of tokens already processed (initial prompt + generated tokens)
+            let start_position = if step == 0 {
+                0  // First step: start from position 0 for all prompt tokens
+            } else {
+                generated_ids.len() - 1  // Subsequent steps: position = total tokens - 1
+            };
+
             // Forward pass through F32 Llama model with KV cache
             // First step: pass all tokens, subsequent steps: pass only last token
             let input_for_forward = if step == 0 {
@@ -421,13 +429,14 @@ impl InferenceEngine {
                 if let Some(ref llama_model) = self.f32_llama_model {
                     let kv_len = llama_model.get_kv_cache_len(0);
                     eprintln!("🔍 [STEP {}] Before forward:", step);
+                    eprintln!("   start_position={}", start_position);
                     eprintln!("   input_tokens={:?}", input_for_forward);
                     eprintln!("   generated_ids.len={}, kv_cache_len={}", generated_ids.len(), kv_len);
                 }
             }
 
             let logits_tensor = if let Some(ref mut llama_model) = self.f32_llama_model {
-                llama_model.forward(input_for_forward)
+                llama_model.forward(input_for_forward, start_position)
                     .map_err(|e| anyhow::anyhow!("F32 Llama forward failed: {}", e))?
             } else {
                 anyhow::bail!("F32 Llama model not available");
@@ -507,32 +516,52 @@ impl InferenceEngine {
             indexed_probs.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
             let mut cumsum = 0.0;
-            let mut top_p_indices = Vec::new();
+            let mut top_p_candidates = Vec::new();
             for (idx, prob) in &indexed_probs {
                 cumsum += prob;
-                top_p_indices.push(*idx);
+                top_p_candidates.push((*idx, *prob));
                 if cumsum >= top_p {
                     break;
                 }
             }
 
-            // Sample from top-p candidates
-            use rand::Rng;
-            let mut rng = rand::thread_rng();
-            let rand_val: f32 = rng.gen();
+            // Renormalize probabilities for top-p candidates
+            let total_prob: f32 = top_p_candidates.iter().map(|(_, p)| p).sum();
+            let normalized_probs: Vec<(usize, f32)> = top_p_candidates
+                .iter()
+                .map(|(idx, p)| (*idx, p / total_prob))
+                .collect();
 
-            let mut cumsum = 0.0;
-            let mut next_token_id = top_p_indices[0];
-            for &idx in &top_p_indices {
-                cumsum += probs[idx];
-                if rand_val < cumsum {
-                    next_token_id = idx;
-                    break;
+            // TEMPORARY: Use greedy sampling (argmax) for debugging
+            let next_token_id = if true {  // Set to false to enable sampling
+                // Greedy: select token with highest probability
+                normalized_probs.iter()
+                    .max_by(|(_, p1), (_, p2)| p1.partial_cmp(p2).unwrap())
+                    .map(|(idx, _)| *idx)
+                    .unwrap_or(normalized_probs[0].0)
+            } else {
+                // Original sampling code
+                use rand::Rng;
+                let mut rng = rand::thread_rng();
+                let rand_val: f32 = rng.gen();
+
+                let mut cumsum = 0.0;
+                let mut selected = normalized_probs[0].0;
+                for (idx, norm_prob) in &normalized_probs {
+                    cumsum += norm_prob;
+                    if rand_val < cumsum {
+                        selected = *idx;
+                        break;
+                    }
                 }
-            }
+                selected
+            };
 
             if step < 3 {
-                eprintln!("🎯 [STEP {}] Selected token {} (sampled, prob={:.4})", step, next_token_id, probs[next_token_id]);
+                let selected_prob = normalized_probs.iter().find(|(i, _)| *i == next_token_id).map(|(_, p)| p).unwrap_or(&0.0);
+                eprintln!("🎯 [STEP {}] Selected token {} (sampled, normalized_prob={:.4}, original_prob={:.4})",
+                    step, next_token_id, selected_prob, probs[next_token_id]);
+                eprintln!("🎯 [STEP {}] Top-p candidates: {} tokens, total_prob={:.4}", step, normalized_probs.len(), total_prob);
             }
 
             tracing::debug!("Step {}: Generated token {}", step, next_token_id);

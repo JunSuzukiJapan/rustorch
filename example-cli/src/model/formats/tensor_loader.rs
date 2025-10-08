@@ -166,6 +166,8 @@ fn dequantize_tensor(data: &[u8], ggml_type: GGMLType) -> Result<Vec<f64>> {
         GGMLType::I32 => dequantize_i32(data),
         // Quantized types with proper implementation
         GGMLType::Q4_0 => dequantize_q4_0(data),
+        GGMLType::Q4_K => dequantize_q4_k(data),
+        GGMLType::Q6_K => dequantize_q6_k(data),
         GGMLType::Q8_0 => dequantize_q8_0(data),
         // Other quantized types - use placeholder for now
         _ => {
@@ -194,7 +196,7 @@ fn dequantize_f32(data: &[u8]) -> Result<Vec<f64>> {
     Ok(result)
 }
 
-/// Dequantize F16 data (simplified - would use proper half-precision library)
+/// Dequantize F16 data (IEEE 754 half-precision)
 fn dequantize_f16(data: &[u8]) -> Result<Vec<f64>> {
     if data.len() % 2 != 0 {
         anyhow::bail!("Invalid F16 data length");
@@ -202,10 +204,9 @@ fn dequantize_f16(data: &[u8]) -> Result<Vec<f64>> {
 
     let mut result = Vec::with_capacity(data.len() / 2);
     for chunk in data.chunks_exact(2) {
-        // Simplified: treat as scaled integer
         let bytes: [u8; 2] = chunk.try_into().unwrap();
-        let value = i16::from_le_bytes(bytes);
-        result.push((value as f64) / 32768.0);
+        let value = half::f16::from_le_bytes(bytes);
+        result.push(value.to_f64());
     }
 
     Ok(result)
@@ -312,6 +313,185 @@ fn dequantize_q8_0(data: &[u8]) -> Result<Vec<f64>> {
         for i in 0..BLOCK_SIZE {
             let v = block[2 + i] as i8; // Interpret as signed byte
             result.push(v as f64 * scale);
+        }
+    }
+
+    Ok(result)
+}
+
+/// Dequantize Q4_K format (4-bit quantization with super-blocks)
+/// Block format: 2x f16 (d, dmin) + 12 bytes scales + 128 bytes data (256 x 4-bit)
+/// Block size: 256 elements, 144 bytes per block
+/// Reference: https://github.com/ggerganov/llama.cpp/blob/master/ggml/src/ggml-quants.c
+fn dequantize_q4_k(data: &[u8]) -> Result<Vec<f64>> {
+    const QK_K: usize = 256; // Block size in elements
+    const BYTES_PER_BLOCK: usize = 144; // 2*2 (f16) + 12 (scales) + 128 (quants)
+
+    if data.len() % BYTES_PER_BLOCK != 0 {
+        anyhow::bail!("Invalid Q4_K data length: {}", data.len());
+    }
+
+    let num_blocks = data.len() / BYTES_PER_BLOCK;
+    let mut result = Vec::with_capacity(num_blocks * QK_K);
+
+    for block_idx in 0..num_blocks {
+        let block_start = block_idx * BYTES_PER_BLOCK;
+        let block = &data[block_start..block_start + BYTES_PER_BLOCK];
+
+        // Read super-block scales (d and dmin) as f16
+        let d_bytes: [u8; 2] = [block[0], block[1]];
+        let d = half::f16::from_le_bytes(d_bytes).to_f64();
+
+        let dmin_bytes: [u8; 2] = [block[2], block[3]];
+        let dmin = half::f16::from_le_bytes(dmin_bytes).to_f64();
+
+        // scales array starts at offset 4
+        let scales = &block[4..16];
+
+        // quants array starts at offset 16
+        let qs = &block[16..144];
+
+        // Process 8 sub-blocks of 32 elements each (total 256 elements)
+        let mut is = 0; // scale index
+        let mut q_idx = 0; // quant index
+
+        for _j in 0..4 {
+            // Process two sub-blocks (64 elements) at a time
+            // Get scale and min for first sub-block
+            let (sc1, m1) = get_scale_min_k4(is, scales);
+            let d1 = d * sc1 as f64;
+            let m1_val = dmin * m1 as f64;
+
+            // Get scale and min for second sub-block
+            let (sc2, m2) = get_scale_min_k4(is + 1, scales);
+            let d2 = d * sc2 as f64;
+            let m2_val = dmin * m2 as f64;
+
+            // Decode 32 x 4-bit values (16 bytes) for first sub-block (lower 4 bits)
+            for l in 0..32 {
+                let q_val = (qs[q_idx + l] & 0x0F) as f64;
+                result.push(d1 * q_val - m1_val);
+            }
+
+            // Decode 32 x 4-bit values (same 16 bytes) for second sub-block (upper 4 bits)
+            for l in 0..32 {
+                let q_val = ((qs[q_idx + l] >> 4) & 0x0F) as f64;
+                result.push(d2 * q_val - m2_val);
+            }
+
+            q_idx += 32;
+            is += 2;
+        }
+    }
+
+    Ok(result)
+}
+
+/// Helper function to extract scale and min from Q4_K scales array
+/// Reference: get_scale_min_k4 in ggml-quants.c
+fn get_scale_min_k4(j: usize, q: &[u8]) -> (u8, u8) {
+    let d: u8;
+    let m: u8;
+
+    if j < 4 {
+        d = q[j] & 63;
+        m = q[j + 4] & 63;
+    } else {
+        d = (q[j + 4] & 0x0F) | ((q[j - 4] >> 6) << 4);
+        m = (q[j + 4] >> 4) | ((q[j] >> 6) << 4);
+    }
+
+    (d, m)
+}
+
+/// Dequantize Q6_K format (6-bit quantization with super-blocks)
+/// Block structure (210 bytes total):
+///   - ql[128]: lower 4 bits
+///   - qh[64]: upper 2 bits
+///   - scales[16]: int8 scales
+///   - d (f16): super-block scale
+/// Block size: 256 elements
+/// Reference: https://github.com/ggerganov/llama.cpp/blob/master/ggml/src/ggml-quants.c
+fn dequantize_q6_k(data: &[u8]) -> Result<Vec<f64>> {
+    const QK_K: usize = 256;
+    const BYTES_PER_BLOCK: usize = 210; // 128 (ql) + 64 (qh) + 16 (scales) + 2 (d)
+
+    if data.len() % BYTES_PER_BLOCK != 0 {
+        anyhow::bail!("Invalid Q6_K data length: {}", data.len());
+    }
+
+    let num_blocks = data.len() / BYTES_PER_BLOCK;
+    let mut result = Vec::with_capacity(num_blocks * QK_K);
+
+    for block_idx in 0..num_blocks {
+        let block_start = block_idx * BYTES_PER_BLOCK;
+        let block = &data[block_start..block_start + BYTES_PER_BLOCK];
+
+        // Read lower 4 bits (ql) - 128 bytes (offset 0)
+        let ql = &block[0..128];
+
+        // Read upper 2 bits (qh) - 64 bytes (offset 128)
+        let qh = &block[128..192];
+
+        // Read scales (int8) - 16 bytes (offset 192)
+        let scales = &block[192..208];
+
+        // Read super-block scale d as f16 (offset 208)
+        let d_bytes: [u8; 2] = [block[208], block[209]];
+        let d = half::f16::from_le_bytes(d_bytes).to_f64();
+
+        // Process 2 sub-blocks of 128 elements each (total 256)
+        // Pre-allocate result space for this block
+        let block_start = result.len();
+        result.resize(block_start + QK_K, 0.0);
+
+        // Mimicking llama.cpp pointer arithmetic: ql += 64, qh += 32, sc += 8
+        let mut ql_offset = 0;
+        let mut qh_offset = 0;
+        let mut sc_offset = 0;
+        let mut y_offset = 0;
+
+        for _n in (0..QK_K).step_by(128) {
+            for l in 0..32 {
+                let is = l / 16;
+
+                // Extract 6-bit values from ql (4 bits) and qh (2 bits)
+                // q1: ql[l] lower 4 bits + qh[l] bits 0-1
+                let q1 = ((ql[ql_offset + l] & 0x0F) | ((qh[qh_offset + l] & 0x03) << 4)) as i8
+                    - 32;
+
+                // q2: ql[l+32] lower 4 bits + qh[l] bits 2-3
+                let q2 = ((ql[ql_offset + l + 32] & 0x0F)
+                    | (((qh[qh_offset + l] >> 2) & 0x03) << 4)) as i8
+                    - 32;
+
+                // q3: ql[l] upper 4 bits + qh[l] bits 4-5
+                let q3 =
+                    ((ql[ql_offset + l] >> 4) | (((qh[qh_offset + l] >> 4) & 0x03) << 4)) as i8
+                        - 32;
+
+                // q4: ql[l+32] upper 4 bits + qh[l] bits 6-7
+                let q4 = ((ql[ql_offset + l + 32] >> 4) | ((qh[qh_offset + l] >> 6) << 4)) as i8
+                    - 32;
+
+                // Get scales for this group
+                let sc1 = scales[sc_offset + is] as i8 as f64;
+                let sc2 = scales[sc_offset + is + 2] as i8 as f64;
+                let sc3 = scales[sc_offset + is + 4] as i8 as f64;
+                let sc4 = scales[sc_offset + is + 6] as i8 as f64;
+
+                // Store in interleaved pattern: y[l+0], y[l+32], y[l+64], y[l+96]
+                result[block_start + y_offset + l] = d * sc1 * q1 as f64;
+                result[block_start + y_offset + l + 32] = d * sc2 * q2 as f64;
+                result[block_start + y_offset + l + 64] = d * sc3 * q3 as f64;
+                result[block_start + y_offset + l + 96] = d * sc4 * q4 as f64;
+            }
+
+            // Advance pointers (mimic llama.cpp: y += 128, ql += 64, qh += 32, sc += 8)
+            y_offset += 128;
+            ql_offset += 64;
+            qh_offset += 32;
+            sc_offset += 8;
         }
     }
 

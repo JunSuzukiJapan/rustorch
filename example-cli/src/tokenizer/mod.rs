@@ -1,9 +1,11 @@
 pub mod wrapper;
 pub mod gguf_tokenizer;
+pub mod llama_spm;
 
 use anyhow::Result;
 pub use wrapper::TokenizerWrapper;
 pub use gguf_tokenizer::GGUFTokenizer;
+pub use llama_spm::LlamaSpmTokenizer;
 
 /// Tokenizer trait for encoding and decoding text
 pub trait Tokenizer: Send + Sync {

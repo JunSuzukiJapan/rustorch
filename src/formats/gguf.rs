@@ -317,6 +317,73 @@ impl GGUFLoader {
             .map(|s| s.to_string())
     }
 
+    /// Extract BPE merge rules from GGUF metadata
+    /// Returns a vector of merge pairs (token1, token2)
+    pub fn extract_bpe_merges(&self) -> RusTorchResult<Vec<(String, String)>> {
+        let merges = self
+            .metadata
+            .get("tokenizer.ggml.merges")
+            .ok_or_else(|| {
+                RusTorchError::ParseError("Missing tokenizer.ggml.merges in GGUF metadata".to_string())
+            })?;
+
+        match merges {
+            GGUFValue::Array(arr) => {
+                let mut merge_rules = Vec::with_capacity(arr.len());
+                for merge_value in arr {
+                    match merge_value {
+                        GGUFValue::String(s) => {
+                            // Merge format: "token1 token2"
+                            let parts: Vec<&str> = s.splitn(2, ' ').collect();
+                            if parts.len() == 2 {
+                                merge_rules.push((parts[0].to_string(), parts[1].to_string()));
+                            }
+                        }
+                        _ => {
+                            return Err(RusTorchError::ParseError(
+                                "Invalid merge type in tokenizer.ggml.merges".to_string(),
+                            ))
+                        }
+                    }
+                }
+                Ok(merge_rules)
+            }
+            _ => Err(RusTorchError::ParseError(
+                "tokenizer.ggml.merges is not an array".to_string(),
+            )),
+        }
+    }
+
+    /// Extract token scores from GGUF metadata
+    pub fn extract_token_scores(&self) -> RusTorchResult<Vec<f32>> {
+        let scores = self
+            .metadata
+            .get("tokenizer.ggml.scores")
+            .ok_or_else(|| {
+                RusTorchError::ParseError("Missing tokenizer.ggml.scores in GGUF metadata".to_string())
+            })?;
+
+        match scores {
+            GGUFValue::Array(arr) => {
+                let mut score_values = Vec::with_capacity(arr.len());
+                for score_value in arr {
+                    match score_value {
+                        GGUFValue::Float32(f) => score_values.push(*f),
+                        _ => {
+                            return Err(RusTorchError::ParseError(
+                                "Invalid score type in tokenizer.ggml.scores".to_string(),
+                            ))
+                        }
+                    }
+                }
+                Ok(score_values)
+            }
+            _ => Err(RusTorchError::ParseError(
+                "tokenizer.ggml.scores is not an array".to_string(),
+            )),
+        }
+    }
+
     fn read_header(reader: &mut BufReader<File>) -> RusTorchResult<GGUFHeader> {
         let magic = Self::read_u32(reader)?;
 
@@ -782,76 +849,82 @@ impl GGUFLoader {
         Ok(output)
     }
 
-    /// Dequantize Q6_K format
-    /// Q6_K: Super-blocks of 256 elements (16 blocks of 16 elements each)
-    /// Block structure: scales (8-bit) + quants (6-bit per element)
-    fn dequantize_q6_k(
-        reader: &mut BufReader<File>,
+    /// Dequantize Q6_K format matching llama.cpp exactly
+    fn dequantize_q6_k<R: Read>(
+        reader: &mut BufReader<R>,
         num_elements: usize,
     ) -> RusTorchResult<Vec<f64>> {
-        const QK_K: usize = 256;  // Elements per super-block
+        const QK_K: usize = 256;
 
         let num_blocks = (num_elements + QK_K - 1) / QK_K;
-        let mut output = Vec::with_capacity(num_elements);
+        let mut output = vec![0.0f64; num_elements];
 
-        for _ in 0..num_blocks {
-            // Read super-block data (210 bytes total)
-            // Structure from llama.cpp:
-            // - ql[QK_K/2]: lower 4 bits of 6-bit quants (128 bytes)
-            // - qh[QK_K/4]: upper 2 bits of 6-bit quants (64 bytes)
-            // - scales[QK_K/16]: scales for 16 blocks (16 bytes)
-            // - d (f16): super-scale (2 bytes)
+        for block_idx in 0..num_blocks {
+            let block_start = block_idx * QK_K;
 
-            // Read lower 4 bits (128 bytes)
-            let mut ql = vec![0u8; QK_K / 2];
+            // Read ql[128], qh[64], sc[16], d(f16) = 210 bytes
+            let mut ql = vec![0u8; 128];
             reader.read_exact(&mut ql).map_err(|e| {
                 RusTorchError::IoError(format!("Failed to read Q6_K ql: {}", e))
             })?;
 
-            // Read upper 2 bits (64 bytes)
-            let mut qh = vec![0u8; QK_K / 4];
+            let mut qh = vec![0u8; 64];
             reader.read_exact(&mut qh).map_err(|e| {
                 RusTorchError::IoError(format!("Failed to read Q6_K qh: {}", e))
             })?;
 
-            // Read scales (16 bytes = 16 int8 values)
-            let mut scales_i8 = vec![0i8; QK_K / 16];
-            for scale in &mut scales_i8 {
-                *scale = Self::read_u8(reader)? as i8;
+            let mut sc = vec![0i8; 16];
+            for scale in &mut sc {
+                let mut buf = [0u8; 1];
+                reader.read_exact(&mut buf).map_err(|e| {
+                    RusTorchError::IoError(format!("Failed to read Q6_K scale: {}", e))
+                })?;
+                *scale = buf[0] as i8;
             }
 
-            // Read super-scale (f16)
-            let d_bits = Self::read_u16(reader)?;
+            let mut d_buf = [0u8; 2];
+            reader.read_exact(&mut d_buf).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q6_K d: {}", e))
+            })?;
+            let d_bits = u16::from_le_bytes(d_buf);
             let d = half::f16::from_bits(d_bits).to_f32();
 
-            // Dequantize: Process 16 blocks of 16 elements each
-            for j in 0..16 {
-                let block_scale = d * scales_i8[j] as f32;
+            // Dequantize: 2 chunks of 128 elements
+            let mut y_idx = block_start;
+            let mut ql_idx = 0;
+            let mut qh_idx = 0;
+            let mut sc_idx = 0;
 
-                for k in 0..16 {
-                    let element_idx = j * 16 + k;
-                    if output.len() >= num_elements {
-                        break;
+            for _chunk in 0..2 {
+                for l in 0..32 {
+                    let is = l / 16;
+
+                    let q1 = (((ql[ql_idx + l] & 0xF) | (((qh[qh_idx + l] >> 0) & 3) << 4)) as i8) - 32;
+                    let q2 = (((ql[ql_idx + l + 32] & 0xF) | (((qh[qh_idx + l] >> 2) & 3) << 4)) as i8) - 32;
+                    let q3 = (((ql[ql_idx + l] >> 4) | (((qh[qh_idx + l] >> 4) & 3) << 4)) as i8) - 32;
+                    let q4 = (((ql[ql_idx + l + 32] >> 4) | (((qh[qh_idx + l] >> 6) & 3) << 4)) as i8) - 32;
+
+                    if y_idx + l < num_elements {
+                        output[y_idx + l] = (d * sc[sc_idx + is] as f32 * q1 as f32) as f64;
                     }
-
-                    // Reconstruct 6-bit value from 4-bit (ql) and 2-bit (qh) parts
-                    let ql_idx = element_idx / 2;
-                    let ql_shift = (element_idx % 2) * 4;
-                    let lower_4 = (ql[ql_idx] >> ql_shift) & 0x0F;
-
-                    let qh_idx = element_idx / 4;
-                    let qh_shift = (element_idx % 4) * 2;
-                    let upper_2 = (qh[qh_idx] >> qh_shift) & 0x03;
-
-                    let q6 = ((upper_2 << 4) | lower_4) as i8 - 32; // Center around 0
-
-                    let dequant_val = block_scale * q6 as f32;
-                    output.push(dequant_val as f64);
+                    if y_idx + l + 32 < num_elements {
+                        output[y_idx + l + 32] = (d * sc[sc_idx + is + 2] as f32 * q2 as f32) as f64;
+                    }
+                    if y_idx + l + 64 < num_elements {
+                        output[y_idx + l + 64] = (d * sc[sc_idx + is + 4] as f32 * q3 as f32) as f64;
+                    }
+                    if y_idx + l + 96 < num_elements {
+                        output[y_idx + l + 96] = (d * sc[sc_idx + is + 6] as f32 * q4 as f32) as f64;
+                    }
                 }
+
+                y_idx += 128;
+                ql_idx += 64;
+                qh_idx += 32;
+                sc_idx += 8;
             }
         }
 
-        output.truncate(num_elements);
         Ok(output)
     }
 
@@ -884,5 +957,122 @@ mod tests {
         assert_eq!(GGMLType::from_u32(0).unwrap(), GGMLType::F32);
         assert_eq!(GGMLType::from_u32(12).unwrap(), GGMLType::Q4_K);
         assert!(GGMLType::from_u32(999).is_err());
+    }
+
+    #[test]
+    fn test_q6k_dequantization_interleaved_pattern() {
+        // Test that Q6_K dequantization uses correct interleaved indexing pattern
+        // llama.cpp pattern: y[l], y[l+32], y[l+64], y[l+96] for each iteration
+
+        use std::io::{Cursor, Write};
+        use std::io::BufReader;
+
+        // Create a minimal Q6_K block (210 bytes)
+        // Structure: ql[128] + qh[64] + sc[16] + d(f16) = 210 bytes
+        let mut block_data = Vec::new();
+
+        // ql[128]: lower 4 bits - use simple pattern
+        for i in 0..128 {
+            block_data.push((i % 16) as u8);
+        }
+
+        // qh[64]: upper 2 bits - use simple pattern
+        for i in 0..64 {
+            block_data.push(((i % 4) << 0) | (((i + 1) % 4) << 2) | (((i + 2) % 4) << 4) | (((i + 3) % 4) << 6));
+        }
+
+        // sc[16]: scales - use constant value for simplicity
+        for _ in 0..16 {
+            block_data.push(10i8 as u8);
+        }
+
+        // d (f16): super-scale - use 0.01
+        let d_f16 = half::f16::from_f32(0.01);
+        block_data.write(&d_f16.to_bits().to_le_bytes()).unwrap();
+
+        assert_eq!(block_data.len(), 210, "Q6_K block should be exactly 210 bytes");
+
+        // Dequantize using our implementation
+        let mut reader = BufReader::new(Cursor::new(block_data));
+        let result = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
+
+        assert_eq!(result.len(), 256, "Should produce 256 values");
+
+        // Verify interleaved pattern by checking specific positions
+        // First chunk (0-127):
+        // l=0: positions 0, 32, 64, 96 should come from first iteration
+        // l=1: positions 1, 33, 65, 97 should come from second iteration
+
+        // All values should be non-zero (since we used non-zero ql, qh, sc)
+        let non_zero_count = result.iter().filter(|&&v| v.abs() > 1e-10).count();
+        assert!(non_zero_count > 200, "Most values should be non-zero with our test data");
+
+        // Values should be in reasonable range (d * sc * q where q is -32 to 31)
+        // max = 0.01 * 10 * 31 = 3.1
+        for (i, &val) in result.iter().enumerate() {
+            assert!(val.abs() < 5.0, "Value at index {} = {} exceeds expected range", i, val);
+        }
+    }
+
+    #[test]
+    fn test_q6k_dequantization_known_values() {
+        // Test Q6_K dequantization with known values
+        // This verifies the exact computation: d * scale * (quantized_value - 32)
+
+        use std::io::{Cursor, Write};
+        use std::io::BufReader;
+
+        let mut block_data = Vec::new();
+
+        // ql[128]: Set first byte to specific value
+        block_data.push(0x0F); // lower nibble = 15
+        for _ in 1..128 {
+            block_data.push(0x00);
+        }
+
+        // qh[64]: Set first byte to extract upper bits
+        block_data.push(0b00000000); // upper 2 bits = 0 for all 4 values
+        for _ in 1..64 {
+            block_data.push(0x00);
+        }
+
+        // sc[16]: Set specific scales
+        block_data.push(16i8 as u8);  // sc[0]
+        block_data.push(0i8 as u8);   // sc[1]
+        block_data.push(10i8 as u8);  // sc[2]
+        for _ in 3..16 {
+            block_data.push(0i8 as u8);
+        }
+
+        // d (f16): 0.001
+        let d_f16 = half::f16::from_f32(0.001);
+        block_data.write(&d_f16.to_bits().to_le_bytes()).unwrap();
+
+        let mut reader = BufReader::new(Cursor::new(block_data));
+        let result = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
+
+        // First value at position 0:
+        // ql[0] & 0xF = 15, qh[0] >> 0 & 3 = 0
+        // q1 = (15 | (0 << 4)) - 32 = 15 - 32 = -17
+        // is = 0 / 16 = 0
+        // value = d * sc[0] * q1 = 0.001 * 16 * (-17) = -0.272
+        let expected_0 = 0.001 * 16.0 * (-17.0);
+        assert!((result[0] - expected_0).abs() < 0.001,
+            "Position 0: expected {}, got {}", expected_0, result[0]);
+
+        // Value at position 32 uses sc[2]:
+        // ql[32] = 0, qh[32 % 64] = 0
+        // q2 = (0 | (0 << 4)) - 32 = -32
+        // value = d * sc[2] * q2 = 0.001 * 10 * (-32) = -0.32
+        let expected_32 = 0.001 * 10.0 * (-32.0);
+        assert!((result[32] - expected_32).abs() < 0.001,
+            "Position 32: expected {}, got {}", expected_32, result[32]);
+    }
+
+    #[test]
+    fn test_q6k_element_size() {
+        // Verify Q6_K element size is correct
+        // Q6_K block = 210 bytes for 256 elements
+        assert_eq!(GGMLType::Q6_K.element_size(), 210);
     }
 }

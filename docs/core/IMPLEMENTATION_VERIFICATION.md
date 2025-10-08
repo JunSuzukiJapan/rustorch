@@ -503,6 +503,155 @@ However:
 
 ---
 
+---
+
+## 🔴 Issue #2: GGUF Tokenizer Extraction - Incomplete Implementation (2025-10-07 22:00)
+
+**Status**: ⚠️ Feature Incomplete - Basic implementation works but produces wrong tokens
+
+### Problem Summary
+Implemented GGUF-embedded tokenizer extraction to eliminate HuggingFace authentication requirements. However, the tokenizer generates incorrect token IDs, leading to nonsensical model output despite correct model weights and forward pass logic.
+
+### Root Cause
+SentencePiece tokenization requires more than simple longest-match algorithm:
+1. **BPE (Byte-Pair Encoding) merge rules** must be applied in specific order
+2. **Merge sequence** based on `tokenizer.ggml.merges` is essential
+3. **Character-level fallback** for unknown sequences needs proper handling
+
+Current implementation only performs longest-match with space prefix (`▁`) handling, which is insufficient.
+
+### Evidence
+
+**✅ Model Forward Pass is Correct:**
+```rust
+// Manual logit calculation with correct token IDs
+Input: [1, 529, 29989, 1792, 29989, 29958, 13, 5618, 338, 278, 7483, 310, 3444, 29973, 2, ...]
+Token 450: manual=0.47254230, matmul=0.47254187, diff=0.00000044 ✅
+Token 20780: manual=0.59642874, matmul=0.59642714, diff=0.00000159 ✅
+```
+
+**❌ Tokenizer Produces Wrong IDs:**
+```rust
+// Current GGUF tokenizer output
+Input: "What is the capital of France?"
+Generated: [1, 523, 28766, 1838, 28766, 28767, 13, 3195, 349, 272, 5565, 302, 4843, 28804, ...]
+           ^^ ^^^  ^^^^^ ^^^^  ^^^^^ ^^^^^ ^^  ^^^^  ^^^  ^^^  ^^^^  ^^^  ^^^^ ^^^^^
+// Expected (from llama.cpp):
+Expected:  [1, 529, 29989, 1792, 29989, 29958, 13, 5618, 338, 278, 7483, 310, 3444, 29973, ...]
+```
+
+**Result:** Different token IDs → Model generates gibberish despite correct math.
+
+### Implementation Status
+
+✅ **Successfully Extracted from GGUF:**
+- Vocabulary (`tokenizer.ggml.tokens`) - 32000 tokens
+- BPE merge rules (`tokenizer.ggml.merges`)
+- Token scores (`tokenizer.ggml.scores`)
+- Tokenizer model type (llama)
+- Special token IDs (BOS=1, EOS=2)
+
+✅ **Basic Features Working:**
+- Space prefix (`▁`) detection and handling
+- Longest-match greedy search (up to 64 chars)
+- Byte fallback tokens (`<0xXX>`)
+- Special token handling
+
+❌ **Not Implemented:**
+- BPE merge rule application
+- Proper merge sequence ordering
+- Score-based token selection
+
+### Technical Details
+
+**Space Handling Fix Applied:**
+```rust
+// OLD (incorrect):
+if pos == 0 || text_bytes[pos - 1] == b' ' {
+    // Tried space prefix BEFORE consuming space
+}
+
+// NEW (correct):
+if text_bytes[pos] == b' ' {
+    pos += 1;  // Skip space
+    continue;
+}
+let needs_space_prefix = pos == 0 || text_bytes[pos - 1] == b' ';
+```
+
+This fixed the issue of spaces being mapped to incorrect tokens (colon ID 35 appeared 7 times!), but the fundamental BPE algorithm is still missing.
+
+### Why This Matters
+
+**Impact:**
+- Without correct tokenization, ANY model will produce nonsensical output
+- Model math is 100% correct (verified), but wrong input tokens → wrong output
+- Users cannot use Mistral-7B or other models without external tokenizer files
+
+**Severity:** **HIGH** - Blocks usage of non-TinyLlama models
+
+### Next Steps (Options)
+
+**Option 1: Use HuggingFace tokenizers crate (Recommended)**
+- Pros: Battle-tested, supports all SentencePiece features, handles BPE correctly
+- Cons: Requires converting GGUF vocab format to HuggingFace JSON format
+- Effort: Medium (2-4 hours)
+- Risk: Low
+
+**Option 2: Implement Full BPE Algorithm**
+- Pros: Self-contained, no external dependencies, direct GGUF usage
+- Cons: Complex implementation (~500+ lines), high risk of subtle bugs
+- Effort: High (1-2 days)
+- Risk: High
+
+**Option 3: Use External Tokenizer Files**
+- Pros: Works immediately, no changes needed
+- Cons: Requires HuggingFace authentication, defeats purpose of GGUF extraction
+- Effort: Zero (already working)
+- Risk: Zero
+
+**Recommendation:**
+1. Short-term: Document that external tokenizer is required for now (Option 3)
+2. Long-term: Implement Option 1 (HuggingFace tokenizers crate integration)
+
+### Files Modified in This Attempt
+
+```
+src/formats/gguf.rs (lines 281-385)
+  └─ Added: extract_tokenizer_vocab(), extract_bpe_merges(), extract_token_scores()
+
+example-cli/src/tokenizer/gguf_tokenizer.rs (264 lines, complete file)
+  └─ Created: GGUFTokenizer with basic longest-match algorithm
+
+example-cli/src/model/loader.rs (lines 120-161)
+  └─ Modified: Auto-extraction with fallback to external files
+
+docs/core/GGUF_TOKENIZER_EXTRACTION.md
+  └─ Created: Documentation of extraction feature and limitations
+```
+
+### Verification Test
+
+```bash
+# Test with Mistral-7B
+echo "What is the capital of France?" | \
+  ./target/release/rustorch-cli \
+  --model mistral-7b-instruct-v0.2.Q4_K_M.gguf \
+  --backend hybrid-f32 \
+  --max-tokens 20
+
+# Result: Gibberish output (tokenizer issue, not model issue)
+```
+
+### Lessons Learned
+
+1. **Tokenization is harder than it looks** - SentencePiece/BPE is non-trivial
+2. **Test with correct reference** - Need llama.cpp token IDs for comparison
+3. **Don't assume simple = correct** - Longest-match is insufficient for BPE
+4. **Model math ≠ full system** - Perfect math with wrong input = garbage output
+
+---
+
 **Last Updated**: 2025-10-07
 **Verified By**: Comprehensive manual testing and llama.cpp comparison
 **Confidence Level**: 100% (Mathematical proof + empirical verification)

@@ -147,8 +147,11 @@ impl F32LlamaModel {
             for i in 0..(head_dim / 2) {
                 let freq = 1.0 / theta.powf(2.0 * (i as f32) / (head_dim as f32));
                 let angle = (pos as f32) * freq;
-                cos_values.push(angle.cos());
-                sin_values.push(angle.sin());
+                let cos_val = angle.cos();
+                let sin_val = angle.sin();
+
+                cos_values.push(cos_val);
+                sin_values.push(sin_val);
             }
         }
 
@@ -290,6 +293,11 @@ impl F32LlamaModel {
         let mut output = Vec::with_capacity(x_data.len());
 
 
+        // Debug: track first token for detailed analysis
+        use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+        static FIRST_RMSNORM: AtomicBool = AtomicBool::new(true);
+        let is_first = FIRST_RMSNORM.swap(false, AtomicOrdering::SeqCst);
+
         for i in 0..batch_size {
             let start = i * last_dim;
             let end = start + last_dim;
@@ -297,12 +305,31 @@ impl F32LlamaModel {
 
             // Calculate RMS
             let sum_sq: f32 = slice.iter().map(|&v| v * v).sum();
-            let rms = (sum_sq / (last_dim as f32) + eps).sqrt();
+            let mean_sq = sum_sq / (last_dim as f32);
+            let rms = (mean_sq + eps).sqrt();
+
+            // Debug all tokens for first RMSNorm call
+            if is_first {
+                let input_stats = Self::compute_stats(slice);
+                eprintln!("🐛 [RMSNorm DEBUG] Token {}:", i);
+                eprintln!("   Input: rms={:.6}, min={:.6}, max={:.6}", input_stats.rms, input_stats.min, input_stats.max);
+                eprintln!("   sum_sq={:.6}, mean_sq={:.6}, RMS={:.6}", sum_sq, mean_sq, rms);
+            }
 
             // Normalize and scale
             for j in 0..last_dim {
-                let val = (slice[j] / rms) * weight_data[j];
+                let normalized = slice[j] / rms;
+                let val = normalized * weight_data[j];
                 output.push(val);
+            }
+
+            // Debug token output
+            if is_first {
+                let token_start = i * last_dim;
+                let token_output = &output[token_start..output.len()];
+                let output_stats = Self::compute_stats(token_output);
+                eprintln!("   After norm: rms={:.6}, min={:.6}, max={:.6}\n",
+                    output_stats.rms, output_stats.min, output_stats.max);
             }
         }
 
@@ -453,7 +480,19 @@ impl F32LlamaModel {
                 let max_score = scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
                 let exp_scores: Vec<f32> = scores.iter().map(|&s| (s - max_score).exp()).collect();
                 let sum_exp: f32 = exp_scores.iter().sum();
-                let attn_weights: Vec<f32> = exp_scores.iter().map(|&e| e / sum_exp).collect();
+
+                // 安全性チェック: sum_expが0または異常値の場合
+                let attn_weights: Vec<f32> = if sum_exp <= 0.0 || !sum_exp.is_finite() {
+                    eprintln!("⚠️  [ATTENTION WARNING] Invalid sum_exp: {}, max_score: {}, scores_len: {}",
+                        sum_exp, max_score, scores.len());
+                    eprintln!("   First 5 scores: {:?}", &scores[..scores.len().min(5)]);
+                    eprintln!("   First 5 exp_scores: {:?}", &exp_scores[..exp_scores.len().min(5)]);
+                    // Fallback: 均等な重み
+                    let uniform_weight = 1.0 / scores.len() as f32;
+                    vec![uniform_weight; scores.len()]
+                } else {
+                    exp_scores.iter().map(|&e| e / sum_exp).collect()
+                };
 
                 // Weighted sum of values (only up to current_kv_pos due to causal masking)
                 for dim in 0..head_dim {
@@ -524,12 +563,14 @@ impl F32LlamaModel {
         let embedding = embed_data[start..end].to_vec();
 
         // Debug: Show first 10 values of embedding for important tokens
-        // Token 1 (BOS), Token 1724 ("What"), Token 3681 (Paris)
-        if token_id == 1 || token_id == 1724 || token_id == 3681 {
+        // Token 1 (BOS), Token 13 (newline), Token 1724 ("What"), Token 3681 (Paris)
+        if token_id == 1 || token_id == 13 || token_id == 1724 || token_id == 3681 {
             let first_10: Vec<f32> = embedding.iter().take(10).copied().collect();
             let non_zero_count = embedding.iter().filter(|&&x| x.abs() > 1e-8).count();
-            eprintln!("🔍 [GET_EMB] token={} embedding[0..10]={:?} (non_zero={}/{})",
-                token_id, first_10, non_zero_count, embedding.len());
+            let emb_stats = Self::compute_stats(&embedding);
+            eprintln!("🔍 [GET_EMB] token={} embedding[0..10]={:?}", token_id, first_10);
+            eprintln!("           rms={:.6}, min={:.6}, max={:.6} (non_zero={}/{})",
+                emb_stats.rms, emb_stats.min, emb_stats.max, non_zero_count, embedding.len());
         }
 
         Ok(embedding)
@@ -542,6 +583,7 @@ impl F32LlamaModel {
         x: &F32Tensor,
         layer_idx: usize,
         position: usize,
+        debug_layer: bool,
     ) -> F32Result<F32Tensor> {
         let head_dim = self.config.head_dim();
         let num_heads = self.config.num_heads;
@@ -557,6 +599,12 @@ impl F32LlamaModel {
         let o_weight = self.weights.get(&format!("blk.{}.attn_output.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("Output weight not found for layer {}", layer_idx)))?;
 
+        // DEBUG: Check input to attention
+        if layer_idx == 0 {
+            let x_stats = Self::compute_stats(x.as_slice());
+            eprintln!("🔧 [LAYER 0] attention input (after RMSNorm): rms={:.6}, max={:.6}", x_stats.rms, x_stats.max);
+        }
+
         // Linear projections: Q, K, V
         let q = x.matmul(q_weight)?;
         let k = x.matmul(k_weight)?;
@@ -570,6 +618,7 @@ impl F32LlamaModel {
 
         // Get cached K, V
         let cache = &self.kv_cache[layer_idx];
+        // ✅ Re-enable KV cache after position fix
         let cached_k = if cache.cached_len > 0 { Some(cache.keys.as_slice()) } else { None };
         let cached_v = if cache.cached_len > 0 { Some(cache.values.as_slice()) } else { None };
 
@@ -591,14 +640,27 @@ impl F32LlamaModel {
         self.kv_cache[layer_idx].cached_len += seq_len;
 
         // Output projection
+        if layer_idx == 0 {
+            let o_stats = Self::compute_stats(o_weight.as_slice());
+            let attn_out_stats = Self::compute_stats(attn_output.as_slice());
+            eprintln!("🔧 [LAYER 0] attn_output stats (before o_proj): rms={:.6}, max={:.6}", attn_out_stats.rms, attn_out_stats.max);
+            eprintln!("🔧 [LAYER 0] o_weight stats: rms={:.6}, max={:.6}", o_stats.rms, o_stats.max);
+        }
+
         let final_out = attn_output.matmul(o_weight)?;
+
+        if debug_layer {
+            let final_stats = Self::compute_stats(final_out.as_slice());
+            eprintln!("🔧 [LAYER {}] final attention output (after o_proj): rms={:.6}, max={:.6}, mean={:.9}",
+                layer_idx, final_stats.rms, final_stats.max, final_stats.mean);
+        }
 
         Ok(final_out)
     }
 
     /// Llama FFN layer with SwiGLU
     /// SwiGLU活性化関数を使用したLlama FFN層
-    fn ffn_layer(&self, x: &F32Tensor, layer_idx: usize) -> F32Result<F32Tensor> {
+    fn ffn_layer(&self, x: &F32Tensor, layer_idx: usize, debug_layer: bool) -> F32Result<F32Tensor> {
         // Get weights
         let gate_weight = self.weights.get(&format!("blk.{}.ffn_gate.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("Gate weight not found for layer {}", layer_idx)))?;
@@ -607,13 +669,37 @@ impl F32LlamaModel {
         let down_weight = self.weights.get(&format!("blk.{}.ffn_down.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("Down weight not found for layer {}", layer_idx)))?;
 
+        // DEBUG: Check weight statistics
+        if debug_layer {
+            let down_data = down_weight.as_slice();
+            let down_stats = Self::compute_stats(down_data);
+            eprintln!("🔧 [LAYER {}] FFN down_weight stats: rms={:.6}, min={:.6}, max={:.6}, mean={:.9}",
+                layer_idx, down_stats.rms, down_stats.min, down_stats.max, down_stats.mean);
+        }
+
         // FFN with SwiGLU: down(SwiGLU(gate(x), up(x)))
         let gate = x.matmul(gate_weight)?;
         let up = x.matmul(up_weight)?;
 
+        if debug_layer {
+            let gate_stats = Self::compute_stats(gate.as_slice());
+            let up_stats = Self::compute_stats(up.as_slice());
+            eprintln!("🔧 [LAYER {}] gate projection: rms={:.6}, max={:.6}, mean={:.9}", layer_idx, gate_stats.rms, gate_stats.max, gate_stats.mean);
+            eprintln!("🔧 [LAYER {}] up projection: rms={:.6}, max={:.6}, mean={:.9}", layer_idx, up_stats.rms, up_stats.max, up_stats.mean);
+
+            // Also check weight statistics
+            let gate_weight_stats = Self::compute_stats(gate_weight.as_slice());
+            let up_weight_stats = Self::compute_stats(up_weight.as_slice());
+            eprintln!("🔧 [LAYER {}] gate_weight stats: rms={:.6}, mean={:.9}", layer_idx, gate_weight_stats.rms, gate_weight_stats.mean);
+            eprintln!("🔧 [LAYER {}] up_weight stats: rms={:.6}, mean={:.9}", layer_idx, up_weight_stats.rms, up_weight_stats.mean);
+        }
 
         let swiglu_out = self.swiglu(&gate, &up)?;
 
+        if debug_layer {
+            let swiglu_stats = Self::compute_stats(swiglu_out.as_slice());
+            eprintln!("🔧 [LAYER {}] SwiGLU output: rms={:.6}, max={:.6}, mean={:.9}", layer_idx, swiglu_stats.rms, swiglu_stats.max, swiglu_stats.mean);
+        }
 
         let final_out = swiglu_out.matmul(down_weight)?;
 
@@ -654,8 +740,8 @@ impl F32LlamaModel {
         let ffn_norm_weight = self.weights.get(&format!("blk.{}.ffn_norm.weight", layer_idx))
             .ok_or_else(|| F32Error::device_error(format!("FFN norm weight not found for layer {}", layer_idx)))?.clone();
 
-        // Debug logging for selected layers (0, 10, 21)
-        let debug_layer = layer_idx == 0 || layer_idx == 10 || layer_idx == 21;
+        // Debug logging for selected layers (0, 5, 10, 15, 21)
+        let debug_layer = layer_idx == 0 || layer_idx == 5 || layer_idx == 10 || layer_idx == 15 || layer_idx == 21;
 
         if debug_layer {
             let x_slice = x.as_slice();
@@ -665,7 +751,19 @@ impl F32LlamaModel {
         }
 
         // Attention block with residual connection
+        if layer_idx == 0 {
+            let attn_norm_stats = Self::compute_stats(attn_norm_weight.as_slice());
+            let x_stats = Self::compute_stats(x.as_slice());
+            eprintln!("🔧 [LAYER 0] Before attn RMSNorm: input rms={:.6}, max={:.6}", x_stats.rms, x_stats.max);
+            eprintln!("🔧 [LAYER 0] attn_norm.weight stats: rms={:.6}, max={:.6}", attn_norm_stats.rms, attn_norm_stats.max);
+        }
+
         let normed = self.rms_norm(x, &attn_norm_weight)?;
+
+        if layer_idx == 0 {
+            let normed_stats = Self::compute_stats(normed.as_slice());
+            eprintln!("🔧 [LAYER 0] After attn RMSNorm: rms={:.6}, max={:.6}", normed_stats.rms, normed_stats.max);
+        }
 
         if debug_layer {
             let normed_slice = normed.as_slice();
@@ -674,7 +772,7 @@ impl F32LlamaModel {
                 layer_idx, stats.rms, stats.min, stats.max, stats.mean);
         }
 
-        let attn_out = self.attention_layer(&normed, layer_idx, position)?;
+        let attn_out = self.attention_layer(&normed, layer_idx, position, debug_layer)?;
 
         if debug_layer {
             let attn_slice = attn_out.as_slice();
@@ -702,7 +800,7 @@ impl F32LlamaModel {
                 layer_idx, stats.rms, stats.min, stats.max, stats.mean);
         }
 
-        let ffn_out = self.ffn_layer(&normed, layer_idx)?;
+        let ffn_out = self.ffn_layer(&normed, layer_idx, debug_layer)?;
 
         if debug_layer {
             let ffn_slice = ffn_out.as_slice();
@@ -725,7 +823,14 @@ impl F32LlamaModel {
 
     /// Forward pass through Llama model
     /// Llamaモデルのフォワードパス
-    pub fn forward(&mut self, input_ids: &[usize]) -> F32Result<F32Tensor> {
+    ///
+    /// # Arguments
+    /// * `input_ids` - Input token IDs
+    /// * `start_position` - Starting position in the sequence (for RoPE)
+    pub fn forward(&mut self, input_ids: &[usize], start_position: usize) -> F32Result<F32Tensor> {
+        eprintln!("🔍 [FORWARD START] input_ids.len={}, start_position={}", input_ids.len(), start_position);
+        eprintln!("🔍 [INPUT TOKENS] {:?}", input_ids);
+
         if input_ids.is_empty() {
             return Err(F32Error::device_error("Empty input_ids"));
         }
@@ -755,8 +860,8 @@ impl F32LlamaModel {
             }
         }
 
-        // Get current position from first layer's cache (all layers should have same length)
-        let current_position = self.kv_cache[0].cached_len;
+        // ✅ FIX: Use explicit start_position parameter instead of KV cache length
+        let current_position = start_position;
 
         // DEBUG: Log position for first 3 forward calls
         {
@@ -781,14 +886,25 @@ impl F32LlamaModel {
             }
         }
 
+        eprintln!("🔍 [BEFORE FINAL NORM] seq_len={}", seq_len);
+
         // Final RMSNorm
         let output_norm_weight = self.weights.get("output_norm.weight")
             .or_else(|| self.weights.get("model.norm.weight"))
             .or_else(|| self.weights.get("norm.weight"))
             .ok_or_else(|| F32Error::device_error("Output norm weight not found"))?;
 
+        eprintln!("🔍 [FOUND OUTPUT NORM WEIGHT]");
         let normed = self.rms_norm(&x, output_norm_weight)?;
+        eprintln!("🔍 [AFTER RMS_NORM]");
 
+        // DEBUG: Always check final normalized hidden state for last token
+        let normed_slice = normed.as_slice();
+        let last_token_start = (seq_len - 1) * hidden_size;
+        let last_token_normed = &normed_slice[last_token_start..];
+        let stats = Self::compute_stats(last_token_normed);
+        eprintln!("🔍 [FINAL NORM] After output_norm (last token): rms={:.6}, min={:.6}, max={:.6}, mean={:.6}",
+            stats.rms, stats.min, stats.max, stats.mean);
 
         // LM head (project to vocabulary)
         let (lm_head_weight, weight_source) = if let Some(w) = self.weights.get("output.weight") {
@@ -1187,9 +1303,12 @@ impl F32LlamaModel {
         let mut generated_tokens = Vec::new();
         let mut current_tokens = tokens_usize.clone();
 
-        for _ in 0..max_tokens {
+        for step in 0..max_tokens {
+            // Calculate position for this step
+            let start_position = current_tokens.len().saturating_sub(1);
+
             // Forward pass
-            let logits = self.forward(&current_tokens)?;
+            let logits = self.forward(&current_tokens, start_position)?;
 
             // Get last token logits (vocab_size)
             let vocab_size = self.config.vocab_size;

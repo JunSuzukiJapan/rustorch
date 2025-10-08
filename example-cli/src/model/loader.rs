@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use super::format_loader::FormatLoader;
 use super::loaders::{GGUFFormatLoader, MLXFormatLoader, SafetensorsFormatLoader};
 use super::{ModelFormat, ModelMetadata};
-use crate::tokenizer::{Tokenizer, TokenizerWrapper, GGUFTokenizer};
+use crate::tokenizer::{Tokenizer, TokenizerWrapper, GGUFTokenizer, LlamaSpmTokenizer};
 
 pub struct ModelLoader {
     path: PathBuf,
@@ -123,6 +123,7 @@ impl ModelLoader {
             tracing::info!("🔍 Attempting to extract tokenizer from GGUF file...");
             match rustorch::formats::gguf::GGUFLoader::from_file(path) {
                 Ok(gguf) => {
+                    // Try to extract vocabulary
                     match gguf.extract_tokenizer_vocab() {
                         Ok(vocab) => {
                             tracing::info!("✅ Extracted {} tokens from GGUF file", vocab.len());
@@ -130,7 +131,42 @@ impl ModelLoader {
                             if let Some(model_type) = tokenizer_model {
                                 tracing::info!("📝 Tokenizer model type: {}", model_type);
                             }
-                            return Ok(Box::new(GGUFTokenizer::new(vocab)));
+
+                            // Try to extract BPE merge rules
+                            match gguf.extract_bpe_merges() {
+                                Ok(merges) => {
+                                    tracing::info!("✅ Extracted {} BPE merge rules from GGUF", merges.len());
+
+                                    // Use llama.cpp-compatible SPM tokenizer
+                                    match LlamaSpmTokenizer::new(vocab.clone(), merges.clone()) {
+                                        Ok(tokenizer) => {
+                                            tracing::info!("✅ Successfully created llama.cpp-compatible SPM tokenizer");
+                                            return Ok(Box::new(tokenizer));
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!("⚠️  Failed to create SPM tokenizer: {}", e);
+
+                                            // Fallback to HuggingFace BPE tokenizer
+                                            match GGUFTokenizer::from_gguf(vocab.clone(), merges) {
+                                                Ok(tokenizer) => {
+                                                    tracing::info!("✅ Using HuggingFace BPE tokenizer as fallback");
+                                                    return Ok(Box::new(tokenizer));
+                                                }
+                                                Err(e2) => {
+                                                    tracing::warn!("⚠️  Failed to create HuggingFace tokenizer: {}", e2);
+                                                    // Ultimate fallback to vocab-only
+                                                    return Ok(Box::new(GGUFTokenizer::new(vocab)));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!("⚠️  Failed to extract merge rules: {}", e);
+                                    tracing::info!("Using vocab-only tokenizer (may produce incorrect tokens)");
+                                    return Ok(Box::new(GGUFTokenizer::new(vocab)));
+                                }
+                            }
                         }
                         Err(e) => {
                             tracing::warn!("⚠️  Failed to extract tokenizer from GGUF: {}", e);
