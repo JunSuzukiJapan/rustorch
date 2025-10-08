@@ -181,8 +181,8 @@ pub fn apply_top_k_to_probs(probs: &[f64], k: usize) -> Result<Vec<f64>> {
     // Create indices with probabilities
     let mut indexed: Vec<(usize, f64)> = probs.iter().enumerate().map(|(i, &p)| (i, p)).collect();
 
-    // Sort by probability (descending)
-    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+    // Sort by probability (descending), handle NaN by treating as 0.0
+    indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
 
     // Keep only top-k, zero out the rest
     let mut filtered = vec![0.0; probs.len()];

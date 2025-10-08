@@ -663,6 +663,79 @@ impl MetalKernelExecutor {
         Ok(())
     }
 
+    /// Execute element-wise multiplication using Metal Performance Shaders
+    /// Metal Performance Shadersを使用して要素ごと乗算を実行
+    pub fn elementwise_mul_f32(&self, a: &[f32], b: &[f32], c: &mut [f32]) -> RusTorchResult<()> {
+        let size = a.len();
+        if b.len() != size || c.len() != size {
+            return Err(RusTorchError::InvalidOperation(
+                "Array size mismatch in element-wise multiplication".to_string(),
+            ));
+        }
+
+        // Create Metal buffers
+        let a_buffer = self.device.new_buffer_with_data(
+            a.as_ptr() as *const c_void,
+            (size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        let b_buffer = self.device.new_buffer_with_data(
+            b.as_ptr() as *const c_void,
+            (size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        let c_buffer = self.device.new_buffer(
+            (size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        // Get pipeline state for element-wise multiplication
+        // Note: We need a separate pipeline for elementwise_mul_f32 kernel
+        let function_name = "elementwise_mul_f32";
+        let function = self.library.get_function(function_name, None).map_err(|e| {
+            RusTorchError::KernelError(format!("Failed to get function {}: {:?}", function_name, e))
+        })?;
+
+        let pipeline_descriptor = metal::ComputePipelineDescriptor::new();
+        pipeline_descriptor.set_compute_function(Some(&function));
+
+        let pipeline_state = self
+            .device
+            .new_compute_pipeline_state(&pipeline_descriptor)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create pipeline: {}", e))
+            })?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let compute_encoder = command_buffer.new_compute_command_encoder();
+
+        compute_encoder.set_compute_pipeline_state(&pipeline_state);
+        compute_encoder.set_buffer(0, Some(&a_buffer), 0);
+        compute_encoder.set_buffer(1, Some(&b_buffer), 0);
+        compute_encoder.set_buffer(2, Some(&c_buffer), 0);
+
+        // Calculate thread configuration
+        let threads_per_threadgroup = MTLSize::new(256, 1, 1);
+        let threadgroups_per_grid = MTLSize::new(((size + 255) / 256) as u64, 1, 1);
+
+        compute_encoder.dispatch_thread_groups(threadgroups_per_grid, threads_per_threadgroup);
+        compute_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = c_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, c.as_mut_ptr(), size);
+        }
+
+        Ok(())
+    }
+
     /// Execute tiled matrix multiplication using Metal for large matrices
     /// 大行列に対してMetalを使用してタイル化行列乗算を実行
     pub fn tiled_matmul_f32(
