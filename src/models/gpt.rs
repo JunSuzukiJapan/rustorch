@@ -384,11 +384,17 @@ impl GPTModel {
     /// For development/testing, uses only first 2 layers by default.
     /// Use `forward_with_layers(input_ids, None)` for full model inference.
     pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
+        // Default: start at position 0 for backward compatibility
+        self.forward_with_position(input_ids, 0)
+    }
+
+    /// Forward pass with explicit position tracking
+    /// 明示的な位置追跡付きフォワードパス
+    pub fn forward_with_position(&self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
         // Route to Metal or CPU implementation based on backend
         #[cfg(feature = "metal")]
         if self.has_metal && self.device_type == DeviceType::Metal {
-            // For single forward pass, start at position 0
-            return self.forward_metal(input_ids, 0);
+            return self.forward_metal(input_ids, start_position);
         }
 
         // CPU fallback
