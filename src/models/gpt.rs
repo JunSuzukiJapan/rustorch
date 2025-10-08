@@ -387,7 +387,8 @@ impl GPTModel {
         // Route to Metal or CPU implementation based on backend
         #[cfg(feature = "metal")]
         if self.has_metal && self.device_type == DeviceType::Metal {
-            return self.forward_metal(input_ids);
+            // For single forward pass, start at position 0
+            return self.forward_metal(input_ids, 0);
         }
 
         // CPU fallback
@@ -396,10 +397,10 @@ impl GPTModel {
         self.forward_with_layers(input_ids, max_layers)
     }
 
-    /// Metal GPU-accelerated forward pass
-    /// Metal GPU加速フォワードパス
+    /// Metal GPU-accelerated forward pass with position tracking
+    /// Metal GPU加速フォワードパス（位置追跡付き）
     #[cfg(feature = "metal")]
-    fn forward_metal(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
+    fn forward_metal(&self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
         use crate::gpu::metal_kernels::MetalKernelExecutor;
 
         // Debug output controlled by RUSTORCH_DEBUG environment variable
@@ -553,9 +554,8 @@ impl GPTModel {
 
         // 1.5 Apply RoPE to Q and K projections
         if debug {
-            eprintln!("       - Apply RoPE (position=0)");
+            eprintln!("       - Apply RoPE (position={})", start_position);
         }
-        let start_position = 0; // TODO: Track position for multi-token generation
         let q_proj = self.apply_rope(&q_proj, seq_len, num_q_heads, head_dim, start_position);
         let k_proj = self.apply_rope(&k_proj, seq_len, num_kv_heads, head_dim, start_position);
 
