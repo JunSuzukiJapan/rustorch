@@ -487,20 +487,9 @@ impl GPTModel {
         // Convert gamma weights to f32
         let ln1_gamma_f32: Vec<f32> = ln1_weight.data.iter().map(|&v| v as f32).collect();
 
-        // Beta is typically zero for GPT layer norm (affine=False style)
-        let ln1_beta_f32 = vec![0.0f32; d_model];
-
+        // Use RMS Norm instead of Layer Norm (TinyLlama uses RMS Norm with eps=1e-5)
         let mut x_ln1 = vec![0.0f32; x_f32.len()];
-        executor.layer_norm_f32(
-            &x_f32,
-            &mut x_ln1,
-            &ln1_gamma_f32,
-            &ln1_beta_f32,
-            batch_size,
-            seq_len,
-            d_model,
-            1e-5
-        )?;
+        Self::rms_norm_f32(&x_f32, &ln1_gamma_f32, &mut x_ln1, seq_len, d_model, 1e-5);
 
         if debug {
             eprintln!("     ✓ Layer Norm 1 complete");
@@ -641,19 +630,10 @@ impl GPTModel {
         let ln2_weight = self.weights.get(&ln2_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Layer norm weight not found: {}", ln2_key)))?;
         let ln2_gamma_f32: Vec<f32> = ln2_weight.data.iter().map(|&v| v as f32).collect();
-        let ln2_beta_f32 = vec![0.0f32; d_model];
 
+        // Use RMS Norm instead of Layer Norm
         let mut x_ln2 = vec![0.0f32; x_residual1.len()];
-        executor.layer_norm_f32(
-            &x_residual1,
-            &mut x_ln2,
-            &ln2_gamma_f32,
-            &ln2_beta_f32,
-            batch_size,
-            seq_len,
-            d_model,
-            1e-5
-        )?;
+        Self::rms_norm_f32(&x_residual1, &ln2_gamma_f32, &mut x_ln2, seq_len, d_model, 1e-5);
         if debug {
             eprintln!("     ✓ Layer Norm 2 complete");
         }
@@ -763,21 +743,12 @@ impl GPTModel {
             .ok_or_else(|| RusTorchError::tensor_op(format!("Output norm weight not found: {}", output_norm_key)))?;
 
         let output_norm_gamma_f32: Vec<f32> = output_norm_weight.data.iter().map(|&v| v as f32).collect();
-        let output_norm_beta_f32 = vec![0.0f32; d_model];
 
+        // Use RMS Norm instead of Layer Norm
         let mut x_final_norm = vec![0.0f32; x_f32.len()];
-        executor.layer_norm_f32(
-            &x_f32,
-            &mut x_final_norm,
-            &output_norm_gamma_f32,
-            &output_norm_beta_f32,
-            batch_size,
-            seq_len,
-            d_model,
-            1e-5
-        )?;
+        Self::rms_norm_f32(&x_f32, &output_norm_gamma_f32, &mut x_final_norm, seq_len, d_model, 1e-5);
         if debug {
-            eprintln!("   ✓ Final Layer Norm complete");
+            eprintln!("   ✓ Final RMS Norm complete");
         }
 
         // Convert back to f64 and create tensor
@@ -854,6 +825,32 @@ impl GPTModel {
 
     /// Repeat KV heads for Grouped Query Attention
     /// Repeats each KV head (num_q_heads / num_kv_heads) times
+    /// RMS Norm (Root Mean Square Layer Normalization) - CPU implementation
+    /// RMSノルム（二乗平均平方根正規化）- CPU実装
+    #[cfg(feature = "metal")]
+    fn rms_norm_f32(
+        input: &[f32],
+        weight: &[f32],
+        output: &mut [f32],
+        seq_len: usize,
+        hidden_size: usize,
+        eps: f32,
+    ) {
+        for seq_idx in 0..seq_len {
+            let offset = seq_idx * hidden_size;
+            let row = &input[offset..offset + hidden_size];
+
+            // Compute RMS (Root Mean Square)
+            let rms: f32 = row.iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
+            let rms = (rms + eps).sqrt();
+
+            // Normalize and scale with weight
+            for i in 0..hidden_size {
+                output[offset + i] = (row[i] / rms) * weight[i];
+            }
+        }
+    }
+
     /// Apply RoPE (Rotary Position Embedding) to Q or K projections
     /// RoPE（回転位置埋め込み）をQ/K投影に適用
     #[cfg(feature = "metal")]
