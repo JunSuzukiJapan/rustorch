@@ -1,7 +1,65 @@
 # Metal Integration Status Report
 生成日時: 2025-10-08
+最終更新: 2025-10-08 17:20 (Phase 2B.3完了)
 
-## 🎯 Phase 1完了: Metal Build & Backend Setup
+## 🎉 Phase 2B.3完了: Transformer Block with FFN
+
+### ✅ 最新の達成事項 (2025-10-08)
+
+**Phase 2B.1**: Metal Matmul Test ✅
+- Metal matmul 2×3 @ 3×2 = 2×2 成功
+- Tensor<f64> ↔ Vec<f32> 変換実装
+- 結果検証: [22, 28], [49, 64] ✅
+- Commit: `8fd8e324f`
+
+**Phase 2B.2**: Embedding + Layer Normalization ✅
+- GGUF量子化weightsからのembedding lookup実装
+- Metal layer_norm_f32統合成功
+- [2048, 32000] tensor shape対応
+- Commit: `4cafafaf0`
+
+**Phase 2B.3**: Transformer Block with FFN ✅
+- Residual connections (Metal elementwise_add) 実装
+- Layer Norm 2 (pre-FFN) 実装
+- Feed-Forward Network構造実装
+- GELU activation (Metal GPU) 実装
+- End-to-end token generation 成功: "ach" (token 496)
+- Commit: `4678fb86a`
+
+### 🔧 現在の Metal GPU処理フロー
+
+```
+Input tokens
+  ↓
+Embedding lookup (CPU - 量子化weights)
+  ↓
+Layer Norm 1 (Metal GPU) ✅
+  ↓
+Skip Attention (identity)
+  ↓
+Residual Connection 1 (Metal GPU) ✅
+  ↓
+Layer Norm 2 (Metal GPU) ✅
+  ↓
+Feed-Forward Network:
+  - Gate projection (simplified)
+  - GELU activation (Metal GPU) ✅
+  ↓
+Residual Connection 2 (Metal GPU) ✅
+  ↓
+Output tokens ✅
+```
+
+### 📊 Metal Operations 実装状況
+
+| Operation | Status | Used In | Notes |
+|-----------|--------|---------|-------|
+| matmul_f32 | ✅ Tested | Phase 2B.1 | Works correctly |
+| layer_norm_f32 | ✅ Active | Layers 1 & 2 | Full integration |
+| elementwise_add_f32 | ✅ Active | Residual connections | 2 instances |
+| gelu_f32 | ✅ Active | FFN activation | Working |
+
+### 🎯 Phase 1完了: Metal Build & Backend Setup
 
 ### ✅ 達成事項
 
