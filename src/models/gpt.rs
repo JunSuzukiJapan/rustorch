@@ -419,7 +419,10 @@ impl GPTModel {
         let num_layers = self.config.num_layers;
 
         if debug {
-            eprintln!("   🔄 Processing {} transformer layers", num_layers);
+            eprintln!("   🔄 Processing {} transformer layers (seq_len={})", num_layers, seq_len);
+            eprintln!("   📊 Memory estimate: attn_scores={}KB, embedding={}KB",
+                      (seq_len * seq_len * 4) / 1024,
+                      (seq_len * d_model * 4) / 1024);
         }
 
         for layer_idx in 0..num_layers {

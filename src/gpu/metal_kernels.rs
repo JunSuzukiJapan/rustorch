@@ -787,10 +787,10 @@ impl MetalKernelExecutor {
             MTLResourceOptions::StorageModeShared,
         );
 
-        // Get tiled pipeline state
+        // Get tiled pipeline state (use MatMul kernel for tiled version)
         let pipeline_state = self
             .pipeline_states
-            .get(&MetalKernelType::Convolution)
+            .get(&MetalKernelType::MatMul)
             .ok_or_else(|| {
                 RusTorchError::KernelError("Tiled MatMul pipeline not found".to_string())
             })?;
