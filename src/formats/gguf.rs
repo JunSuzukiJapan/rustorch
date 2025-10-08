@@ -673,10 +673,20 @@ impl GGUFLoader {
                 // Block size: 144 bytes per super-block
                 Self::dequantize_q4_k(&mut reader, num_elements)?
             }
+            GGMLType::Q5_K => {
+                // Q5_K: Super-blocks of 256 elements
+                // Block size: 176 bytes per super-block
+                Self::dequantize_q5_k(&mut reader, num_elements)?
+            }
             GGMLType::Q6_K => {
                 // Q6_K: Super-blocks of 256 elements (16 blocks of 16)
                 // Block size: 210 bytes per super-block
                 Self::dequantize_q6_k(&mut reader, num_elements)?
+            }
+            GGMLType::Q8_0 => {
+                // Q8_0: Blocks of 32 elements
+                // Block size: 34 bytes (2 bytes scale + 32 bytes quantized)
+                Self::dequantize_q8_0(&mut reader, num_elements)?
             }
             _ => {
                 return Err(RusTorchError::ParseError(format!(
@@ -743,6 +753,46 @@ impl GGUFLoader {
         }
 
         // Trim to exact size
+        output.truncate(num_elements);
+        Ok(output)
+    }
+
+    /// Dequantize Q8_0 format
+    /// Q8_0: Blocks of 32 elements, 8-bit quantization
+    /// Block structure: scale (f16) + quants (32 bytes of 8-bit signed values)
+    fn dequantize_q8_0(
+        reader: &mut BufReader<File>,
+        num_elements: usize,
+    ) -> RusTorchResult<Vec<f64>> {
+        const QK: usize = 32; // Elements per block
+
+        let num_blocks = (num_elements + QK - 1) / QK;
+        let mut output = Vec::with_capacity(num_elements);
+
+        for _ in 0..num_blocks {
+            // Read scale (f16, 2 bytes)
+            let scale_bits = Self::read_u16(reader)?;
+            let scale = half::f16::from_bits(scale_bits).to_f32();
+
+            // Read 32 quantized 8-bit signed values
+            let mut quants = [0i8; QK];
+            for q in &mut quants {
+                let mut buf = [0u8; 1];
+                reader.read_exact(&mut buf).map_err(|e| {
+                    RusTorchError::IoError(format!("Failed to read Q8_0 quant: {}", e))
+                })?;
+                *q = buf[0] as i8;
+            }
+
+            // Dequantize: value = scale * quant
+            for &q in &quants {
+                if output.len() >= num_elements {
+                    break;
+                }
+                output.push((scale * q as f32) as f64);
+            }
+        }
+
         output.truncate(num_elements);
         Ok(output)
     }
@@ -840,6 +890,102 @@ impl GGUFLoader {
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }
                     let q_val = qs[q_offset + l] >> 4;
+                    output.push((d2 * q_val as f32 - m2) as f64);
+                }
+            }
+        }
+
+        output.truncate(num_elements);
+        Ok(output)
+    }
+
+    /// Dequantize Q5_K format matching llama.cpp
+    /// Q5_K: Super-blocks of 256 elements
+    /// Block structure: d(f16), dmin(f16), scales[12], qh[32], qs[128] = 176 bytes
+    fn dequantize_q5_k(
+        reader: &mut BufReader<File>,
+        num_elements: usize,
+    ) -> RusTorchResult<Vec<f64>> {
+        const QK_K: usize = 256;
+        const K_SCALE_SIZE: usize = 12;
+
+        let num_blocks = (num_elements + QK_K - 1) / QK_K;
+        let mut output = Vec::with_capacity(num_elements);
+
+        for _ in 0..num_blocks {
+            // Read super-scale and super-min (f16 each)
+            let d_bits = Self::read_u16(reader)?;
+            let dmin_bits = Self::read_u16(reader)?;
+            let d = half::f16::from_bits(d_bits).to_f32();
+            let dmin = half::f16::from_bits(dmin_bits).to_f32();
+
+            // Read quantized scales (12 bytes)
+            let mut scales = [0u8; K_SCALE_SIZE];
+            reader.read_exact(&mut scales).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q5_K scales: {}", e))
+            })?;
+
+            // Read high bits (32 bytes)
+            let mut qh = [0u8; QK_K / 8];
+            reader.read_exact(&mut qh).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q5_K qh: {}", e))
+            })?;
+
+            // Read quantized values (128 bytes = 256 nibbles)
+            let mut qs = vec![0u8; QK_K / 2];
+            reader.read_exact(&mut qs).map_err(|e| {
+                RusTorchError::IoError(format!("Failed to read Q5_K quants: {}", e))
+            })?;
+
+            // Dequantize: Process in pairs (64 elements at a time)
+            for pair in 0..4 {
+                let j1 = pair * 2;
+                let j2 = pair * 2 + 1;
+                let q_offset = pair * 32;
+
+                // Get scale/min for both blocks
+                let (scale1, min1) = if j1 < 4 {
+                    let sc = scales[j1] & 63;
+                    let mn = scales[j1 + 4] & 63;
+                    (sc as f32, mn as f32)
+                } else {
+                    let sc = (scales[j1 + 4] & 0x0F) | ((scales[j1 - 4] >> 6) << 4);
+                    let mn = (scales[j1 + 4] >> 4) | ((scales[j1] >> 6) << 4);
+                    (sc as f32, mn as f32)
+                };
+
+                let (scale2, min2) = if j2 < 4 {
+                    let sc = scales[j2] & 63;
+                    let mn = scales[j2 + 4] & 63;
+                    (sc as f32, mn as f32)
+                } else {
+                    let sc = (scales[j2 + 4] & 0x0F) | ((scales[j2 - 4] >> 6) << 4);
+                    let mn = (scales[j2 + 4] >> 4) | ((scales[j2] >> 6) << 4);
+                    (sc as f32, mn as f32)
+                };
+
+                let d1 = d * scale1;
+                let m1 = dmin * min1;
+                let d2 = d * scale2;
+                let m2 = dmin * min2;
+
+                // Process 32 lower nibbles + high bit (block 1)
+                for l in 0..32 {
+                    if output.len() >= num_elements { break; }
+                    let q_low = qs[q_offset + l] & 0x0F;
+                    let qh_byte = qh[l];
+                    let q_high = (qh_byte >> j1) & 1;
+                    let q_val = q_low | (q_high << 4);
+                    output.push((d1 * q_val as f32 - m1) as f64);
+                }
+
+                // Process 32 upper nibbles + high bit (block 2)
+                for l in 0..32 {
+                    if output.len() >= num_elements { break; }
+                    let q_low = qs[q_offset + l] >> 4;
+                    let qh_byte = qh[l];
+                    let q_high = (qh_byte >> j2) & 1;
+                    let q_val = q_low | (q_high << 4);
                     output.push((d2 * q_val as f32 - m2) as f64);
                 }
             }
