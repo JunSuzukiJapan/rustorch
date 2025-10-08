@@ -89,9 +89,14 @@ impl LlamaSpmTokenizer {
             return vec![];
         }
 
+        // Step 0: Preprocess text (SentencePiece style)
+        // - Add ▁ at the beginning
+        // - Replace spaces with ▁
+        let preprocessed = format!("▁{}", text.replace(' ', "▁"));
+
         // Step 1: Split into UTF-8 characters
         let mut symbols = Vec::new();
-        let chars: Vec<char> = text.chars().collect();
+        let chars: Vec<char> = preprocessed.chars().collect();
 
         for (i, ch) in chars.iter().enumerate() {
             symbols.push(Symbol {
