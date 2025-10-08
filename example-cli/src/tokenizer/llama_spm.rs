@@ -90,9 +90,19 @@ impl LlamaSpmTokenizer {
         }
 
         // Step 0: Preprocess text (SentencePiece style)
-        // - Add ▁ at the beginning
-        // - Replace spaces with ▁
-        let preprocessed = format!("▁{}", text.replace(' ', "▁"));
+        // - Replace all whitespace characters (space, newline, tab, etc.) with ▁
+        // - Add ▁ at the beginning if not already present
+        let preprocessed = text
+            .chars()
+            .map(|c| if c.is_whitespace() { '▁' } else { c })
+            .collect::<String>();
+
+        // Ensure it starts with ▁ (don't duplicate if already there)
+        let preprocessed = if preprocessed.starts_with('▁') {
+            preprocessed
+        } else {
+            format!("▁{}", preprocessed)
+        };
 
         // Step 1: Split into UTF-8 characters
         let mut symbols = Vec::new();
