@@ -353,7 +353,6 @@ impl GPTModel {
         use crate::gpu::metal_kernels::MetalKernelExecutor;
 
         eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
-        eprintln!("   Phase 2B.2: Integrating Metal operations into forward pass");
 
         // Get Metal executor
         let executor_mutex = MetalKernelExecutor::get()?;
@@ -366,15 +365,9 @@ impl GPTModel {
         let d_model = self.config.d_model;
 
         // 1. Token Embedding Lookup (CPU for now - embeddings are quantized)
-        eprintln!("   → Embedding lookup (CPU)");
         let token_emb_key = "token_embd.weight";
         let token_emb_tensor = self.weights.get(token_emb_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Token embedding not found: {}", token_emb_key)))?;
-
-        // Debug: print embedding tensor shape
-        eprintln!("     Embedding tensor shape: {:?}, len: {}",
-            token_emb_tensor.data.shape(), token_emb_tensor.data.len());
-        eprintln!("     Input token IDs: {:?}", input_ids);
 
         // Perform embedding lookup - need to handle ndarray shape
         // Note: GGUF embeddings are stored as [d_model, vocab_size] - transposed!
@@ -382,8 +375,6 @@ impl GPTModel {
         let emb_shape = token_emb_tensor.data.shape();
         let emb_dim0 = emb_shape[0];
         let emb_dim1 = emb_shape[1];
-
-        eprintln!("     Embedding matrix: dim0={}, dim1={}", emb_dim0, emb_dim1);
 
         // Shape is [d_model, vocab_size], so we access [dim_idx, token_id]
         for &token_id in input_ids {
@@ -418,11 +409,9 @@ impl GPTModel {
         let mut x_f32: Vec<f32> = embedding_data.iter().map(|&v| v as f32).collect();
 
         // 2. Process through one Transformer layer with Metal
-        eprintln!("   → Processing layer 0 with Metal GPU");
         let layer_idx = 0;
 
         // Layer Norm 1 (Pre-Attention) - Metal
-        eprintln!("     • Layer Norm 1 (Metal)");
         let ln1_key = format!("blk.{}.attn_norm.weight", layer_idx);
         let ln1_weight = self.weights.get(&ln1_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Layer norm weight not found: {}", ln1_key)))?;
