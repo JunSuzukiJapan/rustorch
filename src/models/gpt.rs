@@ -488,29 +488,44 @@ impl GPTModel {
         if debug {
             eprintln!("       - Q, K, V projections");
         }
+
+        // For GQA: K/V projections are smaller (num_kv_heads * head_dim)
+        let num_kv_heads = self.config.num_kv_heads;
+        let num_q_heads = self.config.num_heads;
+        let head_dim = d_model / num_q_heads;
+        let kv_dim = num_kv_heads * head_dim;
+
         let mut q_proj = vec![0.0f32; seq_len * d_model];
-        let mut k_proj = vec![0.0f32; seq_len * d_model];
-        let mut v_proj = vec![0.0f32; seq_len * d_model];
+        let mut k_proj = vec![0.0f32; seq_len * kv_dim];
+        let mut v_proj = vec![0.0f32; seq_len * kv_dim];
 
         executor.matmul_f32(&x_ln1, &q_weight_f32, &mut q_proj, seq_len, d_model, d_model)?;
-        executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, d_model, d_model)?;
-        executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, d_model, d_model)?;
+        executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
+        executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
 
-        // 2. Transpose K for attention scores: K^T
+        // 2. Repeat KV heads to match Q heads for simplified GQA
+        // K/V: [seq_len, kv_dim=256] -> [seq_len, d_model=2048]
+        if debug {
+            eprintln!("       - Repeat KV heads ({} -> {})", kv_dim, d_model);
+        }
+        let k_expanded = Self::repeat_kv_heads(&k_proj, seq_len, num_kv_heads, num_q_heads, head_dim);
+        let v_expanded = Self::repeat_kv_heads(&v_proj, seq_len, num_kv_heads, num_q_heads, head_dim);
+
+        // 3. Transpose K for attention scores: K^T
         if debug {
             eprintln!("       - Transpose K");
         }
-        let k_transposed = Self::transpose_2d_f32(&k_proj, seq_len, d_model);
+        let k_transposed = Self::transpose_2d_f32(&k_expanded, seq_len, d_model);
 
-        // 3. Attention scores: Q @ K^T (Metal GPU)
+        // 4. Attention scores: Q @ K^T (Metal GPU)
         if debug {
             eprintln!("       - Attention scores: Q @ K^T");
         }
         let mut attn_scores = vec![0.0f32; seq_len * seq_len];
         executor.matmul_f32(&q_proj, &k_transposed, &mut attn_scores, seq_len, seq_len, d_model)?;
 
-        // 4. Scale by 1/sqrt(d_model)
-        let scale = 1.0 / (d_model as f32).sqrt();
+        // 4. Scale by 1/sqrt(head_dim) for GQA
+        let scale = 1.0 / (head_dim as f32).sqrt();
         for score in &mut attn_scores {
             *score *= scale;
         }
@@ -526,7 +541,7 @@ impl GPTModel {
             eprintln!("       - Apply attention to V");
         }
         let mut attn_output = vec![0.0f32; seq_len * d_model];
-        executor.matmul_f32(&attn_scores, &v_proj, &mut attn_output, seq_len, d_model, seq_len)?;
+        executor.matmul_f32(&attn_scores, &v_expanded, &mut attn_output, seq_len, d_model, seq_len)?;
 
         // 7. Output projection (Metal GPU)
         if debug {

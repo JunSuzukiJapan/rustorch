@@ -749,6 +749,29 @@ impl MetalKernelExecutor {
     ) -> RusTorchResult<()> {
         const TILE_SIZE: usize = 16; // Optimized for Vega 56
 
+        // Debug: Log tiled matmul parameters
+        if std::env::var("RUSTORCH_DEBUG").is_ok() {
+            eprintln!("🔧 [TILED MATMUL] m={}, n={}, k={}, a.len()={}, b.len()={}, c.len()={}",
+                      m, n, k, a.len(), b.len(), c.len());
+        }
+
+        // Validate buffer sizes
+        if a.len() != m * k {
+            return Err(RusTorchError::InvalidOperation(
+                format!("Matrix A size mismatch: expected {}, got {}", m * k, a.len())
+            ));
+        }
+        if b.len() != k * n {
+            return Err(RusTorchError::InvalidOperation(
+                format!("Matrix B size mismatch: expected {}, got {}", k * n, b.len())
+            ));
+        }
+        if c.len() != m * n {
+            return Err(RusTorchError::InvalidOperation(
+                format!("Matrix C size mismatch: expected {}, got {}", m * n, c.len())
+            ));
+        }
+
         // Create Metal buffers
         let a_buffer = self.device.new_buffer_with_data(
             a.as_ptr() as *const c_void,
