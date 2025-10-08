@@ -10,6 +10,11 @@ use crate::tensor::Tensor;
 use std::collections::HashMap;
 use std::path::Path;
 
+#[cfg(feature = "metal")]
+use crate::gpu::metal_kernels::MetalKernelExecutor;
+#[cfg(feature = "metal")]
+use std::sync::{Arc, Mutex};
+
 
 /// GPT model configuration
 #[derive(Debug, Clone)]
@@ -43,6 +48,8 @@ pub struct GPTModel {
     config: GPTConfig,
     weights: HashMap<String, Tensor<f64>>,
     device_type: DeviceType,
+    #[cfg(feature = "metal")]
+    has_metal: bool,
 }
 
 impl GPTModel {
@@ -53,15 +60,17 @@ impl GPTModel {
 
     /// Create a new GPT model with specified backend
     pub fn with_backend(config: GPTConfig, device_type: DeviceType) -> RusTorchResult<Self> {
-        // For now, all backends use CPU tensor operations
-        // GPU backend integration will be added in future updates
         let actual_device = match device_type {
             DeviceType::Cpu => DeviceType::Cpu,
             #[cfg(feature = "metal")]
             DeviceType::Metal => {
-                eprintln!("⚠️  Metal backend selected, but tensor operations use CPU");
-                eprintln!("    GPU acceleration will be added in future updates");
+                eprintln!("🚀 Metal backend selected - initializing GPU acceleration");
                 DeviceType::Metal
+            }
+            #[cfg(not(feature = "metal"))]
+            DeviceType::Metal => {
+                eprintln!("⚠️  Metal feature not enabled, falling back to CPU");
+                DeviceType::Cpu
             }
             #[cfg(feature = "cuda")]
             DeviceType::Cuda => {
@@ -75,10 +84,30 @@ impl GPTModel {
             }
         };
 
+        // Initialize Metal executor if Metal backend is selected
+        #[cfg(feature = "metal")]
+        let has_metal = if actual_device == DeviceType::Metal {
+            match MetalKernelExecutor::get() {
+                Ok(_) => {
+                    eprintln!("✅ Metal GPU initialized successfully");
+                    true
+                }
+                Err(e) => {
+                    eprintln!("⚠️  Failed to initialize Metal: {}", e);
+                    eprintln!("   Falling back to CPU");
+                    false
+                }
+            }
+        } else {
+            false
+        };
+
         Ok(Self {
             config,
             weights: HashMap::new(),
             device_type: actual_device,
+            #[cfg(feature = "metal")]
+            has_metal,
         })
     }
 
