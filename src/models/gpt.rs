@@ -352,7 +352,12 @@ impl GPTModel {
     fn forward_metal(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         use crate::gpu::metal_kernels::MetalKernelExecutor;
 
-        eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
+        // Debug output controlled by RUSTORCH_DEBUG environment variable
+        let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
+
+        if debug {
+            eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
+        }
 
         // Get Metal executor
         let executor_mutex = MetalKernelExecutor::get()?;
@@ -410,10 +415,15 @@ impl GPTModel {
 
         // 2. Process through all Transformer layers with Metal
         let num_layers = self.config.num_layers;
-        eprintln!("   🔄 Processing {} transformer layers", num_layers);
+
+        if debug {
+            eprintln!("   🔄 Processing {} transformer layers", num_layers);
+        }
 
         for layer_idx in 0..num_layers {
-            eprintln!("   📍 Layer {}/{}", layer_idx + 1, num_layers);
+            if debug {
+                eprintln!("   📍 Layer {}/{}", layer_idx + 1, num_layers);
+            }
 
         // Layer Norm 1 (Pre-Attention) - Metal
         let ln1_key = format!("blk.{}.attn_norm.weight", layer_idx);
@@ -438,10 +448,14 @@ impl GPTModel {
             1e-5
         )?;
 
-        eprintln!("     ✓ Layer Norm 1 complete");
+        if debug {
+            eprintln!("     ✓ Layer Norm 1 complete");
+        }
 
         // Attention Mechanism (simplified single-head)
-        eprintln!("     • Attention (Metal + CPU softmax)");
+        if debug {
+            eprintln!("     • Attention (Metal + CPU softmax)");
+        }
 
         // Load Q, K, V, O projection weights
         let q_key = format!("blk.{}.attn_q.weight", layer_idx);
@@ -465,7 +479,9 @@ impl GPTModel {
         let o_weight_f32: Vec<f32> = o_weight.data.iter().map(|&v| v as f32).collect();
 
         // 1. Q, K, V projections (Metal GPU)
-        eprintln!("       - Q, K, V projections");
+        if debug {
+            eprintln!("       - Q, K, V projections");
+        }
         let mut q_proj = vec![0.0f32; seq_len * d_model];
         let mut k_proj = vec![0.0f32; seq_len * d_model];
         let mut v_proj = vec![0.0f32; seq_len * d_model];
@@ -475,11 +491,15 @@ impl GPTModel {
         executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, d_model, d_model)?;
 
         // 2. Transpose K for attention scores: K^T
-        eprintln!("       - Transpose K");
+        if debug {
+            eprintln!("       - Transpose K");
+        }
         let k_transposed = Self::transpose_2d_f32(&k_proj, seq_len, d_model);
 
         // 3. Attention scores: Q @ K^T (Metal GPU)
-        eprintln!("       - Attention scores: Q @ K^T");
+        if debug {
+            eprintln!("       - Attention scores: Q @ K^T");
+        }
         let mut attn_scores = vec![0.0f32; seq_len * seq_len];
         executor.matmul_f32(&q_proj, &k_transposed, &mut attn_scores, seq_len, seq_len, d_model)?;
 
@@ -490,29 +510,43 @@ impl GPTModel {
         }
 
         // 5. Softmax row-wise (CPU)
-        eprintln!("       - Softmax (CPU)");
+        if debug {
+            eprintln!("       - Softmax (CPU)");
+        }
         Self::softmax_2d_f32(&mut attn_scores, seq_len, seq_len);
 
         // 6. Apply attention to V: attn_scores @ V (Metal GPU)
-        eprintln!("       - Apply attention to V");
+        if debug {
+            eprintln!("       - Apply attention to V");
+        }
         let mut attn_output = vec![0.0f32; seq_len * d_model];
         executor.matmul_f32(&attn_scores, &v_proj, &mut attn_output, seq_len, d_model, seq_len)?;
 
         // 7. Output projection (Metal GPU)
-        eprintln!("       - Output projection");
+        if debug {
+            eprintln!("       - Output projection");
+        }
         let mut x_post_attn = vec![0.0f32; seq_len * d_model];
         executor.matmul_f32(&attn_output, &o_weight_f32, &mut x_post_attn, seq_len, d_model, d_model)?;
 
-        eprintln!("     ✓ Attention complete");
+        if debug {
+            eprintln!("     ✓ Attention complete");
+        }
 
         // Residual connection 1: x = x + attention_output
-        eprintln!("     • Residual connection 1 (Metal)");
+        if debug {
+            eprintln!("     • Residual connection 1 (Metal)");
+        }
         let mut x_residual1 = vec![0.0f32; x_f32.len()];
         executor.elementwise_add_f32(&x_f32, &x_post_attn, &mut x_residual1)?;
-        eprintln!("     ✓ Residual 1 complete");
+        if debug {
+            eprintln!("     ✓ Residual 1 complete");
+        }
 
         // Layer Norm 2 (Pre-FFN) - Metal
-        eprintln!("     • Layer Norm 2 (Metal)");
+        if debug {
+            eprintln!("     • Layer Norm 2 (Metal)");
+        }
         let ln2_key = format!("blk.{}.ffn_norm.weight", layer_idx);
         let ln2_weight = self.weights.get(&ln2_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Layer norm weight not found: {}", ln2_key)))?;
@@ -530,14 +564,20 @@ impl GPTModel {
             d_model,
             1e-5
         )?;
-        eprintln!("     ✓ Layer Norm 2 complete");
+        if debug {
+            eprintln!("     ✓ Layer Norm 2 complete");
+        }
 
         // Feed-Forward Network with Metal
         // FFN structure: down_proj(GELU(gate_proj(x)) * up_proj(x))
-        eprintln!("     • Feed-Forward Network (Metal)");
+        if debug {
+            eprintln!("     • Feed-Forward Network (Metal)");
+        }
 
         let d_ff = self.config.d_ff;
-        eprintln!("       d_model={}, d_ff={}, seq_len={}", d_model, d_ff, seq_len);
+        if debug {
+            eprintln!("       d_model={}, d_ff={}, seq_len={}", d_model, d_ff, seq_len);
+        }
 
         // Load FFN weights
         let gate_key = format!("blk.{}.ffn_gate.weight", layer_idx);
@@ -559,48 +599,68 @@ impl GPTModel {
         // 1. Gate projection: x @ gate_weight^T
         // x_ln2: [seq_len * d_model], gate_weight: [d_ff, d_model] (transposed in GGUF)
         // Result: [seq_len, d_ff]
-        eprintln!("       - Gate projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
+        if debug {
+            eprintln!("       - Gate projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
+        }
         let mut gate_out = vec![0.0f32; seq_len * d_ff];
         executor.matmul_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, d_ff, d_model)?;
 
         // 2. Apply GELU to gate output
-        eprintln!("       - GELU activation");
+        if debug {
+            eprintln!("       - GELU activation");
+        }
         let mut gate_activated = vec![0.0f32; gate_out.len()];
         executor.gelu_f32(&gate_out, &mut gate_activated)?;
 
         // 3. Up projection: x @ up_weight^T
-        eprintln!("       - Up projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
+        if debug {
+            eprintln!("       - Up projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
+        }
         let mut up_out = vec![0.0f32; seq_len * d_ff];
         executor.matmul_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, d_ff, d_model)?;
 
         // 4. Element-wise multiply: gate_activated * up_out
-        eprintln!("       - Element-wise multiply");
+        if debug {
+            eprintln!("       - Element-wise multiply");
+        }
         let mut ffn_intermediate = vec![0.0f32; gate_activated.len()];
         executor.elementwise_mul_f32(&gate_activated, &up_out, &mut ffn_intermediate)?;
 
         // 5. Down projection: ffn_intermediate @ down_weight^T
         // down_weight: [d_model, d_ff] (transposed in GGUF)
         // Result: [seq_len, d_model]
-        eprintln!("       - Down projection: [{}, {}] @ [{}, {}]^T", seq_len, d_ff, d_model, d_ff);
+        if debug {
+            eprintln!("       - Down projection: [{}, {}] @ [{}, {}]^T", seq_len, d_ff, d_model, d_ff);
+        }
         let mut ffn_out = vec![0.0f32; seq_len * d_model];
         executor.matmul_f32(&ffn_intermediate, &down_weight_f32, &mut ffn_out, seq_len, d_model, d_ff)?;
 
-        eprintln!("     ✓ FFN complete");
+        if debug {
+            eprintln!("     ✓ FFN complete");
+        }
 
         // Residual connection 2: x = x_residual1 + ffn_out
-        eprintln!("     • Residual connection 2 (Metal)");
+        if debug {
+            eprintln!("     • Residual connection 2 (Metal)");
+        }
         let mut x_residual2 = vec![0.0f32; x_residual1.len()];
         executor.elementwise_add_f32(&x_residual1, &ffn_out, &mut x_residual2)?;
-        eprintln!("     ✓ Residual 2 complete");
+        if debug {
+            eprintln!("     ✓ Residual 2 complete");
+        }
 
             // Update x_f32 for next layer
             x_f32 = x_residual2;
         }
 
-        eprintln!("   ✅ All {} transformer layers complete", num_layers);
+        if debug {
+            eprintln!("   ✅ All {} transformer layers complete", num_layers);
+        }
 
         // 3. Final Layer Normalization
-        eprintln!("   • Final Layer Norm (Metal)");
+        if debug {
+            eprintln!("   • Final Layer Norm (Metal)");
+        }
         let output_norm_key = "output_norm.weight";
         let output_norm_weight = self.weights.get(output_norm_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Output norm weight not found: {}", output_norm_key)))?;
@@ -619,13 +679,15 @@ impl GPTModel {
             d_model,
             1e-5
         )?;
-        eprintln!("   ✓ Final Layer Norm complete");
+        if debug {
+            eprintln!("   ✓ Final Layer Norm complete");
+        }
 
         // Convert back to f64 and create tensor
         let output_data: Vec<f64> = x_final_norm.iter().map(|&v| v as f64).collect();
         let output_tensor = Tensor::from_vec(output_data, vec![batch_size, seq_len, d_model]);
 
-        eprintln!("   ✅ Metal forward pass complete (Phase 2C - Multi-layer)");
+        eprintln!("✅ Metal forward pass complete");
 
         Ok(output_tensor)
     }
