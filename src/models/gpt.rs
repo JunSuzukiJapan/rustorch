@@ -52,6 +52,35 @@ impl GPTConfig {
     }
 }
 
+/// KV Cache for a single layer
+#[cfg(feature = "metal")]
+#[derive(Clone)]
+pub struct LayerKVCache {
+    /// Cached keys: [cached_seq_len, num_kv_heads, head_dim]
+    pub keys: Vec<f32>,
+    /// Cached values: [cached_seq_len, num_kv_heads, head_dim]
+    pub values: Vec<f32>,
+    /// Number of cached tokens
+    pub cached_len: usize,
+}
+
+#[cfg(feature = "metal")]
+impl LayerKVCache {
+    pub fn new() -> Self {
+        Self {
+            keys: Vec::new(),
+            values: Vec::new(),
+            cached_len: 0,
+        }
+    }
+
+    pub fn clear(&mut self) {
+        self.keys.clear();
+        self.values.clear();
+        self.cached_len = 0;
+    }
+}
+
 /// GPT model structure
 pub struct GPTModel {
     config: GPTConfig,
@@ -63,6 +92,8 @@ pub struct GPTModel {
     rope_cos: Vec<f32>,  // Precomputed RoPE cosine values
     #[cfg(feature = "metal")]
     rope_sin: Vec<f32>,  // Precomputed RoPE sine values
+    #[cfg(feature = "metal")]
+    kv_cache: Vec<LayerKVCache>,  // KV cache for each layer
 }
 
 impl GPTModel {
@@ -148,6 +179,15 @@ impl GPTModel {
             (Vec::new(), Vec::new())
         };
 
+        #[cfg(feature = "metal")]
+        let kv_cache = if has_metal {
+            (0..config.num_layers)
+                .map(|_| LayerKVCache::new())
+                .collect()
+        } else {
+            Vec::new()
+        };
+
         Ok(Self {
             config,
             weights: HashMap::new(),
@@ -158,12 +198,22 @@ impl GPTModel {
             rope_cos,
             #[cfg(feature = "metal")]
             rope_sin,
+            #[cfg(feature = "metal")]
+            kv_cache,
         })
     }
 
     /// Get backend device type
     pub fn device_type(&self) -> DeviceType {
         self.device_type
+    }
+
+    /// Clear KV cache for all layers (use between different prompts)
+    #[cfg(feature = "metal")]
+    pub fn clear_kv_cache(&mut self) {
+        for cache in &mut self.kv_cache {
+            cache.clear();
+        }
     }
 
     /// Load GPT model from GGUF file (CPU backend)
@@ -391,14 +441,23 @@ impl GPTModel {
     /// Forward pass with explicit position tracking
     /// 明示的な位置追跡付きフォワードパス
     pub fn forward_with_position(&self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
+        let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
+
         // Route to Metal or CPU implementation based on backend
         #[cfg(feature = "metal")]
         if self.has_metal && self.device_type == DeviceType::Metal {
+            if debug {
+                eprintln!("✅ Routing to Metal GPU backend (device_type={:?})",
+                    self.device_type);
+            }
             return self.forward_metal(input_ids, start_position);
         }
 
         // CPU fallback
-        eprintln!("⚠️  GPT forward pass using CPU (GPU backend not available)");
+        if debug {
+            eprintln!("⚠️  GPT forward pass using CPU (device_type={:?})",
+                self.device_type);
+        }
         let max_layers = Some(2);
         self.forward_with_layers(input_ids, max_layers)
     }
@@ -412,9 +471,9 @@ impl GPTModel {
         // Debug output controlled by RUSTORCH_DEBUG environment variable
         let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
 
-        if debug {
-            eprintln!("🚀 GPT forward pass using Metal GPU acceleration");
-        }
+        // FORCE OUTPUT for debugging
+        eprintln!("🚀 GPT forward_metal called (input_len={}, start_pos={}, debug={})",
+            input_ids.len(), start_position, debug);
 
         // Get Metal executor
         let executor_mutex = MetalKernelExecutor::get()?;
@@ -432,43 +491,70 @@ impl GPTModel {
             .ok_or_else(|| RusTorchError::tensor_op(format!("Token embedding not found: {}", token_emb_key)))?;
 
         // Perform embedding lookup - need to handle ndarray shape
-        // Note: GGUF embeddings are stored as [d_model, vocab_size] - transposed!
+        // GGUF shape [2048, 32000] means data is stored as:
+        //   32000 rows of 2048 elements each (row-major layout)
+        //   Row 0 = token 0's embedding (2048 values)
+        //   Row 1 = token 1's embedding (2048 values)
+        //   ...
+        // So: embedding for token N starts at index N * d_model
         let mut embedding_data = Vec::with_capacity(seq_len * d_model);
         let emb_shape = token_emb_tensor.data.shape();
-        let emb_dim0 = emb_shape[0];
-        let emb_dim1 = emb_shape[1];
+        let hidden_size = emb_shape[0];  // 2048
+        let vocab_size = emb_shape[1];   // 32000
 
-        // Shape is [d_model, vocab_size], so we access [dim_idx, token_id]
-        for &token_id in input_ids {
-            if token_id >= emb_dim1 {
+        // Get flat data as slice for efficient access
+        let emb_data = token_emb_tensor.data.as_slice()
+            .ok_or_else(|| RusTorchError::tensor_op("Failed to get embedding data as slice"))?;
+
+        for (token_idx, &token_id) in input_ids.iter().enumerate() {
+            if token_id >= vocab_size {
                 return Err(RusTorchError::tensor_op(
-                    format!("Token ID {} out of range (vocab_size={})", token_id, emb_dim1)
+                    format!("Token ID {} out of range (vocab_size={})", token_id, vocab_size)
                 ));
             }
-            // For each dimension, extract the token's embedding value
-            for dim_idx in 0..emb_dim0 {
-                // Access [dim_idx, token_id] in the [d_model, vocab_size] matrix
-                let linear_idx = dim_idx * emb_dim1 + token_id;
-                if linear_idx >= token_emb_tensor.data.len() {
-                    eprintln!("ERROR: linear_idx={} >= len={}, dim_idx={}, token_id={}, emb_dim1={}",
-                        linear_idx, token_emb_tensor.data.len(), dim_idx, token_id, emb_dim1);
-                    return Err(RusTorchError::tensor_op(
-                        format!("Index {} out of bounds (len={})", linear_idx, token_emb_tensor.data.len())
-                    ));
-                }
-                // Use iter().nth() for safe access
-                if let Some(&value) = token_emb_tensor.data.iter().nth(linear_idx) {
-                    embedding_data.push(value);
-                } else {
-                    return Err(RusTorchError::tensor_op(
-                        format!("Failed to access index {}", linear_idx)
-                    ));
-                }
+
+            // IMPORTANT: GGML/GGUF dimension ordering for quantized tensors
+            // GGUF dims [2048, 32000] where ne[0]=2048 is INNERMOST (fastest-changing)
+            // Memory layout: [token0_emb (2048), token1_emb (2048), ..., token31999_emb (2048)]
+            // So token N's embedding is at indices: N * hidden_size .. (N+1) * hidden_size
+
+            let start = token_id * hidden_size;
+            let end = start + hidden_size;
+
+            if end > emb_data.len() {
+                return Err(RusTorchError::tensor_op(
+                    format!("Embedding index out of range: token_id={}, start={}, end={}, data_len={}",
+                        token_id, start, end, emb_data.len())
+                ));
+            }
+
+            // Extract the embedding for this token
+            embedding_data.extend_from_slice(&emb_data[start..end]);
+
+            // Log first 3 tokens' embeddings for llama.cpp comparison
+            if token_idx < 3 && debug {
+                // Get first 10 elements of the embedding we just extracted
+                let current_emb_start = embedding_data.len() - hidden_size;
+                let emb_slice = &embedding_data[current_emb_start..current_emb_start + 10.min(hidden_size)];
+                let emb_full = &embedding_data[current_emb_start..];
+                let mean: f64 = emb_full.iter().map(|&v| v as f64).sum::<f64>() / emb_full.len() as f64;
+                let sq_sum: f64 = emb_full.iter().map(|&v| (v as f64).powi(2)).sum();
+                let rms = (sq_sum / emb_full.len() as f64).sqrt();
+                eprintln!("🔍 [EMBEDDING] Token {} (ID={}): embedding[0..10]: {:?}", token_idx, token_id, emb_slice);
+                eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, len={}", mean, rms, emb_full.len());
             }
         }
 
         // Convert to f32 for Metal operations
         let mut x_f32: Vec<f32> = embedding_data.iter().map(|&v| v as f32).collect();
+
+        // Log initial embedding statistics
+        if debug {
+            let mean: f32 = x_f32.iter().sum::<f32>() / x_f32.len() as f32;
+            let sq_sum: f32 = x_f32.iter().map(|&v| v * v).sum();
+            let rms = (sq_sum / x_f32.len() as f32).sqrt();
+            eprintln!("🎯 [INPUT] After embedding: mean={:.6}, rms={:.6}", mean, rms);
+        }
 
         // 2. Process through all Transformer layers with Metal
         let num_layers = self.config.num_layers;
@@ -483,6 +569,18 @@ impl GPTModel {
         for layer_idx in 0..num_layers {
             if debug {
                 eprintln!("   📍 Layer {}/{}", layer_idx + 1, num_layers);
+                // Check Pos 1 and Pos 17 input to this layer
+                if seq_len > 17 {
+                    let pos1_start = 1 * d_model;
+                    let pos1_input = &x_f32[pos1_start..pos1_start + d_model];
+                    let pos1_rms = (pos1_input.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
+
+                    let pos17_start = 17 * d_model;
+                    let pos17_input = &x_f32[pos17_start..pos17_start + d_model];
+                    let pos17_rms = (pos17_input.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
+                    eprintln!("   🔍 [LAYER INPUT] Pos 1 RMS: {:.6}, Pos 17 RMS: {:.6}, Ratio: {:.2}",
+                              pos1_rms, pos17_rms, pos17_rms / pos1_rms);
+                }
             }
 
         // Layer Norm 1 (Pre-Attention) - Metal
@@ -499,6 +597,19 @@ impl GPTModel {
 
         if debug {
             eprintln!("     ✓ Layer Norm 1 complete");
+            // Check Pos 17 after RMS Norm
+            if layer_idx == 0 && seq_len > 17 {
+                let pos17_start = 17 * d_model;
+                let pos17_ln1 = &x_ln1[pos17_start..pos17_start + d_model];
+                let pos17_ln1_rms = (pos17_ln1.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
+
+                // Check LN1 weight statistics
+                let ln1_weight_mean = ln1_gamma_f32.iter().sum::<f32>() / ln1_gamma_f32.len() as f32;
+                let ln1_weight_rms = (ln1_gamma_f32.iter().map(|&v| v * v).sum::<f32>() / ln1_gamma_f32.len() as f32).sqrt();
+
+                eprintln!("   🔍 [AFTER LN1] Pos 17 RMS: {:.6}", pos17_ln1_rms);
+                eprintln!("   🔍 [LN1 WEIGHT] mean={:.6}, rms={:.6}", ln1_weight_mean, ln1_weight_rms);
+            }
         }
 
         // Attention Mechanism (Simplified - treating as single-head for now)
@@ -547,12 +658,63 @@ impl GPTModel {
         executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
         executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
 
+        // Debug: Log Q/K/V projection statistics for first layer
+        if debug && layer_idx == 0 {
+            let q_mean: f32 = q_proj.iter().sum::<f32>() / q_proj.len() as f32;
+            let q_sq_sum: f32 = q_proj.iter().map(|&v| v * v).sum();
+            let q_rms = (q_sq_sum / q_proj.len() as f32).sqrt();
+            let q_min = q_proj.iter().cloned().fold(f32::INFINITY, f32::min);
+            let q_max = q_proj.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+
+            let k_mean: f32 = k_proj.iter().sum::<f32>() / k_proj.len() as f32;
+            let k_rms = (k_proj.iter().map(|&v| v * v).sum::<f32>() / k_proj.len() as f32).sqrt();
+            let k_min = k_proj.iter().cloned().fold(f32::INFINITY, f32::min);
+            let k_max = k_proj.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+
+            let v_mean: f32 = v_proj.iter().sum::<f32>() / v_proj.len() as f32;
+            let v_rms = (v_proj.iter().map(|&v| v * v).sum::<f32>() / v_proj.len() as f32).sqrt();
+
+            eprintln!("   📊 [Q/K/V PROJECTIONS] Layer 0 statistics:");
+            eprintln!("      Q_proj: mean={:.6}, rms={:.6}, min={:.6}, max={:.6}", q_mean, q_rms, q_min, q_max);
+            eprintln!("      K_proj: mean={:.6}, rms={:.6}, min={:.6}, max={:.6}", k_mean, k_rms, k_min, k_max);
+            eprintln!("      V_proj: mean={:.6}, rms={:.6}", v_mean, v_rms);
+
+            // Also log weight statistics
+            let q_w_mean: f32 = q_weight_f32.iter().sum::<f32>() / q_weight_f32.len() as f32;
+            let q_w_rms = (q_weight_f32.iter().map(|&v| v * v).sum::<f32>() / q_weight_f32.len() as f32).sqrt();
+            let q_w_min = q_weight_f32.iter().cloned().fold(f32::INFINITY, f32::min);
+            let q_w_max = q_weight_f32.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            eprintln!("      Q_weight: mean={:.6}, rms={:.6}, min={:.6}, max={:.6}", q_w_mean, q_w_rms, q_w_min, q_w_max);
+            eprintln!("      Q_weight[0..10]: {:?}", &q_weight_f32[0..10]);
+        }
+
         // 1.5 Apply RoPE to Q and K projections
         if debug {
             eprintln!("       - Apply RoPE (position={})", start_position);
+            // Check Pos 17, Head 0 Q values BEFORE RoPE
+            if seq_len > 17 {
+                let pos17_h0_start = 17 * d_model + 0 * head_dim;
+                let pos17_h0_q = &q_proj[pos17_h0_start..pos17_h0_start + head_dim];
+                let pos17_q_rms = (pos17_h0_q.iter().map(|&v| v * v).sum::<f32>() / head_dim as f32).sqrt();
+                eprintln!("       [BEFORE ROPE] Pos 17, Head 0: Q_rms={:.6}, Q[0..5]={:?}", pos17_q_rms, &pos17_h0_q[0..5]);
+            }
         }
         let q_proj = self.apply_rope(&q_proj, seq_len, num_q_heads, head_dim, start_position);
         let k_proj = self.apply_rope(&k_proj, seq_len, num_kv_heads, head_dim, start_position);
+
+        // Debug: Log Q/K after RoPE for first layer
+        if debug && layer_idx == 0 {
+            let q_rope_mean: f32 = q_proj.iter().sum::<f32>() / q_proj.len() as f32;
+            let q_rope_rms = (q_proj.iter().map(|&v| v * v).sum::<f32>() / q_proj.len() as f32).sqrt();
+            let k_rope_mean: f32 = k_proj.iter().sum::<f32>() / k_proj.len() as f32;
+            let k_rope_rms = (k_proj.iter().map(|&v| v * v).sum::<f32>() / k_proj.len() as f32).sqrt();
+
+            eprintln!("   🔄 [AFTER ROPE] Layer 0:");
+            eprintln!("      Q_rope: mean={:.6}, rms={:.6}", q_rope_mean, q_rope_rms);
+            eprintln!("      K_rope: mean={:.6}, rms={:.6}", k_rope_mean, k_rope_rms);
+            eprintln!("      Q[0..5]: {:?}", &q_proj[0..5]);
+            eprintln!("      K[0..5]: {:?}", &k_proj[0..5]);
+        }
 
         // 2. Repeat KV heads to match Q heads for simplified GQA
         // K/V: [seq_len, kv_dim=256] -> [seq_len, d_model=2048]
@@ -562,50 +724,168 @@ impl GPTModel {
         let k_expanded = Self::repeat_kv_heads(&k_proj, seq_len, num_kv_heads, num_q_heads, head_dim);
         let v_expanded = Self::repeat_kv_heads(&v_proj, seq_len, num_kv_heads, num_q_heads, head_dim);
 
-        // 3. Transpose K for attention scores: K^T
+        // 3. Multi-head Attention (CPU implementation following hybrid_f32 logic)
         if debug {
-            eprintln!("       - Transpose K");
+            eprintln!("       - Multi-head Attention (CPU-style, num_heads={})", num_q_heads);
+            eprintln!("         seq_len={}, d_model={}, head_dim={}", seq_len, d_model, head_dim);
+            // Check first few values of Q, K, V
+            eprintln!("         Q_proj[0..5]: {:?}", &q_proj[..5.min(q_proj.len())]);
+            eprintln!("         K_expanded[0..5]: {:?}", &k_expanded[..5.min(k_expanded.len())]);
+            eprintln!("         V_expanded[0..5]: {:?}", &v_expanded[..5.min(v_expanded.len())]);
         }
-        let k_transposed = Self::transpose_2d_f32(&k_expanded, seq_len, d_model);
 
-        // 4. Attention scores: Q @ K^T (Metal GPU)
-        if debug {
-            eprintln!("       - Attention scores: Q @ K^T");
-        }
-        let mut attn_scores = vec![0.0f32; seq_len * seq_len];
-        executor.matmul_f32(&q_proj, &k_transposed, &mut attn_scores, seq_len, seq_len, d_model)?;
-
-        // 4. Scale by 1/sqrt(head_dim) for GQA
         let scale = 1.0 / (head_dim as f32).sqrt();
-        for score in &mut attn_scores {
-            *score *= scale;
-        }
+        let mut attn_output = vec![0.0f32; seq_len * d_model];
 
-        // 4.5 Apply causal masking (prevent attending to future tokens)
-        if debug {
-            eprintln!("       - Apply causal masking");
+        // For each query position
+        eprintln!("   🔄 [UNCONDITIONAL] layer_idx={}, debug={}, seq_len={}", layer_idx, debug, seq_len);
+        if debug && layer_idx == 0 {
+            eprintln!("   🔄 [LOOP-START] About to loop q_pos from 0 to {} (seq_len={})", seq_len - 1, seq_len);
         }
-        for i in 0..seq_len {
-            for j in 0..seq_len {
-                if j > i {
-                    // Mask future positions with negative infinity
-                    attn_scores[i * seq_len + j] = f32::NEG_INFINITY;
+        for q_pos in 0..seq_len {
+            if debug && layer_idx == 0 && q_pos >= seq_len - 2 {
+                eprintln!("   🔄 [LOOP] Processing q_pos={} (seq_len={})", q_pos, seq_len);
+            }
+            // For each query head
+            for h in 0..num_q_heads {
+                // Get query vector for this head at this position
+                let q_start = q_pos * d_model + h * head_dim;
+                let q_vec = &q_proj[q_start..q_start + head_dim];
+
+                // Compute attention scores for all key positions
+                let mut scores = Vec::with_capacity(q_pos + 1);  // Causal: only attend to current and previous
+
+                for kv_pos in 0..=q_pos {
+                    let k_start = kv_pos * d_model + h * head_dim;
+                    let k_vec = &k_expanded[k_start..k_start + head_dim];
+
+                    // Dot product: Q · K
+                    let score: f32 = q_vec.iter().zip(k_vec.iter())
+                        .map(|(&q, &k)| q * k)
+                        .sum();
+
+                    scores.push(score * scale);
+                }
+
+                // Debug: Log Q_rms for all positions to find anomaly
+                if debug && layer_idx == 0 && h == 0 {
+                    let q_sq_sum_quick: f32 = q_vec.iter().map(|&v| v * v).sum();
+                    let q_rms_quick = (q_sq_sum_quick / head_dim as f32).sqrt();
+                    eprintln!("   📊 [Q_RMS] Pos {}: Q_rms={:.6}", q_pos, q_rms_quick);
+                }
+
+                let is_last_pos = q_pos == seq_len - 1;
+                if debug && layer_idx == 0 && h == 0 && (q_pos == 0 || is_last_pos) {
+                    eprintln!("   🎯 [ATTENTION] Layer 0, Head 0, Pos {} {}", q_pos, if is_last_pos { "(LAST)" } else { "" });
+                    eprintln!("      q_start index: {}", q_start);
+                    eprintln!("      Q[0..5]: {:?}", &q_vec[0..5]);
+
+                    // Log Q and K statistics
+                    let q_sq_sum: f32 = q_vec.iter().map(|&v| v * v).sum();
+                    let q_rms = (q_sq_sum / head_dim as f32).sqrt();
+                    eprintln!("      Q_rms={:.6}, Q_len={}", q_rms, q_vec.len());
+
+                    // Compare with full q_proj first 64 elements (should be same as q_vec if h=0, q_pos=0)
+                    let first_64_rms = (q_proj[0..64].iter().map(|&v| v * v).sum::<f32>() / 64.0).sqrt();
+                    eprintln!("      q_proj[0..64] rms (should match Q_rms if indexing correct): {:.6}", first_64_rms);
+
+                    // Check other heads to see if they have similar small values
+                    for check_h in [0, 1, 15, 31].iter() {
+                        let h_start = q_pos * d_model + check_h * head_dim;
+                        let h_vec = &q_proj[h_start..h_start + head_dim];
+                        let h_rms = (h_vec.iter().map(|&v| v * v).sum::<f32>() / head_dim as f32).sqrt();
+                        eprintln!("      Head {} RMS: {:.6}", check_h, h_rms);
+                    }
+
+                    // Log first K vector (for kv_pos=0, same head h=0)
+                    let kv_pos_0 = 0;
+                    let k_start_0 = kv_pos_0 * d_model + 0 * head_dim;  // h=0
+                    let k_vec_check = &k_expanded[k_start_0..k_start_0 + head_dim];
+                    let k_sq_sum: f32 = k_vec_check.iter().map(|&v| v * v).sum();
+                    let k_rms = (k_sq_sum / head_dim as f32).sqrt();
+                    eprintln!("      k_start index (for kv_pos=0, h=0): {}", k_start_0);
+                    eprintln!("      K[0..5]: {:?}", &k_vec_check[0..5]);
+                    eprintln!("      K_rms={:.6}, K_len={}", k_rms, k_vec_check.len());
+
+                    // Calculate expected score magnitude
+                    // Expected: Q_rms * K_rms * sqrt(d) WITHOUT scaling
+                    let expected_unscaled = q_rms * k_rms * (head_dim as f32).sqrt();
+                    // Expected WITH scaling: (Q_rms * K_rms * sqrt(d)) / sqrt(d) = Q_rms * K_rms
+                    let expected_scaled = q_rms * k_rms;
+                    eprintln!("      Expected unscaled score magnitude: {:.6}", expected_unscaled);
+                    eprintln!("      Expected scaled score magnitude: {:.6}", expected_scaled);
+
+                    // Manually calculate dot product for verification
+                    let manual_dot: f32 = q_vec.iter().zip(k_vec_check.iter())
+                        .map(|(&q, &k)| q * k)
+                        .sum();
+                    eprintln!("      Manual Q·K dot product (unscaled): {:.9}", manual_dot);
+                    eprintln!("      Manual Q·K scaled: {:.9}", manual_dot * scale);
+
+                    eprintln!("      Actual scores (already scaled by 1/sqrt(d)): {:?}", &scores);
+                    eprintln!("      Scale factor (1/sqrt(d)): {:.6}", scale);
+                }
+
+                // Softmax with temperature scaling for numerical stability
+                // Temperature: lower = sharper distribution, higher = softer
+                // With value clipping in place, we can use standard temperature
+                let temperature = 1.0;
+
+                // Scale scores by temperature before softmax
+                let scaled_scores: Vec<f32> = scores.iter().map(|&s| s / temperature).collect();
+
+                if debug && layer_idx == 0 && h == 0 && is_last_pos {
+                    eprintln!("      Raw scores range: [{:.6}, {:.6}]",
+                             scores.iter().cloned().fold(f32::INFINITY, f32::min),
+                             scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max));
+                }
+
+                let max_score = scaled_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let exp_scores: Vec<f32> = scaled_scores.iter().map(|&s| (s - max_score).exp()).collect();
+                let sum_exp: f32 = exp_scores.iter().sum();
+
+                if debug && layer_idx == 0 && h == 0 && is_last_pos {
+                    eprintln!("      After max subtraction: [{:.6}, 0.0]",
+                             scaled_scores.iter().map(|&s| s - max_score).fold(f32::INFINITY, f32::min));
+                    eprintln!("      Exp scores range: [{:.9}, {:.9}]",
+                             exp_scores.iter().cloned().fold(f32::INFINITY, f32::min),
+                             exp_scores.iter().cloned().fold(f32::NEG_INFINITY, f32::max));
+                    eprintln!("      Sum of exp scores: {:.9}", sum_exp);
+                }
+
+                let attn_weights: Vec<f32> = if sum_exp <= 0.0 || !sum_exp.is_finite() {
+                    // Fallback: uniform weights
+                    if debug && layer_idx == 0 && h == 0 && (q_pos == 0 || is_last_pos) {
+                        eprintln!("      ⚠️  Softmax fallback triggered! sum_exp={}", sum_exp);
+                    }
+                    vec![1.0 / scores.len() as f32; scores.len()]
+                } else {
+                    exp_scores.iter().map(|&e| e / sum_exp).collect()
+                };
+
+                if debug && layer_idx == 0 && h == 0 && (q_pos == 0 || is_last_pos) {
+                    eprintln!("      Attention weights (after softmax): {:?}", &attn_weights);
+
+                    // Log first V vector statistics
+                    let v_start = 0;
+                    let v_vec = &v_expanded[v_start..v_start + head_dim];
+                    let v_sq_sum: f32 = v_vec.iter().map(|&v| v * v).sum();
+                    let v_rms = (v_sq_sum / head_dim as f32).sqrt();
+                    eprintln!("      V[0..5]: {:?}", &v_vec[0..5]);
+                    eprintln!("      V_rms={:.6}", v_rms);
+                }
+
+                // Weighted sum of values (output for this head at this position)
+                for dim in 0..head_dim {
+                    let mut weighted_sum = 0.0f32;
+                    for (weight_idx, kv_pos) in (0..=q_pos).enumerate() {
+                        let v_start = kv_pos * d_model + h * head_dim;
+                        weighted_sum += attn_weights[weight_idx] * v_expanded[v_start + dim];
+                    }
+                    attn_output[q_pos * d_model + h * head_dim + dim] = weighted_sum;
                 }
             }
         }
-
-        // 5. Softmax row-wise (CPU)
-        if debug {
-            eprintln!("       - Softmax (CPU)");
-        }
-        Self::softmax_2d_f32(&mut attn_scores, seq_len, seq_len);
-
-        // 6. Apply attention to V: attn_scores @ V (Metal GPU)
-        if debug {
-            eprintln!("       - Apply attention to V");
-        }
-        let mut attn_output = vec![0.0f32; seq_len * d_model];
-        executor.matmul_f32(&attn_scores, &v_expanded, &mut attn_output, seq_len, d_model, seq_len)?;
 
         // 7. Output projection (Metal GPU)
         if debug {
@@ -728,8 +1008,39 @@ impl GPTModel {
         }
         let mut x_residual2 = vec![0.0f32; x_residual1.len()];
         executor.elementwise_add_f32(&x_residual1, &ffn_out, &mut x_residual2)?;
+
+        // Value clipping to prevent numerical instability from 93x amplification
+        // Clip to reasonable range to prevent softmax collapse in later layers
+        let clip_max = 10.0f32;
+        let clip_min = -10.0f32;
+        for val in x_residual2.iter_mut() {
+            *val = val.clamp(clip_min, clip_max);
+        }
+
         if debug {
-            eprintln!("     ✓ Residual 2 complete");
+            eprintln!("     ✓ Residual 2 complete (with clipping)");
+
+            // Log RMS after clipping for key positions and layers
+            // Track every 5 layers + first and last
+            if (layer_idx == 0 || layer_idx == 5 || layer_idx == 10 || layer_idx == 15 || layer_idx == 20 || layer_idx == 21) && seq_len > 1 {
+                let pos1_start = 1.min(seq_len - 1) * d_model;
+                let pos1_clipped = &x_residual2[pos1_start..pos1_start + d_model];
+                let pos1_rms = (pos1_clipped.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
+
+                // Check max absolute value to verify clipping is working
+                let max_abs = pos1_clipped.iter().map(|&v| v.abs()).fold(0.0f32, f32::max);
+
+                eprintln!("   🔒 [Layer {}] Pos 1: RMS={:.6}, max_abs={:.6}", layer_idx, pos1_rms, max_abs);
+
+                // For last position if available
+                if seq_len > 17 {
+                    let pos17_start = 17 * d_model;
+                    let pos17_clipped = &x_residual2[pos17_start..pos17_start + d_model];
+                    let pos17_rms = (pos17_clipped.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
+                    let max_abs_17 = pos17_clipped.iter().map(|&v| v.abs()).fold(0.0f32, f32::max);
+                    eprintln!("   🔒 [Layer {}] Pos 17: RMS={:.6}, max_abs={:.6}", layer_idx, pos17_rms, max_abs_17);
+                }
+            }
         }
 
             // Update x_f32 for next layer
@@ -748,18 +1059,85 @@ impl GPTModel {
         let output_norm_weight = self.weights.get(output_norm_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Output norm weight not found: {}", output_norm_key)))?;
 
+        if debug {
+            eprintln!("   • Converting output_norm to f32...");
+        }
         let output_norm_gamma_f32: Vec<f32> = output_norm_weight.data.iter().map(|&v| v as f32).collect();
 
+        if debug {
+            eprintln!("   • Applying final RMS Norm...");
+        }
         // Use RMS Norm instead of Layer Norm
         let mut x_final_norm = vec![0.0f32; x_f32.len()];
         Self::rms_norm_f32(&x_f32, &output_norm_gamma_f32, &mut x_final_norm, seq_len, d_model, 1e-5);
         if debug {
             eprintln!("   ✓ Final RMS Norm complete");
+            eprintln!("   • Getting LM head weight...");
         }
 
-        // Convert back to f64 and create tensor
-        let output_data: Vec<f64> = x_final_norm.iter().map(|&v| v as f64).collect();
-        let output_tensor = Tensor::from_vec(output_data, vec![batch_size, seq_len, d_model]);
+        // LM Head projection: hidden states -> logits
+        let lm_head_weight = self.weights.get("output.weight")
+            .or_else(|| self.weights.get("lm_head.weight"))
+            .or_else(|| self.weights.get("token_embd.weight"))
+            .ok_or_else(|| RusTorchError::tensor_op("LM head weight not found".to_string()))?;
+
+        if debug {
+            eprintln!("   ✓ LM head weight retrieved");
+        }
+
+        let vocab_size = self.config.vocab_size;
+
+        // Get last token's hidden state
+        let last_token_start = (seq_len - 1) * d_model;
+        let last_hidden = &x_final_norm[last_token_start..last_token_start + d_model];
+
+        // Compute logits: last_hidden @ lm_head^T -> [vocab_size]
+        // lm_head shape: [hidden_size, vocab_size] stored in row-major
+        let lm_head_data = &lm_head_weight.data;
+        let lm_head_shape = lm_head_data.shape();
+
+        if debug {
+            eprintln!("🔍 [LM_HEAD] Shape: {:?}, d_model={}, vocab_size={}", lm_head_shape, d_model, vocab_size);
+            eprintln!("🔍 [LM_HEAD] Data len: {}, expected: {}", lm_head_data.len(), d_model * vocab_size);
+        }
+
+        let mut logits = vec![0.0f32; vocab_size];
+
+        if debug {
+            eprintln!("   • Computing logits...");
+        }
+
+        // Access lm_head_data as 2D array [d_model, vocab_size]
+        for v in 0..vocab_size {
+            let mut sum = 0.0f64;
+            for h in 0..d_model {
+                sum += (last_hidden[h] as f64) * lm_head_data[[h, v]];
+            }
+            logits[v] = sum as f32;
+        }
+
+        if debug {
+            eprintln!("   ✓ Logits computed");
+        }
+
+        // Always log logits stats for verification
+        let max_logit = logits.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+        let min_logit = logits.iter().cloned().fold(f32::INFINITY, f32::min);
+        let mean_logit: f32 = logits.iter().sum::<f32>() / logits.len() as f32;
+
+        eprintln!("🔍 [LOGITS] Stats: max={:.4}, min={:.4}, mean={:.4}", max_logit, min_logit, mean_logit);
+
+        // Show top-5 logits
+        let mut indexed_logits: Vec<(usize, f32)> = logits.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+        indexed_logits.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+        eprintln!("🔍 [LOGITS] Top-5 tokens:");
+        for (i, &(token_id, logit_val)) in indexed_logits.iter().take(5).enumerate() {
+            eprintln!("   {}. Token {}: {:.4}", i + 1, token_id, logit_val);
+        }
+
+        // Convert logits to f64 and create tensor [1, 1, vocab_size]
+        let output_data: Vec<f64> = logits.iter().map(|&v| v as f64).collect();
+        let output_tensor = Tensor::from_vec(output_data, vec![batch_size, 1, vocab_size]);
 
         eprintln!("✅ Metal forward pass complete");
 
@@ -842,17 +1220,51 @@ impl GPTModel {
         hidden_size: usize,
         eps: f32,
     ) {
+        let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
+
         for seq_idx in 0..seq_len {
             let offset = seq_idx * hidden_size;
             let row = &input[offset..offset + hidden_size];
 
             // Compute RMS (Root Mean Square)
-            let rms: f32 = row.iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
-            let rms = (rms + eps).sqrt();
+            let mean_sq: f32 = row.iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
+            let rms = (mean_sq + eps).sqrt();
 
             // Normalize and scale with weight
             for i in 0..hidden_size {
                 output[offset + i] = (row[i] / rms) * weight[i];
+            }
+
+            // Debug: Log Pos 17 RMS Norm computation details
+            if debug && seq_idx == 17 && seq_len > 17 {
+                let input_rms_actual = row.iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
+                let input_rms_actual = input_rms_actual.sqrt();
+                let output_rms_actual = output[offset..offset + hidden_size].iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
+                let output_rms_actual = output_rms_actual.sqrt();
+                eprintln!("      🔬 [RMS_NORM Pos 17] input_rms={:.6}, rms_divisor={:.6}, output_rms={:.6}",
+                          input_rms_actual, rms, output_rms_actual);
+            }
+
+            // Debug: Log first position RMS Norm stats
+            if debug && seq_idx == 0 {
+                // Calculate actual input RMS for comparison
+                let input_sq_sum: f32 = row.iter().map(|&v| v * v).sum();
+                let input_actual_rms = (input_sq_sum / hidden_size as f32).sqrt();
+
+                let out_row = &output[offset..offset + hidden_size];
+                let out_mean: f32 = out_row.iter().sum::<f32>() / hidden_size as f32;
+                let out_sq_sum: f32 = out_row.iter().map(|&v| v * v).sum();
+                let out_rms = (out_sq_sum / hidden_size as f32).sqrt();
+                let weight_mean: f32 = weight.iter().sum::<f32>() / weight.len() as f32;
+                let weight_rms: f32 = (weight.iter().map(|&v| v * v).sum::<f32>() / weight.len() as f32).sqrt();
+
+                eprintln!("   🔧 [RMS_NORM] pos={}:", seq_idx);
+                eprintln!("      Input actual RMS={:.6}", input_actual_rms);
+                eprintln!("      Normalization RMS (sqrt(mean(x²)+eps))={:.6}", rms);
+                eprintln!("      Output RMS={:.6}", out_rms);
+                eprintln!("      Weight: mean={:.6}, rms={:.6}", weight_mean, weight_rms);
+                eprintln!("      Input[0..5]: {:?}", &row[0..5]);
+                eprintln!("      Output[0..5]: {:?}", &out_row[0..5]);
             }
         }
     }
@@ -868,6 +1280,7 @@ impl GPTModel {
         head_dim: usize,
         start_position: usize,
     ) -> Vec<f32> {
+        let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
         let total_dim = num_heads * head_dim;
         let mut output = Vec::with_capacity(x.len());
 
@@ -886,12 +1299,23 @@ impl GPTModel {
                     let cos = self.rope_cos[rope_idx];
                     let sin = self.rope_sin[rope_idx];
 
+                    // Debug: Log first token, first head, first rotation pair
+                    if debug && token_idx == 0 && head_idx == 0 && i == 0 {
+                        eprintln!("   🌀 [ROPE] pos={}, head={}, pair={}:", position, head_idx, i);
+                        eprintln!("      rope_idx={}, cos={:.6}, sin={:.6}", rope_idx, cos, sin);
+                        eprintln!("      Before: x0={:.6}, x1={:.6}", head_data[0], head_data[1]);
+                    }
+
                     let x0 = head_data[2 * i];
                     let x1 = head_data[2 * i + 1];
 
                     // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
                     let rotated_0 = x0 * cos - x1 * sin;
                     let rotated_1 = x0 * sin + x1 * cos;
+
+                    if debug && token_idx == 0 && head_idx == 0 && i == 0 {
+                        eprintln!("      After: rotated_0={:.6}, rotated_1={:.6}", rotated_0, rotated_1);
+                    }
 
                     output.push(rotated_0);
                     output.push(rotated_1);

@@ -879,6 +879,14 @@ impl GGUFLoader {
                     eprintln!("   First dequant: {:.10}", d1 * (qs[q_offset] & 0x0F) as f32 - m1);
                 }
 
+                // Debug: Log d scale factors for first few blocks to check if all are abnormally small
+                if output.len() < 512 && pair == 0 {
+                    let block_num = output.len() / 256;
+                    if block_num < 3 {
+                        eprintln!("🐛 [Q4_K] Block {}: d={:.10}", block_num, d);
+                    }
+                }
+
                 // Process 32 lower nibbles (block 1)
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }

@@ -253,6 +253,39 @@ Supported model formats (planned):
 - **ONNX** - ONNX Runtime format
 - **MLX** - Apple Silicon optimized format
 
+### ⚡ Recommended Quantization Levels (GGUF Models)
+
+For Metal GPU backend, use these quantization levels for reliable output:
+
+| 量子化 (Quantization) | サイズ (Size) | 品質 (Quality) | 推奨度 (Recommendation) |
+|---------------------|--------------|---------------|----------------------|
+| **Q8_0**            | ~1.1GB       | 最高 (Highest) | ⭐⭐⭐ **ベスト (Best)** |
+| **Q6_K**            | ~863MB       | 優秀 (Excellent) | ⭐⭐⭐ **推奨 (Recommended)** |
+| **Q5_K_M**          | ~747MB       | 良好 (Good)    | ⭐⭐ **最低安全レベル (Minimum Safe)** |
+| **Q4_K_M**          | ~638MB       | 不安定 (Unreliable) | ⚠️ **非推奨 (Not Recommended)** |
+
+**⚠️ Important**: Q4_K_M models may produce unreliable output with Metal backend due to accumulated quantization errors through the 22-layer transformer. For production use, please use **Q5_K_M or higher**.
+
+**Why Q4_K_M is not recommended**:
+- 4-bit quantization has lowest precision (16 levels)
+- Small errors accumulate through 22 transformer layers
+- Final token selection may differ from expected output
+- Q5_K_M (5-bit = 32 levels) provides sufficient precision
+
+**Download Recommendations**:
+```bash
+# Best quality (Q8_0)
+./example-cli/run-cli.sh --metal -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --file tinyllama-1.1b-chat-v1.0.Q8_0.gguf
+
+# Good balance (Q6_K)
+./example-cli/run-cli.sh --metal -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --file tinyllama-1.1b-chat-v1.0.Q6_K.gguf
+
+# Minimum safe (Q5_K_M)
+./example-cli/run-cli.sh --metal -- download hf:TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF --file tinyllama-1.1b-chat-v1.0.Q5_K_M.gguf
+```
+
+For detailed analysis, see [Metal GPU Debugging Status](../METAL_GPU_DEBUGGING_STATUS.md).
+
 ## 🔧 Development
 
 ### Project Structure

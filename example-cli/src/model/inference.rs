@@ -116,7 +116,8 @@ impl InferenceEngine {
             });
 
         // DEBUG: Log input tokens
-        eprintln!("🔍 [INPUT] formatted='{}' tokens={:?}", formatted_input, &input_ids[..input_ids.len().min(20)]);
+        eprintln!("🔍 [INPUT] formatted_len={} tokens={:?}", formatted_input.len(), &input_ids[..input_ids.len().min(20)]);
+        eprintln!("🔍 [INPUT] formatted_preview: {:?}", &formatted_input.chars().take(100).collect::<String>());
 
         // Generate tokens
         let output_ids = self.generate_tokens(&input_ids)?;
@@ -710,13 +711,16 @@ impl InferenceEngine {
     ) -> Result<Tensor<f64>> {
         let shape = logits_tensor.size();
         let vocab_size = shape[2];
+        let actual_seq_len = shape[1]; // Actual sequence length in the tensor
 
         // Get data for last position: logits[:, -1, :]
         let data_slice = logits_tensor
             .as_slice()
             .ok_or_else(|| anyhow::anyhow!("Failed to get logits data"))?;
-        let start_idx = (seq_len - 1) * vocab_size;
-        let end_idx = seq_len * vocab_size;
+
+        // Use actual tensor sequence length instead of input seq_len
+        let start_idx = (actual_seq_len - 1) * vocab_size;
+        let end_idx = actual_seq_len * vocab_size;
 
         let last_logits_data = data_slice[start_idx..end_idx].to_vec();
 
