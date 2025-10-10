@@ -33,6 +33,8 @@ pub struct LlamaConfig {
     pub rope_theta: f32,
     /// RMS norm epsilon
     pub norm_eps: f64,
+    /// Maximum batch size for parallel sequence processing
+    pub batch_size: usize,
 }
 
 impl LlamaConfig {
@@ -52,6 +54,7 @@ impl LlamaConfig {
             intermediate_size,
             rope_theta: 10000.0,  // Default for Llama
             norm_eps: 1e-5,       // Default RMS norm epsilon
+            batch_size: 1,        // Default batch size
         }
     }
 
@@ -129,7 +132,7 @@ impl LlamaModel {
         // Initialize KV cache for multi-token generation with batch_size=1 (default)
         let kv_cache = Some(KVCache::new(
             config.num_layers,
-            1, // batch_size (currently fixed at 1, expandable in the future)
+            config.batch_size,
             config.max_seq_len,
             config.kv_dim(),
         ));
@@ -206,10 +209,70 @@ impl LlamaModel {
         }
     }
 
+    /// Batch forward pass through the model
+    /// Process multiple sequences in parallel
+    pub fn forward_batch(&mut self, input_ids_batch: &[&[usize]]) -> RusTorchResult<Vec<Tensor<f64>>> {
+        self.forward_batch_with_position(input_ids_batch, 0)
+    }
+
+    /// Batch forward pass with position tracking
+    /// Process multiple sequences in parallel with specified start position
+    pub fn forward_batch_with_position(&mut self, input_ids_batch: &[&[usize]], start_position: usize) -> RusTorchResult<Vec<Tensor<f64>>> {
+        match self.device_type {
+            #[cfg(feature = "metal")]
+            DeviceType::Metal => self.forward_batch_metal(input_ids_batch, start_position),
+            _ => {
+                // Fallback: process each sequence individually
+                input_ids_batch.iter()
+                    .map(|input_ids| self.forward_with_position(input_ids, start_position))
+                    .collect()
+            }
+        }
+    }
+
     /// CPU implementation of forward pass
     fn forward_cpu(&self, input_ids: &[usize], _start_position: usize) -> RusTorchResult<Tensor<f64>> {
         eprintln!("🖥️  Llama forward_cpu called (not yet implemented)");
         Err(RusTorchError::tensor_op("CPU implementation for Llama not yet available"))
+    }
+
+    /// Metal GPU implementation of batch forward pass
+    /// Currently processes sequences individually as Metal kernels don't yet support batch dimension
+    /// TODO: Implement true parallel batch processing in Metal kernels
+    #[cfg(feature = "metal")]
+    fn forward_batch_metal(&mut self, input_ids_batch: &[&[usize]], start_position: usize) -> RusTorchResult<Vec<Tensor<f64>>> {
+        let batch_size = input_ids_batch.len();
+
+        if batch_size == 0 {
+            return Err(RusTorchError::tensor_op("Empty batch provided"));
+        }
+
+        // Validate that KVCache supports this batch size
+        if let Some(ref cache) = self.kv_cache {
+            if batch_size > cache.batch_size {
+                return Err(RusTorchError::tensor_op(&format!(
+                    "Batch size {} exceeds KVCache capacity {}. Recreate model with larger batch_size.",
+                    batch_size, cache.batch_size
+                )));
+            }
+        }
+
+        // Currently process each sequence individually
+        // This maintains correctness while we develop true batch processing
+        let mut results = Vec::with_capacity(batch_size);
+
+        for (batch_idx, input_ids) in input_ids_batch.iter().enumerate() {
+            // For now, clear the cache for each batch item before processing
+            // TODO: Remove this when implementing true parallel processing
+            if let Some(ref mut cache) = self.kv_cache {
+                cache.clear_batch(batch_idx);
+            }
+
+            let result = self.forward_metal(input_ids, start_position)?;
+            results.push(result);
+        }
+
+        Ok(results)
     }
 
     /// Metal GPU implementation of forward pass
