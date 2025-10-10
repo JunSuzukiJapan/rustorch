@@ -158,6 +158,10 @@ pub mod metal_matmul_raii;
 pub mod metal_objc_bridge;
 #[cfg(feature = "metal")]
 pub mod objc_bridge;
+/// Batch processing kernel wrappers for Metal GPU
+/// Metal GPU用バッチ処理カーネルラッパー
+#[cfg(feature = "metal")]
+pub mod batch_kernels;
 pub mod opencl_kernels;
 pub mod opencl_optimized;
 pub mod performance_benchmark;

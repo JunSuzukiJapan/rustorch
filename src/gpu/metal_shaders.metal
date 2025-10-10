@@ -190,7 +190,7 @@ kernel void reduce_sum_f32(
 // Conv2D kernel (simplified)
 kernel void conv2d_f32(
     device const float* input [[buffer(0)]],
-    device const float* kernel [[buffer(1)]],
+    device const float* weights [[buffer(1)]],
     device float* output [[buffer(2)]],
     constant uint& input_height [[buffer(3)]],
     constant uint& input_width [[buffer(4)]],
@@ -202,22 +202,22 @@ kernel void conv2d_f32(
 ) {
     uint out_y = gid.y;
     uint out_x = gid.x;
-    
+
     if (out_y >= output_height || out_x >= output_width) return;
-    
+
     float sum = 0.0;
     for (uint ky = 0; ky < kernel_height; ky++) {
         for (uint kx = 0; kx < kernel_width; kx++) {
             uint in_y = out_y + ky;
             uint in_x = out_x + kx;
-            
+
             if (in_y < input_height && in_x < input_width) {
-                sum += input[in_y * input_width + in_x] * 
-                       kernel[ky * kernel_width + kx];
+                sum += input[in_y * input_width + in_x] *
+                       weights[ky * kernel_width + kx];
             }
         }
     }
-    
+
     output[out_y * output_width + out_x] = sum;
 }
 
@@ -339,36 +339,47 @@ kernel void rms_norm_f32(
     constant uint& seq_len [[buffer(4)]],       // Sequence length
     constant uint& hidden_dim [[buffer(5)]],    // Hidden dimension
     constant float& eps [[buffer(6)]],          // Epsilon for numerical stability
-    uint3 gid [[thread_position_in_grid]]       // (batch_idx, seq_idx, dim)
+    uint3 gid [[thread_position_in_grid]],      // (dim, seq_idx, batch_idx)
+    uint3 tid [[thread_position_in_threadgroup]]
 ) {
-    uint batch_idx = gid.x;
+    uint dim = gid.x;
     uint seq_idx = gid.y;
-    uint dim = gid.z;
+    uint batch_idx = gid.z;
 
-    if (batch_idx >= batch_size || seq_idx >= seq_len || dim >= hidden_dim) {
+    if (batch_idx >= batch_size || seq_idx >= seq_len) {
         return;
     }
 
-    // Compute RMS for this (batch, seq) position
+    // Compute row offset
     uint row_offset = (batch_idx * seq_len + seq_idx) * hidden_dim;
 
-    // Only compute RMS once per row (when dim == 0)
-    threadgroup float rms_value;
-
-    if (dim == 0) {
-        float sum_squares = 0.0f;
-        for (uint i = 0; i < hidden_dim; i++) {
-            float val = input[row_offset + i];
-            sum_squares += val * val;
-        }
-        rms_value = sqrt(sum_squares / float(hidden_dim) + eps);
+    // Compute RMS for the entire row (all threads contribute)
+    float sum_squares = 0.0f;
+    for (uint i = tid.x; i < hidden_dim; i += 256) {
+        float val = input[row_offset + i];
+        sum_squares += val * val;
     }
 
+    // Reduce within threadgroup
+    threadgroup float shared_sum[256];
+    shared_sum[tid.x] = sum_squares;
     threadgroup_barrier(mem_flags::mem_threadgroup);
 
+    // Tree reduction
+    for (uint stride = 128; stride > 0; stride >>= 1) {
+        if (tid.x < stride && tid.x + stride < 256) {
+            shared_sum[tid.x] += shared_sum[tid.x + stride];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+    }
+
+    float rms_value = sqrt(shared_sum[0] / float(hidden_dim) + eps);
+
     // Apply normalization
-    float normalized = input[row_offset + dim] / rms_value;
-    output[row_offset + dim] = normalized * weight[dim];
+    for (uint i = tid.x; i < hidden_dim; i += 256) {
+        float normalized = input[row_offset + i] / rms_value;
+        output[row_offset + i] = normalized * weight[i];
+    }
 }
 
 // RoPE (Rotary Position Embedding) kernel with batch support
@@ -381,12 +392,15 @@ kernel void apply_rope_f32(
     constant uint& num_heads [[buffer(4)]],     // Number of heads
     constant uint& head_dim [[buffer(5)]],      // Head dimension
     constant float& rope_theta [[buffer(6)]],   // RoPE theta parameter
-    uint4 gid [[thread_position_in_grid]]       // (batch, pos, head, dim_pair)
+    uint3 gid [[thread_position_in_grid]]       // (dim_pair, head, batch*seq_len)
 ) {
-    uint batch = gid.x;
-    uint pos = gid.y;
-    uint head = gid.z;
-    uint dim_pair = gid.w;
+    uint dim_pair = gid.x;
+    uint head = gid.y;
+    uint batch_seq = gid.z;
+
+    // Unflatten batch*seq_len dimension
+    uint batch = batch_seq / seq_len;
+    uint pos = batch_seq % seq_len;
 
     if (batch >= batch_size || pos >= seq_len || head >= num_heads || dim_pair >= head_dim / 2) {
         return;
@@ -468,12 +482,15 @@ kernel void compute_attention_scores_batch_f32(
     constant uint& num_heads [[buffer(6)]],     // Number of attention heads
     constant uint& head_dim [[buffer(7)]],      // Dimension per head
     constant float& scale [[buffer(8)]],        // 1 / sqrt(head_dim)
-    uint4 gid [[thread_position_in_grid]]       // (batch, q_pos, kv_pos, head)
+    uint3 gid [[thread_position_in_grid]]       // (batch*q_pos, kv_pos, head)
 ) {
-    uint batch = gid.x;
-    uint q_pos = gid.y;
-    uint kv_pos = gid.z;
-    uint head = gid.w;
+    uint batch_q = gid.x;
+    uint kv_pos = gid.y;
+    uint head = gid.z;
+
+    // Unflatten batch*q_len dimension
+    uint batch = batch_q / q_len;
+    uint q_pos = batch_q % q_len;
 
     if (batch >= batch_size || q_pos >= q_len || kv_pos >= kv_len || head >= num_heads) {
         return;
@@ -661,12 +678,15 @@ kernel void apply_attention_to_values_batch_f32(
     constant uint& kv_len [[buffer(5)]],        // Key/Value sequence length
     constant uint& num_heads [[buffer(6)]],     // Number of heads
     constant uint& head_dim [[buffer(7)]],      // Dimension per head
-    uint4 gid [[thread_position_in_grid]]       // (batch, q_pos, head, dim)
+    uint3 gid [[thread_position_in_grid]]       // (batch*q_pos, head, dim)
 ) {
-    uint batch = gid.x;
-    uint q_pos = gid.y;
-    uint head = gid.z;
-    uint dim = gid.w;
+    uint batch_q = gid.x;
+    uint head = gid.y;
+    uint dim = gid.z;
+
+    // Unflatten batch*q_len dimension
+    uint batch = batch_q / q_len;
+    uint q_pos = batch_q % q_len;
 
     if (batch >= batch_size || q_pos >= q_len || head >= num_heads || dim >= head_dim) {
         return;

@@ -1217,7 +1217,7 @@ mod tests {
 
         // Dequantize using our implementation
         let mut reader = BufReader::new(Cursor::new(block_data));
-        let result = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
+        let result: Vec<f32> = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
 
         assert_eq!(result.len(), 256, "Should produce 256 values");
 
@@ -1272,14 +1272,14 @@ mod tests {
         block_data.write(&d_f16.to_bits().to_le_bytes()).unwrap();
 
         let mut reader = BufReader::new(Cursor::new(block_data));
-        let result = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
+        let result: Vec<f32> = GGUFLoader::dequantize_q6_k(&mut reader, 256).unwrap();
 
         // First value at position 0:
         // ql[0] & 0xF = 15, qh[0] >> 0 & 3 = 0
         // q1 = (15 | (0 << 4)) - 32 = 15 - 32 = -17
         // is = 0 / 16 = 0
         // value = d * sc[0] * q1 = 0.001 * 16 * (-17) = -0.272
-        let expected_0 = 0.001 * 16.0 * (-17.0);
+        let expected_0 = 0.001_f32 * 16.0 * (-17.0);
         assert!((result[0] - expected_0).abs() < 0.001,
             "Position 0: expected {}, got {}", expected_0, result[0]);
 
