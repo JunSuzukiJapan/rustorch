@@ -329,9 +329,95 @@ kernel void conv3d_f32(
     uint output_idx = ((batch_idx * out_channels + out_ch_idx) * output_d + od) * output_h * output_w + oh * output_w + ow;
     output[output_idx] = sum;
 }
-// RoPE (Rotary Position Embedding) kernel
-// RoPE（回転位置埋め込み）カーネル
+// RMS Normalization kernel
+// RMS正規化カーネル
+kernel void rms_norm_f32(
+    device const float* input [[buffer(0)]],    // Input tensor [batch_size, seq_len, hidden_dim]
+    device const float* weight [[buffer(1)]],   // RMS norm weights [hidden_dim]
+    device float* output [[buffer(2)]],         // Output tensor [batch_size, seq_len, hidden_dim]
+    constant uint& batch_size [[buffer(3)]],    // Batch size
+    constant uint& seq_len [[buffer(4)]],       // Sequence length
+    constant uint& hidden_dim [[buffer(5)]],    // Hidden dimension
+    constant float& eps [[buffer(6)]],          // Epsilon for numerical stability
+    uint3 gid [[thread_position_in_grid]]       // (batch_idx, seq_idx, dim)
+) {
+    uint batch_idx = gid.x;
+    uint seq_idx = gid.y;
+    uint dim = gid.z;
+
+    if (batch_idx >= batch_size || seq_idx >= seq_len || dim >= hidden_dim) {
+        return;
+    }
+
+    // Compute RMS for this (batch, seq) position
+    uint row_offset = (batch_idx * seq_len + seq_idx) * hidden_dim;
+
+    // Only compute RMS once per row (when dim == 0)
+    threadgroup float rms_value;
+
+    if (dim == 0) {
+        float sum_squares = 0.0f;
+        for (uint i = 0; i < hidden_dim; i++) {
+            float val = input[row_offset + i];
+            sum_squares += val * val;
+        }
+        rms_value = sqrt(sum_squares / float(hidden_dim) + eps);
+    }
+
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    // Apply normalization
+    float normalized = input[row_offset + dim] / rms_value;
+    output[row_offset + dim] = normalized * weight[dim];
+}
+
+// RoPE (Rotary Position Embedding) kernel with batch support
+// RoPE（回転位置埋め込み）カーネル（バッチ対応）
 kernel void apply_rope_f32(
+    device float* x [[buffer(0)]],              // Input/output tensor [batch_size, seq_len, num_heads, head_dim]
+    constant uint& batch_size [[buffer(1)]],    // Batch size
+    constant uint& start_pos [[buffer(2)]],     // Starting position for RoPE
+    constant uint& seq_len [[buffer(3)]],       // Sequence length
+    constant uint& num_heads [[buffer(4)]],     // Number of heads
+    constant uint& head_dim [[buffer(5)]],      // Head dimension
+    constant float& rope_theta [[buffer(6)]],   // RoPE theta parameter
+    uint4 gid [[thread_position_in_grid]]       // (batch, pos, head, dim_pair)
+) {
+    uint batch = gid.x;
+    uint pos = gid.y;
+    uint head = gid.z;
+    uint dim_pair = gid.w;
+
+    if (batch >= batch_size || pos >= seq_len || head >= num_heads || dim_pair >= head_dim / 2) {
+        return;
+    }
+
+    // Compute absolute position
+    uint absolute_pos = start_pos + pos;
+
+    // Compute frequency: 1 / (theta ^ (2 * dim / head_dim))
+    uint dim = dim_pair * 2;
+    float freq = 1.0f / pow(rope_theta, float(dim) / float(head_dim));
+    float angle = float(absolute_pos) * freq;
+
+    float cos_val = cos(angle);
+    float sin_val = sin(angle);
+
+    // Compute offsets for batch support
+    uint batch_offset = batch * (seq_len * num_heads * head_dim);
+    uint head_offset = batch_offset + pos * (num_heads * head_dim) + head * head_dim;
+
+    // Rotate (x[dim], x[dim+1]) pair
+    float x0 = x[head_offset + dim];
+    float x1 = x[head_offset + dim + 1];
+
+    x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
+    x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
+}
+
+// Legacy RoPE kernel without batch support (for backward compatibility)
+// バッチサポートなしの従来のRoPEカーネル（後方互換性のため）
+kernel void apply_rope_single_f32(
     device float* x [[buffer(0)]],              // Input/output tensor [seq_len, num_heads, head_dim]
     constant uint& start_pos [[buffer(1)]],     // Starting position for RoPE
     constant uint& seq_len [[buffer(2)]],       // Sequence length
@@ -370,8 +456,49 @@ kernel void apply_rope_f32(
     x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
 }
 
-// Attention Score Computation: scores = Q @ K^T / sqrt(head_dim)
-// Attention Score計算: scores = Q @ K^T / sqrt(head_dim)
+// Attention Score Computation with batch support: scores = Q @ K^T / sqrt(head_dim)
+// バッチ対応Attention Score計算: scores = Q @ K^T / sqrt(head_dim)
+kernel void compute_attention_scores_batch_f32(
+    device const float* q [[buffer(0)]],        // Query tensor [batch_size, q_len, num_heads, head_dim]
+    device const float* k [[buffer(1)]],        // Key tensor [batch_size, kv_len, num_heads, head_dim]
+    device float* scores [[buffer(2)]],         // Output scores [batch_size, num_heads, q_len, kv_len]
+    constant uint& batch_size [[buffer(3)]],    // Batch size
+    constant uint& q_len [[buffer(4)]],         // Query sequence length
+    constant uint& kv_len [[buffer(5)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(6)]],     // Number of attention heads
+    constant uint& head_dim [[buffer(7)]],      // Dimension per head
+    constant float& scale [[buffer(8)]],        // 1 / sqrt(head_dim)
+    uint4 gid [[thread_position_in_grid]]       // (batch, q_pos, kv_pos, head)
+) {
+    uint batch = gid.x;
+    uint q_pos = gid.y;
+    uint kv_pos = gid.z;
+    uint head = gid.w;
+
+    if (batch >= batch_size || q_pos >= q_len || kv_pos >= kv_len || head >= num_heads) {
+        return;
+    }
+
+    // Compute batch offsets
+    uint q_batch_offset = batch * (q_len * num_heads * head_dim);
+    uint k_batch_offset = batch * (kv_len * num_heads * head_dim);
+
+    // Compute dot product between Q[batch, q_pos, head] and K[batch, kv_pos, head]
+    uint q_offset = q_batch_offset + q_pos * (num_heads * head_dim) + head * head_dim;
+    uint k_offset = k_batch_offset + kv_pos * (num_heads * head_dim) + head * head_dim;
+
+    float dot = 0.0f;
+    for (uint d = 0; d < head_dim; d++) {
+        dot += q[q_offset + d] * k[k_offset + d];
+    }
+
+    // Write scaled score to output
+    uint score_idx = batch * (num_heads * q_len * kv_len) + head * q_len * kv_len + q_pos * kv_len + kv_pos;
+    scores[score_idx] = dot * scale;
+}
+
+// Legacy attention score computation without batch (for backward compatibility)
+// バッチなしの従来のattention score計算（後方互換性のため）
 kernel void compute_attention_scores_f32(
     device const float* q [[buffer(0)]],        // Query tensor [q_len, num_heads, head_dim]
     device const float* k [[buffer(1)]],        // Key tensor [kv_len, num_heads, head_dim]
@@ -405,8 +532,40 @@ kernel void compute_attention_scores_f32(
     scores[score_idx] = dot * scale;
 }
 
-// Softmax: Find max value per row
-// Softmax: 各行の最大値を計算
+// Softmax with batch support: Find max value per row
+// バッチ対応Softmax: 各行の最大値を計算
+kernel void softmax_max_batch_f32(
+    device const float* input [[buffer(0)]],    // Input scores [batch_size, num_heads, q_len, kv_len]
+    device float* max_vals [[buffer(1)]],       // Output max values [batch_size, num_heads, q_len]
+    constant uint& batch_size [[buffer(2)]],    // Batch size
+    constant uint& q_len [[buffer(3)]],         // Query sequence length
+    constant uint& kv_len [[buffer(4)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(5)]],     // Number of heads
+    uint3 gid [[thread_position_in_grid]]       // (batch, q_pos, head)
+) {
+    uint batch = gid.x;
+    uint q_pos = gid.y;
+    uint head = gid.z;
+
+    if (batch >= batch_size || q_pos >= q_len || head >= num_heads) {
+        return;
+    }
+
+    uint row_offset = batch * (num_heads * q_len * kv_len) + head * q_len * kv_len + q_pos * kv_len;
+    float max_val = input[row_offset];
+
+    for (uint j = 1; j < kv_len; j++) {
+        float val = input[row_offset + j];
+        if (val > max_val) {
+            max_val = val;
+        }
+    }
+
+    max_vals[batch * (num_heads * q_len) + head * q_len + q_pos] = max_val;
+}
+
+// Legacy Softmax without batch (for backward compatibility)
+// バッチなしの従来のSoftmax（後方互換性のため）
 kernel void softmax_max_f32(
     device const float* input [[buffer(0)]],    // Input scores [num_heads, q_len, kv_len]
     device float* max_vals [[buffer(1)]],       // Output max values [num_heads, q_len]
@@ -491,8 +650,43 @@ kernel void softmax_normalize_f32(
     }
 }
 
-// Apply attention to values: output = scores @ V
-// Valuesにattentionを適用: output = scores @ V
+// Apply attention to values with batch support: output = scores @ V
+// バッチ対応でValuesにattentionを適用: output = scores @ V
+kernel void apply_attention_to_values_batch_f32(
+    device const float* scores [[buffer(0)]],   // Attention scores [batch_size, num_heads, q_len, kv_len]
+    device const float* v [[buffer(1)]],        // Value tensor [batch_size, kv_len, num_heads, head_dim]
+    device float* output [[buffer(2)]],         // Output [batch_size, q_len, num_heads, head_dim]
+    constant uint& batch_size [[buffer(3)]],    // Batch size
+    constant uint& q_len [[buffer(4)]],         // Query sequence length
+    constant uint& kv_len [[buffer(5)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(6)]],     // Number of heads
+    constant uint& head_dim [[buffer(7)]],      // Dimension per head
+    uint4 gid [[thread_position_in_grid]]       // (batch, q_pos, head, dim)
+) {
+    uint batch = gid.x;
+    uint q_pos = gid.y;
+    uint head = gid.z;
+    uint dim = gid.w;
+
+    if (batch >= batch_size || q_pos >= q_len || head >= num_heads || dim >= head_dim) {
+        return;
+    }
+
+    uint score_row_offset = batch * (num_heads * q_len * kv_len) + head * q_len * kv_len + q_pos * kv_len;
+    uint out_offset = batch * (q_len * num_heads * head_dim) + q_pos * (num_heads * head_dim) + head * head_dim + dim;
+    uint v_batch_offset = batch * (kv_len * num_heads * head_dim);
+
+    float sum = 0.0f;
+    for (uint j = 0; j < kv_len; j++) {
+        uint v_offset = v_batch_offset + j * (num_heads * head_dim) + head * head_dim + dim;
+        sum += scores[score_row_offset + j] * v[v_offset];
+    }
+
+    output[out_offset] = sum;
+}
+
+// Legacy apply attention without batch (for backward compatibility)
+// バッチなしの従来のattention適用（後方互換性のため）
 kernel void apply_attention_to_values_f32(
     device const float* scores [[buffer(0)]],   // Attention scores [num_heads, q_len, kv_len]
     device const float* v [[buffer(1)]],        // Value tensor [kv_len, num_heads, head_dim]
