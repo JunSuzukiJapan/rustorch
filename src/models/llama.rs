@@ -70,33 +70,45 @@ impl LlamaConfig {
 /// Attentionレイヤー用のKVキャッシュ
 #[derive(Debug, Clone)]
 pub struct KVCache {
-    /// Cached key tensors for each layer [num_layers][max_cached_tokens, kv_dim]
-    pub k_cache: Vec<Vec<f32>>,
-    /// Cached value tensors for each layer [num_layers][max_cached_tokens, kv_dim]
-    pub v_cache: Vec<Vec<f32>>,
-    /// Number of tokens currently cached
-    pub cached_tokens: usize,
+    /// Cached key tensors for each layer [num_layers][batch_size][max_cached_tokens, kv_dim]
+    pub k_cache: Vec<Vec<Vec<f32>>>,
+    /// Cached value tensors for each layer [num_layers][batch_size][max_cached_tokens, kv_dim]
+    pub v_cache: Vec<Vec<Vec<f32>>>,
+    /// Number of tokens currently cached per batch item
+    pub cached_tokens: Vec<usize>,
     /// Maximum cache capacity
     pub max_cache_size: usize,
+    /// Batch size
+    pub batch_size: usize,
 }
 
 impl KVCache {
     /// Create a new KV cache
-    pub fn new(num_layers: usize, max_cache_size: usize, kv_dim: usize) -> Self {
-        let k_cache = vec![vec![0.0f32; max_cache_size * kv_dim]; num_layers];
-        let v_cache = vec![vec![0.0f32; max_cache_size * kv_dim]; num_layers];
+    pub fn new(num_layers: usize, batch_size: usize, max_cache_size: usize, kv_dim: usize) -> Self {
+        let k_cache = vec![vec![vec![0.0f32; max_cache_size * kv_dim]; batch_size]; num_layers];
+        let v_cache = vec![vec![vec![0.0f32; max_cache_size * kv_dim]; batch_size]; num_layers];
 
         Self {
             k_cache,
             v_cache,
-            cached_tokens: 0,
+            cached_tokens: vec![0; batch_size],
             max_cache_size,
+            batch_size,
         }
     }
 
     /// Clear the cache
     pub fn clear(&mut self) {
-        self.cached_tokens = 0;
+        for i in 0..self.batch_size {
+            self.cached_tokens[i] = 0;
+        }
+    }
+
+    /// Clear the cache for a specific batch item
+    pub fn clear_batch(&mut self, batch_idx: usize) {
+        if batch_idx < self.batch_size {
+            self.cached_tokens[batch_idx] = 0;
+        }
     }
 }
 
@@ -114,9 +126,10 @@ pub struct LlamaModel {
 impl LlamaModel {
     /// Create a new Llama model with specified config and device
     pub fn new(config: LlamaConfig, device_type: DeviceType) -> RusTorchResult<Self> {
-        // Initialize KV cache for multi-token generation
+        // Initialize KV cache for multi-token generation with batch_size=1 (default)
         let kv_cache = Some(KVCache::new(
             config.num_layers,
+            1, // batch_size (currently fixed at 1, expandable in the future)
             config.max_seq_len,
             config.kv_dim(),
         ));
@@ -220,6 +233,7 @@ impl LlamaModel {
         eprintln!("🔍 [METAL DEBUG] Step 4: Metal executor ready");
 
         let batch_size = 1;
+        let batch_idx = 0; // Currently only batch_size=1 is supported, so batch_idx is always 0
         let seq_len = input_ids.len();
         let d_model = self.config.hidden_size;
         let num_heads = self.config.num_heads;
@@ -415,7 +429,7 @@ impl LlamaModel {
             // Update KV cache with new K/V values
             if let Some(ref mut cache) = self.kv_cache {
                 // Append new K/V to cache
-                let cache_start = cache.cached_tokens;
+                let cache_start = cache.cached_tokens[batch_idx];
                 let cache_end = cache_start + seq_len;
 
                 if cache_end > cache.max_cache_size {
@@ -425,13 +439,13 @@ impl LlamaModel {
                     )));
                 }
 
-                // Copy new K/V into cache
+                // Copy new K/V into cache for this batch item
                 for i in 0..seq_len {
                     let src_offset = i * k_out_dim;
                     let dst_offset = (cache_start + i) * k_out_dim;
-                    cache.k_cache[layer_idx][dst_offset..dst_offset + k_out_dim]
+                    cache.k_cache[layer_idx][batch_idx][dst_offset..dst_offset + k_out_dim]
                         .copy_from_slice(&k_out[src_offset..src_offset + k_out_dim]);
-                    cache.v_cache[layer_idx][dst_offset..dst_offset + v_out_dim]
+                    cache.v_cache[layer_idx][batch_idx][dst_offset..dst_offset + v_out_dim]
                         .copy_from_slice(&v_out[src_offset..src_offset + v_out_dim]);
                 }
 
@@ -442,7 +456,7 @@ impl LlamaModel {
 
             // Get full K/V from cache (including both cached and new tokens)
             let total_seq_len = if let Some(ref cache) = self.kv_cache {
-                cache.cached_tokens + seq_len
+                cache.cached_tokens[batch_idx] + seq_len
             } else {
                 seq_len
             };
@@ -456,7 +470,7 @@ impl LlamaModel {
             let mut v_expanded = vec![0.0f32; total_seq_len * self.config.num_heads * head_dim];
 
             if let Some(ref cache) = self.kv_cache {
-                // Expand K/V from cache
+                // Expand K/V from cache for this batch item
                 for seq in 0..total_seq_len {
                     for kv_h in 0..num_kv_heads {
                         let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
@@ -464,8 +478,8 @@ impl LlamaModel {
                             let q_head_idx = kv_h * heads_per_kv + rep;
                             let expanded_offset = seq * (self.config.num_heads * head_dim) + q_head_idx * head_dim;
                             for d in 0..kv_head_size {
-                                k_expanded[expanded_offset + d] = cache.k_cache[layer_idx][kv_offset + d];
-                                v_expanded[expanded_offset + d] = cache.v_cache[layer_idx][kv_offset + d];
+                                k_expanded[expanded_offset + d] = cache.k_cache[layer_idx][batch_idx][kv_offset + d];
+                                v_expanded[expanded_offset + d] = cache.v_cache[layer_idx][batch_idx][kv_offset + d];
                             }
                         }
                     }
@@ -610,11 +624,11 @@ impl LlamaModel {
             eprintln!("🎉 Llama forward pass complete!");
         }
 
-        // Update KV cache token count
+        // Update KV cache token count for this batch item
         if let Some(ref mut cache) = self.kv_cache {
-            cache.cached_tokens += seq_len;
+            cache.cached_tokens[batch_idx] += seq_len;
             if debug {
-                eprintln!("✓ KV cache updated: total cached tokens = {}", cache.cached_tokens);
+                eprintln!("✓ KV cache updated: total cached tokens = {}", cache.cached_tokens[batch_idx]);
             }
         }
 
