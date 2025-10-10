@@ -10,6 +10,33 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
+/// Trait for floating point types used in GGUF dequantization
+/// GGUF量子化解除で使用する浮動小数点型のトレイト
+pub trait GGUFFloat: Copy + From<f32> + std::fmt::Debug {
+    fn from_i8(val: i8) -> Self;
+    fn from_f32(val: f32) -> Self;
+}
+
+impl GGUFFloat for f32 {
+    fn from_i8(val: i8) -> Self {
+        val as f32
+    }
+
+    fn from_f32(val: f32) -> Self {
+        val
+    }
+}
+
+impl GGUFFloat for f64 {
+    fn from_i8(val: i8) -> Self {
+        val as f64
+    }
+
+    fn from_f32(val: f32) -> Self {
+        val as f64
+    }
+}
+
 const GGUF_MAGIC: u32 = 0x46554747; // "GGUF" in little-endian
 const GGUF_VERSION_V3: u32 = 3;
 const GGUF_VERSION_V2: u32 = 2;
@@ -276,6 +303,12 @@ impl GGUFLoader {
     /// List all tensor names
     pub fn tensor_names(&self) -> Vec<&str> {
         self.tensors.iter().map(|t| t.name.as_str()).collect()
+    }
+
+    /// Get tensor info by name
+    /// テンソル情報を名前で取得
+    pub fn get_tensor_info(&self, name: &str) -> Option<&GGUFTensorInfo> {
+        self.tensors.iter().find(|t| t.name == name)
     }
 
     /// Extract tokenizer vocabulary from GGUF metadata
@@ -587,7 +620,12 @@ impl GGUFLoader {
     }
 
     /// Load tensor data by name
-    pub fn load_tensor(&self, name: &str) -> RusTorchResult<Tensor<f64>> {
+    /// Load tensor with generic float type
+    /// ジェネリック型でテンソルを読み込む
+    pub fn load_tensor_generic<F: GGUFFloat>(&self, name: &str) -> RusTorchResult<Vec<F>>
+    where
+        F: 'static,
+    {
         let tensor_info = self
             .tensors
             .iter()
@@ -645,48 +683,49 @@ impl GGUFLoader {
         }
 
         // Read tensor data based on type
+        // ジェネリック型を使用してf32→f64→f32の変換を回避
         let data = match ggml_type {
             GGMLType::F32 => {
-                let mut f32_data = vec![0.0f32; num_elements];
-                for val in &mut f32_data {
-                    *val = Self::read_f32(&mut reader)?;
+                let mut data = Vec::with_capacity(num_elements);
+                for _ in 0..num_elements {
+                    let f32_val = Self::read_f32(&mut reader)?;
+                    data.push(F::from_f32(f32_val));
                 }
-                f32_data.iter().map(|&x| x as f64).collect()
+                data
             }
             GGMLType::F16 => {
-                // Read as u16 and convert to f32 then f64
                 let mut data = Vec::with_capacity(num_elements);
                 for _ in 0..num_elements {
                     let bits = Self::read_u16(&mut reader)?;
                     let f32_val = half::f16::from_bits(bits).to_f32();
-                    data.push(f32_val as f64);
+                    data.push(F::from_f32(f32_val));
                 }
                 data
             }
             GGMLType::Q4_0 => {
                 // Q4_0: Blocks of 32 elements
                 // Block size: 18 bytes (2 bytes scale + 16 bytes quantized)
-                Self::dequantize_q4_0(&mut reader, num_elements)?
+                Self::dequantize_q4_0::<F>(&mut reader, num_elements)?
             }
             GGMLType::Q4_K => {
                 // Q4_K: Super-blocks of 256 elements (8 blocks of 32)
                 // Block size: 144 bytes per super-block
-                Self::dequantize_q4_k(&mut reader, num_elements)?
+                Self::dequantize_q4_k::<F>(&mut reader, num_elements)?
             }
             GGMLType::Q5_K => {
                 // Q5_K: Super-blocks of 256 elements
                 // Block size: 176 bytes per super-block
-                Self::dequantize_q5_k(&mut reader, num_elements)?
+                Self::dequantize_q5_k::<F>(&mut reader, num_elements)?
             }
             GGMLType::Q6_K => {
                 // Q6_K: Super-blocks of 256 elements (16 blocks of 16)
                 // Block size: 210 bytes per super-block
-                Self::dequantize_q6_k(&mut reader, num_elements)?
+                Self::dequantize_q6_k::<_, F>(&mut reader, num_elements)?
             }
             GGMLType::Q8_0 => {
                 // Q8_0: Blocks of 32 elements
                 // Block size: 34 bytes (2 bytes scale + 32 bytes quantized)
-                Self::dequantize_q8_0(&mut reader, num_elements)?
+                Self::dequantize_q8_0::<F>(&mut reader, num_elements)?
             }
             _ => {
                 return Err(RusTorchError::ParseError(format!(
@@ -696,16 +735,41 @@ impl GGUFLoader {
             }
         };
 
+        Ok(data)
+    }
+
+    /// Load tensor data by name (backward compatibility, returns f64)
+    /// テンソルデータを名前で読み込む（後方互換性のためf64を返す）
+    pub fn load_tensor(&self, name: &str) -> RusTorchResult<Tensor<f64>> {
+        let tensor_info = self
+            .tensors
+            .iter()
+            .find(|t| t.name == name)
+            .ok_or_else(|| RusTorchError::ParseError(format!("Tensor not found: {}", name)))?
+            .clone();
+
+        let original_dims: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
+        let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
+        let shape: Vec<usize> = match ggml_type {
+            GGMLType::F32 | GGMLType::F16 => {
+                let mut s = original_dims.clone();
+                s.reverse();
+                s
+            }
+            _ => original_dims.clone(),
+        };
+
+        let data: Vec<f64> = self.load_tensor_generic(name)?;
         Ok(Tensor::from_vec(data, shape))
     }
 
     /// Dequantize Q4_0 format
     /// Q4_0: Blocks of 32 elements
     /// Block structure: scale (f16) + quants (16 bytes of 4-bit values)
-    fn dequantize_q4_0(
+    fn dequantize_q4_0<F: GGUFFloat>(
         reader: &mut BufReader<File>,
         num_elements: usize,
-    ) -> RusTorchResult<Vec<f64>> {
+    ) -> RusTorchResult<Vec<F>> {
         const QK: usize = 32; // Elements per block
         const BLOCK_SIZE: usize = 18; // 2 bytes scale + 16 bytes quantized
 
@@ -737,7 +801,7 @@ impl GGUFLoader {
             // Prepare output space for this block
             let block_start = output.len();
             for _ in 0..QK {
-                output.push(0.0);
+                output.push(F::from_f32(0.0));
             }
 
             for j in 0..QK / 2 {
@@ -747,8 +811,9 @@ impl GGUFLoader {
                 let x1 = ((qs[j] >> 4) as i8) - 8;
 
                 // llama.cpp interleaved layout: y[j] = x0, y[j+16] = x1
-                output[block_start + j] = (x0 as f32 * scale) as f64;
-                output[block_start + j + QK / 2] = (x1 as f32 * scale) as f64;
+                // ジェネリック型を使用してf32→f64→f32の変換を回避
+                output[block_start + j] = F::from_f32(x0 as f32 * scale);
+                output[block_start + j + QK / 2] = F::from_f32(x1 as f32 * scale);
             }
         }
 
@@ -760,10 +825,10 @@ impl GGUFLoader {
     /// Dequantize Q8_0 format
     /// Q8_0: Blocks of 32 elements, 8-bit quantization
     /// Block structure: scale (f16) + quants (32 bytes of 8-bit signed values)
-    fn dequantize_q8_0(
+    fn dequantize_q8_0<F: GGUFFloat>(
         reader: &mut BufReader<File>,
         num_elements: usize,
-    ) -> RusTorchResult<Vec<f64>> {
+    ) -> RusTorchResult<Vec<F>> {
         const QK: usize = 32; // Elements per block
 
         let num_blocks = (num_elements + QK - 1) / QK;
@@ -785,11 +850,12 @@ impl GGUFLoader {
             }
 
             // Dequantize: value = scale * quant
+            // ジェネリック型を使用してf32→f64→f32の変換を回避
             for &q in &quants {
                 if output.len() >= num_elements {
                     break;
                 }
-                output.push((scale * q as f32) as f64);
+                output.push(F::from_f32(scale * q as f32));
             }
         }
 
@@ -800,10 +866,10 @@ impl GGUFLoader {
     /// Dequantize Q4_K format
     /// Q4_K: Super-blocks of 256 elements (8 blocks of 32 elements each)
     /// Block structure: scales (6-bit quantized) + mins (6-bit quantized) + quants (4-bit)
-    fn dequantize_q4_k(
+    fn dequantize_q4_k<F: GGUFFloat>(
         reader: &mut BufReader<File>,
         num_elements: usize,
-    ) -> RusTorchResult<Vec<f64>> {
+    ) -> RusTorchResult<Vec<F>> {
         const QK_K: usize = 256;          // Elements per super-block
         const K_SCALE_SIZE: usize = 12;   // Scale data size
 
@@ -888,17 +954,18 @@ impl GGUFLoader {
                 }
 
                 // Process 32 lower nibbles (block 1)
+                // ジェネリック型を使用してf32→f64→f32の変換を回避
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }
                     let q_val = qs[q_offset + l] & 0x0F;
-                    output.push((d1 * q_val as f32 - m1) as f64);
+                    output.push(F::from_f32(d1 * q_val as f32 - m1));
                 }
 
                 // Process 32 upper nibbles (block 2)
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }
                     let q_val = qs[q_offset + l] >> 4;
-                    output.push((d2 * q_val as f32 - m2) as f64);
+                    output.push(F::from_f32(d2 * q_val as f32 - m2));
                 }
             }
         }
@@ -910,10 +977,10 @@ impl GGUFLoader {
     /// Dequantize Q5_K format matching llama.cpp
     /// Q5_K: Super-blocks of 256 elements
     /// Block structure: d(f16), dmin(f16), scales[12], qh[32], qs[128] = 176 bytes
-    fn dequantize_q5_k(
+    fn dequantize_q5_k<F: GGUFFloat>(
         reader: &mut BufReader<File>,
         num_elements: usize,
-    ) -> RusTorchResult<Vec<f64>> {
+    ) -> RusTorchResult<Vec<F>> {
         const QK_K: usize = 256;
         const K_SCALE_SIZE: usize = 12;
 
@@ -978,13 +1045,14 @@ impl GGUFLoader {
                 let m2 = dmin * min2;
 
                 // Process 32 lower nibbles + high bit (block 1)
+                // ジェネリック型を使用してf32→f64→f32の変換を回避
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }
                     let q_low = qs[q_offset + l] & 0x0F;
                     let qh_byte = qh[l];
                     let q_high = (qh_byte >> j1) & 1;
                     let q_val = q_low | (q_high << 4);
-                    output.push((d1 * q_val as f32 - m1) as f64);
+                    output.push(F::from_f32(d1 * q_val as f32 - m1));
                 }
 
                 // Process 32 upper nibbles + high bit (block 2)
@@ -994,7 +1062,7 @@ impl GGUFLoader {
                     let qh_byte = qh[l];
                     let q_high = (qh_byte >> j2) & 1;
                     let q_val = q_low | (q_high << 4);
-                    output.push((d2 * q_val as f32 - m2) as f64);
+                    output.push(F::from_f32(d2 * q_val as f32 - m2));
                 }
             }
         }
@@ -1004,14 +1072,14 @@ impl GGUFLoader {
     }
 
     /// Dequantize Q6_K format matching llama.cpp exactly
-    fn dequantize_q6_k<R: Read>(
+    fn dequantize_q6_k<R: Read, F: GGUFFloat>(
         reader: &mut BufReader<R>,
         num_elements: usize,
-    ) -> RusTorchResult<Vec<f64>> {
+    ) -> RusTorchResult<Vec<F>> {
         const QK_K: usize = 256;
 
         let num_blocks = (num_elements + QK_K - 1) / QK_K;
-        let mut output = vec![0.0f64; num_elements];
+        let mut output = vec![F::from_f32(0.0); num_elements];
 
         for block_idx in 0..num_blocks {
             let block_start = block_idx * QK_K;
@@ -1058,17 +1126,18 @@ impl GGUFLoader {
                     let q3 = (((ql[ql_idx + l] >> 4) | (((qh[qh_idx + l] >> 4) & 3) << 4)) as i8) - 32;
                     let q4 = (((ql[ql_idx + l + 32] >> 4) | (((qh[qh_idx + l] >> 6) & 3) << 4)) as i8) - 32;
 
+                    // ジェネリック型を使用してf32→f64→f32の変換を回避
                     if y_idx + l < num_elements {
-                        output[y_idx + l] = (d * sc[sc_idx + is] as f32 * q1 as f32) as f64;
+                        output[y_idx + l] = F::from_f32(d * sc[sc_idx + is] as f32 * q1 as f32);
                     }
                     if y_idx + l + 32 < num_elements {
-                        output[y_idx + l + 32] = (d * sc[sc_idx + is + 2] as f32 * q2 as f32) as f64;
+                        output[y_idx + l + 32] = F::from_f32(d * sc[sc_idx + is + 2] as f32 * q2 as f32);
                     }
                     if y_idx + l + 64 < num_elements {
-                        output[y_idx + l + 64] = (d * sc[sc_idx + is + 4] as f32 * q3 as f32) as f64;
+                        output[y_idx + l + 64] = F::from_f32(d * sc[sc_idx + is + 4] as f32 * q3 as f32);
                     }
                     if y_idx + l + 96 < num_elements {
-                        output[y_idx + l + 96] = (d * sc[sc_idx + is + 6] as f32 * q4 as f32) as f64;
+                        output[y_idx + l + 96] = F::from_f32(d * sc[sc_idx + is + 6] as f32 * q4 as f32);
                     }
                 }
 

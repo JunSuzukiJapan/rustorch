@@ -89,20 +89,23 @@ impl LlamaSpmTokenizer {
             return vec![];
         }
 
-        // Step 0: Preprocess text (SentencePiece style)
-        // - Replace all whitespace characters (space, newline, tab, etc.) with ▁
-        // - Add ▁ at the beginning if not already present
+        // Step 0: Preprocess text (llama.cpp compatible)
+        // - Replace ONLY space characters with ▁ (NOT newlines, tabs, etc.)
+        // - DO NOT automatically add ▁ prefix (matches llama.cpp default behavior)
+        // IMPORTANT: Do NOT replace \n, \t, \r with ▁ - they have their own tokens!
+        //
+        // llama.cpp adds space prefix ONLY when:
+        // 1. add_space_prefix is true (model-specific, TinyLlama has this enabled)
+        // 2. AND previous token was a special token (e.g., after BOS)
+        //
+        // However, for raw text input (no special tokens), llama.cpp does NOT add prefix
         let preprocessed = text
             .chars()
-            .map(|c| if c.is_whitespace() { '▁' } else { c })
+            .map(|c| if c == ' ' { '▁' } else { c })
             .collect::<String>();
 
-        // Ensure it starts with ▁ (don't duplicate if already there)
-        let preprocessed = if preprocessed.starts_with('▁') {
-            preprocessed
-        } else {
-            format!("▁{}", preprocessed)
-        };
+        // llama.cpp behavior: NO automatic prefix for raw text
+        // The prefix is added by the higher-level tokenizer only when appropriate
 
         // Step 1: Split into UTF-8 characters
         let mut symbols = Vec::new();
@@ -274,17 +277,26 @@ impl LlamaSpmTokenizer {
 
 impl super::Tokenizer for LlamaSpmTokenizer {
     fn encode(&self, text: &str, add_special_tokens: bool) -> Result<Vec<u32>> {
+        // DEBUG: Show exact string being encoded
+        eprintln!("🔍 [LLAMA_SPM] Encoding text (len={}): {:?}", text.len(), text);
+        eprintln!("🔍 [LLAMA_SPM] Text bytes: {:?}", text.as_bytes());
+
         let mut tokens = Vec::new();
 
         if add_special_tokens {
             tokens.push(self.bos_token_id);
         }
 
-        tokens.extend(self.tokenize(text));
+        let text_tokens = self.tokenize(text);
+        eprintln!("🔍 [LLAMA_SPM] tokenize() returned {} tokens: {:?}", text_tokens.len(), &text_tokens[..text_tokens.len().min(20)]);
+
+        tokens.extend(text_tokens);
 
         if add_special_tokens {
             tokens.push(self.eos_token_id);
         }
+
+        eprintln!("🔍 [LLAMA_SPM] Final tokens ({}): {:?}", tokens.len(), &tokens[..tokens.len().min(20)]);
 
         Ok(tokens)
     }

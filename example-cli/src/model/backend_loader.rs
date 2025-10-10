@@ -191,13 +191,30 @@ impl BackendLoader {
         model_path: &Path,
         engine: &mut InferenceEngine,
     ) -> Result<()> {
-        use rustorch::models::GPTModel;
+        use rustorch::models::{GPTModel, LlamaModel};
         use rustorch::backends::DeviceType;
 
-        tracing::info!("Loading GPT model with Metal GPU backend");
-        let model = GPTModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
-        tracing::info!("✅ GPT model loaded with Metal backend");
-        engine.set_gpt_model(model);
+        // Detect model architecture from filename
+        let filename = model_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        tracing::info!("🔍 Model filename: {}", filename);
+
+        // Try to detect Llama architecture
+        if filename.contains("llama") || filename.contains("tinyllama") {
+            tracing::info!("🦙 Loading Llama model with Metal GPU backend");
+            let model = LlamaModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
+            tracing::info!("✅ Llama model loaded with Metal backend");
+            engine.set_llama_model(model);
+        } else {
+            tracing::info!("🤖 Loading GPT model with Metal GPU backend");
+            let model = GPTModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
+            tracing::info!("✅ GPT model loaded with Metal backend");
+            engine.set_gpt_model(model);
+        }
 
         Ok(())
     }

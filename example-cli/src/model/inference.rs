@@ -4,8 +4,8 @@ use crate::tokenizer::Tokenizer;
 use anyhow::Result;
 use rustorch::prelude::Tensor;
 
-// Import GPT models from RusTorch core
-use rustorch::models::GPTModel;
+// Import models from RusTorch core
+use rustorch::models::{GPTModel, LlamaModel};
 
 #[cfg(feature = "hybrid-f32")]
 use rustorch::hybrid_f32::models::{F32GPTModel, F32LlamaModel};
@@ -14,6 +14,7 @@ use rustorch::hybrid_f32::models::{F32GPTModel, F32LlamaModel};
 pub enum ModelBackend {
     Transformer(TransformerModel),
     GPT(GPTModel),
+    Llama(LlamaModel),
     #[cfg(feature = "hybrid-f32")]
     F32GPT(F32GPTModel),
     #[cfg(feature = "hybrid-f32")]
@@ -66,6 +67,11 @@ impl InferenceEngine {
         self.model = Some(ModelBackend::GPT(model));
     }
 
+    /// Set the Llama model (pure Metal implementation)
+    pub fn set_llama_model(&mut self, model: LlamaModel) {
+        self.model = Some(ModelBackend::Llama(model));
+    }
+
     /// Set the F32 GPT model
     #[cfg(feature = "hybrid-f32")]
     pub fn set_f32_gpt_model(&mut self, model: F32GPTModel) {
@@ -81,6 +87,52 @@ impl InferenceEngine {
     /// Generate a response from input text
     pub fn generate(&mut self, input: &str) -> Result<String> {
         self.generate_with_template(input, true)
+    }
+
+    /// Generate from token IDs directly (bypassing tokenizer)
+    pub fn generate_from_tokens(&mut self, token_ids: Vec<u32>) -> Result<String> {
+        tracing::debug!("Generating response from token IDs: {:?}", &token_ids[..token_ids.len().min(10)]);
+        tracing::debug!(
+            "Generation config: max_tokens={}, temperature={}, top_p={}",
+            self.generation_config.max_tokens,
+            self.generation_config.temperature,
+            self.generation_config.top_p
+        );
+
+        // Check if model is loaded
+        if self.model.is_none() {
+            anyhow::bail!("No model loaded. Please load a model before attempting generation.");
+        }
+
+        // DEBUG: Log input tokens
+        eprintln!("🔍 [INPUT] Direct token IDs: {:?}", &token_ids[..token_ids.len().min(20)]);
+
+        // Generate tokens
+        let output_ids = self.generate_tokens(&token_ids)?;
+
+        // DEBUG: Log output tokens
+        eprintln!("🔍 [OUTPUT] tokens={:?}", &output_ids[..output_ids.len().min(20)]);
+
+        // Decode output using loader's tokenizer
+        let output = self
+            .tokenizer()
+            .decode(&output_ids, true)
+            .unwrap_or_else(|_| {
+                // Fallback: simple character decoding
+                tracing::warn!("Tokenizer decoding failed, using character-based fallback");
+                output_ids.iter().filter_map(|&id| char::from_u32(id)).collect()
+            });
+
+        // DEBUG: Show individual token decoding for first few tokens
+        if output_ids.len() > 0 {
+            eprintln!("🔍 [DECODE] First 5 tokens:");
+            for (i, &token_id) in output_ids.iter().take(5).enumerate() {
+                let decoded = self.tokenizer().decode(&[token_id], true).unwrap_or_else(|_| "?".to_string());
+                eprintln!("  Token {}: {} -> '{}'", i, token_id, decoded);
+            }
+        }
+
+        Ok(output)
     }
 
     pub fn generate_with_template(&mut self, input: &str, use_template: bool) -> Result<String> {
@@ -99,8 +151,8 @@ impl InferenceEngine {
 
         // Apply chat template if enabled
         let formatted_input = if use_template {
-            // TinyLlama format without system message (simpler)
-            format!("<|user|>\n{}</s>\n<|assistant|>\n", input)
+            // TinyLlama format matching llama.cpp (no </s> between user and assistant)
+            format!("<|user|>\n{}<|assistant|>", input)
         } else {
             input.to_string()
         };
@@ -162,6 +214,10 @@ impl InferenceEngine {
                 ModelBackend::F32GPT(_) => {
                     tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
                     self.generate_with_f32_gpt_mut(input_ids, max_new_tokens)
+                }
+                ModelBackend::Llama(ref llama_model) => {
+                    tracing::info!("🦙 Using RusTorch Llama model for generation (pure Metal)");
+                    self.generate_with_llama(llama_model, input_ids, max_new_tokens)
                 }
                 ModelBackend::GPT(ref gpt_model) => {
                     tracing::info!("🚀 Using RusTorch GPT model for generation");
@@ -283,6 +339,68 @@ impl InferenceEngine {
 
             // Stop if context limit exceeded
             if seq_len >= gpt_model.config().max_seq_len {
+                tracing::warn!("Reached maximum sequence length");
+                break;
+            }
+        }
+
+        // Return only the newly generated tokens
+        let new_tokens: Vec<u32> = generated_ids[input_ids.len()..]
+            .iter()
+            .map(|&id| id as u32)
+            .collect();
+
+        Ok(new_tokens)
+    }
+
+    /// Generate tokens using Llama model (pure Metal implementation)
+    fn generate_with_llama(
+        &self,
+        llama_model: &LlamaModel,
+        input_ids: &[u32],
+        max_new_tokens: usize,
+    ) -> Result<Vec<u32>> {
+        let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
+
+        tracing::info!(
+            "Generating {} tokens with RusTorch Llama model (pure Metal)",
+            max_new_tokens
+        );
+
+        // Generation loop
+        for step in 0..max_new_tokens {
+            // Forward pass through RusTorch Llama model
+            // RusTorch API: forward(&[usize]) -> Result<Tensor<f64>>
+            let logits_tensor = llama_model.forward(&generated_ids)
+                .map_err(|e| anyhow::anyhow!("Llama forward failed: {}", e))?;
+
+            // Extract logits for the last position
+            // Shape: [batch_size=1, seq_len, vocab_size] -> [vocab_size]
+            let seq_len = generated_ids.len();
+            let last_logits = self.extract_last_logits(&logits_tensor, seq_len)?;
+
+            // Apply temperature scaling
+            let scaled_logits = if self.sampling_config.temperature != 1.0 {
+                self.apply_temperature(&last_logits, self.sampling_config.temperature)?
+            } else {
+                last_logits
+            };
+
+            // Sample next token using RusTorch operations
+            let next_token_id = self.sample_from_logits(&scaled_logits, &generated_ids, step)?;
+
+            // Check for EOS token
+            if let Some(eos_id) = self.tokenizer().eos_token_id() {
+                if next_token_id == eos_id as usize {
+                    tracing::debug!("EOS token generated at step {}", step);
+                    break;
+                }
+            }
+
+            generated_ids.push(next_token_id);
+
+            // Stop if context limit exceeded
+            if seq_len >= llama_model.config().max_seq_len {
                 tracing::warn!("Reached maximum sequence length");
                 break;
             }

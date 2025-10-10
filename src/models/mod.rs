@@ -3,6 +3,7 @@
 
 pub mod cnn;
 pub mod gpt;
+pub mod llama;
 pub mod rnn;
 pub mod sampling;
 pub mod serialization;
@@ -90,6 +91,7 @@ where
 // Re-export model architectures
 pub use cnn::{CNNBuilder, ResNet, ResNetBuilder, CNN};
 pub use gpt::{GPTConfig, GPTModel};
+pub use llama::{LlamaConfig, LlamaModel};
 pub use rnn::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
 pub use serialization::{ModelLoader, ModelSaver, SerializationFormat};
 pub use training::{Trainer, TrainingConfig, TrainingResult};

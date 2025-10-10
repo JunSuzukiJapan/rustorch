@@ -56,12 +56,36 @@ kernel void matmul_f32(
 ) {
     uint row = gid.y;
     uint col = gid.x;
-    
+
     if (row >= m || col >= n) return;
-    
+
     float value = 0.0;
     for (uint i = 0; i < k; i++) {
         value += a[row * k + i] * b[i * n + col];
+    }
+    c[row * n + col] = value;
+}
+
+// Matrix multiplication with B transposed: C = A @ B^T
+// B is stored as [n, k] but treated as [k, n]^T
+kernel void matmul_transposed_f32(
+    device const float* a [[buffer(0)]],
+    device const float* b [[buffer(1)]],
+    device float* c [[buffer(2)]],
+    constant uint& m [[buffer(3)]],
+    constant uint& n [[buffer(4)]],
+    constant uint& k [[buffer(5)]],
+    uint2 gid [[thread_position_in_grid]]
+) {
+    uint row = gid.y;
+    uint col = gid.x;
+
+    if (row >= m || col >= n) return;
+
+    float value = 0.0;
+    for (uint i = 0; i < k; i++) {
+        // B is [n, k], so B^T[i, col] = B[col, i] = b[col * k + i]
+        value += a[row * k + i] * b[col * k + i];
     }
     c[row * n + col] = value;
 }

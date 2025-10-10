@@ -591,24 +591,43 @@ impl GPTModel {
         // Convert gamma weights to f32
         let ln1_gamma_f32: Vec<f32> = ln1_weight.data.iter().map(|&v| v as f32).collect();
 
+        // 🔍 Debug: Dump RMS Norm weight for Layer 0
+        if debug && layer_idx == 0 {
+            let w_mean: f32 = ln1_gamma_f32.iter().sum::<f32>() / ln1_gamma_f32.len() as f32;
+            let w_rms = (ln1_gamma_f32.iter().map(|&v| v * v).sum::<f32>() / ln1_gamma_f32.len() as f32).sqrt();
+            let w_min = ln1_gamma_f32.iter().cloned().fold(f32::INFINITY, f32::min);
+            let w_max = ln1_gamma_f32.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            eprintln!("\n   🔍 [LAYER 0 RMS NORM WEIGHT] blk.0.attn_norm.weight:");
+            eprintln!("      Length: {}", ln1_gamma_f32.len());
+            eprintln!("      Stats: mean={:.8}, rms={:.8}, min={:.8}, max={:.8}", w_mean, w_rms, w_min, w_max);
+            eprintln!("      First 20 values:");
+            for i in 0..20 {
+                eprint!("{:.8} ", ln1_gamma_f32[i]);
+                if (i + 1) % 5 == 0 { eprintln!(); }
+            }
+        }
+
         // Use RMS Norm instead of Layer Norm (TinyLlama uses RMS Norm with eps=1e-5)
         let mut x_ln1 = vec![0.0f32; x_f32.len()];
         Self::rms_norm_f32(&x_f32, &ln1_gamma_f32, &mut x_ln1, seq_len, d_model, 1e-5);
 
         if debug {
             eprintln!("     ✓ Layer Norm 1 complete");
-            // Check Pos 17 after RMS Norm
-            if layer_idx == 0 && seq_len > 17 {
+            // Check RMS Norm output for first 6 layers
+            if layer_idx < 6 && seq_len > 17 {
                 let pos17_start = 17 * d_model;
+                let pos17_input = &x_f32[pos17_start..pos17_start + d_model];
                 let pos17_ln1 = &x_ln1[pos17_start..pos17_start + d_model];
+
+                let input_rms = (pos17_input.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
                 let pos17_ln1_rms = (pos17_ln1.iter().map(|&v| v * v).sum::<f32>() / d_model as f32).sqrt();
 
                 // Check LN1 weight statistics
                 let ln1_weight_mean = ln1_gamma_f32.iter().sum::<f32>() / ln1_gamma_f32.len() as f32;
                 let ln1_weight_rms = (ln1_gamma_f32.iter().map(|&v| v * v).sum::<f32>() / ln1_gamma_f32.len() as f32).sqrt();
 
-                eprintln!("   🔍 [AFTER LN1] Pos 17 RMS: {:.6}", pos17_ln1_rms);
-                eprintln!("   🔍 [LN1 WEIGHT] mean={:.6}, rms={:.6}", ln1_weight_mean, ln1_weight_rms);
+                eprintln!("   🔍 [LAYER {} LN1] Pos 17: input_rms={:.6}, output_rms={:.6}, weight_rms={:.6}, ratio={:.2}x",
+                          layer_idx, input_rms, pos17_ln1_rms, ln1_weight_rms, pos17_ln1_rms / input_rms);
             }
         }
 
@@ -639,6 +658,13 @@ impl GPTModel {
         let v_weight_f32: Vec<f32> = v_weight.data.iter().map(|&v| v as f32).collect();
         let o_weight_f32: Vec<f32> = o_weight.data.iter().map(|&v| v as f32).collect();
 
+        if debug && layer_idx == 0 {
+            eprintln!("   📐 [WEIGHT INFO] Layer 0:");
+            eprintln!("      Q weight len={}, first 10: {:?}", q_weight_f32.len(), &q_weight_f32[0..10]);
+            eprintln!("      Expected Q weight size: {} x {} = {}", d_model, d_model, d_model * d_model);
+            eprintln!("      x_ln1 (input) len={}, first 10: {:?}", x_ln1.len(), &x_ln1[0..10.min(x_ln1.len())]);
+        }
+
         // 1. Q, K, V projections (Metal GPU)
         if debug {
             eprintln!("       - Q, K, V projections");
@@ -654,9 +680,26 @@ impl GPTModel {
         let mut k_proj = vec![0.0f32; seq_len * kv_dim];
         let mut v_proj = vec![0.0f32; seq_len * kv_dim];
 
-        executor.matmul_f32(&x_ln1, &q_weight_f32, &mut q_proj, seq_len, d_model, d_model)?;
-        executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
-        executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
+        if debug && layer_idx == 0 {
+            eprintln!("   🔧 [MATMUL PARAMS] Q projection:");
+            eprintln!("      Input (x_ln1): shape=[{}, {}], len={}", seq_len, d_model, x_ln1.len());
+            eprintln!("      Weight (Q): shape=[{}, {}], len={}", d_model, d_model, q_weight_f32.len());
+            eprintln!("      Output (q_proj): shape=[{}, {}], len={}", seq_len, d_model, q_proj.len());
+            eprintln!("      Parameters: m={}, n={}, k={}", seq_len, d_model, d_model);
+        }
+
+        // Use transposed matmul since GGUF weights are stored as [out_dim, in_dim]
+        // We need: output = input @ weight^T
+        executor.matmul_transposed_f32(&x_ln1, &q_weight_f32, &mut q_proj, seq_len, d_model, d_model)?;
+
+        if debug && layer_idx == 0 {
+            eprintln!("   ✅ [MATMUL OUTPUT] Q projection (with transpose):");
+            eprintln!("      q_proj first 10: {:?}", &q_proj[0..10.min(q_proj.len())]);
+            eprintln!("      q_proj last 10: {:?}", &q_proj[q_proj.len().saturating_sub(10)..]);
+        }
+
+        executor.matmul_transposed_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
+        executor.matmul_transposed_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
 
         // Debug: Log Q/K/V projection statistics for first layer
         if debug && layer_idx == 0 {
@@ -887,12 +930,49 @@ impl GPTModel {
             }
         }
 
+        // 🔍 Layer 0 Attention Output detailed dump
+        if debug && layer_idx == 0 {
+            eprintln!("\n   🔍 [LAYER 0 ATTENTION OUTPUT] Before output projection:");
+            let last_pos = (seq_len - 1) * d_model;
+            let attn_out_last = &attn_output[last_pos..last_pos + d_model];
+            eprintln!("      Position {}, first 20 values:", seq_len - 1);
+            for i in 0..20 {
+                eprint!("{:.8} ", attn_out_last[i]);
+                if (i + 1) % 5 == 0 { eprintln!(); }
+            }
+            let rms = (attn_out_last.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            eprintln!("      RMS: {:.8}", rms);
+
+            // Output projection weight statistics
+            let o_w_mean: f32 = o_weight_f32.iter().sum::<f32>() / o_weight_f32.len() as f32;
+            let o_w_rms = (o_weight_f32.iter().map(|&v| v * v).sum::<f32>() / o_weight_f32.len() as f32).sqrt();
+            let o_w_min = o_weight_f32.iter().cloned().fold(f32::INFINITY, f32::min);
+            let o_w_max = o_weight_f32.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+            eprintln!("      O_weight (Q6_K): mean={:.8}, rms={:.8}, min={:.8}, max={:.8}", o_w_mean, o_w_rms, o_w_min, o_w_max);
+            eprintln!("      O_weight[0..20]: {:?}", &o_weight_f32[0..20]);
+        }
+
         // 7. Output projection (Metal GPU)
         if debug {
             eprintln!("       - Output projection");
         }
         let mut x_post_attn = vec![0.0f32; seq_len * d_model];
-        executor.matmul_f32(&attn_output, &o_weight_f32, &mut x_post_attn, seq_len, d_model, d_model)?;
+        // Use transposed matmul since GGUF weights are [out_dim, in_dim]
+        executor.matmul_transposed_f32(&attn_output, &o_weight_f32, &mut x_post_attn, seq_len, d_model, d_model)?;
+
+        // 🔍 Layer 0 After Output Projection
+        if debug && layer_idx == 0 {
+            eprintln!("\n   🔍 [LAYER 0 AFTER OUTPUT PROJECTION]:");
+            let last_pos = (seq_len - 1) * d_model;
+            let post_proj = &x_post_attn[last_pos..last_pos + d_model];
+            eprintln!("      Position {}, first 20 values:", seq_len - 1);
+            for i in 0..20 {
+                eprint!("{:.8} ", post_proj[i]);
+                if (i + 1) % 5 == 0 { eprintln!(); }
+            }
+            let rms = (post_proj.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            eprintln!("      RMS: {:.8}", rms);
+        }
 
         if debug {
             eprintln!("     ✓ Attention complete");
@@ -904,6 +984,24 @@ impl GPTModel {
         }
         let mut x_residual1 = vec![0.0f32; x_f32.len()];
         executor.elementwise_add_f32(&x_f32, &x_post_attn, &mut x_residual1)?;
+
+        // 📊 Track residual accumulation in Layer 0
+        if debug && layer_idx == 0 {
+            let last_pos = (seq_len - 1) * d_model;
+            let x_before = &x_f32[last_pos..last_pos + d_model];
+            let attn_delta = &x_post_attn[last_pos..last_pos + d_model];
+            let x_after = &x_residual1[last_pos..last_pos + d_model];
+
+            let x_before_rms = (x_before.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            let attn_delta_rms = (attn_delta.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            let x_after_rms = (x_after.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+
+            eprintln!("   📊 [RESIDUAL 1] Layer {}, pos {}:", layer_idx, seq_len - 1);
+            eprintln!("      Before (x): RMS={:.6}, first 5: {:?}", x_before_rms, &x_before[0..5]);
+            eprintln!("      Delta (attn): RMS={:.6}, first 5: {:?}", attn_delta_rms, &attn_delta[0..5]);
+            eprintln!("      After (x+attn): RMS={:.6}, first 5: {:?}", x_after_rms, &x_after[0..5]);
+        }
+
         if debug {
             eprintln!("     ✓ Residual 1 complete");
         }
@@ -963,10 +1061,26 @@ impl GPTModel {
         // x_ln2: [seq_len * d_model], gate_weight: [d_ff, d_model] (transposed in GGUF)
         // Result: [seq_len, d_ff]
         if debug {
+            eprintln!("   🔶 [FFN GATE] Layer {}:", layer_idx);
+            if layer_idx == 0 {
+                eprintln!("      Gate weight len={}, first 10: {:?}", gate_weight_f32.len(), &gate_weight_f32[0..10]);
+                eprintln!("      Input (x_ln2) len={}, first 10: {:?}", x_ln2.len(), &x_ln2[0..10.min(x_ln2.len())]);
+                eprintln!("      Matmul params: m={}, n={}, k={}", seq_len, d_ff, d_model);
+            }
+        }
+        if debug {
             eprintln!("       - Gate projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
         }
         let mut gate_out = vec![0.0f32; seq_len * d_ff];
-        executor.matmul_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, d_ff, d_model)?;
+        // Use transposed matmul since GGUF weights are [out_dim, in_dim]
+        executor.matmul_transposed_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, d_ff, d_model)?;
+
+        if debug {
+            if layer_idx == 0 {
+                eprintln!("      Gate output first 10: {:?}", &gate_out[0..10]);
+                eprintln!("      Gate output last 10: {:?}", &gate_out[gate_out.len().saturating_sub(10)..]);
+            }
+        }
 
         // 2. Apply GELU to gate output
         if debug {
@@ -980,7 +1094,8 @@ impl GPTModel {
             eprintln!("       - Up projection: [{}, {}] @ [{}, {}]^T", seq_len, d_model, d_ff, d_model);
         }
         let mut up_out = vec![0.0f32; seq_len * d_ff];
-        executor.matmul_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, d_ff, d_model)?;
+        // Use transposed matmul since GGUF weights are [out_dim, in_dim]
+        executor.matmul_transposed_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, d_ff, d_model)?;
 
         // 4. Element-wise multiply: gate_activated * up_out
         if debug {
@@ -996,7 +1111,22 @@ impl GPTModel {
             eprintln!("       - Down projection: [{}, {}] @ [{}, {}]^T", seq_len, d_ff, d_model, d_ff);
         }
         let mut ffn_out = vec![0.0f32; seq_len * d_model];
-        executor.matmul_f32(&ffn_intermediate, &down_weight_f32, &mut ffn_out, seq_len, d_model, d_ff)?;
+        // Use transposed matmul since GGUF weights are [out_dim, in_dim]
+        executor.matmul_transposed_f32(&ffn_intermediate, &down_weight_f32, &mut ffn_out, seq_len, d_model, d_ff)?;
+
+        // 🔍 Layer 0 FFN Output detailed dump
+        if debug && layer_idx == 0 {
+            eprintln!("\n   🔍 [LAYER 0 FFN OUTPUT]:");
+            let last_pos = (seq_len - 1) * d_model;
+            let ffn_last = &ffn_out[last_pos..last_pos + d_model];
+            eprintln!("      Position {}, first 20 values:", seq_len - 1);
+            for i in 0..20 {
+                eprint!("{:.8} ", ffn_last[i]);
+                if (i + 1) % 5 == 0 { eprintln!(); }
+            }
+            let rms = (ffn_last.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            eprintln!("      RMS: {:.8}", rms);
+        }
 
         if debug {
             eprintln!("     ✓ FFN complete");
@@ -1009,12 +1139,37 @@ impl GPTModel {
         let mut x_residual2 = vec![0.0f32; x_residual1.len()];
         executor.elementwise_add_f32(&x_residual1, &ffn_out, &mut x_residual2)?;
 
+        // 📊 Track residual 2 accumulation in Layer 0
+        if debug && layer_idx == 0 {
+            let last_pos = (seq_len - 1) * d_model;
+            let x_before = &x_residual1[last_pos..last_pos + d_model];
+            let ffn_delta = &ffn_out[last_pos..last_pos + d_model];
+            let x_after_no_clip = &x_residual2[last_pos..last_pos + d_model];
+
+            let x_before_rms = (x_before.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            let ffn_delta_rms = (ffn_delta.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            let x_after_rms = (x_after_no_clip.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+
+            eprintln!("   📊 [RESIDUAL 2] Layer {}, pos {} (before clipping):", layer_idx, seq_len - 1);
+            eprintln!("      Before (x_res1): RMS={:.6}, first 5: {:?}", x_before_rms, &x_before[0..5]);
+            eprintln!("      Delta (ffn): RMS={:.6}, first 5: {:?}", ffn_delta_rms, &ffn_delta[0..5]);
+            eprintln!("      After (x_res1+ffn): RMS={:.6}, first 5: {:?}", x_after_rms, &x_after_no_clip[0..5]);
+        }
+
         // Value clipping to prevent numerical instability from 93x amplification
         // Clip to reasonable range to prevent softmax collapse in later layers
         let clip_max = 10.0f32;
         let clip_min = -10.0f32;
         for val in x_residual2.iter_mut() {
             *val = val.clamp(clip_min, clip_max);
+        }
+
+        // Track clipping effect in Layer 0
+        if debug && layer_idx == 0 {
+            let last_pos = (seq_len - 1) * d_model;
+            let x_after_clip = &x_residual2[last_pos..last_pos + d_model];
+            let x_after_rms = (x_after_clip.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
+            eprintln!("      After clipping: RMS={:.6}, first 5: {:?}", x_after_rms, &x_after_clip[0..5]);
         }
 
         if debug {
@@ -1042,6 +1197,19 @@ impl GPTModel {
                 }
             }
         }
+
+            // 🔬 [LAYER OUTPUT] Debug: dump layer outputs for tracking divergence
+            if debug && (layer_idx == 0 || layer_idx == 5 || layer_idx == 10 || layer_idx == 15 || layer_idx == 20 || layer_idx == 21) {
+                let last_token_start = (seq_len - 1) * d_model;
+                let last_token_out = &x_residual2[last_token_start..last_token_start + d_model];
+                let mean: f32 = last_token_out.iter().sum::<f32>() / d_model as f32;
+                let sq_sum: f32 = last_token_out.iter().map(|&v| v * v).sum();
+                let rms = (sq_sum / d_model as f32).sqrt();
+                let max_val = last_token_out.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
+                let min_val = last_token_out.iter().cloned().fold(f32::INFINITY, f32::min);
+                eprintln!("🔬 [LAYER {} OUTPUT] Last token (pos={}): first 10: {:?}", layer_idx, seq_len - 1, &last_token_out[0..10]);
+                eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, min={:.6}, max={:.6}", mean, rms, min_val, max_val);
+            }
 
             // Update x_f32 for next layer
             x_f32 = x_residual2;
@@ -1076,13 +1244,18 @@ impl GPTModel {
         }
 
         // LM Head projection: hidden states -> logits
-        let lm_head_weight = self.weights.get("output.weight")
-            .or_else(|| self.weights.get("lm_head.weight"))
-            .or_else(|| self.weights.get("token_embd.weight"))
-            .ok_or_else(|| RusTorchError::tensor_op("LM head weight not found".to_string()))?;
+        let (lm_head_weight, lm_head_key) = if let Some(w) = self.weights.get("output.weight") {
+            (w, "output.weight")
+        } else if let Some(w) = self.weights.get("lm_head.weight") {
+            (w, "lm_head.weight")
+        } else if let Some(w) = self.weights.get("token_embd.weight") {
+            (w, "token_embd.weight")
+        } else {
+            return Err(RusTorchError::tensor_op("LM head weight not found".to_string()));
+        };
 
         if debug {
-            eprintln!("   ✓ LM head weight retrieved");
+            eprintln!("   ✓ LM head weight retrieved from key: {}", lm_head_key);
         }
 
         let vocab_size = self.config.vocab_size;
@@ -1090,6 +1263,13 @@ impl GPTModel {
         // Get last token's hidden state
         let last_token_start = (seq_len - 1) * d_model;
         let last_hidden = &x_final_norm[last_token_start..last_token_start + d_model];
+
+        if debug {
+            eprintln!("   🎯 [LAST HIDDEN] Token pos={}, first 10: {:?}", seq_len - 1, &last_hidden[0..10]);
+            eprintln!("   🎯 [LAST HIDDEN] Last 10: {:?}", &last_hidden[last_hidden.len().saturating_sub(10)..]);
+            let last_hidden_rms = (last_hidden.iter().map(|&v| v * v).sum::<f32>() / last_hidden.len() as f32).sqrt();
+            eprintln!("   🎯 [LAST HIDDEN] RMS={:.6}", last_hidden_rms);
+        }
 
         // Compute logits: last_hidden @ lm_head^T -> [vocab_size]
         // lm_head shape: [hidden_size, vocab_size] stored in row-major
@@ -1099,6 +1279,22 @@ impl GPTModel {
         if debug {
             eprintln!("🔍 [LM_HEAD] Shape: {:?}, d_model={}, vocab_size={}", lm_head_shape, d_model, vocab_size);
             eprintln!("🔍 [LM_HEAD] Data len: {}, expected: {}", lm_head_data.len(), d_model * vocab_size);
+
+            // Test memory layout hypothesis
+            // If ndarray interprets shape [2048, 32000] as row-major:
+            //   [[h, v]] → h * 32000 + v
+            // If GGUF layout is [token0(2048), token1(2048), ...]:
+            //   Token v, element h → v * 2048 + h
+
+            eprintln!("🧪 [LAYOUT TEST] ndarray 2D access [[0, 0]]: value = {:.6}", lm_head_data[[0, 0]]);
+            eprintln!("🧪 [LAYOUT TEST] ndarray 2D access [[1, 0]]: value = {:.6}", lm_head_data[[1, 0]]);
+            eprintln!("🧪 [LAYOUT TEST] ndarray 2D access [[0, 1]]: value = {:.6}", lm_head_data[[0, 1]]);
+
+            // Sample LM head weights for first few vocab tokens
+            eprintln!("🔍 [LM_HEAD] Weight samples for token 0 (first 10): {:?}",
+                (0..10).map(|h| lm_head_data[[h, 0]]).collect::<Vec<_>>());
+            eprintln!("🔍 [LM_HEAD] Weight samples for token 1 (first 10): {:?}",
+                (0..10).map(|h| lm_head_data[[h, 1]]).collect::<Vec<_>>());
         }
 
         let mut logits = vec![0.0f32; vocab_size];
@@ -1133,6 +1329,32 @@ impl GPTModel {
         eprintln!("🔍 [LOGITS] Top-5 tokens:");
         for (i, &(token_id, logit_val)) in indexed_logits.iter().take(5).enumerate() {
             eprintln!("   {}. Token {}: {:.4}", i + 1, token_id, logit_val);
+        }
+
+        // Check specific token logits for debugging
+        if debug {
+            eprintln!("🔍 [LOGITS] Specific tokens:");
+            for &token_id in &[29896, 9134, 1, 2, 0] {
+                if token_id < logits.len() {
+                    eprintln!("   Token {}: {:.4}", token_id, logits[token_id]);
+                }
+            }
+
+            // Manual verification for token 29896
+            let token_id = 29896;
+            let mut manual_logit = 0.0f64;
+            for h in 0..10 {
+                manual_logit += (last_hidden[h] as f64) * lm_head_data[[h, token_id]];
+            }
+            eprintln!("🧮 [MANUAL] Token {} partial logit (first 10 hidden dims): {:.6}", token_id, manual_logit);
+
+            // Full manual calculation
+            let mut full_manual_logit = 0.0f64;
+            for h in 0..d_model {
+                full_manual_logit += (last_hidden[h] as f64) * lm_head_data[[h, token_id]];
+            }
+            eprintln!("🧮 [MANUAL] Token {} full logit: {:.6}", token_id, full_manual_logit);
+            eprintln!("🧮 [MANUAL] Difference from computed: {:.6}", (full_manual_logit as f32 - logits[token_id]).abs());
         }
 
         // Convert logits to f64 and create tensor [1, 1, vocab_size]
@@ -1230,9 +1452,42 @@ impl GPTModel {
             let mean_sq: f32 = row.iter().map(|&v| v * v).sum::<f32>() / (hidden_size as f32);
             let rms = (mean_sq + eps).sqrt();
 
+            // 🔥 Debug: Log first RMS Norm computation (Layer 0, Position 0)
+            if debug && seq_idx == 0 && seq_len > 1 {
+                eprintln!("\n      🔥 [RMS_NORM FIRST CALL] Pos 0:");
+                eprintln!("         Input[0..10]: {:?}", &row[0..10]);
+                eprintln!("         mean_sq: {:.12}", mean_sq);
+                eprintln!("         eps: {:.12}", eps);
+                eprintln!("         rms: {:.12}", rms);
+                eprintln!("         1/rms: {:.12}", 1.0 / rms);
+            }
+
             // Normalize and scale with weight
+            // Use pre-computed scale to match llama.cpp's multiplication order
+            let scale = 1.0 / rms;
             for i in 0..hidden_size {
-                output[offset + i] = (row[i] / rms) * weight[i];
+                output[offset + i] = row[i] * scale * weight[i];
+            }
+
+            // 🧪 Debug: Verify normalization step for Layer 0, Pos 17
+            if debug && seq_idx == 17 && seq_len > 17 {
+                // Calculate RMS of normalized vector (before weight multiplication)
+                let mut normalized_rms_sq = 0.0f32;
+                for &v in row.iter() {
+                    let normalized_v = v / rms;
+                    normalized_rms_sq += normalized_v * normalized_v;
+                }
+                let normalized_rms = (normalized_rms_sq / hidden_size as f32).sqrt();
+
+                eprintln!("      🧪 [RMS_NORM DEBUG] Pos 17:");
+                eprintln!("         hidden_size parameter: {}", hidden_size);
+                eprintln!("         weight.len(): {}", weight.len());
+                eprintln!("         row.len(): {}", row.len());
+                eprintln!("         Input RMS: {:.9}", row.iter().map(|&v| v*v).sum::<f32>() / (hidden_size as f32));
+                eprintln!("         Divisor (rms + eps): {:.9}", rms);
+                eprintln!("         Normalized RMS (should be ≈1.0): {:.9}", normalized_rms);
+                eprintln!("         Weight[0..5]: {:?}", &weight[0..5]);
+                eprintln!("         Output[0..5]: {:?}", &output[offset..offset+5]);
             }
 
             // Debug: Log Pos 17 RMS Norm computation details
@@ -1250,6 +1505,13 @@ impl GPTModel {
                 // Calculate actual input RMS for comparison
                 let input_sq_sum: f32 = row.iter().map(|&v| v * v).sum();
                 let input_actual_rms = (input_sq_sum / hidden_size as f32).sqrt();
+
+                // 🧮 Precision check: Compare f32 vs f64 computation
+                let input_sq_sum_f64: f64 = row.iter().map(|&v| (v as f64) * (v as f64)).sum();
+                let mean_sq_f64 = input_sq_sum_f64 / (hidden_size as f64);
+                let rms_f64 = (mean_sq_f64 + (eps as f64)).sqrt();
+                let rms_diff = ((rms_f64 as f32) - rms).abs();
+                eprintln!("   🧮 [PRECISION] RMS: f32={:.9}, f64={:.9}, diff={:.12}", rms, rms_f64, rms_diff);
 
                 let out_row = &output[offset..offset + hidden_size];
                 let out_mean: f32 = out_row.iter().sum::<f32>() / hidden_size as f32;
@@ -1299,11 +1561,9 @@ impl GPTModel {
                     let cos = self.rope_cos[rope_idx];
                     let sin = self.rope_sin[rope_idx];
 
-                    // Debug: Log first token, first head, first rotation pair
-                    if debug && token_idx == 0 && head_idx == 0 && i == 0 {
-                        eprintln!("   🌀 [ROPE] pos={}, head={}, pair={}:", position, head_idx, i);
-                        eprintln!("      rope_idx={}, cos={:.6}, sin={:.6}", rope_idx, cos, sin);
-                        eprintln!("      Before: x0={:.6}, x1={:.6}", head_data[0], head_data[1]);
+                    // Debug: Log ALL tokens for first head, first rotation pair
+                    if debug && head_idx == 0 && i == 0 {
+                        eprintln!("   🌀 [ROPE] token_idx={}, pos={}, head={}, pair={}, rope_idx={}", token_idx, position, head_idx, i, rope_idx);
                     }
 
                     let x0 = head_data[2 * i];
@@ -1576,6 +1836,7 @@ mod tests {
             d_ff: 3072,
             max_seq_len: 1024,
             dropout: 0.1,
+            rope_theta: 10000.0,
         };
 
         assert_eq!(config.vocab_size, 50257);
@@ -1593,6 +1854,7 @@ mod tests {
             d_ff: 512,
             max_seq_len: 256,
             dropout: 0.0,
+            rope_theta: 10000.0,
         };
 
         let model = GPTModel::new(config).unwrap();

@@ -74,6 +74,29 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Load model with specified backend using BackendLoader
     tracing::info!("Loading model from: {}", model_path.display());
     BackendLoader::load(&args.backend, &model_path, &mut engine)?;
+    // If --tokens is provided, run single generation and exit
+    if let Some(tokens_str) = &args.tokens {
+        tracing::info!("Direct token input mode");
+
+        // Parse comma-separated token IDs
+        let token_ids: Result<Vec<u32>> = tokens_str
+            .split(',')
+            .map(|s| s.trim().parse::<u32>()
+                .map_err(|e| anyhow::anyhow!("Invalid token ID '{}': {}", s, e)))
+            .collect();
+
+        let token_ids = token_ids?;
+
+        println!("🔍 Input tokens: {:?}", token_ids);
+
+        // Generate from tokens directly
+        let output = engine.generate_from_tokens(token_ids)?;
+
+        println!("\n📝 Output:\n{}", output);
+
+        return Ok(());
+    }
+
     // Create session manager
     let mut session = SessionManager::new(gen_config, args.backend.as_str(), &model_name);
 

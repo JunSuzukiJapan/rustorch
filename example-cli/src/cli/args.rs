@@ -68,6 +68,11 @@ pub struct CliArgs {
     /// Use TUI mode (Terminal User Interface) with status bar
     #[arg(long)]
     pub tui: bool,
+
+    /// Input token IDs directly (comma-separated, bypasses tokenizer)
+    /// Example: --tokens "15043,29892,2787"
+    #[arg(long, value_name = "IDS")]
+    pub tokens: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]

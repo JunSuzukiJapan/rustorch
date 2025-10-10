@@ -6,12 +6,14 @@ use std::collections::HashMap;
 // Metal GPU kernel implementations
 use std::ffi::c_void;
 use std::marker::PhantomData;
+use std::cell::RefCell;
+use std::time::Instant;
 
 #[cfg(feature = "metal")]
 use metal::foreign_types::ForeignType;
 #[cfg(feature = "metal")]
 use metal::{
-    CommandQueue, CompileOptions, ComputePipelineState, Device, Library, MTLResourceOptions,
+    Buffer, CommandQueue, CompileOptions, ComputePipelineState, Device, Library, MTLResourceOptions,
     MTLSize,
 };
 #[cfg(feature = "metal")]
@@ -144,6 +146,15 @@ impl<T> MetalBuffer<T> {
     }
 }
 
+/// Cached Metal buffer for reuse
+/// 再利用可能なキャッシュされたMetalバッファ
+#[cfg(feature = "metal")]
+struct CachedBuffer {
+    buffer: Buffer,
+    size_bytes: usize,
+    last_used: Instant,
+}
+
 /// Metal kernel executor for high-performance GPU operations
 /// 高性能GPU演算のためのMetalカーネル実行器
 #[cfg(feature = "metal")]
@@ -151,7 +162,13 @@ pub struct MetalKernelExecutor {
     device: Device,
     command_queue: CommandQueue,
     library: Library,
-    pipeline_states: HashMap<MetalKernelType, ComputePipelineState>,
+    pipeline_states: HashMap<String, ComputePipelineState>,
+    // Buffer cache for reuse to avoid repeated allocation/deallocation
+    // 繰り返しの割り当て/解放を避けるためのバッファキャッシュ
+    buffer_cache: RefCell<Vec<CachedBuffer>>,
+    // RAII-based matmul executor for proper memory management
+    // 適切なメモリ管理のためのRAIIベースmatmulエグゼキュータ
+    raii_matmul: Option<crate::gpu::metal_matmul_raii::MetalMatMulExecutor>,
 }
 
 #[cfg(feature = "metal")]
@@ -176,12 +193,19 @@ impl MetalKernelExecutor {
     /// シングルトンMetalカーネル実行器を取得または作成
     pub fn get() -> RusTorchResult<&'static Mutex<Option<MetalKernelExecutor>>> {
         // Ensure executor is initialized
+        eprintln!("🔍 [METAL GET] Acquiring lock on METAL_EXECUTOR...");
         let mut executor_guard = METAL_EXECUTOR.lock().unwrap();
+        eprintln!("🔍 [METAL GET] Lock acquired, checking if executor exists...");
         if executor_guard.is_none() {
+            eprintln!("🔍 [METAL GET] Executor not initialized, calling new_internal()...");
             *executor_guard = Some(Self::new_internal()?);
             eprintln!("🚀 Initialized Metal kernel executor singleton");
+        } else {
+            eprintln!("✅ [METAL GET] Using existing Metal kernel executor singleton");
         }
+        eprintln!("🔍 [METAL GET] Releasing lock...");
         drop(executor_guard);
+        eprintln!("🔍 [METAL GET] Lock released, returning reference");
         Ok(&METAL_EXECUTOR)
     }
 
@@ -195,10 +219,27 @@ impl MetalKernelExecutor {
     /// Create a new Metal kernel executor (internal use only)
     /// 新しいMetalカーネル実行器を作成（内部使用のみ）
     fn new_internal() -> RusTorchResult<Self> {
-        let device = Device::system_default()
-            .ok_or_else(|| RusTorchError::tensor_op("No Metal device available"))?;
+        eprintln!("🔍 [METAL INIT] Step 1: Starting MetalKernelExecutor initialization...");
 
-        let command_queue = device.new_command_queue();
+        // CRITICAL: Wrap ALL Metal initialization in autoreleasepool
+        // すべてのMetal初期化をautoreleasepoolで囲む（重要）
+        use crate::gpu::objc_bridge::with_autoreleasepool;
+
+        with_autoreleasepool(|| {
+            eprintln!("🔍 [METAL INIT] Step 2: Inside autoreleasepool, getting default device...");
+            let device = Device::system_default()
+                .ok_or_else(|| RusTorchError::tensor_op("No Metal device available"))?;
+
+            eprintln!("🔍 [METAL INIT] Step 3: Device obtained, creating command queue...");
+            let command_queue = device.new_command_queue();
+            eprintln!("🔍 [METAL INIT] Step 4: Command queue created");
+
+            Self::new_internal_with_device_and_queue(device, command_queue)
+        })
+    }
+
+    fn new_internal_with_device_and_queue(device: Device, command_queue: CommandQueue) -> RusTorchResult<Self> {
+        eprintln!("🔍 [METAL INIT] Step 5: Compiling Metal shaders...");
 
         // Metal shader library source optimized for AMD Radeon Pro Vega 56
         let shader_source = r#"
@@ -226,7 +267,7 @@ impl MetalKernelExecutor {
         }
         
         // High-performance matrix multiplication optimized for Vega 56 architecture
-        kernel void matrix_multiply_f32(
+        kernel void matmul_f32(
             device const float* a [[buffer(0)]],
             device const float* b [[buffer(1)]],
             device float* c [[buffer(2)]],
@@ -247,7 +288,31 @@ impl MetalKernelExecutor {
             }
             c[row * N + col] = sum;
         }
-        
+
+        // Matrix multiplication with B transposed: C = A @ B^T
+        // B is stored as [n, k] but treated as [k, n]^T
+        kernel void matmul_transposed_f32(
+            device const float* a [[buffer(0)]],
+            device const float* b [[buffer(1)]],
+            device float* c [[buffer(2)]],
+            constant uint& m [[buffer(3)]],
+            constant uint& n [[buffer(4)]],
+            constant uint& k [[buffer(5)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint row = gid.y;
+            uint col = gid.x;
+
+            if (row >= m || col >= n) return;
+
+            float value = 0.0;
+            for (uint i = 0; i < k; i++) {
+                // B is [n, k], so B^T[i, col] = B[col, i] = b[col * k + i]
+                value += a[row * k + i] * b[col * k + i];
+            }
+            c[row * n + col] = value;
+        }
+
         // Optimized tiled matrix multiplication for large matrices
         kernel void tiled_matrix_multiply_f32(
             device const float* a [[buffer(0)]],
@@ -552,10 +617,10 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create add pipeline: {:?}", e))
             })?;
-        pipeline_states.insert(MetalKernelType::ElementWise, add_pipeline);
+        pipeline_states.insert("elementwise_add_f32".to_string(), add_pipeline);
 
         let matmul_function = library
-            .get_function("matrix_multiply_f32", None)
+            .get_function("matmul_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get matmul function: {:?}", e))
             })?;
@@ -564,10 +629,12 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create matmul pipeline: {:?}", e))
             })?;
-        pipeline_states.insert(MetalKernelType::MatMul, matmul_pipeline);
+        pipeline_states.insert("matmul_f32".to_string(), matmul_pipeline);
 
+        // Use the same matmul_f32 kernel for tiled operations (for now)
+        // TODO: Add optimized tiled kernel to metal_shaders.metal
         let tiled_matmul_function = library
-            .get_function("tiled_matrix_multiply_f32", None)
+            .get_function("matmul_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get tiled matmul function: {:?}", e))
             })?;
@@ -579,7 +646,7 @@ impl MetalKernelExecutor {
                     e
                 ))
             })?;
-        pipeline_states.insert(MetalKernelType::Convolution, tiled_matmul_pipeline);
+        pipeline_states.insert("tiled_matmul_f32".to_string(), tiled_matmul_pipeline);
 
         let reduce_function = library.get_function("reduce_sum_f32", None).map_err(|e| {
             RusTorchError::KernelError(format!("Failed to get reduce function: {:?}", e))
@@ -589,13 +656,42 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create reduce pipeline: {:?}", e))
             })?;
-        pipeline_states.insert(MetalKernelType::Reduction, reduce_pipeline);
+        pipeline_states.insert("reduce_sum_f32".to_string(), reduce_pipeline);
+
+        // Register matmul_transposed_f32 kernel
+        let matmul_transposed_function = library
+            .get_function("matmul_transposed_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get matmul_transposed function: {:?}", e))
+            })?;
+        let matmul_transposed_pipeline = device
+            .new_compute_pipeline_state_with_function(&matmul_transposed_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create matmul_transposed pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("matmul_transposed_f32".to_string(), matmul_transposed_pipeline);
+
+        eprintln!("🔍 [METAL INIT] Step 6: All pipelines created successfully");
+
+        // Initialize RAII matmul executor for proper memory management
+        // 適切なメモリ管理のためのRAII matmulエグゼキュータを初期化
+        eprintln!("🔍 [METAL INIT] Step 7: Initializing RAII matmul executor...");
+        let raii_matmul = crate::gpu::metal_matmul_raii::MetalMatMulExecutor::new().ok();
+        if raii_matmul.is_none() {
+            eprintln!("⚠️ [METAL] Failed to initialize RAII matmul executor, falling back to legacy implementation");
+        } else {
+            eprintln!("✅ [METAL INIT] RAII matmul executor initialized successfully");
+        }
+
+        eprintln!("🔍 [METAL INIT] Step 8: Creating MetalKernelExecutor instance...");
 
         Ok(Self {
             device,
             command_queue,
             library,
             pipeline_states,
+            buffer_cache: RefCell::new(Vec::new()),
+            raii_matmul,
         })
     }
 
@@ -630,7 +726,7 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get(&MetalKernelType::ElementWise)
+            .get("elementwise_add_f32")
             .ok_or_else(|| {
                 RusTorchError::KernelError("ElementWise pipeline not found".to_string())
             })?;
@@ -813,7 +909,7 @@ impl MetalKernelExecutor {
         // Get tiled pipeline state (use MatMul kernel for tiled version)
         let pipeline_state = self
             .pipeline_states
-            .get(&MetalKernelType::MatMul)
+            .get("tiled_matmul_f32")
             .ok_or_else(|| {
                 RusTorchError::KernelError("Tiled MatMul pipeline not found".to_string())
             })?;
@@ -858,9 +954,9 @@ impl MetalKernelExecutor {
         Ok(())
     }
 
-    /// Execute standard matrix multiplication using Metal
-    /// Metalを使用して標準行列乗算を実行
-    pub fn matmul_f32(
+    /// Execute matrix multiplication with B transposed: C = A @ B^T using Metal
+    /// B is stored as [n, k] and treated as transposed [k, n]
+    pub fn matmul_transposed_f32(
         &self,
         a: &[f32],
         b: &[f32],
@@ -869,10 +965,6 @@ impl MetalKernelExecutor {
         n: usize,
         k: usize,
     ) -> RusTorchResult<()> {
-        // Use tiled version for large matrices for better performance
-        if m >= 256 || n >= 256 || k >= 256 {
-            return self.tiled_matmul_f32(a, b, c, m, n, k);
-        }
         // Create Metal buffers
         let a_buffer = self.device.new_buffer_with_data(
             a.as_ptr() as *const c_void,
@@ -882,7 +974,7 @@ impl MetalKernelExecutor {
 
         let b_buffer = self.device.new_buffer_with_data(
             b.as_ptr() as *const c_void,
-            (k * n * std::mem::size_of::<f32>()) as u64,
+            (n * k * std::mem::size_of::<f32>()) as u64,  // B is [n, k]
             MTLResourceOptions::StorageModeShared,
         );
 
@@ -891,22 +983,25 @@ impl MetalKernelExecutor {
             MTLResourceOptions::StorageModeShared,
         );
 
-        // Create parameter buffers
-        let m_u32 = m as u32;
-        let n_u32 = n as u32;
-        let k_u32 = k as u32;
+        // Create dimension buffers
+        let m_val = m as u32;
+        let n_val = n as u32;
+        let k_val = k as u32;
+
         let m_buffer = self.device.new_buffer_with_data(
-            &m_u32 as *const u32 as *const c_void,
+            &m_val as *const u32 as *const c_void,
             std::mem::size_of::<u32>() as u64,
             MTLResourceOptions::StorageModeShared,
         );
+
         let n_buffer = self.device.new_buffer_with_data(
-            &n_u32 as *const u32 as *const c_void,
+            &n_val as *const u32 as *const c_void,
             std::mem::size_of::<u32>() as u64,
             MTLResourceOptions::StorageModeShared,
         );
+
         let k_buffer = self.device.new_buffer_with_data(
-            &k_u32 as *const u32 as *const c_void,
+            &k_val as *const u32 as *const c_void,
             std::mem::size_of::<u32>() as u64,
             MTLResourceOptions::StorageModeShared,
         );
@@ -914,8 +1009,8 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get(&MetalKernelType::MatMul)
-            .ok_or_else(|| RusTorchError::KernelError("MatMul pipeline not found".to_string()))?;
+            .get("matmul_transposed_f32")
+            .ok_or_else(|| RusTorchError::KernelError("MatMul transposed pipeline not found".to_string()))?;
 
         // Create command buffer and encoder
         let command_buffer = self.command_queue.new_command_buffer();
@@ -945,6 +1040,309 @@ impl MetalKernelExecutor {
             std::ptr::copy_nonoverlapping(result_ptr, c.as_mut_ptr(), m * n);
         }
 
+        Ok(())
+    }
+
+    // ============================================================================
+    // Buffer Health Check
+    // バッファヘルスチェック
+    // ============================================================================
+
+    /// Validate Metal buffer integrity
+    /// Metalバッファの整合性を検証
+    fn validate_buffer_health(&self, buffer: &Buffer, expected_size: usize, label: &str) -> RusTorchResult<()> {
+        // Check if buffer pointer is valid
+        // バッファポインタが有効か確認
+        let contents_ptr = buffer.contents();
+        if contents_ptr.is_null() {
+            return Err(RusTorchError::KernelError(format!(
+                "[BUFFER HEALTH] {} buffer has NULL contents pointer!", label
+            )));
+        }
+
+        // Check if buffer length matches expected size
+        // バッファ長が期待値と一致するか確認
+        let actual_length = buffer.length() as usize;
+        if actual_length != expected_size {
+            return Err(RusTorchError::KernelError(format!(
+                "[BUFFER HEALTH] {} buffer size mismatch: expected {} bytes, got {} bytes",
+                label, expected_size, actual_length
+            )));
+        }
+
+        if std::env::var("RUSTORCH_DEBUG").is_ok() {
+            eprintln!("✅ [BUFFER HEALTH] {} buffer OK: {} bytes, ptr={:?}",
+                label, actual_length, contents_ptr);
+        }
+
+        Ok(())
+    }
+
+    // ============================================================================
+    // Buffer Cache Management
+    // バッファキャッシュ管理
+    // ============================================================================
+
+    /// Get a buffer from cache or create a new one
+    /// キャッシュからバッファを取得するか、新規作成
+    fn get_or_create_buffer(&self, size_bytes: usize) -> Buffer {
+        // TEMPORARILY DISABLED: Buffer caching causes memory corruption in sequential matmul
+        // 一時的に無効化：バッファキャッシュが連続matmulでメモリ破壊を引き起こす
+        // TODO: Implement proper buffer lifetime management
+
+        if std::env::var("RUSTORCH_DEBUG").is_ok() {
+            eprintln!("🆕 [BUFFER] Creating new buffer: {} bytes (CACHE DISABLED)", size_bytes);
+        }
+
+        self.device.new_buffer(
+            size_bytes as u64,
+            MTLResourceOptions::StorageModeShared,
+        )
+
+        /* ORIGINAL CACHE IMPLEMENTATION - DISABLED
+        const MAX_CACHE_SIZE: usize = 20;
+        const CACHE_TOLERANCE_BYTES: usize = 1024;
+
+        let mut cache = self.buffer_cache.borrow_mut();
+
+        if let Some(idx) = cache.iter().position(|cached| {
+            cached.size_bytes >= size_bytes && cached.size_bytes <= size_bytes + CACHE_TOLERANCE_BYTES
+        }) {
+            let mut cached = cache.swap_remove(idx);
+            cached.last_used = Instant::now();
+
+            if std::env::var("RUSTORCH_DEBUG").is_ok() {
+                eprintln!("♻️  [BUFFER] Reusing cached buffer: {} bytes", cached.size_bytes);
+            }
+
+            return cached.buffer;
+        }
+
+        if std::env::var("RUSTORCH_DEBUG").is_ok() {
+            eprintln!("🆕 [BUFFER] Creating new buffer: {} bytes (cache size: {})", size_bytes, cache.len());
+        }
+
+        self.device.new_buffer(
+            size_bytes as u64,
+            MTLResourceOptions::StorageModeShared,
+        )
+        */
+    }
+
+    /// Return a buffer to cache for reuse
+    /// バッファをキャッシュに返却して再利用可能にする
+    fn return_buffer_to_cache(&self, _buffer: Buffer, _size_bytes: usize) {
+        // TEMPORARILY DISABLED: Let buffers be dropped immediately
+        // 一時的に無効化：バッファを即座にdropさせる
+        // No-op: buffer will be dropped when this function returns
+        // 何もしない：この関数が戻る時にバッファがdropされる
+    }
+
+    /// Force cleanup of accumulated Metal resources
+    /// 蓄積されたMetalリソースを強制的にクリーンアップ
+    pub fn force_cleanup(&self) {
+        // Drain the autoreleasepool by creating and immediately dropping a new one
+        // 新しいautoreleasepoolを作成して即座にdropすることで既存のプールをドレインする
+        objc::rc::autoreleasepool(|| {
+            // Empty autoreleasepool to drain accumulated objects
+            // 蓄積されたオブジェクトをドレインするための空のautoreleasepool
+            if std::env::var("RUSTORCH_DEBUG").is_ok() {
+                eprintln!("🧹 [CLEANUP] Draining Metal autoreleasepool");
+            }
+        });
+
+        // Also clear buffer cache if needed
+        // 必要に応じてバッファキャッシュもクリア
+        let mut cache = self.buffer_cache.borrow_mut();
+        let cache_size = cache.len();
+        cache.clear();
+
+        if std::env::var("RUSTORCH_DEBUG").is_ok() && cache_size > 0 {
+            eprintln!("🧹 [CLEANUP] Cleared {} cached buffers", cache_size);
+        }
+    }
+
+    // ============================================================================
+    // Matrix Operations
+    // 行列演算
+    // ============================================================================
+
+    /// Execute standard matrix multiplication using Metal
+    /// Metalを使用して標準行列乗算を実行
+    pub fn matmul_f32(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<()> {
+        // Use RAII matmul executor if available (proper memory management)
+        // RAII matmulエグゼキュータが利用可能なら使用（適切なメモリ管理）
+        if let Some(ref raii_matmul) = self.raii_matmul {
+            eprintln!("✅ [METAL RAII] Using RAII matmul executor ({}x{}x{})", m, n, k);
+            raii_matmul.matmul_f32(a, b, c, m, n, k)
+        } else {
+            // Fallback to legacy implementation
+            // レガシー実装にフォールバック
+            eprintln!("⚠️ [METAL] Using legacy matmul implementation (RAII unavailable)");
+            self.matmul_f32_legacy(a, b, c, m, n, k)
+        }
+    }
+
+    /// Legacy matmul implementation (fallback)
+    /// レガシーmatmul実装（フォールバック）
+    fn matmul_f32_legacy(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<()> {
+        // matmul_f32_impl wraps everything in autoreleasepool for immediate cleanup
+        // matmul_f32_implがすべてをautoreleasepoolで囲んで即座にクリーンアップ
+        self.matmul_f32_impl(a, b, c, m, n, k)
+    }
+
+    fn matmul_f32_impl(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<()> {
+        // CRITICAL: Use direct Objective-C autoreleasepool FFI
+        // 重要：Objective-CのautoreleasepoolFFIを直接使用
+        use crate::gpu::objc_bridge::with_autoreleasepool;
+
+        with_autoreleasepool(|| {
+            self.matmul_f32_inner(a, b, c, m, n, k)
+        })
+    }
+
+    fn matmul_f32_inner(
+        &self,
+        a: &[f32],
+        b: &[f32],
+        c: &mut [f32],
+        m: usize,
+        n: usize,
+        k: usize,
+    ) -> RusTorchResult<()> {
+        // Calculate buffer sizes
+        // バッファサイズを計算
+        let a_size_bytes = m * k * std::mem::size_of::<f32>();
+        let b_size_bytes = k * n * std::mem::size_of::<f32>();
+        let c_size_bytes = m * n * std::mem::size_of::<f32>();
+        let param_size_bytes = std::mem::size_of::<u32>();
+
+        // Get buffers from cache or create new ones
+        // キャッシュからバッファを取得、または新規作成
+        let a_buffer = self.get_or_create_buffer(a_size_bytes);
+        let b_buffer = self.get_or_create_buffer(b_size_bytes);
+        let c_buffer = self.get_or_create_buffer(c_size_bytes);
+        let m_buffer = self.get_or_create_buffer(param_size_bytes);
+        let n_buffer = self.get_or_create_buffer(param_size_bytes);
+        let k_buffer = self.get_or_create_buffer(param_size_bytes);
+
+        // Validate buffer health after creation
+        // バッファ作成後のヘルスチェック
+        self.validate_buffer_health(&a_buffer, a_size_bytes, "A (input)")?;
+        self.validate_buffer_health(&b_buffer, b_size_bytes, "B (weight)")?;
+        self.validate_buffer_health(&c_buffer, c_size_bytes, "C (output)")?;
+        self.validate_buffer_health(&m_buffer, param_size_bytes, "M (param)")?;
+        self.validate_buffer_health(&n_buffer, param_size_bytes, "N (param)")?;
+        self.validate_buffer_health(&k_buffer, param_size_bytes, "K (param)")?;
+
+        // Copy input data to buffers
+        // 入力データをバッファにコピー
+        unsafe {
+            std::ptr::copy_nonoverlapping(
+                a.as_ptr(),
+                a_buffer.contents() as *mut f32,
+                m * k,
+            );
+            std::ptr::copy_nonoverlapping(
+                b.as_ptr(),
+                b_buffer.contents() as *mut f32,
+                k * n,
+            );
+
+            // Copy parameters
+            let m_u32 = m as u32;
+            let n_u32 = n as u32;
+            let k_u32 = k as u32;
+            std::ptr::copy_nonoverlapping(
+                &m_u32 as *const u32,
+                m_buffer.contents() as *mut u32,
+                1,
+            );
+            std::ptr::copy_nonoverlapping(
+                &n_u32 as *const u32,
+                n_buffer.contents() as *mut u32,
+                1,
+            );
+            std::ptr::copy_nonoverlapping(
+                &k_u32 as *const u32,
+                k_buffer.contents() as *mut u32,
+                1,
+            );
+        }
+
+        // Validate buffers again after data copy
+        // データコピー後の再検証
+        self.validate_buffer_health(&a_buffer, a_size_bytes, "A (after copy)")?;
+        self.validate_buffer_health(&b_buffer, b_size_bytes, "B (after copy)")?;
+        self.validate_buffer_health(&c_buffer, c_size_bytes, "C (after copy)")?;
+
+        // Get pipeline state
+        let pipeline_state = self
+            .pipeline_states
+            .get("matmul_f32")
+            .ok_or_else(|| RusTorchError::KernelError("MatMul pipeline not found".to_string()))?;
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let compute_encoder = command_buffer.new_compute_command_encoder();
+
+        compute_encoder.set_compute_pipeline_state(pipeline_state);
+        compute_encoder.set_buffer(0, Some(&a_buffer), 0);
+        compute_encoder.set_buffer(1, Some(&b_buffer), 0);
+        compute_encoder.set_buffer(2, Some(&c_buffer), 0);
+        compute_encoder.set_buffer(3, Some(&m_buffer), 0);
+        compute_encoder.set_buffer(4, Some(&n_buffer), 0);
+        compute_encoder.set_buffer(5, Some(&k_buffer), 0);
+
+        // Final validation before GPU execution
+        // GPU実行前の最終検証
+        self.validate_buffer_health(&a_buffer, a_size_bytes, "A (before GPU)")?;
+        self.validate_buffer_health(&b_buffer, b_size_bytes, "B (before GPU)")?;
+        self.validate_buffer_health(&c_buffer, c_size_bytes, "C (before GPU)")?;
+
+        // Calculate thread configuration
+        let threads_per_threadgroup = MTLSize::new(16, 16, 1);
+        let threadgroups_per_grid = MTLSize::new(((n + 15) / 16) as u64, ((m + 15) / 16) as u64, 1);
+
+        compute_encoder.dispatch_thread_groups(threadgroups_per_grid, threads_per_threadgroup);
+        compute_encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        // 結果をホストにコピー
+        unsafe {
+            let result_ptr = c_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, c.as_mut_ptr(), m * n);
+        }
+
+        // Buffers will be automatically released when autoreleasepool exits
+        // バッファはautoreleasepool終了時に自動的に解放される
         Ok(())
     }
 
@@ -1086,7 +1484,7 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get(&MetalKernelType::Reduction)
+            .get("reduce_sum_f32")
             .ok_or_else(|| {
                 RusTorchError::KernelError("Reduction pipeline not found".to_string())
             })?;
@@ -2258,5 +2656,79 @@ mod tests {
     fn test_metal_kernel_types() {
         assert_eq!(MetalKernelType::ElementWise, MetalKernelType::ElementWise);
         assert_ne!(MetalKernelType::ElementWise, MetalKernelType::MatMul);
+    }
+
+    #[test]
+    #[cfg(feature = "metal")]
+    fn test_matmul_transposed_small() {
+        // テストケース: 3x4 @ (5x4)^T = 3x5
+        let m = 3;
+        let n = 5;
+        let k = 4;
+
+        let a: Vec<f32> = vec![
+            1.0, 2.0, 3.0, 4.0,
+            5.0, 6.0, 7.0, 8.0,
+            9.0, 10.0, 11.0, 12.0
+        ];
+
+        let b: Vec<f32> = vec![
+            0.1, 0.2, 0.3, 0.4,
+            0.5, 0.6, 0.7, 0.8,
+            0.9, 1.0, 1.1, 1.2,
+            1.3, 1.4, 1.5, 1.6,
+            1.7, 1.8, 1.9, 2.0
+        ];
+
+        let c_expected: Vec<f32> = vec![
+            3.0, 7.0, 11.0, 15.0, 19.0,
+            7.0, 17.4, 27.8, 38.2, 48.6,
+            11.0, 27.8, 44.6, 61.4, 78.2
+        ];
+
+        let mut c_result = vec![0.0f32; m * n];
+
+        // Metal実行器を取得
+        let executor_mutex = MetalKernelExecutor::get().expect("Metal executor initialization failed");
+        let executor_guard = executor_mutex.lock().unwrap();
+        let executor = executor_guard.as_ref().expect("Metal executor not initialized");
+
+        // 転置行列乗算を実行
+        executor.matmul_transposed_f32(&a, &b, &mut c_result, m, n, k)
+            .expect("matmul_transposed_f32 failed");
+
+        // 結果を検証 (相対誤差 < 1e-5)
+        eprintln!("\n=== 転置行列乗算テスト結果 ===");
+        eprintln!("Metal結果 C [{}x{}]:", m, n);
+        for i in 0..m {
+            eprint!("  ");
+            for j in 0..n {
+                eprint!("{:6.2} ", c_result[i * n + j]);
+            }
+            eprintln!();
+        }
+
+        let mut max_rel_error = 0.0f32;
+        for i in 0..m * n {
+            let expected = c_expected[i];
+            let actual = c_result[i];
+            let abs_error = (expected - actual).abs();
+            let rel_error = if expected.abs() > 1e-6 {
+                abs_error / expected.abs()
+            } else {
+                abs_error
+            };
+
+            max_rel_error = max_rel_error.max(rel_error);
+
+            assert!(
+                rel_error < 1e-5,
+                "要素 {} の相対誤差が大きすぎます: 期待値={}, 実際={}, 相対誤差={}",
+                i, expected, actual, rel_error
+            );
+        }
+
+        eprintln!("最大相対誤差: {:.2e}", max_rel_error);
+        eprintln!("✅ テスト成功: すべての要素が期待値と一致");
     }
 }

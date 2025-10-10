@@ -52,10 +52,16 @@ impl TokenizerWrapper {
 
 impl Tokenizer for TokenizerWrapper {
     fn encode(&self, text: &str, add_special_tokens: bool) -> Result<Vec<u32>> {
+        // DEBUG: Show exact string being encoded
+        eprintln!("🔍 [TOKENIZER] Encoding text (len={}): {:?}", text.len(), text);
+        eprintln!("🔍 [TOKENIZER] Text bytes: {:?}", text.as_bytes());
+
         let encoding = self
             .tokenizer
             .encode(text, add_special_tokens)
             .map_err(|e| anyhow::anyhow!("Encoding failed: {}", e))?;
+
+        eprintln!("🔍 [TOKENIZER] Encoded to {} tokens: {:?}", encoding.get_ids().len(), encoding.get_ids());
 
         Ok(encoding.get_ids().to_vec())
     }

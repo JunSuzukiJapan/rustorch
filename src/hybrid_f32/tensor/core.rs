@@ -609,8 +609,22 @@ impl F32Tensor {
     /// Transpose
     pub fn transpose(&self) -> RusTorchResult<Self> {
         if self.shape.len() == 2 {
-            let transposed = self.data.view().reversed_axes().to_owned();
-            let new_shape = vec![self.shape[1], self.shape[0]];
+            // Manual transpose to ensure contiguous memory
+            let (rows, cols) = (self.shape[0], self.shape[1]);
+            let mut transposed_data = Vec::with_capacity(rows * cols);
+
+            for col in 0..cols {
+                for row in 0..rows {
+                    transposed_data.push(self.data[[row, col]]);
+                }
+            }
+
+            let new_shape = vec![cols, rows];
+            let transposed = Array::from_shape_vec(IxDyn(&new_shape), transposed_data)
+                .map_err(|e| RusTorchError::InvalidParameters {
+                    operation: "transpose".to_string(),
+                    message: format!("Failed to create transposed array: {}", e),
+                })?;
 
             Ok(Self {
                 data: transposed,

@@ -152,6 +152,12 @@ pub mod memory_ops;
 /// GPUメモリ転送操作
 pub mod memory_transfer;
 pub mod metal_kernels;
+#[cfg(feature = "metal")]
+pub mod metal_matmul_raii;
+#[cfg(feature = "metal")]
+pub mod metal_objc_bridge;
+#[cfg(feature = "metal")]
+pub mod objc_bridge;
 pub mod opencl_kernels;
 pub mod opencl_optimized;
 pub mod performance_benchmark;
