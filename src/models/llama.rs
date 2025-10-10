@@ -354,30 +354,62 @@ impl LlamaModel {
                 eprintln!("     ✓ Q, K, V projections complete (with autoreleasepool)");
             }
 
-            // Simplified attention (without RoPE and proper scaling for now)
-            // 簡易attention（RoPEと適切なスケーリングは後で実装）
+            // Proper attention with RoPE
+            // RoPE付き適切なattention
             let head_dim = q_out_dim / self.config.num_heads;
             let num_kv_heads = self.config.num_kv_heads;
+            let rope_theta = self.config.rope_theta;
 
-            // For now, expand V projection output to d_model by repeating KV heads
-            // 現時点では、V射影の出力をd_model次元に拡張（KVヘッドを繰り返す）
-            let mut attn_out = vec![0.0f32; seq_len * d_model];
-            let kv_head_size = v_out_dim / num_kv_heads;
+            // Apply RoPE to Q and K
+            Self::apply_rope(&mut q_out, start_position, seq_len, self.config.num_heads, head_dim, rope_theta);
+            Self::apply_rope(&mut k_out, start_position, seq_len, num_kv_heads, head_dim, rope_theta);
+
+            if debug {
+                eprintln!("     ✓ RoPE applied to Q and K");
+            }
+
+            // Expand K and V to match number of Q heads (GQA)
             let heads_per_kv = self.config.num_heads / num_kv_heads;
+            let kv_head_size = v_out_dim / num_kv_heads;
+
+            let mut k_expanded = vec![0.0f32; seq_len * self.config.num_heads * head_dim];
+            let mut v_expanded = vec![0.0f32; seq_len * self.config.num_heads * head_dim];
 
             for seq in 0..seq_len {
                 for kv_h in 0..num_kv_heads {
                     let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
-                    // Repeat each KV head for multiple Q heads
                     for rep in 0..heads_per_kv {
                         let q_head_idx = kv_h * heads_per_kv + rep;
-                        let out_offset = seq * d_model + q_head_idx * head_dim;
+                        let expanded_offset = seq * (self.config.num_heads * head_dim) + q_head_idx * head_dim;
                         for d in 0..kv_head_size {
-                            attn_out[out_offset + d] = v_out[kv_offset + d];
+                            k_expanded[expanded_offset + d] = k_out[kv_offset + d];
+                            v_expanded[expanded_offset + d] = v_out[kv_offset + d];
                         }
                     }
                 }
             }
+
+            // Compute attention scores
+            let attention_scores = Self::compute_attention_scores(
+                &q_out,
+                &k_expanded,
+                seq_len,
+                self.config.num_heads,
+                head_dim,
+            );
+
+            if debug {
+                eprintln!("     ✓ Attention scores computed");
+            }
+
+            // Apply attention to values
+            let attn_out = Self::apply_attention_to_values(
+                &attention_scores,
+                &v_expanded,
+                seq_len,
+                self.config.num_heads,
+                head_dim,
+            );
 
             // Attention output projection
             // Attention出力射影
@@ -395,7 +427,7 @@ impl LlamaModel {
             }
 
             if debug {
-                eprintln!("     ✓ Attention complete (simplified)");
+                eprintln!("     ✓ Attention complete (with RoPE and proper attention calculation)");
             }
 
             // Pre-FFN RMS Norm
@@ -526,5 +558,128 @@ impl LlamaModel {
                 output[offset + i] = row[i] * scale * weight[i];
             }
         }
+    }
+
+    /// Apply RoPE (Rotary Position Embedding) to Q or K tensors
+    /// QまたはKテンソルにRoPE（回転位置埋め込み）を適用
+    fn apply_rope(
+        x: &mut [f32],
+        start_pos: usize,
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+        rope_theta: f32,
+    ) {
+        let half_head_dim = head_dim / 2;
+
+        for pos in 0..seq_len {
+            let absolute_pos = start_pos + pos;
+
+            for head in 0..num_heads {
+                let head_offset = pos * (num_heads * head_dim) + head * head_dim;
+
+                for dim_pair in 0..half_head_dim {
+                    let dim = dim_pair * 2;
+
+                    // Compute frequency: 1 / (theta ^ (2 * dim / head_dim))
+                    let freq = 1.0 / rope_theta.powf((dim as f32) / (head_dim as f32));
+                    let angle = (absolute_pos as f32) * freq;
+
+                    let cos_val = angle.cos();
+                    let sin_val = angle.sin();
+
+                    // Rotate (x[dim], x[dim+1]) pair
+                    let x0 = x[head_offset + dim];
+                    let x1 = x[head_offset + dim + 1];
+
+                    x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
+                    x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
+                }
+            }
+        }
+    }
+
+    /// Compute attention scores: softmax(Q @ K^T / sqrt(head_dim))
+    /// Attention スコア計算: softmax(Q @ K^T / sqrt(head_dim))
+    fn compute_attention_scores(
+        q: &[f32],
+        k: &[f32],
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+    ) -> Vec<f32> {
+        let scale = 1.0 / (head_dim as f32).sqrt();
+        let mut scores = vec![0.0f32; seq_len * seq_len * num_heads];
+
+        for head in 0..num_heads {
+            for i in 0..seq_len {
+                let q_offset = i * (num_heads * head_dim) + head * head_dim;
+                let score_row_offset = head * seq_len * seq_len + i * seq_len;
+
+                for j in 0..seq_len {
+                    let k_offset = j * (num_heads * head_dim) + head * head_dim;
+
+                    // Compute dot product Q[i] @ K[j]^T
+                    let mut dot = 0.0f32;
+                    for d in 0..head_dim {
+                        dot += q[q_offset + d] * k[k_offset + d];
+                    }
+
+                    scores[score_row_offset + j] = dot * scale;
+                }
+
+                // Apply softmax to the row
+                let row_offset = score_row_offset;
+                let mut max_score = scores[row_offset];
+                for j in 1..seq_len {
+                    if scores[row_offset + j] > max_score {
+                        max_score = scores[row_offset + j];
+                    }
+                }
+
+                let mut sum_exp = 0.0f32;
+                for j in 0..seq_len {
+                    let exp_val = (scores[row_offset + j] - max_score).exp();
+                    scores[row_offset + j] = exp_val;
+                    sum_exp += exp_val;
+                }
+
+                for j in 0..seq_len {
+                    scores[row_offset + j] /= sum_exp;
+                }
+            }
+        }
+
+        scores
+    }
+
+    /// Apply attention: output = attention_scores @ V
+    /// Attentionを適用: output = attention_scores @ V
+    fn apply_attention_to_values(
+        scores: &[f32],
+        v: &[f32],
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+    ) -> Vec<f32> {
+        let mut output = vec![0.0f32; seq_len * num_heads * head_dim];
+
+        for head in 0..num_heads {
+            for i in 0..seq_len {
+                let score_row_offset = head * seq_len * seq_len + i * seq_len;
+                let out_offset = i * (num_heads * head_dim) + head * head_dim;
+
+                for j in 0..seq_len {
+                    let v_offset = j * (num_heads * head_dim) + head * head_dim;
+                    let attention_weight = scores[score_row_offset + j];
+
+                    for d in 0..head_dim {
+                        output[out_offset + d] += attention_weight * v[v_offset + d];
+                    }
+                }
+            }
+        }
+
+        output
     }
 }
