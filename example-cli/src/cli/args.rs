@@ -73,6 +73,11 @@ pub struct CliArgs {
     /// Example: --tokens "15043,29892,2787"
     #[arg(long, value_name = "IDS")]
     pub tokens: Option<String>,
+
+    /// Input prompt text for one-shot generation (bypasses REPL)
+    /// Example: --prompt "Hello, how are you?"
+    #[arg(short = 'p', long, value_name = "TEXT")]
+    pub prompt: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -258,6 +263,9 @@ mod tests {
             tokenizer: None,
             no_progress: false,
             system_prompt: None,
+            tui: false,
+            tokens: None,
+            prompt: None,
         };
 
         assert!(args.validate().is_err());
@@ -283,6 +291,9 @@ mod tests {
             tokenizer: None,
             no_progress: false,
             system_prompt: None,
+            tui: false,
+            tokens: None,
+            prompt: None,
         };
 
         assert!(args.validate().is_err());

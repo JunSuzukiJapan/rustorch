@@ -74,6 +74,21 @@ fn start_cli(args: CliArgs) -> Result<()> {
     // Load model with specified backend using BackendLoader
     tracing::info!("Loading model from: {}", model_path.display());
     BackendLoader::load(&args.backend, &model_path, &mut engine)?;
+
+    // If --prompt is provided, run single generation and exit
+    if let Some(prompt_text) = &args.prompt {
+        tracing::info!("Prompt mode: one-shot generation");
+
+        println!("🔍 Input prompt: {}", prompt_text);
+
+        // Generate from prompt text
+        let output = engine.generate(prompt_text)?;
+
+        println!("\n📝 Output:\n{}", output);
+
+        return Ok(());
+    }
+
     // If --tokens is provided, run single generation and exit
     if let Some(tokens_str) = &args.tokens {
         tracing::info!("Direct token input mode");
