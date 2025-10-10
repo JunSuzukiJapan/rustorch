@@ -215,9 +215,9 @@ impl InferenceEngine {
                     tracing::info!("🚀 Using F32 GPT model for generation (Metal GPU optimized)");
                     self.generate_with_f32_gpt_mut(input_ids, max_new_tokens)
                 }
-                ModelBackend::Llama(ref llama_model) => {
+                ModelBackend::Llama(_) => {
                     tracing::info!("🦙 Using RusTorch Llama model for generation (pure Metal)");
-                    self.generate_with_llama(llama_model, input_ids, max_new_tokens)
+                    self.generate_with_llama_mut(input_ids, max_new_tokens)
                 }
                 ModelBackend::GPT(ref gpt_model) => {
                     tracing::info!("🚀 Using RusTorch GPT model for generation");
@@ -354,9 +354,8 @@ impl InferenceEngine {
     }
 
     /// Generate tokens using Llama model (pure Metal implementation)
-    fn generate_with_llama(
-        &self,
-        llama_model: &LlamaModel,
+    fn generate_with_llama_mut(
+        &mut self,
         input_ids: &[u32],
         max_new_tokens: usize,
     ) -> Result<Vec<u32>> {
@@ -367,12 +366,25 @@ impl InferenceEngine {
             max_new_tokens
         );
 
+        // Take model temporarily to avoid borrow issues
+        let mut llama_model = if let Some(ModelBackend::Llama(model)) = self.model.take() {
+            model
+        } else {
+            anyhow::bail!("Llama model not available");
+        };
+
         // Generation loop
         for step in 0..max_new_tokens {
             // Forward pass through RusTorch Llama model
             // RusTorch API: forward(&[usize]) -> Result<Tensor<f64>>
-            let logits_tensor = llama_model.forward(&generated_ids)
-                .map_err(|e| anyhow::anyhow!("Llama forward failed: {}", e))?;
+            let logits_tensor = match llama_model.forward(&generated_ids) {
+                Ok(tensor) => tensor,
+                Err(e) => {
+                    // Restore model before returning error
+                    self.model = Some(ModelBackend::Llama(llama_model));
+                    return Err(anyhow::anyhow!("Llama forward failed: {}", e));
+                }
+            };
 
             // Extract logits for the last position
             // Shape: [batch_size=1, seq_len, vocab_size] -> [vocab_size]
@@ -411,6 +423,9 @@ impl InferenceEngine {
             .iter()
             .map(|&id| id as u32)
             .collect();
+
+        // Restore model
+        self.model = Some(ModelBackend::Llama(llama_model));
 
         Ok(new_tokens)
     }

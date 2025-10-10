@@ -66,6 +66,40 @@ impl LlamaConfig {
     }
 }
 
+/// KV Cache for attention layers
+/// Attentionレイヤー用のKVキャッシュ
+#[derive(Debug, Clone)]
+pub struct KVCache {
+    /// Cached key tensors for each layer [num_layers][max_cached_tokens, kv_dim]
+    pub k_cache: Vec<Vec<f32>>,
+    /// Cached value tensors for each layer [num_layers][max_cached_tokens, kv_dim]
+    pub v_cache: Vec<Vec<f32>>,
+    /// Number of tokens currently cached
+    pub cached_tokens: usize,
+    /// Maximum cache capacity
+    pub max_cache_size: usize,
+}
+
+impl KVCache {
+    /// Create a new KV cache
+    pub fn new(num_layers: usize, max_cache_size: usize, kv_dim: usize) -> Self {
+        let k_cache = vec![vec![0.0f32; max_cache_size * kv_dim]; num_layers];
+        let v_cache = vec![vec![0.0f32; max_cache_size * kv_dim]; num_layers];
+
+        Self {
+            k_cache,
+            v_cache,
+            cached_tokens: 0,
+            max_cache_size,
+        }
+    }
+
+    /// Clear the cache
+    pub fn clear(&mut self) {
+        self.cached_tokens = 0;
+    }
+}
+
 /// Llama Model with Metal GPU support
 /// Metal GPU対応のLlamaモデル
 #[derive(Debug)]
@@ -73,15 +107,25 @@ pub struct LlamaModel {
     pub config: LlamaConfig,
     pub weights: HashMap<String, Tensor<f64>>,
     pub device_type: DeviceType,
+    /// KV cache for efficient multi-token generation
+    pub kv_cache: Option<KVCache>,
 }
 
 impl LlamaModel {
     /// Create a new Llama model with specified config and device
     pub fn new(config: LlamaConfig, device_type: DeviceType) -> RusTorchResult<Self> {
+        // Initialize KV cache for multi-token generation
+        let kv_cache = Some(KVCache::new(
+            config.num_layers,
+            config.max_seq_len,
+            config.kv_dim(),
+        ));
+
         Ok(Self {
             config,
             weights: HashMap::new(),
             device_type,
+            kv_cache,
         })
     }
 
@@ -136,12 +180,12 @@ impl LlamaModel {
     }
 
     /// Forward pass through the model
-    pub fn forward(&self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
+    pub fn forward(&mut self, input_ids: &[usize]) -> RusTorchResult<Tensor<f64>> {
         self.forward_with_position(input_ids, 0)
     }
 
     /// Forward pass with position tracking
-    pub fn forward_with_position(&self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
+    pub fn forward_with_position(&mut self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
         match self.device_type {
             #[cfg(feature = "metal")]
             DeviceType::Metal => self.forward_metal(input_ids, start_position),
@@ -157,7 +201,7 @@ impl LlamaModel {
 
     /// Metal GPU implementation of forward pass
     #[cfg(feature = "metal")]
-    fn forward_metal(&self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
+    fn forward_metal(&mut self, input_ids: &[usize], start_position: usize) -> RusTorchResult<Tensor<f64>> {
         use crate::gpu::metal_kernels::MetalKernelExecutor;
 
         let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
@@ -368,38 +412,93 @@ impl LlamaModel {
                 eprintln!("     ✓ RoPE applied to Q and K");
             }
 
+            // Update KV cache with new K/V values
+            if let Some(ref mut cache) = self.kv_cache {
+                // Append new K/V to cache
+                let cache_start = cache.cached_tokens;
+                let cache_end = cache_start + seq_len;
+
+                if cache_end > cache.max_cache_size {
+                    return Err(RusTorchError::tensor_op(format!(
+                        "KV cache overflow: {} + {} > {}",
+                        cache_start, seq_len, cache.max_cache_size
+                    )));
+                }
+
+                // Copy new K/V into cache
+                for i in 0..seq_len {
+                    let src_offset = i * k_out_dim;
+                    let dst_offset = (cache_start + i) * k_out_dim;
+                    cache.k_cache[layer_idx][dst_offset..dst_offset + k_out_dim]
+                        .copy_from_slice(&k_out[src_offset..src_offset + k_out_dim]);
+                    cache.v_cache[layer_idx][dst_offset..dst_offset + v_out_dim]
+                        .copy_from_slice(&v_out[src_offset..src_offset + v_out_dim]);
+                }
+
+                if debug {
+                    eprintln!("     ✓ KV cache updated (tokens: {} -> {})", cache_start, cache_end);
+                }
+            }
+
+            // Get full K/V from cache (including both cached and new tokens)
+            let total_seq_len = if let Some(ref cache) = self.kv_cache {
+                cache.cached_tokens + seq_len
+            } else {
+                seq_len
+            };
+
             // Expand K and V to match number of Q heads (GQA)
             let heads_per_kv = self.config.num_heads / num_kv_heads;
             let kv_head_size = v_out_dim / num_kv_heads;
 
-            let mut k_expanded = vec![0.0f32; seq_len * self.config.num_heads * head_dim];
-            let mut v_expanded = vec![0.0f32; seq_len * self.config.num_heads * head_dim];
+            // Expand full cached K/V for attention
+            let mut k_expanded = vec![0.0f32; total_seq_len * self.config.num_heads * head_dim];
+            let mut v_expanded = vec![0.0f32; total_seq_len * self.config.num_heads * head_dim];
 
-            for seq in 0..seq_len {
-                for kv_h in 0..num_kv_heads {
-                    let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
-                    for rep in 0..heads_per_kv {
-                        let q_head_idx = kv_h * heads_per_kv + rep;
-                        let expanded_offset = seq * (self.config.num_heads * head_dim) + q_head_idx * head_dim;
-                        for d in 0..kv_head_size {
-                            k_expanded[expanded_offset + d] = k_out[kv_offset + d];
-                            v_expanded[expanded_offset + d] = v_out[kv_offset + d];
+            if let Some(ref cache) = self.kv_cache {
+                // Expand K/V from cache
+                for seq in 0..total_seq_len {
+                    for kv_h in 0..num_kv_heads {
+                        let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
+                        for rep in 0..heads_per_kv {
+                            let q_head_idx = kv_h * heads_per_kv + rep;
+                            let expanded_offset = seq * (self.config.num_heads * head_dim) + q_head_idx * head_dim;
+                            for d in 0..kv_head_size {
+                                k_expanded[expanded_offset + d] = cache.k_cache[layer_idx][kv_offset + d];
+                                v_expanded[expanded_offset + d] = cache.v_cache[layer_idx][kv_offset + d];
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Fallback: expand only current K/V (no cache)
+                for seq in 0..seq_len {
+                    for kv_h in 0..num_kv_heads {
+                        let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
+                        for rep in 0..heads_per_kv {
+                            let q_head_idx = kv_h * heads_per_kv + rep;
+                            let expanded_offset = seq * (self.config.num_heads * head_dim) + q_head_idx * head_dim;
+                            for d in 0..kv_head_size {
+                                k_expanded[expanded_offset + d] = k_out[kv_offset + d];
+                                v_expanded[expanded_offset + d] = v_out[kv_offset + d];
+                            }
                         }
                     }
                 }
             }
 
-            // Compute attention scores
+            // Compute attention scores using full sequence (query attends to all cached keys)
             let attention_scores = Self::compute_attention_scores(
                 &q_out,
                 &k_expanded,
                 seq_len,
+                total_seq_len,
                 self.config.num_heads,
                 head_dim,
             );
 
             if debug {
-                eprintln!("     ✓ Attention scores computed");
+                eprintln!("     ✓ Attention scores computed (q_len={}, kv_len={})", seq_len, total_seq_len);
             }
 
             // Apply attention to values
@@ -407,6 +506,7 @@ impl LlamaModel {
                 &attention_scores,
                 &v_expanded,
                 seq_len,
+                total_seq_len,
                 self.config.num_heads,
                 head_dim,
             );
@@ -517,6 +617,14 @@ impl LlamaModel {
             eprintln!("🎉 Llama forward pass complete!");
         }
 
+        // Update KV cache token count
+        if let Some(ref mut cache) = self.kv_cache {
+            cache.cached_tokens += seq_len;
+            if debug {
+                eprintln!("✓ KV cache updated: total cached tokens = {}", cache.cached_tokens);
+            }
+        }
+
         // Convert back to f64 and create tensor
         let logits_f64: Vec<f64> = logits_f32.iter().map(|&v| v as f64).collect();
         let shape = vec![batch_size, seq_len, output_vocab_size];
@@ -601,22 +709,31 @@ impl LlamaModel {
 
     /// Compute attention scores: softmax(Q @ K^T / sqrt(head_dim))
     /// Attention スコア計算: softmax(Q @ K^T / sqrt(head_dim))
+    ///
+    /// # Parameters
+    /// - q: Query tensor [q_len, num_heads * head_dim]
+    /// - k: Key tensor [kv_len, num_heads * head_dim]
+    /// - q_len: Query sequence length
+    /// - kv_len: Key/Value sequence length (may be different from q_len when using KV cache)
+    /// - num_heads: Number of attention heads
+    /// - head_dim: Dimension of each head
     fn compute_attention_scores(
         q: &[f32],
         k: &[f32],
-        seq_len: usize,
+        q_len: usize,
+        kv_len: usize,
         num_heads: usize,
         head_dim: usize,
     ) -> Vec<f32> {
         let scale = 1.0 / (head_dim as f32).sqrt();
-        let mut scores = vec![0.0f32; seq_len * seq_len * num_heads];
+        let mut scores = vec![0.0f32; q_len * kv_len * num_heads];
 
         for head in 0..num_heads {
-            for i in 0..seq_len {
+            for i in 0..q_len {
                 let q_offset = i * (num_heads * head_dim) + head * head_dim;
-                let score_row_offset = head * seq_len * seq_len + i * seq_len;
+                let score_row_offset = head * q_len * kv_len + i * kv_len;
 
-                for j in 0..seq_len {
+                for j in 0..kv_len {
                     let k_offset = j * (num_heads * head_dim) + head * head_dim;
 
                     // Compute dot product Q[i] @ K[j]^T
@@ -631,20 +748,20 @@ impl LlamaModel {
                 // Apply softmax to the row
                 let row_offset = score_row_offset;
                 let mut max_score = scores[row_offset];
-                for j in 1..seq_len {
+                for j in 1..kv_len {
                     if scores[row_offset + j] > max_score {
                         max_score = scores[row_offset + j];
                     }
                 }
 
                 let mut sum_exp = 0.0f32;
-                for j in 0..seq_len {
+                for j in 0..kv_len {
                     let exp_val = (scores[row_offset + j] - max_score).exp();
                     scores[row_offset + j] = exp_val;
                     sum_exp += exp_val;
                 }
 
-                for j in 0..seq_len {
+                for j in 0..kv_len {
                     scores[row_offset + j] /= sum_exp;
                 }
             }
@@ -655,21 +772,30 @@ impl LlamaModel {
 
     /// Apply attention: output = attention_scores @ V
     /// Attentionを適用: output = attention_scores @ V
+    ///
+    /// # Parameters
+    /// - scores: Attention scores [q_len, kv_len] for each head
+    /// - v: Value tensor [kv_len, num_heads * head_dim]
+    /// - q_len: Query sequence length
+    /// - kv_len: Key/Value sequence length
+    /// - num_heads: Number of attention heads
+    /// - head_dim: Dimension of each head
     fn apply_attention_to_values(
         scores: &[f32],
         v: &[f32],
-        seq_len: usize,
+        q_len: usize,
+        kv_len: usize,
         num_heads: usize,
         head_dim: usize,
     ) -> Vec<f32> {
-        let mut output = vec![0.0f32; seq_len * num_heads * head_dim];
+        let mut output = vec![0.0f32; q_len * num_heads * head_dim];
 
         for head in 0..num_heads {
-            for i in 0..seq_len {
-                let score_row_offset = head * seq_len * seq_len + i * seq_len;
+            for i in 0..q_len {
+                let score_row_offset = head * q_len * kv_len + i * kv_len;
                 let out_offset = i * (num_heads * head_dim) + head * head_dim;
 
-                for j in 0..seq_len {
+                for j in 0..kv_len {
                     let v_offset = j * (num_heads * head_dim) + head * head_dim;
                     let attention_weight = scores[score_row_offset + j];
 
