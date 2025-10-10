@@ -637,6 +637,152 @@ impl MetalKernelExecutor {
             x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
             x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
         }
+
+        // Attention Score Computation: scores = Q @ K^T / sqrt(head_dim)
+        kernel void compute_attention_scores_f32(
+            device const float* q [[buffer(0)]],
+            device const float* k [[buffer(1)]],
+            device float* scores [[buffer(2)]],
+            constant uint& q_len [[buffer(3)]],
+            constant uint& kv_len [[buffer(4)]],
+            constant uint& num_heads [[buffer(5)]],
+            constant uint& head_dim [[buffer(6)]],
+            constant float& scale [[buffer(7)]],
+            uint3 gid [[thread_position_in_grid]]
+        ) {
+            uint q_pos = gid.x;
+            uint kv_pos = gid.y;
+            uint head = gid.z;
+
+            if (q_pos >= q_len || kv_pos >= kv_len || head >= num_heads) {
+                return;
+            }
+
+            uint q_offset = q_pos * (num_heads * head_dim) + head * head_dim;
+            uint k_offset = kv_pos * (num_heads * head_dim) + head * head_dim;
+
+            float dot = 0.0f;
+            for (uint d = 0; d < head_dim; d++) {
+                dot += q[q_offset + d] * k[k_offset + d];
+            }
+
+            uint score_idx = head * q_len * kv_len + q_pos * kv_len + kv_pos;
+            scores[score_idx] = dot * scale;
+        }
+
+        // Softmax: Find max value per row
+        kernel void softmax_max_f32(
+            device const float* input [[buffer(0)]],
+            device float* max_vals [[buffer(1)]],
+            constant uint& q_len [[buffer(2)]],
+            constant uint& kv_len [[buffer(3)]],
+            constant uint& num_heads [[buffer(4)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint q_pos = gid.x;
+            uint head = gid.y;
+
+            if (q_pos >= q_len || head >= num_heads) {
+                return;
+            }
+
+            uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+            float max_val = input[row_offset];
+
+            for (uint j = 1; j < kv_len; j++) {
+                float val = input[row_offset + j];
+                if (val > max_val) {
+                    max_val = val;
+                }
+            }
+
+            max_vals[head * q_len + q_pos] = max_val;
+        }
+
+        // Softmax: Compute exp and sum
+        kernel void softmax_exp_sum_f32(
+            device float* scores [[buffer(0)]],
+            device const float* max_vals [[buffer(1)]],
+            device float* sum_exp [[buffer(2)]],
+            constant uint& q_len [[buffer(3)]],
+            constant uint& kv_len [[buffer(4)]],
+            constant uint& num_heads [[buffer(5)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint q_pos = gid.x;
+            uint head = gid.y;
+
+            if (q_pos >= q_len || head >= num_heads) {
+                return;
+            }
+
+            uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+            float max_val = max_vals[head * q_len + q_pos];
+            float sum = 0.0f;
+
+            for (uint j = 0; j < kv_len; j++) {
+                float exp_val = exp(scores[row_offset + j] - max_val);
+                scores[row_offset + j] = exp_val;
+                sum += exp_val;
+            }
+
+            sum_exp[head * q_len + q_pos] = sum;
+        }
+
+        // Softmax: Normalize by sum
+        kernel void softmax_normalize_f32(
+            device float* scores [[buffer(0)]],
+            device const float* sum_exp [[buffer(1)]],
+            constant uint& q_len [[buffer(2)]],
+            constant uint& kv_len [[buffer(3)]],
+            constant uint& num_heads [[buffer(4)]],
+            uint2 gid [[thread_position_in_grid]]
+        ) {
+            uint q_pos = gid.x;
+            uint head = gid.y;
+
+            if (q_pos >= q_len || head >= num_heads) {
+                return;
+            }
+
+            uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+            float sum = sum_exp[head * q_len + q_pos];
+
+            for (uint j = 0; j < kv_len; j++) {
+                scores[row_offset + j] /= sum;
+            }
+        }
+
+        // Apply attention to values: output = scores @ V
+        kernel void apply_attention_to_values_f32(
+            device const float* scores [[buffer(0)]],
+            device const float* v [[buffer(1)]],
+            device float* output [[buffer(2)]],
+            constant uint& q_len [[buffer(3)]],
+            constant uint& kv_len [[buffer(4)]],
+            constant uint& num_heads [[buffer(5)]],
+            constant uint& head_dim [[buffer(6)]],
+            uint3 gid [[thread_position_in_grid]]
+        ) {
+            uint q_pos = gid.x;
+            uint head = gid.y;
+            uint dim = gid.z;
+
+            if (q_pos >= q_len || head >= num_heads || dim >= head_dim) {
+                return;
+            }
+
+            uint score_row_offset = head * q_len * kv_len + q_pos * kv_len;
+            uint out_offset = q_pos * (num_heads * head_dim) + head * head_dim + dim;
+
+            float sum = 0.0f;
+            for (uint j = 0; j < kv_len; j++) {
+                uint v_offset = j * (num_heads * head_dim) + head * head_dim + dim;
+                sum += scores[score_row_offset + j] * v[v_offset];
+            }
+
+            output[out_offset] = sum;
+        }
         "#;
 
         let library = device
@@ -724,6 +870,71 @@ impl MetalKernelExecutor {
                 RusTorchError::KernelError(format!("Failed to create apply_rope pipeline: {:?}", e))
             })?;
         pipeline_states.insert("apply_rope_f32".to_string(), rope_pipeline);
+
+        // Register compute_attention_scores_f32 kernel
+        let attn_scores_function = library
+            .get_function("compute_attention_scores_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get compute_attention_scores function: {:?}", e))
+            })?;
+        let attn_scores_pipeline = device
+            .new_compute_pipeline_state_with_function(&attn_scores_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create compute_attention_scores pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("compute_attention_scores_f32".to_string(), attn_scores_pipeline);
+
+        // Register softmax_max_f32 kernel
+        let softmax_max_function = library
+            .get_function("softmax_max_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get softmax_max function: {:?}", e))
+            })?;
+        let softmax_max_pipeline = device
+            .new_compute_pipeline_state_with_function(&softmax_max_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create softmax_max pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("softmax_max_f32".to_string(), softmax_max_pipeline);
+
+        // Register softmax_exp_sum_f32 kernel
+        let softmax_exp_sum_function = library
+            .get_function("softmax_exp_sum_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get softmax_exp_sum function: {:?}", e))
+            })?;
+        let softmax_exp_sum_pipeline = device
+            .new_compute_pipeline_state_with_function(&softmax_exp_sum_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create softmax_exp_sum pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("softmax_exp_sum_f32".to_string(), softmax_exp_sum_pipeline);
+
+        // Register softmax_normalize_f32 kernel
+        let softmax_normalize_function = library
+            .get_function("softmax_normalize_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get softmax_normalize function: {:?}", e))
+            })?;
+        let softmax_normalize_pipeline = device
+            .new_compute_pipeline_state_with_function(&softmax_normalize_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create softmax_normalize pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("softmax_normalize_f32".to_string(), softmax_normalize_pipeline);
+
+        // Register apply_attention_to_values_f32 kernel
+        let attn_values_function = library
+            .get_function("apply_attention_to_values_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get apply_attention_to_values function: {:?}", e))
+            })?;
+        let attn_values_pipeline = device
+            .new_compute_pipeline_state_with_function(&attn_values_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create apply_attention_to_values pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("apply_attention_to_values_f32".to_string(), attn_values_pipeline);
 
         eprintln!("🔍 [METAL INIT] Step 6: All pipelines created successfully");
 
@@ -2377,6 +2588,199 @@ impl MetalKernelExecutor {
         unsafe {
             let result_ptr = x_buffer.contents() as *const f32;
             std::ptr::copy_nonoverlapping(result_ptr, x.as_mut_ptr(), x.len());
+        }
+
+        Ok(())
+    }
+
+    /// Compute attention scores and apply softmax+values in one call
+    /// Attention scoreを計算し、softmax+valuesを一括適用
+    pub fn compute_attention_with_softmax_f32(
+        &self,
+        q: &[f32],
+        k: &[f32],
+        v: &[f32],
+        output: &mut [f32],
+        q_len: usize,
+        kv_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+    ) -> RusTorchResult<()> {
+        let scale = 1.0 / (head_dim as f32).sqrt();
+        let scores_size = num_heads * q_len * kv_len;
+        let max_vals_size = num_heads * q_len;
+        let sum_exp_size = num_heads * q_len;
+
+        // Get pipeline states
+        let attn_scores_pipeline = self
+            .pipeline_states
+            .get("compute_attention_scores_f32")
+            .ok_or_else(|| RusTorchError::KernelError("compute_attention_scores_f32 pipeline not found".to_string()))?;
+        let softmax_max_pipeline = self
+            .pipeline_states
+            .get("softmax_max_f32")
+            .ok_or_else(|| RusTorchError::KernelError("softmax_max_f32 pipeline not found".to_string()))?;
+        let softmax_exp_sum_pipeline = self
+            .pipeline_states
+            .get("softmax_exp_sum_f32")
+            .ok_or_else(|| RusTorchError::KernelError("softmax_exp_sum_f32 pipeline not found".to_string()))?;
+        let softmax_normalize_pipeline = self
+            .pipeline_states
+            .get("softmax_normalize_f32")
+            .ok_or_else(|| RusTorchError::KernelError("softmax_normalize_f32 pipeline not found".to_string()))?;
+        let attn_values_pipeline = self
+            .pipeline_states
+            .get("apply_attention_to_values_f32")
+            .ok_or_else(|| RusTorchError::KernelError("apply_attention_to_values_f32 pipeline not found".to_string()))?;
+
+        // Create Metal buffers
+        let q_buffer = self.device.new_buffer_with_data(
+            q.as_ptr() as *const c_void,
+            (q.len() * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let k_buffer = self.device.new_buffer_with_data(
+            k.as_ptr() as *const c_void,
+            (k.len() * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let v_buffer = self.device.new_buffer_with_data(
+            v.as_ptr() as *const c_void,
+            (v.len() * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let scores_buffer = self.device.new_buffer(
+            (scores_size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let max_vals_buffer = self.device.new_buffer(
+            (max_vals_size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let sum_exp_buffer = self.device.new_buffer(
+            (sum_exp_size * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+        let output_buffer = self.device.new_buffer(
+            (output.len() * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        let command_buffer = self.command_queue.new_command_buffer();
+
+        // Step 1: Compute attention scores
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(attn_scores_pipeline);
+            encoder.set_buffer(0, Some(&q_buffer), 0);
+            encoder.set_buffer(1, Some(&k_buffer), 0);
+            encoder.set_buffer(2, Some(&scores_buffer), 0);
+            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(q_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(kv_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(6, std::mem::size_of::<u32>() as u64, &(head_dim as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(7, std::mem::size_of::<f32>() as u64, &scale as *const f32 as *const c_void);
+
+            let threads_per_threadgroup = metal::MTLSize::new(8, 8, 4);
+            let threadgroups = metal::MTLSize::new(
+                q_len.div_ceil(8).try_into().unwrap(),
+                kv_len.div_ceil(8).try_into().unwrap(),
+                num_heads.div_ceil(4).try_into().unwrap(),
+            );
+            encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+            encoder.end_encoding();
+        }
+
+        // Step 2: Softmax max
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(softmax_max_pipeline);
+            encoder.set_buffer(0, Some(&scores_buffer), 0);
+            encoder.set_buffer(1, Some(&max_vals_buffer), 0);
+            encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, &(q_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(kv_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
+
+            let threads_per_threadgroup = metal::MTLSize::new(16, 16, 1);
+            let threadgroups = metal::MTLSize::new(
+                q_len.div_ceil(16).try_into().unwrap(),
+                num_heads.div_ceil(16).try_into().unwrap(),
+                1,
+            );
+            encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+            encoder.end_encoding();
+        }
+
+        // Step 3: Softmax exp and sum
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(softmax_exp_sum_pipeline);
+            encoder.set_buffer(0, Some(&scores_buffer), 0);
+            encoder.set_buffer(1, Some(&max_vals_buffer), 0);
+            encoder.set_buffer(2, Some(&sum_exp_buffer), 0);
+            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(q_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(kv_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
+
+            let threads_per_threadgroup = metal::MTLSize::new(16, 16, 1);
+            let threadgroups = metal::MTLSize::new(
+                q_len.div_ceil(16).try_into().unwrap(),
+                num_heads.div_ceil(16).try_into().unwrap(),
+                1,
+            );
+            encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+            encoder.end_encoding();
+        }
+
+        // Step 4: Softmax normalize
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(softmax_normalize_pipeline);
+            encoder.set_buffer(0, Some(&scores_buffer), 0);
+            encoder.set_buffer(1, Some(&sum_exp_buffer), 0);
+            encoder.set_bytes(2, std::mem::size_of::<u32>() as u64, &(q_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(kv_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
+
+            let threads_per_threadgroup = metal::MTLSize::new(16, 16, 1);
+            let threadgroups = metal::MTLSize::new(
+                q_len.div_ceil(16).try_into().unwrap(),
+                num_heads.div_ceil(16).try_into().unwrap(),
+                1,
+            );
+            encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+            encoder.end_encoding();
+        }
+
+        // Step 5: Apply attention to values
+        {
+            let encoder = command_buffer.new_compute_command_encoder();
+            encoder.set_compute_pipeline_state(attn_values_pipeline);
+            encoder.set_buffer(0, Some(&scores_buffer), 0);
+            encoder.set_buffer(1, Some(&v_buffer), 0);
+            encoder.set_buffer(2, Some(&output_buffer), 0);
+            encoder.set_bytes(3, std::mem::size_of::<u32>() as u64, &(q_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(4, std::mem::size_of::<u32>() as u64, &(kv_len as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
+            encoder.set_bytes(6, std::mem::size_of::<u32>() as u64, &(head_dim as u32) as *const u32 as *const c_void);
+
+            let threads_per_threadgroup = metal::MTLSize::new(8, 8, 4);
+            let threadgroups = metal::MTLSize::new(
+                q_len.div_ceil(8).try_into().unwrap(),
+                num_heads.div_ceil(8).try_into().unwrap(),
+                head_dim.div_ceil(4).try_into().unwrap(),
+            );
+            encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+            encoder.end_encoding();
+        }
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = output_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), output.len());
         }
 
         Ok(())

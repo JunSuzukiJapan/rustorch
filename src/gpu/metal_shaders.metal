@@ -369,3 +369,156 @@ kernel void apply_rope_f32(
     x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
     x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
 }
+
+// Attention Score Computation: scores = Q @ K^T / sqrt(head_dim)
+// Attention Score計算: scores = Q @ K^T / sqrt(head_dim)
+kernel void compute_attention_scores_f32(
+    device const float* q [[buffer(0)]],        // Query tensor [q_len, num_heads, head_dim]
+    device const float* k [[buffer(1)]],        // Key tensor [kv_len, num_heads, head_dim]
+    device float* scores [[buffer(2)]],         // Output scores [num_heads, q_len, kv_len]
+    constant uint& q_len [[buffer(3)]],         // Query sequence length
+    constant uint& kv_len [[buffer(4)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(5)]],     // Number of attention heads
+    constant uint& head_dim [[buffer(6)]],      // Dimension per head
+    constant float& scale [[buffer(7)]],        // 1 / sqrt(head_dim)
+    uint3 gid [[thread_position_in_grid]]       // (q_pos, kv_pos, head)
+) {
+    uint q_pos = gid.x;
+    uint kv_pos = gid.y;
+    uint head = gid.z;
+
+    if (q_pos >= q_len || kv_pos >= kv_len || head >= num_heads) {
+        return;
+    }
+
+    // Compute dot product between Q[q_pos, head] and K[kv_pos, head]
+    uint q_offset = q_pos * (num_heads * head_dim) + head * head_dim;
+    uint k_offset = kv_pos * (num_heads * head_dim) + head * head_dim;
+
+    float dot = 0.0f;
+    for (uint d = 0; d < head_dim; d++) {
+        dot += q[q_offset + d] * k[k_offset + d];
+    }
+
+    // Write scaled score to output
+    uint score_idx = head * q_len * kv_len + q_pos * kv_len + kv_pos;
+    scores[score_idx] = dot * scale;
+}
+
+// Softmax: Find max value per row
+// Softmax: 各行の最大値を計算
+kernel void softmax_max_f32(
+    device const float* input [[buffer(0)]],    // Input scores [num_heads, q_len, kv_len]
+    device float* max_vals [[buffer(1)]],       // Output max values [num_heads, q_len]
+    constant uint& q_len [[buffer(2)]],         // Query sequence length
+    constant uint& kv_len [[buffer(3)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(4)]],     // Number of heads
+    uint2 gid [[thread_position_in_grid]]       // (q_pos, head)
+) {
+    uint q_pos = gid.x;
+    uint head = gid.y;
+
+    if (q_pos >= q_len || head >= num_heads) {
+        return;
+    }
+
+    uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+    float max_val = input[row_offset];
+
+    for (uint j = 1; j < kv_len; j++) {
+        float val = input[row_offset + j];
+        if (val > max_val) {
+            max_val = val;
+        }
+    }
+
+    max_vals[head * q_len + q_pos] = max_val;
+}
+
+// Softmax: Compute exp and sum
+// Softmax: expと合計を計算
+kernel void softmax_exp_sum_f32(
+    device float* scores [[buffer(0)]],         // Input/output scores [num_heads, q_len, kv_len]
+    device const float* max_vals [[buffer(1)]], // Max values [num_heads, q_len]
+    device float* sum_exp [[buffer(2)]],        // Output sum of exp [num_heads, q_len]
+    constant uint& q_len [[buffer(3)]],         // Query sequence length
+    constant uint& kv_len [[buffer(4)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(5)]],     // Number of heads
+    uint2 gid [[thread_position_in_grid]]       // (q_pos, head)
+) {
+    uint q_pos = gid.x;
+    uint head = gid.y;
+
+    if (q_pos >= q_len || head >= num_heads) {
+        return;
+    }
+
+    uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+    float max_val = max_vals[head * q_len + q_pos];
+    float sum = 0.0f;
+
+    for (uint j = 0; j < kv_len; j++) {
+        float exp_val = exp(scores[row_offset + j] - max_val);
+        scores[row_offset + j] = exp_val;
+        sum += exp_val;
+    }
+
+    sum_exp[head * q_len + q_pos] = sum;
+}
+
+// Softmax: Normalize by sum
+// Softmax: 合計で正規化
+kernel void softmax_normalize_f32(
+    device float* scores [[buffer(0)]],         // Input/output scores [num_heads, q_len, kv_len]
+    device const float* sum_exp [[buffer(1)]],  // Sum of exp [num_heads, q_len]
+    constant uint& q_len [[buffer(2)]],         // Query sequence length
+    constant uint& kv_len [[buffer(3)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(4)]],     // Number of heads
+    uint2 gid [[thread_position_in_grid]]       // (q_pos, head)
+) {
+    uint q_pos = gid.x;
+    uint head = gid.y;
+
+    if (q_pos >= q_len || head >= num_heads) {
+        return;
+    }
+
+    uint row_offset = head * q_len * kv_len + q_pos * kv_len;
+    float sum = sum_exp[head * q_len + q_pos];
+
+    for (uint j = 0; j < kv_len; j++) {
+        scores[row_offset + j] /= sum;
+    }
+}
+
+// Apply attention to values: output = scores @ V
+// Valuesにattentionを適用: output = scores @ V
+kernel void apply_attention_to_values_f32(
+    device const float* scores [[buffer(0)]],   // Attention scores [num_heads, q_len, kv_len]
+    device const float* v [[buffer(1)]],        // Value tensor [kv_len, num_heads, head_dim]
+    device float* output [[buffer(2)]],         // Output [q_len, num_heads, head_dim]
+    constant uint& q_len [[buffer(3)]],         // Query sequence length
+    constant uint& kv_len [[buffer(4)]],        // Key/Value sequence length
+    constant uint& num_heads [[buffer(5)]],     // Number of heads
+    constant uint& head_dim [[buffer(6)]],      // Dimension per head
+    uint3 gid [[thread_position_in_grid]]       // (q_pos, head, dim)
+) {
+    uint q_pos = gid.x;
+    uint head = gid.y;
+    uint dim = gid.z;
+
+    if (q_pos >= q_len || head >= num_heads || dim >= head_dim) {
+        return;
+    }
+
+    uint score_row_offset = head * q_len * kv_len + q_pos * kv_len;
+    uint out_offset = q_pos * (num_heads * head_dim) + head * head_dim + dim;
+
+    float sum = 0.0f;
+    for (uint j = 0; j < kv_len; j++) {
+        uint v_offset = j * (num_heads * head_dim) + head * head_dim + dim;
+        sum += scores[score_row_offset + j] * v[v_offset];
+    }
+
+    output[out_offset] = sum;
+}

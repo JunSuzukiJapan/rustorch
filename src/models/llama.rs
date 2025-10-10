@@ -487,29 +487,22 @@ impl LlamaModel {
                 }
             }
 
-            // Compute attention scores using full sequence (query attends to all cached keys)
-            let attention_scores = Self::compute_attention_scores(
+            // Compute attention with softmax on GPU
+            let mut attn_out = vec![0.0f32; q_out.len()];
+            executor.compute_attention_with_softmax_f32(
                 &q_out,
                 &k_expanded,
+                &v_expanded,
+                &mut attn_out,
                 seq_len,
                 total_seq_len,
                 self.config.num_heads,
                 head_dim,
-            );
+            )?;
 
             if debug {
-                eprintln!("     ✓ Attention scores computed (q_len={}, kv_len={})", seq_len, total_seq_len);
+                eprintln!("     ✓ Attention computed on GPU (q_len={}, kv_len={})", seq_len, total_seq_len);
             }
-
-            // Apply attention to values
-            let attn_out = Self::apply_attention_to_values(
-                &attention_scores,
-                &v_expanded,
-                seq_len,
-                total_seq_len,
-                self.config.num_heads,
-                head_dim,
-            );
 
             // Attention output projection
             // Attention出力射影
