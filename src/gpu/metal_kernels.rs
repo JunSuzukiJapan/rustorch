@@ -596,6 +596,47 @@ impl MetalKernelExecutor {
             }
         }
         */
+
+        // RoPE (Rotary Position Embedding) kernel
+        // RoPE（回転位置埋め込み）カーネル
+        kernel void apply_rope_f32(
+            device float* x [[buffer(0)]],              // Input/output tensor [seq_len, num_heads, head_dim]
+            constant uint& start_pos [[buffer(1)]],     // Starting position for RoPE
+            constant uint& seq_len [[buffer(2)]],       // Sequence length
+            constant uint& num_heads [[buffer(3)]],     // Number of heads
+            constant uint& head_dim [[buffer(4)]],      // Head dimension
+            constant float& rope_theta [[buffer(5)]],   // RoPE theta parameter
+            uint3 gid [[thread_position_in_grid]]       // (pos, head, dim_pair)
+        ) {
+            uint pos = gid.x;
+            uint head = gid.y;
+            uint dim_pair = gid.z;
+
+            if (pos >= seq_len || head >= num_heads || dim_pair >= head_dim / 2) {
+                return;
+            }
+
+            // Compute absolute position
+            uint absolute_pos = start_pos + pos;
+
+            // Compute frequency: 1 / (theta ^ (2 * dim / head_dim))
+            uint dim = dim_pair * 2;
+            float freq = 1.0f / pow(rope_theta, float(dim) / float(head_dim));
+            float angle = float(absolute_pos) * freq;
+
+            float cos_val = cos(angle);
+            float sin_val = sin(angle);
+
+            // Compute offsets
+            uint head_offset = pos * (num_heads * head_dim) + head * head_dim;
+
+            // Rotate (x[dim], x[dim+1]) pair
+            float x0 = x[head_offset + dim];
+            float x1 = x[head_offset + dim + 1];
+
+            x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
+            x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
+        }
         "#;
 
         let library = device
@@ -670,6 +711,19 @@ impl MetalKernelExecutor {
                 RusTorchError::KernelError(format!("Failed to create matmul_transposed pipeline: {:?}", e))
             })?;
         pipeline_states.insert("matmul_transposed_f32".to_string(), matmul_transposed_pipeline);
+
+        // Register apply_rope_f32 kernel
+        let rope_function = library
+            .get_function("apply_rope_f32", None)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to get apply_rope function: {:?}", e))
+            })?;
+        let rope_pipeline = device
+            .new_compute_pipeline_state_with_function(&rope_function)
+            .map_err(|e| {
+                RusTorchError::KernelError(format!("Failed to create apply_rope pipeline: {:?}", e))
+            })?;
+        pipeline_states.insert("apply_rope_f32".to_string(), rope_pipeline);
 
         eprintln!("🔍 [METAL INIT] Step 6: All pipelines created successfully");
 
@@ -2233,6 +2287,96 @@ impl MetalKernelExecutor {
         unsafe {
             let result_ptr = output_buffer.contents() as *const f64;
             std::ptr::copy_nonoverlapping(result_ptr, output.as_mut_ptr(), output.len());
+        }
+
+        Ok(())
+    }
+
+    /// Apply RoPE (Rotary Position Embedding) using Metal GPU
+    /// Metal GPUを使用してRoPE（回転位置埋め込み）を適用
+    pub fn apply_rope_f32(
+        &self,
+        x: &mut [f32],
+        start_pos: usize,
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+        rope_theta: f32,
+    ) -> RusTorchResult<()> {
+        let expected_size = seq_len * num_heads * head_dim;
+        if x.len() != expected_size {
+            return Err(RusTorchError::InvalidOperation(format!(
+                "Input size mismatch: expected {}, got {}",
+                expected_size,
+                x.len()
+            )));
+        }
+
+        // Get pipeline state for apply_rope_f32
+        let pipeline_state = self
+            .pipeline_states
+            .get("apply_rope_f32")
+            .ok_or_else(|| RusTorchError::KernelError("apply_rope_f32 pipeline not found".to_string()))?;
+
+        // Create Metal buffer for x (input/output)
+        let x_buffer = self.device.new_buffer_with_data(
+            x.as_ptr() as *const c_void,
+            (x.len() * std::mem::size_of::<f32>()) as u64,
+            MTLResourceOptions::StorageModeShared,
+        );
+
+        // Create command buffer and encoder
+        let command_buffer = self.command_queue.new_command_buffer();
+        let encoder = command_buffer.new_compute_command_encoder();
+
+        encoder.set_compute_pipeline_state(pipeline_state);
+        encoder.set_buffer(0, Some(&x_buffer), 0);
+
+        // Set scalar parameters
+        encoder.set_bytes(
+            1,
+            std::mem::size_of::<u32>() as u64,
+            &(start_pos as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            2,
+            std::mem::size_of::<u32>() as u64,
+            &(seq_len as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            3,
+            std::mem::size_of::<u32>() as u64,
+            &(num_heads as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            4,
+            std::mem::size_of::<u32>() as u64,
+            &(head_dim as u32) as *const u32 as *const c_void,
+        );
+        encoder.set_bytes(
+            5,
+            std::mem::size_of::<f32>() as u64,
+            &rope_theta as *const f32 as *const c_void,
+        );
+
+        // Dispatch 3D thread grid: (seq_len, num_heads, head_dim/2)
+        let threads_per_threadgroup = metal::MTLSize::new(8, 8, 4);
+        let threadgroups = metal::MTLSize::new(
+            seq_len.div_ceil(8).try_into().unwrap(),
+            num_heads.div_ceil(8).try_into().unwrap(),
+            (head_dim / 2).div_ceil(4).try_into().unwrap(),
+        );
+
+        encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
+        encoder.end_encoding();
+
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        // Copy result back to host
+        unsafe {
+            let result_ptr = x_buffer.contents() as *const f32;
+            std::ptr::copy_nonoverlapping(result_ptr, x.as_mut_ptr(), x.len());
         }
 
         Ok(())

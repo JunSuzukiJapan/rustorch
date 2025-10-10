@@ -404,12 +404,12 @@ impl LlamaModel {
             let num_kv_heads = self.config.num_kv_heads;
             let rope_theta = self.config.rope_theta;
 
-            // Apply RoPE to Q and K
-            Self::apply_rope(&mut q_out, start_position, seq_len, self.config.num_heads, head_dim, rope_theta);
-            Self::apply_rope(&mut k_out, start_position, seq_len, num_kv_heads, head_dim, rope_theta);
+            // Apply RoPE to Q and K using Metal GPU
+            executor.apply_rope_f32(&mut q_out, start_position, seq_len, self.config.num_heads, head_dim, rope_theta)?;
+            executor.apply_rope_f32(&mut k_out, start_position, seq_len, num_kv_heads, head_dim, rope_theta)?;
 
             if debug {
-                eprintln!("     ✓ RoPE applied to Q and K");
+                eprintln!("     ✓ RoPE applied to Q and K (Metal GPU)");
             }
 
             // Update KV cache with new K/V values

@@ -329,3 +329,43 @@ kernel void conv3d_f32(
     uint output_idx = ((batch_idx * out_channels + out_ch_idx) * output_d + od) * output_h * output_w + oh * output_w + ow;
     output[output_idx] = sum;
 }
+// RoPE (Rotary Position Embedding) kernel
+// RoPE（回転位置埋め込み）カーネル
+kernel void apply_rope_f32(
+    device float* x [[buffer(0)]],              // Input/output tensor [seq_len, num_heads, head_dim]
+    constant uint& start_pos [[buffer(1)]],     // Starting position for RoPE
+    constant uint& seq_len [[buffer(2)]],       // Sequence length
+    constant uint& num_heads [[buffer(3)]],     // Number of heads
+    constant uint& head_dim [[buffer(4)]],      // Head dimension
+    constant float& rope_theta [[buffer(5)]],   // RoPE theta parameter
+    uint3 gid [[thread_position_in_grid]]       // (pos, head, dim_pair)
+) {
+    uint pos = gid.x;
+    uint head = gid.y;
+    uint dim_pair = gid.z;
+    
+    if (pos >= seq_len || head >= num_heads || dim_pair >= head_dim / 2) {
+        return;
+    }
+    
+    // Compute absolute position
+    uint absolute_pos = start_pos + pos;
+    
+    // Compute frequency: 1 / (theta ^ (2 * dim / head_dim))
+    uint dim = dim_pair * 2;
+    float freq = 1.0f / pow(rope_theta, float(dim) / float(head_dim));
+    float angle = float(absolute_pos) * freq;
+    
+    float cos_val = cos(angle);
+    float sin_val = sin(angle);
+    
+    // Compute offsets
+    uint head_offset = pos * (num_heads * head_dim) + head * head_dim;
+    
+    // Rotate (x[dim], x[dim+1]) pair
+    float x0 = x[head_offset + dim];
+    float x1 = x[head_offset + dim + 1];
+    
+    x[head_offset + dim] = x0 * cos_val - x1 * sin_val;
+    x[head_offset + dim + 1] = x0 * sin_val + x1 * cos_val;
+}
