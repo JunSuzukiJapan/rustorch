@@ -51,13 +51,30 @@
 
 ## 進行中の作業
 
-### Phase 3: True Parallel Batch Processing ⏳ (次のステップ)
+### Phase 3: Rust Kernel Wrappers - Week 1 完了 ✅ (2025-10-10)
 
-#### 必要な実装
+#### Week 1: RMS Norm + RoPE Wrappers
 
-1. **Rustカーネルラッパーの更新**
-   - `metal_kernels.rs`に新しいバッチカーネル呼び出しを追加
-   - 適切なバッファサイズとスレッドグリッド構成
+完了したRustラッパー - [batch_kernels.rs](../src/gpu/batch_kernels.rs):
+
+**1. metal_rms_norm_batch_f32** - Lines 34-169
+- 完全な入力検証（テンソルサイズ、weightサイズ）
+- Metal device/queue/pipeline setup
+- Tree reduction with 256 threads per threadgroup
+- 3Dスレッドグリッド: `(1, seq_len, batch_size)`
+- テスト: ✅ `test_rms_norm_batch_basic`, `test_rms_norm_batch_size_validation`
+
+**2. metal_rope_batch_f32** - Lines 206-341
+- 完全な入力検証（head_dim must be even）
+- In-place buffer modification for efficiency
+- 3Dスレッドグリッド: `(dim_pairs, heads, batch*seq_len)`
+- テスト: ✅ `test_rope_batch_basic`, `test_rope_batch_odd_head_dim`
+
+#### Week 2以降: 残りのカーネルラッパー ⏳
+
+1. **Attention Score Wrapper**
+   - `metal_attention_scores_batch_f32`
+   - Q@K^T 計算とスケーリング
 
 2. **forward_batch_metal の最適化**
    - 現在: 各シーケンスを個別処理（順次）
@@ -133,13 +150,30 @@
 
 ## 次の即時ステップ
 
-1. ✅ Metalカーネルのバッチ対応 - **完了**
-2. ⏳ Rustカーネルラッパーの更新
-3. ⏳ forward_batch_metalの最適化実装
-4. ⏳ バッチ処理のテストとベンチマーク
+1. ✅ Metalカーネルのバッチ対応 - **完了 (Phase 2)**
+2. ✅ Rustカーネルラッパー Week 1 - **完了 (RMS Norm + RoPE)**
+3. ⏳ Week 2: Attention カーネルラッパー
+4. ⏳ Week 3-4: Helper functions + process_layer_batch
+5. ⏳ Week 5-6: forward_batch_metal最適化 + テスト
 
 ---
 
-**Status**: Phase 1-2 Complete ✅ | Phase 3-4 Pending ⏳  
-**Last Updated**: 2025-10-10  
+**Status**: Phase 1-2 Complete ✅ | Phase 3 Week 1 Complete ✅ | Phase 3 Week 2-6 Pending ⏳
+**Last Updated**: 2025-10-10
 **Maintainer**: Batch Processing Working Group
+
+## Phase 3 Week 1の技術的改善
+
+### Metal Shader Fixes
+1. **uint4 → uint3 変換**: Metal は最大3D gridのみサポート
+2. **RMS Norm Tree Reduction**: Threadgroup 共有メモリで正しく実装
+3. **Reserved Keyword Fix**: `kernel` → `weights` (conv2d_f32)
+
+### Test Coverage
+- 4/4 tests passing
+- Basic functionality tests
+- Size validation tests
+- Error case handling
+
+### Commits
+- `fb4f6aa95` - feat: Complete Week 1 batch kernel wrappers (RMS Norm + RoPE)
