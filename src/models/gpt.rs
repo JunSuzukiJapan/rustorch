@@ -541,7 +541,7 @@ impl GPTModel {
                 let sq_sum: f64 = emb_full.iter().map(|&v| (v as f64).powi(2)).sum();
                 let rms = (sq_sum / emb_full.len() as f64).sqrt();
                 eprintln!("🔍 [EMBEDDING] Token {} (ID={}): embedding[0..10]: {:?}", token_idx, token_id, emb_slice);
-                eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, len={}", mean, rms, emb_full.len());
+//                 eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, len={}", mean, rms, emb_full.len());
             }
         }
 
@@ -561,9 +561,9 @@ impl GPTModel {
 
         if debug {
             eprintln!("   🔄 Processing {} transformer layers (seq_len={})", num_layers, seq_len);
-            eprintln!("   📊 Memory estimate: attn_scores={}KB, embedding={}KB",
-                      (seq_len * seq_len * 4) / 1024,
-                      (seq_len * d_model * 4) / 1024);
+//             eprintln!("   📊 Memory estimate: attn_scores={}KB, embedding={}KB",
+//                       (seq_len * seq_len * 4) / 1024,
+//                       (seq_len * d_model * 4) / 1024);
         }
 
         for layer_idx in 0..num_layers {
@@ -717,7 +717,7 @@ impl GPTModel {
             let v_mean: f32 = v_proj.iter().sum::<f32>() / v_proj.len() as f32;
             let v_rms = (v_proj.iter().map(|&v| v * v).sum::<f32>() / v_proj.len() as f32).sqrt();
 
-            eprintln!("   📊 [Q/K/V PROJECTIONS] Layer 0 statistics:");
+//             eprintln!("   📊 [Q/K/V PROJECTIONS] Layer 0 statistics:");
             eprintln!("      Q_proj: mean={:.6}, rms={:.6}, min={:.6}, max={:.6}", q_mean, q_rms, q_min, q_max);
             eprintln!("      K_proj: mean={:.6}, rms={:.6}, min={:.6}, max={:.6}", k_mean, k_rms, k_min, k_max);
             eprintln!("      V_proj: mean={:.6}, rms={:.6}", v_mean, v_rms);
@@ -814,7 +814,7 @@ impl GPTModel {
                 if debug && layer_idx == 0 && h == 0 {
                     let q_sq_sum_quick: f32 = q_vec.iter().map(|&v| v * v).sum();
                     let q_rms_quick = (q_sq_sum_quick / head_dim as f32).sqrt();
-                    eprintln!("   📊 [Q_RMS] Pos {}: Q_rms={:.6}", q_pos, q_rms_quick);
+//                     eprintln!("   📊 [Q_RMS] Pos {}: Q_rms={:.6}", q_pos, q_rms_quick);
                 }
 
                 let is_last_pos = q_pos == seq_len - 1;
@@ -996,7 +996,7 @@ impl GPTModel {
             let attn_delta_rms = (attn_delta.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
             let x_after_rms = (x_after.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
 
-            eprintln!("   📊 [RESIDUAL 1] Layer {}, pos {}:", layer_idx, seq_len - 1);
+//             eprintln!("   📊 [RESIDUAL 1] Layer {}, pos {}:", layer_idx, seq_len - 1);
             eprintln!("      Before (x): RMS={:.6}, first 5: {:?}", x_before_rms, &x_before[0..5]);
             eprintln!("      Delta (attn): RMS={:.6}, first 5: {:?}", attn_delta_rms, &attn_delta[0..5]);
             eprintln!("      After (x+attn): RMS={:.6}, first 5: {:?}", x_after_rms, &x_after[0..5]);
@@ -1150,7 +1150,7 @@ impl GPTModel {
             let ffn_delta_rms = (ffn_delta.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
             let x_after_rms = (x_after_no_clip.iter().map(|&v| v*v).sum::<f32>() / d_model as f32).sqrt();
 
-            eprintln!("   📊 [RESIDUAL 2] Layer {}, pos {} (before clipping):", layer_idx, seq_len - 1);
+//             eprintln!("   📊 [RESIDUAL 2] Layer {}, pos {} (before clipping):", layer_idx, seq_len - 1);
             eprintln!("      Before (x_res1): RMS={:.6}, first 5: {:?}", x_before_rms, &x_before[0..5]);
             eprintln!("      Delta (ffn): RMS={:.6}, first 5: {:?}", ffn_delta_rms, &ffn_delta[0..5]);
             eprintln!("      After (x_res1+ffn): RMS={:.6}, first 5: {:?}", x_after_rms, &x_after_no_clip[0..5]);
@@ -1208,7 +1208,7 @@ impl GPTModel {
                 let max_val = last_token_out.iter().cloned().fold(f32::NEG_INFINITY, f32::max);
                 let min_val = last_token_out.iter().cloned().fold(f32::INFINITY, f32::min);
                 eprintln!("🔬 [LAYER {} OUTPUT] Last token (pos={}): first 10: {:?}", layer_idx, seq_len - 1, &last_token_out[0..10]);
-                eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, min={:.6}, max={:.6}", mean, rms, min_val, max_val);
+//                 eprintln!("   📊 Stats: mean={:.9}, rms={:.9}, min={:.6}, max={:.6}", mean, rms, min_val, max_val);
             }
 
             // Update x_f32 for next layer

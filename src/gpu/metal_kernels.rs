@@ -193,19 +193,19 @@ impl MetalKernelExecutor {
     /// シングルトンMetalカーネル実行器を取得または作成
     pub fn get() -> RusTorchResult<&'static Mutex<Option<MetalKernelExecutor>>> {
         // Ensure executor is initialized
-        eprintln!("🔍 [METAL GET] Acquiring lock on METAL_EXECUTOR...");
+//         eprintln!("🔍 [METAL GET] Acquiring lock on METAL_EXECUTOR...");
         let mut executor_guard = METAL_EXECUTOR.lock().unwrap();
-        eprintln!("🔍 [METAL GET] Lock acquired, checking if executor exists...");
+//         eprintln!("🔍 [METAL GET] Lock acquired, checking if executor exists...");
         if executor_guard.is_none() {
-            eprintln!("🔍 [METAL GET] Executor not initialized, calling new_internal()...");
+//             eprintln!("🔍 [METAL GET] Executor not initialized, calling new_internal()...");
             *executor_guard = Some(Self::new_internal()?);
             eprintln!("🚀 Initialized Metal kernel executor singleton");
         } else {
             eprintln!("✅ [METAL GET] Using existing Metal kernel executor singleton");
         }
-        eprintln!("🔍 [METAL GET] Releasing lock...");
+//         eprintln!("🔍 [METAL GET] Releasing lock...");
         drop(executor_guard);
-        eprintln!("🔍 [METAL GET] Lock released, returning reference");
+//         eprintln!("🔍 [METAL GET] Lock released, returning reference");
         Ok(&METAL_EXECUTOR)
     }
 
@@ -219,27 +219,27 @@ impl MetalKernelExecutor {
     /// Create a new Metal kernel executor (internal use only)
     /// 新しいMetalカーネル実行器を作成（内部使用のみ）
     fn new_internal() -> RusTorchResult<Self> {
-        eprintln!("🔍 [METAL INIT] Step 1: Starting MetalKernelExecutor initialization...");
+//         eprintln!("🔍 [METAL INIT] Step 1: Starting MetalKernelExecutor initialization...");
 
         // CRITICAL: Wrap ALL Metal initialization in autoreleasepool
         // すべてのMetal初期化をautoreleasepoolで囲む（重要）
         use crate::gpu::objc_bridge::with_autoreleasepool;
 
         with_autoreleasepool(|| {
-            eprintln!("🔍 [METAL INIT] Step 2: Inside autoreleasepool, getting default device...");
+//             eprintln!("🔍 [METAL INIT] Step 2: Inside autoreleasepool, getting default device...");
             let device = Device::system_default()
                 .ok_or_else(|| RusTorchError::tensor_op("No Metal device available"))?;
 
-            eprintln!("🔍 [METAL INIT] Step 3: Device obtained, creating command queue...");
+//             eprintln!("🔍 [METAL INIT] Step 3: Device obtained, creating command queue...");
             let command_queue = device.new_command_queue();
-            eprintln!("🔍 [METAL INIT] Step 4: Command queue created");
+//             eprintln!("🔍 [METAL INIT] Step 4: Command queue created");
 
             Self::new_internal_with_device_and_queue(device, command_queue)
         })
     }
 
     fn new_internal_with_device_and_queue(device: Device, command_queue: CommandQueue) -> RusTorchResult<Self> {
-        eprintln!("🔍 [METAL INIT] Step 5: Compiling Metal shaders...");
+//         eprintln!("🔍 [METAL INIT] Step 5: Compiling Metal shaders...");
 
         // Metal shader library source optimized for AMD Radeon Pro Vega 56
         let shader_source = r#"
@@ -944,11 +944,11 @@ impl MetalKernelExecutor {
             })?;
         pipeline_states.insert("apply_attention_to_values_f32".to_string(), attn_values_pipeline);
 
-        eprintln!("🔍 [METAL INIT] Step 6: All pipelines created successfully");
+//         eprintln!("🔍 [METAL INIT] Step 6: All pipelines created successfully");
 
         // Initialize RAII matmul executor for proper memory management
         // 適切なメモリ管理のためのRAII matmulエグゼキュータを初期化
-        eprintln!("🔍 [METAL INIT] Step 7: Initializing RAII matmul executor...");
+//         eprintln!("🔍 [METAL INIT] Step 7: Initializing RAII matmul executor...");
         let raii_matmul = crate::gpu::metal_matmul_raii::MetalMatMulExecutor::new().ok();
         if raii_matmul.is_none() {
             eprintln!("⚠️ [METAL] Failed to initialize RAII matmul executor, falling back to legacy implementation");
@@ -956,7 +956,7 @@ impl MetalKernelExecutor {
             eprintln!("✅ [METAL INIT] RAII matmul executor initialized successfully");
         }
 
-        eprintln!("🔍 [METAL INIT] Step 8: Creating MetalKernelExecutor instance...");
+//         eprintln!("🔍 [METAL INIT] Step 8: Creating MetalKernelExecutor instance...");
 
         Ok(Self {
             device,
@@ -1120,8 +1120,8 @@ impl MetalKernelExecutor {
 
         // Debug: Log tiled matmul parameters
         if std::env::var("RUSTORCH_DEBUG").is_ok() {
-            eprintln!("🔧 [TILED MATMUL] m={}, n={}, k={}, a.len()={}, b.len()={}, c.len()={}",
-                      m, n, k, a.len(), b.len(), c.len());
+//             eprintln!("🔧 [TILED MATMUL] m={}, n={}, k={}, a.len()={}, b.len()={}, c.len()={}",
+//                       m, n, k, a.len(), b.len(), c.len());
         }
 
         // Validate buffer sizes
@@ -2714,9 +2714,9 @@ impl MetalKernelExecutor {
                 )
             };
 
-            eprintln!("🔍 [CAUSAL MASK TEST] start_position={}, q_len={}, kv_len={}, num_heads={}",
-                start_position, q_len, kv_len, num_heads);
-            eprintln!("🔍 [CAUSAL MASK TEST] Head 0, showing first {} positions:", kv_len.min(20));
+//             eprintln!("🔍 [CAUSAL MASK TEST] start_position={}, q_len={}, kv_len={}, num_heads={}",
+//                 start_position, q_len, kv_len, num_heads);
+//             eprintln!("🔍 [CAUSAL MASK TEST] Head 0, showing first {} positions:", kv_len.min(20));
 
             for q_pos in 0..q_len.min(3) {
                 eprint!("  q_pos={}: [", q_pos);
@@ -2742,7 +2742,7 @@ impl MetalKernelExecutor {
                     finite_count += 1;
                 }
             }
-            eprintln!("🔍 [CAUSAL MASK TEST] Total scores: {} finite, {} -inf", finite_count, inf_count);
+//             eprintln!("🔍 [CAUSAL MASK TEST] Total scores: {} finite, {} -inf", finite_count, inf_count);
         }
 
         // Create new command buffer for remaining operations

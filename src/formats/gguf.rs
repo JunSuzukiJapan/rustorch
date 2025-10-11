@@ -221,7 +221,7 @@ impl GGUFLoader {
             .stream_position()
             .map_err(|e| RusTorchError::IoError(format!("Failed to get final position: {}", e)))?;
 
-        eprintln!("🔧 [GGUF] data_offset (after alignment) = {}", final_offset);
+        // eprintln!("🔧 [GGUF] data_offset (after alignment) = {}", final_offset);
 
         Ok(Self {
             header,
@@ -641,8 +641,8 @@ impl GGUFLoader {
 
         // Seek to tensor data offset
         let absolute_offset = self.data_offset + tensor_info.offset;
-        eprintln!("🔧 [GGUF SEEK] '{}': data_offset={}, tensor_offset={}, absolute={}",
-                  name, self.data_offset, tensor_info.offset, absolute_offset);
+        // eprintln!("🔧 [GGUF SEEK] '{}': data_offset={}, tensor_offset={}, absolute={}",
+        //           name, self.data_offset, tensor_info.offset, absolute_offset);
         reader
             .seek(SeekFrom::Start(absolute_offset))
             .map_err(|e| RusTorchError::IoError(format!("Failed to seek to tensor data: {}", e)))?;
@@ -652,8 +652,8 @@ impl GGUFLoader {
 
         // Convert GGML type to GGMLType enum
         let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
-        eprintln!("🔧 [GGUF] Loading '{}': type={:?}, ggml_type_code={}",
-                  name, ggml_type, tensor_info.ggml_type);
+        // eprintln!("🔧 [GGUF] Loading '{}': type={:?}, ggml_type_code={}",
+        //           name, ggml_type, tensor_info.ggml_type);
 
         // CRITICAL: GGML dimension ordering is REVERSED from PyTorch
         // GGML dims = [ne[0], ne[1], ...] where ne[0] is innermost (fastest-changing)
@@ -678,8 +678,8 @@ impl GGUFLoader {
 
         // Debug: Log dimension handling for norm weights
         if name.contains("norm.weight") || name.contains("token_embd") || name.contains("output.weight") {
-            eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
-                name, ggml_type, original_dims, shape);
+        // eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
+        //        name, ggml_type, original_dims, shape);
         }
 
         // Read tensor data based on type
@@ -789,11 +789,11 @@ impl GGUFLoader {
 
             // Debug: Print first block's scale and raw bytes
             if block_idx == 0 {
-                eprintln!("🐛 [Q4_0 DEBUG] First block:");
-                eprintln!("   scale_bits: 0x{:04x}", scale_bits);
-                eprintln!("   scale: {:.10}", scale);
-                eprintln!("   First 4 quant bytes: {:02x} {:02x} {:02x} {:02x}",
-                         qs[0], qs[1], qs[2], qs[3]);
+        // eprintln!("🐛 [Q4_0 DEBUG] First block:");
+        // eprintln!("   scale_bits: 0x{:04x}", scale_bits);
+        // eprintln!("   scale: {:.10}", scale);
+        // eprintln!("   First 4 quant bytes: {:02x} {:02x} {:02x} {:02x}",
+        //          qs[0], qs[1], qs[2], qs[3]);
             }
 
             // Dequantize: Each byte contains two 4-bit values
@@ -857,15 +857,15 @@ impl GGUFLoader {
 
             // Show block 0 (Token 0 start) and block 64 (Token 1 start)
             if block_idx == 0 || (element_start >= 2048 && element_start < 2080) {
-                eprintln!("\n🔍 [GGUF Q8_0 DEQUANT] Block {} (elements {}-{}):",
-                         block_idx, element_start, element_end - 1);
-                eprintln!("  scale_bits = 0x{:04x}", scale_bits);
-                eprintln!("  scale = {:.9}", scale);
-                eprintln!("  first 20 quants: {:?}", &quants[..20]);
-                eprintln!("  first 10 dequantized:");
-                for i in 0..10 {
-                    eprintln!("    [{}] = {:.9}", i, scale * quants[i] as f32);
-                }
+        // eprintln!("\n🔍 [GGUF Q8_0 DEQUANT] Block {} (elements {}-{}):",
+        //          block_idx, element_start, element_end - 1);
+        // eprintln!("  scale_bits = 0x{:04x}", scale_bits);
+        // eprintln!("  scale = {:.9}", scale);
+        // eprintln!("  first 20 quants: {:?}", &quants[..20]);
+        // eprintln!("  first 10 dequantized:");
+        //         for i in 0..10 {
+        // eprintln!("    [{}] = {:.9}", i, scale * quants[i] as f32);
+        //         }
             }
 
             // Dequantize: value = scale * quant
@@ -913,7 +913,7 @@ impl GGUFLoader {
 
             // Debug: verify f16 conversion
             if output.is_empty() {
-                eprintln!("🔍 [F16 DEBUG] d_bits=0x{:04x} -> d_f16={:?} -> d_f32={:.15e}", d_bits, d_f16, d);
+        // eprintln!("🔍 [F16 DEBUG] d_bits=0x{:04x} -> d_f16={:?} -> d_f32={:.15e}", d_bits, d_f16, d);
             }
 
             // Read quantized scales (12 bytes)
@@ -930,15 +930,15 @@ impl GGUFLoader {
 
             // Debug first block's raw values
             if output.is_empty() {
-                eprintln!("🔍 [Q4_K RAW] d_bits=0x{:04x}, dmin_bits=0x{:04x}", d_bits, dmin_bits);
-                eprintln!("🔍 [Q4_K RAW] d={:.10}, dmin={:.10}", d, dmin);
-                eprintln!("🔍 [Q4_K RAW] scales: {:02x?}", &scales[0..12]);
-                eprintln!("🔍 [Q4_K RAW] qs[0..16]: {:02x?}", &qs[0..16]);
+        // eprintln!("🔍 [Q4_K RAW] d_bits=0x{:04x}, dmin_bits=0x{:04x}", d_bits, dmin_bits);
+        // eprintln!("🔍 [Q4_K RAW] d={:.10}, dmin={:.10}", d, dmin);
+        // eprintln!("🔍 [Q4_K RAW] scales: {:02x?}", &scales[0..12]);
+        // eprintln!("🔍 [Q4_K RAW] qs[0..16]: {:02x?}", &qs[0..16]);
             }
 
             // Dequantize: Process in pairs (64 elements at a time) like llama.cpp
             // Each pair processes 32 bytes: lower nibbles first, then upper nibbles
-            eprintln!("🔍 [Q4_K] Starting block processing, output.len()={}", output.len());
+        // eprintln!("🔍 [Q4_K] Starting block processing, output.len()={}", output.len());
 
             for pair in 0..4 {
                 let j1 = pair * 2;
@@ -973,12 +973,12 @@ impl GGUFLoader {
 
                 // Debug: Print first block's values
                 if output.is_empty() && pair == 0 {
-                    eprintln!("🐛 [Q4_K DEBUG] First block:");
-                    eprintln!("   d={:.10}, dmin={:.10}", d, dmin);
-                    eprintln!("   scale1={}, min1={}", scale1, min1);
-                    eprintln!("   d1={:.10}, m1={:.10}", d1, m1);
-                    eprintln!("   First q_val: {}", qs[q_offset] & 0x0F);
-                    eprintln!("   First dequant: {:.10}", d1 * (qs[q_offset] & 0x0F) as f32 - m1);
+        // eprintln!("🐛 [Q4_K DEBUG] First block:");
+        // eprintln!("   d={:.10}, dmin={:.10}", d, dmin);
+        // eprintln!("   scale1={}, min1={}", scale1, min1);
+        // eprintln!("   d1={:.10}, m1={:.10}", d1, m1);
+        // eprintln!("   First q_val: {}", qs[q_offset] & 0x0F);
+        // eprintln!("   First dequant: {:.10}", d1 * (qs[q_offset] & 0x0F) as f32 - m1);
                 }
 
                 // Process 32 lower nibbles (block 1)
@@ -990,7 +990,7 @@ impl GGUFLoader {
                     output.push(F::from_f32(val));
                     // Debug: Print first 10 embedding values
                     if output.len() <= 10 {
-                        eprintln!("🔍 [Q4_K OUTPUT] index={}: value={:.10}", output.len() - 1, val);
+        // eprintln!("🔍 [Q4_K OUTPUT] index={}: value={:.10}", output.len() - 1, val);
                     }
                 }
 
