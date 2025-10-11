@@ -374,11 +374,8 @@ impl InferenceEngine {
             anyhow::bail!("Llama model not available");
         };
 
-        // Clear KV cache for new generation session
-        if let Some(ref mut cache) = llama_model.kv_cache {
-            cache.clear();
-            eprintln!("🔄 KV cache cleared for new generation session");
-        }
+        // KV cache not yet implemented for LlamaModel
+        // TODO: Implement KV cache for faster generation
 
         // Generation loop
         for step in 0..max_new_tokens {

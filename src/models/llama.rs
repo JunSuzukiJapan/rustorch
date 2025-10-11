@@ -73,15 +73,46 @@ pub struct LlamaModel {
     pub config: LlamaConfig,
     pub weights: HashMap<String, Tensor<f64>>,
     pub device_type: DeviceType,
+    rope_cos: Vec<f32>,  // Precomputed RoPE cosine values
+    rope_sin: Vec<f32>,  // Precomputed RoPE sine values
 }
 
 impl LlamaModel {
+    /// Precompute RoPE (Rotary Position Embedding) frequencies
+    /// RoPE周波数を事前計算
+    fn precompute_rope_frequencies(config: &LlamaConfig) -> (Vec<f32>, Vec<f32>) {
+        let head_dim = config.head_dim();
+        let max_seq_len = config.max_seq_len;
+        let theta = config.rope_theta;
+
+        let mut cos_values = Vec::with_capacity(max_seq_len * head_dim);
+        let mut sin_values = Vec::with_capacity(max_seq_len * head_dim);
+
+        for pos in 0..max_seq_len {
+            for i in 0..(head_dim / 2) {
+                let freq = 1.0 / theta.powf(2.0 * (i as f32) / (head_dim as f32));
+                let angle = (pos as f32) * freq;
+                let cos_val = angle.cos();
+                let sin_val = angle.sin();
+
+                cos_values.push(cos_val);
+                sin_values.push(sin_val);
+            }
+        }
+
+        (cos_values, sin_values)
+    }
+
     /// Create a new Llama model with specified config and device
     pub fn new(config: LlamaConfig, device_type: DeviceType) -> RusTorchResult<Self> {
+        let (rope_cos, rope_sin) = Self::precompute_rope_frequencies(&config);
+
         Ok(Self {
             config,
             weights: HashMap::new(),
             device_type,
+            rope_cos,
+            rope_sin,
         })
     }
 
@@ -192,6 +223,11 @@ impl LlamaModel {
         let hidden_size = emb_shape[0];
         let vocab_size = emb_shape[1];
 
+        if debug {
+            eprintln!("🔧 [EMB SHAPE DEBUG] emb_shape={:?}, hidden_size={}, vocab_size={}",
+                     emb_shape, hidden_size, vocab_size);
+        }
+
         let emb_data = token_emb_tensor.data.as_slice()
             .ok_or_else(|| RusTorchError::tensor_op("Failed to get embedding data as slice"))?;
 
@@ -202,9 +238,21 @@ impl LlamaModel {
                 ));
             }
 
-            let start = token_id * hidden_size;
-            let end = start + hidden_size;
-            embedding_data.extend_from_slice(&emb_data[start..end]);
+            // CRITICAL FIX: GGUF quantized embeddings layout
+            // For quantized tensors, we preserve GGML dim order [2048, 32000]
+            // where dim[0]=2048 is innermost (fastest-changing), dim[1]=32000 is outermost
+            // This means data layout is: Token0[2048 dims], Token1[2048 dims], ..., Token31999[2048 dims]
+            // So for token_id, embedding starts at: token_id * hidden_size
+            let emb_start = token_id * hidden_size;
+
+            if token_idx < 3 {
+                eprintln!("🔧 [EMB LOOKUP DEBUG] token_id={}, emb_start={}, first 10 raw values: {:?}",
+                         token_id, emb_start, &emb_data[emb_start..emb_start + 10]);
+            }
+
+            for dim_idx in 0..hidden_size {
+                embedding_data.push(emb_data[emb_start + dim_idx]);
+            }
 
             if token_idx < 3 && debug {
                 let current_emb_start = embedding_data.len() - hidden_size;
@@ -223,11 +271,10 @@ impl LlamaModel {
         }
 
         // 2. Process through all Transformer layers
-        // TEMPORARY: Only run first layer for debugging
-        let num_layers = if debug { 1 } else { self.config.num_layers };
+        let num_layers = self.config.num_layers;
 
         if debug {
-            eprintln!("⚠️  DEBUG MODE: Only processing {} layer(s)", num_layers);
+            eprintln!("🔧 Processing {} transformer layers", num_layers);
         }
 
         for layer_idx in 0..num_layers {
@@ -302,10 +349,13 @@ impl LlamaModel {
             let k_shape = k_weight.data.shape();
             let v_shape = v_weight.data.shape();
 
-            // GGUF shape: [out_features, in_features]
-            let q_out_dim = q_shape[1];  // Should be 2048
-            let k_out_dim = k_shape[1];  // Should be 256 (4 * 64)
-            let v_out_dim = v_shape[1];  // Should be 256 (4 * 64)
+            // GGUF shape for Q, K, V weights
+            // Q: [2048, 2048] - square projection
+            // K, V: [2048, 256] - GQA projections (4 KV heads * 64 head_dim)
+            // For matmul_transposed_f32, we use shape[1] as output dimension
+            let q_out_dim = q_shape[1];  // 2048
+            let k_out_dim = k_shape[1];  // 256 (4 * 64)
+            let v_out_dim = v_shape[1];  // 256 (4 * 64)
 
             if debug && layer_idx == 0 {
                 eprintln!("     🔍 [WEIGHT SHAPES] Q: {:?} -> out_dim={}, K: {:?} -> out_dim={}, V: {:?} -> out_dim={}",
@@ -330,7 +380,7 @@ impl LlamaModel {
             eprintln!("🔍 [METAL DEBUG] Step 5: About to call FIRST Metal matmul (Q projection)...");
             eprintln!("     Params: seq_len={}, d_model={}, q_out_dim={}", seq_len, d_model, q_out_dim);
 
-            executor.matmul_metal_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, d_model, q_out_dim)?;
+            executor.matmul_metal_transposed_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, d_model, q_out_dim)?;
 
             eprintln!("🔍 [METAL DEBUG] Step 6: Q projection completed successfully!");
 
@@ -338,13 +388,13 @@ impl LlamaModel {
                 eprintln!("     ✓ Q projection complete");
             }
 
-            executor.matmul_metal_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
+            executor.matmul_metal_transposed_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ K projection complete");
             }
 
-            executor.matmul_metal_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
+            executor.matmul_metal_transposed_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ V projection complete");
@@ -354,26 +404,94 @@ impl LlamaModel {
                 eprintln!("     ✓ Q, K, V projections complete (with autoreleasepool)");
             }
 
-            // Simplified attention (without RoPE and proper scaling for now)
-            // 簡易attention（RoPEと適切なスケーリングは後で実装）
+            // Apply RoPE to Q and K projections
+            // Q, K投影にRoPEを適用
             let head_dim = q_out_dim / self.config.num_heads;
+            let num_heads = self.config.num_heads;
             let num_kv_heads = self.config.num_kv_heads;
 
-            // For now, expand V projection output to d_model by repeating KV heads
-            // 現時点では、V射影の出力をd_model次元に拡張（KVヘッドを繰り返す）
-            let mut attn_out = vec![0.0f32; seq_len * d_model];
-            let kv_head_size = v_out_dim / num_kv_heads;
-            let heads_per_kv = self.config.num_heads / num_kv_heads;
+            if debug && layer_idx == 0 {
+                eprintln!("🔍 [ATTENTION LAYER 0] Starting attention computation");
+                eprintln!("   q_out_dim={}, k_out_dim={}, v_out_dim={}", q_out_dim, k_out_dim, v_out_dim);
+                eprintln!("   head_dim={}, num_heads={}, num_kv_heads={}", head_dim, num_heads, num_kv_heads);
+            }
 
-            for seq in 0..seq_len {
-                for kv_h in 0..num_kv_heads {
-                    let kv_offset = seq * v_out_dim + kv_h * kv_head_size;
-                    // Repeat each KV head for multiple Q heads
-                    for rep in 0..heads_per_kv {
-                        let q_head_idx = kv_h * heads_per_kv + rep;
-                        let out_offset = seq * d_model + q_head_idx * head_dim;
-                        for d in 0..kv_head_size {
-                            attn_out[out_offset + d] = v_out[kv_offset + d];
+            // Apply RoPE to Q and K projections
+            let q_proj = self.apply_rope(&q_out, seq_len, num_heads, head_dim, 0);
+            let k_proj = self.apply_rope(&k_out, seq_len, num_kv_heads, head_dim, 0);
+
+            if debug && layer_idx == 0 {
+                let q_rms = (q_proj.iter().map(|&v| v * v).sum::<f32>() / q_proj.len() as f32).sqrt();
+                let k_rms = (k_proj.iter().map(|&v| v * v).sum::<f32>() / k_proj.len() as f32).sqrt();
+                eprintln!("   After RoPE: Q_rms={:.6}, K_rms={:.6}", q_rms, k_rms);
+                eprintln!("   Q_proj[0..5]={:?}, K_proj[0..5]={:?}", &q_proj[0..5], &k_proj[0..5]);
+            }
+
+            // Compute attention: attn_out = softmax(Q @ K^T / sqrt(head_dim)) @ V
+            // Attention計算: attn_out = softmax(Q @ K^T / sqrt(head_dim)) @ V
+            let scale = 1.0 / (head_dim as f32).sqrt();
+            let mut attn_out = vec![0.0f32; seq_len * d_model];
+
+            // For Grouped Query Attention: repeat KV heads to match Q heads
+            // Grouped Query Attention用: KVヘッドをQヘッドに合わせて繰り返す
+            let heads_per_kv = num_heads / num_kv_heads;
+
+            for q_head in 0..num_heads {
+                let kv_head = q_head / heads_per_kv;
+
+                for q_seq in 0..seq_len {
+                    // Q vector for this head and sequence position
+                    let q_offset = q_seq * (num_heads * head_dim) + q_head * head_dim;
+                    let q_vec = &q_proj[q_offset..q_offset + head_dim];
+
+                    // Debug first token, first head
+                    if debug && q_head == 0 && q_seq == 0 {
+                        let q_rms = (q_vec.iter().map(|&v| v * v).sum::<f32>() / head_dim as f32).sqrt();
+                        eprintln!("🔍 [ATTENTION DEBUG] q_head=0, q_seq=0, kv_head={}", kv_head);
+                        eprintln!("   Q_rms={:.6}, Q[0..5]={:?}", q_rms, &q_vec[0..5]);
+                    }
+
+                    // Compute attention scores for all key positions
+                    let mut scores = vec![0.0f32; seq_len];
+                    for k_seq in 0..=q_seq {  // Causal masking: only attend to past
+                        let k_offset = k_seq * (num_kv_heads * head_dim) + kv_head * head_dim;
+                        let k_vec = &k_proj[k_offset..k_offset + head_dim];
+
+                        // Dot product: Q @ K^T
+                        let mut score = 0.0f32;
+                        for d in 0..head_dim {
+                            score += q_vec[d] * k_vec[d];
+                        }
+                        scores[k_seq] = score * scale;
+
+                        // Debug first K vector
+                        if debug && q_head == 0 && q_seq == 0 && k_seq == 0 {
+                            let k_rms = (k_vec.iter().map(|&v| v * v).sum::<f32>() / head_dim as f32).sqrt();
+                            eprintln!("   K_rms={:.6}, K[0..5]={:?}", k_rms, &k_vec[0..5]);
+                            eprintln!("   Unscaled score={:.6}, Scaled score={:.6}", score / scale, score);
+                        }
+                    }
+
+                    // Softmax normalization
+                    let max_score = scores[0..=q_seq].iter().copied().fold(f32::NEG_INFINITY, f32::max);
+                    let mut exp_sum = 0.0f32;
+                    for k_seq in 0..=q_seq {
+                        scores[k_seq] = (scores[k_seq] - max_score).exp();
+                        exp_sum += scores[k_seq];
+                    }
+                    for k_seq in 0..=q_seq {
+                        scores[k_seq] /= exp_sum;
+                    }
+
+                    // Weighted sum of values: attn @ V
+                    let out_offset = q_seq * d_model + q_head * head_dim;
+                    for k_seq in 0..=q_seq {
+                        let v_offset = k_seq * (num_kv_heads * head_dim) + kv_head * head_dim;
+                        let v_vec = &v_out[v_offset..v_offset + head_dim];
+                        let weight = scores[k_seq];
+
+                        for d in 0..head_dim {
+                            attn_out[out_offset + d] += weight * v_vec[d];
                         }
                     }
                 }
@@ -386,8 +504,13 @@ impl LlamaModel {
                 .ok_or_else(|| RusTorchError::tensor_op(format!("Attention output weight not found: {}", attn_proj_key)))?;
             let attn_proj_weight_f32: Vec<f32> = attn_proj_weight.data.iter().map(|&v| v as f32).collect();
 
+            if debug && layer_idx == 0 {
+                let shape = attn_proj_weight.data.shape();
+                eprintln!("🔍 [ATTN OUT PROJ] shape={:?}, expecting [d_model={}, d_model={}] or transposed", shape, d_model, d_model);
+            }
+
             let mut attn_proj = vec![0.0f32; seq_len * d_model];
-            executor.matmul_metal_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
+            executor.matmul_metal_transposed_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -425,12 +548,21 @@ impl LlamaModel {
 
             let intermediate_size = self.config.intermediate_size;
 
+            // Show FFN shapes for first layer
+            if layer_idx == 0 && debug {
+                let gate_shape = gate_weight.data.shape();
+                let up_shape = up_weight.data.shape();
+                let down_shape = down_weight.data.shape();
+                eprintln!("🔍 [FFN SHAPES] Layer {}: gate={:?}, up={:?}, down={:?}, d_model={}, intermediate_size={}",
+                       layer_idx, gate_shape, up_shape, down_shape, d_model, intermediate_size);
+            }
+
             // Gate and Up projections
             let mut gate_out = vec![0.0f32; seq_len * intermediate_size];
             let mut up_out = vec![0.0f32; seq_len * intermediate_size];
 
-            executor.matmul_metal_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
-            executor.matmul_metal_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
+            executor.matmul_metal_transposed_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
+            executor.matmul_metal_transposed_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
 
             // SwiGLU: gate(x) * SiLU(up(x))
             for i in 0..gate_out.len() {
@@ -440,7 +572,7 @@ impl LlamaModel {
 
             // Down projection
             let mut ffn_out = vec![0.0f32; seq_len * d_model];
-            executor.matmul_metal_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
+            executor.matmul_metal_transposed_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -470,18 +602,34 @@ impl LlamaModel {
         }
 
         // 4. Output projection to vocabulary
+        eprintln!("🔍 [OUTPUT PROJECTION] Starting output projection...");
         let output_key = "output.weight";
         let output_weight = self.weights.get(output_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Output weight not found: {}", output_key)))?;
 
+        eprintln!("🔍 [OUTPUT WEIGHT] Found output.weight");
         let output_weight_f32: Vec<f32> = output_weight.data.iter().map(|&v| v as f32).collect();
-        let output_vocab_size = output_weight.data.shape()[1];
+        let output_shape = output_weight.data.shape();
+        eprintln!("🔍 [OUTPUT WEIGHT] shape={:?}, shape[0]={}, shape[1]={}, len={}", output_shape, output_shape[0], output_shape[1], output_weight_f32.len());
+        // GGUF shape for output.weight: need to verify which dimension is vocab_size
+        let output_vocab_size = output_shape[1];
 
         let mut logits_f32 = vec![0.0f32; seq_len * output_vocab_size];
-        executor.matmul_metal_f32(&x_final, &output_weight_f32, &mut logits_f32, seq_len, output_vocab_size, d_model)?;
+        // output.weight is [d_model, vocab_size], we need [seq_len, vocab_size]
+        // logits = x_final[seq_len, d_model] @ output_weight[d_model, vocab_size]
+        // But matmul_transposed expects B to be transposed, so we pass [vocab_size, d_model]
+        executor.matmul_metal_transposed_f32(&x_final, &output_weight_f32, &mut logits_f32, seq_len, output_vocab_size, d_model)?;
 
         if debug {
             eprintln!("✓ Output projection complete");
+            // Show first 20 logits for last token
+            let last_token_logits_start = (seq_len - 1) * output_vocab_size;
+            eprint!("🔍 [FINAL LOGITS] First 20: [");
+            for i in 0..20 {
+                eprint!("{:.6}", logits_f32[last_token_logits_start + i]);
+                if i < 19 { eprint!(", "); }
+            }
+            eprintln!("]");
             eprintln!("🎉 Llama forward pass complete!");
         }
 
@@ -526,5 +674,65 @@ impl LlamaModel {
                 output[offset + i] = row[i] * scale * weight[i];
             }
         }
+    }
+
+    /// Apply RoPE (Rotary Position Embedding) to Q or K projections
+    /// RoPE（回転位置埋め込み）をQ/K投影に適用
+    fn apply_rope(
+        &self,
+        x: &[f32],
+        seq_len: usize,
+        num_heads: usize,
+        head_dim: usize,
+        start_position: usize,
+    ) -> Vec<f32> {
+        let total_dim = num_heads * head_dim;
+        let mut output = Vec::with_capacity(x.len());
+
+        // Debug first call
+        let has_nan = x.iter().any(|&v| v.is_nan());
+        let has_inf = x.iter().any(|&v| v.is_infinite());
+        if has_nan || has_inf {
+            eprintln!("❌ [ROPE INPUT] Input contains NaN={}, Inf={}", has_nan, has_inf);
+            eprintln!("   x.len()={}, seq_len={}, num_heads={}, head_dim={}", x.len(), seq_len, num_heads, head_dim);
+        }
+
+        // Apply rotation for each token in sequence
+        for token_idx in 0..seq_len {
+            let position = start_position + token_idx;
+
+            // For each head of this token
+            for head_idx in 0..num_heads {
+                let head_offset = token_idx * total_dim + head_idx * head_dim;
+                let head_data = &x[head_offset..head_offset + head_dim];
+
+                for i in 0..(head_dim / 2) {
+                    let rope_idx = position * (head_dim / 2) + i;
+
+                    // Bounds checking for debugging
+                    if rope_idx >= self.rope_cos.len() {
+                        eprintln!("❌ [ROPE ERROR] rope_idx={} >= rope_cos.len()={}", rope_idx, self.rope_cos.len());
+                        eprintln!("   position={}, head_dim={}, i={}, num_heads={}", position, head_dim, i, num_heads);
+                        eprintln!("   token_idx={}, head_idx={}", token_idx, head_idx);
+                        return output;  // Return what we have so far to avoid panic
+                    }
+
+                    let cos = self.rope_cos[rope_idx];
+                    let sin = self.rope_sin[rope_idx];
+
+                    let x0 = head_data[2 * i];
+                    let x1 = head_data[2 * i + 1];
+
+                    // Rotate: [x0, x1] -> [x0*cos - x1*sin, x0*sin + x1*cos]
+                    let rotated_0 = x0 * cos - x1 * sin;
+                    let rotated_1 = x0 * sin + x1 * cos;
+
+                    output.push(rotated_0);
+                    output.push(rotated_1);
+                }
+            }
+        }
+
+        output
     }
 }

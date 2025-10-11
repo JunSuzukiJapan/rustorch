@@ -641,8 +641,11 @@ impl GGUFLoader {
 
         // Seek to tensor data offset
         let absolute_offset = self.data_offset + tensor_info.offset;
-        // eprintln!("🔧 [GGUF SEEK] '{}': data_offset={}, tensor_offset={}, absolute={}",
-        //           name, self.data_offset, tensor_info.offset, absolute_offset);
+        // Show offset for token_embd.weight to debug
+        if name == "token_embd.weight" {
+            eprintln!("🔧 [GGUF SEEK] '{}': data_offset={}, tensor_offset={}, absolute={}",
+                     name, self.data_offset, tensor_info.offset, absolute_offset);
+        }
         reader
             .seek(SeekFrom::Start(absolute_offset))
             .map_err(|e| RusTorchError::IoError(format!("Failed to seek to tensor data: {}", e)))?;
@@ -676,10 +679,12 @@ impl GGUFLoader {
             }
         };
 
-        // Debug: Log dimension handling for norm weights
-        if name.contains("norm.weight") || name.contains("token_embd") || name.contains("output.weight") {
-        // eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
-        //        name, ggml_type, original_dims, shape);
+        // Debug: Log dimension handling for critical weights
+        if name.contains("norm.weight") || name.contains("token_embd") || name.contains("output.weight")
+           || name.contains("attn_q") || name.contains("attn_k") || name.contains("attn_v")
+           || name.contains("ffn_gate") || name.contains("ffn_up") || name.contains("ffn_down") {
+        eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
+               name, ggml_type, original_dims, shape);
         }
 
         // Read tensor data based on type
@@ -725,7 +730,7 @@ impl GGUFLoader {
             GGMLType::Q8_0 => {
                 // Q8_0: Blocks of 32 elements
                 // Block size: 34 bytes (2 bytes scale + 32 bytes quantized)
-                Self::dequantize_q8_0::<F>(&mut reader, num_elements)?
+                Self::dequantize_q8_0::<F>(&mut reader, num_elements, name)?
             }
             _ => {
                 return Err(RusTorchError::ParseError(format!(
@@ -828,6 +833,7 @@ impl GGUFLoader {
     fn dequantize_q8_0<F: GGUFFloat>(
         reader: &mut BufReader<File>,
         num_elements: usize,
+        tensor_name: &str,
     ) -> RusTorchResult<Vec<F>> {
         const QK: usize = 32; // Elements per block
 
@@ -855,17 +861,19 @@ impl GGUFLoader {
             let element_start = block_idx * QK;
             let element_end = element_start + QK;
 
-            // Show block 0 (Token 0 start) and block 64 (Token 1 start)
-            if block_idx == 0 || (element_start >= 2048 && element_start < 2080) {
-        // eprintln!("\n🔍 [GGUF Q8_0 DEQUANT] Block {} (elements {}-{}):",
-        //          block_idx, element_start, element_end - 1);
-        // eprintln!("  scale_bits = 0x{:04x}", scale_bits);
-        // eprintln!("  scale = {:.9}", scale);
-        // eprintln!("  first 20 quants: {:?}", &quants[..20]);
-        // eprintln!("  first 10 dequantized:");
-        //         for i in 0..10 {
-        // eprintln!("    [{}] = {:.9}", i, scale * quants[i] as f32);
-        //         }
+            // Show block 0 (Token 0 start) and Token 529's first 2 blocks
+            // Token 529 starts at element 529 * 2048 = 1,083,392 (block 33856)
+            // ONLY show for token_embd.weight tensor
+            if tensor_name == "token_embd.weight" && (block_idx == 0 || (block_idx >= 33856 && block_idx < 33858)) {
+        eprintln!("\n🔍 [GGUF Q8_0 DEQUANT '{}'] Block {} (elements {}-{}):",
+                 tensor_name, block_idx, element_start, element_end - 1);
+        eprintln!("  scale_bits = 0x{:04x}", scale_bits);
+        eprintln!("  scale = {:.9}", scale);
+        eprintln!("  first 20 quants: {:?}", &quants[..20]);
+        eprintln!("  first 10 dequantized:");
+                for i in 0..10 {
+        eprintln!("    [{}] = {:.9}", i, scale * quants[i] as f32);
+                }
             }
 
             // Dequantize: value = scale * quant
