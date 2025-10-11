@@ -552,7 +552,7 @@ impl LlamaModel {
             eprintln!("🔍 [METAL DEBUG] Step 5: About to call FIRST Metal matmul (Q projection)...");
             eprintln!("     Params: seq_len={}, d_model={}, q_out_dim={}", seq_len, d_model, q_out_dim);
 
-            executor.matmul_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, d_model, q_out_dim)?;
+            executor.matmul_metal_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, d_model, q_out_dim)?;
 
             eprintln!("🔍 [METAL DEBUG] Step 6: Q projection completed successfully!");
 
@@ -560,13 +560,13 @@ impl LlamaModel {
                 eprintln!("     ✓ Q projection complete");
             }
 
-            executor.matmul_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
+            executor.matmul_metal_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ K projection complete");
             }
 
-            executor.matmul_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
+            executor.matmul_metal_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ V projection complete");
@@ -676,6 +676,7 @@ impl LlamaModel {
                 total_seq_len,
                 self.config.num_heads,
                 head_dim,
+                start_position,
             )?;
 
             if debug {
@@ -690,7 +691,7 @@ impl LlamaModel {
             let attn_proj_weight_f32: Vec<f32> = attn_proj_weight.data.iter().map(|&v| v as f32).collect();
 
             let mut attn_proj = vec![0.0f32; seq_len * d_model];
-            executor.matmul_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
+            executor.matmul_metal_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -732,8 +733,8 @@ impl LlamaModel {
             let mut gate_out = vec![0.0f32; seq_len * intermediate_size];
             let mut up_out = vec![0.0f32; seq_len * intermediate_size];
 
-            executor.matmul_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
-            executor.matmul_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
+            executor.matmul_metal_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
+            executor.matmul_metal_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
 
             // SwiGLU: gate(x) * SiLU(up(x))
             for i in 0..gate_out.len() {
@@ -743,7 +744,7 @@ impl LlamaModel {
 
             // Down projection
             let mut ffn_out = vec![0.0f32; seq_len * d_model];
-            executor.matmul_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
+            executor.matmul_metal_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -781,7 +782,7 @@ impl LlamaModel {
         let output_vocab_size = output_weight.data.shape()[1];
 
         let mut logits_f32 = vec![0.0f32; seq_len * output_vocab_size];
-        executor.matmul_f32(&x_final, &output_weight_f32, &mut logits_f32, seq_len, output_vocab_size, d_model)?;
+        executor.matmul_metal_f32(&x_final, &output_weight_f32, &mut logits_f32, seq_len, output_vocab_size, d_model)?;
 
         if debug {
             eprintln!("✓ Output projection complete");
@@ -1138,7 +1139,7 @@ impl LlamaModel {
                 let output_offset = (batch_idx * seq_len + seq_idx) * out_dim;
 
                 // Perform matmul for this position using Metal
-                executor.matmul_transposed_f32(
+                executor.matmul_metal_transposed_f32(
                     &input[input_offset..input_offset + in_dim],
                     weight,
                     &mut output[output_offset..output_offset + out_dim],

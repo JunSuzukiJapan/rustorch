@@ -12,6 +12,9 @@ readme = "README.md"
 keywords = ["pytorch", "machine-learning", "tensor", "fft", "matrix-decomposition"]
 categories = ["science", "algorithms"]
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("cargo-clippy"))'] }
+
 [package.metadata.docs.rs]
 # ドキュメントビルドの設定 - 外部依存関係のない機能のみ
 features = ["wasm", "model-import"]

@@ -5,7 +5,7 @@
 using namespace metal;
 
 // Element-wise addition kernel
-kernel void elementwise_add_f32(
+kernel void elementwise_add_metal_f32(
     device const float* a [[buffer(0)]],
     device const float* b [[buffer(1)]],
     device float* result [[buffer(2)]],
@@ -25,7 +25,7 @@ kernel void elementwise_sub_f32(
 }
 
 // Element-wise multiplication kernel
-kernel void elementwise_mul_f32(
+kernel void elementwise_mul_metal_f32(
     device const float* a [[buffer(0)]],
     device const float* b [[buffer(1)]],
     device float* result [[buffer(2)]],
@@ -45,7 +45,7 @@ kernel void elementwise_div_f32(
 }
 
 // Matrix multiplication kernel
-kernel void matmul_f32(
+kernel void matmul_metal_f32(
     device const float* a [[buffer(0)]],
     device const float* b [[buffer(1)]],
     device float* c [[buffer(2)]],
@@ -68,7 +68,7 @@ kernel void matmul_f32(
 
 // Matrix multiplication with B transposed: C = A @ B^T
 // B is stored as [n, k] but treated as [k, n]^T
-kernel void matmul_transposed_f32(
+kernel void matmul_metal_transposed_f32(
     device const float* a [[buffer(0)]],
     device const float* b [[buffer(1)]],
     device float* c [[buffer(2)]],
@@ -331,7 +331,7 @@ kernel void conv3d_f32(
 }
 // RMS Normalization kernel
 // RMS正規化カーネル
-kernel void rms_norm_f32(
+kernel void rms_norm_metal_f32(
     device const float* input [[buffer(0)]],    // Input tensor [batch_size, seq_len, hidden_dim]
     device const float* weight [[buffer(1)]],   // RMS norm weights [hidden_dim]
     device float* output [[buffer(2)]],         // Output tensor [batch_size, seq_len, hidden_dim]

@@ -64,7 +64,7 @@ impl MetalMatMulExecutor {
 #include <metal_stdlib>
 using namespace metal;
 
-kernel void matmul_f32(
+kernel void matmul_metal_f32(
     device const float* A [[buffer(0)]],
     device const float* B [[buffer(1)]],
     device float* C [[buffer(2)]],
@@ -126,8 +126,8 @@ kernel void matmul_f32(
                 let function_name: *mut Object = msg_send![function_name_class, alloc];
                 let function_name: *mut Object = msg_send![
                     function_name,
-                    initWithBytes: b"matmul_f32\0".as_ptr()
-                    length: 10u64
+                    initWithBytes: b"matmul_metal_f32\0".as_ptr()
+                    length: 16u64
                     encoding: 4u64
                 ];
 
@@ -161,7 +161,7 @@ kernel void matmul_f32(
     ///
     /// # Safety
     /// Slices must be valid and sized correctly: a[m*k], b[k*n], c[m*n]
-    pub fn matmul_f32(
+    pub fn matmul_metal_f32(
         &self,
         a: &[f32],
         b: &[f32],
@@ -329,7 +329,7 @@ mod tests {
         let b = vec![5.0f32, 6.0, 7.0, 8.0]; // 2x2
         let mut c = vec![0.0f32; 4]; // 2x2
 
-        executor.matmul_f32(&a, &b, &mut c, 2, 2, 2).unwrap();
+        executor.matmul_metal_f32(&a, &b, &mut c, 2, 2, 2).unwrap();
 
         // Expected: [19, 22, 43, 50]
         assert!((c[0] - 19.0).abs() < 0.001);

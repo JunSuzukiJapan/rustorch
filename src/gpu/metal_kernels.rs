@@ -247,7 +247,7 @@ impl MetalKernelExecutor {
         using namespace metal;
         
         // Optimized element-wise addition with vectorization
-        kernel void elementwise_add_f32(
+        kernel void elementwise_add_metal_f32(
             device const float* a [[buffer(0)]],
             device const float* b [[buffer(1)]],
             device float* result [[buffer(2)]],
@@ -257,7 +257,7 @@ impl MetalKernelExecutor {
         }
         
         // Optimized element-wise multiplication with vectorization
-        kernel void elementwise_mul_f32(
+        kernel void elementwise_mul_metal_f32(
             device const float* a [[buffer(0)]],
             device const float* b [[buffer(1)]],
             device float* result [[buffer(2)]],
@@ -267,7 +267,7 @@ impl MetalKernelExecutor {
         }
         
         // High-performance matrix multiplication optimized for Vega 56 architecture
-        kernel void matmul_f32(
+        kernel void matmul_metal_f32(
             device const float* a [[buffer(0)]],
             device const float* b [[buffer(1)]],
             device float* c [[buffer(2)]],
@@ -291,7 +291,7 @@ impl MetalKernelExecutor {
 
         // Matrix multiplication with B transposed: C = A @ B^T
         // B is stored as [n, k] but treated as [k, n]^T
-        kernel void matmul_transposed_f32(
+        kernel void matmul_metal_transposed_f32(
             device const float* a [[buffer(0)]],
             device const float* b [[buffer(1)]],
             device float* c [[buffer(2)]],
@@ -648,6 +648,7 @@ impl MetalKernelExecutor {
             constant uint& num_heads [[buffer(5)]],
             constant uint& head_dim [[buffer(6)]],
             constant float& scale [[buffer(7)]],
+            constant uint& start_position [[buffer(8)]],
             uint3 gid [[thread_position_in_grid]]
         ) {
             uint q_pos = gid.x;
@@ -658,16 +659,23 @@ impl MetalKernelExecutor {
                 return;
             }
 
-            uint q_offset = q_pos * (num_heads * head_dim) + head * head_dim;
-            uint k_offset = kv_pos * (num_heads * head_dim) + head * head_dim;
-
-            float dot = 0.0f;
-            for (uint d = 0; d < head_dim; d++) {
-                dot += q[q_offset + d] * k[k_offset + d];
-            }
-
             uint score_idx = head * q_len * kv_len + q_pos * kv_len + kv_pos;
-            scores[score_idx] = dot * scale;
+
+            // Apply causal mask: current query's absolute position
+            uint q_absolute_pos = start_position + q_pos;
+            if (kv_pos > q_absolute_pos) {
+                // Future position - mask with -infinity
+                scores[score_idx] = -INFINITY;
+            } else {
+                uint q_offset = q_pos * (num_heads * head_dim) + head * head_dim;
+                uint k_offset = kv_pos * (num_heads * head_dim) + head * head_dim;
+
+                float dot = 0.0f;
+                for (uint d = 0; d < head_dim; d++) {
+                    dot += q[q_offset + d] * k[k_offset + d];
+                }
+                scores[score_idx] = dot * scale;
+            }
         }
 
         // Softmax: Find max value per row
@@ -795,7 +803,7 @@ impl MetalKernelExecutor {
 
         // Create compute pipeline states
         let add_function = library
-            .get_function("elementwise_add_f32", None)
+            .get_function("elementwise_add_metal_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get add function: {:?}", e))
             })?;
@@ -804,10 +812,10 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create add pipeline: {:?}", e))
             })?;
-        pipeline_states.insert("elementwise_add_f32".to_string(), add_pipeline);
+        pipeline_states.insert("elementwise_add_metal_f32".to_string(), add_pipeline);
 
         let matmul_function = library
-            .get_function("matmul_f32", None)
+            .get_function("matmul_metal_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get matmul function: {:?}", e))
             })?;
@@ -816,12 +824,12 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create matmul pipeline: {:?}", e))
             })?;
-        pipeline_states.insert("matmul_f32".to_string(), matmul_pipeline);
+        pipeline_states.insert("matmul_metal_f32".to_string(), matmul_pipeline);
 
-        // Use the same matmul_f32 kernel for tiled operations (for now)
+        // Use the same matmul_metal_f32 kernel for tiled operations (for now)
         // TODO: Add optimized tiled kernel to metal_shaders.metal
         let tiled_matmul_function = library
-            .get_function("matmul_f32", None)
+            .get_function("matmul_metal_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get tiled matmul function: {:?}", e))
             })?;
@@ -845,9 +853,9 @@ impl MetalKernelExecutor {
             })?;
         pipeline_states.insert("reduce_sum_f32".to_string(), reduce_pipeline);
 
-        // Register matmul_transposed_f32 kernel
+        // Register matmul_metal_transposed_f32 kernel
         let matmul_transposed_function = library
-            .get_function("matmul_transposed_f32", None)
+            .get_function("matmul_metal_transposed_f32", None)
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to get matmul_transposed function: {:?}", e))
             })?;
@@ -856,7 +864,7 @@ impl MetalKernelExecutor {
             .map_err(|e| {
                 RusTorchError::KernelError(format!("Failed to create matmul_transposed pipeline: {:?}", e))
             })?;
-        pipeline_states.insert("matmul_transposed_f32".to_string(), matmul_transposed_pipeline);
+        pipeline_states.insert("matmul_metal_transposed_f32".to_string(), matmul_transposed_pipeline);
 
         // Register apply_rope_f32 kernel
         let rope_function = library
@@ -962,7 +970,7 @@ impl MetalKernelExecutor {
 
     /// Execute element-wise addition using Metal Performance Shaders
     /// Metal Performance Shadersを使用して要素ごと加算を実行
-    pub fn elementwise_add_f32(&self, a: &[f32], b: &[f32], c: &mut [f32]) -> RusTorchResult<()> {
+    pub fn elementwise_add_metal_f32(&self, a: &[f32], b: &[f32], c: &mut [f32]) -> RusTorchResult<()> {
         let size = a.len();
         if b.len() != size || c.len() != size {
             return Err(RusTorchError::InvalidOperation(
@@ -991,7 +999,7 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get("elementwise_add_f32")
+            .get("elementwise_add_metal_f32")
             .ok_or_else(|| {
                 RusTorchError::KernelError("ElementWise pipeline not found".to_string())
             })?;
@@ -1026,7 +1034,7 @@ impl MetalKernelExecutor {
 
     /// Execute element-wise multiplication using Metal Performance Shaders
     /// Metal Performance Shadersを使用して要素ごと乗算を実行
-    pub fn elementwise_mul_f32(&self, a: &[f32], b: &[f32], c: &mut [f32]) -> RusTorchResult<()> {
+    pub fn elementwise_mul_metal_f32(&self, a: &[f32], b: &[f32], c: &mut [f32]) -> RusTorchResult<()> {
         let size = a.len();
         if b.len() != size || c.len() != size {
             return Err(RusTorchError::InvalidOperation(
@@ -1053,8 +1061,8 @@ impl MetalKernelExecutor {
         );
 
         // Get pipeline state for element-wise multiplication
-        // Note: We need a separate pipeline for elementwise_mul_f32 kernel
-        let function_name = "elementwise_mul_f32";
+        // Note: We need a separate pipeline for elementwise_mul_metal_f32 kernel
+        let function_name = "elementwise_mul_metal_f32";
         let function = self.library.get_function(function_name, None).map_err(|e| {
             RusTorchError::KernelError(format!("Failed to get function {}: {:?}", function_name, e))
         })?;
@@ -1221,7 +1229,7 @@ impl MetalKernelExecutor {
 
     /// Execute matrix multiplication with B transposed: C = A @ B^T using Metal
     /// B is stored as [n, k] and treated as transposed [k, n]
-    pub fn matmul_transposed_f32(
+    pub fn matmul_metal_transposed_f32(
         &self,
         a: &[f32],
         b: &[f32],
@@ -1274,7 +1282,7 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get("matmul_transposed_f32")
+            .get("matmul_metal_transposed_f32")
             .ok_or_else(|| RusTorchError::KernelError("MatMul transposed pipeline not found".to_string()))?;
 
         // Create command buffer and encoder
@@ -1434,7 +1442,7 @@ impl MetalKernelExecutor {
 
     /// Execute standard matrix multiplication using Metal
     /// Metalを使用して標準行列乗算を実行
-    pub fn matmul_f32(
+    pub fn matmul_metal_f32(
         &self,
         a: &[f32],
         b: &[f32],
@@ -1447,7 +1455,7 @@ impl MetalKernelExecutor {
         // RAII matmulエグゼキュータが利用可能なら使用（適切なメモリ管理）
         if let Some(ref raii_matmul) = self.raii_matmul {
             eprintln!("✅ [METAL RAII] Using RAII matmul executor ({}x{}x{})", m, n, k);
-            raii_matmul.matmul_f32(a, b, c, m, n, k)
+            raii_matmul.matmul_metal_f32(a, b, c, m, n, k)
         } else {
             // Fallback to legacy implementation
             // レガシー実装にフォールバック
@@ -1568,7 +1576,7 @@ impl MetalKernelExecutor {
         // Get pipeline state
         let pipeline_state = self
             .pipeline_states
-            .get("matmul_f32")
+            .get("matmul_metal_f32")
             .ok_or_else(|| RusTorchError::KernelError("MatMul pipeline not found".to_string()))?;
 
         // Create command buffer and encoder
@@ -1628,7 +1636,7 @@ impl MetalKernelExecutor {
         }
 
         let mut result = vec![0.0f32; m * n];
-        self.matmul_f32(a, b, &mut result, m, n, k)?;
+        self.matmul_metal_f32(a, b, &mut result, m, n, k)?;
         Ok(result)
     }
 
@@ -1703,7 +1711,7 @@ impl MetalKernelExecutor {
 
         // Use Metal matrix multiplication: kernel [output_channels, patch_size] * im2col [patch_size, num_patches]
         let mut result_matrix = vec![0.0f32; output_channels * num_patches];
-        self.matmul_f32(
+        self.matmul_metal_f32(
             kernel,
             &im2col_matrix,
             &mut result_matrix,
@@ -2605,6 +2613,7 @@ impl MetalKernelExecutor {
         kv_len: usize,
         num_heads: usize,
         head_dim: usize,
+        start_position: usize,
     ) -> RusTorchResult<()> {
         let scale = 1.0 / (head_dim as f32).sqrt();
         let scores_size = num_heads * q_len * kv_len;
@@ -2680,6 +2689,7 @@ impl MetalKernelExecutor {
             encoder.set_bytes(5, std::mem::size_of::<u32>() as u64, &(num_heads as u32) as *const u32 as *const c_void);
             encoder.set_bytes(6, std::mem::size_of::<u32>() as u64, &(head_dim as u32) as *const u32 as *const c_void);
             encoder.set_bytes(7, std::mem::size_of::<f32>() as u64, &scale as *const f32 as *const c_void);
+            encoder.set_bytes(8, std::mem::size_of::<u32>() as u64, &(start_position as u32) as *const u32 as *const c_void);
 
             let threads_per_threadgroup = metal::MTLSize::new(8, 8, 4);
             let threadgroups = metal::MTLSize::new(
@@ -2690,6 +2700,53 @@ impl MetalKernelExecutor {
             encoder.dispatch_thread_groups(threadgroups, threads_per_threadgroup);
             encoder.end_encoding();
         }
+
+        // DEBUG: Dump attention scores to verify causal mask
+        command_buffer.commit();
+        command_buffer.wait_until_completed();
+
+        let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
+        if debug && start_position < 2 {
+            let scores_data = unsafe {
+                std::slice::from_raw_parts(
+                    scores_buffer.contents() as *const f32,
+                    scores_size,
+                )
+            };
+
+            eprintln!("🔍 [CAUSAL MASK TEST] start_position={}, q_len={}, kv_len={}, num_heads={}",
+                start_position, q_len, kv_len, num_heads);
+            eprintln!("🔍 [CAUSAL MASK TEST] Head 0, showing first {} positions:", kv_len.min(20));
+
+            for q_pos in 0..q_len.min(3) {
+                eprint!("  q_pos={}: [", q_pos);
+                for kv_pos in 0..kv_len.min(20) {
+                    let score_idx = 0 * q_len * kv_len + q_pos * kv_len + kv_pos;
+                    let score = scores_data[score_idx];
+                    if score.is_infinite() && score.is_sign_negative() {
+                        eprint!(" -inf");
+                    } else {
+                        eprint!(" {:.2}", score);
+                    }
+                }
+                eprintln!("]");
+            }
+
+            // Count how many -inf values we have
+            let mut inf_count = 0;
+            let mut finite_count = 0;
+            for i in 0..scores_size.min(num_heads * q_len * kv_len) {
+                if scores_data[i].is_infinite() && scores_data[i].is_sign_negative() {
+                    inf_count += 1;
+                } else {
+                    finite_count += 1;
+                }
+            }
+            eprintln!("🔍 [CAUSAL MASK TEST] Total scores: {} finite, {} -inf", finite_count, inf_count);
+        }
+
+        // Create new command buffer for remaining operations
+        let command_buffer = self.command_queue.new_command_buffer();
 
         // Step 2: Softmax max
         {
@@ -2804,7 +2861,7 @@ impl MetalKernelExecutor {
 
     /// Perform element-wise addition using Metal
     /// Metalを使用して要素ごとの加算を実行
-    pub fn elementwise_add_f32(
+    pub fn elementwise_add_metal_f32(
         &self,
         _a: &[f32],
         _b: &[f32],
@@ -2817,7 +2874,7 @@ impl MetalKernelExecutor {
 
     /// Perform matrix multiplication using Metal
     /// Metalを使用して行列乗算を実行
-    pub fn matmul_f32(
+    pub fn matmul_metal_f32(
         &self,
         _a: &[f32],
         _b: &[f32],
@@ -2858,7 +2915,7 @@ pub fn metal_matmul_f32(
         let executor_mutex = MetalKernelExecutor::get()?;
         let executor_guard = executor_mutex.lock().unwrap();
         if let Some(ref executor) = *executor_guard {
-            executor.matmul_f32(_a, _b, _c, _m, _n, _k)
+            executor.matmul_metal_f32(_a, _b, _c, _m, _n, _k)
         } else {
             Err(RusTorchError::tensor_op("Metal executor not initialized"))
         }
@@ -2879,7 +2936,7 @@ pub fn metal_elementwise_add_f32(_a: &[f32], _b: &[f32], _c: &mut [f32]) -> RusT
         let executor_mutex = MetalKernelExecutor::get()?;
         let executor_guard = executor_mutex.lock().unwrap();
         if let Some(ref executor) = *executor_guard {
-            executor.elementwise_add_f32(_a, _b, _c)
+            executor.elementwise_add_metal_f32(_a, _b, _c)
         } else {
             Err(RusTorchError::tensor_op("Metal executor not initialized"))
         }
@@ -3242,8 +3299,8 @@ mod tests {
         let executor = executor_guard.as_ref().expect("Metal executor not initialized");
 
         // 転置行列乗算を実行
-        executor.matmul_transposed_f32(&a, &b, &mut c_result, m, n, k)
-            .expect("matmul_transposed_f32 failed");
+        executor.matmul_metal_transposed_f32(&a, &b, &mut c_result, m, n, k)
+            .expect("matmul_metal_transposed_f32 failed");
 
         // 結果を検証 (相対誤差 < 1e-5)
         eprintln!("\n=== 転置行列乗算テスト結果 ===");

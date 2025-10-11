@@ -690,7 +690,7 @@ impl GPTModel {
 
         // Use transposed matmul since GGUF weights are stored as [out_dim, in_dim]
         // We need: output = input @ weight^T
-        executor.matmul_transposed_f32(&x_ln1, &q_weight_f32, &mut q_proj, seq_len, d_model, d_model)?;
+        executor.matmul_metal_transposed_f32(&x_ln1, &q_weight_f32, &mut q_proj, seq_len, d_model, d_model)?;
 
         if debug && layer_idx == 0 {
             eprintln!("   ✅ [MATMUL OUTPUT] Q projection (with transpose):");
@@ -698,8 +698,8 @@ impl GPTModel {
             eprintln!("      q_proj last 10: {:?}", &q_proj[q_proj.len().saturating_sub(10)..]);
         }
 
-        executor.matmul_transposed_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
-        executor.matmul_transposed_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
+        executor.matmul_metal_transposed_f32(&x_ln1, &k_weight_f32, &mut k_proj, seq_len, kv_dim, d_model)?;
+        executor.matmul_metal_transposed_f32(&x_ln1, &v_weight_f32, &mut v_proj, seq_len, kv_dim, d_model)?;
 
         // Debug: Log Q/K/V projection statistics for first layer
         if debug && layer_idx == 0 {
@@ -958,7 +958,7 @@ impl GPTModel {
         }
         let mut x_post_attn = vec![0.0f32; seq_len * d_model];
         // Use transposed matmul since GGUF weights are [out_dim, in_dim]
-        executor.matmul_transposed_f32(&attn_output, &o_weight_f32, &mut x_post_attn, seq_len, d_model, d_model)?;
+        executor.matmul_metal_transposed_f32(&attn_output, &o_weight_f32, &mut x_post_attn, seq_len, d_model, d_model)?;
 
         // 🔍 Layer 0 After Output Projection
         if debug && layer_idx == 0 {
@@ -983,7 +983,7 @@ impl GPTModel {
             eprintln!("     • Residual connection 1 (Metal)");
         }
         let mut x_residual1 = vec![0.0f32; x_f32.len()];
-        executor.elementwise_add_f32(&x_f32, &x_post_attn, &mut x_residual1)?;
+        executor.elementwise_add_metal_f32(&x_f32, &x_post_attn, &mut x_residual1)?;
 
         // 📊 Track residual accumulation in Layer 0
         if debug && layer_idx == 0 {
@@ -1073,7 +1073,7 @@ impl GPTModel {
         }
         let mut gate_out = vec![0.0f32; seq_len * d_ff];
         // Use transposed matmul since GGUF weights are [out_dim, in_dim]
-        executor.matmul_transposed_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, d_ff, d_model)?;
+        executor.matmul_metal_transposed_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, d_ff, d_model)?;
 
         if debug {
             if layer_idx == 0 {
@@ -1095,14 +1095,14 @@ impl GPTModel {
         }
         let mut up_out = vec![0.0f32; seq_len * d_ff];
         // Use transposed matmul since GGUF weights are [out_dim, in_dim]
-        executor.matmul_transposed_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, d_ff, d_model)?;
+        executor.matmul_metal_transposed_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, d_ff, d_model)?;
 
         // 4. Element-wise multiply: gate_activated * up_out
         if debug {
             eprintln!("       - Element-wise multiply");
         }
         let mut ffn_intermediate = vec![0.0f32; gate_activated.len()];
-        executor.elementwise_mul_f32(&gate_activated, &up_out, &mut ffn_intermediate)?;
+        executor.elementwise_mul_metal_f32(&gate_activated, &up_out, &mut ffn_intermediate)?;
 
         // 5. Down projection: ffn_intermediate @ down_weight^T
         // down_weight: [d_model, d_ff] (transposed in GGUF)
@@ -1112,7 +1112,7 @@ impl GPTModel {
         }
         let mut ffn_out = vec![0.0f32; seq_len * d_model];
         // Use transposed matmul since GGUF weights are [out_dim, in_dim]
-        executor.matmul_transposed_f32(&ffn_intermediate, &down_weight_f32, &mut ffn_out, seq_len, d_model, d_ff)?;
+        executor.matmul_metal_transposed_f32(&ffn_intermediate, &down_weight_f32, &mut ffn_out, seq_len, d_model, d_ff)?;
 
         // 🔍 Layer 0 FFN Output detailed dump
         if debug && layer_idx == 0 {
@@ -1137,7 +1137,7 @@ impl GPTModel {
             eprintln!("     • Residual connection 2 (Metal)");
         }
         let mut x_residual2 = vec![0.0f32; x_residual1.len()];
-        executor.elementwise_add_f32(&x_residual1, &ffn_out, &mut x_residual2)?;
+        executor.elementwise_add_metal_f32(&x_residual1, &ffn_out, &mut x_residual2)?;
 
         // 📊 Track residual 2 accumulation in Layer 0
         if debug && layer_idx == 0 {
@@ -1664,8 +1664,8 @@ impl GPTModel {
         let b = vec![1.0f32, 2.0, 3.0, 4.0, 5.0, 6.0]; // 3x2
         let mut c = vec![0.0f32; 4]; // 2x2
 
-        // Execute Metal matmul: matmul_f32(a, b, c, m, n, k) where A is m×k, B is k×n, C is m×n
-        executor.matmul_f32(&a, &b, &mut c, 2, 2, 3)?;
+        // Execute Metal matmul: matmul_metal_f32(a, b, c, m, n, k) where A is m×k, B is k×n, C is m×n
+        executor.matmul_metal_f32(&a, &b, &mut c, 2, 2, 3)?;
 
         eprintln!("✅ Metal matmul test passed");
         eprintln!("   Input A (2x3): [{}, {}, {}], [{}, {}, {}]",
