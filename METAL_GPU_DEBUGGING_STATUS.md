@@ -1888,13 +1888,30 @@ llama.cppのトークン化ロジックを調査し、RusTorchのトークナイ
 2. **条件付きプレフィックス**: 特殊トークン (BOS等) の後のみスペース追加
 3. **生テキスト**: プレフィックスなし
 
-#### RusTorchの修正
+#### RusTorchの修正 (2025-10-11更新)
 
-**ファイル**: `example-cli/src/tokenizer/llama_spm.rs:92-108`
+**ファイル**: `example-cli/src/tokenizer/llama_spm.rs:290-299`
 
 **変更点**:
-- ❌ 修正前: 常にスペースプレフィックス`▁`を追加
-- ✅ 修正後: llama.cpp互換 - プレフィックスなし
+- ❌ 修正前: BOSトークン後のスペースプレフィックスなし → `[1, 29966, ...]` (Token 29966 = `'<'`)
+- ✅ 修正後: BOSトークン後にスペースプレフィックス追加 → `[1, 529, ...]` (Token 529 = `' <'`)
+
+**根拠**:
+```rust
+// llama.cpp SPM tokenizer adds a space prefix when:
+// 1. Model has add_space_prefix=true (TinyLlama does)
+// 2. Previous token is a special token (BOS)
+let text_to_encode = if add_special_tokens && !text.is_empty() {
+    format!(" {}", text)  // Add space prefix after BOS
+} else {
+    text.to_string()
+};
+```
+
+**検証結果** (2025-10-11):
+- RusTorch: `[1, 529, 29989, 1792, ...]` ✅
+- llama.cpp: `[1, 529, 29989, 1792, ...]` ✅
+- **完全一致** - Token 529 = `' <'` (スペース+<)
 
 ### トークン化の期待動作
 
@@ -1907,5 +1924,72 @@ llama.cppのトークン化ロジックを調査し、RusTorchのトークナイ
 
 - ✅ llama.cppトークン化ロジック完全移植
 - ✅ スペースプレフィックス問題解決
-- ⏳ 実機テストで確認（次のステップ）
+- ✅ 実機テストで確認完了 (2025-10-11)
+
+---
+
+## 🔴 Phase 7: トークン化修正後の検証 (2025-10-11)
+
+### 実施日時
+2025年10月11日
+
+### 背景
+トークン化をllama.cpp互換に修正後、出力が改善されるか検証。
+
+### 検証内容
+
+#### 1. トークン化の一致確認 ✅
+```
+入力: "<|user|>\n1<|assistant|>"
+RusTorch:  [1, 529, 29989, 1792, 29989, 29958, 13, 29896, 29966, 29989, 465, 22137, 29989, 29958]
+llama.cpp: [1, 529, 29989, 1792, 29989, 29958, 13, 29896, 29966, 29989, 465, 22137, 29989, 29958]
+結果: ✅ **完全一致**
+```
+
+#### 2. 出力品質の確認 ❌
+```bash
+printf "1\n" | ./target/release/rustorch-cli \
+  --model ~/.rustorch/models/TheBloke_TinyLlama-1.1B-Chat-v1.0-GGUF/tinyllama-1.1b-chat-v1.0.Q8_0.gguf \
+  --backend hybrid-f32 --max-tokens 50
+```
+
+**結果**: `anthanthertanthertrun ChallengeniASEörtrinder...`
+- ❌ 依然として意味不明な出力
+- トークン化は正しいが、Transformer層の出力が不正
+
+#### 3. Logits比較 ❌
+```
+Token     RusTorch    llama.cpp    Diff
+0         -3.037      -7.701       4.665
+13         3.540      19.808      16.268 ← 改行トークン
+...
+一致率: 0/20 (0.0%)
+Top token: RusTorch=9716, llama.cpp=13
+```
+
+### 結論
+
+**トークン化**: ✅ 完全修正
+**Transformer層**: ❌ 依然として不正
+
+トークン化が正しくてもTransformer層が間違った出力を生成している。これは以下を意味する：
+
+1. **入力は正しい** - Token sequence が llama.cpp と一致
+2. **個別コンポーネントは正しい** (Phase 1-6で検証済み)
+   - Q8_0 dequantization ✅
+   - RoPE ✅
+   - RMSNorm ✅
+   - Attention ✅
+   - FFN ✅
+3. **問題は組み合わせ方** - コンポーネント間の連携に問題
+
+### 次のステップ
+
+**Layer-by-layer hidden state comparison** が必要：
+1. Layer 0の入力hidden state
+2. Layer 0の出力hidden state
+3. Layer 1の入力hidden state
+... (各層で比較)
+
+どの層でdivergenceが始まるかを特定する必要がある。
 

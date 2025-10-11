@@ -287,14 +287,29 @@ impl super::Tokenizer for LlamaSpmTokenizer {
             tokens.push(self.bos_token_id);
         }
 
-        let text_tokens = self.tokenize(text);
+        // CRITICAL FIX: llama.cpp SPM tokenizer adds a space prefix when:
+        // 1. Model has add_space_prefix=true (TinyLlama does)
+        // 2. Previous token is a special token (BOS)
+        // This matches llama.cpp's tokenizer behavior for SentencePiece models
+        let text_to_encode = if add_special_tokens && !text.is_empty() {
+            eprintln!("🔍 [LLAMA_SPM] Adding space prefix (SPM behavior after BOS)");
+            format!(" {}", text)
+        } else {
+            text.to_string()
+        };
+
+        let text_tokens = self.tokenize(&text_to_encode);
         eprintln!("🔍 [LLAMA_SPM] tokenize() returned {} tokens: {:?}", text_tokens.len(), &text_tokens[..text_tokens.len().min(20)]);
 
         tokens.extend(text_tokens);
 
-        if add_special_tokens {
-            tokens.push(self.eos_token_id);
-        }
+        // IMPORTANT: Unlike some tokenizers, llama.cpp does NOT add EOS token during encoding
+        // EOS is only added when the model generates it during inference
+        // This matches llama.cpp behavior: BOS at start, NO EOS at end of prompt
+        //
+        // if add_special_tokens {
+        //     tokens.push(self.eos_token_id);
+        // }
 
         eprintln!("🔍 [LLAMA_SPM] Final tokens ({}): {:?}", tokens.len(), &tokens[..tokens.len().min(20)]);
 

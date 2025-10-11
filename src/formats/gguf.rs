@@ -834,7 +834,7 @@ impl GGUFLoader {
         let num_blocks = (num_elements + QK - 1) / QK;
         let mut output = Vec::with_capacity(num_elements);
 
-        for _ in 0..num_blocks {
+        for block_idx in 0..num_blocks {
             // Read scale (f16, 2 bytes)
             let scale_bits = Self::read_u16(reader)?;
             let scale = half::f16::from_bits(scale_bits).to_f32();
@@ -847,6 +847,25 @@ impl GGUFLoader {
                     RusTorchError::IoError(format!("Failed to read Q8_0 quant: {}", e))
                 })?;
                 *q = buf[0] as i8;
+            }
+
+            // DEBUG: Print first block details and blocks for Token 1 (offsets 2048-2079)
+            // Token 1's embedding spans elements 2048-4095
+            // That's blocks 64-127 (each block = 32 elements)
+            let element_start = block_idx * QK;
+            let element_end = element_start + QK;
+
+            // Show block 0 (Token 0 start) and block 64 (Token 1 start)
+            if block_idx == 0 || (element_start >= 2048 && element_start < 2080) {
+                eprintln!("\n🔍 [GGUF Q8_0 DEQUANT] Block {} (elements {}-{}):",
+                         block_idx, element_start, element_end - 1);
+                eprintln!("  scale_bits = 0x{:04x}", scale_bits);
+                eprintln!("  scale = {:.9}", scale);
+                eprintln!("  first 20 quants: {:?}", &quants[..20]);
+                eprintln!("  first 10 dequantized:");
+                for i in 0..10 {
+                    eprintln!("    [{}] = {:.9}", i, scale * quants[i] as f32);
+                }
             }
 
             // Dequantize: value = scale * quant
@@ -887,8 +906,15 @@ impl GGUFLoader {
             // Read super-scale and super-min (f16 each)
             let d_bits = Self::read_u16(reader)?;
             let dmin_bits = Self::read_u16(reader)?;
-            let d = half::f16::from_bits(d_bits).to_f32();
-            let dmin = half::f16::from_bits(dmin_bits).to_f32();
+            let d_f16 = half::f16::from_bits(d_bits);
+            let dmin_f16 = half::f16::from_bits(dmin_bits);
+            let d = d_f16.to_f32();
+            let dmin = dmin_f16.to_f32();
+
+            // Debug: verify f16 conversion
+            if output.is_empty() {
+                eprintln!("🔍 [F16 DEBUG] d_bits=0x{:04x} -> d_f16={:?} -> d_f32={:.15e}", d_bits, d_f16, d);
+            }
 
             // Read quantized scales (12 bytes)
             let mut scales = [0u8; K_SCALE_SIZE];
@@ -902,8 +928,18 @@ impl GGUFLoader {
                 RusTorchError::IoError(format!("Failed to read Q4_K quants: {}", e))
             })?;
 
+            // Debug first block's raw values
+            if output.is_empty() {
+                eprintln!("🔍 [Q4_K RAW] d_bits=0x{:04x}, dmin_bits=0x{:04x}", d_bits, dmin_bits);
+                eprintln!("🔍 [Q4_K RAW] d={:.10}, dmin={:.10}", d, dmin);
+                eprintln!("🔍 [Q4_K RAW] scales: {:02x?}", &scales[0..12]);
+                eprintln!("🔍 [Q4_K RAW] qs[0..16]: {:02x?}", &qs[0..16]);
+            }
+
             // Dequantize: Process in pairs (64 elements at a time) like llama.cpp
             // Each pair processes 32 bytes: lower nibbles first, then upper nibbles
+            eprintln!("🔍 [Q4_K] Starting block processing, output.len()={}", output.len());
+
             for pair in 0..4 {
                 let j1 = pair * 2;
                 let j2 = pair * 2 + 1;
@@ -945,20 +981,17 @@ impl GGUFLoader {
                     eprintln!("   First dequant: {:.10}", d1 * (qs[q_offset] & 0x0F) as f32 - m1);
                 }
 
-                // Debug: Log d scale factors for first few blocks to check if all are abnormally small
-                if output.len() < 512 && pair == 0 {
-                    let block_num = output.len() / 256;
-                    if block_num < 3 {
-                        eprintln!("🐛 [Q4_K] Block {}: d={:.10}", block_num, d);
-                    }
-                }
-
                 // Process 32 lower nibbles (block 1)
                 // ジェネリック型を使用してf32→f64→f32の変換を回避
                 for l in 0..32 {
                     if output.len() >= num_elements { break; }
                     let q_val = qs[q_offset + l] & 0x0F;
-                    output.push(F::from_f32(d1 * q_val as f32 - m1));
+                    let val = d1 * q_val as f32 - m1;
+                    output.push(F::from_f32(val));
+                    // Debug: Print first 10 embedding values
+                    if output.len() <= 10 {
+                        eprintln!("🔍 [Q4_K OUTPUT] index={}: value={:.10}", output.len() - 1, val);
+                    }
                 }
 
                 // Process 32 upper nibbles (block 2)

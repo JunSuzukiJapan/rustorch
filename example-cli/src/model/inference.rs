@@ -359,10 +359,11 @@ impl InferenceEngine {
         input_ids: &[u32],
         max_new_tokens: usize,
     ) -> Result<Vec<u32>> {
+        eprintln!("🔍 [GENERATE_WITH_LLAMA_MUT] Starting generation with {} tokens", input_ids.len());
         let mut generated_ids: Vec<usize> = input_ids.iter().map(|&id| id as usize).collect();
 
         tracing::info!(
-            "Generating {} tokens with RusTorch Llama model (pure Metal)",
+            "Generating {} tokens with RusTorch Llama model (pure Metal + KV Cache)",
             max_new_tokens
         );
 
@@ -373,11 +374,39 @@ impl InferenceEngine {
             anyhow::bail!("Llama model not available");
         };
 
+        // Clear KV cache for new generation session
+        if let Some(ref mut cache) = llama_model.kv_cache {
+            cache.clear();
+            eprintln!("🔄 KV cache cleared for new generation session");
+        }
+
         // Generation loop
         for step in 0..max_new_tokens {
-            // Forward pass through RusTorch Llama model
-            // RusTorch API: forward(&[usize]) -> Result<Tensor<f64>>
-            let logits_tensor = match llama_model.forward(&generated_ids) {
+            // Step 0: Process entire prompt
+            // Step 1+: Process only the last generated token (using KV cache)
+            let input_for_forward = if step == 0 {
+                // First step: use all tokens (prompt)
+                &generated_ids[..]
+            } else {
+                // Subsequent steps: use only the last token (KV cache handles the rest)
+                &generated_ids[generated_ids.len() - 1..]
+            };
+
+            // Calculate start_position for RoPE
+            // Step 0: position=0 (start of sequence)
+            // Step 1+: position=<number of already processed tokens>
+            let start_position = if step == 0 {
+                0
+            } else {
+                generated_ids.len() - 1  // Position of the new token
+            };
+
+            eprintln!("🔍 [STEP {}] Forward with {} tokens at position {} (total generated: {})",
+                step, input_for_forward.len(), start_position, generated_ids.len());
+
+            // Forward pass through RusTorch Llama model with position tracking
+            // IMPORTANT: Use forward_with_position to apply RoPE correctly
+            let logits_tensor = match llama_model.forward_with_position(input_for_forward, start_position) {
                 Ok(tensor) => tensor,
                 Err(e) => {
                     // Restore model before returning error
@@ -388,8 +417,28 @@ impl InferenceEngine {
 
             // Extract logits for the last position
             // Shape: [batch_size=1, seq_len, vocab_size] -> [vocab_size]
-            let seq_len = generated_ids.len();
+            let seq_len = input_for_forward.len();
             let last_logits = self.extract_last_logits(&logits_tensor, seq_len)?;
+
+            // Debug: Print logits statistics for first 3 steps
+            if step < 3 {
+                eprintln!("🔍 [LOGITS STEP {}] Analyzing logits (vocab_size={})...", step, last_logits.data.len());
+
+                let max_logit = last_logits.data.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                let min_logit = last_logits.data.iter().cloned().fold(f64::INFINITY, f64::min);
+                let sum: f64 = last_logits.data.iter().sum();
+                let mean = sum / last_logits.data.len() as f64;
+
+                eprintln!("🔍 [LOGITS STEP {}] max={:.4}, min={:.4}, mean={:.4}", step, max_logit, min_logit, mean);
+
+                // Show top 5 logits
+                let mut indexed: Vec<(usize, f64)> = last_logits.data.iter().enumerate().map(|(i, &v)| (i, v)).collect();
+                indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+                eprintln!("🔍 [LOGITS STEP {}] Top 5 tokens:", step);
+                for (rank, (token_id, logit)) in indexed.iter().take(5).enumerate() {
+                    eprintln!("  #{}: token_id={} logit={:.4}", rank+1, token_id, logit);
+                }
+            }
 
             // Apply temperature scaling
             let scaled_logits = if self.sampling_config.temperature != 1.0 {

@@ -219,6 +219,9 @@ impl F32LlamaModel {
                     if let Some(info) = tensor_info {
                         let original_dims: Vec<usize> = info.dims.iter().map(|&d| d as usize).collect();
                         let ggml_type = crate::formats::gguf::GGMLType::from_u32(info.ggml_type).ok();
+
+                        // CRITICAL: Only F32/F16 tensors need shape reversal
+                        // Quantized tensors (Q8_0, Q4_K, etc.) are stored with correct dimensions
                         let shape: Vec<usize> = match ggml_type {
                             Some(crate::formats::gguf::GGMLType::F32) | Some(crate::formats::gguf::GGMLType::F16) => {
                                 let mut s = original_dims.clone();
@@ -360,8 +363,12 @@ impl F32LlamaModel {
 
             // Line 3566: ggml_vec_scale_f32(ne00, y, scale);
             // This is: y[i] = y[i] * scale for all i
+            // NOTE: llama.cpp does NOT multiply by weight in ggml_rms_norm
+            // Weight multiplication is done separately via ggml_mul
             for i00 in 0..ne00 {
                 output[y_offset + i00] *= scale;
+                // REMOVED: weight multiplication - should be done by caller
+                // output[y_offset + i00] *= weight_data[i00];
             }
 
             // Debug token output
@@ -617,6 +624,15 @@ impl F32LlamaModel {
         let embed_data = embed_weight.as_slice();
         let embed_shape = embed_weight.shape();
 
+        // Debug: Print embedding weight info for first token
+        static EMBED_DEBUG_PRINTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !EMBED_DEBUG_PRINTED.swap(true, std::sync::atomic::Ordering::SeqCst) {
+            eprintln!("🔍 [EMBED DEBUG] token_embd.weight shape: {:?}", embed_shape);
+            eprintln!("🔍 [EMBED DEBUG] hidden_size={}, vocab_size={}", hidden_size, vocab_size);
+            eprintln!("🔍 [EMBED DEBUG] embed_data.len()={}", embed_data.len());
+            eprintln!("🔍 [EMBED DEBUG] Formula: start = token_id * hidden_size");
+        }
+
         if token_id >= vocab_size {
             return Err(F32Error::device_error(format!(
                 "Token ID {} out of vocab range {}",
@@ -651,9 +667,18 @@ impl F32LlamaModel {
 
         let embedding = embed_data[start..end].to_vec();
 
+        // Debug: Show embedding for token 1 (BOS) and token 29896 ("1")
+        if token_id == 1 || token_id == 29896 {
+            eprintln!("🔍 [EMBED DEBUG] Token {} embedding (first 10):", token_id);
+            for i in 0..10.min(embedding.len()) {
+                eprintln!("  [{}] = {:.9}", i, embedding[i]);
+            }
+            eprintln!("  RMS = {:.9}", (embedding.iter().map(|x| x * x).sum::<f32>() / embedding.len() as f32).sqrt());
+        }
+
         // Debug: Show first 10 values of embedding for important tokens
-        // Token 1 (BOS), Token 13 (newline), Token 1724 ("What"), Token 3681 (Paris)
-        if token_id == 1 || token_id == 13 || token_id == 1724 || token_id == 3681 {
+        // Token 1 (BOS), Token 13 (newline), Token 1724 ("What"), Token 3681 (Paris), Token 29896 ("1")
+        if token_id == 1 || token_id == 13 || token_id == 1724 || token_id == 3681 || token_id == 29896 {
             let first_10: Vec<f32> = embedding.iter().take(10).copied().collect();
             let non_zero_count = embedding.iter().filter(|&&x| x.abs() > 1e-8).count();
             let emb_stats = Self::compute_stats(&embedding);
@@ -697,15 +722,10 @@ impl F32LlamaModel {
         }
 
         // Linear projections: Q, K, V
-        // PORTED FROM: llama.cpp/src/llama-model.cpp:16720
-        //   q = ggml_mul_mat(ctx0, model.layers[il].wq, cur);
-        // CRITICAL: ggml_mul_mat(a, b) internally computes a^T @ b (result shape = {a.ne[1], b.ne[1]})
-        //   llama.cpp: wq=[2048,2048], cur=[2048,15] -> result=[2048,15] (wq^T @ cur)
-        //   RusTorch: x=[15,2048], wq=[2048,2048] -> x @ wq^T = [15,2048] (same result, different layout)
-        // Therefore: x.matmul(weight) is correct for RusTorch's [tokens, features] layout
-        let q = x.matmul(q_weight)?;
-        let k = x.matmul(k_weight)?;
-        let v = x.matmul(v_weight)?;
+        // Try WITHOUT transpose - maybe GGUF weights are already in the right layout
+        let q = x.matmul(&q_weight)?;
+        let k = x.matmul(&k_weight)?;
+        let v = x.matmul(&v_weight)?;
 
         // DEBUG: Q/K/V projections before RoPE (Layer 0 only)
         if layer_idx == 0 {
@@ -779,8 +799,8 @@ impl F32LlamaModel {
             eprintln!("🔧 [LAYER 0] o_weight stats: rms={:.6}, max={:.6}", o_stats.rms, o_stats.max);
         }
 
-        // PORTED FROM: llama.cpp - O projection (same reasoning as Q/K/V)
-        let final_out = attn_output.matmul(o_weight)?;
+        // PORTED FROM: llama.cpp - O projection - try without transpose
+        let final_out = attn_output.matmul(&o_weight)?;
 
         if debug_layer {
             let final_stats = Self::compute_stats(final_out.as_slice());
@@ -811,9 +831,9 @@ impl F32LlamaModel {
         }
 
         // FFN with SwiGLU: down(SwiGLU(gate(x), up(x)))
-        // PORTED FROM: llama.cpp - FFN gate/up projections (same reasoning as Q/K/V)
-        let gate = x.matmul(gate_weight)?;
-        let up = x.matmul(up_weight)?;
+        // Try without transpose
+        let gate = x.matmul(&gate_weight)?;
+        let up = x.matmul(&up_weight)?;
 
         if debug_layer {
             let gate_stats = Self::compute_stats(gate.as_slice());
@@ -858,8 +878,8 @@ impl F32LlamaModel {
             eprintln!("]");
         }
 
-        // PORTED FROM: llama.cpp - FFN down projection (same reasoning as Q/K/V)
-        let final_out = swiglu_out.matmul(down_weight)?;
+        // PORTED FROM: llama.cpp - FFN down projection - try without transpose
+        let final_out = swiglu_out.matmul(&down_weight)?;
 
 
         Ok(final_out)
@@ -916,20 +936,53 @@ impl F32LlamaModel {
             eprintln!("🔧 [LAYER 0] attn_norm.weight stats: rms={:.6}, max={:.6}", attn_norm_stats.rms, attn_norm_stats.max);
         }
 
-        // Step 1: RMS Norm (normalize only)
-        let normed_before_weight = self.rms_norm(x, &attn_norm_weight)?;
-
-        if layer_idx == 0 {
-            let stats_before = Self::compute_stats(normed_before_weight.as_slice());
-            eprintln!("🔧 [LAYER 0] After attn RMSNorm (before weight): rms={:.6}, max={:.6}", stats_before.rms, stats_before.max);
-        }
-
-        // Step 2: Element-wise multiplication with weight (following llama.cpp)
-        let normed = normed_before_weight.mul(&attn_norm_weight)?;
+        // RMS Norm (normalize only, matching llama.cpp)
+        let normed = self.rms_norm(x, &attn_norm_weight)?;
 
         if layer_idx == 0 {
             let normed_stats = Self::compute_stats(normed.as_slice());
-            eprintln!("🔧 [LAYER 0] After attn RMSNorm + weight: rms={:.6}, max={:.6}", normed_stats.rms, normed_stats.max);
+            eprintln!("🔧 [LAYER 0] After attn RMSNorm (before weight): rms={:.6}, max={:.6}", normed_stats.rms, normed_stats.max);
+            eprintln!("🔧 [LAYER 0] normed shape: {:?}, weight shape: {:?}", normed.shape(), attn_norm_weight.shape());
+            eprintln!("🔧 [LAYER 0] normed.len()={}, weight.len()={}", normed.as_slice().len(), attn_norm_weight.as_slice().len());
+
+            // Print first 10 values
+            let normed_slice = normed.as_slice();
+            let weight_slice = attn_norm_weight.as_slice();
+            print!("🔧 [LAYER 0] First 10 normed values: ");
+            for i in 0..10.min(normed_slice.len()) {
+                print!("{:.6} ", normed_slice[i]);
+            }
+            println!();
+            print!("🔧 [LAYER 0] First 10 weight values: ");
+            for i in 0..10.min(weight_slice.len()) {
+                print!("{:.6} ", weight_slice[i]);
+            }
+            println!();
+        }
+
+        // Multiply by weight (separate step, matching llama.cpp's ggml_mul)
+        let normed = {
+            let normed_data = normed.as_slice();
+            let weight_data = attn_norm_weight.as_slice();
+            let shape = normed.shape();
+            let mut result = Vec::with_capacity(normed_data.len());
+            for i in 0..normed_data.len() {
+                result.push(normed_data[i] * weight_data[i % weight_data.len()]);
+            }
+            F32Tensor::from_vec(result, shape)?
+        };
+
+        if layer_idx == 0 {
+            let normed_stats = Self::compute_stats(normed.as_slice());
+            eprintln!("🔧 [LAYER 0] After weight multiplication: rms={:.6}, max={:.6}", normed_stats.rms, normed_stats.max);
+
+            // Print first 10 results
+            let result_slice = normed.as_slice();
+            print!("🔧 [LAYER 0] First 10 result values: ");
+            for i in 0..10.min(result_slice.len()) {
+                print!("{:.6} ", result_slice[i]);
+            }
+            println!();
         }
 
         if debug_layer {
@@ -958,10 +1011,20 @@ impl F32LlamaModel {
         }
 
         // FFN block with residual connection
-        // Step 1: RMS Norm (normalize only)
+        // RMS Norm (normalize only, matching llama.cpp)
         let normed = self.rms_norm(&x, &ffn_norm_weight)?;
-        // Step 2: Element-wise multiplication with weight
-        let normed = normed.mul(&ffn_norm_weight)?;
+
+        // Multiply by weight (separate step, matching llama.cpp's ggml_mul)
+        let normed = {
+            let normed_data = normed.as_slice();
+            let weight_data = ffn_norm_weight.as_slice();
+            let shape = normed.shape();
+            let mut result = Vec::with_capacity(normed_data.len());
+            for i in 0..normed_data.len() {
+                result.push(normed_data[i] * weight_data[i % weight_data.len()]);
+            }
+            F32Tensor::from_vec(result, shape)?
+        };
 
         if debug_layer {
             let normed_slice = normed.as_slice();
@@ -1072,8 +1135,51 @@ impl F32LlamaModel {
 
         // Strategic debug: Monitor problematic positions only
 
+        // DEBUG: Save embedding output (before any layers)
+        {
+            use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
+            static SAVE_EMBEDDINGS: AtomicBool = AtomicBool::new(true);
+            if SAVE_EMBEDDINGS.swap(false, AtomicOrdering::SeqCst) {
+                // Save last token's embedding to file
+                let last_token_start = (seq_len - 1) * hidden_size;
+                let last_token_emb = &x.as_slice()[last_token_start..last_token_start + hidden_size];
+                if let Ok(mut file) = std::fs::File::create("/tmp/rustorch_embedding.txt") {
+                    use std::io::Write;
+                    for val in last_token_emb {
+                        let _ = writeln!(file, "{}", val);
+                    }
+                    eprintln!("💾 Saved embedding to /tmp/rustorch_embedding.txt");
+                }
+            }
+        }
+
         // Pass through all transformer layers
         for layer_idx in 0..self.config.num_layers {
+            // DEBUG: Save layer inputs (before transformer_layer)
+            {
+                use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+                static FORWARD_CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+                let call_count = FORWARD_CALL_COUNT.load(AtomicOrdering::SeqCst);
+
+                // Only save on first forward call and for layer 0
+                if call_count == 0 && layer_idx == 0 {
+                    let last_token_start = (seq_len - 1) * hidden_size;
+                    let last_token_input = &x.as_slice()[last_token_start..last_token_start + hidden_size];
+                    let filename = format!("/tmp/rustorch_layer_{}_input.txt", layer_idx);
+                    if let Ok(mut file) = std::fs::File::create(&filename) {
+                        use std::io::Write;
+                        for val in last_token_input {
+                            let _ = writeln!(file, "{}", val);
+                        }
+                        eprintln!("💾 Saved Layer {} INPUT to {}", layer_idx, filename);
+                    }
+                }
+
+                if layer_idx == 0 {
+                    FORWARD_CALL_COUNT.fetch_add(1, AtomicOrdering::SeqCst);
+                }
+            }
+
             x = self.transformer_layer(&x, layer_idx, current_position)?;
 
             // DEBUG: Dump layer outputs for key layers (0, 10, 21)
@@ -1082,6 +1188,32 @@ impl F32LlamaModel {
                 eprintln!("📊 [LAYER {}] Output: rms={:.6}, min={:.6}, max={:.6}, first_10={:?}",
                     layer_idx, stats.rms, stats.min, stats.max,
                     &x.as_slice()[..10.min(x.as_slice().len())]);
+            }
+
+            // DEBUG: Save layer outputs for first few layers and last token only
+            {
+                use std::sync::atomic::{AtomicUsize, Ordering as AtomicOrdering};
+                static FORWARD_CALL_COUNT: AtomicUsize = AtomicUsize::new(0);
+                let call_count = FORWARD_CALL_COUNT.load(AtomicOrdering::SeqCst);
+
+                // Only save on first forward call (call_count == 0)
+                if call_count == 0 && (layer_idx <= 2 || layer_idx == self.config.num_layers - 1) {
+                    let last_token_start = (seq_len - 1) * hidden_size;
+                    let last_token_output = &x.as_slice()[last_token_start..last_token_start + hidden_size];
+                    let filename = format!("/tmp/rustorch_layer_{}.txt", layer_idx);
+                    if let Ok(mut file) = std::fs::File::create(&filename) {
+                        use std::io::Write;
+                        for val in last_token_output {
+                            let _ = writeln!(file, "{}", val);
+                        }
+                        eprintln!("💾 Saved Layer {} output to {}", layer_idx, filename);
+                    }
+                }
+
+                // Increment counter after processing layer 21
+                if layer_idx == self.config.num_layers - 1 {
+                    FORWARD_CALL_COUNT.fetch_add(1, AtomicOrdering::SeqCst);
+                }
             }
         }
 
@@ -1094,11 +1226,22 @@ impl F32LlamaModel {
             .ok_or_else(|| F32Error::device_error("Output norm weight not found"))?;
 
         eprintln!("🔍 [FOUND OUTPUT NORM WEIGHT]");
-        // Step 1: RMS Norm (normalize only)
+        // RMS Norm (normalize only, matching llama.cpp)
         let normed = self.rms_norm(&x, output_norm_weight)?;
-        // Step 2: Element-wise multiplication with weight
-        let normed = normed.mul(output_norm_weight)?;
-        eprintln!("🔍 [AFTER RMS_NORM + WEIGHT]");
+        eprintln!("🔍 [AFTER RMS_NORM (before weight)]");
+
+        // Multiply by weight (separate step, matching llama.cpp's ggml_mul)
+        let normed = {
+            let normed_data = normed.as_slice();
+            let weight_data = output_norm_weight.as_slice();
+            let shape = normed.shape();
+            let mut result = Vec::with_capacity(normed_data.len());
+            for i in 0..normed_data.len() {
+                result.push(normed_data[i] * weight_data[i % weight_data.len()]);
+            }
+            F32Tensor::from_vec(result, shape)?
+        };
+        eprintln!("🔍 [AFTER WEIGHT MULTIPLICATION]");
 
         // DEBUG: Always check final normalized hidden state for last token
         let normed_slice = normed.as_slice();
@@ -1204,16 +1347,37 @@ impl F32LlamaModel {
         let hidden_slice = last_token_hidden.as_slice();
         let mut logits_vec = vec![0.0f32; vocab_size];
 
-        // Debug: Check token 9716 weights
+        // Debug: Dump first 20 raw values from output.weight to verify dequantization
         {
             use std::sync::atomic::{AtomicBool, Ordering};
             static FIRST_LOGIT_CALC: AtomicBool = AtomicBool::new(true);
             if FIRST_LOGIT_CALC.swap(false, Ordering::SeqCst) {
-                let test_token = 9716;
-                eprintln!("\n🔍 [LM HEAD DEBUG] Token {} weights (first 10):", test_token);
-                for i in 0..10 {
-                    let idx = test_token * hidden_size + i;
-                    eprintln!("  lm_head[{}*{} + {}] = {:.9}", test_token, hidden_size, i, lm_head_data[idx]);
+                eprintln!("\n🔍 [Q8_0 WEIGHT VALUES] First 20 raw values from output.weight:");
+                for i in 0..20.min(lm_head_data.len()) {
+                    eprintln!("  output.weight[{}] = {:.9}", i, lm_head_data[i]);
+                }
+                eprintln!("Total output.weight elements: {}", lm_head_data.len());
+
+                eprintln!("\n🔍 [HIDDEN STATE] First 20 values of hidden state:");
+                for i in 0..20.min(hidden_slice.len()) {
+                    eprintln!("  hidden[{}] = {:.9}", i, hidden_slice[i]);
+                }
+                eprintln!("Total hidden_size: {}", hidden_slice.len());
+
+                // Save hidden state to file
+                if let Ok(mut f) = std::fs::File::create("/tmp/rustorch_hidden.txt") {
+                    use std::io::Write;
+                    for i in 0..20.min(hidden_slice.len()) {
+                        let _ = writeln!(f, "{} {:.9}", i, hidden_slice[i]);
+                    }
+                }
+
+                // Also save weights to file for comparison
+                if let Ok(mut f) = std::fs::File::create("/tmp/rustorch_weights.txt") {
+                    use std::io::Write;
+                    for i in 0..20.min(lm_head_data.len()) {
+                        let _ = writeln!(f, "{} {:.9}", i, lm_head_data[i]);
+                    }
                 }
             }
         }
@@ -1221,8 +1385,14 @@ impl F32LlamaModel {
         for v in 0..vocab_size {
             let mut sum = 0.0f32;
             for h in 0..hidden_size {
-                // CRITICAL FIX: token_embd.weight is stored as [vocab_size, hidden_size] row-major
-                // So for token v, weights are at: v * hidden_size + h
+                // CRITICAL FIX: GGML dims are REVERSED from intuition!
+                // GGML original_dims=[2048, 32000] means ne[0]=2048 (fastest-changing), ne[1]=32000
+                // In memory, this is stored as [vocab_size=32000, hidden_size=2048] in row-major
+                // So to access output.weight[v][h], we use: v * hidden_size + h
+                //
+                // This matches llama.cpp's ggml_mul_mat which transposes the first argument:
+                // ggml_mul_mat(output, hidden) = output^T @ hidden
+                // where output is stored as [vocab_size, hidden_size]
                 let idx = v * hidden_size + h;
                 if idx >= lm_head_data.len() {
                     return Err(F32Error::device_error(format!(
@@ -1308,36 +1478,18 @@ impl F32LlamaModel {
                     let tensor_info = loader.get_tensor_info(name);
                     let shape = if let Some(info) = tensor_info {
                         let original_dims: Vec<usize> = info.dims.iter().map(|&d| d as usize).collect();
-                        // CRITICAL: GGUF dimension handling
-                        // GGUF stores dimensions in C-order, but NOT all tensors need reversal
-                        //
-                        // Weights that are CORRECT as-is in GGUF (DO NOT REVERSE):
-                        // - K/V weights (GQA): GGUF [2048, 256] = x[tokens, 2048] @ weight[2048, 256] = [tokens, 256]
-                        // - FFN gate/up weights: GGUF [2048, 5632] = x[tokens, 2048] @ weight[2048, 5632] = [tokens, 5632]
-                        // - FFN down weights: GGUF [5632, 2048] = x[tokens, 5632] @ weight[5632, 2048] = [tokens, 2048]
-                        //
-                        // Weights that need REVERSAL:
-                        // - Q weights: Square matrices [2048, 2048]
-                        // - Output projection: [2048, 2048]
-                        // - Token embeddings: [2048, 32000] -> reverse to [32000, 2048]
-                        //
-                        // Rule: Only reverse if GGUF dims are EQUAL (square matrices) or for embedding/output layers
-                        let is_square = original_dims.len() == 2 && original_dims[0] == original_dims[1];
-                        let is_embedding_or_output = name.contains("output.weight") || name.contains("token_embd.weight");
-                        let needs_reversal = is_square || is_embedding_or_output;
+                        let ggml_type = crate::formats::gguf::GGMLType::from_u32(info.ggml_type).ok();
 
-                        let s = if needs_reversal {
-                            let mut reversed = original_dims.clone();
-                            reversed.reverse();
-                            reversed
-                        } else {
-                            original_dims.clone()
+                        // CRITICAL: Only F32/F16 tensors need shape reversal
+                        // Quantized tensors (Q8_0, Q4_K, etc.) are stored with correct dimensions
+                        let s: Vec<usize> = match ggml_type {
+                            Some(crate::formats::gguf::GGMLType::F32) | Some(crate::formats::gguf::GGMLType::F16) => {
+                                let mut reversed = original_dims.clone();
+                                reversed.reverse();
+                                reversed
+                            }
+                            _ => original_dims.clone(),
                         };
-
-                        if name.contains("attn_k.weight") || name.contains("attn_v.weight") || name.contains("ffn") {
-                            eprintln!("🔍 [DIM DEBUG] '{}': original_dims={:?} -> final_shape={:?} (reversal={})",
-                                name, original_dims, s, needs_reversal);
-                        }
                         s
                     } else {
                         continue;
