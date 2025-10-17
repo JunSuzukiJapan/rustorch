@@ -38,9 +38,18 @@ pub struct LlamaConfig {
 impl LlamaConfig {
     /// Create Llama config from GGUF ModelParams
     pub fn from_model_params(params: &crate::formats::gguf::ModelParams) -> Self {
-        // Calculate intermediate_size from hidden_size
-        // For TinyLlama: 2048 * 2.75 = 5632
-        let intermediate_size = (params.hidden_size as f32 * 2.75) as usize;
+        // Use intermediate_size from GGUF if available, otherwise calculate
+        // Mistral: 14336, TinyLlama: 5632 (2048 * 2.75)
+        let intermediate_size = params.intermediate_size
+            .map(|s| s as usize)
+            .unwrap_or_else(|| (params.hidden_size as f32 * 2.75) as usize);
+
+        // Use RoPE frequency base from GGUF if available
+        // Mistral: 1000000.0, Standard LLaMA: 10000.0
+        let rope_theta = params.rope_freq_base.unwrap_or(10000.0);
+
+        eprintln!("🔧 [LLAMA CONFIG] intermediate_size={}, rope_theta={}",
+                  intermediate_size, rope_theta);
 
         Self {
             vocab_size: params.vocab_size as usize,
@@ -50,7 +59,7 @@ impl LlamaConfig {
             num_layers: params.num_layers as usize,
             max_seq_len: params.context_length as usize,
             intermediate_size,
-            rope_theta: 10000.0,  // Default for Llama
+            rope_theta,
             norm_eps: 1e-5,       // Default RMS norm epsilon
         }
     }
@@ -209,18 +218,16 @@ impl LlamaModel {
 
         let debug = std::env::var("RUSTORCH_DEBUG").is_ok();
 
-        eprintln!("🦙 Llama forward_metal called (input_len={}, start_pos={}, debug={})",
-            input_ids.len(), start_position, debug);
+        if debug {
+            eprintln!("🦙 Llama forward_metal called (input_len={}, start_pos={})",
+                input_ids.len(), start_position);
+        }
 
-        eprintln!("🔍 [METAL DEBUG] Step 1: Getting Metal executor...");
         // Get Metal executor
         let executor_mutex = MetalKernelExecutor::get()?;
-        eprintln!("🔍 [METAL DEBUG] Step 2: Metal executor obtained, locking...");
         let executor_guard = executor_mutex.lock().unwrap();
-        eprintln!("🔍 [METAL DEBUG] Step 3: Lock acquired, extracting executor...");
         let executor = executor_guard.as_ref()
             .ok_or_else(|| RusTorchError::tensor_op("Metal executor not initialized"))?;
-        eprintln!("🔍 [METAL DEBUG] Step 4: Metal executor ready");
 
         let batch_size = 1;
         let seq_len = input_ids.len();
@@ -391,63 +398,21 @@ impl LlamaModel {
             let mut k_out = vec![0.0f32; seq_len * k_out_dim];
             let mut v_out = vec![0.0f32; seq_len * v_out_dim];
 
-            if debug {
-                eprintln!("     🔧 [DEBUG] About to call Q, K, V projections with single autoreleasepool...");
-                eprintln!("        x_ln1.len={}, q_weight_f32.len={}, q_out.len={}", x_ln1.len(), q_weight_f32.len(), q_out.len());
-                eprintln!("        Dimensions: seq_len={}, d_model={}, q_out_dim={}", seq_len, d_model, q_out_dim);
-            }
-
             // Each matmul is automatically wrapped in its own autoreleasepool by metal_kernels.rs
             // metal_kernels.rsが各matmulを自動的にautoreleasepoolで囲む
-
-            eprintln!("🔍 [METAL DEBUG] Step 5: About to call FIRST Metal matmul (Q projection)...");
-            eprintln!("     Params: seq_len={}, d_model={}, q_out_dim={}", seq_len, d_model, q_out_dim);
-            eprintln!("     Q weight shape from GGUF: {:?}", q_shape);
-            eprintln!("     Matmul expects: A[{}, {}] @ B[{}, {}]^T = C[{}, {}]",
-                     seq_len, d_model,  // A (x_ln1)
-                     q_out_dim, d_model,  // B (q_weight_f32)
-                     seq_len, q_out_dim);  // C (q_out)
-            eprintln!("     First 10 values of x_ln1: {:?}", &x_ln1[0..10.min(x_ln1.len())]);
-            eprintln!("     First 10 values of q_weight_f32: {:?}", &q_weight_f32[0..10.min(q_weight_f32.len())]);
 
             // After transpose: Q weight is [2048, 2048] (symmetric)
             // matmul_metal_f32(A, B, C, m, n, k): C[m,n] = A[m,k] @ B[k,n]
             // x[seq_len,d_model] @ W[d_model,q_out_dim] = out[seq_len,q_out_dim]
             executor.matmul_metal_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, q_out_dim, d_model)?;
 
-            eprintln!("🔍 [METAL DEBUG] Step 6: Q projection completed successfully!");
-            eprintln!("     First 10 values of q_out: {:?}", &q_out[0..10.min(q_out.len())]);
-
-            if debug {
-                eprintln!("     ✓ Q projection complete");
-            }
-
             // K weight NOT transposed: [2048, 256] = [d_model, k_out_dim] in GGML order
             // x[seq_len,d_model] @ W[d_model,k_out_dim] = out[seq_len,k_out_dim]
             executor.matmul_metal_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
 
-            if debug {
-                eprintln!("     ✓ K projection complete");
-            }
-
             // V weight NOT transposed: [2048, 256] = [d_model, v_out_dim] in GGML order
             // x[seq_len,d_model] @ W[d_model,v_out_dim] = out[seq_len,v_out_dim]
             executor.matmul_metal_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
-
-            if debug {
-                eprintln!("     ✓ V projection complete");
-            }
-
-            if debug && layer_idx == 0 {
-                eprintln!("     ✓ Q, K, V projections complete (with autoreleasepool)");
-                let q_rms = (q_out.iter().map(|&v| v * v).sum::<f32>() / q_out.len() as f32).sqrt();
-                let k_rms = (k_out.iter().map(|&v| v * v).sum::<f32>() / k_out.len() as f32).sqrt();
-                let v_rms = (v_out.iter().map(|&v| v * v).sum::<f32>() / v_out.len() as f32).sqrt();
-                eprintln!("🔍 [LAYER 0 Q/K/V BEFORE ROPE]:");
-                eprintln!("   Q_rms={:.6}, Q[0..10]={:?}", q_rms, &q_out[0..10]);
-                eprintln!("   K_rms={:.6}, K[0..10]={:?}", k_rms, &k_out[0..10]);
-                eprintln!("   V_rms={:.6}, V[0..10]={:?}", v_rms, &v_out[0..10]);
-            }
 
             // Apply RoPE to Q and K projections
             // Q, K投影にRoPEを適用
@@ -529,7 +494,7 @@ impl LlamaModel {
                     }
 
                     // Debug: Show attention scores for first head of first token in layer 0
-                    if layer_idx == 0 && q_head == 0 && q_seq == 0 {
+                    if debug && layer_idx == 0 && q_head == 0 && q_seq == 0 {
                         eprintln!("🔍 [LAYER 0 ATTENTION] Head 0, Token 0:");
                         eprintln!("   Raw scores (before softmax): {:?}", &scores[0..=q_seq.min(4)]);
                         eprintln!("   After softmax: {:?}", &scores[0..=q_seq.min(4)]);
@@ -660,7 +625,9 @@ impl LlamaModel {
         }
 
         // 4. Output projection to vocabulary
-        eprintln!("🔍 [OUTPUT PROJECTION] Starting output projection...");
+        if debug {
+            eprintln!("🔍 [OUTPUT PROJECTION] Starting output projection...");
+        }
         let output_key = "output.weight";
         let output_weight = self.weights.get(output_key)
             .ok_or_else(|| RusTorchError::tensor_op(format!("Output weight not found: {}", output_key)))?;
@@ -684,14 +651,14 @@ impl LlamaModel {
         executor.matmul_metal_f32(&x_final, &output_weight_f32, &mut logits_f32,
                                   seq_len, output_vocab_size, output_d_model)?;
 
-        // Always show first 20 logits for debugging Token ID=1
-        eprintln!("✓ Output projection complete");
-        let last_token_logits_start = (seq_len - 1) * output_vocab_size;
-        eprintln!("🔍 [FINAL LOGITS] First 20:");
-        for i in 0..20 {
-            eprintln!("  [{}] = {:.6}", i, logits_f32[last_token_logits_start + i]);
+        if debug {
+            eprintln!("✓ Output projection complete");
+            let last_token_logits_start = (seq_len - 1) * output_vocab_size;
+            eprintln!("🔍 [FINAL LOGITS] First 20:");
+            for i in 0..20 {
+                eprintln!("  [{}] = {:.6}", i, logits_f32[last_token_logits_start + i]);
+            }
         }
-        eprintln!("🎉 Llama forward pass complete!");
 
         // Convert back to f64 and create tensor
         let logits_f64: Vec<f64> = logits_f32.iter().map(|&v| v as f64).collect();

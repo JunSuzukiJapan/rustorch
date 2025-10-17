@@ -285,6 +285,23 @@ impl GGUFLoader {
             .and_then(|v| v.as_u32())
             .unwrap_or(2048);
 
+        // Read FFN intermediate size (feed_forward_length)
+        // Mistral: 14336, TinyLlama: 5632
+        let intermediate_size = self
+            .metadata
+            .get("llama.feed_forward_length")
+            .and_then(|v| v.as_u32());
+
+        // Read RoPE frequency base
+        // Mistral uses 1000000.0, standard LLaMA uses 10000.0
+        let rope_freq_base = self
+            .metadata
+            .get("llama.rope.freq_base")
+            .and_then(|v| match v {
+                GGUFValue::Float32(f) => Some(*f),
+                _ => None,
+            });
+
         Ok(ModelParams {
             vocab_size,
             hidden_size,
@@ -292,6 +309,8 @@ impl GGUFLoader {
             num_heads,
             num_kv_heads,
             context_length,
+            intermediate_size,
+            rope_freq_base,
         })
     }
 
@@ -1272,6 +1291,8 @@ pub struct ModelParams {
     pub num_heads: u32,
     pub num_kv_heads: u32,  // Number of key-value heads for GQA
     pub context_length: u32,
+    pub intermediate_size: Option<u32>,  // FFN intermediate size (feed_forward_length)
+    pub rope_freq_base: Option<f32>,     // RoPE frequency base
 }
 
 #[cfg(test)]
