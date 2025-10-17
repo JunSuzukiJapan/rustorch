@@ -324,6 +324,93 @@ impl GGUFLoader {
             .or_else(|| self.get_string("llama.architecture"))
     }
 
+    /// Get all metadata keys
+    /// すべてのメタデータキーを取得
+    pub fn get_all_keys(&self) -> Vec<String> {
+        self.metadata.keys().cloned().collect()
+    }
+
+    /// Get metadata keys matching a prefix
+    /// プレフィックスに一致するメタデータキーを取得
+    pub fn get_keys_with_prefix(&self, prefix: &str) -> Vec<String> {
+        self.metadata
+            .keys()
+            .filter(|k| k.starts_with(prefix))
+            .cloned()
+            .collect()
+    }
+
+    /// Get integer value from metadata by key
+    /// メタデータからキーで整数値を取得
+    pub fn get_u32(&self, key: &str) -> Option<u32> {
+        self.metadata.get(key).and_then(|v| v.as_u32())
+    }
+
+    /// Get integer value from metadata by key
+    /// メタデータからキーで整数値を取得
+    pub fn get_u64(&self, key: &str) -> Option<u64> {
+        self.metadata.get(key).and_then(|v| v.as_u64())
+    }
+
+    /// Dump all metadata to stderr for debugging
+    /// デバッグ用にすべてのメタデータを標準エラー出力にダンプ
+    pub fn dump_metadata(&self, filter_prefix: Option<&str>) {
+        eprintln!("\n=== GGUF Metadata Dump ===");
+        eprintln!("Total keys: {}", self.metadata.len());
+
+        let mut keys: Vec<_> = self.metadata.keys().collect();
+        keys.sort();
+
+        for key in keys {
+            if let Some(prefix) = filter_prefix {
+                if !key.starts_with(prefix) {
+                    continue;
+                }
+            }
+
+            if let Some(value) = self.metadata.get(key) {
+                match value {
+                    GGUFValue::String(s) => {
+                        eprintln!("  {} [string]: {}", key, s);
+                    }
+                    GGUFValue::UInt8(n) => eprintln!("  {} [u8]: {}", key, n),
+                    GGUFValue::Int8(n) => eprintln!("  {} [i8]: {}", key, n),
+                    GGUFValue::UInt16(n) => eprintln!("  {} [u16]: {}", key, n),
+                    GGUFValue::Int16(n) => eprintln!("  {} [i16]: {}", key, n),
+                    GGUFValue::UInt32(n) => eprintln!("  {} [u32]: {}", key, n),
+                    GGUFValue::Int32(n) => eprintln!("  {} [i32]: {}", key, n),
+                    GGUFValue::UInt64(n) => eprintln!("  {} [u64]: {}", key, n),
+                    GGUFValue::Int64(n) => eprintln!("  {} [i64]: {}", key, n),
+                    GGUFValue::Float32(n) => eprintln!("  {} [f32]: {}", key, n),
+                    GGUFValue::Float64(n) => eprintln!("  {} [f64]: {}", key, n),
+                    GGUFValue::Bool(b) => eprintln!("  {} [bool]: {}", key, b),
+                    GGUFValue::Array(arr) => {
+                        eprintln!("  {} [array]: {} elements", key, arr.len());
+                    }
+                }
+            }
+        }
+        eprintln!("=== End Metadata Dump ===\n");
+    }
+
+    /// Get model information summary
+    /// モデル情報サマリーを取得
+    pub fn get_model_info(&self) -> String {
+        let arch = self.get_architecture().unwrap_or_else(|| "unknown".to_string());
+        let name = self.get_string("general.name").unwrap_or_else(|| "unknown".to_string());
+        let vocab = self.get_u32("llama.vocab_size")
+            .or_else(|| self.get_u32("gpt2.vocab_size"))
+            .unwrap_or(0);
+        let layers = self.get_u32("llama.block_count")
+            .or_else(|| self.get_u32("gpt2.block_count"))
+            .unwrap_or(0);
+
+        format!(
+            "Model: {} | Architecture: {} | Vocab: {} | Layers: {}",
+            name, arch, vocab, layers
+        )
+    }
+
     /// Extract tokenizer vocabulary from GGUF metadata
     /// Returns a vector of tokens in vocabulary order
     pub fn extract_tokenizer_vocab(&self) -> RusTorchResult<Vec<String>> {
