@@ -311,6 +311,19 @@ impl GGUFLoader {
         self.tensors.iter().find(|t| t.name == name)
     }
 
+    /// Get string value from metadata by key
+    /// メタデータからキーで文字列値を取得
+    pub fn get_string(&self, key: &str) -> Option<String> {
+        self.metadata.get(key).and_then(|v| v.as_str()).map(|s| s.to_string())
+    }
+
+    /// Get architecture string from GGUF metadata
+    /// GGUFメタデータからアーキテクチャ文字列を取得
+    pub fn get_architecture(&self) -> Option<String> {
+        self.get_string("general.architecture")
+            .or_else(|| self.get_string("llama.architecture"))
+    }
+
     /// Extract tokenizer vocabulary from GGUF metadata
     /// Returns a vector of tokens in vocabulary order
     pub fn extract_tokenizer_vocab(&self) -> RusTorchResult<Vec<String>> {

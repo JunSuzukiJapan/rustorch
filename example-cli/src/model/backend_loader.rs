@@ -1,40 +1,64 @@
 use anyhow::Result;
+use rustorch::models::{ModelArchitecture, detect_architecture};
 use std::path::Path;
 use tracing;
 
 use crate::cli::Backend as CliBackend;
 use crate::model::inference::InferenceEngine;
 
-/// Model architecture types
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Architecture {
-    /// GPT architecture (GPT-2, etc.)
-    GPT,
-    /// Llama architecture (Llama, Mistral, Mixtral)
-    Llama,
+/// Model architecture types (now using rustorch's ModelArchitecture)
+pub type Architecture = ModelArchitecture;
+
+/// Helper trait for architecture detection
+pub trait ArchitectureDetection {
+    /// Detect architecture from GGUF file metadata (preferred method)
+    /// Or fall back to filename-based detection
+    fn detect_smart(model_path: &Path) -> Self;
+
+    /// Legacy filename-based detection (fallback only)
+    fn detect_from_filename(model_path: &Path) -> Self;
 }
 
-impl Architecture {
-    /// Detect architecture from model filename
-    pub fn detect_from_filename(model_path: &Path) -> Self {
+impl ArchitectureDetection for Architecture {
+    fn detect_smart(model_path: &Path) -> Self {
+        // Try GGUF metadata detection first (most accurate)
+        if let Some(model_path_str) = model_path.to_str() {
+            if let Ok(arch) = detect_architecture(model_path_str) {
+                tracing::info!("🔍 Detected architecture from GGUF metadata: {}", arch);
+                return arch;
+            }
+        }
+
+        // Fall back to filename-based detection
+        tracing::warn!("⚠️  Could not detect from GGUF metadata, using filename heuristics");
+        Self::detect_from_filename(model_path)
+    }
+
+    fn detect_from_filename(model_path: &Path) -> Self {
         let model_name_lower = model_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
             .to_lowercase();
 
-        let is_llama = model_name_lower.contains("llama")
-            || model_name_lower.contains("mistral")
-            || model_name_lower.contains("mixtral");
-
         tracing::info!("🔍 Model filename: {}", model_name_lower);
 
-        if is_llama {
-            tracing::info!("🔍 Detected Llama architecture");
-            Architecture::Llama
+        if model_name_lower.contains("mistral") || model_name_lower.contains("mixtral") {
+            tracing::info!("🔍 Detected Mistral architecture (filename)");
+            ModelArchitecture::Mistral
+        } else if model_name_lower.contains("phi") {
+            tracing::info!("🔍 Detected Phi architecture (filename)");
+            ModelArchitecture::Phi
+        } else if model_name_lower.contains("gemma") {
+            tracing::info!("🔍 Detected Gemma architecture (filename)");
+            ModelArchitecture::Gemma
+        } else if model_name_lower.contains("qwen") {
+            tracing::info!("🔍 Detected Qwen architecture (filename)");
+            ModelArchitecture::Qwen
         } else {
-            tracing::info!("🔍 Detected GPT architecture");
-            Architecture::GPT
+            // Default to LLaMA for llama models or unknown
+            tracing::info!("🔍 Detected LLaMA architecture (filename or default)");
+            ModelArchitecture::LLaMA
         }
     }
 }
@@ -55,16 +79,13 @@ impl BackendLoader {
         let device_type = DeviceType::Metal;
         tracing::info!("Loading model with hybrid-f32 backend (Metal GPU)");
 
-        let arch = Architecture::detect_from_filename(model_path);
+        let arch = Architecture::detect_smart(model_path);
 
         match arch {
-            Architecture::Llama => {
-                tracing::info!("🦙 Loading Llama-architecture model with hybrid-f32");
+            ModelArchitecture::LLaMA | ModelArchitecture::Mistral |
+            ModelArchitecture::Phi | ModelArchitecture::Gemma | ModelArchitecture::Qwen => {
+                tracing::info!("🦙 Loading {}-architecture model with hybrid-f32", arch);
                 Self::load_f32_llama(model_path, device_type, engine)?;
-            }
-            Architecture::GPT => {
-                tracing::info!("🤖 Loading GPT-architecture model with hybrid-f32");
-                Self::load_f32_gpt(model_path, device_type, engine)?;
             }
         }
 
@@ -83,16 +104,13 @@ impl BackendLoader {
         let device_type = F32DeviceType::Hybrid;
         tracing::info!("🚀 Loading model with mac-hybrid backend (Metal/CoreML)");
 
-        let arch = Architecture::detect_from_filename(model_path);
+        let arch = Architecture::detect_smart(model_path);
 
         match arch {
-            Architecture::Llama => {
-                tracing::info!("🦙 Detected Llama-architecture model");
+            ModelArchitecture::LLaMA | ModelArchitecture::Mistral |
+            ModelArchitecture::Phi | ModelArchitecture::Gemma | ModelArchitecture::Qwen => {
+                tracing::info!("🦙 Detected {}-architecture model", arch);
                 Self::load_f32_llama(model_path, device_type, engine)?;
-            }
-            Architecture::GPT => {
-                tracing::info!("📝 Detected GPT-architecture model");
-                Self::load_f32_gpt(model_path, device_type, engine)?;
             }
         }
 
@@ -194,26 +212,20 @@ impl BackendLoader {
         use rustorch::models::{GPTModel, LlamaModel};
         use rustorch::backends::DeviceType;
 
-        // Detect model architecture from filename
-        let filename = model_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_lowercase();
+        // Detect model architecture using smart detection (GGUF metadata + filename fallback)
+        let arch = Architecture::detect_smart(model_path);
 
-        tracing::info!("🔍 Model filename: {}", filename);
+        tracing::info!("🔍 Detected architecture: {}", arch);
 
-        // Try to detect Llama architecture
-        if filename.contains("llama") || filename.contains("tinyllama") {
-            tracing::info!("🦙 Loading Llama model with Metal GPU backend");
-            let model = LlamaModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
-            tracing::info!("✅ Llama model loaded with Metal backend");
-            engine.set_llama_model(model);
-        } else {
-            tracing::info!("🤖 Loading GPT model with Metal GPU backend");
-            let model = GPTModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
-            tracing::info!("✅ GPT model loaded with Metal backend");
-            engine.set_gpt_model(model);
+        // All currently supported architectures use the Llama implementation
+        match arch {
+            ModelArchitecture::LLaMA | ModelArchitecture::Mistral |
+            ModelArchitecture::Phi | ModelArchitecture::Gemma | ModelArchitecture::Qwen => {
+                tracing::info!("🦙 Loading {} model with Metal GPU backend", arch);
+                let model = LlamaModel::from_gguf_with_backend(model_path, DeviceType::Metal)?;
+                tracing::info!("✅ {} model loaded with Metal backend", arch);
+                engine.set_llama_model(model);
+            }
         }
 
         Ok(())

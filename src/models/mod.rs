@@ -1,7 +1,9 @@
 //! 機械学習モデルアーキテクチャ
 //! Machine learning model architectures
 
+pub mod architecture;
 pub mod cnn;
+pub mod factory;
 pub mod gpt;
 pub mod llama;
 pub mod rnn;
@@ -89,7 +91,9 @@ where
 }
 
 // Re-export model architectures
+pub use architecture::ModelArchitecture;
 pub use cnn::{CNNBuilder, ResNet, ResNetBuilder, CNN};
+pub use factory::{create_model_from_gguf, detect_architecture};
 pub use gpt::{GPTConfig, GPTModel};
 pub use llama::{LlamaConfig, LlamaModel};
 pub use rnn::{LSTMModel, LSTMModelBuilder, RNNModel, RNNModelBuilder};
