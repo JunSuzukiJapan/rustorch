@@ -428,6 +428,12 @@ impl InferenceEngine {
 
                 eprintln!("🔍 [LOGITS STEP {}] max={:.4}, min={:.4}, mean={:.4}", step, max_logit, min_logit, mean);
 
+                // Show first 10 logits
+                eprintln!("🔍 [LOGITS STEP {}] First 10 logits:", step);
+                for i in 0..10.min(last_logits.data.len()) {
+                    eprintln!("  logits[{}] = {:.6}", i, last_logits.data[i]);
+                }
+
                 // Show top 5 logits
                 let mut indexed: Vec<(usize, f64)> = last_logits.data.iter().enumerate().map(|(i, &v)| (i, v)).collect();
                 indexed.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());

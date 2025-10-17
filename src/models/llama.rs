@@ -148,7 +148,23 @@ impl LlamaModel {
         for name in tensor_names.iter() {
             match loader.load_tensor(name) {
                 Ok(tensor) => {
-                    model.weights.insert(name.to_string(), tensor);
+                    // BUGFIX 2025-10-16: Based on rustorch-cli gguf_loader_trait.rs
+                    // Only token_embd, attn_q, and attn_output are transposed
+                    // K/V and FFN weights are NOT transposed (used directly from GGUF)
+                    let final_tensor = if *name == "token_embd.weight"
+                        || name.contains("attn_q.weight")
+                        || name.contains("attn_output.weight") {
+                        match tensor.transpose() {
+                            Ok(t) => t,
+                            Err(e) => {
+                                eprintln!("⚠️  Failed to transpose '{}': {}", name, e);
+                                tensor
+                            }
+                        }
+                    } else {
+                        tensor
+                    };
+                    model.weights.insert(name.to_string(), final_tensor);
                 }
                 Err(e) => {
                     eprintln!("⚠️  Failed to load tensor '{}': {}", name, e);
@@ -220,8 +236,9 @@ impl LlamaModel {
 
         let mut embedding_data = Vec::with_capacity(seq_len * d_model);
         let emb_shape = token_emb_tensor.data.shape();
-        let hidden_size = emb_shape[0];
-        let vocab_size = emb_shape[1];
+        // BUGFIX 2025-10-16: After transpose, token_embd is [vocab_size, d_model] = [32000, 2048]
+        let vocab_size = emb_shape[0];   // vocab_size = 32000
+        let hidden_size = emb_shape[1];  // d_model = 2048
 
         if debug {
             eprintln!("🔧 [EMB SHAPE DEBUG] emb_shape={:?}, hidden_size={}, vocab_size={}",
@@ -238,15 +255,14 @@ impl LlamaModel {
                 ));
             }
 
-            // CRITICAL FIX: GGUF quantized embeddings layout
-            // For quantized tensors, we preserve GGML dim order [2048, 32000]
-            // where dim[0]=2048 is innermost (fastest-changing), dim[1]=32000 is outermost
-            // This means data layout is: Token0[2048 dims], Token1[2048 dims], ..., Token31999[2048 dims]
-            // So for token_id, embedding starts at: token_id * hidden_size
+            // After transpose: [vocab_size, d_model] in row-major layout
+            // Data is stored as: Token0[2048 dims], Token1[2048 dims], ..., Token31999[2048 dims]
+            // For token_id, embedding starts at: token_id * hidden_size
             let emb_start = token_id * hidden_size;
 
-            if token_idx < 3 {
-                eprintln!("🔧 [EMB LOOKUP DEBUG] token_id={}, emb_start={}, first 10 raw values: {:?}",
+            // Always output Token ID=1 embedding for debugging
+            if token_id == 1 {
+                eprintln!("🔧 [TOKEN=1 EMBEDDING] token_id={}, emb_start={}, first 10 values: {:?}",
                          token_id, emb_start, &emb_data[emb_start..emb_start + 10]);
             }
 
@@ -254,10 +270,11 @@ impl LlamaModel {
                 embedding_data.push(emb_data[emb_start + dim_idx]);
             }
 
-            if token_idx < 3 && debug {
+            // Always show Token ID=1 embedding
+            if token_id == 1 {
                 let current_emb_start = embedding_data.len() - hidden_size;
                 let emb_slice = &embedding_data[current_emb_start..current_emb_start + 10.min(hidden_size)];
-                eprintln!("🔍 [EMBEDDING] Token {} (ID={}): first 10: {:?}", token_idx, token_id, emb_slice);
+                eprintln!("🔍 [TOKEN ID=1 EMBEDDING] First 10 values: {:?}", emb_slice);
             }
         }
 
@@ -297,7 +314,13 @@ impl LlamaModel {
             let mut x_ln1 = vec![0.0f32; x_f32.len()];
             Self::rms_norm_f32(&x_f32, &ln1_gamma_f32, &mut x_ln1, seq_len, d_model, self.config.norm_eps as f32);
 
-            if debug {
+            if debug && layer_idx == 0 {
+                eprintln!("     ✓ Pre-Attention RMS Norm complete");
+                let x_ln1_rms = (x_ln1.iter().map(|&v| v * v).sum::<f32>() / x_ln1.len() as f32).sqrt();
+                eprintln!("🔍 [LAYER 0 RMS NORM] After RMS Norm:");
+                eprintln!("   x_ln1_rms={:.6}, x_ln1[0..10]={:?}", x_ln1_rms, &x_ln1[0..10]);
+                eprintln!("   ln1_gamma[0..10]={:?}", &ln1_gamma_f32[0..10]);
+            } else if debug {
                 eprintln!("     ✓ Pre-Attention RMS Norm complete");
             }
 
@@ -349,13 +372,13 @@ impl LlamaModel {
             let k_shape = k_weight.data.shape();
             let v_shape = v_weight.data.shape();
 
-            // GGUF shape for Q, K, V weights
-            // Q: [2048, 2048] - square projection
-            // K, V: [2048, 256] - GQA projections (4 KV heads * 64 head_dim)
-            // For matmul_transposed_f32, we use shape[1] as output dimension
-            let q_out_dim = q_shape[1];  // 2048
-            let k_out_dim = k_shape[1];  // 256 (4 * 64)
-            let v_out_dim = v_shape[1];  // 256 (4 * 64)
+            // BUGFIX 2025-10-16: Based on rustorch-cli - only Q is transposed, K/V are NOT
+            // Q after transpose: [2048, 2048] (symmetric)
+            // K/V in GGML order: [2048, 256] = [d_model, kv_dim]
+            // For GGML [ne[0], ne[1]], ne[0]=d_model (innermost), ne[1]=kv_dim (output)
+            let q_out_dim = q_shape[0];  // 2048
+            let k_out_dim = k_shape[1];  // 256 (shape[1] because K is NOT transposed!)
+            let v_out_dim = v_shape[1];  // 256 (shape[1] because V is NOT transposed!)
 
             if debug && layer_idx == 0 {
                 eprintln!("     🔍 [WEIGHT SHAPES] Q: {:?} -> out_dim={}, K: {:?} -> out_dim={}, V: {:?} -> out_dim={}",
@@ -379,22 +402,37 @@ impl LlamaModel {
 
             eprintln!("🔍 [METAL DEBUG] Step 5: About to call FIRST Metal matmul (Q projection)...");
             eprintln!("     Params: seq_len={}, d_model={}, q_out_dim={}", seq_len, d_model, q_out_dim);
+            eprintln!("     Q weight shape from GGUF: {:?}", q_shape);
+            eprintln!("     Matmul expects: A[{}, {}] @ B[{}, {}]^T = C[{}, {}]",
+                     seq_len, d_model,  // A (x_ln1)
+                     q_out_dim, d_model,  // B (q_weight_f32)
+                     seq_len, q_out_dim);  // C (q_out)
+            eprintln!("     First 10 values of x_ln1: {:?}", &x_ln1[0..10.min(x_ln1.len())]);
+            eprintln!("     First 10 values of q_weight_f32: {:?}", &q_weight_f32[0..10.min(q_weight_f32.len())]);
 
-            executor.matmul_metal_transposed_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, d_model, q_out_dim)?;
+            // After transpose: Q weight is [2048, 2048] (symmetric)
+            // matmul_metal_f32(A, B, C, m, n, k): C[m,n] = A[m,k] @ B[k,n]
+            // x[seq_len,d_model] @ W[d_model,q_out_dim] = out[seq_len,q_out_dim]
+            executor.matmul_metal_f32(&x_ln1, &q_weight_f32, &mut q_out, seq_len, q_out_dim, d_model)?;
 
             eprintln!("🔍 [METAL DEBUG] Step 6: Q projection completed successfully!");
+            eprintln!("     First 10 values of q_out: {:?}", &q_out[0..10.min(q_out.len())]);
 
             if debug {
                 eprintln!("     ✓ Q projection complete");
             }
 
-            executor.matmul_metal_transposed_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
+            // K weight NOT transposed: [2048, 256] = [d_model, k_out_dim] in GGML order
+            // x[seq_len,d_model] @ W[d_model,k_out_dim] = out[seq_len,k_out_dim]
+            executor.matmul_metal_f32(&x_ln1, &k_weight_f32, &mut k_out, seq_len, k_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ K projection complete");
             }
 
-            executor.matmul_metal_transposed_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
+            // V weight NOT transposed: [2048, 256] = [d_model, v_out_dim] in GGML order
+            // x[seq_len,d_model] @ W[d_model,v_out_dim] = out[seq_len,v_out_dim]
+            executor.matmul_metal_f32(&x_ln1, &v_weight_f32, &mut v_out, seq_len, v_out_dim, d_model)?;
 
             if debug {
                 eprintln!("     ✓ V projection complete");
@@ -402,6 +440,13 @@ impl LlamaModel {
 
             if debug && layer_idx == 0 {
                 eprintln!("     ✓ Q, K, V projections complete (with autoreleasepool)");
+                let q_rms = (q_out.iter().map(|&v| v * v).sum::<f32>() / q_out.len() as f32).sqrt();
+                let k_rms = (k_out.iter().map(|&v| v * v).sum::<f32>() / k_out.len() as f32).sqrt();
+                let v_rms = (v_out.iter().map(|&v| v * v).sum::<f32>() / v_out.len() as f32).sqrt();
+                eprintln!("🔍 [LAYER 0 Q/K/V BEFORE ROPE]:");
+                eprintln!("   Q_rms={:.6}, Q[0..10]={:?}", q_rms, &q_out[0..10]);
+                eprintln!("   K_rms={:.6}, K[0..10]={:?}", k_rms, &k_out[0..10]);
+                eprintln!("   V_rms={:.6}, V[0..10]={:?}", v_rms, &v_out[0..10]);
             }
 
             // Apply RoPE to Q and K projections
@@ -483,6 +528,13 @@ impl LlamaModel {
                         scores[k_seq] /= exp_sum;
                     }
 
+                    // Debug: Show attention scores for first head of first token in layer 0
+                    if layer_idx == 0 && q_head == 0 && q_seq == 0 {
+                        eprintln!("🔍 [LAYER 0 ATTENTION] Head 0, Token 0:");
+                        eprintln!("   Raw scores (before softmax): {:?}", &scores[0..=q_seq.min(4)]);
+                        eprintln!("   After softmax: {:?}", &scores[0..=q_seq.min(4)]);
+                    }
+
                     // Weighted sum of values: attn @ V
                     let out_offset = q_seq * d_model + q_head * head_dim;
                     for k_seq in 0..=q_seq {
@@ -510,7 +562,9 @@ impl LlamaModel {
             }
 
             let mut attn_proj = vec![0.0f32; seq_len * d_model];
-            executor.matmul_metal_transposed_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
+            // attn_output weight is [2048, 2048] = [in_features, out_features] in GGUF
+            // Use regular matmul: x[1,2048] @ W[2048,2048] = out[1,2048]
+            executor.matmul_metal_f32(&attn_out, &attn_proj_weight_f32, &mut attn_proj, seq_len, d_model, d_model)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -561,8 +615,10 @@ impl LlamaModel {
             let mut gate_out = vec![0.0f32; seq_len * intermediate_size];
             let mut up_out = vec![0.0f32; seq_len * intermediate_size];
 
-            executor.matmul_metal_transposed_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
-            executor.matmul_metal_transposed_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
+            // gate/up weights are [2048, 5632] = [in_features, out_features] in GGUF
+            // Use regular matmul: x[1,2048] @ W[2048,5632] = out[1,5632]
+            executor.matmul_metal_f32(&x_ln2, &gate_weight_f32, &mut gate_out, seq_len, intermediate_size, d_model)?;
+            executor.matmul_metal_f32(&x_ln2, &up_weight_f32, &mut up_out, seq_len, intermediate_size, d_model)?;
 
             // SwiGLU: gate(x) * SiLU(up(x))
             for i in 0..gate_out.len() {
@@ -572,7 +628,9 @@ impl LlamaModel {
 
             // Down projection
             let mut ffn_out = vec![0.0f32; seq_len * d_model];
-            executor.matmul_metal_transposed_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
+            // down weight is [5632, 2048] = [in_features, out_features] in GGUF
+            // Use regular matmul: x[1,5632] @ W[5632,2048] = out[1,2048]
+            executor.matmul_metal_f32(&gate_out, &down_weight_f32, &mut ffn_out, seq_len, d_model, intermediate_size)?;
 
             // Residual connection
             for i in 0..x_f32.len() {
@@ -611,27 +669,29 @@ impl LlamaModel {
         let output_weight_f32: Vec<f32> = output_weight.data.iter().map(|&v| v as f32).collect();
         let output_shape = output_weight.data.shape();
         eprintln!("🔍 [OUTPUT WEIGHT] shape={:?}, shape[0]={}, shape[1]={}, len={}", output_shape, output_shape[0], output_shape[1], output_weight_f32.len());
-        // GGUF shape for output.weight: need to verify which dimension is vocab_size
-        let output_vocab_size = output_shape[1];
+
+        // BUGFIX 2025-10-16: GGML dimension order is [d_model, vocab_size] = [2048, 32000]
+        // shape[0] = ne[0] = d_model (innermost)
+        // shape[1] = ne[1] = vocab_size (outermost)
+        let output_d_model = output_shape[0];     // d_model = 2048
+        let output_vocab_size = output_shape[1];  // vocab_size = 32000
 
         let mut logits_f32 = vec![0.0f32; seq_len * output_vocab_size];
-        // output.weight is [d_model, vocab_size], we need [seq_len, vocab_size]
-        // logits = x_final[seq_len, d_model] @ output_weight[d_model, vocab_size]
-        // But matmul_transposed expects B to be transposed, so we pass [vocab_size, d_model]
-        executor.matmul_metal_transposed_f32(&x_final, &output_weight_f32, &mut logits_f32, seq_len, output_vocab_size, d_model)?;
+        // We need: logits[seq_len, vocab_size] = x_final[seq_len, d_model] @ W^T
+        // W is [d_model, vocab_size] in GGML order
+        // matmul_metal_f32(A, B, C, m, n, k): C[m,n] = A[m,k] @ B[k,n]
+        // We want: C[seq_len, vocab_size] = A[seq_len, d_model] @ B[d_model, vocab_size]
+        executor.matmul_metal_f32(&x_final, &output_weight_f32, &mut logits_f32,
+                                  seq_len, output_vocab_size, output_d_model)?;
 
-        if debug {
-            eprintln!("✓ Output projection complete");
-            // Show first 20 logits for last token
-            let last_token_logits_start = (seq_len - 1) * output_vocab_size;
-            eprint!("🔍 [FINAL LOGITS] First 20: [");
-            for i in 0..20 {
-                eprint!("{:.6}", logits_f32[last_token_logits_start + i]);
-                if i < 19 { eprint!(", "); }
-            }
-            eprintln!("]");
-            eprintln!("🎉 Llama forward pass complete!");
+        // Always show first 20 logits for debugging Token ID=1
+        eprintln!("✓ Output projection complete");
+        let last_token_logits_start = (seq_len - 1) * output_vocab_size;
+        eprintln!("🔍 [FINAL LOGITS] First 20:");
+        for i in 0..20 {
+            eprintln!("  [{}] = {:.6}", i, logits_f32[last_token_logits_start + i]);
         }
+        eprintln!("🎉 Llama forward pass complete!");
 
         // Convert back to f64 and create tensor
         let logits_f64: Vec<f64> = logits_f32.iter().map(|&v| v as f64).collect();

@@ -658,34 +658,10 @@ impl GGUFLoader {
         // eprintln!("🔧 [GGUF] Loading '{}': type={:?}, ggml_type_code={}",
         //           name, ggml_type, tensor_info.ggml_type);
 
-        // CRITICAL: GGML dimension ordering is REVERSED from PyTorch
-        // GGML dims = [ne[0], ne[1], ...] where ne[0] is innermost (fastest-changing)
-        // PyTorch shape = [dim0, dim1, ...] where dim0 is outermost
-        // Example: PyTorch [2048, 32000] ↔ GGML dims = [32000, 2048]
-        //
-        // For F32/F16 tensors: We can safely reverse dims to get PyTorch-style shape
-        // For quantized tensors (Q4_K, etc.): Keep GGML order to preserve quantization structure
-        let original_dims: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
-        let shape: Vec<usize> = match ggml_type {
-            GGMLType::F32 | GGMLType::F16 => {
-                // Reverse dims for non-quantized tensors to get PyTorch order
-                let mut s = original_dims.clone();
-                s.reverse();
-                s
-            }
-            _ => {
-                // Keep GGML order for quantized tensors to preserve quantization structure
-                original_dims.clone()
-            }
-        };
-
-        // Debug: Log dimension handling for critical weights
-        if name.contains("norm.weight") || name.contains("token_embd") || name.contains("output.weight")
-           || name.contains("attn_q") || name.contains("attn_k") || name.contains("attn_v")
-           || name.contains("ffn_gate") || name.contains("ffn_up") || name.contains("ffn_down") {
-        eprintln!("🔧 [GGUF LOAD] '{}': type={:?}, original_dims={:?}, final_shape={:?}",
-               name, ggml_type, original_dims, shape);
-        }
+        // BUGFIX 2025-10-16: Keep GGML dimensions as-is, don't reverse or transpose
+        // GGML format stores dimensions in [ne[0], ne[1], ...] order
+        // The model layer will handle transpose when needed (like Candle/rustorch-cli)
+        let shape: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
 
         // Read tensor data based on type
         // ジェネリック型を使用してf32→f64→f32の変換を回避
@@ -746,23 +722,15 @@ impl GGUFLoader {
     /// Load tensor data by name (backward compatibility, returns f64)
     /// テンソルデータを名前で読み込む（後方互換性のためf64を返す）
     pub fn load_tensor(&self, name: &str) -> RusTorchResult<Tensor<f64>> {
-        let tensor_info = self
-            .tensors
+        // BUGFIX 2025-10-16: Keep GGML dimensions as-is, matching load_tensor_generic
+        let shape: Vec<usize> = self.tensors
             .iter()
             .find(|t| t.name == name)
             .ok_or_else(|| RusTorchError::ParseError(format!("Tensor not found: {}", name)))?
-            .clone();
-
-        let original_dims: Vec<usize> = tensor_info.dims.iter().map(|&d| d as usize).collect();
-        let ggml_type = GGMLType::from_u32(tensor_info.ggml_type)?;
-        let shape: Vec<usize> = match ggml_type {
-            GGMLType::F32 | GGMLType::F16 => {
-                let mut s = original_dims.clone();
-                s.reverse();
-                s
-            }
-            _ => original_dims.clone(),
-        };
+            .dims
+            .iter()
+            .map(|&d| d as usize)
+            .collect();
 
         let data: Vec<f64> = self.load_tensor_generic(name)?;
         Ok(Tensor::from_vec(data, shape))
@@ -861,10 +829,11 @@ impl GGUFLoader {
             let element_start = block_idx * QK;
             let element_end = element_start + QK;
 
-            // Show block 0 (Token 0 start) and Token 529's first 2 blocks
+            // Show block 0 (Token 0 start), Token 1 first block, and Token 529's first 2 blocks
+            // Token 1 starts at element 1 * 2048 = 2048 (block 64)
             // Token 529 starts at element 529 * 2048 = 1,083,392 (block 33856)
             // ONLY show for token_embd.weight tensor
-            if tensor_name == "token_embd.weight" && (block_idx == 0 || (block_idx >= 33856 && block_idx < 33858)) {
+            if tensor_name == "token_embd.weight" && (block_idx == 0 || block_idx == 64 || (block_idx >= 33856 && block_idx < 33858)) {
         eprintln!("\n🔍 [GGUF Q8_0 DEQUANT '{}'] Block {} (elements {}-{}):",
                  tensor_name, block_idx, element_start, element_end - 1);
         eprintln!("  scale_bits = 0x{:04x}", scale_bits);
